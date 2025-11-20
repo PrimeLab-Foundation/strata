@@ -58,7 +58,10 @@ build:
 	$(PYTHON) -m build
 
 clean:
-	rm -rf build dist *.egg-info _skbuild benchmarks/artifacts __pycache__ */__pycache__ .venv
+	rm -rf build dist *.egg-info _skbuild benchmarks/artifacts __pycache__ */__pycache__
+
+clean-venv:
+	rm -rf .venv
 
 
 # BENCH DATA GENERATION
