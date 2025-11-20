@@ -1,11 +1,11 @@
 [project]
 name = "strata"
+version = "0.1.1"
 description = "Self-contained C++ JSON parser + JSONPath engine with Python bindings"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "Strata Authors" }]
-dynamic = ["version"]
 keywords = ["json", "jsonpath", "parser", "ndjson", "strata"]
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -44,18 +44,6 @@ bench = [
 [project.urls]
 Homepage = "https://github.com/example/strata"
 Repository = "https://github.com/example/strata"
-
-[tool.setuptools_scm]
-
-[tool.scikit-build]
-wheel.expand-macos-universal-tags = true
-# src-layout packaging
-wheel.packages = ["strata"]
-
-[tool.scikit-build.cmake]
-version = ">=3.20"
-build-type = "Release"
-args = ["-DTJP_BUILD_TESTS=OFF"]
 
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-* cp314-*"

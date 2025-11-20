@@ -2,7 +2,19 @@
 
 PYTHON ?= python3.14
 VENV ?= .venv
+VERSION ?= 0.1.0
 
+tag-create:
+	@git tag $(VERSION)
+	@git push --tags
+	sed -i.bak -E "s/^version = \"[^\"]+\"/version = \"${VERSION}\"/" pyproject.toml
+
+
+tag-delete:
+	@git tag -d $(VERSION)
+	@git push origin --delete $(VERSION)
+
+tag-update: tag-delete tag-create
 
 venv:
 	$(PYTHON) -m venv $(VENV)
