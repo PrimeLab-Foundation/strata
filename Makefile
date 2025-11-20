@@ -21,7 +21,7 @@ venv:
 	@echo "Virtual environment created in $(VENV)"
 
 dev: venv
-	$(VENV)/bin/$(PYTHON) -m pip install -U pip setuptools pre-commit
+	$(VENV)/bin/$(PYTHON) -m pip install -U pip setuptools wheel pybind11 pre-commit
 	$(VENV)/bin/pre-commit install
 	@echo "Installed pip setuptools pre-commit"
 
