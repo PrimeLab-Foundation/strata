@@ -1,12 +1,12 @@
 [project]
-name = "turbojsonpath"
+name = "strata"
 description = "Self-contained C++ JSON parser + JSONPath engine with Python bindings"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-authors = [{ name = "TurboJSONPath Authors" }]
+authors = [{ name = "Strata Authors" }]
 dynamic = ["version"]
-keywords = ["json", "jsonpath", "parser", "ndjson"]
+keywords = ["json", "jsonpath", "parser", "ndjson", "strata"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
@@ -31,7 +31,7 @@ dev = [
 bench = [
   "orjson",
   "ujson",
-  "pysimdjson; platform_system != 'Windows'",
+  "pysimdjson; platform_system != 'Windows' and  python_version < '3.14'",
   "ijson",
   "msgspec",
   "jmespath",
@@ -42,15 +42,15 @@ bench = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/example/turbojsonpath"
-Repository = "https://github.com/example/turbojsonpath"
+Homepage = "https://github.com/example/strata"
+Repository = "https://github.com/example/strata"
 
 [tool.setuptools_scm]
 
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
 # src-layout packaging
-wheel.packages = ["src/turbojsonpath"]
+wheel.packages = ["strata"]
 
 [tool.scikit-build.cmake]
 version = ">=3.20"
@@ -62,7 +62,7 @@ build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "pp* *_i686 *musllinux*"
 archs = ["auto"]
 manylinux-x86_64-image = "manylinux_2_28"
-test-command = "python -c 'import turbojsonpath as tj; print(tj.__version__)'"
+test-command = "python -c 'import strata as tj; print(tj.__version__)'"
 
 [tool.uv]
 index-url = "https://pypi.org/simple"

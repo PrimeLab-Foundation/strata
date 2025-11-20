@@ -13,27 +13,30 @@ dev: venv
 	$(VENV)/bin/pre-commit install
 	@echo "Installed pip setuptools pre-commit"
 
-install:
-	$(PYTHON) -m pip install -e .
+install: venv
+	$(VENV)/bin/$(PYTHON) -m pip install -e .
 
-install-dev:
-	$(PYTHON) -m pip install -e '.[dev]'
+install-dev: venv
+	$(VENV)/bin/$(PYTHON) -m pip install -e '.[dev]'
 
-install-bench:
-	$(PYTHON) -m pip install -e '.[bench]'
+install-bench: venv
+	$(VENV)/bin/$(PYTHON) -m pip install -e '.[bench]'
+
+install-all: venv
+	$(VENV)/bin/$(PYTHON) -m pip install -e '.[dev,bench]'
 
 fmt:
-	ruff format .
-	clang-format -i $(shell git ls-files '*.cpp' '*.hpp' '*.h' '*.cc' '*.cxx' 2>/dev/null)
+	$(VENV)/bin/ruff format .
+	$(VENV)/bin/clang-format -i $(shell git ls-files '*.cpp' '*.hpp' '*.h' '*.cc' '*.cxx' 2>/dev/null)
 
 lint:
-	ruff check .
+	$(VENV)/bin/ruff check .
 
 typecheck:
-	mypy src/turbojsonpath
+	$(VENV)/bin/mypy src/strata
 
 pre-commit-check:
-	pre-commit run --all-files --show-diff-on-failure
+	$(VENV)/bin/pre-commit run --all-files --show-diff-on-failure
 
 test:
 	pytest -q

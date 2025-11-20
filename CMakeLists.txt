@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(turbojsonpath LANGUAGES C CXX)
+project(strata LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -72,7 +72,7 @@ target_include_directories(tjp_core PUBLIC
 
 target_link_libraries(tjp_core PUBLIC simdjson)
 
-# Build Python module named _tjp and install into turbojsonpath/
+# Build Python module named _tjp and install into strata/
 set(TJP_MOD_SRC ${TJP_CORE_DIR}/module_pybind.cpp)
 pybind11_add_module(_tjp ${TJP_MOD_SRC} $<TARGET_OBJECTS:tjp_core>)
 
@@ -119,11 +119,11 @@ else()
 endif()
 
 install(TARGETS _tjp
-        LIBRARY DESTINATION turbojsonpath
-        ARCHIVE DESTINATION turbojsonpath)
+        LIBRARY DESTINATION strata
+        ARCHIVE DESTINATION strata)
 
 # Pure-Python package is provided via src/ layout and packaged by scikit-build-core
 # No need to install Python sources from CMake.
 
 # Install public headers (for sdists)
-install(DIRECTORY include/ DESTINATION turbojsonpath/include)
+install(DIRECTORY include/ DESTINATION strata/include)
