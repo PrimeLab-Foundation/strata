@@ -1,0 +1,74 @@
+[project]
+name = "turbojsonpath"
+description = "Self-contained C++ JSON parser + JSONPath engine with Python bindings"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "TurboJSONPath Authors" }]
+dynamic = ["version"]
+keywords = ["json", "jsonpath", "parser", "ndjson"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7",
+  "mypy>=1.8",
+  "ruff>=0.5",
+  "pre-commit>=3.5",
+  "psutil>=5",
+]
+bench = [
+  "orjson",
+  "ujson",
+  "pysimdjson; platform_system != 'Windows'",
+  "ijson",
+  "msgspec",
+  "jmespath",
+  "jsonpath-ng",
+  "plotly",
+  "pandas",
+  "psutil",
+]
+
+[project.urls]
+Homepage = "https://github.com/example/turbojsonpath"
+Repository = "https://github.com/example/turbojsonpath"
+
+[tool.setuptools_scm]
+
+[tool.scikit-build]
+wheel.expand-macos-universal-tags = true
+# src-layout packaging
+wheel.packages = ["src/turbojsonpath"]
+
+[tool.scikit-build.cmake]
+version = ">=3.20"
+build-type = "Release"
+args = ["-DTJP_BUILD_TESTS=OFF"]
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+skip = "pp* *_i686 *musllinux*"
+archs = ["auto"]
+manylinux-x86_64-image = "manylinux_2_28"
+test-command = "python -c 'import turbojsonpath as tj; print(tj.__version__)'"
+
+[tool.uv]
+index-url = "https://pypi.org/simple"
+dev-dependencies = [
+  "pytest",
+  "mypy",
+  "ruff",
+  "pre-commit",
+]

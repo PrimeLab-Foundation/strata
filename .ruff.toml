@@ -1,0 +1,42 @@
+line-length = 100
+target-version = "py310"
+
+[lint]
+select = [
+  "E",  # pycodestyle errors
+  "F",  # pyflakes
+  "I",  # isort (import order)
+  "UP", # pyupgrade
+  "COM",# flake8-commas
+  "N",  # pep8-naming
+  "PL", # pylint
+  "B",  # bugbear
+]
+ignore = [
+  # Benchmarks and adapters sometimes use local imports to keep optional deps lazy
+  "PLC0415",  # import should be at top-level of a file
+  # Complex adapters/utilities may have multiple returns/branches by design
+  "PLR0911",  # too many return statements
+  "PLR0912",  # too many branches
+  "PLR0915",  # too many statements
+  "PLR0913",  # too many arguments in function definition
+  "PLR2004",  # magic values in comparisons (benches use simple constants)
+  "B023",     # function definition does not bind loop variable
+  "E501",     # line too long (prefer readability in docs/CLI help)
+  "COM812",   # trailing comma conflicts with formatter
+]
+
+[format]
+quote-style = "preserve"
+indent-style = "space"
+line-ending = "lf"
+
+[lint.per-file-ignores]
+# The benchmark harness is utility/experimental code; relax linting there to keep focus on core lib.
+"benchmarks/**" = ["ALL"]
+# Legacy tests may not follow current style.
+"legacy_tests/**" = ["ALL"]
+# Documentation sources are not Python, but in case of embedded snippets.
+"docs/**" = ["ALL"]
+# Allow looser rules in tools and scripts (ignore fully)
+"tools/**" = ["ALL"]
