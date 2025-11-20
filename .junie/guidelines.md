@@ -40,8 +40,7 @@ pip install dist/*.whl
 ### Project-Specific Build Notes
 
 * **All heavy operations must run entirely in C++** (parsing, streaming, dict-mode conversions, slicing, JSONPath eval).
-* Python acts only as a façade dispatching to the C++ backend.
-* Public API remains intentionally small; internal façade modules (`_future_api`, `_ops`) serve as staging layers.
+* Python acts only as a facade dispatching to the C++ backend.
 
 ---
 
@@ -68,21 +67,15 @@ Run the full suite:
 pytest -q
 ```
 
-Run a subset:
-
-```bash
-pytest -q tests/test_future_api_file_ops.py::test_stream_from_file_dict_ndjson
-```
-
 ### Adding New Tests
 
 When adding new operations:
 
 1. **Never emulate behavior in Python.**
-2. **Always call the C++ bindings indirectly through the façade.**
+2. **Always call the C++ bindings indirectly through the facade.**
 3. Tests should validate:
 
-   * parity between different return modes (e.g., json vs dict)
+   * parity between different return modes (e.g., json vs dict vs view vs pydentic model)
    * type correctness
    * slice correctness (view mode)
    * error raising behavior (NotImplementedError or value_error)
@@ -91,18 +84,6 @@ When adding new operations:
 ### Example: Minimal Working Test
 
 The following test snippet has been validated:
-
-```python
-from turbojsonpath._future_api import query_from_bytes
-
-DATA = b'{"a": 1, "b": 2}'
-
-def test_query_basic_dict():
-    items = list(query_from_bytes(DATA, "$.a", return_mode="dict"))
-    assert items == [1]
-```
-
-This test confirms correct dict-mode conversion for object-based queries.
 
 ---
 
@@ -121,8 +102,6 @@ This test confirms correct dict-mode conversion for object-based queries.
 
   * Follow C++20.
   * RAII semantics for parsed document handles.
-  * Keep conversion logic (`value_to_python`) consistent in all entry points.
-  * Avoid duplicate logic across `_query_*` and `_stream_*`; prefer static helpers.
 
 ### Debugging Notes
 
@@ -131,9 +110,8 @@ This test confirms correct dict-mode conversion for object-based queries.
 
 ### Repository Expectations
 
-* New operations must first be implemented in C++, then exposed in the façade.
+* New operations must first be implemented in C++, then exposed in the facade.
 * No fallback or emulation is ever allowed.
-* Triple-quoted string literals in tests must never be reformatted.
 
 ---
 
