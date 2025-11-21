@@ -57,6 +57,19 @@ build:
 	$(PYTHON) -m pip install -U build
 	$(PYTHON) -m build
 
+.PHONY: cpp-build cpp-test
+
+cpp-build:
+	mkdir -p build
+	cd build && cmake .. && cmake --build .
+
+cpp-test: cpp-build
+	cd build && ctest --output-on-failure
+
+build:
+	$(PYTHON) -m pip install -U build
+	$(PYTHON) -m build
+
 clean:
 	rm -rf build dist *.egg-info _skbuild benchmarks/artifacts __pycache__ */__pycache__
 
