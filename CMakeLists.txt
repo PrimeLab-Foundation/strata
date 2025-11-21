@@ -11,12 +11,14 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 enable_testing()
 
+# ---------------------------------------------------------------------------
+# 1) dummy tests
+# ---------------------------------------------------------------------------
 # Test executable for dummy.{hpp,cpp}
 add_executable(dummy_tests
-    strata/cpp/dummy/test_dummy.cpp
+    strata/cpp/tests/test_dummy.cpp
     strata/cpp/dummy/dummy.cpp
 )
-
 # Make sure dummy.hpp is visible as #include "dummy.hpp"
 target_include_directories(dummy_tests PRIVATE
     strata/cpp/dummy
@@ -25,25 +27,32 @@ target_include_directories(dummy_tests PRIVATE
 add_test(NAME dummy_tests COMMAND dummy_tests)
 
 # ---------------------------------------------------------------------------
-# 2) OPTIONAL: build the pybind11 module via CMake (not used by pip/setup.py)
+# 2) json_cursor tests (no simdjson)
 # ---------------------------------------------------------------------------
-# This is purely for local experimentation; your real Python wheel is built
-# via setup.py / pyproject.toml, not via this CMakeLists.
+add_executable(json_cursor_tests
+    strata/cpp/tests/test_json_cursor.cpp
+    strata/cpp/json_cursor.cpp
+    strata/cpp/json_core.hpp        # headers are optional here but harmless
+)
 
-find_package(pybind11 CONFIG QUIET)
+target_include_directories(json_cursor_tests PRIVATE
+    strata/cpp
+)
 
-if(pybind11_FOUND)
-    message(STATUS "pybind11 found, building CMake pybind module '_strata'")
+add_test(NAME json_cursor_tests COMMAND json_cursor_tests)
 
-    pybind11_add_module(_strata
-        strata/cpp/module_pybind.cpp
-        strata/cpp/dummy/dummy.cpp
-    )
+# ---------------------------------------------------------------------------
+# 3) json_document tests
+# ---------------------------------------------------------------------------
+add_executable(json_document_tests
+    strata/cpp/tests/test_json_document.cpp
+    strata/cpp/json_document.cpp
+    strata/cpp/json_cursor.cpp
+    strata/cpp/json_parse.cpp
+)
 
-    # Ensure dummy.hpp is visible to module_pybind.cpp
-    target_include_directories(_strata PRIVATE
-        strata/cpp/dummy
-    )
-else()
-    message(STATUS "pybind11 not found, skipping CMake pybind module '_strata'")
-endif()
+target_include_directories(json_document_tests PRIVATE
+    strata/cpp
+)
+
+add_test(NAME json_document_tests COMMAND json_document_tests)

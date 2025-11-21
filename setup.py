@@ -5,8 +5,11 @@ ext_modules = [
     Pybind11Extension(
         "strata._strata",
         [
-            "strata/cpp/module_pybind.cpp",  # your C++/pybind11 sources
-            "strata/cpp/dummy.cpp",  # add the implementation of add/hello
+            "strata/cpp/module_pybind.cpp",
+            "strata/cpp/dummy/dummy.cpp",
+            "strata/cpp/json_document.cpp",
+            "strata/cpp/json_cursor.cpp",
+            "strata/cpp/json_parse.cpp",
         ],
         cxx_std=20,
     ),

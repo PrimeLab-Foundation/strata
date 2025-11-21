@@ -1,6 +1,7 @@
 # Project Strata Development Guidelines
 
-This document captures essential, project-specific guidelines for building, configuring, testing, and extending the system.
+This document captures essential, project-specific guidelines for building, configuring, testing, and extending the
+system.
 It is intended for advanced developers contributing to the codebase.
 
 ______________________________________________________________________
@@ -78,10 +79,10 @@ When adding new operations:
 
 1. Tests should validate:
 
-   - parity between different return modes (e.g., json vs dict vs view vs pydentic model)
-   - type correctness
-   - slice correctness (view mode)
-   - error raising behavior (NotImplementedError or value_error)
+- parity between different return modes (e.g., json vs dict vs view vs pydentic model)
+- type correctness
+- slice correctness (view mode)
+- error raising behavior (NotImplementedError or value_error)
 
 1. Use small, deterministic JSON fixtures.
 
@@ -101,6 +102,7 @@ ______________________________________________________________________
   - Avoid complex metaprogramming; explicit is preferred.
   - No JSON parsing on Python side.
   - Keep modules self-explanatory; follow the operation model strictly.
+  - DO NOT USE `simdjson` package
 
 - **C++:**
 
@@ -118,7 +120,8 @@ ______________________________________________________________________
 
 ### Debugging Notes
 
-- If Python sees inconsistent types or mismatched results, debug on the C++ side — Python is never allowed to alter slice content.
+- If Python sees inconsistent types or mismatched results, debug on the C++ side — Python is never allowed to alter
+  slice content.
 - Use `pytest -vv -k <keyword>` to isolate failures.
 
 ### Repository Expectations
