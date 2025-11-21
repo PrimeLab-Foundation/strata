@@ -53,13 +53,28 @@ pre-commit-check:
 test:
 	pytest -q
 
-build:
-	$(PYTHON) -m pip install -U build
-	$(PYTHON) -m build
+.PHONY: cmake-check cpp-build cpp-test
 
-.PHONY: cpp-build cpp-test
+cmake-check:
+	@command -v cmake >/dev/null 2>&1 || { \
+		echo "Error: cmake not found in PATH."; \
+		echo ""; \
+		echo "Install CMake and re-run this command."; \
+		if [ "$(UNAME_S)" = "Darwin" ]; then \
+			echo "  macOS (Homebrew):   brew install cmake"; \
+			echo "  macOS (installer):  https://cmake.org/download/"; \
+		elif [ "$(UNAME_S)" = "Linux" ]; then \
+			echo "  Debian/Ubuntu:      sudo apt-get install cmake"; \
+			echo "  Fedora:             sudo dnf install cmake"; \
+			echo "  Arch:               sudo pacman -S cmake"; \
+		else \
+			echo "  Other platforms:    see https://cmake.org/download/"; \
+		fi; \
+		exit 1; \
+	}
 
-cpp-build:
+
+cpp-build: cmake-check
 	mkdir -p build
 	cd build && cmake .. && cmake --build .
 
