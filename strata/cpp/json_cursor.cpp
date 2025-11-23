@@ -1,19 +1,16 @@
 #include "json_cursor.hpp"
 
+#include <stdexcept>
+
 namespace strata {
 
 JsonCursor::JsonCursor(const JsonValue* v) : value_(v) {}
 
 bool JsonCursor::is_null() const { return value_ && value_->is_null(); }
-
 bool JsonCursor::is_bool() const { return value_ && value_->is_bool(); }
-
 bool JsonCursor::is_number() const { return value_ && value_->is_number(); }
-
 bool JsonCursor::is_string() const { return value_ && value_->is_string(); }
-
 bool JsonCursor::is_array() const { return value_ && value_->is_array(); }
-
 bool JsonCursor::is_object() const { return value_ && value_->is_object(); }
 
 Result<bool> JsonCursor::get_bool() const {
@@ -49,10 +46,7 @@ Result<std::string_view> JsonCursor::get_string() const {
     return {Status::Ok, std::string_view(s.data(), s.size())};
 }
 
-Result<double> JsonCursor::get_number() const {
-    // In this model, numbers are stored as double, so just forward.
-    return get_double();
-}
+Result<double> JsonCursor::get_number() const { return get_double(); }
 
 Result<JsonCursor> JsonCursor::get_field(std::string_view key) const {
     if (!is_object())
@@ -71,6 +65,58 @@ Result<JsonCursor> JsonCursor::get_at(std::size_t index) const {
     if (index >= arr.size())
         return {Status::IndexOutOfBounds, JsonCursor(nullptr)};
     return {Status::Ok, JsonCursor(&arr[index])};
+}
+
+// ------------------------------------------------------------------
+// Throwing helpers (used by pybind, or C++ callers that prefer exceptions)
+// ------------------------------------------------------------------
+
+bool JsonCursor::get_bool_or_throw() const {
+    auto r = get_bool();
+    if (!r.ok())
+        throw std::runtime_error("value is not a bool");
+    return r.value;
+}
+
+int64_t JsonCursor::get_int() const {
+    auto r = get_int64();
+    if (!r.ok())
+        throw std::runtime_error("value is not a number");
+    return r.value;
+}
+
+double JsonCursor::get_float() const {
+    auto r = get_double();
+    if (!r.ok())
+        throw std::runtime_error("value is not a number");
+    return r.value;
+}
+
+std::string JsonCursor::get_str() const {
+    auto r = get_string();
+    if (!r.ok())
+        throw std::runtime_error("value is not a string");
+    return std::string(r.value);
+}
+
+JsonCursor JsonCursor::field(std::string_view key) const {
+    auto r = get_field(key);
+    if (!r.ok()) {
+        if (r.status == Status::KeyNotFound)
+            throw std::out_of_range("field not found");
+        throw std::runtime_error("value is not an object");
+    }
+    return r.value;
+}
+
+JsonCursor JsonCursor::at(std::size_t index) const {
+    auto r = get_at(index);
+    if (!r.ok()) {
+        if (r.status == Status::IndexOutOfBounds)
+            throw std::out_of_range("index out of range");
+        throw std::runtime_error("value is not an array");
+    }
+    return r.value;
 }
 
 const JsonValue* JsonCursor::raw() const { return value_; }

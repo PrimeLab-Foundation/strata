@@ -53,6 +53,11 @@ bench = [
 Homepage = "https://github.com/example/strata"
 Repository = "https://github.com/example/strata"
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["strata*"]
+exclude = ["cpp_bkp*"]
+
 [tool.cibuildwheel]
 build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
 skip = "pp* *_i686 *musllinux*"

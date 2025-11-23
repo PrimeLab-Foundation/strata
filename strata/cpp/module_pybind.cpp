@@ -34,7 +34,7 @@ PYBIND11_MODULE(_strata, m) {
             },
             py::arg("text"))
         .def(
-            "root", [](const JsonDocument& doc) { return JsonCursor(doc.root_ptr()); },
+            "root", [](const JsonDocument& doc) { return JsonCursor(doc.root()); },
             "Return a cursor at the document root");
 
     py::class_<JsonCursor>(m, "JsonCursor")

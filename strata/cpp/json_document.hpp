@@ -28,6 +28,8 @@ class JsonDocument {
     /// Access underlying JsonValue (const)
     const JsonValue& root_value() const;
 
+    std::string root_type_debug() const;
+
   private:
     std::shared_ptr<JsonValue> root_;
 };

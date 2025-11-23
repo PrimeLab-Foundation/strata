@@ -16,4 +16,20 @@ JsonCursor JsonDocument::root() const { return JsonCursor(root_.get()); }
 
 const JsonValue& JsonDocument::root_value() const { return *root_; }
 
+std::string JsonDocument::root_type_debug() const {
+    if (root_->is_null())
+        return "null";
+    if (root_->is_bool())
+        return "bool";
+    if (root_->is_number())
+        return "number";
+    if (root_->is_string())
+        return "string";
+    if (root_->is_array())
+        return "array";
+    if (root_->is_object())
+        return "object";
+    return "unknown";
+}
+
 } // namespace strata

@@ -2,16 +2,11 @@
 
 #include "json_core.hpp"
 
+#include <string>
 #include <string_view>
 
 namespace strata {
 
-/**
- * Cursor: lightweight, read-only navigation over a JsonValue tree.
- *
- * This is a pure C++ type: NO pybind11 here, NO Python types, NO simdjson.
- * It is used both by C++ tests and by the pybind11 module as a backend.
- */
 class JsonCursor {
   public:
     JsonCursor() = default;
@@ -25,7 +20,7 @@ class JsonCursor {
     bool is_array() const;
     bool is_object() const;
 
-    // Scalar accessors (status-code based, never throw)
+    // Low-level, status-code based accessors
     Result<bool> get_bool() const;
     Result<int64_t> get_int64() const;
     Result<uint64_t> get_uint64() const;
@@ -39,7 +34,17 @@ class JsonCursor {
     Result<JsonCursor> get_field(std::string_view key) const;
     Result<JsonCursor> get_at(std::size_t index) const;
 
-    // Access to underlying JsonValue pointer (for advanced usage)
+    // ------------------------------------------------------------------
+    // High-level convenience methods expected by module_pybind.cpp
+    // These throw std::runtime_error / std::out_of_range on mismatch.
+    // ------------------------------------------------------------------
+    bool get_bool_or_throw() const;
+    int64_t get_int() const;
+    double get_float() const;
+    std::string get_str() const;
+    JsonCursor field(std::string_view key) const;
+    JsonCursor at(std::size_t index) const;
+
     const JsonValue* raw() const;
 
   private:
