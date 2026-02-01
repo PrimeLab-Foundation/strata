@@ -340,4 +340,3 @@ ______________________________________________________________________
 - [ ] Keep docs under `docs/` only; update docs when behavior/API changes
 - [ ] Keep automation in `scripts/`; expose via Makefile
 - [ ] Keep public API minimal; no dependency fallbacks in core
-- [ ] **Do not touch bindings**; document needed binding changes if required

@@ -3,6 +3,16 @@
 #include "python_types.h"
 #include "strata/search/jsonpath.hpp"
 
+#include <string>
+#include <vector>
+
+static void emit_duplicate_key_warnings() {
+    auto warnings = strata::consume_parse_warnings();
+    for (const auto& msg : warnings) {
+        PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+    }
+}
+
 //=============================================================================
 // CompiledPath Type
 //=============================================================================
@@ -220,6 +230,8 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
             return NULL;
         }
 
+        emit_duplicate_key_warnings();
+
         // Execute query
         strata::JsonCursor cursor(&parse_result.value);
         auto result_values = strata::eval_jsonpath(cursor, compiled_path);
@@ -247,6 +259,8 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         PyErr_SetString(PyExc_ValueError, "Failed to parse JSON");
         return NULL;
     }
+
+    emit_duplicate_key_warnings();
 
     // Execute query
     strata::JsonCursor cursor(&parse_result.value);

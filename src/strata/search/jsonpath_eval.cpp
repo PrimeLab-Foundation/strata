@@ -109,13 +109,11 @@ static void collect_recursive_cursors(const JsonCursor& cursor, const std::strin
         // Recurse into all object values (NOT into the matched field itself)
         auto keys = cursor.object_keys();
         for (const auto& key : keys) {
-            if (key != field_name) { // Don't recurse into the field we just matched
-                try {
-                    JsonCursor child = cursor.field(key);
-                    collect_recursive_cursors(child, field_name, cursors);
-                } catch (...) {
-                    // Skip on error
-                }
+            try {
+                JsonCursor child = cursor.field(key);
+                collect_recursive_cursors(child, field_name, cursors);
+            } catch (...) {
+                // Skip on error
             }
         }
     } else if (cursor.is_array()) {

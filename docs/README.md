@@ -102,6 +102,8 @@ ______________________________________________________________________
 - ✅ Pre-compiled JSONPath queries
 - ✅ SIMD-optimized string operations
 - ✅ Zero-copy cursor navigation
+- ✅ Configurable duplicate-key handling
+- ✅ Cycle-aware serialization policies
 
 ______________________________________________________________________
 

@@ -160,6 +160,12 @@ class TestComplexQueries:
         results = strata.search(json_text, '$["special-key"]')
         assert results == ["value"]
 
+    def test_recursive_descent_nested_same_field(self):
+        """Ensure $..field walks into the matched field itself."""
+        json_text = '{"a": {"a": {"value": 1}, "value": 2}}'
+        results = strata.search(json_text, "$..a")
+        assert results == [{"a": {"value": 1}, "value": 2}, {"value": 1}]
+
 
 class TestCompileAndReuse:
     """Test compiling paths and reusing them."""

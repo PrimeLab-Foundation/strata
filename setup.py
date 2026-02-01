@@ -209,8 +209,23 @@ def detect_compiler_kind():
 compiler_kind = os.environ.get("STRATA_COMPILER_KIND", "").lower() or detect_compiler_kind()
 
 
+def is_universal_build():
+    parts = [
+        os.environ.get("ARCHFLAGS"),
+        os.environ.get("CFLAGS"),
+        os.environ.get("CXXFLAGS"),
+        get_config_var("ARCHFLAGS"),
+        get_config_var("CFLAGS"),
+        get_config_var("CXXFLAGS"),
+    ]
+    flags = " ".join(p for p in parts if p)
+    return "-arch arm64" in flags and "-arch x86_64" in flags
+
+
 def build_compile_flags():
-    flags = ["-std=c++20", "-O3", "-march=native"]
+    flags = ["-std=c++20", "-O3"]
+    if not is_universal_build():
+        flags.append("-march=native")
     if enable_lto:
         flags.append("-flto")
         if compiler_kind == "gcc":

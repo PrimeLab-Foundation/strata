@@ -1,5 +1,7 @@
 #include "strata/json/json_cursor.hpp"
 
+#include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace strata {
@@ -23,14 +25,29 @@ Result<int64_t> JsonCursor::get_int64() const {
     if (!is_number())
         return {Status::TypeMismatch, 0};
     double d = value_->as_number();
-    return {Status::Ok, static_cast<int64_t>(d)};
+    if (!std::isfinite(d))
+        return {Status::TypeMismatch, 0};
+    double int_part = 0.0;
+    if (std::modf(d, &int_part) != 0.0)
+        return {Status::TypeMismatch, 0};
+    if (int_part < static_cast<double>(std::numeric_limits<int64_t>::min()) ||
+        int_part > static_cast<double>(std::numeric_limits<int64_t>::max()))
+        return {Status::TypeMismatch, 0};
+    return {Status::Ok, static_cast<int64_t>(int_part)};
 }
 
 Result<uint64_t> JsonCursor::get_uint64() const {
     if (!is_number() || value_->as_number() < 0)
         return {Status::TypeMismatch, 0};
     double d = value_->as_number();
-    return {Status::Ok, static_cast<uint64_t>(d)};
+    if (!std::isfinite(d))
+        return {Status::TypeMismatch, 0};
+    double int_part = 0.0;
+    if (std::modf(d, &int_part) != 0.0)
+        return {Status::TypeMismatch, 0};
+    if (int_part < 0.0 || int_part > static_cast<double>(std::numeric_limits<uint64_t>::max()))
+        return {Status::TypeMismatch, 0};
+    return {Status::Ok, static_cast<uint64_t>(int_part)};
 }
 
 Result<double> JsonCursor::get_double() const {

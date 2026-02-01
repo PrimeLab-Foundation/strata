@@ -13,7 +13,7 @@ namespace strata {
  * Features:
  * - Correct JSON escaping for strings
  * - Unicode support (UTF-8)
- * - Deterministic output (object keys in insertion order)
+ * - Deterministic output (object keys sorted via std::map)
  * - Minimal allocations (reusable buffer)
  * - NaN/Inf policy: Converts to null (JSON spec compliant)
  *

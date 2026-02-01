@@ -3,6 +3,7 @@ Test JSON serialization (dumps).
 """
 
 import json
+import warnings
 
 import pytest
 
@@ -533,3 +534,55 @@ class TestErrorHandling:
         # Custom objects that can't be serialized
         with pytest.raises((TypeError, ValueError)):
             strata.dumps({"bad": object()})
+
+
+class TestDuplicateKeyPolicy:
+    """Test configurable duplicate key handling."""
+
+    def teardown_method(self):
+        strata.set_duplicate_key_policy("first")
+
+    def test_last_wins(self):
+        strata.set_duplicate_key_policy("last")
+        result = strata.loads('{"a": 1, "a": 2}')
+        assert result["a"] == 2
+
+    def test_error_wins(self):
+        strata.set_duplicate_key_policy("error")
+        with pytest.raises(ValueError):
+            strata.loads('{"a": 1, "a": 2}')
+
+    def test_warn_keeps_first(self):
+        strata.set_duplicate_key_policy("warn")
+        with pytest.warns(RuntimeWarning):
+            result = strata.loads('{"a": 1, "a": 2}')
+        assert result["a"] == 1
+
+
+class TestCyclePolicy:
+    """Test cycle detection strategies during serialization."""
+
+    def teardown_method(self):
+        strata.set_cycle_policy("warn")
+
+    def test_warn_emits_null(self):
+        data = []
+        data.append(data)
+        with pytest.warns(RuntimeWarning):
+            assert strata.dumps(data) == "[null]"
+
+    def test_error_raises(self):
+        data = []
+        data.append(data)
+        strata.set_cycle_policy("error")
+        with pytest.raises(ValueError):
+            strata.dumps(data)
+
+    def test_ignore_suppresses_warning(self):
+        data = []
+        data.append(data)
+        strata.set_cycle_policy("ignore")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert strata.dumps(data) == "[null]"
+        assert [w for w in caught if issubclass(w.category, RuntimeWarning)] == []

@@ -2,6 +2,16 @@
 #include "python_types.h"
 #include "strata/json/json_parse.hpp"
 
+#include <string>
+#include <vector>
+
+static void emit_duplicate_key_warnings() {
+    auto warnings = strata::consume_parse_warnings();
+    for (const auto& msg : warnings) {
+        PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+    }
+}
+
 // Convert JsonValue to PyObject (declaration in python_convert.h; used by document, jsonpath,
 // ndjson)
 PyObject* json_value_to_python(const strata::JsonValue& val) {
@@ -82,6 +92,8 @@ PyObject* strata_loads(PyObject* self, PyObject* args) {
         PyErr_SetString(PyExc_ValueError, "Invalid JSON");
         return NULL;
     }
+
+    emit_duplicate_key_warnings();
 
     // Convert to Python
     return json_value_to_python(result.value);

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <string_view>
 
@@ -47,13 +48,33 @@ inline bool parse_int_fast(const char* str, size_t len, int64_t& result, size_t&
         return true;
     }
 
-    int64_t val = 0;
+    uint64_t val = 0;
+    const uint64_t limit = negative ? static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1
+                                    : static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
     while (pos < len && str[pos] >= '0' && str[pos] <= '9') {
-        val = val * 10 + (str[pos] - '0');
+        int digit = str[pos] - '0';
+        if (val > (limit - static_cast<uint64_t>(digit)) / 10) {
+            return false; // overflow
+        }
+        val = val * 10 + static_cast<uint64_t>(digit);
         ++pos;
     }
 
-    result = negative ? -val : val;
+    if (negative) {
+        const uint64_t min_abs =
+            static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1; // |-INT64_MIN|
+        if (val > min_abs)
+            return false;
+        if (val == min_abs) {
+            result = std::numeric_limits<int64_t>::min();
+        } else {
+            result = -static_cast<int64_t>(val);
+        }
+    } else {
+        if (val > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+            return false;
+        result = static_cast<int64_t>(val);
+    }
     consumed = pos;
     return true;
 }

@@ -79,4 +79,35 @@ def dumps_bytes(obj: dict | list | str | int | float | bool | None) -> bytes:
     return _native.dumps_bytes(obj)
 
 
-__all__ = ["loads", "dumps", "dumps_bytes"]
+def set_duplicate_key_policy(policy: str) -> None:
+    """
+    Configure how duplicate object keys are handled when parsing.
+
+    Allowed values:
+        - "first": keep the first value (default)
+        - "last": keep the last value
+        - "error": raise ValueError
+        - "warn": emit RuntimeWarning, keep first
+    """
+    _native.set_duplicate_key_policy(policy)
+
+
+def set_cycle_policy(policy: str) -> None:
+    """
+    Configure how cycles are handled during serialization.
+
+    Allowed values:
+        - "warn": emit RuntimeWarning and write null (default)
+        - "error": raise ValueError
+        - "ignore": write null silently
+    """
+    _native.set_cycle_policy(policy)
+
+
+__all__ = [
+    "loads",
+    "dumps",
+    "dumps_bytes",
+    "set_duplicate_key_policy",
+    "set_cycle_policy",
+]

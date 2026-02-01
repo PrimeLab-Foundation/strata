@@ -5,10 +5,20 @@
 #include "strata/json/json_cursor.hpp"
 #include "strata/json/json_document.hpp"
 
+#include <string>
+#include <vector>
+
 // Run a block inside STRATA_CPP_TRY/STRATA_CPP_CATCH for cursor getters and type checks.
 #define STRATA_CURSOR_TRY_RETURN_BLOCK(block)                                                      \
     STRATA_CPP_TRY                                                                                 \
     block STRATA_CPP_CATCH
+
+static void emit_duplicate_key_warnings() {
+    auto warnings = strata::consume_parse_warnings();
+    for (const auto& msg : warnings) {
+        PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+    }
+}
 
 //=============================================================================
 // Type Structures
@@ -143,6 +153,8 @@ static PyObject* PyJsonDocument_from_string(PyObject* cls, PyObject* args) {
         PyErr_SetString(PyExc_ValueError, "Invalid JSON");
         return NULL;
     }
+
+    emit_duplicate_key_warnings();
 
     PyJsonDocument* self = (PyJsonDocument*)PyJsonDocument_new(&PyJsonDocumentType, NULL, NULL);
     if (!self)

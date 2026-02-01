@@ -40,6 +40,21 @@ json_bytes = strata.dumps_bytes({"x": 1})
 
 ______________________________________________________________________
 
+### **Configuration**
+
+```python
+# Duplicate object keys while parsing
+strata.set_duplicate_key_policy("first")  # first (default), last, error, warn
+
+# Cycles during serialization
+strata.set_cycle_policy("warn")  # warn (default), error, ignore
+```
+
+**Notes**:
+
+- Duplicate keys are detected during parsing; policy controls warning/error behavior.
+- Cycles are handled during serialization; warn/ignore emit `null` at the cycle.
+
 ### **NDJSON Streaming**
 
 ```python
@@ -191,15 +206,17 @@ ______________________________________________________________________
 
 ## 📖 **Complete API Reference**
 
-| Function             | Input                   | Output        | Use Case                    |
-| -------------------- | ----------------------- | ------------- | --------------------------- |
-| `loads(data)`        | str/bytes               | Python object | Parse JSON                  |
-| `dumps(obj)`         | Python object           | str           | Serialize to string         |
-| `dumps_bytes(obj)`   | Python object           | bytes         | Serialize to bytes (faster) |
-| `iter_ndjson(data)`  | str/bytes               | Iterator      | Stream NDJSON lines         |
-| `parse_ndjson(data)` | str/bytes               | List          | Parse all NDJSON            |
-| `search(data, path)` | data + str/CompiledPath | List          | Query with JSONPath         |
-| `compile_path(expr)` | str                     | CompiledPath  | Pre-compile path            |
+| Function                           | Input                   | Output        | Use Case                    |
+| ---------------------------------- | ----------------------- | ------------- | --------------------------- |
+| `loads(data)`                      | str/bytes               | Python object | Parse JSON                  |
+| `dumps(obj)`                       | Python object           | str           | Serialize to string         |
+| `dumps_bytes(obj)`                 | Python object           | bytes         | Serialize to bytes (faster) |
+| `iter_ndjson(data)`                | str/bytes               | Iterator      | Stream NDJSON lines         |
+| `parse_ndjson(data)`               | str/bytes               | List          | Parse all NDJSON            |
+| `search(data, path)`               | data + str/CompiledPath | List          | Query with JSONPath         |
+| `compile_path(expr)`               | str                     | CompiledPath  | Pre-compile path            |
+| `set_duplicate_key_policy(policy)` | str                     | None          | Duplicate-key strategy      |
+| `set_cycle_policy(policy)`         | str                     | None          | Cycle strategy in dumps     |
 
 ______________________________________________________________________
 

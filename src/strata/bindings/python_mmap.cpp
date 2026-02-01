@@ -2,6 +2,16 @@
 #include "python_types.h"
 #include "strata/json/json_mmap.hpp"
 
+#include <string>
+#include <vector>
+
+static void emit_duplicate_key_warnings() {
+    auto warnings = strata::consume_parse_warnings();
+    for (const auto& msg : warnings) {
+        PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+    }
+}
+
 //=============================================================================
 // parse_json_file Function
 //=============================================================================
@@ -21,6 +31,8 @@ PyObject* strata_parse_json_file(PyObject* self, PyObject* args) {
         PyErr_SetString(PyExc_ValueError, "Failed to parse JSON file");
         return NULL;
     }
+
+    emit_duplicate_key_warnings();
 
     // Get the document
     strata::JsonDocument doc = std::move(result.value);

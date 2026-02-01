@@ -5,11 +5,16 @@
 
 #include <cctype>
 #include <cstdint>
+#include <limits>
 #include <stdexcept>
+#include <vector>
 
 namespace strata {
 
 namespace {
+
+thread_local DuplicateKeyPolicy g_duplicate_policy = DuplicateKeyPolicy::FirstWins;
+thread_local std::vector<std::string> g_parse_warnings;
 
 struct Parser {
     const char* data;
@@ -234,6 +239,9 @@ struct Parser {
                     return {Status::ParseError, JsonValue{}};
                 }
             } else {
+                if (static_cast<unsigned char>(c) < 0x20) {
+                    return {Status::ParseError, JsonValue{}};
+                }
                 out.push_back(c);
             }
         }
@@ -280,7 +288,23 @@ struct Parser {
             auto val_res = parse_value();
             if (!val_res.ok())
                 return val_res;
-            obj.emplace(std::move(key), std::move(val_res.value));
+            auto existing = obj.find(key);
+            if (existing != obj.end()) {
+                switch (g_duplicate_policy) {
+                case DuplicateKeyPolicy::FirstWins:
+                    break;
+                case DuplicateKeyPolicy::Warn:
+                    g_parse_warnings.push_back("Duplicate key encountered: " + key);
+                    break;
+                case DuplicateKeyPolicy::LastWins:
+                    existing->second = std::move(val_res.value);
+                    break;
+                case DuplicateKeyPolicy::Error:
+                    return {Status::ParseError, JsonValue{}};
+                }
+            } else {
+                obj.emplace(std::move(key), std::move(val_res.value));
+            }
             skip_ws();
             if (consume('}'))
                 break;
@@ -294,6 +318,7 @@ struct Parser {
 } // namespace
 
 Result<JsonValue> parse_json(std::string_view text) {
+    g_parse_warnings.clear();
     if (!text.empty() && !util::validate_utf8_simd(text.data(), text.size())) {
         return {Status::ParseError, JsonValue{}};
     }
@@ -305,6 +330,16 @@ Result<JsonValue> parse_json(std::string_view text) {
     if (!p.eof())
         return {Status::ParseError, JsonValue{}};
     return res;
+}
+
+void set_duplicate_key_policy(DuplicateKeyPolicy policy) { g_duplicate_policy = policy; }
+
+DuplicateKeyPolicy get_duplicate_key_policy() { return g_duplicate_policy; }
+
+std::vector<std::string> consume_parse_warnings() {
+    std::vector<std::string> warnings = std::move(g_parse_warnings);
+    g_parse_warnings.clear();
+    return warnings;
 }
 
 } // namespace strata

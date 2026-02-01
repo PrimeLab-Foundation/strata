@@ -8,11 +8,73 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <vector>
 
 // Thread-local buffers for zero-allocation serialization
 thread_local strata::util::OutputBuffer g_serialize_buffer;
 thread_local strata::util::Arena g_serialize_arena;
+
+enum class CyclePolicy { Warn, Error, Ignore };
+static CyclePolicy g_cycle_policy = CyclePolicy::Warn;
+
+bool set_cycle_policy_from_string(const char* policy, std::string& error) {
+    if (policy == nullptr) {
+        error = "cycle policy must be a string";
+        return false;
+    }
+    if (strcmp(policy, "warn") == 0) {
+        g_cycle_policy = CyclePolicy::Warn;
+        return true;
+    }
+    if (strcmp(policy, "error") == 0) {
+        g_cycle_policy = CyclePolicy::Error;
+        return true;
+    }
+    if (strcmp(policy, "ignore") == 0) {
+        g_cycle_policy = CyclePolicy::Ignore;
+        return true;
+    }
+    error = "unknown cycle policy (expected warn|error|ignore)";
+    return false;
+}
+
+static inline bool is_container(PyObject* obj) {
+    return PyDict_CheckExact(obj) || PyList_CheckExact(obj) || PyTuple_Check(obj);
+}
+
+static PyObject* make_cycle_memo() { return PyDict_New(); }
+
+static PyObject* cycle_key(PyObject* obj) { return PyLong_FromVoidPtr(obj); }
+
+static bool memo_contains(PyObject* memo, PyObject* obj) {
+    PyObject* key = cycle_key(obj);
+    if (!key)
+        return false;
+    PyObject* value = PyDict_GetItemWithError(memo, key);
+    Py_DECREF(key);
+    return value != nullptr;
+}
+
+static bool memo_add(PyObject* memo, PyObject* obj) {
+    PyObject* key = cycle_key(obj);
+    if (!key)
+        return false;
+    int rc = PyDict_SetItem(memo, key, Py_True);
+    Py_DECREF(key);
+    return rc == 0;
+}
+
+static void memo_remove(PyObject* memo, PyObject* obj) {
+    PyObject* key = cycle_key(obj);
+    if (!key)
+        return;
+    if (PyDict_DelItem(memo, key) < 0) {
+        PyErr_Clear();
+    }
+    Py_DECREF(key);
+}
 
 template <typename Buffer>
 static inline void append_literal(Buffer& out, const char* data, size_t len) {
@@ -185,6 +247,9 @@ struct Frame {
     bool first;
 };
 
+template <typename Buffer>
+static bool serialize_iterative_with_memo(PyObject* root, Buffer& out, PyObject* memo);
+
 template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out);
 
 static inline size_t estimate_size(PyObject* obj) {
@@ -221,10 +286,19 @@ static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
     strata::util::FixedOutputBuffer direct_buffer(buffer, estimate);
     direct_buffer.clear();
 
-    if (!serialize_iterative(obj, direct_buffer) || PyErr_Occurred()) {
+    PyObject* memo = make_cycle_memo();
+    if (!memo) {
         Py_DECREF(bytes);
         return nullptr;
     }
+
+    if (!serialize_iterative_with_memo(obj, direct_buffer, memo) || PyErr_Occurred()) {
+        Py_DECREF(memo);
+        Py_DECREF(bytes);
+        return nullptr;
+    }
+
+    Py_DECREF(memo);
 
     if (direct_buffer.overflowed()) {
         Py_DECREF(bytes);
@@ -245,7 +319,8 @@ static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
     return bytes;
 }
 
-template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out) {
+template <typename Buffer>
+static bool serialize_iterative_with_memo(PyObject* root, Buffer& out, PyObject* memo) {
     using FrameAllocator = strata::util::ArenaAllocator<Frame>;
     std::vector<Frame, FrameAllocator> stack{FrameAllocator(&g_serialize_arena)};
     stack.reserve(64);
@@ -259,12 +334,35 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 continue;
             }
 
+            bool container = is_container(current);
+            if (container && memo_contains(memo, current)) {
+                switch (g_cycle_policy) {
+                case CyclePolicy::Warn:
+                    PyErr_WarnEx(PyExc_RuntimeWarning, "Cycle detected during JSON serialization",
+                                 1);
+                    append_literal(out, "null", 4);
+                    current = nullptr;
+                    continue;
+                case CyclePolicy::Ignore:
+                    append_literal(out, "null", 4);
+                    current = nullptr;
+                    continue;
+                case CyclePolicy::Error:
+                    PyErr_SetString(PyExc_ValueError, "Cycle detected during JSON serialization");
+                    return false;
+                }
+            }
+
             if (LIKELY(PyDict_CheckExact(current))) {
                 Py_ssize_t size = PyDict_GET_SIZE(current);
                 if (size == 0) {
                     append_literal(out, "{}", 2);
                     current = nullptr;
                     continue;
+                }
+
+                if (!memo_add(memo, current)) {
+                    return false;
                 }
 
                 out.push_back('{');
@@ -281,6 +379,10 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                     continue;
                 }
 
+                if (!memo_add(memo, current)) {
+                    return false;
+                }
+
                 out.push_back('[');
                 stack.push_back(Frame{Frame::Type::List, current, 0, size, 0, true});
                 current = nullptr;
@@ -293,6 +395,10 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                     append_literal(out, "[]", 2);
                     current = nullptr;
                     continue;
+                }
+
+                if (!memo_add(memo, current)) {
+                    return false;
                 }
 
                 out.push_back('[');
@@ -375,6 +481,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 current = value;
             } else {
                 out.push_back('}');
+                memo_remove(memo, frame.obj);
                 stack.pop_back();
             }
             continue;
@@ -402,10 +509,21 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
         }
 
         out.push_back(']');
+        memo_remove(memo, frame.obj);
         stack.pop_back();
     }
 
     return true;
+}
+
+template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out) {
+    PyObject* memo = make_cycle_memo();
+    if (!memo) {
+        return false;
+    }
+    bool ok = serialize_iterative_with_memo(root, out, memo);
+    Py_DECREF(memo);
+    return ok;
 }
 
 // Python dumps() function
@@ -455,4 +573,19 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     return PyBytes_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
 
     STRATA_CPP_CATCH
+}
+
+PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args) {
+    const char* policy = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &policy)) {
+        return NULL;
+    }
+
+    std::string error;
+    if (!set_cycle_policy_from_string(policy, error)) {
+        PyErr_SetString(PyExc_ValueError, error.c_str());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
 }
