@@ -40,6 +40,8 @@ bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     return false;
 }
 
+int strata_get_cycle_policy() { return static_cast<int>(g_cycle_policy); }
+
 static inline bool is_container(PyObject* obj) {
     return PyDict_CheckExact(obj) || PyList_CheckExact(obj) || PyTuple_Check(obj);
 }

@@ -97,17 +97,16 @@ ______________________________________________________________________
 
 **Observed**: For “Extract all user IDs”, Strata ~8.2 ms vs jmespath ~0.23 ms. For “Deep path navigation” (single result), Strata ~8.3 ms vs jmespath ~0.01 ms.
 
-**Root cause: dict input forces serialize → parse → query**
+**Root cause: dict input forces full conversion → query**
 
-When `search(data, path)` is called with a **Python dict/list** (e.g. the result of `strata.loads()`), the C++ binding does **not** walk the Python tree. It does:
+When `search(data, path)` is called with a **Python dict/list** (e.g. the result of `strata.loads()`), the C++ binding converts the entire Python tree into a C++ `JsonValue` before running JSONPath:
 
-1. **Serialize** the dict to JSON: `strata_dumps(NULL, data_obj)` (full tree walk + JSON string build).
-1. **Parse** that JSON string: `strata::parse_json(...)` (full parse).
+1. **Convert** dict/list → `JsonValue` (full tree walk + allocations).
 1. **Execute** JSONPath on the resulting C++ value.
 
-So **every** `search(parsed_dict, path)` pays **dumps + parse + query**. That explains ~8 ms (dominated by parse ~8 ms + dumps ~4 ms). jmespath and jsonpath-ng walk the **existing** Python dict in memory; they do not re-serialize or re-parse.
+So **every** `search(parsed_dict, path)` pays **conversion + query**. That still dominates runtime versus jmespath/jsonpath-ng, which walk the existing Python dict in place (no conversion).
 
-**Code reference:** `src/strata/bindings/python_jsonpath.cpp` lines 259–296:
+**Code reference:** `src/strata/bindings/python_jsonpath.cpp` (dict/list conversion path).
 
 ```cpp
 // Handle Python object (dict/list/etc) - serialize and re-parse
@@ -128,9 +127,9 @@ auto parse_result = strata::parse_json(std::string_view(json_data, json_len));
 
 **Recommendations:**
 
-1. **Document** in API docs and benchmark methodology: “For JSONPath, pass a JsonCursor or raw JSON string when comparing to libraries that operate on an in-memory dict; passing a dict from `loads()` triggers a full serialize+parse per query.”
+1. **Document** in API docs and benchmark methodology: “For JSONPath, pass a JsonCursor or raw JSON string when comparing to libraries that operate on an in-memory dict; passing a dict from `loads()` triggers a full conversion per query.”
 1. **Optionally** add a benchmark mode that times `search(json_text, path)` (parse + query) and/or `parse_json_file` + `search(cursor, path)` (one parse, many queries) so that Strata’s query engine is compared on equal footing.
-1. **Long-term**: Consider implementing a path that walks a Python dict/list from C++ (PyObject traversal) for `search(data, path)` when `data` is a dict/list, so that “load once, query many” does not require re-serialize and re-parse. That would align behavior with jmespath/jsonpath-ng when using `loads()` + `search()`.
+1. **Long-term**: Implement a true PyObject-based cursor so `search(data, path)` walks the Python dict/list without building a C++ tree; that would align behavior with jmespath/jsonpath-ng and remove per-query conversion cost.
 
 **References:** `src/strata/bindings/python_jsonpath.cpp` (dict branch and JsonCursor/JsonDocument branches), `python/strata/jsonpath.py`, `docs/benchmarks/jsonpath_results.md`.
 

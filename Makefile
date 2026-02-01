@@ -124,8 +124,8 @@ cpp-test: cpp-build
 	cd build && ctest --output-on-failure
 
 build:
-	$(PYTHON) -m pip install -U build
-	$(PYTHON) -m build
+	$(VENV)/bin/$(PYTHON) -m pip install -U build
+	$(VENV)/bin/$(PYTHON) -m build
 
 clean:
 	rm -rf build build_* dist *.egg-info _skbuild benchmarks/artifacts __pycache__ */__pycache__ fuzz_crashes

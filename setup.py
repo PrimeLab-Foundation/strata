@@ -1,5 +1,6 @@
 import os
 import platform
+import shutil
 import subprocess
 import sys
 
@@ -144,11 +145,22 @@ class TestGatedBuildExt(build_ext):
 
             print("Running Python test suite...")
             project_root = os.path.abspath(os.path.dirname(__file__))
-            self.run_command("build_py")
-            build_lib = os.path.abspath(self.build_lib)
-            python_pkg = os.path.join(project_root, "python")
+            build_cmd = self.get_finalized_command("build")
+            build_platlib = os.path.abspath(build_cmd.build_platlib)
+            build_py = self.get_finalized_command("build_py")
+            # Copy pure-Python modules into platlib so the package and extension live together.
+            build_py.build_lib = build_platlib
+            build_py.ensure_finalized()
+            build_py.run()
+            build_lib = build_platlib
+            pkg_src = os.path.join(project_root, "python", "strata")
+            pkg_dst = os.path.join(build_lib, "strata")
+            if not os.path.exists(os.path.join(pkg_dst, "__init__.py")):
+                os.makedirs(pkg_dst, exist_ok=True)
+                shutil.copytree(pkg_src, pkg_dst, dirs_exist_ok=True)
             env = os.environ.copy()
-            paths = [python_pkg, build_lib, project_root]
+            # Ensure build_lib (with extension) is searched before source tree.
+            paths = [build_lib, project_root]
             existing = env.get("PYTHONPATH")
             if existing:
                 paths.append(existing)
@@ -160,9 +172,7 @@ class TestGatedBuildExt(build_ext):
                     "-c",
                     (
                         "import sys; "
-                        f"sys.path.insert(0, r'{project_root}'); "
-                        f"sys.path.insert(0, r'{build_lib}'); "
-                        f"sys.path.insert(0, r'{python_pkg}'); "
+                        f"sys.path[:0] = [r'{build_lib}', r'{project_root}']; "
                         "import pytest; "
                         "raise SystemExit(pytest.main(['tests/py', 'tests/unit', '-v', '--tb=short']))"
                     ),
