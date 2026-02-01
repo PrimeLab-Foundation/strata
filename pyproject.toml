@@ -2,14 +2,15 @@
 requires = [
   "setuptools>=64",
   "wheel",
-  "pybind11>=2.12",
+  "cmake>=3.20",
+  "pytest>=7",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "strata"
 version = "0.1.1"
-description = "Self-contained C++ JSON parser + JSONPath engine with Python bindings"
+description = "Fast C++ JSON parser with Python C API bindings (no pybind11)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -31,6 +32,7 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
   "pytest>=7",
+  "pytest-cov>=4.0",  # For coverage (Rule 14)
   "mypy>=1.8",
   "ruff>=0.5",
   "pre-commit>=3.5",
@@ -72,4 +74,16 @@ dev-dependencies = [
   "mypy",
   "ruff",
   "pre-commit",
+]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+]
+testpaths = [
+  "tests/py",
+  "tests/unit",
+]
+markers = [
+  "stress: long-running or memory-heavy tests (exclude with -m 'not stress')",
 ]

@@ -18,6 +18,12 @@ MD036: false  # no-emphasis-as-heading
 MD033: false  # no-inline-html
 MD060: false  # table-column-style
 
+# Disable rules that conflict with mdformat auto-formatting
+MD009: false  # no-trailing-spaces (mdformat handles this)
+MD022: false  # blanks-around-headings (mdformat handles this)
+MD031: false  # blanks-around-fences (mdformat handles this)
+MD032: false  # blanks-around-lists (mdformat handles this)
+
 # Keep some general hygiene rules
 no-trailing-punctuation: false
 first-line-h1: false

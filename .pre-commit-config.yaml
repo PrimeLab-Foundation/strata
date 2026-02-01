@@ -56,7 +56,6 @@ repos:
           - mdformat-frontmatter==0.4.1
         files: ".*\\.md$"
         exclude: |
-          ^docs/|
           ^benchmarks/artifacts/|
           ^BENCH_RESULTS\.md$
   - repo: https://github.com/DavidAnson/markdownlint-cli2

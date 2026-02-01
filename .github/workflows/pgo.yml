@@ -1,0 +1,54 @@
+# PGO (Profile-Guided Optimization) + LTO build and test
+# Runs weekly and on manual dispatch. Produces PGO+LTO-optimized build; tests and benchmarks must pass.
+# See docs/build/pgo.md for details.
+
+name: PGO Build
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Weekly Monday 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  pgo:
+    name: PGO (Ubuntu / clang)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Clang and LLVM (PGO profile tools)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm-14
+
+      - name: Upgrade pip
+        run: python -m pip install -U pip setuptools wheel
+
+      - name: Run PGO workflow (Rule 16: Make → scripts/)
+        env:
+          PYTHON: python
+          CXX: clang++
+        run: make pgo
+
+      - name: Build wheel (PGO+LTO)
+        env:
+          STRATA_ENABLE_LTO: "1"
+          PGO_MODE: use
+          STRATA_PGO_PROFILE: build/pgo/strata.profdata
+          CXX: clang++
+        run: |
+          .venv/bin/python -m pip install -U wheel
+          .venv/bin/python -m pip wheel . -w dist --no-deps
+
+      - name: Upload PGO wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: pgo-wheel
+          path: dist/*.whl

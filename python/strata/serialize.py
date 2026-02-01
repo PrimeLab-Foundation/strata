@@ -1,0 +1,82 @@
+"""
+JSON serialization and parsing.
+
+Thin Python wrappers around the C++ engine for loads, dumps, and dumps_bytes.
+"""
+
+from __future__ import annotations
+
+from . import _strata as _native
+
+# -----------------------------------------------------------------------------
+# Parsing (JSON text → Python object)
+# -----------------------------------------------------------------------------
+
+
+def loads(source: str | bytes) -> dict | list | str | int | float | bool | None:
+    """
+    Parse JSON text into a Python object.
+
+    Args:
+        source: JSON as a string (UTF-8) or raw bytes. Use bytes when testing
+            invalid UTF-8 handling, since Python strings are always valid Unicode.
+
+    Returns:
+        Parsed value: dict, list, str, int, float, bool, or None.
+
+    Raises:
+        ValueError: If the JSON is invalid or contains invalid UTF-8.
+
+    Example:
+        >>> loads('{"name": "Alice", "age": 30}')
+        {'name': 'Alice', 'age': 30}
+    """
+    return _native.loads(source)
+
+
+# -----------------------------------------------------------------------------
+# Serialization (Python object → JSON text)
+# -----------------------------------------------------------------------------
+
+
+def dumps(obj: dict | list | str | int | float | bool | None) -> str:
+    """
+    Serialize a Python object to a JSON string.
+
+    Args:
+        obj: A JSON-serializable value (dict, list, str, int, float, bool, None).
+
+    Returns:
+        JSON string representation.
+
+    Raises:
+        ValueError: If the object cannot be serialized.
+        TypeError: If the object type is not supported.
+
+    Example:
+        >>> dumps({"name": "Alice", "age": 30})
+        '{"name":"Alice","age":30}'
+    """
+    return _native.dumps(obj)
+
+
+def dumps_bytes(obj: dict | list | str | int | float | bool | None) -> bytes:
+    """
+    Serialize a Python object to JSON bytes (UTF-8).
+
+    Faster than dumps() when you need bytes, since it avoids string encoding.
+
+    Args:
+        obj: A JSON-serializable value.
+
+    Returns:
+        JSON as UTF-8 encoded bytes.
+
+    Example:
+        >>> dumps_bytes({"key": "value"})
+        b'{"key":"value"}'
+    """
+    return _native.dumps_bytes(obj)
+
+
+__all__ = ["loads", "dumps", "dumps_bytes"]

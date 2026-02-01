@@ -65,3 +65,6 @@ benchmarks/data/*.ndjson
 
 .venv
 venv
+
+# Cursor AI
+.cursor

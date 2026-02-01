@@ -1,0 +1,19 @@
+{
+  "ascii": "Hello, World!",
+  "latin": "café, naïve, résumé",
+  "cyrillic": "Привет мир",
+  "chinese": "你好世界",
+  "japanese": "こんにちは世界",
+  "arabic": "مرحبا بالعالم",
+  "hebrew": "שלום עולם",
+  "emoji": "Hello 👋 World 🌍 🎉",
+  "mixed": "English français 中文 العربية עברית",
+  "special_chars": {
+    "zero_width_space": "a​b",
+    "bom": "﻿text",
+    "rtl_mark": "‏text",
+    "variation_selector": "☺️"
+  },
+  "mathematical": "𝕳𝖊𝖑𝖑𝖔 𝕎𝕠𝕣𝕝𝕕",
+  "combining": "e\u0301" 
+}
