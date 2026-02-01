@@ -1,13 +1,88 @@
 #pragma once
 
 #include <cstdint>
-#include <map>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <variant>
 #include <vector>
 
 namespace strata {
+
+// Simple vector-based map for JSON objects (better cache locality for small objects)
+template <typename K, typename V> class FlatMap {
+  public:
+    using value_type = std::pair<K, V>;
+    using vector_type = std::vector<value_type>;
+    using iterator = typename vector_type::iterator;
+    using const_iterator = typename vector_type::const_iterator;
+
+    iterator begin() { return data_.begin(); }
+    iterator end() { return data_.end(); }
+    const_iterator begin() const { return data_.begin(); }
+    const_iterator end() const { return data_.end(); }
+
+    V& operator[](const K& key) {
+        for (auto& p : data_) {
+            if (p.first == key)
+                return p.second;
+        }
+        data_.emplace_back(key, V());
+        return data_.back().second;
+    }
+
+    V& operator[](K&& key) {
+        for (auto& p : data_) {
+            if (p.first == key)
+                return p.second;
+        }
+        data_.emplace_back(std::move(key), V());
+        return data_.back().second;
+    }
+
+    iterator find(const K& key) {
+        for (auto it = data_.begin(); it != data_.end(); ++it) {
+            if (it->first == key)
+                return it;
+        }
+        return data_.end();
+    }
+
+    const_iterator find(const K& key) const {
+        for (auto it = data_.begin(); it != data_.end(); ++it) {
+            if (it->first == key)
+                return it;
+        }
+        return data_.end();
+    }
+
+    const V& at(const K& key) const {
+        auto it = find(key);
+        if (it == data_.end())
+            throw std::out_of_range("FlatMap::at");
+        return it->second;
+    }
+
+    V& at(const K& key) {
+        auto it = find(key);
+        if (it == data_.end())
+            throw std::out_of_range("FlatMap::at");
+        return it->second;
+    }
+
+    template <typename... Args> void emplace(Args&&... args) {
+        data_.emplace_back(std::forward<Args>(args)...);
+    }
+
+    size_t size() const { return data_.size(); }
+    bool empty() const { return data_.empty(); }
+    void clear() { data_.clear(); }
+
+    size_t count(const K& key) const { return find(key) != end() ? 1 : 0; }
+
+  private:
+    vector_type data_;
+};
 
 // Status codes for cursor operations (no exceptions in hot path)
 enum class Status { Ok, TypeMismatch, KeyNotFound, IndexOutOfBounds, ParseError };
@@ -25,8 +100,8 @@ template <typename T> struct Result {
 // Simple in‑memory JSON value model
 struct JsonValue {
     using Array = std::vector<JsonValue>;
-    using Object = std::map<std::string, JsonValue>; // Keep std::map - better cache locality
-    using Number = double;                           // keep it simple for now
+    using Object = FlatMap<std::string, JsonValue>; // FlatMap - better cache locality
+    using Number = double;                          // keep it simple for now
 
     using Variant = std::variant<std::nullptr_t, bool, Number, std::string, Array, Object>;
 

@@ -214,13 +214,15 @@ static inline size_t find_next_escape_neon(const char* str, size_t len) {
         uint8x16_t is_backslash = vceqq_u8(chunk, backslash);
         uint8x16_t needs_escape = vorrq_u8(control, vorrq_u8(is_quote, is_backslash));
 
-        // Find first set byte
-        uint8_t result[16];
-        vst1q_u8(result, needs_escape);
-        for (int j = 0; j < 16; ++j) {
-            if (result[j]) {
-                return i + j;
-            }
+        // Use bit manipulation to find the first non-zero byte index
+        uint64x2_t res64 = vreinterpretq_u64_u8(needs_escape);
+        uint64_t low = vgetq_lane_u64(res64, 0);
+        if (low) {
+            return i + (static_cast<size_t>(__builtin_ctzll(low)) >> 3);
+        }
+        uint64_t high = vgetq_lane_u64(res64, 1);
+        if (high) {
+            return i + 8 + (static_cast<size_t>(__builtin_ctzll(high)) >> 3);
         }
     }
 
@@ -321,36 +323,7 @@ bool try_copy_clean_string(const char* str, size_t len, std::string& out) {
 void escape_json_string_simd(const char* str, size_t len, std::string& out) {
     out.push_back('"');
 
-    // Try fast path first
-#ifdef STRATA_HAS_AVX2
-    if (!has_escape_chars_avx2(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#elif defined(STRATA_HAS_SSE42)
-    if (!has_escape_chars_sse(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#elif defined(STRATA_HAS_NEON)
-    if (!has_escape_chars_neon(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#else
-    if (!has_escape_chars_scalar(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#endif
-
-    // String has escapes - process in chunks
     size_t pos = 0;
-
     while (pos < len) {
         // Find next character that needs escaping
         size_t next_escape;
@@ -380,6 +353,18 @@ void escape_json_string_simd(const char* str, size_t len, std::string& out) {
     }
 
     out.push_back('"');
+}
+
+size_t find_next_escape_simd(const char* str, size_t len) {
+#ifdef STRATA_HAS_AVX2
+    return find_next_escape_avx2(str, len);
+#elif defined(STRATA_HAS_SSE42)
+    return find_next_escape_sse(str, len);
+#elif defined(STRATA_HAS_NEON)
+    return find_next_escape_neon(str, len);
+#else
+    return find_next_escape_scalar(str, len);
+#endif
 }
 
 // OutputBuffer overloads (streaming serializer)
@@ -502,36 +487,7 @@ void escape_json_string_simd(const char* str, size_t len, OutputBuffer& out) {
     out.reserve(out.size() + len + 2);
     out.push_back('"');
 
-    // Try fast path first
-#ifdef STRATA_HAS_AVX2
-    if (!has_escape_chars_avx2(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#elif defined(STRATA_HAS_SSE42)
-    if (!has_escape_chars_sse(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#elif defined(STRATA_HAS_NEON)
-    if (!has_escape_chars_neon(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#else
-    if (!has_escape_chars_scalar(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#endif
-
-    // String has escapes - process in chunks
     size_t pos = 0;
-
     while (pos < len) {
         // Find next character that needs escaping
         size_t next_escape;
@@ -566,35 +522,7 @@ void escape_json_string_simd(const char* str, size_t len, OutputBuffer& out) {
 void escape_json_string_simd(const char* str, size_t len, FixedOutputBuffer& out) {
     out.push_back('"');
 
-    // Try fast path first
-#ifdef STRATA_HAS_AVX2
-    if (!has_escape_chars_avx2(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#elif defined(STRATA_HAS_SSE42)
-    if (!has_escape_chars_sse(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#elif defined(STRATA_HAS_NEON)
-    if (!has_escape_chars_neon(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#else
-    if (!has_escape_chars_scalar(str, len)) {
-        out.append(str, len);
-        out.push_back('"');
-        return;
-    }
-#endif
-
     size_t pos = 0;
-
     while (pos < len) {
         size_t next_escape;
 

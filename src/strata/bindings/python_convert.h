@@ -2,6 +2,7 @@
 #define STRATA_PYTHON_CONVERT_H
 
 #define PY_SSIZE_T_CLEAN
+#include "python_types.h"
 #include "strata/json/json_core.hpp"
 
 #include <Python.h>
@@ -13,6 +14,7 @@ PyObject* json_value_to_python(const strata::JsonValue& val);
 /** Convert vector of JsonValue to Python list. Inline so callers (jsonpath, ndjson, loads) get
  * inlining without LTO. */
 inline PyObject* json_value_list_to_python(const std::vector<strata::JsonValue>& values) {
+    PyGcPause gc_pause;
     PyObject* list = PyList_New(values.size());
     if (!list)
         return NULL;

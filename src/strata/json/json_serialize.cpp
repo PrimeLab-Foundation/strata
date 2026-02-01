@@ -1,5 +1,7 @@
 #include "strata/json/json_serialize.hpp"
 
+#include "strata/util/dragonbox.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -65,34 +67,9 @@ static void serialize_number(const JsonValue& value, std::string& out) {
         return;
     }
 
-    // Check if this is an integer value
-    double int_part;
-    double frac_part = std::modf(d, &int_part);
-
-    if (frac_part == 0.0 && d >= -9007199254740992.0 && d <= 9007199254740992.0) {
-        // It's a whole number within safe integer range, format as integer
-        char buf[32];
-        int len = std::snprintf(buf, sizeof(buf), "%.0f", d);
-        out.append(buf, len);
-    } else {
-        // Format as double with appropriate precision
-        char buf[64];
-        int len = std::snprintf(buf, sizeof(buf), "%.17g", d);
-        out.append(buf, len);
-
-        // Ensure we have a decimal point for distinguishing from integers
-        // (only if no 'e' exponent notation)
-        bool has_dot_or_e = false;
-        for (int i = 0; i < len; ++i) {
-            if (buf[i] == '.' || buf[i] == 'e' || buf[i] == 'E') {
-                has_dot_or_e = true;
-                break;
-            }
-        }
-        if (!has_dot_or_e) {
-            out.append(".0");
-        }
-    }
+    char buf[32];
+    int len = util::dragonbox_d2s(d, buf);
+    out.append(buf, len);
 }
 
 // Serialize an array

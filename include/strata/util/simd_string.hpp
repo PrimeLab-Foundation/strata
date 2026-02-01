@@ -74,6 +74,12 @@ void collect_newlines_simd(const char* data, size_t len, size_t start_pos, size_
 bool is_whitespace_only_simd(const char* data, size_t len);
 
 /**
+ * SIMD-accelerated search for JSON escape characters (", \, control chars).
+ * Returns position of first escape/quote, or len if none found.
+ */
+size_t find_next_escape_simd(const char* str, size_t len);
+
+/**
  * Validate UTF-8 byte sequence (RFC 3629).
  *
  * Rejects overlong encodings, surrogate codepoints (U+D800–U+DFFF),

@@ -108,7 +108,6 @@ struct Parser {
     }
 
     Result<JsonValue> parse_null() {
-        skip_ws();
         if (i + 4 <= len && data[i] == 'n' && data[i + 1] == 'u' && data[i + 2] == 'l' &&
             data[i + 3] == 'l') {
             i += 4;
@@ -118,7 +117,6 @@ struct Parser {
     }
 
     Result<JsonValue> parse_bool() {
-        skip_ws();
         if (i + 4 <= len && data[i] == 't' && data[i + 1] == 'r' && data[i + 2] == 'u' &&
             data[i + 3] == 'e') {
             i += 4;
@@ -133,7 +131,6 @@ struct Parser {
     }
 
     Result<JsonValue> parse_number() {
-        skip_ws();
         size_t start = i;
 
         // Try fast integer parse first
@@ -161,12 +158,11 @@ struct Parser {
     }
 
     Result<JsonValue> parse_string() {
-        skip_ws();
         if (get() != '"')
             return {Status::ParseError, JsonValue{}};
 
-        // Fast scan for end quote or escape
-        size_t scan_pos = util::scan_string_fast(data + i, len - i);
+        // Fast scan for end quote or escape using SIMD
+        size_t scan_pos = util::find_next_escape_simd(data + i, len - i);
 
         // Fast path: no escapes, just copy
         if (scan_pos < len - i && data[i + scan_pos] == '"') {
@@ -249,11 +245,9 @@ struct Parser {
     }
 
     Result<JsonValue> parse_array() {
-        skip_ws();
         if (!consume('['))
             return {Status::ParseError, JsonValue{}};
         JsonValue::Array arr;
-        skip_ws();
         if (consume(']'))
             return {Status::Ok, JsonValue(JsonValue::Variant(std::move(arr)))};
         while (true) {
@@ -261,7 +255,6 @@ struct Parser {
             if (!elem.ok())
                 return elem;
             arr.push_back(std::move(elem.value));
-            skip_ws();
             if (consume(']'))
                 break;
             if (!consume(','))
@@ -271,18 +264,17 @@ struct Parser {
     }
 
     Result<JsonValue> parse_object() {
-        skip_ws();
         if (!consume('{'))
             return {Status::ParseError, JsonValue{}};
         JsonValue::Object obj;
-        skip_ws();
         if (consume('}'))
             return {Status::Ok, JsonValue(JsonValue::Variant(std::move(obj)))};
         while (true) {
+            skip_ws();
             auto key_res = parse_string();
             if (!key_res.ok() || !key_res.value.is_string())
                 return {Status::ParseError, JsonValue{}};
-            std::string key = key_res.value.as_string();
+            std::string key = std::move(key_res.value.as_string());
             if (!consume(':'))
                 return {Status::ParseError, JsonValue{}};
             auto val_res = parse_value();
@@ -305,7 +297,6 @@ struct Parser {
             } else {
                 obj.emplace(std::move(key), std::move(val_res.value));
             }
-            skip_ws();
             if (consume('}'))
                 break;
             if (!consume(','))

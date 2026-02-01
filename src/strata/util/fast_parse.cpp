@@ -46,12 +46,14 @@ bool parse_double_fast(const char* str, size_t len, double& result, size_t& cons
         if (pos >= len || str[pos] < '0' || str[pos] > '9') {
             return false;
         }
-        double divisor = 10.0;
+        double frac_val = 0.0;
+        double divisor = 1.0;
         while (pos < len && str[pos] >= '0' && str[pos] <= '9') {
-            frac_part += (str[pos] - '0') / divisor;
+            frac_val = frac_val * 10.0 + (str[pos] - '0');
             divisor *= 10.0;
             ++pos;
         }
+        frac_part = frac_val / divisor;
     }
 
     // Parse exponent

@@ -1,6 +1,56 @@
-# Junie Agent Guidelines for Strata (PyCharm)
+# Strata Developer & Agent Guidelines
 
-These guidelines are the operating contract for Junie when working on **Strata**: a **C++20 JSON engine** with a **thin Python wrapper**.
+This document serves as both the operating contract for the Junie agent and a guide for developers working on the Strata JSON engine.
+
+## Developer Guide
+
+### Build and Configuration
+
+- **Initialize**: `make dev` (sets up venv and dev tools).
+- **Standard Install**: `make install` (gated by tests).
+- **Full Validation**: `make gate` (runs C++ tests, build, Python tests, and coverage).
+- **PGO Build**: `make pgo`.
+- **LTO**: Enabled via `STRATA_ENABLE_LTO=1`.
+
+### Testing
+
+- **Run all**: `make test`
+- **C++ only**: `make test-cpp` (executes `scripts/run_cpp_tests.sh`).
+- **Python only**: `make test-py` (executes `pytest tests/py/`).
+- **Adding C++ tests**: Create `tests/cpp/test_*.cpp` with `main()` and `assert()`. Add to `scripts/run_cpp_tests.sh`.
+- **Adding Python tests**: Create `tests/py/test_*.py` using `pytest`.
+
+**Example C++ Test**:
+
+```cpp
+#include "strata/json/json_core.hpp"
+#include "strata/json/json_parse.hpp"
+#include <cassert>
+
+int main() {
+    auto result = strata::parse_json("{\"demo\": true}");
+    assert(result.ok() && result.value.is_object());
+    return 0;
+}
+```
+
+**Example Python Test**:
+
+```python
+import strata
+def test_demo():
+    assert strata.loads('{"demo": true}') == {"demo": True}
+```
+
+### Development Workflow
+
+- **Formatting**: `make fmt` (runs `ruff` and `clang-format`).
+- **Linting**: `make lint` and `make typecheck`.
+- **Benchmarking**: Required for hot-path changes. Use `make bench-small` and update `docs/benchmarks/progress_log.md`.
+
+______________________________________________________________________
+
+## Junie Agent Operating Contract
 
 ## 1) North Star
 

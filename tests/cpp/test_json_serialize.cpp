@@ -30,10 +30,10 @@ void test_serialize_bool() {
 }
 
 void test_serialize_number() {
-    // Integer
+    // Integer-like float
     JsonValue int_val(JsonValue::Variant(42.0));
     std::string result = serialize_json(int_val);
-    assert(result == "42");
+    assert(result == "42.0");
 
     // Float
     JsonValue float_val(JsonValue::Variant(3.14));
@@ -43,7 +43,7 @@ void test_serialize_number() {
     // Negative
     JsonValue neg_val(JsonValue::Variant(-123.0));
     result = serialize_json(neg_val);
-    assert(result == "-123");
+    assert(result == "-123.0");
 
     std::cout << "✓ test_serialize_number passed\n";
 }
@@ -96,7 +96,7 @@ void test_serialize_array() {
     arr.push_back(JsonValue(JsonValue::Variant(2.0)));
     arr.push_back(JsonValue(JsonValue::Variant(3.0)));
     JsonValue value(JsonValue::Variant(std::move(arr)));
-    assert(serialize_json(value) == "[1,2,3]");
+    assert(serialize_json(value) == "[1.0,2.0,3.0]");
 
     std::cout << "✓ test_serialize_array passed\n";
 }
@@ -136,7 +136,7 @@ void test_serialize_nested() {
     JsonValue value(JsonValue::Variant(std::move(obj)));
     std::string result = serialize_json(value);
 
-    assert(result.find("[1,2]") != std::string::npos || result.find("[1, 2]") != std::string::npos);
+    assert(result.find("[1.0,2.0]") != std::string::npos);
     assert(result.find("true") != std::string::npos);
 
     std::cout << "✓ test_serialize_nested passed\n";

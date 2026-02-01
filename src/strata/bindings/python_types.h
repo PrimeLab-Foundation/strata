@@ -28,6 +28,21 @@ struct PyObjectPtr {
     operator PyObject*() const { return ptr; }
     PyObject* operator->() const { return ptr; }
 };
+
+// Temporarily disable GC to reduce collection overhead during bulk object creation.
+struct PyGcPause {
+    int was_enabled;
+    PyGcPause() : was_enabled(PyGC_IsEnabled()) {
+        if (was_enabled)
+            PyGC_Disable();
+    }
+    ~PyGcPause() {
+        if (was_enabled)
+            PyGC_Enable();
+    }
+    PyGcPause(const PyGcPause&) = delete;
+    PyGcPause& operator=(const PyGcPause&) = delete;
+};
 #endif
 
 // Branch prediction hints for hot paths (e.g. dumps)

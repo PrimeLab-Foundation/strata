@@ -3,6 +3,7 @@
 #include "strata/json/json_parse.hpp"
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 static void emit_duplicate_key_warnings() {
@@ -12,9 +13,36 @@ static void emit_duplicate_key_warnings() {
     }
 }
 
-// Convert JsonValue to PyObject (declaration in python_convert.h; used by document, jsonpath,
-// ndjson)
-PyObject* json_value_to_python(const strata::JsonValue& val) {
+// Simple key cache to avoid creating many Python strings for the same key
+class KeyCache {
+  public:
+    PyObject* get(const std::string& key) {
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            Py_INCREF(it->second);
+            return it->second;
+        }
+
+        PyObject* py_key = PyUnicode_FromStringAndSize(key.c_str(), key.size());
+        if (py_key) {
+            PyUnicode_InternInPlace(&py_key);
+            Py_INCREF(py_key); // One for the cache
+            cache_[key] = py_key;
+        }
+        return py_key;
+    }
+
+    ~KeyCache() {
+        for (auto& pair : cache_) {
+            Py_DECREF(pair.second);
+        }
+    }
+
+  private:
+    std::unordered_map<std::string, PyObject*> cache_;
+};
+
+static PyObject* json_value_to_python_internal(const strata::JsonValue& val, KeyCache& cache) {
     if (val.is_null()) {
         Py_RETURN_NONE;
     }
@@ -35,7 +63,19 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
     }
 
     if (val.is_array()) {
-        return json_value_list_to_python(val.as_array());
+        const auto& arr = val.as_array();
+        PyObject* list = PyList_New(arr.size());
+        if (!list)
+            return NULL;
+        for (size_t i = 0; i < arr.size(); ++i) {
+            PyObject* item = json_value_to_python_internal(arr[i], cache);
+            if (!item) {
+                Py_DECREF(list);
+                return NULL;
+            }
+            PyList_SET_ITEM(list, i, item);
+        }
+        return list;
     }
 
     if (val.is_object()) {
@@ -45,13 +85,13 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
             return NULL;
 
         for (const auto& [key, value] : obj) {
-            PyObject* py_key = PyUnicode_FromStringAndSize(key.c_str(), key.size());
+            PyObject* py_key = cache.get(key);
             if (!py_key) {
                 Py_DECREF(dict);
                 return NULL;
             }
 
-            PyObject* py_val = json_value_to_python(value);
+            PyObject* py_val = json_value_to_python_internal(value, cache);
             if (!py_val) {
                 Py_DECREF(py_key);
                 Py_DECREF(dict);
@@ -71,6 +111,12 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
     }
 
     Py_RETURN_NONE;
+}
+
+// Convert JsonValue to PyObject
+PyObject* json_value_to_python(const strata::JsonValue& val) {
+    KeyCache cache;
+    return json_value_to_python_internal(val, cache);
 }
 
 // Python loads() function
@@ -96,6 +142,7 @@ PyObject* strata_loads(PyObject* self, PyObject* args) {
     emit_duplicate_key_warnings();
 
     // Convert to Python
+    PyGcPause gc_pause;
     return json_value_to_python(result.value);
 
     STRATA_CPP_CATCH
