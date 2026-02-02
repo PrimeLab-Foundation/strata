@@ -1,61 +1,16 @@
-# Strata Developer & Agent Guidelines
+# Strata Agent Guidelines
 
-This document serves as both the operating contract for the Junie agent and a guide for developers working on the Strata JSON engine.
+These guidelines define how agents must work on **Strata**: a **C++20 JSON engine** with a **thin Python wrapper**.
 
-## Developer Guide
-
-### Build and Configuration
-
-- **Initialize**: `make dev` (sets up venv and dev tools).
-- **Standard Install**: `make install` (gated by tests).
-- **Full Validation**: `make gate` (runs C++ tests, build, Python tests, and coverage).
-- **PGO Build**: `make pgo`.
-- **LTO**: Enabled via `STRATA_ENABLE_LTO=1`.
-
-### Testing
-
-- **Run all**: `make test`
-- **C++ only**: `make test-cpp` (executes `scripts/run_cpp_tests.sh`).
-- **Python only**: `make test-py` (executes `pytest tests/py/`).
-- **Adding C++ tests**: Create `tests/cpp/test_*.cpp` with `main()` and `assert()`. Add to `scripts/run_cpp_tests.sh`.
-- **Adding Python tests**: Create `tests/py/test_*.py` using `pytest`.
-
-**Example C++ Test**:
-
-```cpp
-#include "strata/json/json_core.hpp"
-#include "strata/json/json_parse.hpp"
-#include <cassert>
-
-int main() {
-    auto result = strata::parse_json("{\"demo\": true}");
-    assert(result.ok() && result.value.is_object());
-    return 0;
-}
-```
-
-**Example Python Test**:
-
-```python
-import strata
-def test_demo():
-    assert strata.loads('{"demo": true}') == {"demo": True}
-```
-
-### Development Workflow
-
-- **Formatting**: `make fmt` (runs `ruff` and `clang-format`).
-- **Linting**: `make lint` and `make typecheck`.
-- **Benchmarking**: Required for hot-path changes. Use `make bench-small` and update `docs/benchmarks/progress_log.md`.
+This version explicitly **allows architectural approaches** for large performance gains (SAX/Visitor, tape,
+direct-to-Python), while keeping the project **independent of any specific binding library** (e.g., pybind11).
 
 ______________________________________________________________________
-
-## Junie Agent Operating Contract
 
 ## 1) North Star
 
 - **Correctness first, then performance, then maintainability.**
-- Strata’s product claim is **best-in-class speed with low memory** for:
+- Strata’s differentiator is **best-in-class speed with low memory** for:
   - `loads` / parsing
   - `dumps` / serialization
   - NDJSON streaming/iteration
@@ -63,330 +18,313 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## 2) Architecture Boundaries (Non‑Negotiable)
+## 2) Architecture Boundaries
 
-### C++ owns all CPU-heavy work
+### 2.1 Core vs Wrapper
 
-Implement in **C++20 core**:
+**C++ core owns all CPU-heavy work.** Implement in C++20:
 
-- JSON parsing (`loads`)
-- NDJSON iteration/streaming
-- serialization (`dumps`)
-- view/slice/zero-copy mode (when applicable)
+- parsing / tokenization
+- serialization
+- NDJSON streaming
 - search/query evaluation
+- memory arenas / allocators
+- (optional) IR formats like token tape or DOM nodes
 
-### Python is a thin wrapper only
+**Python wrapper stays thin.** It may:
 
-Python may do:
+- normalize arguments
+- dispatch into already-exposed native entrypoints
+- map native errors to Python exceptions
+- format return values
 
-- argument normalization
-- calling into **existing** native entrypoints (as-is)
-- exception mapping (Python-side only)
-- return formatting
+### 2.2 “Core Purity” rule
 
-**Forbidden:**
+The **core library must remain usable outside Python**:
 
-- implementing parsing/search/slicing in Python as a “temporary” solution
-  - If not implemented in C++, **raise `NotImplementedError`**.
-- changing any native binding layer to “make it work”.
+- Core code must not require `Python.h` (or any Python runtime types) unless explicitly placed in a Python-only
+  subcomponent.
+- Prefer one of these two structures:
+  1. **Pure core** (no Python deps) + **Python adapter** (C-API or other binding tech)
+  1. Core + optional **python_feature** target that depends on Python (kept separate, off by default)
 
-### No dependency fallbacks
-
-Core must **not** delegate to other JSON engines (rapidjson/simdjson/orjson/ujson/etc).
-Competitor libs are allowed **only** inside **benchmark harnesses**.
+If you propose direct-to-Python parsing, you must explicitly choose which structure you are implementing and document
+the tradeoffs.
 
 ______________________________________________________________________
 
-## 3) Repository Layout + Naming
+## 3) Binding Technology Policy (No pybind11 dependency)
+
+### 3.1 Not tied to any binding library
+
+Strata must **not depend** on `pybind11` as a project requirement. The binding layer may be implemented using:
+
+- **Python C API** directly (preferred for minimal dependency)
+- `nanobind`
+- `cffi`/CPython extension (where appropriate)
+- another binding approach *only if documented and justified*
+
+### 3.2 Rules
+
+- Do not design core APIs around `pybind11` types (`py::object`, casters, etc.).
+- If a binding helper is needed, define **Strata-owned abstraction** in the wrapper layer:
+  - e.g., `python/` or `src/bindings/python/`
+- The chosen binding approach must be documented in `docs/` with:
+  - build requirements
+  - error mapping strategy
+  - performance considerations
+
+______________________________________________________________________
+
+## 4) Allowed High-Impact Performance Approaches
+
+Strata explicitly allows **any** of the following, provided correctness and docs/tests/bench gates are met.
+
+### 4.1 SAX-style / Visitor parsing
+
+**Goal:** emit parse events (`start_object`, `key`, `string`, `number`, …) into a handler.
+
+**Required properties:**
+
+- handler API lives in core (pure C++ interface)
+- string/value lifetimes are documented (e.g., `std::string_view` valid only during callback)
+- error model includes byte offset and reason
+- iterative stack preferred over deep recursion for safety
+
+**Why:** enables builders (DOM, tape, Python objects) without forcing one representation.
+
+### 4.2 Token tape / IR (two-phase build)
+
+**Goal:** parse into a compact representation (tape) first, then build target objects (DOM/Python) from tape.
+
+**Required properties:**
+
+- tape format documented in `docs/`
+- tape building is allocation-efficient
+- builder phase is tested for parity
+
+**Why:** often yields large wins with less architectural risk than full direct-to-Python.
+
+### 4.3 Direct-to-Python (single-pass object construction)
+
+**Goal:** create Python objects while parsing to avoid double materialization.
+
+**Two acceptable implementations:**
+
+- **A) Core emits SAX events; Python builder consumes them** (recommended separation)
+- **B) Python-specialized parser target** that includes `Python.h` (only if explicitly approved and kept separate from
+  pure core)
+
+**Required gates:**
+
+- a dedicated ADR in `docs/adr/`
+- strict tests for parity and error reporting
+- benchmark evidence showing net improvement on canonical workloads
+
+______________________________________________________________________
+
+## 5) Repository Layout + Naming
 
 ### Layout
 
 - C++ production code: `src/`
 - C++ public headers: `include/`
-- Python package: `python/strata/` (or `src/strata/` if repo uses src-layout)
+- Python package: `python/strata/` (or `src/strata/` if src-layout)
+- Binding/adapter code: `src/bindings/python/` (or equivalent explicit folder)
 - C++ tests: `tests/cpp/`
 - Python tests: `tests/py/`
 - Benchmarks: `bench/` or `benchmarks/`
 - Docs: `docs/` only
-- Legacy/experimental: `cpp_bkp/` or `experiments/` (must not be linked/imported into production)
 
 ### Naming conventions
 
 **C++**
 
-- namespace: `strata` (plus nested namespaces like `strata::json`, `strata::ndjson`, `strata::jsonpath`)
+- namespace: `strata` (and nested namespaces)
 - types: `PascalCase`
 - functions/methods: `snake_case`
 - constants: `kPascalCase`
 - filenames: `snake_case` for `.hpp/.cpp`
 - prefer `#pragma once`
-- keep public headers minimal; internal headers go in `src/` or `include/strata/detail/`
 
 **Python**
 
 - modules/functions: `snake_case`
 - public classes: `PascalCase`
-- exports are minimal via `strata/__init__.py`
-- internal helpers prefixed with `_` and not exported
+- internal helpers start with `_`
 
 ______________________________________________________________________
 
-## 4) Documentation Rules
+## 6) Documentation Requirements
 
-### Docs live only in `docs/`
+Docs live only in `docs/`.
 
-- All design notes, ADRs, API docs, benchmark methodology/results, and performance notes **must** be under `docs/`.
-- Root `README.md` (if present) should be minimal and link into `docs/`.
-- All `.md` filenames should be lowercase **except** `README.md`.
-- Do not create scattered `.md` outside `docs/`.
+### ADR requirement for architectural changes
 
-______________________________________________________________________
+Any change that:
 
-## 5) Public API Discipline
-
-### Keep the surface small and stable
-
-Example target surface:
-
-- `loads`, `dumps`, `iter_ndjson`, `search`, `compile_jsonpath`
-
-Adding any new public API requires:
-
-1. C++ tests + Python tests (where exposed)
-1. docs update under `docs/`
-1. benchmark coverage if performance-relevant
-
-**Reminder:** Junie must not modify the binding layer; only work within:
-
-- C++ core implementation and headers
-- Python wrapper code that calls already-exposed entrypoints
+- introduces SAX/Visitor
+- introduces a tape/IR format
+- changes ownership/lifetimes or error model
+- changes public API semantics
+  must include a new ADR in `docs/adr/` describing:
+- problem, decision, alternatives
+- detailed API sketch
+- risks and mitigations
+- test plan and benchmark plan
 
 ______________________________________________________________________
 
-## 6) Testing Contract (Hard Gates)
+## 7) Testing Contract (Hard Gates)
 
-### End-of-session “green” requirement
+### End-of-session must be green
 
-You may not finish a session in a failing state.
+Before concluding work:
 
-Before concluding:
+1. C++ tests pass
+1. Python tests pass
+1. new behavior has tests
 
-1. Run relevant test suites
-1. Ensure **all tests pass** (C++ + Python)
-1. Any new/changed behavior has tests on **both sides** when applicable
+### Parity tests (C++ ↔ Python)
 
-**Do not** hide failures with skip/xfail unless explicitly documented and approved in-repo.
+For every exposed feature (`loads`, `dumps`, NDJSON, search):
 
-### Cross-layer contract tests (parity)
+- C++ tests cover correctness and edge cases
+- Python tests cover wrapper parity (types, errors)
 
-For every behavior exposed via Python (`loads/dumps/ndjson/search/jsonpath/...`):
+Minimum edge cases:
 
-- C++ tests: core correctness + edge cases
-- Python tests: wrapper parity (types, exceptions, lifetimes)
-
-Parity assertions should cover:
-
-- same outputs
-- same error categories (exception types) and messages where feasible
-- same edge-case handling
-
-Minimum edge cases to consider (when applicable):
-
-- `.json` and `.ndjson`
-- Unicode handling / escaping
-- numeric boundaries; NaN/Infinity policy (if supported)
-- ordering promises (if any) and whitespace tolerance
-- malformed/truncated input, invalid UTF-8, overflows
-- search semantics: missing keys, nested paths, arrays, nulls, duplicates
+- unicode/escaping
+- numeric boundaries
+- malformed/truncated input with correct error offsets
+- deep nesting limits / stack behavior
+- NDJSON line endings and empty lines (as specified)
 
 ______________________________________________________________________
 
-## 7) Error Handling Consistency (C++ ↔ Python)
+## 8) Error Handling
 
-- C++ hot paths:
-  - prefer project `Result<T>` / error-code style over exceptions
-  - keep exceptions out of tight loops
-- Python wrapper:
-  - translate native error returns into Python exceptions **without changing native bindings**
-  - preserve context (offsets, path, reason) when already available from native API
-- Python:
-  - raise consistent exception types (e.g., `ValueError` or project `StrataError` if defined)
-  - messages must be actionable and stable for tests
-
-If native APIs do not currently return enough error context, document:
-
-- what context is missing
-- the desired C++ API shape
-  …but do **not** implement binding changes.
+- Hot paths should avoid exceptions in tight loops; prefer `Result<T>` or error codes if already used.
+- Errors must include:
+  - byte offset
+  - reason/category
+  - (optional) short context snippet
+- Python wrapper maps errors to stable exception types and messages.
 
 ______________________________________________________________________
 
-## 8) Memory + Allocations Are First-Class
+## 9) Memory + Allocations
 
-For hot-path changes, explicitly reason about:
+For hot path changes, explicitly evaluate:
 
-- allocation count + sizes
+- allocation counts
 - ownership/lifetimes (RAII)
 - avoiding O(n²)
-- minimal includes / low coupling
-- view/zero-copy safety constraints
+- cache locality and data layout
 
-Structural rule:
-
-- Avoid “god files”; if a file exceeds ~800 LOC, split by responsibility unless a documented reason exists.
+Avoid “god files”; split > ~800 LOC unless a documented reason exists.
 
 ______________________________________________________________________
 
-## 9) Benchmarks Are Mandatory on Hot Paths
+## 10) Benchmarks (Mandatory for Hot Paths)
 
-### When benchmarks are required
+### When required
 
-Any change affecting:
+Any change touching:
 
 - parsing/serialization throughput
 - NDJSON streaming
 - search/query performance
-- memory arenas/allocations
-- zero-copy/view lifetimes
-- compiler/build flags impacting performance
-
-### Benchmark hygiene
-
-- identical datasets across libs
-- warmups + multiple iterations
-- report min/median/p95
-- capture environment (CPU/OS/Python/compiler flags)
-- measure memory (RSS/peak) when possible
+- allocators/arenas
+- representation changes (DOM/tape/SAX)
+  must run benchmarks.
 
 ### Logging
 
-Maintain an **append-only** benchmark progress log under:
+Maintain append-only:
 
 - `docs/benchmarks/progress_log.md`
 
 Each entry must include:
 
-- date/time
-- commit hash
-- environment (CPU/OS/compiler flags/Python)
-- commands used
-- key metrics (min/median/p95 + memory where available)
+- date/time + commit hash
+- environment (CPU/OS/compiler/Python)
+- commands
+- baseline vs post metrics (min/median/p95) and memory if available
 - conclusion: improved / neutral / regressed
 
-### Continuous benchmark loop (baseline → change → post)
-
-For any perf-sensitive change:
-
-1. Capture baseline benchmarks **before** the change
-1. Implement the change
-1. Run post-change benchmarks
-1. Compare results and decide go/no-go
-
-Treat regressions as bugs: fix or revert (unless an explicit in-repo exception exists).
-
-Before ending a session after touching perf-sensitive areas, provide:
-
-- baseline vs post-change deltas (bullets or a small table)
-- the path to the updated progress log entry
-- confirmation that no regressions remain
+Regressions must be fixed or reverted.
 
 ______________________________________________________________________
 
-## 10) Production/Release Gate (Benchmark Leadership)
+## 11) Automation Interface
 
-Before tagging a release / promoting to production:
-
-- Strata must rank **#1** on the canonical benchmark suite for the targeted workloads:
-  - `loads`, `dumps`, NDJSON, search/query, memory efficiency (where measured)
-
-If not #1:
-
-- release is blocked unless there is an approved, documented exception in-repo.
-
-______________________________________________________________________
-
-## 11) Build Gates + Default “Build Runs Tests”
-
-### Build must fail on test failures
-
-- Build pipeline must run **C++ tests** and **Python tests**.
-- Any failure ⇒ non-zero exit ⇒ build failed.
-- No merge/tag/release with failing tests.
-
-### Default build runs C++ tests
-
-Standard build entrypoints should run C++ tests automatically:
-
-- `cmake --build ...`
-- `make build` / `ninja`
-- CI “build” jobs
-
-Optional escape hatch like `SKIP_TESTS=1` is allowed only if:
-
-- off by default
-- strongly discouraged
-- cannot be used in CI/release
-- prominently logged
-
-Recommended: a single gate command (e.g., `make gate`) that runs:
-
-1. configure/build
-1. C++ tests (`ctest`)
-1. Python tests (`pytest`)
-1. coverage checks (if configured)
-
-______________________________________________________________________
-
-## 12) Automation Interface: `scripts/` + Makefile
-
-- All automation logic goes in `scripts/`.
-- The root `Makefile` is the **only** user-facing interface:
-  - Make targets call `scripts/*`
-  - Keep Make targets thin (no complex embedded logic)
+- Automation logic goes in `scripts/`.
+- Root `Makefile` is the user-facing interface and calls scripts.
 - Scripts must be deterministic, fail-fast, and well-logged.
-- Use `scripts/common.sh` for shared helpers.
-
-Docs should reference **Make targets** as canonical commands (`make test`, `make bench`, etc.).
 
 ______________________________________________________________________
 
-## 13) Research-Driven Experimentation (When It Matters)
+## 12) Required Agent Work Summary Format
 
-For performance-critical work, explore **multiple candidate approaches** (not only straightforward implementations), but:
+Every work update must include:
 
-- never sacrifice correctness for speed
-- avoid “clever” changes without measurable wins
-- if too complex, keep it as an experiment and document rejection rationale in `docs/`
-
-For each experiment, produce:
-
-1. hypothesis
-1. minimal prototype
-1. microbenchmarks + datasets
-1. go/no-go conclusion with evidence (speed, RSS, complexity)
+1. Files changed
+1. Key design decisions (especially lifetimes + errors)
+1. Tests run (exact commands)
+1. Benchmarks run (if applicable) + baseline/post deltas
+1. Risks + follow-ups
 
 ______________________________________________________________________
 
-## 14) Required Response Format (Every Junie Work Update)
+## 13) Official Architecture: Hybrid Direct-to-Python Without Polluting Core
 
-Every response describing work performed must include:
+Strata officially supports a **hybrid parsing architecture** that enables “Direct-to-Python” performance while
+preserving a **standalone, Python-free C++ core**.
 
-1. **Files changed** (paths)
-1. **Key code blocks** (C++ → Python wrapper)
-1. **Tests added/updated** (C++ + Python)
-1. **Benchmarks added/updated** (if perf path touched)
-1. **Perf/memory rationale** (allocations, complexity, lifetimes)
-1. **If blocked by “no bindings”:** list the required binding changes (high-level) without implementing them
+### 13.1 Core remains independent
 
-______________________________________________________________________
+- The **core parsing engine** must remain **pure C++** and must **not** include `Python.h` or depend on the CPython
+  runtime.
+- Core must expose parsing via one of these **Python-agnostic** interfaces:
+  1. **SAX/Visitor events** into a handler interface (`JsonSaxHandler`)
+  1. **Tape/IR** (token tape) plus builders that consume it
 
-## 15) Operational Checklist (Use This Every Time)
+### 13.2 Builders live above the core
 
-- [ ] Identify whether the change touches a hot path (if yes → benchmark loop)
-- [ ] Implement CPU-heavy logic in C++ (Python stays thin)
-- [ ] Add/adjust tests in **C++ and Python**
-- [ ] Run C++ tests + Python tests; end session only when green
-- [ ] If perf-sensitive: run baseline + post benchmarks; update `docs/benchmarks/progress_log.md`
-- [ ] Keep docs under `docs/` only; update docs when behavior/API changes
-- [ ] Keep automation in `scripts/`; expose via Makefile
-- [ ] Keep public API minimal; no dependency fallbacks in core
+Strata supports multiple builders that consume the core’s events or tape:
+
+- **C++ DOM builder (pure C++)**
+
+  - Builds Strata’s internal representation (DOM/IR) such as `strata::JsonValue`
+  - Used when “heavy work stays in C++” (search/query, repeated traversals, non-Python consumers)
+
+- **Python object builder (Python adapter only)**
+
+  - May include `Python.h` and construct `PyObject*` **during parsing** (single-pass) **or** from tape (two-phase)
+  - Must live in an explicit adapter area (e.g., `src/bindings/python/` or `python/` extension sources)
+  - Must never leak Python types into core headers or core compilation units
+
+### 13.3 Strategy selection is allowed
+
+Public Python APIs may select the build strategy:
+
+- **explicit mode**: `mode="py" | "dom" | "tape" | "auto"`
+- **heuristic mode** (optional): choose DOM/tape for very large inputs or workflows that benefit from C++ representation
+
+### 13.4 Binding-library agnostic requirement remains
+
+- The project must **not require** `pybind11`.
+- Python adapter implementation may use the Python C API (recommended) or another documented approach, but core APIs and
+  data structures must not be designed around any third-party binding library.
+
+### 13.5 Required documentation and gates
+
+Any introduction or change to this hybrid architecture requires:
+
+- an ADR in `docs/adr/` specifying:
+  - interface shape (events/tape), lifetimes, and error model
+  - the builder(s) implemented and where they live
+  - benchmark plan and expected wins
+- correctness tests (C++ + Python parity)
+- benchmark evidence recorded in `docs/benchmarks/progress_log.md`
