@@ -80,25 +80,36 @@ def generate_users_datasets(
         seed = DEFAULT_SEED
     rng = random.Random(seed)
 
-    # Build all users (deterministic order)
-    users = [_gen_user(i, rng, max_orders_per_user, max_items_per_order) for i in range(num_users)]
-
-    # Compute stats
-    total_orders = sum(len(u.get("orders", [])) for u in users)
+    # Build all users (deterministic order) and pre-serialize each one once.
+    # Serializing per-user avoids holding a second ~N-MB string for the
+    # whole document in memory and lets us reuse each line for both the
+    # JSON array file and the NDJSON file.
+    user_lines: list[str] = []
+    total_orders = 0
     total_items = 0
-    for u in users:
-        for o in u.get("orders", []) or []:
-            total_items += len(o.get("items", []))
+    for i in range(num_users):
+        u = _gen_user(i, rng, max_orders_per_user, max_items_per_order)
+        user_lines.append(json.dumps(u, ensure_ascii=False))
+        orders = u.get("orders") or []
+        total_orders += len(orders)
+        for o in orders:
+            total_items += len(o.get("items") or [])
 
-    # Write single JSON document
+    # Write single JSON document (streaming — avoids a second full-size copy)
     json_path = out / "users.json"
-    json_path.write_text(json.dumps({"users": users}, ensure_ascii=False), encoding="utf-8")
+    with json_path.open("w", encoding="utf-8") as f:
+        f.write('{"users":[')
+        for idx, line in enumerate(user_lines):
+            if idx:
+                f.write(",")
+            f.write(line)
+        f.write("]}")
 
     # Write NDJSON
     ndjson_path = out / "users.ndjson"
     with ndjson_path.open("w", encoding="utf-8", newline="\n") as f:
-        for u in users:
-            f.write(json.dumps(u, ensure_ascii=False))
+        for line in user_lines:
+            f.write(line)
             f.write("\n")
 
     return {

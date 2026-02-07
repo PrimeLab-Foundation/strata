@@ -818,31 +818,43 @@ class UnifiedBenchmarkSuite:
         strata_wins = 0
 
         for feature_name, feature_report in self._report.features.items():
-            # Group by dataset
-            by_dataset: dict[str, list[dict]] = {}
+            # Group by (dataset) or (dataset, query) for jsonpath
+            by_group: dict[str, list[dict]] = {}
             for result in feature_report.results:
                 ds = result.get("dataset", "default")
-                by_dataset.setdefault(ds, []).append(result)
+                if feature_name == "jsonpath":
+                    query = result.get("query", "")
+                    key = f"{ds}|{query}"
+                else:
+                    key = ds
+                by_group.setdefault(key, []).append(result)
 
-            for ds, ds_results in by_dataset.items():
-                if not ds_results:
+            for group_key, group_results in by_group.items():
+                if not group_results:
                     continue
 
                 total_benchmarks += 1
-                ds_results.sort(key=lambda r: r.get("median_ms", float("inf")))
-                winner = ds_results[0]
+                group_results.sort(key=lambda r: r.get("median_ms", float("inf")))
+                winner = group_results[0]
 
                 if winner.get("library") == "strata":
                     strata_wins += 1
 
+                # Build display label
+                if feature_name == "jsonpath" and "|" in group_key:
+                    ds, query = group_key.split("|", 1)
+                    label = f"{feature_name}/{ds} ({query})"
+                else:
+                    label = f"{feature_name}/{group_key}"
+
                 # Find strata result
-                strata_result = next((r for r in ds_results if r.get("library") == "strata"), None)
+                strata_result = next((r for r in group_results if r.get("library") == "strata"), None)
                 if strata_result:
-                    strata_rank = ds_results.index(strata_result) + 1
+                    strata_rank = group_results.index(strata_result) + 1
                     strata_ms = strata_result.get("median_ms", 0)
 
                     # Find best non-strata
-                    others = [r for r in ds_results if r.get("library") != "strata"]
+                    others = [r for r in group_results if r.get("library") != "strata"]
                     if others:
                         best_other = others[0]
                         best_lib = best_other.get("library", "?")
@@ -851,10 +863,10 @@ class UnifiedBenchmarkSuite:
                         if strata_ms > 0 and best_ms > 0:
                             if strata_ms < best_ms:
                                 speedup = (best_ms / strata_ms - 1) * 100
-                                self._log(f"  {feature_name}/{ds}: Strata #{strata_rank}, +{speedup:.1f}% vs {best_lib}")
+                                self._log(f"  {label}: Strata #{strata_rank}, +{speedup:.1f}% vs {best_lib}")
                             else:
                                 slowdown = (strata_ms / best_ms - 1) * 100
-                                self._log(f"  {feature_name}/{ds}: Strata #{strata_rank}, -{slowdown:.1f}% vs {best_lib}")
+                                self._log(f"  {label}: Strata #{strata_rank}, -{slowdown:.1f}% vs {best_lib}")
 
         self._log("")
         self._log(f"Strata wins: {strata_wins}/{total_benchmarks} benchmarks")

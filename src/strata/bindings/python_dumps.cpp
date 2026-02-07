@@ -8,9 +8,9 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 // Thread-local buffers for zero-allocation serialization
@@ -50,6 +50,77 @@ int strata_get_cycle_policy() { return static_cast<int>(g_cycle_policy); }
 static inline bool is_container(PyObject* obj) {
     return PyDict_CheckExact(obj) || PyList_CheckExact(obj) || PyTuple_Check(obj);
 }
+
+// Stack-allocated small buffer for cycle detection with hash-set spillover.
+// Linear scan over a fixed array is faster than unordered_set for typical
+// JSON nesting depths (< 32).  Falls back to a heap-allocated hash set
+// only when depth exceeds kInlineCapacity.
+class SmallCycleSet {
+    static constexpr size_t kInlineCapacity = 32;
+    PyObject* inline_buf_[kInlineCapacity];
+    size_t inline_size_ = 0;
+
+    // Spillover set — only allocated when inline buffer overflows.
+    // We use a sorted vector for the spillover since insertions beyond depth
+    // 32 are rare and the set stays small.
+    PyObject** spill_ = nullptr;
+    size_t spill_size_ = 0;
+    size_t spill_cap_ = 0;
+
+  public:
+    SmallCycleSet() = default;
+    ~SmallCycleSet() { std::free(spill_); }
+
+    // Non-copyable
+    SmallCycleSet(const SmallCycleSet&) = delete;
+    SmallCycleSet& operator=(const SmallCycleSet&) = delete;
+
+    bool contains(PyObject* ptr) const {
+        // Linear scan over inline buffer (branch-free on modern CPUs for small N)
+        for (size_t i = 0; i < inline_size_; ++i) {
+            if (inline_buf_[i] == ptr) return true;
+        }
+        // Scan spillover (rare path)
+        for (size_t i = 0; i < spill_size_; ++i) {
+            if (spill_[i] == ptr) return true;
+        }
+        return false;
+    }
+
+    void insert(PyObject* ptr) {
+        if (LIKELY(inline_size_ < kInlineCapacity)) {
+            inline_buf_[inline_size_++] = ptr;
+            return;
+        }
+        // Spillover path
+        if (spill_size_ == spill_cap_) {
+            size_t new_cap = spill_cap_ == 0 ? 16 : spill_cap_ * 2;
+            auto* p = static_cast<PyObject**>(std::realloc(spill_, new_cap * sizeof(PyObject*)));
+            if (!p) return;  // OOM — skip (cycle detection is best-effort)
+            spill_ = p;
+            spill_cap_ = new_cap;
+        }
+        spill_[spill_size_++] = ptr;
+    }
+
+    void erase(PyObject* ptr) {
+        // Check inline buffer (search from end — LIFO pattern for nesting)
+        for (size_t i = inline_size_; i-- > 0;) {
+            if (inline_buf_[i] == ptr) {
+                // Swap with last element for O(1) removal
+                inline_buf_[i] = inline_buf_[--inline_size_];
+                return;
+            }
+        }
+        // Check spillover
+        for (size_t i = spill_size_; i-- > 0;) {
+            if (spill_[i] == ptr) {
+                spill_[i] = spill_[--spill_size_];
+                return;
+            }
+        }
+    }
+};
 
 template <typename Buffer>
 static inline void append_literal(Buffer& out, const char* data, size_t len) {
@@ -367,13 +438,12 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     std::vector<Frame, FrameAllocator> stack{FrameAllocator(&g_serialize_arena)};
     stack.reserve(64);
 
-    // O(1) cycle detection using hash set instead of O(n) linear scan
-    // Skip entirely when policy is NoCheck for maximum performance
+    // Lightweight cycle detection using stack-allocated small buffer.
+    // Linear scan over 32-element array is faster than unordered_set for
+    // typical nesting depths.  Falls back to heap allocation only for
+    // pathologically deep structures.  Skipped entirely for NoCheck.
     const bool check_cycles = (g_cycle_policy != CyclePolicy::NoCheck);
-    std::unordered_set<PyObject*> seen;
-    if (check_cycles) {
-        seen.reserve(64);
-    }
+    SmallCycleSet seen;
 
     PyObject* current = root;
 
@@ -427,8 +497,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             // Now check containers (need cycle detection)
             bool container = is_container(current);
             if (container && check_cycles) {
-                // O(1) cycle detection using hash set
-                bool cycle = seen.count(current) > 0;
+                bool cycle = seen.contains(current);
                 if (cycle) {
                     switch (g_cycle_policy) {
                     case CyclePolicy::Warn:
@@ -450,13 +519,13 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                         break;
                     }
                 }
-                seen.insert(current);  // Add to seen set for O(1) cycle detection
+                seen.insert(current);
             }
 
             if (LIKELY(PyDict_CheckExact(current))) {
                 Py_ssize_t size = PyDict_GET_SIZE(current);
                 if (size == 0) {
-                    if (check_cycles) seen.erase(current);  // Remove empty containers from seen
+                    if (check_cycles) seen.erase(current);
                     append_literal(out, "{}", 2);
                     current = nullptr;
                     continue;
@@ -471,7 +540,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             if (LIKELY(PyList_CheckExact(current))) {
                 Py_ssize_t size = PyList_GET_SIZE(current);
                 if (size == 0) {
-                    if (check_cycles) seen.erase(current);  // Remove empty containers from seen
+                    if (check_cycles) seen.erase(current);
                     append_literal(out, "[]", 2);
                     current = nullptr;
                     continue;
@@ -486,7 +555,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             if (PyTuple_Check(current)) {
                 Py_ssize_t size = PyTuple_GET_SIZE(current);
                 if (size == 0) {
-                    if (check_cycles) seen.erase(current);  // Remove empty containers from seen
+                    if (check_cycles) seen.erase(current);
                     append_literal(out, "[]", 2);
                     current = nullptr;
                     continue;
@@ -535,7 +604,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 current = value;
             } else {
                 out.push_back('}');
-                if (check_cycles) seen.erase(frame.obj);  // Remove from seen set when popping
+                if (check_cycles) seen.erase(frame.obj);
                 stack.pop_back();
             }
             continue;
@@ -563,7 +632,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
         }
 
         out.push_back(']');
-        if (check_cycles) seen.erase(frame.obj);  // Remove from seen set when popping
+        if (check_cycles) seen.erase(frame.obj);
         stack.pop_back();
     }
 

@@ -125,6 +125,7 @@ def set_cycle_policy(policy: str) -> None:
         - "warn": emit RuntimeWarning and write null (default)
         - "error": raise ValueError
         - "ignore": write null silently
+        - "nocheck": skip cycle detection entirely (fastest)
     """
     _native.set_cycle_policy(policy)
 

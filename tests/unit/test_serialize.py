@@ -586,3 +586,24 @@ class TestCyclePolicy:
             warnings.simplefilter("always")
             assert strata.dumps(data) == "[null]"
         assert [w for w in caught if issubclass(w.category, RuntimeWarning)] == []
+
+    def test_nocheck_skips_detection(self):
+        """nocheck policy serializes without cycle detection (acyclic data)."""
+        strata.set_cycle_policy("nocheck")
+        data = {"a": [1, 2, {"b": True}], "c": "hello"}
+        result = strata.dumps(data)
+        assert '"a"' in result
+        assert '"hello"' in result
+
+    def test_deep_nesting_cycle_detected(self):
+        """Cycle detection works even with nesting > 32 (spillover path)."""
+        # Build a chain of 40 nested lists, then create a cycle
+        root = current = []
+        for _ in range(40):
+            child = []
+            current.append(child)
+            current = child
+        current.append(root)  # cycle back to root
+        with pytest.warns(RuntimeWarning):
+            result = strata.dumps(root)
+        assert "null" in result

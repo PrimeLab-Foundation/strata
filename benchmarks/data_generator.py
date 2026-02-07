@@ -82,6 +82,11 @@ class RandomBenchmarkDataGenerator:
         self.rng = random.Random(self._seed)
         self._stats = DatasetMetadata(seed=self._seed)
 
+        # Pre-compute character pools (avoids rebuilding on every call)
+        self._ascii_chars = string.ascii_letters + string.digits + " "
+        self._lower_chars = string.ascii_lowercase
+        self._lower_under_chars = string.ascii_lowercase + "_"
+
     @property
     def seed(self) -> int:
         """Return the seed used for this generator."""
@@ -119,18 +124,18 @@ class RandomBenchmarkDataGenerator:
         length = self.rng.randint(min_len, max_len)
 
         # Base ASCII characters
-        chars = string.ascii_letters + string.digits + " "
+        chars = self._ascii_chars
 
-        parts = []
+        parts: list[str] = []
         remaining = length
 
         while remaining > 0:
             choice = self.rng.random()
 
             if choice < 0.7:
-                # Regular ASCII segment
+                # Regular ASCII segment — batch generation via choices()
                 seg_len = min(self.rng.randint(5, 20), remaining)
-                parts.append("".join(self.rng.choice(chars) for _ in range(seg_len)))
+                parts.append("".join(self.rng.choices(chars, k=seg_len)))
                 remaining -= seg_len
             elif choice < 0.85 and include_unicode:
                 # Unicode segment
@@ -150,32 +155,31 @@ class RandomBenchmarkDataGenerator:
     def _random_key(self, prefix: str = "") -> str:
         """Generate a random object key."""
         self._track_key()
-        styles = ["snake", "camel", "short", "long", "unicode"]
-        style = self.rng.choice(styles)
+        style = self.rng.randint(0, 4)
 
-        if style == "snake":
+        if style == 0:  # snake
             parts = [
-                "".join(self.rng.choices(string.ascii_lowercase, k=self.rng.randint(3, 8)))
+                "".join(self.rng.choices(self._lower_chars, k=self.rng.randint(3, 8)))
                 for _ in range(self.rng.randint(1, 3))
             ]
             return prefix + "_".join(parts)
-        elif style == "camel":
+        elif style == 1:  # camel
             parts = []
             for i in range(self.rng.randint(1, 3)):
                 word = "".join(
-                    self.rng.choices(string.ascii_lowercase, k=self.rng.randint(3, 8))
+                    self.rng.choices(self._lower_chars, k=self.rng.randint(3, 8))
                 )
                 if i > 0:
                     word = word.capitalize()
                 parts.append(word)
             return prefix + "".join(parts)
-        elif style == "short":
+        elif style == 2:  # short
             return prefix + "".join(
-                self.rng.choices(string.ascii_lowercase, k=self.rng.randint(1, 4))
+                self.rng.choices(self._lower_chars, k=self.rng.randint(1, 4))
             )
-        elif style == "long":
+        elif style == 3:  # long
             return prefix + "".join(
-                self.rng.choices(string.ascii_lowercase + "_", k=self.rng.randint(20, 50))
+                self.rng.choices(self._lower_under_chars, k=self.rng.randint(20, 50))
             )
         else:  # unicode
             return prefix + self.rng.choice(self.UNICODE_SAMPLES) + "_key"
@@ -426,15 +430,26 @@ class RandomBenchmarkDataGenerator:
 
         return data, self._stats
 
+    @staticmethod
+    def _json_size(obj: Any) -> int:
+        """Return the UTF-8 byte length of *obj* serialized as JSON.
+
+        Used only for incremental size tracking of individual records so we
+        avoid the O(n²) pattern of re-serializing the entire dataset in a
+        loop.
+        """
+        return len(json.dumps(obj, ensure_ascii=False).encode("utf-8"))
+
     def _generate_simple_data(self, target_size: int, value_types: str) -> dict:
         """Generate simple flat structures."""
         data: dict[str, Any] = {"records": []}
-        current_size = 20
+        # Overhead: {"records":[]}  = 14 bytes, plus a comma per element
+        current_size = 14
 
         while current_size < target_size:
             record = self._random_object(depth=5, max_depth=5, value_types=value_types, min_keys=3, max_keys=8)
             data["records"].append(record)
-            current_size = len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+            current_size += self._json_size(record) + 1  # +1 for comma
 
         return data
 
@@ -452,12 +467,15 @@ class RandomBenchmarkDataGenerator:
         }
 
         # Add more nested structures until target size is reached
-        current_size = len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+        current_size = self._json_size(data)
         counter = 0
         while current_size < target_size:
             nested_depth = self.rng.randint(3, min(20, depth))
-            data[f"branch_{counter}"] = self._generate_deeply_nested(nested_depth)
-            current_size = len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+            branch = self._generate_deeply_nested(nested_depth)
+            key = f"branch_{counter}"
+            data[key] = branch
+            # +4: quotes around key, colon, comma
+            current_size += len(key) + 4 + self._json_size(branch)
             counter += 1
 
         return data
@@ -473,28 +491,27 @@ class RandomBenchmarkDataGenerator:
             "large_arrays": [],
         }
 
-        current_size = len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+        current_size = self._json_size(data)
         while current_size < target_size:
             array_size = min(1000, (target_size - current_size) // 20)
             if array_size < 10:
                 break
-            data["large_arrays"].append(
-                self._random_array(depth=1, max_depth=2, min_len=array_size, max_len=array_size)
-            )
-            current_size = len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+            arr = self._random_array(depth=1, max_depth=2, min_len=array_size, max_len=array_size)
+            data["large_arrays"].append(arr)
+            current_size += self._json_size(arr) + 1
 
         return data
 
     def _generate_realistic_data(self, target_size: int) -> dict:
         """Generate realistic API-response-like data."""
         data = {"users": []}
-        current_size = 20
+        current_size = 14
         index = 0
 
         while current_size < target_size:
             record = self._generate_realistic_record(index)
             data["users"].append(record)
-            current_size = len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+            current_size += self._json_size(record) + 1
             index += 1
 
         return data
@@ -514,20 +531,19 @@ class RandomBenchmarkDataGenerator:
         # Simple records
         current_size = 0
         while current_size < portion_size:
-            data["simple_records"].append(
-                self._random_object(depth=5, max_depth=5, value_types=value_types, min_keys=3, max_keys=8)
-            )
-            current_size = len(json.dumps(data["simple_records"], ensure_ascii=False).encode("utf-8"))
+            record = self._random_object(depth=5, max_depth=5, value_types=value_types, min_keys=3, max_keys=8)
+            data["simple_records"].append(record)
+            current_size += self._json_size(record) + 1
 
         # Nested structures
         depth = min(20, max(3, int(math.log2(portion_size / 100))))
         counter = 0
         current_size = 0
         while current_size < portion_size:
-            data["nested_structures"][f"branch_{counter}"] = self._generate_deeply_nested(
-                self.rng.randint(3, depth)
-            )
-            current_size = len(json.dumps(data["nested_structures"], ensure_ascii=False).encode("utf-8"))
+            branch = self._generate_deeply_nested(self.rng.randint(3, depth))
+            key = f"branch_{counter}"
+            data["nested_structures"][key] = branch
+            current_size += len(key) + 4 + self._json_size(branch)
             counter += 1
 
         # Wide arrays
@@ -536,17 +552,17 @@ class RandomBenchmarkDataGenerator:
             array_size = min(500, (portion_size - current_size) // 20)
             if array_size < 5:
                 break
-            data["wide_arrays"].append(
-                self._random_array(depth=1, max_depth=2, min_len=array_size, max_len=array_size)
-            )
-            current_size = len(json.dumps(data["wide_arrays"], ensure_ascii=False).encode("utf-8"))
+            arr = self._random_array(depth=1, max_depth=2, min_len=array_size, max_len=array_size)
+            data["wide_arrays"].append(arr)
+            current_size += self._json_size(arr) + 1
 
         # Realistic users
         index = 0
         current_size = 0
         while current_size < portion_size:
-            data["realistic_users"].append(self._generate_realistic_record(index))
-            current_size = len(json.dumps(data["realistic_users"], ensure_ascii=False).encode("utf-8"))
+            record = self._generate_realistic_record(index)
+            data["realistic_users"].append(record)
+            current_size += self._json_size(record) + 1
             index += 1
 
         return data

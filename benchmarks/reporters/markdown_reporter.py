@@ -28,6 +28,87 @@ class EnvironmentInfo:
     seed: int | str
 
 
+# ---------------------------------------------------------------------------
+# Helpers: build aligned Markdown tables from rows of cell values
+# ---------------------------------------------------------------------------
+
+# Alignment per column: "l" = left, "r" = right
+_Align = str  # "l" or "r"
+
+
+def _build_table(
+    headers: list[str],
+    rows: list[list[str]],
+    aligns: list[_Align] | None = None,
+) -> list[str]:
+    """Build a Markdown table with columns padded to equal width.
+
+    Args:
+        headers: Column header strings.
+        rows: List of rows; each row is a list of cell strings (same length
+              as *headers*).
+        aligns: Per-column alignment ("l" or "r").  Defaults to left for the
+                first column and right for the rest (typical for benchmark
+                tables where the first column is a label).
+
+    Returns:
+        Lines of text (no trailing newline) ready to be joined with ``\\n``.
+    """
+    n_cols = len(headers)
+    if aligns is None:
+        aligns = ["l"] + ["r"] * (n_cols - 1)
+
+    # Compute max width per column (at least as wide as header).
+    widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            widths[i] = max(widths[i], len(cell))
+
+    def _pad(text: str, width: int, align: _Align) -> str:
+        if align == "r":
+            return text.rjust(width)
+        return text.ljust(width)
+
+    # Header line
+    header_line = "| " + " | ".join(
+        _pad(h, widths[i], aligns[i]) for i, h in enumerate(headers)
+    ) + " |"
+
+    # Separator line (use :--- or ---: for alignment hints)
+    sep_parts: list[str] = []
+    for i in range(n_cols):
+        dashes = "-" * widths[i]
+        if aligns[i] == "r":
+            sep_parts.append(dashes[:-1] + ":")
+        else:
+            sep_parts.append(":" + dashes[1:])
+    sep_line = "| " + " | ".join(sep_parts) + " |"
+
+    # Data rows
+    data_lines: list[str] = []
+    for row in rows:
+        cells = " | ".join(
+            _pad(row[i] if i < len(row) else "", widths[i], aligns[i])
+            for i in range(n_cols)
+        )
+        data_lines.append(f"| {cells} |")
+
+    return [header_line, sep_line, *data_lines]
+
+
+def _fmt_size(size_bytes: int | float) -> str:
+    """Human-readable size string: ``140 KB`` / ``1.04 MB`` / ``10.1 MB``."""
+    kb = size_bytes / 1024
+    if kb < 1024:
+        return f"{kb:,.0f} KB"
+    return f"{kb / 1024:,.2f} MB"
+
+
+def _fmt_int(n: int | float) -> str:
+    """Integer with thousand separators."""
+    return f"{int(n):,}"
+
+
 class MarkdownReporter:
     """Generate Markdown benchmark reports."""
 
@@ -54,12 +135,16 @@ class MarkdownReporter:
             seed="randomized",
         )
 
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
     def generate_report(self, report: BenchmarkReport) -> str:
         """Generate a complete Markdown report from benchmark results."""
-        lines = []
+        lines: list[str] = []
 
         # Header
-        lines.append(f"### Benchmark Report - {self.env_info.timestamp}")
+        lines.append(f"### Benchmark Report — {self.env_info.timestamp}")
         lines.append("")
 
         # Environment section
@@ -74,17 +159,21 @@ class MarkdownReporter:
         # Dataset characteristics
         if report.dataset_info:
             lines.append("#### Dataset Characteristics")
-            lines.append("| Dataset | Size | Depth | Keys | Values | Types |")
-            lines.append("|---------|------|-------|------|--------|-------|")
+            ds_rows: list[list[str]] = []
             for ds in report.dataset_info:
-                size_kb = ds.get("size_bytes", 0) / 1024
-                size_str = f"{size_kb:.0f}KB" if size_kb < 1024 else f"{size_kb/1024:.1f}MB"
-                types_str = ds.get("complexity", "mixed")
-                lines.append(
-                    f"| {ds.get('name', 'unknown')} | {size_str} | "
-                    f"{ds.get('depth', '-')} | {ds.get('keys', '-')} | "
-                    f"{ds.get('values', '-')} | {types_str} |"
-                )
+                ds_rows.append([
+                    ds.get("name", "unknown"),
+                    _fmt_size(ds.get("size_bytes", 0)),
+                    str(ds.get("depth", "-")),
+                    _fmt_int(ds.get("keys", 0)),
+                    _fmt_int(ds.get("values", 0)),
+                    ds.get("complexity", "mixed"),
+                ])
+            lines.extend(_build_table(
+                ["Dataset", "Size", "Depth", "Keys", "Values", "Types"],
+                ds_rows,
+                ["l", "r", "r", "r", "r", "l"],
+            ))
             lines.append("")
 
         # Feature results
@@ -98,9 +187,13 @@ class MarkdownReporter:
 
         return "\n".join(lines)
 
+    # ------------------------------------------------------------------
+    # Feature report formatting
+    # ------------------------------------------------------------------
+
     def _format_feature_report(self, feature_name: str, report: FeatureReport) -> list[str]:
         """Format a single feature's benchmark results."""
-        lines = []
+        lines: list[str] = []
 
         # Feature header
         display_name = feature_name.replace("_", " ").title()
@@ -112,97 +205,187 @@ class MarkdownReporter:
             lines.append("")
             return lines
 
-        # Determine columns based on feature type
-        if feature_name in ("loads", "loads_tape"):
-            lines.append(
-                "| Library | Dataset | Median (ms) | Throughput (MB/s) | RSS (MB) | Rank |"
-            )
-            lines.append("|---------|---------|-------------|-------------------|----------|------|")
-        elif feature_name in ("dumps", "dumps_bytes"):
-            lines.append(
-                "| Library | Dataset | Median (ms) | Size (bytes) | Throughput (MB/s) | Rank |"
-            )
-            lines.append("|---------|---------|-------------|--------------|-------------------|------|")
-        elif feature_name in ("ndjson", "iter_ndjson"):
-            lines.append(
-                "| Library | Dataset | Median (ms) | Lines | Lines/sec | Rank |"
-            )
-            lines.append("|---------|---------|-------------|-------|-----------|------|")
-        elif feature_name == "jsonpath":
-            lines.append(
-                "| Library | Query | Dataset | Median (ms) | Results | Rank |"
-            )
-            lines.append("|---------|-------|---------|-------------|---------|------|")
-        else:
-            lines.append(
-                "| Library | Dataset | Median (ms) | RSS (MB) | Rank |"
-            )
-            lines.append("|---------|---------|-------------|----------|------|")
+        # ----------------------------------------------------------
+        # Rank results within groups (dataset, or dataset+query)
+        # ----------------------------------------------------------
+        group_key = self._group_key_func(feature_name)
 
-        # Sort by median time to assign ranks
-        sorted_results = sorted(
-            report.results, key=lambda r: (r.get("dataset", ""), r.get("median_ms", float("inf")))
-        )
+        by_group: dict[str, list[dict]] = {}
+        for result in report.results:
+            key = group_key(result)
+            by_group.setdefault(key, []).append(result)
 
-        # Group by dataset for ranking
-        by_dataset: dict[str, list[dict]] = {}
-        for result in sorted_results:
-            ds = result.get("dataset", "default")
-            by_dataset.setdefault(ds, []).append(result)
-
-        # Assign ranks within each dataset
-        for ds_results in by_dataset.values():
-            ds_results.sort(key=lambda r: r.get("median_ms", float("inf")))
-            for rank, result in enumerate(ds_results, 1):
+        for g_results in by_group.values():
+            g_results.sort(key=lambda r: r.get("median_ms", float("inf")))
+            for rank, result in enumerate(g_results, 1):
                 result["rank"] = rank
 
-        # Format rows
-        for result in sorted_results:
-            lines.append(self._format_result_row(feature_name, result))
+        # Order by dataset size priority, then by rank
+        size_order = {"tiny": 0, "small": 1, "medium": 2, "large": 3, "xlarge": 4}
+
+        sorted_results = sorted(
+            report.results,
+            key=lambda r: (
+                size_order.get(r.get("dataset", ""), 99),
+                r.get("query", ""),
+                r.get("rank", 999),
+            ),
+        )
+
+        # ----------------------------------------------------------
+        # Build the table
+        # ----------------------------------------------------------
+        if feature_name == "jsonpath":
+            lines.extend(self._format_jsonpath_table(sorted_results))
+        else:
+            headers, aligns, rows = self._feature_table_data(feature_name, sorted_results)
+            lines.extend(_build_table(headers, rows, aligns))
 
         lines.append("")
 
-        # Add speedup notes
+        # Speedup notes
         lines.extend(self._format_speedup_notes(feature_name, report))
 
         return lines
 
-    def _format_result_row(self, feature_name: str, result: dict) -> str:
-        """Format a single result row based on feature type."""
-        library = result.get("library", "unknown")
-        dataset = result.get("dataset", "-")
-        median_ms = result.get("median_ms", 0)
-        rss_mb = result.get("rss_mb", 0)
-        rank = result.get("rank", "-")
+    @staticmethod
+    def _group_key_func(feature_name: str):
+        """Return a function that extracts the ranking-group key."""
+        if feature_name == "jsonpath":
+            return lambda r: (r.get("dataset", ""), r.get("query", ""))
+        return lambda r: r.get("dataset", "default")
+
+    # ----------------------------------------------------------
+    # Table builders per feature type
+    # ----------------------------------------------------------
+
+    def _feature_table_data(
+        self, feature_name: str, sorted_results: list[dict]
+    ) -> tuple[list[str], list[_Align], list[list[str]]]:
+        """Return (headers, aligns, rows) for non-jsonpath features."""
 
         if feature_name in ("loads", "loads_tape"):
-            size_bytes = result.get("input_size_bytes", 0)
-            throughput = (size_bytes / 1024 / 1024) / (median_ms / 1000) if median_ms > 0 else 0
-            return f"| {library} | {dataset} | {median_ms:.2f} | {throughput:.1f} | {rss_mb:.1f} | #{rank} |"
+            headers = ["Library", "Dataset", "Median (ms)", "Throughput (MB/s)", "RSS (MB)", "Rank"]
+            aligns: list[_Align] = ["l", "l", "r", "r", "r", "r"]
+            rows = []
+            for r in sorted_results:
+                size_bytes = r.get("input_size_bytes", 0)
+                median_ms = r.get("median_ms", 0)
+                throughput = (size_bytes / 1024 / 1024) / (median_ms / 1000) if median_ms > 0 else 0
+                rows.append([
+                    r.get("library", "?"),
+                    r.get("dataset", "-"),
+                    f"{median_ms:.2f}",
+                    f"{throughput:.1f}",
+                    f"{r.get('rss_mb', 0):.1f}",
+                    f"#{r.get('rank', '-')}",
+                ])
+            return headers, aligns, rows
 
-        elif feature_name in ("dumps", "dumps_bytes"):
-            output_size = result.get("output_size", 0)
-            throughput = (output_size / 1024 / 1024) / (median_ms / 1000) if median_ms > 0 else 0
-            return f"| {library} | {dataset} | {median_ms:.2f} | {output_size} | {throughput:.1f} | #{rank} |"
+        if feature_name in ("dumps", "dumps_bytes"):
+            headers = ["Library", "Dataset", "Median (ms)", "Size", "Throughput (MB/s)", "Rank"]
+            aligns = ["l", "l", "r", "r", "r", "r"]
+            rows = []
+            for r in sorted_results:
+                output_size = r.get("output_size", 0)
+                median_ms = r.get("median_ms", 0)
+                throughput = (output_size / 1024 / 1024) / (median_ms / 1000) if median_ms > 0 else 0
+                rows.append([
+                    r.get("library", "?"),
+                    r.get("dataset", "-"),
+                    f"{median_ms:.2f}",
+                    _fmt_int(output_size),
+                    f"{throughput:.1f}",
+                    f"#{r.get('rank', '-')}",
+                ])
+            return headers, aligns, rows
 
-        elif feature_name in ("ndjson", "iter_ndjson"):
-            lines_count = result.get("lines_parsed", 0)
-            lines_per_sec = lines_count / (median_ms / 1000) if median_ms > 0 else 0
-            return f"| {library} | {dataset} | {median_ms:.2f} | {lines_count} | {lines_per_sec:.0f} | #{rank} |"
+        if feature_name in ("ndjson", "iter_ndjson"):
+            headers = ["Library", "Dataset", "Median (ms)", "Lines", "Lines/sec", "Rank"]
+            aligns = ["l", "l", "r", "r", "r", "r"]
+            rows = []
+            for r in sorted_results:
+                lines_count = r.get("lines_parsed", 0)
+                median_ms = r.get("median_ms", 0)
+                lines_per_sec = lines_count / (median_ms / 1000) if median_ms > 0 else 0
+                rows.append([
+                    r.get("library", "?"),
+                    r.get("dataset", "-"),
+                    f"{median_ms:.2f}",
+                    _fmt_int(lines_count),
+                    _fmt_int(lines_per_sec),
+                    f"#{r.get('rank', '-')}",
+                ])
+            return headers, aligns, rows
 
-        elif feature_name == "jsonpath":
-            query = result.get("query", "-")
-            result_count = result.get("result_count", 0)
-            return f"| {library} | {query} | {dataset} | {median_ms:.2f} | {result_count} | #{rank} |"
+        # cursor / mmap / generic
+        headers = ["Library", "Dataset", "Median (ms)", "RSS (MB)", "Rank"]
+        aligns = ["l", "l", "r", "r", "r"]
+        rows = []
+        for r in sorted_results:
+            rows.append([
+                r.get("library", "?"),
+                r.get("dataset", "-"),
+                f"{r.get('median_ms', 0):.2f}",
+                f"{r.get('rss_mb', 0):.1f}",
+                f"#{r.get('rank', '-')}",
+            ])
+        return headers, aligns, rows
 
-        else:
-            return f"| {library} | {dataset} | {median_ms:.2f} | {rss_mb:.1f} | #{rank} |"
+    # ----------------------------------------------------------
+    # JSONPath: one sub-table per dataset, grouped by query
+    # ----------------------------------------------------------
+
+    def _format_jsonpath_table(self, sorted_results: list[dict]) -> list[str]:
+        """Format jsonpath results as per-dataset sub-tables for readability."""
+        lines: list[str] = []
+
+        # Group by dataset
+        size_order = {"tiny": 0, "small": 1, "medium": 2, "large": 3, "xlarge": 4}
+        by_dataset: dict[str, list[dict]] = {}
+        for r in sorted_results:
+            by_dataset.setdefault(r.get("dataset", "?"), []).append(r)
+
+        datasets_sorted = sorted(by_dataset.keys(), key=lambda d: size_order.get(d, 99))
+
+        for ds in datasets_sorted:
+            ds_results = by_dataset[ds]
+
+            # Further group by query, preserving insertion order
+            by_query: dict[str, list[dict]] = {}
+            for r in ds_results:
+                by_query.setdefault(r.get("query", "?"), []).append(r)
+
+            # Build rows with blank-line separators between queries
+            headers = ["Library", "Query", "Median (ms)", "Results", "Rank"]
+            aligns: list[_Align] = ["l", "l", "r", "r", "r"]
+            rows: list[list[str]] = []
+            for query, q_results in by_query.items():
+                q_results.sort(key=lambda r: r.get("median_ms", float("inf")))
+                for r in q_results:
+                    rows.append([
+                        r.get("library", "?"),
+                        query,
+                        f"{r.get('median_ms', 0):.2f}",
+                        _fmt_int(r.get("result_count", 0)),
+                        f"#{r.get('rank', '-')}",
+                    ])
+
+            lines.append(f"**Dataset: {ds}**")
+            lines.append("")
+            lines.extend(_build_table(headers, rows, aligns))
+            lines.append("")
+
+        return lines
+
+    # ----------------------------------------------------------
+    # Speedup notes
+    # ----------------------------------------------------------
 
     def _format_speedup_notes(self, feature_name: str, report: FeatureReport) -> list[str]:
         """Generate speedup comparison notes."""
-        lines = []
+        lines: list[str] = []
 
-        # Find strata results and compare to others
         strata_results = [r for r in report.results if r.get("library") == "strata"]
         if not strata_results:
             return lines
@@ -211,11 +394,10 @@ class MarkdownReporter:
             dataset = strata_result.get("dataset", "default")
             strata_median = strata_result.get("median_ms", 0)
             rank = strata_result.get("rank", 0)
-            query = strata_result.get("query")  # For jsonpath comparisons
+            query = strata_result.get("query")
 
             # Find comparison results for same dataset (and query for jsonpath)
             if feature_name == "jsonpath" and query:
-                # For jsonpath, match on both dataset AND query
                 others = [
                     r
                     for r in report.results
@@ -225,7 +407,6 @@ class MarkdownReporter:
                 ]
                 label = f"{dataset} ({query})"
             else:
-                # For other features, match on dataset only
                 others = [
                     r
                     for r in report.results
@@ -236,7 +417,6 @@ class MarkdownReporter:
             if not others:
                 continue
 
-            # Find fastest non-strata
             fastest_other = min(others, key=lambda r: r.get("median_ms", float("inf")))
             fastest_median = fastest_other.get("median_ms", 0)
             fastest_lib = fastest_other.get("library", "unknown")
@@ -259,6 +439,10 @@ class MarkdownReporter:
 
         return lines
 
+    # ----------------------------------------------------------
+    # Summary
+    # ----------------------------------------------------------
+
     def _generate_summary(self, report: BenchmarkReport) -> str:
         """Generate overall summary statistics."""
         total_benchmarks = 0
@@ -266,7 +450,6 @@ class MarkdownReporter:
         best_categories: list[str] = []
 
         for feature_name, feature_report in report.features.items():
-            # Group by dataset
             by_dataset: dict[str, list[dict]] = {}
             for result in feature_report.results:
                 ds = result.get("dataset", "default")
@@ -277,7 +460,6 @@ class MarkdownReporter:
                     continue
                 total_benchmarks += 1
 
-                # Find winner
                 winner = min(ds_results, key=lambda r: r.get("median_ms", float("inf")))
                 if winner.get("library") == "strata":
                     strata_wins += 1
@@ -294,21 +476,26 @@ class MarkdownReporter:
 
         return "\n".join(summary_lines)
 
+    # ----------------------------------------------------------
+    # Progress log entry
+    # ----------------------------------------------------------
+
     def generate_progress_log_entry(self, report: BenchmarkReport) -> str:
         """Generate a condensed entry suitable for progress_log.md."""
-        lines = []
+        out: list[str] = []
 
-        # Header with date and commit
-        lines.append(f"### {self.env_info.timestamp}")
-        lines.append("")
-        lines.append(f"**Environment**: {self.env_info.os_name} {self.env_info.os_version}, ")
-        lines.append(f"Python {self.env_info.python_version}, Strata {self.env_info.strata_version}")
-        lines.append(f"**Seed**: {self.env_info.seed}")
-        lines.append("")
+        out.append(f"### {self.env_info.timestamp}")
+        out.append("")
+        out.append(
+            f"**Environment**: {self.env_info.os_name} {self.env_info.os_version}, "
+            f"Python {self.env_info.python_version}, Strata {self.env_info.strata_version}"
+        )
+        out.append(f"**Seed**: {self.env_info.seed}")
+        out.append("")
 
-        # Condensed results table
-        lines.append("| Feature | Dataset | Strata (ms) | Best Other | Speedup |")
-        lines.append("|---------|---------|-------------|------------|---------|")
+        headers = ["Feature", "Dataset", "Strata (ms)", "Best Other", "Speedup"]
+        aligns: list[_Align] = ["l", "l", "r", "l", "r"]
+        rows: list[list[str]] = []
 
         for feature_name, feature_report in report.features.items():
             for result in feature_report.results:
@@ -317,9 +504,8 @@ class MarkdownReporter:
 
                 dataset = result.get("dataset", "default")
                 strata_ms = result.get("median_ms", 0)
-                query = result.get("query")  # For jsonpath comparisons
+                query = result.get("query")
 
-                # Find best other (match on query too for jsonpath)
                 if feature_name == "jsonpath" and query:
                     others = [
                         r
@@ -344,20 +530,25 @@ class MarkdownReporter:
 
                     if strata_ms > 0 and best_ms > 0:
                         if strata_ms < best_ms:
-                            speedup = f"+{(best_ms/strata_ms - 1) * 100:.1f}%"
+                            speedup = f"+{(best_ms / strata_ms - 1) * 100:.1f}%"
                         else:
-                            speedup = f"-{(strata_ms/best_ms - 1) * 100:.1f}%"
+                            speedup = f"-{(strata_ms / best_ms - 1) * 100:.1f}%"
                     else:
                         speedup = "-"
 
-                    lines.append(
-                        f"| {feature_name} | {label} | {strata_ms:.2f} | {best_lib} ({best_ms:.2f}) | {speedup} |"
-                    )
+                    rows.append([
+                        feature_name,
+                        label,
+                        f"{strata_ms:.2f}",
+                        f"{best_lib} ({best_ms:.2f})",
+                        speedup,
+                    ])
                 else:
-                    lines.append(f"| {feature_name} | {label} | {strata_ms:.2f} | - | - |")
+                    rows.append([feature_name, label, f"{strata_ms:.2f}", "-", "-"])
 
-        lines.append("")
-        lines.append("---")
-        lines.append("")
+        out.extend(_build_table(headers, rows, aligns))
+        out.append("")
+        out.append("---")
+        out.append("")
 
-        return "\n".join(lines)
+        return "\n".join(out)

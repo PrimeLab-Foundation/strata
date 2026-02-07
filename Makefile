@@ -232,6 +232,33 @@ bench-all: bench-data bench-small bench-medium bench-large
 	@echo "════════════════════════════════════════════════════════════════"
 
 # ============================================================================
+# Unified Benchmark Suite (randomized data, multi-library comparison)
+# ============================================================================
+bench-unified:  ## Run unified benchmark suite with randomized data
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  Unified Benchmark Suite (randomized data)"
+	@echo "════════════════════════════════════════════════════════════════"
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified
+
+bench-unified-quick:  ## Run quick unified benchmarks (small dataset, fewer iterations)
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  Unified Benchmark Suite (quick mode)"
+	@echo "════════════════════════════════════════════════════════════════"
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified --quick
+
+bench-unified-comprehensive:  ## Run comprehensive unified benchmarks (all features, all sizes)
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  Unified Benchmark Suite (comprehensive mode)"
+	@echo "════════════════════════════════════════════════════════════════"
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified --comprehensive
+
+bench-unified-save:  ## Run unified benchmarks and append to progress log
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  Unified Benchmark Suite (saving to progress log)"
+	@echo "════════════════════════════════════════════════════════════════"
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified --append-progress-log
+
+# ============================================================================
 # C++ Tests
 # ============================================================================
 
@@ -262,12 +289,22 @@ coverage-cpp:
 			src/strata/json/json_cursor.cpp \
 			src/strata/json/json_document.cpp \
 			src/strata/json/json_serialize.cpp \
-			src/strata/json/ndjson_stream.cpp \
+			src/strata/json/json_tape.cpp \
 			src/strata/json/json_mmap.cpp \
-			src/strata/search/jsonpath.cpp \
+			src/strata/json/json_lazy_cursor.cpp \
+			src/strata/json/ndjson_stream.cpp \
+			src/strata/json/parallel_ndjson.cpp \
+			src/strata/search/jsonpath_compile.cpp \
+			src/strata/search/jsonpath_eval.cpp \
 			src/strata/util/ryu_dtoa.cpp \
-			src/strata/util/simd_string.cpp \
+			src/strata/util/dragonbox.cpp \
+			src/strata/util/simd_escape.cpp \
+			src/strata/util/simd_newline.cpp \
+			src/strata/util/simd_utf8.cpp \
+			src/strata/util/simd_numbers.cpp \
+			src/strata/util/simd_structural.cpp \
 			src/strata/util/fast_parse.cpp \
+			src/strata/util/thread_pool.cpp \
 			-o build_coverage/test_$${test}; \
 		LLVM_PROFILE_FILE="build_coverage/test_$${test}.profraw" ./build_coverage/test_$${test} > /dev/null 2>&1 || true; \
 	done
@@ -305,10 +342,24 @@ fuzz-run: fuzz-build  ## Run fuzz_loads and fuzz_ndjson. Env: FUZZ_TIME=120, FUZ
 fuzz: fuzz-run  ## Build and run fuzzers (alias for fuzz-run after fuzz-build).
 
 # ============================================================================
-# PGO (Rule 16: Makefile → scripts/)
+# PGO (Profile-Guided Optimization) - Rule 16: Makefile → scripts/
+# Expected improvement: 5-15% overall throughput
 # ============================================================================
-pgo:  ## Run PGO workflow (generate profile, use+LTO build, tests, benchmarks). Env: PYTHON, CXX=clang++.
+pgo:  ## Run PGO workflow with medium dataset (default). See: docs/development/pgo_workflow.md
 	@bash scripts/pgo_build.sh
+
+pgo-small:  ## Run PGO workflow with small dataset (faster, less comprehensive)
+	@PGO_DATASET_SIZE=small bash scripts/pgo_build.sh
+
+pgo-large:  ## Run PGO workflow with large dataset (slower, best for releases)
+	@PGO_DATASET_SIZE=large bash scripts/pgo_build.sh
+
+pgo-release:  ## Run PGO release build (large dataset, 100 repeats) - recommended for releases
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  PGO Release Build"
+	@echo "  Using large dataset with 100 repetitions for optimal profiling"
+	@echo "════════════════════════════════════════════════════════════════"
+	@PGO_DATASET_SIZE=large PGO_BENCH_REPEAT=100 bash scripts/pgo_build.sh
 
 scripts-executable:  ## Make scripts/ runnable (chmod +x). Run once if you want ./scripts/foo.sh.
 	@chmod +x scripts/*.sh 2>/dev/null || true
