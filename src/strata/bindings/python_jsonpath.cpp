@@ -2,10 +2,7 @@
 #include "python_document.h"
 #include "python_types.h"
 #include "strata/search/jsonpath.hpp"
-#include "strata/util/fast_parse.hpp"
 
-#include <cstdlib>
-#include <limits>
 #include <string>
 #include <vector>
 
@@ -14,196 +11,6 @@ static void emit_duplicate_key_warnings() {
     for (const auto& msg : warnings) {
         PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
     }
-}
-
-extern int strata_get_cycle_policy();
-
-static PyObject* make_cycle_memo() { return PyDict_New(); }
-
-static bool memo_contains(PyObject* memo, PyObject* obj, bool& ok) {
-    PyObject* key = PyLong_FromVoidPtr(obj);
-    if (!key) {
-        ok = false;
-        return false;
-    }
-    int rc = PyDict_Contains(memo, key);
-    Py_DECREF(key);
-    if (rc < 0) {
-        ok = false;
-        return false;
-    }
-    return rc == 1;
-}
-
-static bool memo_add(PyObject* memo, PyObject* obj) {
-    PyObject* key = PyLong_FromVoidPtr(obj);
-    if (!key)
-        return false;
-    int rc = PyDict_SetItem(memo, key, Py_True);
-    Py_DECREF(key);
-    return rc == 0;
-}
-
-static void memo_remove(PyObject* memo, PyObject* obj) {
-    PyObject* key = PyLong_FromVoidPtr(obj);
-    if (!key) {
-        PyErr_Clear();
-        return;
-    }
-    if (PyDict_DelItem(memo, key) < 0) {
-        PyErr_Clear();
-    }
-    Py_DECREF(key);
-}
-
-static bool is_container(PyObject* obj) {
-    return PyDict_Check(obj) || PyList_Check(obj) || PyTuple_Check(obj);
-}
-
-static strata::JsonValue pyobject_to_json_value(PyObject* obj, PyObject* memo, bool& ok) {
-    if (!ok) {
-        return strata::JsonValue();
-    }
-
-    if (obj == Py_None) {
-        return strata::JsonValue();
-    }
-
-    if (obj == Py_True) {
-        return strata::JsonValue(strata::JsonValue::Variant(true));
-    }
-    if (obj == Py_False) {
-        return strata::JsonValue(strata::JsonValue::Variant(false));
-    }
-
-    if (PyUnicode_Check(obj)) {
-        Py_ssize_t len = 0;
-        const char* data = PyUnicode_AsUTF8AndSize(obj, &len);
-        if (!data) {
-            ok = false;
-            return strata::JsonValue();
-        }
-        return strata::JsonValue(strata::JsonValue::Variant(std::string(data, len)));
-    }
-
-    if (PyLong_Check(obj)) {
-        int overflow = 0;
-        long long int_val = PyLong_AsLongLongAndOverflow(obj, &overflow);
-        if (overflow == 0 && !PyErr_Occurred()) {
-            return strata::JsonValue(strata::JsonValue::Variant(static_cast<double>(int_val)));
-        }
-        PyErr_Clear();
-
-        PyObject* str_obj = PyObject_Str(obj);
-        if (!str_obj) {
-            ok = false;
-            return strata::JsonValue();
-        }
-        Py_ssize_t len = 0;
-        const char* data = PyUnicode_AsUTF8AndSize(str_obj, &len);
-        if (!data) {
-            Py_DECREF(str_obj);
-            ok = false;
-            return strata::JsonValue();
-        }
-        double value = 0.0;
-        size_t consumed = 0;
-        bool parsed =
-            strata::util::parse_double_fast(data, static_cast<size_t>(len), value, consumed);
-        Py_DECREF(str_obj);
-        if (!parsed || consumed != static_cast<size_t>(len)) {
-            PyErr_SetString(PyExc_ValueError, "Failed to convert large integer");
-            ok = false;
-            return strata::JsonValue();
-        }
-        return strata::JsonValue(strata::JsonValue::Variant(value));
-    }
-
-    if (PyFloat_Check(obj)) {
-        return strata::JsonValue(strata::JsonValue::Variant(PyFloat_AS_DOUBLE(obj)));
-    }
-
-    if (is_container(obj)) {
-        if (memo_contains(memo, obj, ok)) {
-            int policy = strata_get_cycle_policy();
-            if (policy == 1) {
-                PyErr_SetString(PyExc_ValueError, "Cycle detected during JSONPath conversion");
-                ok = false;
-                return strata::JsonValue();
-            }
-            if (policy == 0) {
-                if (PyErr_WarnEx(PyExc_RuntimeWarning, "Cycle detected during JSONPath conversion",
-                                 1) < 0) {
-                    ok = false;
-                    return strata::JsonValue();
-                }
-            }
-            return strata::JsonValue();
-        }
-
-        if (!memo_add(memo, obj)) {
-            ok = false;
-            return strata::JsonValue();
-        }
-
-        if (PyDict_Check(obj)) {
-            strata::JsonValue::Object out;
-            PyObject* key = nullptr;
-            PyObject* value = nullptr;
-            Py_ssize_t pos = 0;
-            while (PyDict_Next(obj, &pos, &key, &value)) {
-                if (!PyUnicode_Check(key)) {
-                    PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
-                    ok = false;
-                    break;
-                }
-                Py_ssize_t klen = 0;
-                const char* kdata = PyUnicode_AsUTF8AndSize(key, &klen);
-                if (!kdata) {
-                    ok = false;
-                    break;
-                }
-                std::string kstr(kdata, klen);
-                strata::JsonValue v = pyobject_to_json_value(value, memo, ok);
-                if (!ok) {
-                    break;
-                }
-                out.emplace(std::move(kstr), std::move(v));
-            }
-            memo_remove(memo, obj);
-            return ok ? strata::JsonValue(strata::JsonValue::Variant(std::move(out)))
-                      : strata::JsonValue();
-        }
-
-        strata::JsonValue::Array arr;
-        Py_ssize_t size = PySequence_Size(obj);
-        if (size < 0) {
-            ok = false;
-            memo_remove(memo, obj);
-            return strata::JsonValue();
-        }
-        arr.reserve(static_cast<size_t>(size));
-        for (Py_ssize_t i = 0; i < size; ++i) {
-            PyObject* item = PySequence_GetItem(obj, i);
-            if (!item) {
-                ok = false;
-                break;
-            }
-            strata::JsonValue v = pyobject_to_json_value(item, memo, ok);
-            Py_DECREF(item);
-            if (!ok) {
-                break;
-            }
-            arr.push_back(std::move(v));
-        }
-        memo_remove(memo, obj);
-        return ok ? strata::JsonValue(strata::JsonValue::Variant(std::move(arr)))
-                  : strata::JsonValue();
-    }
-
-    PyErr_SetString(PyExc_TypeError, "Unsupported type for JSONPath search");
-    ok = false;
-    return strata::JsonValue();
 }
 
 //=============================================================================
@@ -450,21 +257,9 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         return json_value_list_to_python(result_values);
     }
 
-    // Handle Python object (dict/list/scalar) - convert directly
-    PyObject* memo = make_cycle_memo();
-    if (!memo) {
-        return NULL;
-    }
-    bool ok = true;
-    strata::JsonValue root = pyobject_to_json_value(data_obj, memo, ok);
-    Py_DECREF(memo);
-    if (!ok || PyErr_Occurred()) {
-        return NULL;
-    }
-
-    strata::JsonCursor cursor(&root);
-    auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-    return json_value_list_to_python(result_values);
+    PyErr_SetString(PyExc_TypeError,
+                    "search() expects JSON text (str/bytes) or a JsonDocument/JsonCursor");
+    return NULL;
 
     STRATA_CPP_CATCH
 }

@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -70,7 +71,226 @@ void test_compile_errors() {
     auto result_bad2 = compile_jsonpath("");
     assert(!result_bad2.ok());
 
+    // Just whitespace
+    auto result_bad3 = compile_jsonpath("   ");
+    assert(!result_bad3.ok());
+
+    // Invalid bracket expression
+    auto result_bad4 = compile_jsonpath("$[abc]");
+    assert(!result_bad4.ok());
+
     std::cout << "✓ test_compile_errors passed\n";
+}
+
+void test_compile_quoted_strings() {
+    // Single-quoted string
+    auto r1 = compile_jsonpath("$['hello']");
+    assert(r1.ok());
+
+    // Double-quoted string
+    auto r2 = compile_jsonpath("$[\"world\"]");
+    assert(r2.ok());
+
+    // Mixed path with quoted key (hyphenated name)
+    auto r3 = compile_jsonpath("$.user['first-name']");
+    assert(r3.ok());
+
+    // Quoted key with space
+    auto r4 = compile_jsonpath("$['key with space']");
+    assert(r4.ok());
+
+    // Quoted key with special characters
+    auto r5 = compile_jsonpath("$['key.with.dots']");
+    assert(r5.ok());
+
+    auto r6 = compile_jsonpath("$['key:with:colons']");
+    assert(r6.ok());
+
+    // Nested quoted access
+    auto r7 = compile_jsonpath("$['outer']['inner']");
+    assert(r7.ok());
+
+    // Multiple quoted keys in sequence
+    auto r8 = compile_jsonpath("$['a']['b']['c']");
+    assert(r8.ok());
+
+    // Unclosed quoted string - should fail (currently throws)
+    bool caught_unclosed = false;
+    try {
+        auto r9 = compile_jsonpath("$['unclosed");
+        (void)r9;  // Shouldn't reach here
+    } catch (const std::runtime_error&) {
+        caught_unclosed = true;
+    }
+    assert(caught_unclosed);
+
+    std::cout << "✓ test_compile_quoted_strings passed\n";
+}
+
+void test_compile_quoted_escape_sequences() {
+    // Test escape sequences within quoted JSONPath strings
+    // These exercise the escape handling in parse_quoted_string()
+
+    // Newline escape
+    auto r1 = compile_jsonpath("$['hello\\nworld']");
+    assert(r1.ok());
+
+    // Tab escape
+    auto r2 = compile_jsonpath("$['tab\\there']");
+    assert(r2.ok());
+
+    // Carriage return escape
+    auto r3 = compile_jsonpath("$['line\\rreturn']");
+    assert(r3.ok());
+
+    // Backslash escape
+    auto r4 = compile_jsonpath("$['back\\\\slash']");
+    assert(r4.ok());
+
+    // Quote escape in single-quoted string
+    auto r5 = compile_jsonpath("$['it\\'s']");
+    assert(r5.ok());
+
+    // Quote escape in double-quoted string
+    auto r6 = compile_jsonpath("$[\"say\\\"hello\\\"\"]");
+    assert(r6.ok());
+
+    // Other escape (default case - passes through)
+    auto r7 = compile_jsonpath("$['hello\\xworld']");
+    assert(r7.ok());
+
+    // Multiple escapes in one string
+    auto r8 = compile_jsonpath("$['line1\\nline2\\ttab']");
+    assert(r8.ok());
+
+    std::cout << "✓ test_compile_quoted_escape_sequences passed\n";
+}
+
+void test_compile_negative_numbers() {
+    // Negative array index
+    auto r1 = compile_jsonpath("$[-1]");
+    assert(r1.ok());
+
+    auto r2 = compile_jsonpath("$[-10]");
+    assert(r2.ok());
+
+    // Negative in slice
+    auto r3 = compile_jsonpath("$[-3:-1]");
+    assert(r3.ok());
+
+    // Slice with negative start
+    auto r4 = compile_jsonpath("$[-5:]");
+    assert(r4.ok());
+
+    // Slice with negative end
+    auto r5 = compile_jsonpath("$[:-2]");
+    assert(r5.ok());
+
+    // Filter with negative number
+    auto r6 = compile_jsonpath("$[?(@.value > -5)]");
+    assert(r6.ok());
+
+    auto r7 = compile_jsonpath("$[?(@.temp < -273)]");
+    assert(r7.ok());
+
+    std::cout << "✓ test_compile_negative_numbers passed\n";
+}
+
+void test_compile_float_literals() {
+    // Simple float
+    auto r1 = compile_jsonpath("$[?(@.price > 9.99)]");
+    assert(r1.ok());
+
+    // Float with scientific notation
+    auto r2 = compile_jsonpath("$[?(@.value < 1e10)]");
+    assert(r2.ok());
+
+    auto r3 = compile_jsonpath("$[?(@.value > 1.5e-3)]");
+    assert(r3.ok());
+
+    auto r4 = compile_jsonpath("$[?(@.value < 2.5E+6)]");
+    assert(r4.ok());
+
+    // Negative float
+    auto r5 = compile_jsonpath("$[?(@.temp < -273.15)]");
+    assert(r5.ok());
+
+    // Very small float
+    auto r6 = compile_jsonpath("$[?(@.epsilon > 1e-10)]");
+    assert(r6.ok());
+
+    // Float comparison operators
+    auto r7 = compile_jsonpath("$[?(@.val >= 0.5)]");
+    assert(r7.ok());
+
+    auto r8 = compile_jsonpath("$[?(@.val <= 99.99)]");
+    assert(r8.ok());
+
+    auto r9 = compile_jsonpath("$[?(@.val == 3.14159)]");
+    assert(r9.ok());
+
+    auto r10 = compile_jsonpath("$[?(@.val != 0.0)]");
+    assert(r10.ok());
+
+    std::cout << "✓ test_compile_float_literals passed\n";
+}
+
+void test_compile_filter_errors() {
+    // Test various filter parsing error cases to improve coverage
+
+    // Filter without opening paren
+    auto r1 = compile_jsonpath("$[?@.age > 5]");
+    assert(!r1.ok());
+
+    // Filter without @
+    auto r2 = compile_jsonpath("$[?(value > 5)]");
+    assert(!r2.ok());
+
+    // Filter with @ but no . or [
+    auto r3 = compile_jsonpath("$[?(@value > 5)]");
+    assert(!r3.ok());
+
+    // Filter with @. but empty field
+    auto r4 = compile_jsonpath("$[?(@. > 5)]");
+    assert(!r4.ok());
+
+    // Filter with @[ but not a quoted string
+    auto r5 = compile_jsonpath("$[?(@[123] > 5)]");
+    assert(!r5.ok());
+
+    // Filter with @['field' but missing ]
+    auto r6 = compile_jsonpath("$[?(@['field' > 5)]");
+    assert(!r6.ok());
+
+    // Filter with invalid operator (single =)
+    auto r7 = compile_jsonpath("$[?(@.age = 5)]");
+    assert(!r7.ok());
+
+    // Filter with single ! (not followed by =)
+    auto r8 = compile_jsonpath("$[?(@.age !5)]");
+    assert(!r8.ok());
+
+    // Filter with no operator at all
+    auto r9 = compile_jsonpath("$[?(@.age)]");
+    assert(!r9.ok());
+
+    // Filter value that's not string or number (identifier)
+    auto r10 = compile_jsonpath("$[?(@.age > xyz)]");
+    assert(!r10.ok());
+
+    // Filter without closing paren
+    auto r11 = compile_jsonpath("$[?(@.age > 5]");
+    assert(!r11.ok());
+
+    // Recursive descent with empty field name
+    auto r12 = compile_jsonpath("$..");
+    assert(!r12.ok());
+
+    // Empty field after dot
+    auto r13 = compile_jsonpath("$.");
+    assert(!r13.ok());
+
+    std::cout << "✓ test_compile_filter_errors passed\n";
 }
 
 void test_eval_root() {
@@ -201,6 +421,82 @@ void test_eval_filter_numeric() {
     std::cout << "✓ test_eval_filter_numeric passed\n";
 }
 
+void test_eval_filter_all_operators() {
+    // Test all comparison operators: ==, !=, >=, <, <=
+    auto doc_result = JsonDocument::from_string("[{\"val\": 10}, {\"val\": 20}, {\"val\": 30}, {\"val\": 40}]");
+    assert(doc_result.ok());
+
+    // Equal (==)
+    auto path_eq = compile_jsonpath("$[?(@.val == 20)]");
+    assert(path_eq.ok());
+    auto results_eq = eval_jsonpath(doc_result.value, path_eq.value);
+    assert(results_eq.size() == 1);
+    assert(results_eq[0].as_object().at("val").as_number() == 20.0);
+
+    // Not equal (!=)
+    auto path_ne = compile_jsonpath("$[?(@.val != 20)]");
+    assert(path_ne.ok());
+    auto results_ne = eval_jsonpath(doc_result.value, path_ne.value);
+    assert(results_ne.size() == 3);
+
+    // Greater equal (>=)
+    auto path_ge = compile_jsonpath("$[?(@.val >= 30)]");
+    assert(path_ge.ok());
+    auto results_ge = eval_jsonpath(doc_result.value, path_ge.value);
+    assert(results_ge.size() == 2);
+
+    // Less than (<)
+    auto path_lt = compile_jsonpath("$[?(@.val < 25)]");
+    assert(path_lt.ok());
+    auto results_lt = eval_jsonpath(doc_result.value, path_lt.value);
+    assert(results_lt.size() == 2);
+
+    // Less equal (<=)
+    auto path_le = compile_jsonpath("$[?(@.val <= 20)]");
+    assert(path_le.ok());
+    auto results_le = eval_jsonpath(doc_result.value, path_le.value);
+    assert(results_le.size() == 2);
+
+    std::cout << "✓ test_eval_filter_all_operators passed\n";
+}
+
+void test_eval_filter_string() {
+    // Test string comparisons in filters
+    auto doc_result = JsonDocument::from_string(
+        "[{\"name\": \"Alice\"}, {\"name\": \"Bob\"}, {\"name\": \"Charlie\"}]");
+    assert(doc_result.ok());
+
+    // String equal
+    auto path_eq = compile_jsonpath("$[?(@.name == \"Bob\")]");
+    assert(path_eq.ok());
+    auto results_eq = eval_jsonpath(doc_result.value, path_eq.value);
+    assert(results_eq.size() == 1);
+    assert(results_eq[0].as_object().at("name").as_string() == "Bob");
+
+    // String not equal
+    auto path_ne = compile_jsonpath("$[?(@.name != \"Bob\")]");
+    assert(path_ne.ok());
+    auto results_ne = eval_jsonpath(doc_result.value, path_ne.value);
+    assert(results_ne.size() == 2);
+
+    std::cout << "✓ test_eval_filter_string passed\n";
+}
+
+void test_eval_filter_missing_field() {
+    // Test filter on missing field - should not match
+    auto doc_result = JsonDocument::from_string(
+        "[{\"age\": 25}, {\"name\": \"Bob\"}, {\"age\": 35}]");
+    assert(doc_result.ok());
+
+    auto path = compile_jsonpath("$[?(@.age > 20)]");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc_result.value, path.value);
+    // Only items with 'age' field that passes filter
+    assert(results.size() == 2);
+
+    std::cout << "✓ test_eval_filter_missing_field passed\n";
+}
+
 void test_eval_recursive() {
     auto doc_result =
         JsonDocument::from_string("{\"a\": {\"name\": \"Alice\"}, \"b\": {\"name\": \"Bob\"}}");
@@ -254,9 +550,223 @@ void test_eval_missing_field() {
     std::cout << "✓ test_eval_missing_field passed\n";
 }
 
+void test_eval_recursive_with_limit() {
+    // Test early termination with limit parameter
+    const char* json_str = R"({
+        "a": {"price": 10},
+        "b": {"price": 20},
+        "c": {"price": 30},
+        "d": {"price": 40},
+        "e": {"price": 50}
+    })";
+
+    auto doc_result = JsonDocument::from_string(json_str);
+    assert(doc_result.ok());
+
+    auto path = compile_jsonpath("$..price");
+    assert(path.ok());
+
+    // Test with limit = 1 (early termination after first result)
+    auto results_1 = eval_jsonpath(doc_result.value, path.value, 1);
+    assert(results_1.size() == 1);
+
+    // Test with limit = 3
+    auto results_3 = eval_jsonpath(doc_result.value, path.value, 3);
+    assert(results_3.size() == 3);
+
+    // Test with limit = 10 (more than available)
+    auto results_10 = eval_jsonpath(doc_result.value, path.value, 10);
+    assert(results_10.size() == 5);
+
+    // Test with limit = 0 (should return empty)
+    auto results_0 = eval_jsonpath(doc_result.value, path.value, 0);
+    assert(results_0.empty());
+
+    std::cout << "✓ test_eval_recursive_with_limit passed\n";
+}
+
+void test_eval_deep_recursive_with_limit() {
+    // Test recursive descent on deeply nested structure
+    const char* json_str = R"({
+        "level1": {
+            "price": 100,
+            "level2": {
+                "price": 200,
+                "level3": {
+                    "price": 300,
+                    "items": [
+                        {"price": 400},
+                        {"price": 500}
+                    ]
+                }
+            }
+        }
+    })";
+
+    auto doc_result = JsonDocument::from_string(json_str);
+    assert(doc_result.ok());
+
+    auto path = compile_jsonpath("$..price");
+    assert(path.ok());
+
+    // Get all prices (no limit)
+    auto all_results = eval_jsonpath(doc_result.value, path.value);
+    assert(all_results.size() == 5);
+
+    // Get first price only
+    auto results_1 = eval_jsonpath(doc_result.value, path.value, 1);
+    assert(results_1.size() == 1);
+
+    // Get first 3 prices
+    auto results_3 = eval_jsonpath(doc_result.value, path.value, 3);
+    assert(results_3.size() == 3);
+
+    std::cout << "✓ test_eval_deep_recursive_with_limit passed\n";
+}
+
+void test_eval_array_recursive_with_limit() {
+    // Test recursive descent with array at root
+    const char* json_str = R"([
+        {"name": "Alice", "metadata": {"tag": "A"}},
+        {"name": "Bob", "metadata": {"tag": "B"}},
+        {"name": "Charlie", "metadata": {"tag": "C"}}
+    ])";
+
+    auto doc_result = JsonDocument::from_string(json_str);
+    assert(doc_result.ok());
+
+    auto path = compile_jsonpath("$..tag");
+    assert(path.ok());
+
+    // Get all tags
+    auto all_results = eval_jsonpath(doc_result.value, path.value);
+    assert(all_results.size() == 3);
+
+    // Get first 2 tags with limit
+    auto results_2 = eval_jsonpath(doc_result.value, path.value, 2);
+    assert(results_2.size() == 2);
+
+    std::cout << "✓ test_eval_array_recursive_with_limit passed\n";
+}
+
+// ============================================================================
+// Additional coverage tests for uncovered eval paths
+// ============================================================================
+
+void test_eval_filter_on_non_objects() {
+    // Filter applied to array containing non-object elements (scalars)
+    // This tests the is_object() check in eval_filter (line 50-51)
+    auto doc = JsonDocument::from_string("[1, 2, {\"age\": 30}, \"hello\", {\"age\": 40}]");
+    assert(doc.ok());
+    auto path = compile_jsonpath("$[?(@.age > 25)]");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc.value, path.value);
+    // Only the two objects should be evaluated, scalars skipped
+    assert(results.size() == 2);
+    std::cout << "✓ test_eval_filter_on_non_objects passed\n";
+}
+
+void test_eval_string_filter_on_numeric() {
+    // String filter on a field that contains a number
+    // Tests the is_string() check in eval_filter (line 80-81)
+    auto doc = JsonDocument::from_string(R"([{"name": "Alice"}, {"name": 123}, {"name": "Bob"}])");
+    assert(doc.ok());
+    auto path = compile_jsonpath(R"($[?(@.name == "Alice")])");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc.value, path.value);
+    // Only string "Alice" matches, numeric 123 is skipped
+    assert(results.size() == 1);
+    assert(results[0].as_object().at("name").as_string() == "Alice");
+    std::cout << "✓ test_eval_string_filter_on_numeric passed\n";
+}
+
+void test_eval_negative_index() {
+    // Test negative array index (last element)
+    auto doc = JsonDocument::from_string("[10, 20, 30, 40, 50]");
+    assert(doc.ok());
+    auto path = compile_jsonpath("$[-1]");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].as_number() == 50.0);
+
+    // Test -2 (second to last)
+    auto path2 = compile_jsonpath("$[-2]");
+    assert(path2.ok());
+    auto results2 = eval_jsonpath(doc.value, path2.value);
+    assert(results2.size() == 1);
+    assert(results2[0].as_number() == 40.0);
+
+    std::cout << "✓ test_eval_negative_index passed\n";
+}
+
+void test_eval_collect_null() {
+    // Test collecting null values through JSONPath
+    // This exercises materialize() for null type (line 16)
+    auto doc = JsonDocument::from_string(R"({"a": null, "b": 123})");
+    assert(doc.ok());
+    auto path = compile_jsonpath("$.a");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].is_null());
+    std::cout << "✓ test_eval_collect_null passed\n";
+}
+
+void test_eval_collect_bool() {
+    // Test collecting boolean values through JSONPath
+    // This exercises materialize() for bool type (line 18)
+    auto doc = JsonDocument::from_string(R"({"active": true, "deleted": false})");
+    assert(doc.ok());
+    auto path = compile_jsonpath("$.active");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].is_bool());
+    assert(results[0].as_bool() == true);
+
+    auto path2 = compile_jsonpath("$.deleted");
+    assert(path2.ok());
+    auto results2 = eval_jsonpath(doc.value, path2.value);
+    assert(results2.size() == 1);
+    assert(results2[0].as_bool() == false);
+
+    std::cout << "✓ test_eval_collect_bool passed\n";
+}
+
+void test_eval_collect_array() {
+    // Test collecting array values through JSONPath
+    // This exercises materialize() for array type (lines 24-30)
+    auto doc = JsonDocument::from_string(R"({"items": [1, 2, 3], "name": "test"})");
+    assert(doc.ok());
+    auto path = compile_jsonpath("$.items");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].is_array());
+    assert(results[0].as_array().size() == 3);
+    assert(results[0].as_array()[0].as_number() == 1.0);
+    assert(results[0].as_array()[1].as_number() == 2.0);
+    assert(results[0].as_array()[2].as_number() == 3.0);
+    std::cout << "✓ test_eval_collect_array passed\n";
+}
+
+void test_eval_collect_nested_array() {
+    // Test collecting nested arrays through recursive descent
+    // Further exercises materialize() for nested structures
+    auto doc = JsonDocument::from_string(R"({"data": {"nested": [[1,2], [3,4]]}})");
+    assert(doc.ok());
+    auto path = compile_jsonpath("$..nested");
+    assert(path.ok());
+    auto results = eval_jsonpath(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].is_array());
+    assert(results[0].as_array().size() == 2);
+    std::cout << "✓ test_eval_collect_nested_array passed\n";
+}
+
 int main() {
     std::cout << "Running JSONPath tests...\n\n";
-
     // Compilation tests
     test_compile_root();
     test_compile_field();
@@ -267,6 +777,11 @@ int main() {
     test_compile_slice();
     test_compile_filter();
     test_compile_errors();
+    test_compile_quoted_strings();
+    test_compile_quoted_escape_sequences();
+    test_compile_negative_numbers();
+    test_compile_float_literals();
+    test_compile_filter_errors();
 
     // Evaluation tests
     test_eval_root();
@@ -277,9 +792,26 @@ int main() {
     test_eval_array_wildcard();
     test_eval_slice();
     test_eval_filter_numeric();
+    test_eval_filter_all_operators();
+    test_eval_filter_string();
+    test_eval_filter_missing_field();
     test_eval_recursive();
     test_eval_complex();
     test_eval_missing_field();
+
+    // Limit/early termination tests
+    test_eval_recursive_with_limit();
+    test_eval_deep_recursive_with_limit();
+    test_eval_array_recursive_with_limit();
+
+    // Additional coverage tests
+    test_eval_filter_on_non_objects();
+    test_eval_string_filter_on_numeric();
+    test_eval_negative_index();
+    test_eval_collect_null();
+    test_eval_collect_bool();
+    test_eval_collect_array();
+    test_eval_collect_nested_array();
 
     std::cout << "\n✅ All JSONPath tests passed!\n";
     return 0;

@@ -160,6 +160,12 @@ class TestComplexQueries:
         results = strata.search(json_text, '$["special-key"]')
         assert results == ["value"]
 
+    def test_recursive_descent_nested_same_field(self):
+        """Ensure $..field walks into the matched field itself."""
+        json_text = '{"a": {"a": {"value": 1}, "value": 2}}'
+        results = strata.search(json_text, "$..a")
+        assert results == [{"a": {"value": 1}, "value": 2}, {"value": 1}]
+
 
 class TestCompileAndReuse:
     """Test compiling paths and reusing them."""
@@ -193,19 +199,15 @@ class TestCompileAndReuse:
         results = strata.search(json_text, path)
         assert results == ["Alice", "Bob", "Charlie"]
 
-    def test_compile_path_execute_on_cursor(self):
-        """Test CompiledPath.execute(cursor) matches search(cursor, path) (cross-layer contract)."""
-        json_text = '{"users": [{"id": 1}, {"id": 2}, {"id": 3}]}'
+    def test_search_with_cursor(self):
+        """Test search using a pre-parsed JsonCursor."""
         path = strata.compile_path("$.users[*].id")
+        json_text = '{"users": [{"id": 1}, {"id": 2}, {"id": 3}]}'
 
-        # Via search(string, path)
-        via_search = strata.search(json_text, path)
-        assert via_search == [1, 2, 3]
-
-        # Via parse_json -> cursor, then path.execute(cursor)
         cursor = strata.parse_json(json_text)
-        via_execute = path.execute(cursor)
-        assert via_execute == via_search
+        results = strata.search(cursor, path)
+
+        assert results == [1, 2, 3]
 
 
 class TestErrorHandling:

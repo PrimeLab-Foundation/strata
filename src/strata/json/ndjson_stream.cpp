@@ -118,6 +118,26 @@ Result<JsonValue> NdjsonStream::next() {
     return {Status::KeyNotFound, JsonValue()};
 }
 
+Status NdjsonStream::next_sax(JsonSaxHandler& handler) {
+    while (pos_ < data_.size()) {
+        std::string_view line = next_line();
+
+        if (is_whitespace_only_line(line)) {
+            continue;
+        }
+
+        lines_processed_++;
+        Status status = parse_sax(line, handler);
+        if (status != Status::Ok) {
+            error_count_++;
+            return Status::ParseError;
+        }
+        return Status::Ok;
+    }
+
+    return Status::KeyNotFound;
+}
+
 bool NdjsonStream::has_next() const {
     // Quick check: if we haven't reached end of data, assume there's content
     // This avoids expensive O(n) scan on every call
@@ -144,13 +164,14 @@ std::vector<JsonValue> NdjsonStream::parse_all(bool skip_errors) {
 }
 
 std::vector<JsonValue> NdjsonStream::parse_all_fast(bool skip_errors) {
-    // Count newlines using SIMD for better allocation
+    // Count newlines using SIMD for better pre-allocation
     size_t remaining = data_.size() - pos_;
     size_t line_count = util::count_newlines_simd(data_.data() + pos_, remaining) + 1;
 
     std::vector<JsonValue> results;
     results.reserve(line_count);
 
+    // Use larger batch size for better SIMD amortization
     constexpr size_t kBatchLines = 256;
     while (pos_ < data_.size()) {
         bool hit_error = parse_batch_chunked(kBatchLines, skip_errors, results);

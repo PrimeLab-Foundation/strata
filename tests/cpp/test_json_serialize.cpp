@@ -30,20 +30,20 @@ void test_serialize_bool() {
 }
 
 void test_serialize_number() {
-    // Integer-like float
+    // Integer-like float (compact format: no ".0" suffix)
     JsonValue int_val(JsonValue::Variant(42.0));
     std::string result = serialize_json(int_val);
-    assert(result == "42.0");
+    assert(result == "42");
 
     // Float
     JsonValue float_val(JsonValue::Variant(3.14));
     result = serialize_json(float_val);
     assert(result.find("3.14") != std::string::npos);
 
-    // Negative
+    // Negative (compact format)
     JsonValue neg_val(JsonValue::Variant(-123.0));
     result = serialize_json(neg_val);
-    assert(result == "-123.0");
+    assert(result == "-123");
 
     std::cout << "✓ test_serialize_number passed\n";
 }
@@ -81,6 +81,35 @@ void test_serialize_string_escaping() {
     assert(result.find("\\b") != std::string::npos);
     assert(result.find("\\f") != std::string::npos);
 
+    // Backslash - test escape of backslash itself
+    JsonValue backslash(JsonValue::Variant(std::string("path\\to\\file")));
+    result = serialize_json(backslash);
+    assert(result.find("\\\\") != std::string::npos);
+
+    // Carriage return
+    JsonValue cr(JsonValue::Variant(std::string("line1\rline2")));
+    result = serialize_json(cr);
+    assert(result.find("\\r") != std::string::npos);
+
+    // Control characters (non-standard, require \uXXXX encoding)
+    // \x01 (SOH) should become \u0001
+    std::string ctrl_str;
+    ctrl_str += 'a';
+    ctrl_str += '\x01';
+    ctrl_str += 'b';
+    JsonValue ctrl_char{JsonValue::Variant(ctrl_str)};
+    result = serialize_json(ctrl_char);
+    assert(result.find("\\u0001") != std::string::npos);
+
+    // \x1F (unit separator) should become \u001f
+    std::string us_str;
+    us_str += 'a';
+    us_str += '\x1f';
+    us_str += 'b';
+    JsonValue us_char{JsonValue::Variant(us_str)};
+    result = serialize_json(us_char);
+    assert(result.find("\\u001f") != std::string::npos);
+
     std::cout << "✓ test_serialize_string_escaping passed\n";
 }
 
@@ -90,13 +119,13 @@ void test_serialize_array() {
     JsonValue empty{JsonValue::Variant(empty_arr)};
     assert(serialize_json(empty) == "[]");
 
-    // Simple array
+    // Simple array (integer-like floats use compact format)
     JsonValue::Array arr;
     arr.push_back(JsonValue(JsonValue::Variant(1.0)));
     arr.push_back(JsonValue(JsonValue::Variant(2.0)));
     arr.push_back(JsonValue(JsonValue::Variant(3.0)));
     JsonValue value(JsonValue::Variant(std::move(arr)));
-    assert(serialize_json(value) == "[1.0,2.0,3.0]");
+    assert(serialize_json(value) == "[1,2,3]");
 
     std::cout << "✓ test_serialize_array passed\n";
 }
@@ -136,7 +165,7 @@ void test_serialize_nested() {
     JsonValue value(JsonValue::Variant(std::move(obj)));
     std::string result = serialize_json(value);
 
-    assert(result.find("[1.0,2.0]") != std::string::npos);
+    assert(result.find("[1,2]") != std::string::npos);
     assert(result.find("true") != std::string::npos);
 
     std::cout << "✓ test_serialize_nested passed\n";
@@ -163,6 +192,29 @@ void test_roundtrip() {
     std::cout << "✓ test_roundtrip passed\n";
 }
 
+void test_serialize_json_to() {
+    // Test serialize_json_to function (alternative API that writes to pre-existing string)
+    JsonValue::Object obj;
+    obj["name"] = JsonValue(JsonValue::Variant(std::string("Test")));
+    obj["value"] = JsonValue(JsonValue::Variant(42.0));
+    JsonValue original(JsonValue::Variant(std::move(obj)));
+
+    std::string out;
+    serialize_json_to(original, out);
+
+    assert(!out.empty());
+    assert(out.find("\"name\":") != std::string::npos);
+    assert(out.find("\"Test\"") != std::string::npos);
+    assert(out.find("42") != std::string::npos);
+
+    // Verify roundtrip
+    auto parse_result = parse_json(out);
+    assert(parse_result.ok());
+    assert(parse_result.value.as_object().at("name").as_string() == "Test");
+
+    std::cout << "✓ test_serialize_json_to passed\n";
+}
+
 void test_special_floats() {
     // NaN should become null
     double nan_value = std::nan("");
@@ -182,6 +234,39 @@ void test_special_floats() {
     std::cout << "✓ test_special_floats passed\n";
 }
 
+void test_serialize_integer_edge_cases() {
+    // Zero - tests the value == 0 path in format_integer
+    JsonValue zero{JsonValue::Variant(0.0)};
+    std::string result = serialize_json(zero);
+    assert(result == "0");
+
+    // Small integers
+    JsonValue one{JsonValue::Variant(1.0)};
+    assert(serialize_json(one) == "1");
+
+    JsonValue neg_one{JsonValue::Variant(-1.0)};
+    assert(serialize_json(neg_one) == "-1");
+
+    // Larger integers that still fit exactly in double
+    JsonValue large_pos{JsonValue::Variant(123456789.0)};
+    assert(serialize_json(large_pos) == "123456789");
+
+    JsonValue large_neg{JsonValue::Variant(-123456789.0)};
+    assert(serialize_json(large_neg) == "-123456789");
+
+    // Max safe integer for double (2^53 - 1)
+    JsonValue max_safe{JsonValue::Variant(9007199254740991.0)};
+    result = serialize_json(max_safe);
+    assert(result.find("9007199254740991") != std::string::npos);
+
+    // Negative large integer
+    JsonValue neg_large{JsonValue::Variant(-9007199254740991.0)};
+    result = serialize_json(neg_large);
+    assert(result.find("-9007199254740991") != std::string::npos);
+
+    std::cout << "✓ test_serialize_integer_edge_cases passed\n";
+}
+
 int main() {
     std::cout << "Running JSON serialization tests...\n\n";
 
@@ -194,8 +279,9 @@ int main() {
     test_serialize_object();
     test_serialize_nested();
     test_roundtrip();
+    test_serialize_json_to();
     test_special_floats();
-
+    test_serialize_integer_edge_cases();
     std::cout << "\n✅ All JSON serialization tests passed!\n";
     return 0;
 }

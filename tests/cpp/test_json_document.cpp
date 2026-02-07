@@ -100,6 +100,46 @@ int main() {
     assert(!missing.ok());
     assert(missing.status == Status::KeyNotFound);
 
+    // 6) Test root_value() - returns const reference to underlying JsonValue
+    const JsonValue& root_val = doc.root_value();
+    assert(root_val.is_object());
+    // Verify the root value has the expected structure
+    auto& obj = root_val.as_object();
+    assert(obj.count("name") > 0);
+    assert(obj.at("name").as_string() == "Alice");
+
+    // 7) Test root_type_debug() for all types
+    assert(doc.root_type_debug() == "object");
+
+    // Test with array root
+    auto array_doc_res = JsonDocument::from_string("[1, 2, 3]");
+    assert(array_doc_res.ok());
+    assert(array_doc_res.value.root_type_debug() == "array");
+
+    // Test with string root
+    auto string_doc_res = JsonDocument::from_string("\"hello\"");
+    assert(string_doc_res.ok());
+    assert(string_doc_res.value.root_type_debug() == "string");
+
+    // Test with number root
+    auto number_doc_res = JsonDocument::from_string("42.5");
+    assert(number_doc_res.ok());
+    assert(number_doc_res.value.root_type_debug() == "number");
+
+    // Test with bool root
+    auto bool_doc_res = JsonDocument::from_string("true");
+    assert(bool_doc_res.ok());
+    assert(bool_doc_res.value.root_type_debug() == "bool");
+
+    // Test with null root
+    auto null_doc_res = JsonDocument::from_string("null");
+    assert(null_doc_res.ok());
+    assert(null_doc_res.value.root_type_debug() == "null");
+
+    // 8) Test from_string with invalid JSON
+    auto invalid_res = JsonDocument::from_string("{ invalid }");
+    assert(!invalid_res.ok());
+
     std::cout << "test_json_document: all assertions passed\n";
     return 0;
 }

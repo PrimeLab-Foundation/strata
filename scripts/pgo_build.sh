@@ -53,13 +53,35 @@ merge_profraw() {
   exit 1
 }
 
-# Large dataset only: PGO profile is built from the biggest workload (Rule 13 / benchmark gating).
+# Dataset configuration for PGO profiling.
+# Default: medium dataset provides good balance of representativeness and build time.
+# For release builds, consider using 'large' for maximum profile coverage.
+# Set PGO_DATASET_SIZE to 'small', 'medium', or 'large' to override.
+PGO_DATASET_SIZE="${PGO_DATASET_SIZE:-medium}"
+
+# All dataset paths (used for comprehensive profiling)
 BENCH_SMALL_JSON="${ROOT_DIR}/benchmarks/data/generated/small/users.json"
 BENCH_SMALL_NDJSON="${ROOT_DIR}/benchmarks/data/generated/small/users.ndjson"
-#BENCH_MEDIUM_JSON="${ROOT_DIR}/benchmarks/data/generated/medium/users.json"
-#BENCH_MEDIUM_NDJSON="${ROOT_DIR}/benchmarks/data/generated/medium/users.ndjson"
-#BENCH_LARGE_JSON="${ROOT_DIR}/benchmarks/data/generated/large/users.json"
-#BENCH_LARGE_NDJSON="${ROOT_DIR}/benchmarks/data/generated/large/users.ndjson"
+BENCH_MEDIUM_JSON="${ROOT_DIR}/benchmarks/data/generated/medium/users.json"
+BENCH_MEDIUM_NDJSON="${ROOT_DIR}/benchmarks/data/generated/medium/users.ndjson"
+BENCH_LARGE_JSON="${ROOT_DIR}/benchmarks/data/generated/large/users.json"
+BENCH_LARGE_NDJSON="${ROOT_DIR}/benchmarks/data/generated/large/users.ndjson"
+
+# Select primary dataset based on PGO_DATASET_SIZE
+case "$PGO_DATASET_SIZE" in
+  small)
+    PGO_PRIMARY_JSON="$BENCH_SMALL_JSON"
+    PGO_PRIMARY_NDJSON="$BENCH_SMALL_NDJSON"
+    ;;
+  large)
+    PGO_PRIMARY_JSON="$BENCH_LARGE_JSON"
+    PGO_PRIMARY_NDJSON="$BENCH_LARGE_NDJSON"
+    ;;
+  medium|*)
+    PGO_PRIMARY_JSON="$BENCH_MEDIUM_JSON"
+    PGO_PRIMARY_NDJSON="$BENCH_MEDIUM_NDJSON"
+    ;;
+esac
 
 
 run_gate_tests() {
@@ -73,21 +95,48 @@ ensure_bench_data() {
   make bench-data
 }
 
+# Run comprehensive benchmark suite to generate representative profile data.
+# Covers all hot paths: loads, dumps, NDJSON streaming, JSONPath queries.
 run_benchmarks() {
   ensure_bench_data
+  echo "Running PGO profiling benchmarks with $PGO_DATASET_SIZE dataset..."
+  echo "  Primary JSON:   $PGO_PRIMARY_JSON"
+  echo "  Primary NDJSON: $PGO_PRIMARY_NDJSON"
+
+  # Main benchmark suite (comprehensive workload)
   PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_main \
-    --dataset "$BENCH_SMALL_JSON" \
-    --dataset "$BENCH_SMALL_NDJSON" \
+    --dataset "$PGO_PRIMARY_JSON" \
+    --dataset "$PGO_PRIMARY_NDJSON" \
     --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP" --output "$PGO_DIR/bench_results_pgo.md"
-  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_loads --data "$BENCH_SMALL_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
-  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_dumps --data "$BENCH_SMALL_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
-  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_ndjson --data "$BENCH_SMALL_NDJSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
-  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_jsonpath --data "$BENCH_SMALL_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
+
+  # Individual benchmark modules for targeted profiling:
+  # 1. loads - parsing JSON to Python objects
+  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_loads --data "$PGO_PRIMARY_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
+
+  # 2. dumps - serializing Python objects to JSON strings
+  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_dumps --data "$PGO_PRIMARY_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
+
+  # 3. NDJSON streaming - line-by-line parsing
+  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_ndjson --data "$PGO_PRIMARY_NDJSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
+
+  # 4. JSONPath queries - search and query evaluation
+  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_jsonpath --data "$PGO_PRIMARY_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
+
+  # Optional: Also run with small dataset for edge-case coverage if using larger primary
+  if [ "$PGO_DATASET_SIZE" != "small" ]; then
+    echo "Running additional small dataset for edge-case coverage..."
+    PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_loads --data "$BENCH_SMALL_JSON" --repeat 5 --warmup 1
+    PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_dumps --data "$BENCH_SMALL_JSON" --repeat 5 --warmup 1
+  fi
 }
 
 compiler_kind="$(detect_compiler)"
 
-echo "==> PGO workflow starting (compiler: $compiler_kind)"
+echo "==> PGO workflow starting"
+echo "    Compiler:     $compiler_kind"
+echo "    Dataset size: $PGO_DATASET_SIZE"
+echo "    Repeat:       $PGO_BENCH_REPEAT"
+echo "    Warmup:       $PGO_BENCH_WARMUP"
 ensure_venv
 
 rm -rf "$PGO_DIR"
@@ -124,4 +173,11 @@ run_gate_tests
 run_benchmarks
 
 echo "==> PGO workflow complete"
-echo "Profile data: $PROFILE_DATA"
+echo ""
+echo "Summary:"
+echo "  Profile data:   $PROFILE_DATA"
+echo "  Dataset used:   $PGO_DATASET_SIZE"
+echo "  Benchmark results: $PGO_DIR/bench_results_pgo.md"
+echo ""
+echo "The extension is now optimized with PGO + LTO."
+echo "For release builds, consider: PGO_DATASET_SIZE=large make pgo"

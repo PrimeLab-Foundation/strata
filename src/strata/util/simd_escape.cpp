@@ -1,5 +1,34 @@
-#include "strata/util/simd_string.hpp"
+/**
+ * @file simd_escape.cpp
+ * @brief SIMD-accelerated JSON string escaping.
+ *
+ * Implements fast string escaping for JSON serialization using SIMD instructions.
+ * The escape_json_string() function handles:
+ * - Quote (") → \"
+ * - Backslash (\) → \\
+ * - Control characters (0x00-0x1F) → \uXXXX or \n, \r, \t, etc.
+ *
+ * SIMD Strategy:
+ * - Process 16/32 bytes at a time looking for characters that need escaping
+ * - Use vector comparison to find bytes < 0x20 or == '"' or == '\\'
+ * - Fast path: if no escaping needed, copy entire chunk
+ * - Slow path: escape individual characters as needed
+ *
+ * Platform support:
+ * - AVX2 (256-bit): x86_64 with AVX2
+ * - SSE4.2 (128-bit): x86_64 without AVX2
+ * - NEON (128-bit): ARM64
+ * - Scalar fallback: All other platforms
+ *
+ * Performance notes:
+ * - Typical JSON strings have few characters needing escape
+ * - SIMD allows scanning 16-32 bytes in ~1 cycle
+ * - ~3-5x faster than byte-by-byte scanning
+ *
+ * @see simd_string.hpp for public API
+ */
 
+#include "strata/util/simd_string.hpp"
 #include <cstdio>
 #include <vector>
 
@@ -545,6 +574,112 @@ void escape_json_string_simd(const char* str, size_t len, FixedOutputBuffer& out
             pos = next_escape + 1;
         } else {
             break;
+        }
+    }
+
+    out.push_back('"');
+}
+
+// Single-pass string escaping/copying - avoids double-scan pattern
+// Uses has_escape_chars for fast boolean check, then find_next_escape only when escapes exist
+void escape_or_copy_string_simd(const char* str, size_t len, OutputBuffer& out) {
+    // Fast boolean check first (faster than find_next_escape for clean strings)
+    bool has_escapes;
+#ifdef STRATA_HAS_AVX2
+    has_escapes = has_escape_chars_avx2(str, len);
+#elif defined(STRATA_HAS_SSE42)
+    has_escapes = has_escape_chars_sse(str, len);
+#elif defined(STRATA_HAS_NEON)
+    has_escapes = has_escape_chars_neon(str, len);
+#else
+    has_escapes = has_escape_chars_scalar(str, len);
+#endif
+
+    // Reserve space for string + quotes (+ some margin for escapes if needed)
+    out.reserve(out.size() + len + 2 + (has_escapes ? len / 8 : 0));
+    out.push_back('"');
+
+    if (!has_escapes) {
+        // Fast path: no escapes, copy entire string directly
+        out.append(str, len);
+    } else {
+        // Escape path: use find_next_escape to process chunks
+        size_t pos = 0;
+        while (pos < len) {
+            size_t next_escape;
+#ifdef STRATA_HAS_AVX2
+            next_escape = find_next_escape_avx2(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_SSE42)
+            next_escape = find_next_escape_sse(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_NEON)
+            next_escape = find_next_escape_neon(str + pos, len - pos) + pos;
+#else
+            next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
+#endif
+
+            // Copy clean chunk
+            if (next_escape > pos) {
+                out.append(str + pos, next_escape - pos);
+            }
+
+            // Escape the character if we found one
+            if (next_escape < len) {
+                escape_char_buffer(static_cast<unsigned char>(str[next_escape]), out);
+                pos = next_escape + 1;
+            } else {
+                break;
+            }
+        }
+    }
+
+    out.push_back('"');
+}
+
+void escape_or_copy_string_simd(const char* str, size_t len, FixedOutputBuffer& out) {
+    // Fast boolean check first (faster than find_next_escape for clean strings)
+    bool has_escapes;
+#ifdef STRATA_HAS_AVX2
+    has_escapes = has_escape_chars_avx2(str, len);
+#elif defined(STRATA_HAS_SSE42)
+    has_escapes = has_escape_chars_sse(str, len);
+#elif defined(STRATA_HAS_NEON)
+    has_escapes = has_escape_chars_neon(str, len);
+#else
+    has_escapes = has_escape_chars_scalar(str, len);
+#endif
+
+    out.push_back('"');
+
+    if (!has_escapes) {
+        // Fast path: no escapes, copy entire string directly
+        out.append(str, len);
+    } else {
+        // Escape path: use find_next_escape to process chunks
+        size_t pos = 0;
+        while (pos < len) {
+            size_t next_escape;
+#ifdef STRATA_HAS_AVX2
+            next_escape = find_next_escape_avx2(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_SSE42)
+            next_escape = find_next_escape_sse(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_NEON)
+            next_escape = find_next_escape_neon(str + pos, len - pos) + pos;
+#else
+            next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
+#endif
+
+            // Copy clean chunk
+            if (next_escape > pos) {
+                out.append(str + pos, next_escape - pos);
+            }
+
+            // Escape the character if we found one
+            if (next_escape < len) {
+                escape_char_fixed(static_cast<unsigned char>(str[next_escape]), out);
+                pos = next_escape + 1;
+            } else {
+                break;
+            }
         }
     }
 

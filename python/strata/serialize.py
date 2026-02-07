@@ -34,6 +34,31 @@ def loads(source: str | bytes) -> dict | list | str | int | float | bool | None:
     return _native.loads(source)
 
 
+def loads_tape(source: str | bytes) -> dict | list | str | int | float | bool | None:
+    """
+    Parse JSON text into a Python object using tape format.
+
+    This is an alternative parsing path that first parses JSON into a compact
+    token tape, then builds Python objects from the tape. Useful for:
+    - Benchmarking tape-based parsing
+    - Cases where the same JSON will be parsed multiple times
+
+    Args:
+        source: JSON as a string (UTF-8) or raw bytes.
+
+    Returns:
+        Parsed value: dict, list, str, int, float, bool, or None.
+
+    Raises:
+        ValueError: If the JSON is invalid or contains invalid UTF-8.
+
+    Example:
+        >>> loads_tape('{"name": "Alice", "age": 30}')
+        {'name': 'Alice', 'age': 30}
+    """
+    return _native.loads_tape(source)
+
+
 # -----------------------------------------------------------------------------
 # Serialization (Python object → JSON text)
 # -----------------------------------------------------------------------------
@@ -106,6 +131,7 @@ def set_cycle_policy(policy: str) -> None:
 
 __all__ = [
     "loads",
+    "loads_tape",
     "dumps",
     "dumps_bytes",
     "set_duplicate_key_policy",

@@ -1,4 +1,5 @@
 #include "python_convert.h"
+#include "python_object_builder.h"
 #include "python_types.h"
 #include "strata/json/json_parse.hpp"
 
@@ -6,41 +7,20 @@
 #include <unordered_map>
 #include <vector>
 
+// Thread-local arena for zero-allocation parsing
+thread_local strata::util::Arena g_parse_arena;
+
+namespace {
+using strata::bindings::KeyCache;
+using strata::bindings::PythonObjectBuilder;
+} // namespace
+
 static void emit_duplicate_key_warnings() {
     auto warnings = strata::consume_parse_warnings();
     for (const auto& msg : warnings) {
         PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
     }
 }
-
-// Simple key cache to avoid creating many Python strings for the same key
-class KeyCache {
-  public:
-    PyObject* get(const std::string& key) {
-        auto it = cache_.find(key);
-        if (it != cache_.end()) {
-            Py_INCREF(it->second);
-            return it->second;
-        }
-
-        PyObject* py_key = PyUnicode_FromStringAndSize(key.c_str(), key.size());
-        if (py_key) {
-            PyUnicode_InternInPlace(&py_key);
-            Py_INCREF(py_key); // One for the cache
-            cache_[key] = py_key;
-        }
-        return py_key;
-    }
-
-    ~KeyCache() {
-        for (auto& pair : cache_) {
-            Py_DECREF(pair.second);
-        }
-    }
-
-  private:
-    std::unordered_map<std::string, PyObject*> cache_;
-};
 
 static PyObject* json_value_to_python_internal(const strata::JsonValue& val, KeyCache& cache) {
     if (val.is_null()) {
@@ -115,7 +95,8 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
 
 // Convert JsonValue to PyObject
 PyObject* json_value_to_python(const strata::JsonValue& val) {
-    KeyCache cache;
+    strata::util::Arena arena;
+    KeyCache cache(&arena);
     return json_value_to_python_internal(val, cache);
 }
 
@@ -131,19 +112,24 @@ PyObject* strata_loads(PyObject* self, PyObject* args) {
 
     STRATA_CPP_TRY
 
-    // Parse JSON
-    auto result = strata::parse_json(std::string_view(data, len));
+    // Reset thread-local arena for reuse
+    g_parse_arena.reset();
 
-    if (!result.ok()) {
-        PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+    // Pause GC during parsing to reduce collection overhead
+    ::PyGcPause gc_pause;
+
+    // Use fast path: Direct-to-Python via SAX
+    PythonObjectBuilder builder(&g_parse_arena);
+    auto status = strata::parse_sax(std::string_view(data, len), builder);
+
+    if (status != strata::Status::Ok) {
+        if (!PyErr_Occurred()) {
+            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+        }
         return NULL;
     }
 
-    emit_duplicate_key_warnings();
-
-    // Convert to Python
-    PyGcPause gc_pause;
-    return json_value_to_python(result.value);
+    return builder.take_root();
 
     STRATA_CPP_CATCH
 }

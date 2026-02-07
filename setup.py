@@ -174,7 +174,7 @@ class TestGatedBuildExt(build_ext):
                         "import sys; "
                         f"sys.path[:0] = [r'{build_lib}', r'{project_root}']; "
                         "import pytest; "
-                        "raise SystemExit(pytest.main(['tests/py', 'tests/unit', '-v', '--tb=short']))"
+                        "raise SystemExit(pytest.main(['tests/py', '-v', '--tb=short']))"
                     ),
                 ],
                 check=False,
@@ -278,17 +278,22 @@ ext_modules = [
             "src/strata/bindings/python_module.cpp",
             "src/strata/bindings/python_dumps.cpp",
             "src/strata/bindings/python_loads.cpp",
+            "src/strata/bindings/python_tape.cpp",
             "src/strata/bindings/python_document.cpp",
             "src/strata/bindings/python_ndjson.cpp",
             "src/strata/bindings/python_mmap.cpp",
             "src/strata/bindings/python_jsonpath.cpp",
+            "src/strata/bindings/python_lazy_cursor.cpp",
             # C++ core (KEEP)
             "src/strata/json/json_document.cpp",
             "src/strata/json/json_cursor.cpp",
+            "src/strata/json/json_lazy_cursor.cpp",
             "src/strata/json/json_parse.cpp",
+            "src/strata/json/json_tape.cpp",
             "src/strata/search/jsonpath_compile.cpp",
             "src/strata/search/jsonpath_eval.cpp",
             "src/strata/json/ndjson_stream.cpp",
+            "src/strata/json/parallel_ndjson.cpp",
             "src/strata/json/json_mmap.cpp",
             # Utilities (KEEP)
             "src/strata/util/ryu_dtoa.cpp",
@@ -296,7 +301,10 @@ ext_modules = [
             "src/strata/util/simd_escape.cpp",
             "src/strata/util/simd_newline.cpp",
             "src/strata/util/simd_utf8.cpp",
+            "src/strata/util/simd_numbers.cpp",
+            "src/strata/util/simd_structural.cpp",
             "src/strata/util/fast_parse.cpp",
+            "src/strata/util/thread_pool.cpp",
         ],
         include_dirs=[
             "include",

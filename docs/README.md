@@ -1,7 +1,7 @@
 # Strata Documentation
 
 **Version**: 0.2.0\
-**Last Updated**: 2026-01-31\
+**Last Updated**: 2026-02-05\
 **Status**: ✅ Production Ready
 
 ______________________________________________________________________
@@ -10,24 +10,23 @@ ______________________________________________________________________
 
 ### **Start Here**
 
-- **[Current Status](status/current_status.md)** - Project overview, features, and status
 - **[API Reference](api/simplified_api.md)** - Complete API documentation with examples
+- **[Benchmark Summary](benchmarks/summary.md)** - Current performance overview
 
 ### **For Users**
 
 - **[API Documentation](api/simplified_api.md)** - How to use Strata
-- **[Benchmark Results](benchmarks/bench_results_2026_01_31.md)** - Latest performance comparisons
 - **[Benchmark Methodology](benchmarks/methodology.md)** - How we measure performance
-- **[Strata performance analysis](benchmarks/strata_performance_analysis.md)** - Why Strata lags in each area and root causes
+- **[Performance Analysis](benchmarks/strata_performance_analysis.md)** - In-depth performance analysis
+- **[Benchmark Progress Log](benchmarks/progress_log.md)** - Append-only benchmark history
 
 ### **For Contributors**
 
-- **[Refactoring Guide](development/refactoring_guide.md)** - How to refactor C++, Python, and bindings
-- **[C++ Tests](status/cpp_tests_status.md)** - C++ test coverage and build instructions
-- **[Test Status](status/tests_fixed_api_simplified.md)** - Python test status and API changes
-- **[Rule Compliance](status/rule_compliance_final.md)** - Code standards and conventions
+- **[Test Parity Matrix](development/test_parity_matrix.md)** - C++/Python test coverage
 - **[LTO Builds](build/lto.md)** - Enable LTO for performance builds
-- **[PGO Workflow](build/pgo.md)** - Two-stage PGO training and build
+- **[PGO Workflow](development/pgo_workflow.md)** - Two-stage PGO training and build
+- **[Fuzzing](development/fuzzing.md)** - Fuzz testing guide
+- **[Code Coverage](development/coverage.md)** - Coverage analysis
 
 ### **Technical Deep Dives**
 
@@ -112,29 +111,44 @@ ______________________________________________________________________
 ```
 docs/
 ├── README.md                    ← You are here
+├── documentation_guide.md       # How to navigate all documentation
 │
-├── status/                      # Current status and reports
-│   ├── current_status.md        # Main status document
-│   ├── cpp_tests_status.md      # C++ test coverage
-│   ├── tests_fixed_api_simplified.md  # Python tests
-│   ├── rule_compliance_final.md # Standards compliance
-│   └── compliance_report.md     # Detailed compliance
+├── adr/                         # Architecture Decision Records
+│   ├── ADR-0001-hybrid-sax-and-python-builder.md
+│   ├── ADR-0002-lazy-string-unescape.md
+│   ├── ADR-0003-token-tape-format.md
+│   ├── ADR-0004-lazy-parsing-cursor.md
+│   └── ADR-0005-parallel-ndjson-processing.md
 │
 ├── api/                         # User-facing API docs
 │   └── simplified_api.md        # Complete API reference
 │
 ├── benchmarks/                  # Performance documentation
-│   ├── bench_results_2026_01_31.md  # Latest benchmark results
+│   ├── progress_log.md          # Append-only benchmark history (Rule 17)
 │   ├── methodology.md           # How we benchmark
+│   ├── summary.md               # Current performance summary
 │   ├── datasets.md              # Benchmark datasets
-│   ├── data_notes.md            # Dataset schema + query notes
-│   └── *.md                     # Individual benchmark results
+│   └── strata_performance_analysis.md  # In-depth analysis
+│
+├── build/                       # Build configuration
+│   ├── lto.md                   # LTO build guide
+│   └── pgo.md                   # PGO build guide
 │
 ├── design/                      # Technical design docs
 │   ├── python_c_api_migration_plan.md
-│   └── c_vs_cpp_language_analysis.md
+│   ├── c_vs_cpp_language_analysis.md
+│   └── parser_current_state.md
+│
+├── development/                 # Active development docs
+│   ├── test_parity_matrix.md    # Test coverage matrix
+│   ├── pgo_workflow.md          # PGO workflow details
+│   ├── coverage.md              # Code coverage
+│   ├── fuzzing.md               # Fuzz testing
+│   └── ...                      # Other development guides
 │
 └── archive/                     # Historical documents
+    ├── status/                  # Historical status reports
+    ├── benchmarks/              # Historical benchmark results
     └── 2026-01-migration/       # Migration history
 ```
 
@@ -155,9 +169,9 @@ make test
 
 **Current Coverage:**
 
-- Python Tests: 521/521 (100%)
-- C++ Tests: 8/8 (100%)
-- Total: 529+ test cases
+- Python Tests: 653 tests (100%)
+- C++ Tests: 20+ test executables (100%)
+- Total: 700+ test cases
 
 ______________________________________________________________________
 
@@ -238,10 +252,9 @@ ______________________________________________________________________
 
 ## 📞 **Support**
 
-- **Bug Reports**: Check `docs/status/tests_fixed_api_simplified.md`
 - **API Questions**: See `docs/api/simplified_api.md`
 - **Performance**: See `docs/benchmarks/`
-- **Contributing**: Follow rules in `.cursor/rules/`
+- **Contributing**: Follow guidelines in `.junie/guidelines.md`
 
 ______________________________________________________________________
 
@@ -255,15 +268,15 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## 🚀 **Next Steps**
+## 🚀 **Development**
 
-See `docs/status/current_status.md` for:
+See `docs/development/` for:
 
-- Future optimization plans
-- Roadmap to #1 overall ranking
-- Planned features
+- Active development roadmaps
+- Optimization plans
+- Test parity tracking
 
 ______________________________________________________________________
 
-*Documentation last updated: 2026-01-31*\
+*Documentation last updated: 2026-02-05*\
 *Strata version: 0.2.0*

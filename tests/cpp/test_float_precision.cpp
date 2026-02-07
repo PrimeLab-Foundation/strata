@@ -77,8 +77,17 @@ int main() {
     if (test_float_format(-INFINITY, "null", "-Inf -> null"))
         passed++;
     total++;
-    if (test_float_format(0.0, "0.0", "Zero"))
-        passed++;
+    {
+        char buf[64];
+        int len = ryu_d2s(0.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "0") == 0) {
+            passed++;
+            std::cout << "PASSED: 0.0 -> 0 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: 0.0 compact, expected \"0\", got \"" << buf << "\"" << std::endl;
+        }
+    }
 
     // Test 2: Common values (mirror Python tests)
     total++;
@@ -111,16 +120,43 @@ int main() {
     if (test_roundtrip(-0.01, "-0.01"))
         passed++;
 
-    // Test 4: Integer-like floats
+    // Test 4: Integer-like floats (compact format: no ".0" suffix)
     total++;
-    if (test_float_format(1.0, "1.0", "1.0"))
-        passed++;
+    {
+        char buf[64];
+        int len = ryu_d2s(1.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "1") == 0) {
+            passed++;
+            std::cout << "PASSED: 1.0 -> 1 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: 1.0 compact, expected \"1\", got \"" << buf << "\"" << std::endl;
+        }
+    }
     total++;
-    if (test_float_format(42.0, "42.0", "42.0"))
-        passed++;
+    {
+        char buf[64];
+        int len = ryu_d2s(42.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "42") == 0) {
+            passed++;
+            std::cout << "PASSED: 42.0 -> 42 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: 42.0 compact, expected \"42\", got \"" << buf << "\"" << std::endl;
+        }
+    }
     total++;
-    if (test_float_format(100.0, "100.0", "100.0"))
-        passed++;
+    {
+        char buf[64];
+        int len = ryu_d2s(100.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "100") == 0) {
+            passed++;
+            std::cout << "PASSED: 100.0 -> 100 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: 100.0 compact, expected \"100\", got \"" << buf << "\"" << std::endl;
+        }
+    }
 
     // Test 5: Very small values
     total++;
@@ -171,6 +207,72 @@ int main() {
         } else {
             std::cerr << "FAILED: dragonbox_d2s(3.14) -> " << buf << " parsed " << parsed
                       << std::endl;
+        }
+    }
+
+    // Test 10: Dragonbox compact integer format
+    total++;
+    {
+        char buf[64];
+        int len = dragonbox_d2s(1.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "1") == 0) {
+            passed++;
+            std::cout << "PASSED: dragonbox_d2s(1.0) -> 1 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: dragonbox_d2s(1.0) compact, expected \"1\", got \"" << buf << "\"" << std::endl;
+        }
+    }
+    total++;
+    {
+        char buf[64];
+        int len = dragonbox_d2s(-42.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "-42") == 0) {
+            passed++;
+            std::cout << "PASSED: dragonbox_d2s(-42.0) -> -42 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: dragonbox_d2s(-42.0) compact, expected \"-42\", got \"" << buf << "\"" << std::endl;
+        }
+    }
+    total++;
+    {
+        char buf[64];
+        int len = dragonbox_d2s(0.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "0") == 0) {
+            passed++;
+            std::cout << "PASSED: dragonbox_d2s(0.0) -> 0 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: dragonbox_d2s(0.0) compact, expected \"0\", got \"" << buf << "\"" << std::endl;
+        }
+    }
+
+    // Test 11: Negative integer-like floats (ryu path)
+    total++;
+    {
+        char buf[64];
+        int len = ryu_d2s(-1.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "-1") == 0) {
+            passed++;
+            std::cout << "PASSED: ryu_d2s(-1.0) -> -1 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: ryu_d2s(-1.0) compact, expected \"-1\", got \"" << buf << "\"" << std::endl;
+        }
+    }
+
+    // Test 12: Large integer-like floats (still within safe range)
+    total++;
+    {
+        char buf[64];
+        int len = dragonbox_d2s(1000000.0, buf);
+        buf[len] = '\0';
+        if (strcmp(buf, "1000000") == 0) {
+            passed++;
+            std::cout << "PASSED: dragonbox_d2s(1000000.0) -> 1000000 (compact)" << std::endl;
+        } else {
+            std::cerr << "FAILED: dragonbox_d2s(1000000.0) compact, expected \"1000000\", got \"" << buf << "\"" << std::endl;
         }
     }
 

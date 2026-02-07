@@ -1,3 +1,36 @@
+/**
+ * @file simd_utf8.cpp
+ * @brief SIMD-accelerated UTF-8 validation.
+ *
+ * Implements fast UTF-8 validation for JSON parsing using SIMD instructions.
+ * The validate_utf8_simd() function validates that input is well-formed UTF-8,
+ * rejecting:
+ * - Overlong encodings (e.g., C0 80 for NUL)
+ * - Surrogate codepoints (U+D800-U+DFFF)
+ * - Codepoints above U+10FFFF
+ * - Invalid byte sequences (lone continuation bytes, truncated sequences)
+ *
+ * SIMD Strategy:
+ * - Process 16/32 bytes at a time
+ * - Use lookup tables for continuation byte validation
+ * - Track expected continuation bytes with state machine
+ * - Validate lead byte ranges and continuation byte patterns
+ *
+ * Platform support:
+ * - AVX2 (256-bit): x86_64 with AVX2
+ * - SSE4.2 (128-bit): x86_64 without AVX2
+ * - NEON (128-bit): ARM64
+ * - Scalar fallback: All other platforms
+ *
+ * Performance notes:
+ * - Called once upfront before parsing (fail-fast on invalid UTF-8)
+ * - ~10x faster than byte-by-byte validation
+ * - Critical for security (prevents UTF-8 overlong attacks)
+ *
+ * @see simd_string.hpp for public API
+ * @see docs/development/simd_utf8_validation.md for design details
+ */
+
 #include "strata/util/simd_string.hpp"
 
 // Detect SIMD support
@@ -405,6 +438,122 @@ bool validate_utf8_simd(const char* data, size_t len) {
 #else
     return validate_utf8_scalar(data, len);
 #endif
+}
+
+// ============================================================================
+// ASCII-only detection (fast path for UTF-8 validation)
+// ============================================================================
+
+#ifdef STRATA_HAS_AVX2
+
+static bool is_ascii_only_avx2(const char* data, size_t len) {
+    const __m256i high_bit_mask = _mm256_set1_epi8(static_cast<char>(0x80));
+    size_t i = 0;
+
+    // Process 32 bytes at a time
+    for (; i + 32 <= len; i += 32) {
+        __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data + i));
+        // Check if any byte has high bit set (non-ASCII)
+        __m256i high_bits = _mm256_and_si256(chunk, high_bit_mask);
+        if (!_mm256_testz_si256(high_bits, high_bits)) {
+            return false;
+        }
+    }
+
+    // Check remaining bytes
+    for (; i < len; ++i) {
+        if (static_cast<unsigned char>(data[i]) >= 0x80) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+#elif defined(STRATA_HAS_SSE42)
+
+static bool is_ascii_only_sse(const char* data, size_t len) {
+    const __m128i high_bit_mask = _mm_set1_epi8(static_cast<char>(0x80));
+    size_t i = 0;
+
+    // Process 16 bytes at a time
+    for (; i + 16 <= len; i += 16) {
+        __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data + i));
+        // Check if any byte has high bit set (non-ASCII)
+        __m128i high_bits = _mm_and_si128(chunk, high_bit_mask);
+        if (!_mm_testz_si128(high_bits, high_bits)) {
+            return false;
+        }
+    }
+
+    // Check remaining bytes
+    for (; i < len; ++i) {
+        if (static_cast<unsigned char>(data[i]) >= 0x80) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+#elif defined(STRATA_HAS_NEON)
+
+static bool is_ascii_only_neon(const char* data, size_t len) {
+    const uint8x16_t high_bit_mask = vdupq_n_u8(0x80);
+    size_t i = 0;
+
+    // Process 16 bytes at a time
+    for (; i + 16 <= len; i += 16) {
+        uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(data + i));
+        // Check if any byte has high bit set (non-ASCII)
+        uint8x16_t high_bits = vandq_u8(chunk, high_bit_mask);
+        uint64x2_t combined = vreinterpretq_u64_u8(high_bits);
+        if (vgetq_lane_u64(combined, 0) != 0 || vgetq_lane_u64(combined, 1) != 0) {
+            return false;
+        }
+    }
+
+    // Check remaining bytes
+    for (; i < len; ++i) {
+        if (static_cast<unsigned char>(data[i]) >= 0x80) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+#endif
+
+[[maybe_unused]] static bool is_ascii_only_scalar(const char* data, size_t len) {
+    for (size_t i = 0; i < len; ++i) {
+        if (static_cast<unsigned char>(data[i]) >= 0x80) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool is_ascii_only_simd(const char* data, size_t len) {
+#ifdef STRATA_HAS_AVX2
+    return is_ascii_only_avx2(data, len);
+#elif defined(STRATA_HAS_SSE42)
+    return is_ascii_only_sse(data, len);
+#elif defined(STRATA_HAS_NEON)
+    return is_ascii_only_neon(data, len);
+#else
+    return is_ascii_only_scalar(data, len);
+#endif
+}
+
+bool validate_utf8_lazy(const char* data, size_t len) {
+    // Fast path: if all ASCII, no UTF-8 validation needed
+    // This is the common case for most JSON (especially in English)
+    if (is_ascii_only_simd(data, len)) {
+        return true;
+    }
+    // Non-ASCII detected: do full UTF-8 validation
+    return validate_utf8_simd(data, len);
 }
 
 } // namespace util

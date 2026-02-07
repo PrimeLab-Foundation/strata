@@ -89,6 +89,10 @@ class TestInvalidJSON:
         with pytest.raises(ValueError):
             strata.parse_json('{]')
 
+    def test_control_characters_rejected(self):
+        with pytest.raises(ValueError):
+            strata.parse_json('"\u0001bad"')
+
 
 class TestNavigationErrors:
     """Test that navigation errors raise appropriate exceptions."""

@@ -4,6 +4,7 @@
 
 #include "strata/json/json_core.hpp"
 #include "strata/json/ndjson_stream.hpp"
+#include "strata/json/json_sax_handler.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -253,6 +254,259 @@ void test_stress_large_stream_100k() {
     std::cout << "✓ test_stress_large_stream_100k passed\n";
 }
 
+// ============================================================================
+// SAX API tests
+// ============================================================================
+
+// Simple counting SAX handler
+class CountingHandler : public JsonSaxHandler {
+  public:
+    int object_count = 0;
+    int array_count = 0;
+    int string_count = 0;
+    int number_count = 0;
+    int key_count = 0;
+    int null_count = 0;
+    int bool_count = 0;
+
+    bool on_null() override { null_count++; return true; }
+    bool on_bool(bool) override { bool_count++; return true; }
+    bool on_int(int64_t) override { number_count++; return true; }
+    bool on_uint(uint64_t) override { number_count++; return true; }
+    bool on_double(double) override { number_count++; return true; }
+    bool on_string(std::string_view, bool) override { string_count++; return true; }
+    bool on_start_object(size_t) override { object_count++; return true; }
+    bool on_key(std::string_view, bool) override { key_count++; return true; }
+    bool on_end_object() override { return true; }
+    bool on_start_array(size_t) override { array_count++; return true; }
+    bool on_end_array() override { return true; }
+};
+
+void test_ndjson_sax_api() {
+    std::string ndjson = "{\"a\":1}\n{\"b\":2}\n{\"c\":3}";
+    NdjsonStream stream(ndjson);
+
+    CountingHandler handler;
+    int lines = 0;
+    while (stream.has_next()) {
+        Status status = stream.next_sax(handler);
+        if (status == Status::Ok) {
+            lines++;
+        } else {
+            break;
+        }
+    }
+
+    assert(lines == 3);
+    assert(handler.object_count == 3);
+    assert(handler.key_count == 3);
+    assert(handler.number_count == 3);
+
+    std::cout << "✓ test_ndjson_sax_api passed\n";
+}
+
+void test_ndjson_sax_with_arrays() {
+    std::string ndjson = "[1, 2, 3]\n[\"a\", \"b\"]";
+    NdjsonStream stream(ndjson);
+
+    CountingHandler handler;
+    int lines = 0;
+    while (stream.has_next()) {
+        Status status = stream.next_sax(handler);
+        if (status == Status::Ok) {
+            lines++;
+        } else {
+            break;
+        }
+    }
+
+    assert(lines == 2);
+    assert(handler.array_count == 2);
+    assert(handler.number_count == 3);
+    assert(handler.string_count == 2);
+
+    std::cout << "✓ test_ndjson_sax_with_arrays passed\n";
+}
+
+void test_ndjson_sax_mixed_types() {
+    std::string ndjson = "{\"null\": null, \"bool\": true, \"num\": 42, \"str\": \"hello\"}";
+    NdjsonStream stream(ndjson);
+
+    CountingHandler handler;
+    Status status = stream.next_sax(handler);
+    assert(status == Status::Ok);
+
+    assert(handler.object_count == 1);
+    assert(handler.null_count == 1);
+    assert(handler.bool_count == 1);
+    assert(handler.number_count == 1);
+    assert(handler.string_count == 1);
+    assert(handler.key_count == 4);
+
+    std::cout << "✓ test_ndjson_sax_mixed_types passed\n";
+}
+
+void test_ndjson_sax_error_handling() {
+    std::string ndjson = "{invalid}";
+    NdjsonStream stream(ndjson);
+
+    CountingHandler handler;
+    Status status = stream.next_sax(handler);
+    assert(status == Status::ParseError);
+    assert(stream.error_count() == 1);
+
+    std::cout << "✓ test_ndjson_sax_error_handling passed\n";
+}
+
+void test_ndjson_sax_empty_stream() {
+    std::string ndjson = "";
+    NdjsonStream stream(ndjson);
+
+    CountingHandler handler;
+    Status status = stream.next_sax(handler);
+    // End of stream should return KeyNotFound
+    assert(status == Status::KeyNotFound);
+
+    std::cout << "✓ test_ndjson_sax_empty_stream passed\n";
+}
+
+// ============================================================================
+// Batch API tests
+// ============================================================================
+
+void test_ndjson_batch_api() {
+    std::string ndjson = "{\"a\":1}\n{\"b\":2}\n{\"c\":3}\n{\"d\":4}\n{\"e\":5}";
+    NdjsonStream stream(ndjson);
+
+    // Get batch of 2
+    auto batch1 = stream.next_batch(2, false);
+    assert(batch1.size() == 2);
+    assert(batch1[0].as_object().at("a").as_number() == 1.0);
+    assert(batch1[1].as_object().at("b").as_number() == 2.0);
+
+    // Get next batch of 2
+    auto batch2 = stream.next_batch(2, false);
+    assert(batch2.size() == 2);
+    assert(batch2[0].as_object().at("c").as_number() == 3.0);
+    assert(batch2[1].as_object().at("d").as_number() == 4.0);
+
+    // Get remaining (should be 1)
+    auto batch3 = stream.next_batch(10, false);
+    assert(batch3.size() == 1);
+    assert(batch3[0].as_object().at("e").as_number() == 5.0);
+
+    // No more
+    auto batch4 = stream.next_batch(10, false);
+    assert(batch4.size() == 0);
+
+    std::cout << "✓ test_ndjson_batch_api passed\n";
+}
+
+void test_ndjson_batch_with_errors() {
+    // Mix of valid and invalid lines
+    std::string ndjson = "{\"a\":1}\n{invalid}\n{\"b\":2}\n{also bad}\n{\"c\":3}";
+
+    // Without skip_errors - should stop at first error
+    NdjsonStream stream1(ndjson);
+    auto batch1 = stream1.next_batch(10, false);
+    assert(batch1.size() == 1);  // Only first valid object
+    assert(stream1.error_count() == 1);
+
+    // With skip_errors - should get all valid objects
+    NdjsonStream stream2(ndjson);
+    auto batch2 = stream2.next_batch(10, true);  // skip_errors=true
+    assert(batch2.size() == 3);  // Should get 3 valid objects
+    assert(stream2.error_count() == 2);  // 2 errors skipped
+
+    std::cout << "✓ test_ndjson_batch_with_errors passed\n";
+}
+
+void test_ndjson_batch_single_item() {
+    std::string ndjson = "{\"a\":1}";
+    NdjsonStream stream(ndjson);
+
+    auto batch = stream.next_batch(1, false);
+    assert(batch.size() == 1);
+
+    auto batch2 = stream.next_batch(1, false);
+    assert(batch2.size() == 0);
+
+    std::cout << "✓ test_ndjson_batch_single_item passed\n";
+}
+
+void test_ndjson_batch_empty_lines() {
+    std::string ndjson = "{\"a\":1}\n\n\n{\"b\":2}\n   \n{\"c\":3}";
+    NdjsonStream stream(ndjson);
+
+    // Empty and whitespace-only lines should be skipped
+    auto batch = stream.next_batch(10, false);
+    assert(batch.size() == 3);
+
+    std::cout << "✓ test_ndjson_batch_empty_lines passed\n";
+}
+
+void test_next_end_of_stream() {
+    // Test that next() returns KeyNotFound when stream is exhausted
+    std::string data = "{\"a\": 1}\n{\"b\": 2}";
+    NdjsonStream stream(data);
+
+    // Read first line
+    auto result1 = stream.next();
+    assert(result1.ok());
+    assert(result1.value.as_object().at("a").as_number() == 1.0);
+
+    // Read second line
+    auto result2 = stream.next();
+    assert(result2.ok());
+    assert(result2.value.as_object().at("b").as_number() == 2.0);
+
+    // Read past end - should return KeyNotFound
+    auto result3 = stream.next();
+    assert(!result3.ok());
+    assert(result3.status == Status::KeyNotFound);
+
+    std::cout << "✓ test_next_end_of_stream passed\n";
+}
+
+void test_sax_whitespace_lines() {
+    // Test SAX parsing with whitespace-only lines that get skipped
+    std::string ndjson = "{\"a\":1}\n   \n\t\t\n{\"b\":2}";
+    NdjsonStream stream(ndjson);
+    CountingHandler handler;
+
+    // First object
+    Status status1 = stream.next_sax(handler);
+    assert(status1 == Status::Ok);
+    assert(handler.object_count == 1);
+
+    // Second object (after whitespace lines are skipped)
+    handler.object_count = 0;  // Reset counter
+    Status status2 = stream.next_sax(handler);
+    assert(status2 == Status::Ok);
+    assert(handler.object_count == 1);
+
+    // End of stream
+    Status status3 = stream.next_sax(handler);
+    assert(status3 == Status::KeyNotFound);
+
+    std::cout << "✓ test_sax_whitespace_lines passed\n";
+}
+
+void test_ndjson_parse_all_fast_with_errors() {
+    // Test parse_all_fast with skip_errors
+    std::string ndjson = "{\"a\":1}\n{bad}\n{\"c\":3}";
+
+    NdjsonStream stream1(ndjson);
+    auto results1 = stream1.parse_all_fast(false);  // Don't skip errors
+    assert(results1.size() == 1);  // Only first valid
+
+    NdjsonStream stream2(ndjson);
+    auto results2 = stream2.parse_all_fast(true);  // Skip errors
+    assert(results2.size() == 2);  // Both valid objects
+
+    std::cout << "✓ test_ndjson_parse_all_fast_with_errors passed\n";
+}
+
 int main() {
     std::cout << "Running NDJSON streaming tests...\n\n";
 
@@ -274,6 +528,21 @@ int main() {
     test_large_stream();
     test_stress_large_stream_100k();
 
+    // SAX API tests
+    test_ndjson_sax_api();
+    test_ndjson_sax_with_arrays();
+    test_ndjson_sax_mixed_types();
+    test_ndjson_sax_error_handling();
+    test_ndjson_sax_empty_stream();
+
+    // Batch API tests
+    test_ndjson_batch_api();
+    test_ndjson_batch_with_errors();
+    test_ndjson_batch_single_item();
+    test_ndjson_batch_empty_lines();
+    test_ndjson_parse_all_fast_with_errors();
+    test_next_end_of_stream();
+    test_sax_whitespace_lines();
     std::cout << "\n✅ All NDJSON streaming tests passed!\n";
     return 0;
 }

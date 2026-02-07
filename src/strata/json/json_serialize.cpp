@@ -1,3 +1,27 @@
+/**
+ * @file json_serialize.cpp
+ * @brief JSON serialization (dumps) implementation.
+ *
+ * This file implements JSON serialization from JsonValue DOM to string output.
+ * Key features:
+ * - serialize_json(): Convert JsonValue to JSON string
+ * - Proper string escaping (quotes, backslash, control characters)
+ * - Float formatting via Dragonbox algorithm for clean, round-trip safe output
+ * - Compact integer formatting (no trailing ".0" for whole numbers)
+ *
+ * The serializer handles:
+ * - All JSON value types: null, bool, number, string, array, object
+ * - Special float values (NaN, Infinity) → null
+ * - Unicode passthrough (UTF-8 preserved)
+ * - Control character escaping (\n, \r, \t, \b, \f)
+ *
+ * Dependencies:
+ * - json_serialize.hpp: Public API
+ * - dragonbox.hpp: Fast float-to-string conversion
+ *
+ * @see json_serialize.hpp for public API
+ */
+
 #include "strata/json/json_serialize.hpp"
 
 #include "strata/util/dragonbox.hpp"

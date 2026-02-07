@@ -1,6 +1,36 @@
+/**
+ * @file json_parse.cpp
+ * @brief JSON parsing implementation with SAX-style event emission.
+ *
+ * This file implements the core JSON parsing logic for Strata. It provides:
+ * - parse_json(): Main entry point that parses JSON into a DOM (JsonValue)
+ * - SAX-style parsing via JsonSaxHandler interface
+ * - Support for duplicate key policies (FirstWins, LastWins, Error)
+ * - SIMD-accelerated UTF-8 validation via simd_string.hpp
+ * - Fast number parsing via fast_parse.hpp
+ *
+ * The parser uses a recursive descent approach with iterative refinements
+ * for deep nesting safety. String unescaping is handled lazily where possible.
+ *
+ * Key classes:
+ * - DomBuilderHandler: SAX handler that builds JsonValue DOM
+ * - Internal parsing functions: parse_value, parse_object, parse_array, etc.
+ *
+ * Dependencies:
+ * - json_core.hpp: JsonValue, Status, Result types
+ * - json_parse.hpp: Public API declarations
+ * - fast_parse.hpp: SWAR-accelerated integer/float parsing
+ * - simd_string.hpp: SIMD UTF-8 validation
+ * - lazy_string.hpp: Lazy string unescaping
+ *
+ * @see json_parse.hpp for public API
+ * @see ADR-0001-hybrid-sax-and-python-builder.md for architecture decisions
+ */
+
 #include "strata/json/json_parse.hpp"
 
 #include "strata/util/fast_parse.hpp"
+#include "strata/util/lazy_string.hpp"
 #include "strata/util/simd_string.hpp"
 
 #include <cctype>
@@ -16,14 +46,189 @@ namespace {
 thread_local DuplicateKeyPolicy g_duplicate_policy = DuplicateKeyPolicy::FirstWins;
 thread_local std::vector<std::string> g_parse_warnings;
 
+class DomBuilderHandler : public JsonSaxHandler {
+  public:
+    DomBuilderHandler() = default;
+
+    bool on_null() override { return push_value(JsonValue()); }
+    bool on_bool(bool v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
+    bool on_int(int64_t v) override {
+        return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
+    }
+    bool on_uint(uint64_t v) override {
+        return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
+    }
+    bool on_double(double v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
+    bool on_string(std::string_view v, bool has_escapes = false) override {
+        // Use LazyString to defer unescaping until value is actually accessed
+        LazyString lazy(v, has_escapes);
+        return push_value(JsonValue(JsonValue::Variant(lazy.value())));
+    }
+
+    bool on_start_object(size_t) override {
+        stack_.emplace_back(JsonValue::Variant(JsonValue::Object()));
+        return true;
+    }
+
+    bool on_key(std::string_view v, bool has_escapes = false) override {
+        // Use LazyString to defer unescaping until value is actually accessed
+        LazyString lazy(v, has_escapes);
+        keys_.emplace_back(lazy.value());
+        return true;
+    }
+
+    bool on_end_object() override {
+        if (stack_.empty())
+            return false;
+        auto obj = std::move(stack_.back());
+        stack_.pop_back();
+        return push_value(std::move(obj));
+    }
+
+    bool on_start_array(size_t) override {
+        stack_.emplace_back(JsonValue::Variant(JsonValue::Array()));
+        return true;
+    }
+
+    bool on_end_array() override {
+        if (stack_.empty())
+            return false;
+        auto arr = std::move(stack_.back());
+        stack_.pop_back();
+        return push_value(std::move(arr));
+    }
+
+    JsonValue&& take_root() { return std::move(root_); }
+
+  private:
+    bool push_value(JsonValue&& val) {
+        if (stack_.empty()) {
+            root_ = std::move(val);
+            return true;
+        }
+
+        auto& top = stack_.back();
+        if (std::holds_alternative<JsonValue::Array>(top.data)) {
+            std::get<JsonValue::Array>(top.data).push_back(std::move(val));
+            return true;
+        } else if (std::holds_alternative<JsonValue::Object>(top.data)) {
+            if (keys_.empty())
+                return false;
+            auto& obj = std::get<JsonValue::Object>(top.data);
+            std::string key = std::move(keys_.back());
+            keys_.pop_back();
+
+            auto existing = obj.find(key);
+            if (existing != obj.end()) {
+                switch (g_duplicate_policy) {
+                case DuplicateKeyPolicy::FirstWins:
+                    break;
+                case DuplicateKeyPolicy::Warn:
+                    g_parse_warnings.push_back("Duplicate key encountered: " + key);
+                    break;
+                case DuplicateKeyPolicy::LastWins:
+                    existing->second = std::move(val);
+                    break;
+                case DuplicateKeyPolicy::Error:
+                    return false;
+                }
+            } else {
+                obj.emplace(std::move(key), std::move(val));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    JsonValue root_;
+    std::vector<JsonValue> stack_;
+    std::vector<std::string> keys_;
+};
+
+// Maximum nesting depth to prevent stack overflow on malicious input
+constexpr size_t kMaxNestingDepth = 10000;
+
+// State for iterative stack-based parsing
+enum class ContainerType : uint8_t { Array, Object };
+enum class ContainerState : uint8_t {
+    ExpectValue,       // Expecting a value (first element or after comma)
+    ExpectCommaOrEnd,  // After a value, expecting comma or closing bracket/brace
+    ExpectKey,         // Object: expecting key string
+    ExpectColon,       // Object: expecting colon after key
+};
+
+struct StackFrame {
+    ContainerType type;
+    ContainerState state;
+};
+
 struct Parser {
     const char* data;
     size_t len;
+    JsonSaxHandler& handler;
     size_t i = 0;
+    std::vector<StackFrame> stack_;
+    const std::vector<size_t>* structural_tape = nullptr;
+    size_t tape_idx = 0;
 
     bool eof() const { return i >= len; }
     char peek() const { return eof() ? '\0' : data[i]; }
     char get() { return eof() ? '\0' : data[i++]; }
+
+    void attach_structural_tape(const std::vector<size_t>* tape) {
+        structural_tape = tape;
+        tape_idx = 0;
+    }
+
+    void sync_structural_tape() {
+        if (!structural_tape) {
+            return;
+        }
+        while (tape_idx < structural_tape->size() && (*structural_tape)[tape_idx] < i) {
+            ++tape_idx;
+        }
+    }
+
+    size_t next_structural_pos() {
+        if (!structural_tape) {
+            return len;
+        }
+        sync_structural_tape();
+        if (tape_idx >= structural_tape->size()) {
+            return len;
+        }
+        return (*structural_tape)[tape_idx];
+    }
+
+    bool next_structural_char(size_t& pos, char& c) {
+        if (structural_tape) {
+            size_t non_ws = util::skip_whitespace_simd(data, len, i);
+            if (non_ws >= len) {
+                return false;
+            }
+            size_t next = next_structural_pos();
+            if (next != non_ws) {
+                return false;
+            }
+            pos = next;
+            c = data[pos];
+            return true;
+        }
+        pos = util::find_next_structural_simd(data, len, i);
+        if (pos >= len) {
+            return false;
+        }
+        c = data[pos];
+        return true;
+    }
+
+    void consume_structural_at(size_t pos) {
+        i = pos + 1;
+        if (!structural_tape) {
+            return;
+        }
+        sync_structural_tape();
+    }
 
     static int hex_value(char c) {
         if (c >= '0' && c <= '9')
@@ -76,21 +281,26 @@ struct Parser {
         return true;
     }
 
-    void skip_ws() { i = util::skip_whitespace_fast(data, len, i); }
+    void skip_ws() { i = util::skip_whitespace_simd(data, len, i); }
 
     bool consume(char c) {
-        skip_ws();
-        if (peek() == c) {
-            ++i;
+        size_t pos = 0;
+        char actual = '\0';
+        if (!next_structural_char(pos, actual)) {
+            return false;
+        }
+        if (actual == c) {
+            consume_structural_at(pos);
             return true;
         }
         return false;
     }
 
-    Result<JsonValue> parse_value() {
+    // Parse a single primitive value (not containers)
+    bool parse_primitive() {
         skip_ws();
         if (eof())
-            return {Status::ParseError, JsonValue{}};
+            return false;
         char c = peek();
         if (c == 'n')
             return parse_null();
@@ -98,39 +308,192 @@ struct Parser {
             return parse_bool();
         if (c == '"')
             return parse_string();
-        if (c == '[')
-            return parse_array();
-        if (c == '{')
-            return parse_object();
         if (c == '-' || std::isdigit(static_cast<unsigned char>(c)))
             return parse_number();
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_null() {
+    // Main iterative parsing function using explicit stack
+    bool parse_value() {
+        skip_ws();
+        if (eof())
+            return false;
+
+        // Handle top-level value
+        char c = peek();
+        if (c == '[') {
+            if (!start_array())
+                return false;
+        } else if (c == '{') {
+            if (!start_object())
+                return false;
+        } else {
+            // Top-level primitive
+            return parse_primitive();
+        }
+
+        // Iterative state machine for nested structures
+        while (!stack_.empty()) {
+            StackFrame& frame = stack_.back();
+
+            if (frame.type == ContainerType::Array) {
+                if (!process_array_state(frame))
+                    return false;
+            } else {
+                if (!process_object_state(frame))
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool start_array() {
+        if (stack_.size() >= kMaxNestingDepth)
+            return false;
+        ++i; // consume '['
+        if (!handler.on_start_array())
+            return false;
+        skip_ws();
+        if (peek() == ']') {
+            ++i;
+            return handler.on_end_array();
+        }
+        stack_.push_back({ContainerType::Array, ContainerState::ExpectValue});
+        return true;
+    }
+
+    bool start_object() {
+        if (stack_.size() >= kMaxNestingDepth)
+            return false;
+        ++i; // consume '{'
+        if (!handler.on_start_object())
+            return false;
+        skip_ws();
+        if (peek() == '}') {
+            ++i;
+            return handler.on_end_object();
+        }
+        stack_.push_back({ContainerType::Object, ContainerState::ExpectKey});
+        return true;
+    }
+
+    bool process_array_state(StackFrame& frame) {
+        switch (frame.state) {
+        case ContainerState::ExpectValue: {
+            skip_ws();
+            char c = peek();
+            if (c == '[') {
+                frame.state = ContainerState::ExpectCommaOrEnd;
+                return start_array();
+            } else if (c == '{') {
+                frame.state = ContainerState::ExpectCommaOrEnd;
+                return start_object();
+            } else {
+                if (!parse_primitive())
+                    return false;
+                frame.state = ContainerState::ExpectCommaOrEnd;
+                return true;
+            }
+        }
+        case ContainerState::ExpectCommaOrEnd: {
+            size_t pos = 0;
+            char c = '\0';
+            if (!next_structural_char(pos, c)) {
+                return false;
+            }
+            if (c == ']') {
+                consume_structural_at(pos);
+                stack_.pop_back();
+                return handler.on_end_array();
+            } else if (c == ',') {
+                consume_structural_at(pos);
+                frame.state = ContainerState::ExpectValue;
+                return true;
+            }
+            return false;
+        }
+        default:
+            return false;
+        }
+    }
+
+    bool process_object_state(StackFrame& frame) {
+        switch (frame.state) {
+        case ContainerState::ExpectKey: {
+            skip_ws();
+            if (!parse_string(true))
+                return false;
+            frame.state = ContainerState::ExpectColon;
+            return true;
+        }
+        case ContainerState::ExpectColon: {
+            if (!consume(':'))
+                return false;
+            frame.state = ContainerState::ExpectValue;
+            return true;
+        }
+        case ContainerState::ExpectValue: {
+            skip_ws();
+            char c = peek();
+            if (c == '[') {
+                frame.state = ContainerState::ExpectCommaOrEnd;
+                return start_array();
+            } else if (c == '{') {
+                frame.state = ContainerState::ExpectCommaOrEnd;
+                return start_object();
+            } else {
+                if (!parse_primitive())
+                    return false;
+                frame.state = ContainerState::ExpectCommaOrEnd;
+                return true;
+            }
+        }
+        case ContainerState::ExpectCommaOrEnd: {
+            size_t pos = 0;
+            char c = '\0';
+            if (!next_structural_char(pos, c)) {
+                return false;
+            }
+            if (c == '}') {
+                consume_structural_at(pos);
+                stack_.pop_back();
+                return handler.on_end_object();
+            } else if (c == ',') {
+                consume_structural_at(pos);
+                frame.state = ContainerState::ExpectKey;
+                return true;
+            }
+            return false;
+        }
+        }
+        return false;
+    }
+
+    bool parse_null() {
         if (i + 4 <= len && data[i] == 'n' && data[i + 1] == 'u' && data[i + 2] == 'l' &&
             data[i + 3] == 'l') {
             i += 4;
-            return {Status::Ok, JsonValue{}};
+            return handler.on_null();
         }
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_bool() {
+    bool parse_bool() {
         if (i + 4 <= len && data[i] == 't' && data[i + 1] == 'r' && data[i + 2] == 'u' &&
             data[i + 3] == 'e') {
             i += 4;
-            return {Status::Ok, JsonValue(JsonValue::Variant(true))};
+            return handler.on_bool(true);
         }
         if (i + 5 <= len && data[i] == 'f' && data[i + 1] == 'a' && data[i + 2] == 'l' &&
             data[i + 3] == 's' && data[i + 4] == 'e') {
             i += 5;
-            return {Status::Ok, JsonValue(JsonValue::Variant(false))};
+            return handler.on_bool(false);
         }
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_number() {
+    bool parse_number() {
         size_t start = i;
 
         // Try fast integer parse first
@@ -143,7 +506,7 @@ struct Parser {
                 // Fall through to double parsing
             } else {
                 i += consumed;
-                return {Status::Ok, JsonValue(JsonValue::Variant(static_cast<double>(int_val)))};
+                return handler.on_int(int_val);
             }
         }
 
@@ -151,176 +514,135 @@ struct Parser {
         double double_val;
         if (util::parse_double_fast(data + start, len - start, double_val, consumed)) {
             i = start + consumed;
-            return {Status::Ok, JsonValue(JsonValue::Variant(double_val))};
+            return handler.on_double(double_val);
         }
 
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_string() {
+    bool parse_string(bool is_key = false) {
         if (get() != '"')
-            return {Status::ParseError, JsonValue{}};
+            return false;
 
         // Fast scan for end quote or escape using SIMD
         size_t scan_pos = util::find_next_escape_simd(data + i, len - i);
 
         // Fast path: no escapes, just copy
         if (scan_pos < len - i && data[i + scan_pos] == '"') {
-            std::string result(data + i, scan_pos);
+            std::string_view result(data + i, scan_pos);
             i += scan_pos + 1; // +1 for closing quote
-            return {Status::Ok, JsonValue(JsonValue::Variant(std::move(result)))};
+            // No escapes - pass with has_escapes=false for lazy string optimization
+            return is_key ? handler.on_key(result, false) : handler.on_string(result, false);
         }
 
         // Slow path: has escapes or control chars
-        std::string out;
-        out.reserve(scan_pos + 16); // Pre-allocate with some buffer
+        // Validate escape sequences and record raw bytes for lazy unescaping
+        size_t string_start = i;
 
         while (!eof()) {
             char c = get();
             if (c == '"') {
-                return {Status::Ok, JsonValue(JsonValue::Variant(std::move(out)))};
+                // String complete - pass raw bytes with has_escapes=true
+                std::string_view raw_str(data + string_start, i - string_start - 1);
+                return is_key ? handler.on_key(raw_str, true)
+                              : handler.on_string(raw_str, true);
             }
             if (c == '\\') {
+                // Validate escape sequence without building output
                 if (eof())
-                    return {Status::ParseError, JsonValue{}};
+                    return false;
                 char esc = get();
                 switch (esc) {
                 case '"':
-                    out.push_back('"');
-                    break;
                 case '\\':
-                    out.push_back('\\');
-                    break;
                 case '/':
-                    out.push_back('/');
-                    break;
                 case 'b':
-                    out.push_back('\b');
-                    break;
                 case 'f':
-                    out.push_back('\f');
-                    break;
                 case 'n':
-                    out.push_back('\n');
-                    break;
                 case 'r':
-                    out.push_back('\r');
-                    break;
                 case 't':
-                    out.push_back('\t');
+                    // Valid simple escape, continue
                     break;
                 case 'u': {
+                    // Validate \uXXXX sequence
                     uint32_t codepoint = 0;
                     if (!read_hex4(codepoint))
-                        return {Status::ParseError, JsonValue{}};
+                        return false;
+                    // Handle surrogate pairs
                     if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
+                        // High surrogate - expect low surrogate
                         if (eof() || get() != '\\')
-                            return {Status::ParseError, JsonValue{}};
+                            return false;
                         if (eof() || get() != 'u')
-                            return {Status::ParseError, JsonValue{}};
+                            return false;
                         uint32_t low = 0;
                         if (!read_hex4(low))
-                            return {Status::ParseError, JsonValue{}};
+                            return false;
                         if (low < 0xDC00 || low > 0xDFFF)
-                            return {Status::ParseError, JsonValue{}};
-                        codepoint = 0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00);
+                            return false;
+                        // Valid surrogate pair
                     } else if (codepoint >= 0xDC00 && codepoint <= 0xDFFF) {
-                        return {Status::ParseError, JsonValue{}};
+                        // Lone low surrogate is invalid
+                        return false;
                     }
-                    if (!append_utf8(out, codepoint))
-                        return {Status::ParseError, JsonValue{}};
+                    // Valid unicode escape
                     break;
                 }
                 default:
-                    return {Status::ParseError, JsonValue{}};
+                    // Invalid escape sequence
+                    return false;
                 }
             } else {
+                // Control characters (< 0x20) are invalid in JSON strings
                 if (static_cast<unsigned char>(c) < 0x20) {
-                    return {Status::ParseError, JsonValue{}};
+                    return false;
                 }
-                out.push_back(c);
+                // Regular character, continue
             }
         }
-        return {Status::ParseError, JsonValue{}};
+        // Unterminated string
+        return false;
     }
 
-    Result<JsonValue> parse_array() {
-        if (!consume('['))
-            return {Status::ParseError, JsonValue{}};
-        JsonValue::Array arr;
-        if (consume(']'))
-            return {Status::Ok, JsonValue(JsonValue::Variant(std::move(arr)))};
-        while (true) {
-            auto elem = parse_value();
-            if (!elem.ok())
-                return elem;
-            arr.push_back(std::move(elem.value));
-            if (consume(']'))
-                break;
-            if (!consume(','))
-                return {Status::ParseError, JsonValue{}};
-        }
-        return {Status::Ok, JsonValue(JsonValue::Variant(std::move(arr)))};
-    }
-
-    Result<JsonValue> parse_object() {
-        if (!consume('{'))
-            return {Status::ParseError, JsonValue{}};
-        JsonValue::Object obj;
-        if (consume('}'))
-            return {Status::Ok, JsonValue(JsonValue::Variant(std::move(obj)))};
-        while (true) {
-            skip_ws();
-            auto key_res = parse_string();
-            if (!key_res.ok() || !key_res.value.is_string())
-                return {Status::ParseError, JsonValue{}};
-            std::string key = std::move(key_res.value.as_string());
-            if (!consume(':'))
-                return {Status::ParseError, JsonValue{}};
-            auto val_res = parse_value();
-            if (!val_res.ok())
-                return val_res;
-            auto existing = obj.find(key);
-            if (existing != obj.end()) {
-                switch (g_duplicate_policy) {
-                case DuplicateKeyPolicy::FirstWins:
-                    break;
-                case DuplicateKeyPolicy::Warn:
-                    g_parse_warnings.push_back("Duplicate key encountered: " + key);
-                    break;
-                case DuplicateKeyPolicy::LastWins:
-                    existing->second = std::move(val_res.value);
-                    break;
-                case DuplicateKeyPolicy::Error:
-                    return {Status::ParseError, JsonValue{}};
-                }
-            } else {
-                obj.emplace(std::move(key), std::move(val_res.value));
-            }
-            if (consume('}'))
-                break;
-            if (!consume(','))
-                return {Status::ParseError, JsonValue{}};
-        }
-        return {Status::Ok, JsonValue(JsonValue::Variant(std::move(obj)))};
-    }
 };
 
 } // namespace
 
 Result<JsonValue> parse_json(std::string_view text) {
     g_parse_warnings.clear();
-    if (!text.empty() && !util::validate_utf8_simd(text.data(), text.size())) {
-        return {Status::ParseError, JsonValue{}};
+    DomBuilderHandler handler;
+    Status status = parse_sax(text, handler);
+    if (status != Status::Ok) {
+        return {status, JsonValue{}};
     }
-    Parser p{text.data(), text.size(), 0};
-    auto res = p.parse_value();
-    if (!res.ok())
-        return res;
+    return {Status::Ok, handler.take_root()};
+}
+
+Status parse_sax(std::string_view text, JsonSaxHandler& handler) {
+    // Use lazy UTF-8 validation: fast-path for ASCII-only (most common),
+    // full validation only when non-ASCII bytes are detected
+    if (!text.empty() && !util::validate_utf8_lazy(text.data(), text.size())) {
+        return Status::ParseError;
+    }
+    std::vector<size_t> structural_tape;
+    util::collect_structural_positions_simd(text.data(), text.size(), structural_tape);
+    Parser p{text.data(), text.size(), handler, 0, {}};
+    p.attach_structural_tape(&structural_tape);
+    if (!p.parse_value())
+        return Status::ParseError;
     p.skip_ws();
     if (!p.eof())
-        return {Status::ParseError, JsonValue{}};
-    return res;
+        return Status::ParseError;
+    return Status::Ok;
+}
+
+Result<JsonTape> parse_to_tape(std::string_view text) {
+    TapeBuilder builder;
+    Status status = parse_sax(text, builder);
+    if (status != Status::Ok) {
+        return {status, JsonTape{}};
+    }
+    return {Status::Ok, builder.build()};
 }
 
 void set_duplicate_key_policy(DuplicateKeyPolicy policy) { g_duplicate_policy = policy; }

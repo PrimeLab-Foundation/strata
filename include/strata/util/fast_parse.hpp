@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 
+#include "strata/util/simd_numbers.hpp"
+
 namespace strata {
 namespace util {
 
@@ -13,70 +15,35 @@ namespace util {
  * Fast number parsing utilities.
  *
  * Optimized for common JSON number patterns.
+ * Uses SWAR (SIMD Within A Register) techniques for parallel digit parsing.
  * 3-5x faster than std::stod for typical cases.
  */
 
 /**
- * Parse integer from string view.
+ * Parse integer from string view using SWAR-accelerated parsing.
  * Returns value and number of characters consumed.
+ *
+ * Fast paths for common cases:
+ * - 1-digit: direct subtraction (~2 cycles)
+ * - 2-3 digits: inline multiply (~4 cycles)
+ * - 4 digits: SWAR parallel conversion (~6 cycles)
+ * - 5-8 digits: SWAR + scalar remainder (~10 cycles)
+ * - 9-16 digits: dual SWAR (~12 cycles)
+ *
+ * Delegates to parse_int_simd for the actual work.
  */
 inline bool parse_int_fast(const char* str, size_t len, int64_t& result, size_t& consumed) {
-    if (len == 0)
-        return false;
+    return parse_int_simd(str, len, result, consumed);
+}
 
-    size_t pos = 0;
-    bool negative = false;
-
-    if (str[pos] == '-') {
-        negative = true;
-        ++pos;
-    }
-
-    if (pos >= len || str[pos] < '0' || str[pos] > '9') {
-        return false;
-    }
-
-    // Check for leading zero (not allowed in JSON except for "0" itself)
-    if (str[pos] == '0') {
-        ++pos;
-        // After '0', must not be another digit
-        if (pos < len && str[pos] >= '0' && str[pos] <= '9') {
-            return false; // Leading zero not allowed
-        }
-        result = 0;
-        consumed = pos;
-        return true;
-    }
-
-    uint64_t val = 0;
-    const uint64_t limit = negative ? static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1
-                                    : static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
-    while (pos < len && str[pos] >= '0' && str[pos] <= '9') {
-        int digit = str[pos] - '0';
-        if (val > (limit - static_cast<uint64_t>(digit)) / 10) {
-            return false; // overflow
-        }
-        val = val * 10 + static_cast<uint64_t>(digit);
-        ++pos;
-    }
-
-    if (negative) {
-        const uint64_t min_abs =
-            static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1; // |-INT64_MIN|
-        if (val > min_abs)
-            return false;
-        if (val == min_abs) {
-            result = std::numeric_limits<int64_t>::min();
-        } else {
-            result = -static_cast<int64_t>(val);
-        }
-    } else {
-        if (val > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
-            return false;
-        result = static_cast<int64_t>(val);
-    }
-    consumed = pos;
-    return true;
+/**
+ * Parse unsigned integer from string view using SWAR-accelerated parsing.
+ * Returns value and number of characters consumed.
+ *
+ * Delegates to parse_uint_simd for the actual work.
+ */
+inline bool parse_uint_fast(const char* str, size_t len, uint64_t& result, size_t& consumed) {
+    return parse_uint_simd(str, len, result, consumed);
 }
 
 /**

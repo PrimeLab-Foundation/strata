@@ -39,18 +39,25 @@ enable_testing()
 # Core source files
 set(STRATA_CORE_SOURCES
     src/strata/json/json_parse.cpp
+    src/strata/json/json_tape.cpp
     src/strata/json/json_cursor.cpp
+    src/strata/json/json_lazy_cursor.cpp
     src/strata/json/json_document.cpp
+    src/strata/json/json_mmap.cpp
     src/strata/json/json_serialize.cpp
     src/strata/json/ndjson_stream.cpp
+    src/strata/json/parallel_ndjson.cpp
     src/strata/search/jsonpath_compile.cpp
     src/strata/search/jsonpath_eval.cpp
     src/strata/util/ryu_dtoa.cpp
+    src/strata/util/simd_numbers.cpp
     src/strata/util/dragonbox.cpp
     src/strata/util/simd_escape.cpp
     src/strata/util/simd_newline.cpp
     src/strata/util/simd_utf8.cpp
+    src/strata/util/simd_structural.cpp
     src/strata/util/fast_parse.cpp
+    src/strata/util/thread_pool.cpp
 )
 
 # Include directories
@@ -96,6 +103,18 @@ strata_apply_lto(json_document_tests)
 add_test(NAME json_document_tests COMMAND json_document_tests)
 
 # ---------------------------------------------------------------------------
+# 3a) JSON Mmap Tests (memory-mapped file parsing)
+# ---------------------------------------------------------------------------
+add_executable(json_mmap_tests
+    tests/cpp/test_json_mmap.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(json_mmap_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(json_mmap_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(json_mmap_tests)
+add_test(NAME json_mmap_tests COMMAND json_mmap_tests)
+
+# ---------------------------------------------------------------------------
 # 4) JSON Serialize Tests
 # ---------------------------------------------------------------------------
 add_executable(json_serialize_tests
@@ -130,6 +149,30 @@ target_include_directories(ndjson_tests PRIVATE ${STRATA_INCLUDE_DIRS})
 target_compile_options(ndjson_tests PRIVATE -Wall -Wextra)
 strata_apply_lto(ndjson_tests)
 add_test(NAME ndjson_tests COMMAND ndjson_tests)
+
+# ---------------------------------------------------------------------------
+# 6a) Parallel NDJSON Tests
+# ---------------------------------------------------------------------------
+add_executable(parallel_ndjson_tests
+    tests/cpp/test_parallel_ndjson.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(parallel_ndjson_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(parallel_ndjson_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(parallel_ndjson_tests)
+add_test(NAME parallel_ndjson_tests COMMAND parallel_ndjson_tests)
+
+# ---------------------------------------------------------------------------
+# 6b) Thread Pool Tests
+# ---------------------------------------------------------------------------
+add_executable(thread_pool_tests
+    tests/cpp/test_thread_pool.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(thread_pool_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(thread_pool_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(thread_pool_tests)
+add_test(NAME thread_pool_tests COMMAND thread_pool_tests)
 
 # ---------------------------------------------------------------------------
 # 7) Float Precision Tests (mirrors Python TestFloatPrecision)
@@ -175,6 +218,118 @@ target_include_directories(stress_deep_tests PRIVATE ${STRATA_INCLUDE_DIRS})
 target_compile_options(stress_deep_tests PRIVATE -Wall -Wextra)
 strata_apply_lto(stress_deep_tests)
 add_test(NAME stress_deep_tests COMMAND stress_deep_tests)
+
+# ---------------------------------------------------------------------------
+# 10) Fast Parse Tests (SWAR number parsing)
+# ---------------------------------------------------------------------------
+add_executable(fast_parse_tests
+    tests/cpp/test_fast_parse.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(fast_parse_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(fast_parse_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(fast_parse_tests)
+add_test(NAME fast_parse_tests COMMAND fast_parse_tests)
+
+# ---------------------------------------------------------------------------
+# 11) LazyString Tests (deferred unescape optimization)
+# ---------------------------------------------------------------------------
+add_executable(lazy_string_tests
+    tests/cpp/test_lazy_string.cpp
+)
+target_include_directories(lazy_string_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(lazy_string_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(lazy_string_tests)
+add_test(NAME lazy_string_tests COMMAND lazy_string_tests)
+
+# ---------------------------------------------------------------------------
+# 12) JSON Tape Tests (token tape format)
+# ---------------------------------------------------------------------------
+add_executable(json_tape_tests
+    tests/cpp/test_json_tape.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(json_tape_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(json_tape_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(json_tape_tests)
+add_test(NAME json_tape_tests COMMAND json_tape_tests)
+
+# ---------------------------------------------------------------------------
+# 13) Lazy Cursor Tests (selective materialization / lazy parsing)
+# ---------------------------------------------------------------------------
+add_executable(lazy_cursor_tests
+    tests/cpp/test_lazy_cursor.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(lazy_cursor_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(lazy_cursor_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(lazy_cursor_tests)
+add_test(NAME lazy_cursor_tests COMMAND lazy_cursor_tests)
+# ---------------------------------------------------------------------------
+# 14) Unicode and Escapes Tests (UTF-8 handling, escape sequences)
+# ---------------------------------------------------------------------------
+add_executable(unicode_escapes_tests
+    tests/cpp/test_unicode_and_escapes.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(unicode_escapes_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(unicode_escapes_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(unicode_escapes_tests)
+add_test(NAME unicode_escapes_tests COMMAND unicode_escapes_tests)
+# ---------------------------------------------------------------------------
+# 15) Parsing Errors Tests (error handling for invalid JSON)
+# ---------------------------------------------------------------------------
+add_executable(parsing_errors_tests
+    tests/cpp/test_parsing_errors.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(parsing_errors_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(parsing_errors_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(parsing_errors_tests)
+add_test(NAME parsing_errors_tests COMMAND parsing_errors_tests)
+# ---------------------------------------------------------------------------
+# 16) Integer Optimization Tests (integer parsing at various ranges)
+# ---------------------------------------------------------------------------
+add_executable(integer_optimization_tests
+    tests/cpp/test_integer_optimization.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(integer_optimization_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(integer_optimization_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(integer_optimization_tests)
+add_test(NAME integer_optimization_tests COMMAND integer_optimization_tests)
+# ---------------------------------------------------------------------------
+# 17) JSONPath Advanced Tests (filter predicates, recursive descent, slicing)
+# ---------------------------------------------------------------------------
+add_executable(jsonpath_advanced_tests
+    tests/cpp/test_jsonpath_advanced.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(jsonpath_advanced_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(jsonpath_advanced_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(jsonpath_advanced_tests)
+add_test(NAME jsonpath_advanced_tests COMMAND jsonpath_advanced_tests)
+# ---------------------------------------------------------------------------
+# 18) SIMD Escape Tests (SIMD-accelerated JSON string escaping)
+# ---------------------------------------------------------------------------
+add_executable(simd_escape_tests
+    tests/cpp/test_simd_escape.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(simd_escape_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(simd_escape_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(simd_escape_tests)
+add_test(NAME simd_escape_tests COMMAND simd_escape_tests)
+# ---------------------------------------------------------------------------
+# Benchmarks
+# ---------------------------------------------------------------------------
+add_executable(parallel_ndjson_bench
+    bench/parallel_ndjson_bench.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(parallel_ndjson_bench PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(parallel_ndjson_bench PRIVATE -Wall -Wextra -O3)
+strata_apply_lto(parallel_ndjson_bench)
 
 # ---------------------------------------------------------------------------
 # Fuzz targets (libFuzzer + ASan + UBSan) — optional

@@ -193,8 +193,9 @@ class TestNdjsonTypes:
         assert isinstance(results[0], dict)
         assert isinstance(results[1], list)
         assert isinstance(results[2], str)
-        # JSON spec doesn't distinguish int from float, so 42 becomes 42.0
-        assert results[3] == 42  # Value check, not type check
+        # JSON numbers may be int or float depending on parser implementation
+        assert isinstance(results[3], (int, float))
+        assert results[3] == 42
 
     def test_nested_objects(self):
         """Test NDJSON with nested structures."""

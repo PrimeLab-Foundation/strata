@@ -7,6 +7,7 @@
 extern PyObject* strata_dumps(PyObject* self, PyObject* obj);
 extern PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
 extern PyObject* strata_loads(PyObject* self, PyObject* args);
+extern PyObject* strata_loads_tape(PyObject* self, PyObject* args);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args);
@@ -14,6 +15,8 @@ extern PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args);
 extern int register_document_types(PyObject* module);
 extern int register_ndjson_types(PyObject* module);
 extern int register_jsonpath_types(PyObject* module);
+extern int register_lazy_cursor_types(PyObject* module);
+extern PyObject* strata_lazy(PyObject* self, PyObject* args);
 
 static PyObject* strata_set_duplicate_key_policy(PyObject* self, PyObject* args) {
     const char* policy = nullptr;
@@ -47,6 +50,10 @@ static PyMethodDef strata_methods[] = {
      "dumps_bytes(obj) -> bytes\n\nSerialize Python object to JSON bytes."},
     {"loads", strata_loads, METH_VARARGS,
      "loads(s) -> object\n\nParse JSON string to Python object."},
+    {"loads_tape", strata_loads_tape, METH_VARARGS,
+     "loads_tape(s) -> object\n\nParse JSON string via tape format to Python object.\n\n"
+     "Uses token tape as intermediate representation. Useful for benchmarking\n"
+     "tape-based parsing performance."},
     {"parse_json_file", strata_parse_json_file, METH_VARARGS,
      "parse_json_file(filepath) -> (JsonDocument, JsonCursor)\n\n"
      "Parse JSON file using memory-mapped I/O."},
@@ -60,6 +67,10 @@ static PyMethodDef strata_methods[] = {
     {"set_cycle_policy", strata_set_cycle_policy, METH_VARARGS,
      "set_cycle_policy(policy)\n\n"
      "Policy: warn (default), error, ignore."},
+    {"lazy", strata_lazy, METH_VARARGS,
+     "lazy(json_input) -> LazyCursor\n\n"
+     "Create a lazy cursor for on-demand JSON parsing.\n"
+     "Parses only the minimum bytes needed for each operation."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 
@@ -93,6 +104,12 @@ PyMODINIT_FUNC PyInit__strata(void) {
 
     // Register JSONPath types (CompiledPath)
     if (register_jsonpath_types(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
+
+    // Register LazyCursor types
+    if (register_lazy_cursor_types(module) < 0) {
         Py_DECREF(module);
         return NULL;
     }

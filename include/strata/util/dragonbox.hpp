@@ -23,7 +23,8 @@ namespace util {
  * @return Number of characters written
  *
  * Output: fixed-point when -6 <= exponent < 21, else scientific.
- * Always includes a decimal point for integer-valued floats (e.g. 1.0).
+ * Integer-valued floats within safe range (±2^53) are output compactly
+ * without decimal point (e.g., 1.0 → "1", 42.0 → "42").
  */
 int dragonbox_d2s(double value, char* buffer);
 

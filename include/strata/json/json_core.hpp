@@ -1,3 +1,24 @@
+/**
+ * @file json_core.hpp
+ * @brief Core JSON value types and utilities for Strata.
+ *
+ * This header defines the fundamental types used throughout Strata:
+ *
+ * Types:
+ * - JsonValue: Variant-based JSON value (null, bool, number, string, array, object)
+ * - FlatMap<K,V>: Vector-based map for JSON objects (better cache locality)
+ * - Status: Error codes for cursor operations
+ * - Result<T>: Error-or-value type for exception-free APIs
+ *
+ * Design rationale:
+ * - JsonValue uses std::variant for type-safe value storage
+ * - FlatMap provides O(n) lookup but excellent cache locality for small objects
+ * - Number type is double (sufficient for JSON's numeric range)
+ * - Status/Result enable exception-free hot paths
+ *
+ * @note This header is pure C++ with no Python dependencies.
+ */
+
 #pragma once
 
 #include <cstdint>

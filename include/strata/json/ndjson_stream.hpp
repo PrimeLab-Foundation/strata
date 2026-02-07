@@ -47,6 +47,16 @@ class NdjsonStream {
     Result<JsonValue> next();
 
     /**
+     * Parse next JSON line using a SAX handler.
+     *
+     * @param handler SAX handler invoked during parsing
+     * @return Status::Ok on success
+     *         Status::ParseError if line is invalid JSON
+     *         Status::KeyNotFound if no more lines (end of stream)
+     */
+    Status next_sax(JsonSaxHandler& handler);
+
+    /**
      * Check if more lines are available.
      *
      * @return true if more lines can be read

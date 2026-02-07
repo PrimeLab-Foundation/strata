@@ -96,4 +96,9 @@ std::vector<JsonValue> eval_jsonpath(const JsonDocument& doc, const CompiledPath
 // Evaluate on a cursor (more flexible)
 std::vector<JsonValue> eval_jsonpath(const JsonCursor& cursor, const CompiledPath& path);
 
+// Evaluate with early termination after finding 'limit' results
+// Useful for queries like "$..price" with limit=1 for finding first match
+std::vector<JsonValue> eval_jsonpath(const JsonDocument& doc, const CompiledPath& path, size_t limit);
+std::vector<JsonValue> eval_jsonpath(const JsonCursor& cursor, const CompiledPath& path, size_t limit);
+
 } // namespace strata

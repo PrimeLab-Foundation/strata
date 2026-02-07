@@ -13,11 +13,12 @@
 
 using namespace strata;
 
-// C++ parser is recursive; use depth safe for typical stack (~100).
-constexpr int kDeepListDepth = 100;
-constexpr int kDeepDictDepth = 100;
+// C++ parser now uses iterative stack-based parsing, enabling deep nesting.
+// Match Python tests depth of 5000.
+constexpr int kDeepListDepth = 5000;
+constexpr int kDeepDictDepth = 5000;
 
-void test_deep_list_100() {
+void test_deep_list_5000() {
     std::string json;
     for (int i = 0; i < kDeepListDepth; ++i)
         json += "[";
@@ -38,10 +39,10 @@ void test_deep_list_100() {
     auto result2 = parse_json(back);
     assert(result2.ok());
 
-    std::cout << "✓ test_deep_list_100 passed\n";
+    std::cout << "✓ test_deep_list_5000 passed\n";
 }
 
-void test_deep_dict_100() {
+void test_deep_dict_5000() {
     std::string json = "{\"leaf\":1}";
     for (int i = 0; i < kDeepDictDepth - 1; ++i) {
         json = "{\"a\":" + json + "}";
@@ -58,13 +59,13 @@ void test_deep_dict_100() {
     assert(current->is_object());
     assert(current->as_object().at("leaf").as_number() == 1.0);
 
-    std::cout << "✓ test_deep_dict_100 passed\n";
+    std::cout << "✓ test_deep_dict_5000 passed\n";
 }
 
 int main() {
-    std::cout << "Running deep-nesting stress tests (C++ parser is recursive; depth=100)...\n\n";
-    test_deep_list_100();
-    test_deep_dict_100();
+    std::cout << "Running deep-nesting stress tests (iterative stack-based; depth=5000)...\n\n";
+    test_deep_list_5000();
+    test_deep_dict_5000();
     std::cout << "\n✅ All deep-nesting stress tests passed!\n";
     return 0;
 }

@@ -58,8 +58,17 @@ def _lines(ndjson_text: str) -> list[str]:
 def _get_ndjson_runners() -> list[tuple[str, Callable[[str], list[Any]]]]:
     """Return [(library_name, parse_func)] where parse_func(ndjson_str) -> list of objects."""
 
-    def strata_run(text: str) -> list:
-        return list(strata.iter_ndjson(text))
+    # Strata with auto-detection (picks optimal mode based on object size)
+    def strata_auto_run(text: str) -> list:
+        return strata.parse_ndjson(text)
+
+    # Force sequential (for comparison)
+    def strata_seq_run(text: str) -> list:
+        return strata.parse_ndjson(text, parallel=False)
+
+    # Force parallel (for comparison)
+    def strata_par_run(text: str) -> list:
+        return strata.parse_ndjson(text, parallel=True)
 
     def orjson_run(text: str) -> list:
         return [orjson.loads(line) for line in _lines(text)]
@@ -73,7 +82,10 @@ def _get_ndjson_runners() -> list[tuple[str, Callable[[str], list[Any]]]]:
     def stdlib_run(text: str) -> list:
         return [json.loads(line) for line in _lines(text)]
 
-    runners: list[tuple[str, Callable[[str], list[Any]]]] = [("strata", strata_run)]
+    # Strata auto is the main comparison (uses optimal mode automatically)
+    runners: list[tuple[str, Callable[[str], list[Any]]]] = [
+        ("strata", strata_auto_run),
+    ]
     if orjson is not None:
         runners.append(("orjson", orjson_run))
     if msgspec is not None:
@@ -172,11 +184,12 @@ def print_summary(results: list[NdjsonResult]) -> None:
             f"{r.library:<15} {r.min_ms:>10.2f} {r.median_ms:>12.2f} {r.p95_ms:>10.2f} {r.lines_parsed:>8} {r.rss_mb:>9.1f} {speedup:.2f}x"
         )
 
+    # Report on strata
     strata_result = next((r for r in results if r.library == "strata"), None)
     if strata_result:
         rank = results.index(strata_result) + 1
         print()
-        print(f"Strata: Rank #{rank} / {len(results)}")
+        print(f"strata: Rank #{rank} / {len(results)}")
         if rank == 1 and len(results) > 1:
             second = results[1]
             pct = (second.median_ms / strata_result.median_ms - 1) * 100

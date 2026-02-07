@@ -10,13 +10,14 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 // Thread-local buffers for zero-allocation serialization
 thread_local strata::util::OutputBuffer g_serialize_buffer;
 thread_local strata::util::Arena g_serialize_arena;
 
-enum class CyclePolicy { Warn, Error, Ignore };
+enum class CyclePolicy { Warn, Error, Ignore, NoCheck };
 static CyclePolicy g_cycle_policy = CyclePolicy::Warn;
 
 bool set_cycle_policy_from_string(const char* policy, std::string& error) {
@@ -36,7 +37,11 @@ bool set_cycle_policy_from_string(const char* policy, std::string& error) {
         g_cycle_policy = CyclePolicy::Ignore;
         return true;
     }
-    error = "unknown cycle policy (expected warn|error|ignore)";
+    if (strcmp(policy, "nocheck") == 0) {
+        g_cycle_policy = CyclePolicy::NoCheck;
+        return true;
+    }
+    error = "unknown cycle policy (expected warn|error|ignore|nocheck)";
     return false;
 }
 
@@ -152,12 +157,11 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
 
 template <typename Buffer> static inline bool append_string(PyObject* obj, Buffer& out) {
     if (PyUnicode_IS_COMPACT_ASCII(obj)) {
+        // Fast path for compact ASCII strings (most common case)
+        // Use single-pass escape_or_copy to avoid double-scan
         Py_ssize_t len = PyUnicode_GET_LENGTH(obj);
         const char* data = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(obj));
-        if (strata::util::try_copy_clean_string(data, static_cast<size_t>(len), out)) {
-            return true;
-        }
-        strata::util::escape_json_string_simd(data, static_cast<size_t>(len), out);
+        strata::util::escape_or_copy_string_simd(data, static_cast<size_t>(len), out);
         return true;
     }
 
@@ -167,7 +171,8 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
         return false;
     }
 
-    strata::util::escape_json_string_simd(data, static_cast<size_t>(len), out);
+    // Non-ASCII strings: use single-pass escape_or_copy
+    strata::util::escape_or_copy_string_simd(data, static_cast<size_t>(len), out);
     return true;
 }
 
@@ -222,24 +227,101 @@ static bool serialize_iterative_with_memo(PyObject* root, Buffer& out, PyObject*
 
 template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out);
 
+// Estimation constants for pre-sizing output buffer
+static constexpr size_t kMinEstimate = 1024;  // minimum buffer size (larger to reduce reallocs)
+
+// Lightweight size estimate - O(1) based on top-level container size
+// Avoids expensive recursive traversal of Python objects
 static inline size_t estimate_size(PyObject* obj) {
+    // Simple heuristic: top-level container size * multiplier
+    // This is much faster than recursive estimation
     if (PyDict_CheckExact(obj)) {
-        return static_cast<size_t>(PyDict_GET_SIZE(obj)) * 48 + 2;
+        // Dicts: estimate based on number of keys
+        // Each entry is ~50-100 bytes on average (key + value + separators)
+        Py_ssize_t size = PyDict_GET_SIZE(obj);
+        return static_cast<size_t>(size) * 96 + kMinEstimate;
     }
     if (PyList_CheckExact(obj)) {
-        return static_cast<size_t>(PyList_GET_SIZE(obj)) * 32 + 2;
+        // Lists: estimate based on number of items
+        // Each item is ~30-60 bytes on average
+        Py_ssize_t size = PyList_GET_SIZE(obj);
+        return static_cast<size_t>(size) * 64 + kMinEstimate;
     }
     if (PyTuple_Check(obj)) {
-        return static_cast<size_t>(PyTuple_GET_SIZE(obj)) * 32 + 2;
+        Py_ssize_t size = PyTuple_GET_SIZE(obj);
+        return static_cast<size_t>(size) * 64 + kMinEstimate;
     }
+    // Primitives and strings
     if (PyUnicode_Check(obj)) {
-        Py_ssize_t len = 0;
-        const char* data = PyUnicode_AsUTF8AndSize(obj, &len);
-        if (data && len > 0) {
-            return static_cast<size_t>(len) + 2;
-        }
+        return static_cast<size_t>(PyUnicode_GET_LENGTH(obj)) + 16;  // +quotes+margin
     }
-    return 256;
+    return kMinEstimate;
+}
+
+// Direct serialization into a PyUnicode compact-ASCII object.
+// Avoids the OutputBuffer → PyUnicode_FromStringAndSize copy+decode path.
+// Returns nullptr (without setting an error) on overflow so the caller can
+// fall back to the dynamic-buffer path.
+static PyObject* dumps_str_direct(PyObject* obj, size_t estimate) {
+    if (estimate == 0 || estimate > static_cast<size_t>(PY_SSIZE_T_MAX)) {
+        return nullptr;
+    }
+
+    // Allocate a compact ASCII Unicode object (maxchar=127).
+    // PyUnicode_New gives us a writable buffer via PyUnicode_1BYTE_DATA.
+    PyObject* unicode = PyUnicode_New(static_cast<Py_ssize_t>(estimate), 127);
+    if (!unicode) {
+        return nullptr;
+    }
+
+    char* buffer = reinterpret_cast<char*>(PyUnicode_1BYTE_DATA(unicode));
+    strata::util::FixedOutputBuffer direct_buffer(buffer, estimate);
+    direct_buffer.clear();
+
+    if (!serialize_iterative(obj, direct_buffer) || PyErr_Occurred()) {
+        Py_DECREF(unicode);
+        return nullptr;
+    }
+
+    if (direct_buffer.overflowed()) {
+        Py_DECREF(unicode);
+        return nullptr;
+    }
+
+    size_t actual = direct_buffer.size();
+
+    // Check whether the output is purely ASCII.  If any byte >= 0x80 exists
+    // (because the input contained non-ASCII strings that were passed through
+    // as raw UTF-8), the compact-ASCII object we allocated is the wrong kind.
+    // Fall back to PyUnicode_DecodeUTF8 for correctness.
+    if (!strata::util::is_ascii_only_simd(buffer, actual)) {
+        PyObject* result = PyUnicode_DecodeUTF8(buffer, static_cast<Py_ssize_t>(actual), nullptr);
+        Py_DECREF(unicode);
+        return result;
+    }
+
+    Py_ssize_t actual_ssize = static_cast<Py_ssize_t>(actual);
+    if (actual_ssize < 0) {
+        Py_DECREF(unicode);
+        return nullptr;
+    }
+
+    if (actual == estimate) {
+        // Perfect fit — nothing to do.
+        return unicode;
+    }
+
+    // Actual size differs from estimate — we must create a correctly-sized
+    // object because PyUnicode internals store the length and there is no
+    // public resize API.
+    PyObject* trimmed = PyUnicode_New(actual_ssize, 127);
+    if (!trimmed) {
+        Py_DECREF(unicode);
+        return nullptr;
+    }
+    std::memcpy(PyUnicode_1BYTE_DATA(trimmed), buffer, actual);
+    Py_DECREF(unicode);
+    return trimmed;
 }
 
 static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
@@ -284,87 +366,21 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     using FrameAllocator = strata::util::ArenaAllocator<Frame>;
     std::vector<Frame, FrameAllocator> stack{FrameAllocator(&g_serialize_arena)};
     stack.reserve(64);
+
+    // O(1) cycle detection using hash set instead of O(n) linear scan
+    // Skip entirely when policy is NoCheck for maximum performance
+    const bool check_cycles = (g_cycle_policy != CyclePolicy::NoCheck);
+    std::unordered_set<PyObject*> seen;
+    if (check_cycles) {
+        seen.reserve(64);
+    }
+
     PyObject* current = root;
 
     while (true) {
         if (current) {
-            if (current == Py_None) {
-                append_literal(out, "null", 4);
-                current = nullptr;
-                continue;
-            }
-
-            bool container = is_container(current);
-            if (container) {
-                bool cycle = false;
-                for (const auto& f : stack) {
-                    if (f.obj == current) {
-                        cycle = true;
-                        break;
-                    }
-                }
-                if (cycle) {
-                    switch (g_cycle_policy) {
-                    case CyclePolicy::Warn:
-                        PyErr_WarnEx(PyExc_RuntimeWarning,
-                                     "Cycle detected during JSON serialization", 1);
-                        append_literal(out, "null", 4);
-                        current = nullptr;
-                        continue;
-                    case CyclePolicy::Ignore:
-                        append_literal(out, "null", 4);
-                        current = nullptr;
-                        continue;
-                    case CyclePolicy::Error:
-                        PyErr_SetString(PyExc_ValueError,
-                                        "Cycle detected during JSON serialization");
-                        return false;
-                    }
-                }
-            }
-
-            if (LIKELY(PyDict_CheckExact(current))) {
-                Py_ssize_t size = PyDict_GET_SIZE(current);
-                if (size == 0) {
-                    append_literal(out, "{}", 2);
-                    current = nullptr;
-                    continue;
-                }
-
-                out.push_back('{');
-                stack.push_back(Frame{Frame::Type::Dict, current, 0, size, 0, true});
-                current = nullptr;
-                continue;
-            }
-
-            if (LIKELY(PyList_CheckExact(current))) {
-                Py_ssize_t size = PyList_GET_SIZE(current);
-                if (size == 0) {
-                    append_literal(out, "[]", 2);
-                    current = nullptr;
-                    continue;
-                }
-
-                out.push_back('[');
-                stack.push_back(Frame{Frame::Type::List, current, 0, size, 0, true});
-                current = nullptr;
-                continue;
-            }
-
-            if (PyTuple_Check(current)) {
-                Py_ssize_t size = PyTuple_GET_SIZE(current);
-                if (size == 0) {
-                    append_literal(out, "[]", 2);
-                    current = nullptr;
-                    continue;
-                }
-
-                out.push_back('[');
-                stack.push_back(Frame{Frame::Type::Tuple, current, 0, size, 0, true});
-                current = nullptr;
-                continue;
-            }
-
+            // Fast path for primitives first (avoid is_container check for most common types)
+            // Strings are most common in JSON, then integers
             if (LIKELY(PyUnicode_Check(current))) {
                 if (!append_string(current, out)) {
                     return false;
@@ -392,12 +408,92 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 continue;
             }
 
+            if (current == Py_None) {
+                append_literal(out, "null", 4);
+                current = nullptr;
+                continue;
+            }
+
             if (UNLIKELY(type == &PyBool_Type)) {
                 if (current == Py_True) {
                     append_literal(out, "true", 4);
                 } else {
                     append_literal(out, "false", 5);
                 }
+                current = nullptr;
+                continue;
+            }
+
+            // Now check containers (need cycle detection)
+            bool container = is_container(current);
+            if (container && check_cycles) {
+                // O(1) cycle detection using hash set
+                bool cycle = seen.count(current) > 0;
+                if (cycle) {
+                    switch (g_cycle_policy) {
+                    case CyclePolicy::Warn:
+                        PyErr_WarnEx(PyExc_RuntimeWarning,
+                                     "Cycle detected during JSON serialization", 1);
+                        append_literal(out, "null", 4);
+                        current = nullptr;
+                        continue;
+                    case CyclePolicy::Ignore:
+                        append_literal(out, "null", 4);
+                        current = nullptr;
+                        continue;
+                    case CyclePolicy::Error:
+                        PyErr_SetString(PyExc_ValueError,
+                                        "Cycle detected during JSON serialization");
+                        return false;
+                    case CyclePolicy::NoCheck:
+                        // Should never reach here
+                        break;
+                    }
+                }
+                seen.insert(current);  // Add to seen set for O(1) cycle detection
+            }
+
+            if (LIKELY(PyDict_CheckExact(current))) {
+                Py_ssize_t size = PyDict_GET_SIZE(current);
+                if (size == 0) {
+                    if (check_cycles) seen.erase(current);  // Remove empty containers from seen
+                    append_literal(out, "{}", 2);
+                    current = nullptr;
+                    continue;
+                }
+
+                out.push_back('{');
+                stack.push_back(Frame{Frame::Type::Dict, current, 0, size, 0, true});
+                current = nullptr;
+                continue;
+            }
+
+            if (LIKELY(PyList_CheckExact(current))) {
+                Py_ssize_t size = PyList_GET_SIZE(current);
+                if (size == 0) {
+                    if (check_cycles) seen.erase(current);  // Remove empty containers from seen
+                    append_literal(out, "[]", 2);
+                    current = nullptr;
+                    continue;
+                }
+
+                out.push_back('[');
+                stack.push_back(Frame{Frame::Type::List, current, 0, size, 0, true});
+                current = nullptr;
+                continue;
+            }
+
+            if (PyTuple_Check(current)) {
+                Py_ssize_t size = PyTuple_GET_SIZE(current);
+                if (size == 0) {
+                    if (check_cycles) seen.erase(current);  // Remove empty containers from seen
+                    append_literal(out, "[]", 2);
+                    current = nullptr;
+                    continue;
+                }
+
+                out.push_back('[');
+                stack.push_back(Frame{Frame::Type::Tuple, current, 0, size, 0, true});
                 current = nullptr;
                 continue;
             }
@@ -439,6 +535,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 current = value;
             } else {
                 out.push_back('}');
+                if (check_cycles) seen.erase(frame.obj);  // Remove from seen set when popping
                 stack.pop_back();
             }
             continue;
@@ -466,6 +563,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
         }
 
         out.push_back(']');
+        if (check_cycles) seen.erase(frame.obj);  // Remove from seen set when popping
         stack.pop_back();
     }
 
@@ -477,8 +575,22 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
     g_serialize_arena.reset();
+    size_t estimate = estimate_size(obj);
+
+    // Fast path: serialize directly into a PyUnicode compact-ASCII buffer.
+    // Avoids the intermediate OutputBuffer and the PyUnicode_FromStringAndSize
+    // UTF-8 decode + copy overhead.
+    if (PyObject* direct = dumps_str_direct(obj, estimate)) {
+        return direct;
+    }
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    // Fallback: estimate was too small (overflow) — use the dynamic buffer.
+    g_serialize_arena.reset();
     g_serialize_buffer.clear();
-    g_serialize_buffer.reserve(estimate_size(obj));
+    g_serialize_buffer.reserve(estimate);
 
     if (!serialize_iterative(obj, g_serialize_buffer)) {
         return NULL;
@@ -487,7 +599,23 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
         return NULL;
     }
 
-    return PyUnicode_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
+    const char* data = g_serialize_buffer.data();
+    size_t len = g_serialize_buffer.size();
+
+    // Fast path for ASCII-only output (common case): allocate a compact
+    // ASCII PyUnicode and memcpy.  Avoids the full UTF-8 decode that
+    // PyUnicode_FromStringAndSize performs.
+    if (strata::util::is_ascii_only_simd(data, len)) {
+        Py_ssize_t slen = static_cast<Py_ssize_t>(len);
+        PyObject* unicode = PyUnicode_New(slen, 127);
+        if (!unicode) {
+            return NULL;
+        }
+        std::memcpy(PyUnicode_1BYTE_DATA(unicode), data, len);
+        return unicode;
+    }
+
+    return PyUnicode_DecodeUTF8(data, static_cast<Py_ssize_t>(len), nullptr);
 
     STRATA_CPP_CATCH
 }
