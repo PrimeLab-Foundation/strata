@@ -267,8 +267,9 @@ static inline size_t find_next_escape_neon(const char* str, size_t len) {
 
 #endif
 
+#if !defined(STRATA_HAS_AVX2) && !defined(STRATA_HAS_SSE42) && !defined(STRATA_HAS_NEON)
 // Scalar fallback for platforms without SIMD
-[[maybe_unused]] static inline bool has_escape_chars_scalar(const char* str, size_t len) {
+static inline bool has_escape_chars_scalar(const char* str, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         unsigned char c = static_cast<unsigned char>(str[i]);
         if (c < 0x20 || c == '"' || c == '\\') {
@@ -278,7 +279,7 @@ static inline size_t find_next_escape_neon(const char* str, size_t len) {
     return false;
 }
 
-[[maybe_unused]] static inline size_t find_next_escape_scalar(const char* str, size_t len) {
+static inline size_t find_next_escape_scalar(const char* str, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         unsigned char c = static_cast<unsigned char>(str[i]);
         if (c < 0x20 || c == '"' || c == '\\') {
@@ -287,6 +288,7 @@ static inline size_t find_next_escape_neon(const char* str, size_t len) {
     }
     return len;
 }
+#endif
 
 // Escape a single character
 static inline void escape_char(unsigned char c, std::string& out) {
@@ -317,8 +319,6 @@ static inline void escape_char(unsigned char c, std::string& out) {
             char buf[7];
             snprintf(buf, sizeof(buf), "\\u%04x", c);
             out.append(buf);
-        } else {
-            out.push_back(c);
         }
     }
 }
@@ -384,6 +384,59 @@ void escape_json_string_simd(const char* str, size_t len, std::string& out) {
     out.push_back('"');
 }
 
+void escape_or_copy_string_simd(const char* str, size_t len, std::string& out) {
+    size_t next_escape;
+
+#ifdef STRATA_HAS_AVX2
+    next_escape = find_next_escape_avx2(str, len);
+#elif defined(STRATA_HAS_SSE42)
+    next_escape = find_next_escape_sse(str, len);
+#elif defined(STRATA_HAS_NEON)
+    next_escape = find_next_escape_neon(str, len);
+#else
+    next_escape = find_next_escape_scalar(str, len);
+#endif
+
+    out.reserve(out.size() + len + 2 + (next_escape < len ? len / 8 : 0));
+    out.push_back('"');
+
+    if (next_escape == len) {
+        out.append(str, len);
+        out.push_back('"');
+        return;
+    }
+
+    size_t pos = 0;
+    while (pos < len) {
+        if (next_escape > pos) {
+            out.append(str + pos, next_escape - pos);
+        }
+
+        if (next_escape == len) {
+            break;
+        }
+
+        escape_char(static_cast<unsigned char>(str[next_escape]), out);
+        pos = next_escape + 1;
+
+        if (pos >= len) {
+            break;
+        }
+
+#ifdef STRATA_HAS_AVX2
+        next_escape = find_next_escape_avx2(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_SSE42)
+        next_escape = find_next_escape_sse(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_NEON)
+        next_escape = find_next_escape_neon(str + pos, len - pos) + pos;
+#else
+        next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
+#endif
+    }
+
+    out.push_back('"');
+}
+
 size_t find_next_escape_simd(const char* str, size_t len) {
 #ifdef STRATA_HAS_AVX2
     return find_next_escape_avx2(str, len);
@@ -425,8 +478,6 @@ static inline void escape_char_buffer(unsigned char c, OutputBuffer& out) {
             static const char hex[] = "0123456789abcdef";
             char buf[6] = {'\\', 'u', '0', '0', hex[c >> 4], hex[c & 0x0F]};
             out.append(buf, sizeof(buf));
-        } else {
-            out.push_back(static_cast<char>(c));
         }
     }
 }
@@ -459,8 +510,6 @@ static inline void escape_char_fixed(unsigned char c, FixedOutputBuffer& out) {
             static const char hex[] = "0123456789abcdef";
             char buf[6] = {'\\', 'u', '0', '0', hex[c >> 4], hex[c & 0x0F]};
             out.append(buf, sizeof(buf));
-        } else {
-            out.push_back(static_cast<char>(c));
         }
     }
 }
@@ -581,42 +630,31 @@ void escape_json_string_simd(const char* str, size_t len, FixedOutputBuffer& out
 }
 
 // Single-pass string escaping/copying - avoids double-scan pattern
-// Uses has_escape_chars for fast boolean check, then find_next_escape only when escapes exist
+// Uses find_next_escape to detect the first escape and drive the loop.
 void escape_or_copy_string_simd(const char* str, size_t len, OutputBuffer& out) {
-    // Fast boolean check first (faster than find_next_escape for clean strings)
-    bool has_escapes;
+    size_t next_escape;
+
 #ifdef STRATA_HAS_AVX2
-    has_escapes = has_escape_chars_avx2(str, len);
+    next_escape = find_next_escape_avx2(str, len);
 #elif defined(STRATA_HAS_SSE42)
-    has_escapes = has_escape_chars_sse(str, len);
+    next_escape = find_next_escape_sse(str, len);
 #elif defined(STRATA_HAS_NEON)
-    has_escapes = has_escape_chars_neon(str, len);
+    next_escape = find_next_escape_neon(str, len);
 #else
-    has_escapes = has_escape_chars_scalar(str, len);
+    next_escape = find_next_escape_scalar(str, len);
 #endif
 
     // Reserve space for string + quotes (+ some margin for escapes if needed)
-    out.reserve(out.size() + len + 2 + (has_escapes ? len / 8 : 0));
+    out.reserve(out.size() + len + 2 + (next_escape < len ? len / 8 : 0));
     out.push_back('"');
 
-    if (!has_escapes) {
+    if (next_escape == len) {
         // Fast path: no escapes, copy entire string directly
         out.append(str, len);
     } else {
         // Escape path: use find_next_escape to process chunks
         size_t pos = 0;
         while (pos < len) {
-            size_t next_escape;
-#ifdef STRATA_HAS_AVX2
-            next_escape = find_next_escape_avx2(str + pos, len - pos) + pos;
-#elif defined(STRATA_HAS_SSE42)
-            next_escape = find_next_escape_sse(str + pos, len - pos) + pos;
-#elif defined(STRATA_HAS_NEON)
-            next_escape = find_next_escape_neon(str + pos, len - pos) + pos;
-#else
-            next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
-#endif
-
             // Copy clean chunk
             if (next_escape > pos) {
                 out.append(str + pos, next_escape - pos);
@@ -626,6 +664,19 @@ void escape_or_copy_string_simd(const char* str, size_t len, OutputBuffer& out) 
             if (next_escape < len) {
                 escape_char_buffer(static_cast<unsigned char>(str[next_escape]), out);
                 pos = next_escape + 1;
+                if (pos >= len) {
+                    break;
+                }
+
+#ifdef STRATA_HAS_AVX2
+                next_escape = find_next_escape_avx2(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_SSE42)
+                next_escape = find_next_escape_sse(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_NEON)
+                next_escape = find_next_escape_neon(str + pos, len - pos) + pos;
+#else
+                next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
+#endif
             } else {
                 break;
             }
@@ -636,38 +687,27 @@ void escape_or_copy_string_simd(const char* str, size_t len, OutputBuffer& out) 
 }
 
 void escape_or_copy_string_simd(const char* str, size_t len, FixedOutputBuffer& out) {
-    // Fast boolean check first (faster than find_next_escape for clean strings)
-    bool has_escapes;
+    size_t next_escape;
+
 #ifdef STRATA_HAS_AVX2
-    has_escapes = has_escape_chars_avx2(str, len);
+    next_escape = find_next_escape_avx2(str, len);
 #elif defined(STRATA_HAS_SSE42)
-    has_escapes = has_escape_chars_sse(str, len);
+    next_escape = find_next_escape_sse(str, len);
 #elif defined(STRATA_HAS_NEON)
-    has_escapes = has_escape_chars_neon(str, len);
+    next_escape = find_next_escape_neon(str, len);
 #else
-    has_escapes = has_escape_chars_scalar(str, len);
+    next_escape = find_next_escape_scalar(str, len);
 #endif
 
     out.push_back('"');
 
-    if (!has_escapes) {
+    if (next_escape == len) {
         // Fast path: no escapes, copy entire string directly
         out.append(str, len);
     } else {
         // Escape path: use find_next_escape to process chunks
         size_t pos = 0;
         while (pos < len) {
-            size_t next_escape;
-#ifdef STRATA_HAS_AVX2
-            next_escape = find_next_escape_avx2(str + pos, len - pos) + pos;
-#elif defined(STRATA_HAS_SSE42)
-            next_escape = find_next_escape_sse(str + pos, len - pos) + pos;
-#elif defined(STRATA_HAS_NEON)
-            next_escape = find_next_escape_neon(str + pos, len - pos) + pos;
-#else
-            next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
-#endif
-
             // Copy clean chunk
             if (next_escape > pos) {
                 out.append(str + pos, next_escape - pos);
@@ -677,6 +717,19 @@ void escape_or_copy_string_simd(const char* str, size_t len, FixedOutputBuffer& 
             if (next_escape < len) {
                 escape_char_fixed(static_cast<unsigned char>(str[next_escape]), out);
                 pos = next_escape + 1;
+                if (pos >= len) {
+                    break;
+                }
+
+#ifdef STRATA_HAS_AVX2
+                next_escape = find_next_escape_avx2(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_SSE42)
+                next_escape = find_next_escape_sse(str + pos, len - pos) + pos;
+#elif defined(STRATA_HAS_NEON)
+                next_escape = find_next_escape_neon(str + pos, len - pos) + pos;
+#else
+                next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
+#endif
             } else {
                 break;
             }

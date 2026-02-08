@@ -99,8 +99,9 @@ size_t find_next_escape_simd(const char* str, size_t len);
  *
  * @param str Input string data
  * @param len Length of input string
- * @param out Output buffer (string already has opening quote added by caller)
+ * @param out Output buffer for the quoted JSON string (function adds quotes)
  */
+void escape_or_copy_string_simd(const char* str, size_t len, std::string& out);
 void escape_or_copy_string_simd(const char* str, size_t len, OutputBuffer& out);
 void escape_or_copy_string_simd(const char* str, size_t len, FixedOutputBuffer& out);
 

@@ -126,6 +126,13 @@ void test_try_copy_clean_string_std() {
     copied = try_copy_clean_string("hel\"lo", 6, out);
     assert(!copied);
 
+    // Long string with escape (SIMD path)
+    out.clear();
+    std::string long_with_quote(64, 'a');
+    long_with_quote[32] = '"';
+    copied = try_copy_clean_string(long_with_quote.data(), long_with_quote.size(), out);
+    assert(!copied);
+
     // String with backslash
     out.clear();
     copied = try_copy_clean_string("hel\\lo", 6, out);
@@ -167,6 +174,13 @@ void test_try_copy_clean_string_buffer() {
     // String with escapes - should return false
     out.clear();
     copied = try_copy_clean_string("hel\"lo", 6, out);
+    assert(!copied);
+
+    // Long string with escape (SIMD path)
+    out.clear();
+    std::string long_with_quote(64, 'a');
+    long_with_quote[32] = '"';
+    copied = try_copy_clean_string(long_with_quote.data(), long_with_quote.size(), out);
     assert(!copied);
 
     std::cout << "✓ test_try_copy_clean_string_buffer passed\n";
@@ -281,6 +295,23 @@ void test_escape_json_string_buffer() {
     escape_json_string_simd("a\nb\tc\rd", 7, out);
     assert(std::string(out.data(), out.size()) == "\"a\\nb\\tc\\rd\"");
 
+    // Backslash, backspace, formfeed, carriage return
+    out.clear();
+    const char raw_special[] = {'a', '\b', '\f', '\\', '\r', 'b'};
+    escape_json_string_simd(raw_special, 6, out);
+    std::string special_result(out.data(), out.size());
+    assert(special_result.find("\\b") != std::string::npos);
+    assert(special_result.find("\\f") != std::string::npos);
+    assert(special_result.find("\\\\") != std::string::npos);
+    assert(special_result.find("\\r") != std::string::npos);
+
+    // Control character requiring hex escape
+    out.clear();
+    const char raw_hex[] = {'a', '\x01', 'b'};
+    escape_json_string_simd(raw_hex, 3, out);
+    std::string hex_result(out.data(), out.size());
+    assert(hex_result.find("\\u0001") != std::string::npos);
+
     // Empty string
     out.clear();
     escape_json_string_simd("", 0, out);
@@ -349,6 +380,32 @@ void test_escape_or_copy_string_simd() {
     std::cout << "✓ test_escape_or_copy_string_simd passed\n";
 }
 
+void test_escape_or_copy_string_std() {
+    std::string out;
+
+    // Clean string
+    escape_or_copy_string_simd("hello", 5, out);
+    assert(out == "\"hello\"");
+
+    // String with escape
+    out.clear();
+    escape_or_copy_string_simd("a\nb", 3, out);
+    assert(out == "\"a\\nb\"");
+
+    // Escape at end triggers early break
+    out.clear();
+    escape_or_copy_string_simd("abc\n", 4, out);
+    assert(out == "\"abc\\n\"");
+
+    // String with control character requiring hex escape
+    out.clear();
+    const char raw_hex[] = {'a', '\x01', 'b'};
+    escape_or_copy_string_simd(raw_hex, 3, out);
+    assert(out.find("\\u0001") != std::string::npos);
+
+    std::cout << "✓ test_escape_or_copy_string_std passed\n";
+}
+
 void test_escape_or_copy_string_fixed_buffer() {
     char buffer[1024];
     FixedOutputBuffer out(buffer, sizeof(buffer));
@@ -366,6 +423,11 @@ void test_escape_or_copy_string_fixed_buffer() {
     out.clear();
     escape_or_copy_string_simd("a\nb\tc", 5, out);
     assert(std::string(out.data(), out.size()) == "\"a\\nb\\tc\"");
+
+    // Escape at end triggers early break
+    out.clear();
+    escape_or_copy_string_simd("abc\n", 4, out);
+    assert(std::string(out.data(), out.size()) == "\"abc\\n\"");
 
     // Empty string
     out.clear();
@@ -413,6 +475,23 @@ void test_escape_json_string_fixed() {
     out.clear();
     escape_json_string_simd("a\nb", 3, out);
     assert(std::string(out.data(), out.size()) == "\"a\\nb\"");
+
+    // Backslash, backspace, formfeed, carriage return
+    out.clear();
+    const char raw_special[] = {'a', '\b', '\f', '\\', '\r', 'b'};
+    escape_json_string_simd(raw_special, 6, out);
+    std::string special_result(out.data(), out.size());
+    assert(special_result.find("\\b") != std::string::npos);
+    assert(special_result.find("\\f") != std::string::npos);
+    assert(special_result.find("\\\\") != std::string::npos);
+    assert(special_result.find("\\r") != std::string::npos);
+
+    // Control character requiring hex escape
+    out.clear();
+    const char raw_hex[] = {'a', '\x01', 'b'};
+    escape_json_string_simd(raw_hex, 3, out);
+    std::string hex_result(out.data(), out.size());
+    assert(hex_result.find("\\u0001") != std::string::npos);
 
     std::cout << "✓ test_escape_json_string_fixed passed\n";
 }
@@ -474,6 +553,7 @@ int main() {
 
     // escape_or_copy_string_simd tests
     test_escape_or_copy_string_simd();
+    test_escape_or_copy_string_std();
     test_escape_or_copy_string_fixed_buffer();
 
     // Multiple escapes tests

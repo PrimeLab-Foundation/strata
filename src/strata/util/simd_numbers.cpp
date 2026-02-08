@@ -77,16 +77,7 @@
      return result;
  }
 
- // Scalar fallback for parsing up to 8 digits
- static inline uint64_t parse_digits_scalar(const char* str, size_t count) {
-     uint64_t result = 0;
-     for (size_t i = 0; i < count; ++i) {
-         result = result * 10 + static_cast<uint64_t>(str[i] - '0');
-     }
-     return result;
- }
-
- size_t count_digits_simd(const char* str, size_t len) {
+size_t count_digits_simd(const char* str, size_t len) {
      if (len == 0) {
          return 0;
      }
@@ -236,19 +227,15 @@
          uint32_t chunk;
          std::memcpy(&chunk, str, 4);
          value = parse_4_digits_swar(chunk);
-     } else if (digit_count <= 8) {
-         // 5-8 digits: use SWAR for available digits, scalar for remainder
-         if (digit_count >= 4) {
-             uint32_t chunk;
-             std::memcpy(&chunk, str, 4);
-             value = parse_4_digits_swar(chunk);
-             // Parse remaining digits
-             for (size_t i = 4; i < digit_count; ++i) {
-                 value = value * 10 + static_cast<uint64_t>(str[i] - '0');
-             }
-         } else {
-             value = parse_digits_scalar(str, digit_count);
-         }
+    } else if (digit_count <= 8) {
+        // 5-8 digits: use SWAR for first 4 digits, scalar for remainder
+        uint32_t chunk;
+        std::memcpy(&chunk, str, 4);
+        value = parse_4_digits_swar(chunk);
+        // Parse remaining digits
+        for (size_t i = 4; i < digit_count; ++i) {
+            value = value * 10 + static_cast<uint64_t>(str[i] - '0');
+        }
      } else if (digit_count <= 16) {
          // 9-16 digits: parse first 8 with SWAR, then remaining
          uint64_t chunk1;
@@ -286,11 +273,7 @@
 
          // Combine with overflow check
          // value * 10^8 + next8
-         const uint64_t max_before_mult = std::numeric_limits<uint64_t>::max() / 100000000ULL;
-         if (value > max_before_mult) {
-             return false;  // Overflow
-         }
-         value = value * 100000000ULL + next8;
+        value = value * 100000000ULL + next8;
 
          // Parse remaining digits (17-20) with overflow checking
          for (size_t i = 16; i < digit_count; ++i) {

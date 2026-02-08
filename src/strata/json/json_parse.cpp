@@ -254,33 +254,6 @@ struct Parser {
         return true;
     }
 
-    static bool append_utf8(std::string& out, uint32_t codepoint) {
-        if (codepoint > 0x10FFFF)
-            return false;
-        if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
-            return false;
-        if (codepoint <= 0x7F) {
-            out.push_back(static_cast<char>(codepoint));
-            return true;
-        }
-        if (codepoint <= 0x7FF) {
-            out.push_back(static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F)));
-            out.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-            return true;
-        }
-        if (codepoint <= 0xFFFF) {
-            out.push_back(static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F)));
-            out.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
-            out.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-            return true;
-        }
-        out.push_back(static_cast<char>(0xF0 | ((codepoint >> 18) & 0x07)));
-        out.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
-        out.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
-        out.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
-        return true;
-    }
-
     void skip_ws() { i = util::skip_whitespace_simd(data, len, i); }
 
     bool consume(char c) {
@@ -495,6 +468,7 @@ struct Parser {
 
     bool parse_number() {
         size_t start = i;
+        bool negative = (i < len && data[i] == '-');
 
         // Try fast integer parse first
         int64_t int_val;
@@ -507,6 +481,22 @@ struct Parser {
             } else {
                 i += consumed;
                 return handler.on_int(int_val);
+            }
+        }
+
+        // If the number is non-negative, try unsigned parse to support full uint64 range
+        if (!negative) {
+            uint64_t uint_val;
+            size_t consumed_uint;
+            if (util::parse_uint_fast(data + i, len - i, uint_val, consumed_uint)) {
+                if (i + consumed_uint < len &&
+                    (data[i + consumed_uint] == '.' || data[i + consumed_uint] == 'e' ||
+                     data[i + consumed_uint] == 'E')) {
+                    // Fall through to double parsing
+                } else {
+                    i += consumed_uint;
+                    return handler.on_uint(uint_val);
+                }
             }
         }
 
@@ -608,10 +598,60 @@ struct Parser {
 
 } // namespace
 
+namespace {
+
+Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
+                      const ParseSaxOptions& options, ParseSaxContext* context) {
+    constexpr size_t kStructuralTapeMinSize = 4 * 1024;
+    const size_t size = text.size();
+    if (options.validate_utf8 && size != 0) {
+        if (size < kStructuralTapeMinSize) {
+            // Tiny-doc fast path: skip full UTF-8 validation for ASCII-only input.
+            if (!util::is_ascii_only_simd(text.data(), size) &&
+                !util::validate_utf8_simd(text.data(), size)) {
+                return Status::ParseError;
+            }
+        } else {
+            // Use lazy UTF-8 validation: ASCII fast-path, full validation on non-ASCII.
+            if (!util::validate_utf8_lazy(text.data(), size)) {
+                return Status::ParseError;
+            }
+        }
+    }
+    Parser p{text.data(), size, handler, 0, {}};
+    const bool use_structural_tape = size >= kStructuralTapeMinSize;
+    if (use_structural_tape) {
+        if (context) {
+            context->structural_tape.clear();
+            util::collect_structural_positions_simd(text.data(), size, context->structural_tape);
+            p.attach_structural_tape(&context->structural_tape);
+        } else {
+            static thread_local std::vector<size_t> structural_tape;
+            structural_tape.clear();
+            util::collect_structural_positions_simd(text.data(), size, structural_tape);
+            p.attach_structural_tape(&structural_tape);
+        }
+    }
+    if (!p.parse_value())
+        return Status::ParseError;
+    p.skip_ws();
+    if (!p.eof())
+        return Status::ParseError;
+    return Status::Ok;
+}
+
+} // namespace
+
 Result<JsonValue> parse_json(std::string_view text) {
+    ParseSaxOptions options;
+    return parse_json(text, options, nullptr);
+}
+
+Result<JsonValue> parse_json(std::string_view text, const ParseSaxOptions& options,
+                             ParseSaxContext* context) {
     g_parse_warnings.clear();
     DomBuilderHandler handler;
-    Status status = parse_sax(text, handler);
+    Status status = parse_sax_impl(text, handler, options, context);
     if (status != Status::Ok) {
         return {status, JsonValue{}};
     }
@@ -619,21 +659,13 @@ Result<JsonValue> parse_json(std::string_view text) {
 }
 
 Status parse_sax(std::string_view text, JsonSaxHandler& handler) {
-    // Use lazy UTF-8 validation: fast-path for ASCII-only (most common),
-    // full validation only when non-ASCII bytes are detected
-    if (!text.empty() && !util::validate_utf8_lazy(text.data(), text.size())) {
-        return Status::ParseError;
-    }
-    std::vector<size_t> structural_tape;
-    util::collect_structural_positions_simd(text.data(), text.size(), structural_tape);
-    Parser p{text.data(), text.size(), handler, 0, {}};
-    p.attach_structural_tape(&structural_tape);
-    if (!p.parse_value())
-        return Status::ParseError;
-    p.skip_ws();
-    if (!p.eof())
-        return Status::ParseError;
-    return Status::Ok;
+    ParseSaxOptions options;
+    return parse_sax_impl(text, handler, options, nullptr);
+}
+
+Status parse_sax(std::string_view text, JsonSaxHandler& handler, const ParseSaxOptions& options,
+                 ParseSaxContext* context) {
+    return parse_sax_impl(text, handler, options, context);
 }
 
 Result<JsonTape> parse_to_tape(std::string_view text) {

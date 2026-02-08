@@ -26,7 +26,16 @@ static inline bool is_whitespace_only_line(std::string_view line) {
 } // namespace
 
 NdjsonStream::NdjsonStream(std::string_view data)
-    : data_(data), pos_(0), line_num_(1), lines_processed_(0), error_count_(0) {}
+    : data_(data), pos_(0), line_num_(1), lines_processed_(0), error_count_(0),
+      utf8_checked_(false), utf8_ok_(true) {}
+
+bool NdjsonStream::validate_utf8_once() {
+    if (!utf8_checked_) {
+        utf8_ok_ = util::validate_utf8_lazy(data_.data(), data_.size());
+        utf8_checked_ = true;
+    }
+    return utf8_ok_;
+}
 
 std::string_view NdjsonStream::next_line() {
     if (pos_ >= data_.size()) {
@@ -69,6 +78,9 @@ bool NdjsonStream::parse_batch_chunked(size_t max_results, bool skip_errors,
     size_t parsed = 0;
     bool hit_error = false;
 
+    ParseSaxOptions options;
+    options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+
     while (parsed < max_results && pos_ < data_.size()) {
         std::string_view line = next_line();
 
@@ -77,7 +89,7 @@ bool NdjsonStream::parse_batch_chunked(size_t max_results, bool skip_errors,
         }
 
         lines_processed_++;
-        auto result = parse_json(line);
+        auto result = parse_json(line, options, &parse_context_);
         if (result.ok()) {
             results.push_back(std::move(result.value));
             parsed++;
@@ -104,7 +116,9 @@ Result<JsonValue> NdjsonStream::next() {
 
         // Parse JSON
         lines_processed_++;
-        auto result = parse_json(line);
+        ParseSaxOptions options;
+        options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+        auto result = parse_json(line, options, &parse_context_);
 
         if (!result.ok()) {
             error_count_++;
@@ -127,7 +141,9 @@ Status NdjsonStream::next_sax(JsonSaxHandler& handler) {
         }
 
         lines_processed_++;
-        Status status = parse_sax(line, handler);
+        ParseSaxOptions options;
+        options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+        Status status = parse_sax(line, handler, options, &parse_context_);
         if (status != Status::Ok) {
             error_count_++;
             return Status::ParseError;
@@ -148,6 +164,8 @@ std::vector<JsonValue> NdjsonStream::parse_all(bool skip_errors) {
     std::vector<JsonValue> results;
     results.reserve(1000); // Pre-allocate for typical case
 
+    validate_utf8_once();
+
     while (has_next()) {
         auto result = next();
 
@@ -164,6 +182,8 @@ std::vector<JsonValue> NdjsonStream::parse_all(bool skip_errors) {
 }
 
 std::vector<JsonValue> NdjsonStream::parse_all_fast(bool skip_errors) {
+    validate_utf8_once();
+
     // Count newlines using SIMD for better pre-allocation
     size_t remaining = data_.size() - pos_;
     size_t line_count = util::count_newlines_simd(data_.data() + pos_, remaining) + 1;
@@ -187,6 +207,7 @@ std::vector<JsonValue> NdjsonStream::next_batch(size_t batch_size, bool skip_err
     std::vector<JsonValue> results;
     results.reserve(batch_size);
 
+    validate_utf8_once();
     parse_batch_chunked(batch_size, skip_errors, results);
     return results;
 }

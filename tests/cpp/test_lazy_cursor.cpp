@@ -5,6 +5,7 @@
 
 #include "strata/json/json_lazy_cursor.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/search/jsonpath.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -582,6 +583,304 @@ TEST(ErrorIncludesByteOffset) {
     // Position should reflect skipped whitespace
     auto pos = cursor.position();
     ASSERT_EQ(pos.offset, 3u);  // After "   "
+}
+
+TEST(SkipValueLiteralsAndRemaining) {
+    LazyJsonCursor cursor_true("true");
+    auto result_true = cursor_true.skip();
+    ASSERT_TRUE(result_true.ok());
+    ASSERT_TRUE(result_true.value.remaining().empty());
+
+    LazyJsonCursor cursor_false("false");
+    auto result_false = cursor_false.skip();
+    ASSERT_TRUE(result_false.ok());
+    ASSERT_TRUE(result_false.value.remaining().empty());
+
+    LazyJsonCursor cursor_null("null");
+    auto result_null = cursor_null.skip();
+    ASSERT_TRUE(result_null.ok());
+    ASSERT_TRUE(result_null.value.remaining().empty());
+}
+
+TEST(SkipValueMalformedLiterals) {
+    LazyJsonCursor cursor_true("tru");
+    auto result_true = cursor_true.skip();
+    ASSERT_FALSE(result_true.ok());
+    ASSERT_EQ(result_true.status, Status::ParseError);
+
+    LazyJsonCursor cursor_false("fal");
+    auto result_false = cursor_false.skip();
+    ASSERT_FALSE(result_false.ok());
+    ASSERT_EQ(result_false.status, Status::ParseError);
+
+    LazyJsonCursor cursor_null("nul");
+    auto result_null = cursor_null.skip();
+    ASSERT_FALSE(result_null.ok());
+    ASSERT_EQ(result_null.status, Status::ParseError);
+}
+
+TEST(SkipValueMalformedNumbers) {
+    const char* cases[] = {"-", "1.", "1e", "1e+", "-x"};
+    for (const auto* text : cases) {
+        LazyJsonCursor cursor(text);
+        auto result = cursor.skip();
+        ASSERT_FALSE(result.ok());
+        ASSERT_EQ(result.status, Status::ParseError);
+    }
+}
+
+TEST(SkipValueMalformedStringAndContainer) {
+    LazyJsonCursor cursor_unterminated("\"abc");
+    auto result_unterminated = cursor_unterminated.skip();
+    ASSERT_FALSE(result_unterminated.ok());
+    ASSERT_EQ(result_unterminated.status, Status::ParseError);
+
+    LazyJsonCursor cursor_array("[1, 2");
+    auto result_array = cursor_array.skip();
+    ASSERT_FALSE(result_array.ok());
+    ASSERT_EQ(result_array.status, Status::ParseError);
+
+    LazyJsonCursor cursor_object("{\"a\": 1");
+    auto result_object = cursor_object.skip();
+    ASSERT_FALSE(result_object.ok());
+    ASSERT_EQ(result_object.status, Status::ParseError);
+}
+
+TEST(SkipValueUnknownToken) {
+    LazyJsonCursor cursor("?");
+    auto result = cursor.skip();
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::ParseError);
+}
+
+TEST(SkipValueEmptyInput) {
+    LazyJsonCursor cursor("");
+    auto result = cursor.skip();
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::ParseError);
+}
+
+TEST(IteratorsTypeMismatch) {
+    LazyJsonCursor cursor_array("[1, 2]");
+    auto fields = cursor_array.iter_fields();
+    ASSERT_FALSE(fields.ok());
+    ASSERT_EQ(fields.status, Status::TypeMismatch);
+
+    LazyJsonCursor cursor_object("{\"a\": 1}");
+    auto elems = cursor_object.iter_elements();
+    ASSERT_FALSE(elems.ok());
+    ASSERT_EQ(elems.status, Status::TypeMismatch);
+}
+
+TEST(FieldIteratorEscapedKeyAndEquality) {
+    LazyJsonCursor cursor("{\"a\\tb\": 1, \"b\": 2}");
+    auto iter_result = cursor.iter_fields();
+    ASSERT_TRUE(iter_result.ok());
+
+    auto it1 = iter_result.value;
+    auto it2 = iter_result.value;
+    ASSERT_TRUE(it1 == it2);
+
+    auto field = *it1;
+    ASSERT_TRUE(field.key_has_escapes);
+    ASSERT_EQ(field.key(), "a\tb");
+
+    ++it2;
+    ASSERT_TRUE(it1 != it2);
+}
+
+TEST(FieldIteratorKeyWithoutEscapes) {
+    LazyJsonCursor cursor("{\"plain\": 1}");
+    auto iter_result = cursor.iter_fields();
+    ASSERT_TRUE(iter_result.ok());
+    auto field = *iter_result.value;
+    ASSERT_FALSE(field.key_has_escapes);
+    ASSERT_EQ(field.key(), "plain");
+}
+
+TEST(FieldIteratorEndOperations) {
+    LazyJsonCursor cursor("{}");
+    auto iter_result = cursor.iter_fields();
+    ASSERT_TRUE(iter_result.ok());
+    auto it = iter_result.value;
+    ASSERT_TRUE(it.at_end());
+
+    auto field = *it;
+    ASSERT_TRUE(field.key_raw.empty());
+
+    ++it;
+    ASSERT_TRUE(it.at_end());
+
+    auto it2 = cursor.iter_fields().value;
+    ASSERT_TRUE(it == it2);
+}
+
+TEST(ElementIteratorOperations) {
+    LazyJsonCursor cursor("[1, 2]");
+    auto iter_result = cursor.iter_elements();
+    ASSERT_TRUE(iter_result.ok());
+
+    auto it1 = iter_result.value;
+    auto it2 = iter_result.value;
+    ASSERT_TRUE(it1 == it2);
+
+    auto elem = *it1;
+    ASSERT_TRUE(elem.is_number());
+
+    ++it2;
+    ASSERT_TRUE(it1 != it2);
+
+    LazyJsonCursor empty_cursor("[]");
+    auto end_iter = empty_cursor.iter_elements().value;
+    ASSERT_TRUE(end_iter.at_end());
+    ++end_iter;
+    auto end_iter2 = empty_cursor.iter_elements().value;
+    ASSERT_TRUE(end_iter == end_iter2);
+}
+
+TEST(FieldIteratorAdvanceError) {
+    LazyJsonCursor cursor("{\"a\": , \"b\": 2}");
+    auto iter_result = cursor.iter_fields();
+    ASSERT_TRUE(iter_result.ok());
+
+    auto it = iter_result.value;
+    ASSERT_TRUE(!it.at_end());
+    ++it;  // Advance to invalid key (missing quotes)
+    ASSERT_TRUE(it.at_end());
+}
+
+TEST(ReadStringContentError) {
+    LazyJsonCursor cursor("{a: 1}");
+    auto result = cursor.get_field("a");
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::ParseError);
+}
+
+TEST(ReadStringContentUnterminated) {
+    LazyJsonCursor cursor("{\"a: 1}");
+    auto result = cursor.get_field("a");
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::ParseError);
+}
+
+TEST(MaterializeParseErrors) {
+    LazyJsonCursor cursor_bool("tru");
+    auto bool_result = cursor_bool.materialize_bool();
+    ASSERT_FALSE(bool_result.ok());
+    ASSERT_EQ(bool_result.status, Status::ParseError);
+
+    LazyJsonCursor cursor_number("1e");
+    auto num_result = cursor_number.materialize_number();
+    ASSERT_FALSE(num_result.ok());
+    ASSERT_EQ(num_result.status, Status::ParseError);
+
+    LazyJsonCursor cursor_string("\"abc");
+    auto str_result = cursor_string.materialize_string();
+    ASSERT_FALSE(str_result.ok());
+    ASSERT_EQ(str_result.status, Status::ParseError);
+}
+
+TEST(MaterializeNumberTypeMismatch) {
+    LazyJsonCursor cursor("\"string\"");
+    auto result = cursor.materialize_number();
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::TypeMismatch);
+}
+
+TEST(SizeTypeMismatchAndErrors) {
+    LazyJsonCursor cursor_number("42");
+    auto arr_size = cursor_number.array_size();
+    ASSERT_FALSE(arr_size.ok());
+    ASSERT_EQ(arr_size.status, Status::TypeMismatch);
+
+    auto obj_size = cursor_number.object_size();
+    ASSERT_FALSE(obj_size.ok());
+    ASSERT_EQ(obj_size.status, Status::TypeMismatch);
+
+    LazyJsonCursor cursor_array("[1, , 2]");
+    auto arr_bad = cursor_array.array_size();
+    ASSERT_FALSE(arr_bad.ok());
+    ASSERT_EQ(arr_bad.status, Status::ParseError);
+
+    LazyJsonCursor cursor_obj_key("{a: 1}");
+    auto obj_key_bad = cursor_obj_key.object_size();
+    ASSERT_FALSE(obj_key_bad.ok());
+    ASSERT_EQ(obj_key_bad.status, Status::ParseError);
+
+    LazyJsonCursor cursor_obj_colon("{\"a\" 1}");
+    auto obj_colon_bad = cursor_obj_colon.object_size();
+    ASSERT_FALSE(obj_colon_bad.ok());
+    ASSERT_EQ(obj_colon_bad.status, Status::ParseError);
+
+    LazyJsonCursor cursor_obj_value("{\"a\": }");
+    auto obj_value_bad = cursor_obj_value.object_size();
+    ASSERT_FALSE(obj_value_bad.ok());
+    ASSERT_EQ(obj_value_bad.status, Status::ParseError);
+}
+
+TEST(IteratorErrorPaths) {
+    LazyJsonCursor cursor_invalid_key("{a: 1}");
+    auto iter_result = cursor_invalid_key.iter_fields();
+    ASSERT_TRUE(iter_result.ok());
+    auto it = iter_result.value;
+    auto field = *it;
+    ASSERT_TRUE(field.key_raw.empty());
+
+    ++it;  // advance should hit skip_string error
+    ASSERT_TRUE(it.at_end());
+
+    LazyJsonCursor cursor_missing_colon("{\"a\" 1}");
+    auto iter_colon = cursor_missing_colon.iter_fields();
+    auto it_colon = iter_colon.value;
+    ++it_colon;
+    ASSERT_TRUE(it_colon.at_end());
+
+    LazyJsonCursor cursor_bad_value("{\"a\": , \"b\": 1}");
+    auto iter_value = cursor_bad_value.iter_fields();
+    auto it_value = iter_value.value;
+    ++it_value;
+    ASSERT_TRUE(it_value.at_end());
+
+    LazyJsonCursor cursor_array("[,1]");
+    auto elem_iter = cursor_array.iter_elements();
+    auto it_elem = elem_iter.value;
+    ++it_elem;
+    ASSERT_TRUE(it_elem.at_end());
+}
+
+TEST(GetAtSkipValueError) {
+    LazyJsonCursor cursor("[1, , 2]");
+    auto result = cursor.get_at(2);
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::ParseError);
+}
+
+TEST(GetFieldMissingColonError) {
+    LazyJsonCursor cursor("{\"a\" 1}");
+    auto result = cursor.get_field("a");
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::ParseError);
+}
+
+TEST(GetFieldSkipValueError) {
+    LazyJsonCursor cursor("{\"a\": , \"b\": 1}");
+    auto result = cursor.get_field("b");
+    ASSERT_FALSE(result.ok());
+    ASSERT_EQ(result.status, Status::ParseError);
+}
+
+TEST(PeekCharAtEnd) {
+    LazyJsonCursor cursor("");
+    ASSERT_FALSE(cursor.is_null());
+}
+
+TEST(LazyJsonpathStubs) {
+    CompiledPath path;
+    auto values = eval_jsonpath_lazy("{}", path, 1);
+    ASSERT_TRUE(values.empty());
+
+    auto cursors = find_jsonpath_lazy("{}", path, 1);
+    ASSERT_TRUE(cursors.empty());
 }
 
 // ============================================================================

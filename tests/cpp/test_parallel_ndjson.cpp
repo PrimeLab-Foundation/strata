@@ -10,6 +10,7 @@
 #include <cmath>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 using namespace strata;
@@ -194,6 +195,69 @@ void test_empty_lines() {
     std::cout << "✓ test_empty_lines passed\n";
 }
 
+void test_sequential_with_errors_fallback() {
+    std::string data = "{\"a\": 1}\n{invalid json\n{\"b\": 2}\n";
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 100;  // Force sequential
+    config.min_chunk_size = 1024;
+    config.skip_errors = true;
+
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.parse_all_parallel_with_errors();
+
+    assert(!stream.used_parallel_mode());
+    assert(result.values.size() == 2);
+    assert(result.errors.size() == 1);
+    assert(result.lines_processed == 3);
+
+    std::cout << "✓ test_sequential_with_errors_fallback passed\n";
+}
+
+void test_sequential_throws_on_error() {
+    std::string data = "{\"a\": 1}\n{invalid json\n";
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 100;  // Force sequential
+    config.min_chunk_size = 1024;
+    config.skip_errors = false;
+
+    ParallelNdjsonStream stream(data, config);
+    bool threw = false;
+    try {
+        stream.parse_all_parallel();
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+
+    assert(threw);
+    assert(!stream.used_parallel_mode());
+
+    std::cout << "✓ test_sequential_throws_on_error passed\n";
+}
+
+void test_parallel_throws_on_error() {
+    std::string data = generate_ndjson_with_errors(50, {10});
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 5;
+    config.min_chunk_size = 10;
+    config.num_threads = 4;
+    config.skip_errors = false;
+
+    ParallelNdjsonStream stream(data, config);
+    bool threw = false;
+    try {
+        stream.parse_all_parallel();
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+
+    assert(threw);
+    assert(stream.used_parallel_mode());
+
+    std::cout << "✓ test_parallel_throws_on_error passed\n";
+}
 void test_very_long_lines() {
     // Create a few lines with very long strings
     std::ostringstream oss;
@@ -466,6 +530,9 @@ int main() {
     test_single_line();
     test_lines_less_than_threads();
     test_empty_lines();
+    test_sequential_with_errors_fallback();
+    test_sequential_throws_on_error();
+    test_parallel_throws_on_error();
     test_very_long_lines();
     test_windows_line_endings();
     test_empty_data();

@@ -130,6 +130,17 @@ def set_cycle_policy(policy: str) -> None:
     _native.set_cycle_policy(policy)
 
 
+def set_dumps_type_order(policy: str) -> None:
+    """
+    Configure type-check ordering for dumps.
+
+    Allowed values:
+        - "strings_first": check strings before ints (default)
+        - "ints_first": check ints before strings
+    """
+    _native.set_dumps_type_order(policy)
+
+
 __all__ = [
     "loads",
     "loads_tape",
@@ -137,4 +148,5 @@ __all__ = [
     "dumps_bytes",
     "set_duplicate_key_policy",
     "set_cycle_policy",
+    "set_dumps_type_order",
 ]

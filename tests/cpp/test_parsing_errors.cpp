@@ -130,6 +130,48 @@ void test_invalid_escape_sequence() {
     std::cout << "✓ test_invalid_escape_sequence passed\n";
 }
 
+void test_invalid_unicode_escape_short() {
+    auto result = parse_json("\"\\u12\"");
+    assert(!result.ok());
+    assert(result.status == Status::ParseError);
+    std::cout << "✓ test_invalid_unicode_escape_short passed\n";
+}
+
+void test_invalid_unicode_escape_hex() {
+    auto result = parse_json("\"\\u12X4\"");
+    assert(!result.ok());
+    assert(result.status == Status::ParseError);
+    std::cout << "✓ test_invalid_unicode_escape_hex passed\n";
+}
+
+void test_truncated_escape_sequence() {
+    auto result = parse_json("\"abc\\");
+    assert(!result.ok());
+    assert(result.status == Status::ParseError);
+    std::cout << "✓ test_truncated_escape_sequence passed\n";
+}
+
+void test_invalid_surrogate_missing_u() {
+    auto result = parse_json("\"\\uD800\\q\"");
+    assert(!result.ok());
+    assert(result.status == Status::ParseError);
+    std::cout << "✓ test_invalid_surrogate_missing_u passed\n";
+}
+
+void test_invalid_surrogate_short_low() {
+    auto result = parse_json("\"\\uD800\\u12\"");
+    assert(!result.ok());
+    assert(result.status == Status::ParseError);
+    std::cout << "✓ test_invalid_surrogate_short_low passed\n";
+}
+
+void test_invalid_surrogate_out_of_range() {
+    auto result = parse_json("\"\\uD800\\u0000\"");
+    assert(!result.ok());
+    assert(result.status == Status::ParseError);
+    std::cout << "✓ test_invalid_surrogate_out_of_range passed\n";
+}
+
 void test_unclosed_array_nested() {
     auto result = parse_json("{\"array\": [1, 2}");
     assert(!result.ok());
@@ -451,6 +493,12 @@ int main() {
     test_multiple_top_level_values();
     test_invalid_keyword();
     test_invalid_escape_sequence();
+    test_invalid_unicode_escape_short();
+    test_invalid_unicode_escape_hex();
+    test_truncated_escape_sequence();
+    test_invalid_surrogate_missing_u();
+    test_invalid_surrogate_short_low();
+    test_invalid_surrogate_out_of_range();
     test_unclosed_array_nested();
     test_mismatched_brackets();
     test_mismatched_braces();

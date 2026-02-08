@@ -12,6 +12,7 @@
 #include "strata/json/json_parse.hpp"
 #include "strata/json/json_tape.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -373,6 +374,80 @@ void test_tape_to_dom_empty() {
     std::cout << "✓ test_tape_to_dom_empty passed\n";
 }
 
+void test_tape_to_dom_uint64() {
+    auto tape_result = parse_to_tape("9223372036854775808");
+    assert(tape_result.ok());
+
+    auto dom_result = tape_to_dom(tape_result.value);
+    assert(dom_result.ok());
+    assert(dom_result.value.is_number());
+    assert(dom_result.value.as_number() > 9.22e18);
+
+    std::cout << "✓ test_tape_to_dom_uint64 passed\n";
+}
+
+void test_tape_to_dom_invalid_token() {
+    auto tape_result = parse_to_tape("null");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    assert(!tokens.empty());
+    tokens[0] = static_cast<uint8_t>(TapeToken::Key);
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_invalid_token passed\n";
+}
+
+void test_tape_to_dom_missing_root_end() {
+    auto tape_result = parse_to_tape("null");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    assert(tokens.size() >= 2);
+    tokens.back() = static_cast<uint8_t>(TapeToken::Null);
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_missing_root_end passed\n";
+}
+
+void test_tape_to_dom_object_missing_end() {
+    auto tape_result = parse_to_tape("{\"a\": 1}");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    auto it = std::find(tokens.begin(), tokens.end(), static_cast<uint8_t>(TapeToken::EndObject));
+    assert(it != tokens.end());
+    *it = static_cast<uint8_t>(TapeToken::EndArray);
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_object_missing_end passed\n";
+}
+
+void test_tape_to_dom_array_missing_end() {
+    auto tape_result = parse_to_tape("[1]");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    auto it = std::find(tokens.begin(), tokens.end(), static_cast<uint8_t>(TapeToken::EndArray));
+    assert(it != tokens.end());
+    *it = static_cast<uint8_t>(TapeToken::EndObject);
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_array_missing_end passed\n";
+}
+
 // ===========================================================================
 // Main
 // ===========================================================================
@@ -417,6 +492,11 @@ int main() {
     // Errors
     test_tape_invalid_json();
     test_tape_to_dom_empty();
+    test_tape_to_dom_uint64();
+    test_tape_to_dom_invalid_token();
+    test_tape_to_dom_missing_root_end();
+    test_tape_to_dom_object_missing_end();
+    test_tape_to_dom_array_missing_end();
 
     std::cout << "\n=== All JSON Tape Tests Passed! ===\n";
     return 0;

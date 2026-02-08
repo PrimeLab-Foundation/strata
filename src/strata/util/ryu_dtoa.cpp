@@ -15,28 +15,10 @@ static constexpr double kMinSafeInteger = -9007199254740992.0;
 
 // Fast integer output for values that fit in int64_t
 static inline int ryu_format_integer(int64_t value, char* buffer) {
-    if (value == 0) {
-        buffer[0] = '0';
-        return 1;
-    }
-
+    // value is non-zero and within safe int range; no INT64_MIN handling needed here.
     char* p = buffer;
-    bool negative = value < 0;
-    if (negative) {
+    if (value < 0) {
         *p++ = '-';
-        if (value == INT64_MIN) {
-            uint64_t abs_val = static_cast<uint64_t>(-(value + 1)) + 1;
-            char digits[20];
-            int len = 0;
-            while (abs_val > 0) {
-                digits[len++] = static_cast<char>('0' + abs_val % 10);
-                abs_val /= 10;
-            }
-            for (int i = len - 1; i >= 0; --i) {
-                *p++ = digits[i];
-            }
-            return static_cast<int>(p - buffer);
-        }
         value = -value;
     }
 

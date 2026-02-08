@@ -650,6 +650,67 @@ bool test_edge_cases() {
     return passed == total;
 }
 
+bool test_simd_digit_edge_conditions() {
+    std::cout << "\n--- SIMD Digit Edge Conditions ---\n";
+    int passed = 0;
+    int total = 0;
+
+    ++total;
+    if (count_digits_simd("", 0) == 0) {
+        TEST_PASS("count_digits_simd empty");
+    } else {
+        TEST_FAIL("count_digits_simd empty", "expected 0");
+    }
+
+    ++total;
+    {
+        uint64_t result = 0;
+        size_t consumed = 0;
+        if (!parse_uint_simd("", 0, result, consumed)) {
+            TEST_PASS("parse_uint_simd empty");
+        } else {
+            TEST_FAIL("parse_uint_simd empty", "should fail");
+        }
+    }
+
+    ++total;
+    {
+        uint64_t result = 0;
+        size_t consumed = 0;
+        if (!parse_uint_simd("x", 1, result, consumed)) {
+            TEST_PASS("parse_uint_simd invalid first char");
+        } else {
+            TEST_FAIL("parse_uint_simd invalid first char", "should fail");
+        }
+    }
+
+    ++total;
+    {
+        uint64_t result = 0;
+        size_t consumed = 0;
+        if (parse_uint_simd("0", 1, result, consumed) &&
+            result == 0 && consumed == 1) {
+            TEST_PASS("parse_uint_simd zero");
+        } else {
+            TEST_FAIL("parse_uint_simd zero", "wrong parse");
+        }
+    }
+
+    ++total;
+    {
+        uint64_t result = 0;
+        size_t consumed = 0;
+        if (!parse_uint_simd("00", 2, result, consumed)) {
+            TEST_PASS("parse_uint_simd leading zero rejected");
+        } else {
+            TEST_FAIL("parse_uint_simd leading zero rejected", "should fail");
+        }
+    }
+
+    std::cout << "SIMD digit edge conditions: " << passed << "/" << total << std::endl;
+    return passed == total;
+}
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -681,6 +742,7 @@ int main() {
     // Parity and edge case tests
     ++tests_total; if (test_simd_scalar_parity()) ++tests_passed;
     ++tests_total; if (test_edge_cases()) ++tests_passed;
+    ++tests_total; if (test_simd_digit_edge_conditions()) ++tests_passed;
 
     std::cout << "\n========================================" << std::endl;
     std::cout << "Test Suites: " << tests_passed << "/" << tests_total << " passed" << std::endl;

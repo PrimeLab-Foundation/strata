@@ -22,6 +22,15 @@ mkdir -p "$OBJ_DIR"
 CXX="${CXX:-clang++}"
 CXXFLAGS="-std=c++20 -Wall -Wextra -O2"
 INCLUDES="-Iinclude -Isrc"
+HEADER_FIND_EXPR=( -type f \( -name '*.h' -o -name '*.hpp' -o -name '*.hh' -o -name '*.inl' \) )
+
+header_newer_than() {
+    local target="$1"
+    if find include src "${HEADER_FIND_EXPR[@]}" -newer "$target" -print -quit | grep -q .; then
+        return 0
+    fi
+    return 1
+}
 
 CORE_SOURCES=(
     src/strata/json/json_parse.cpp
@@ -86,7 +95,9 @@ PIDS=()
 for src in "${CORE_SOURCES[@]}"; do
     obj="$OBJ_DIR/$(basename "${src%.cpp}.o")"
     CORE_OBJECTS+=("$obj")
-    [[ "$obj" -nt "$src" ]] && continue
+    if [[ -f "$obj" ]] && [[ "$obj" -nt "$src" ]] && ! header_newer_than "$obj"; then
+        continue
+    fi
     $CXX $CXXFLAGS $INCLUDES -c "$src" -o "$obj" &
     PIDS+=($!)
 done
@@ -138,7 +149,9 @@ for entry in "${TESTS[@]}"; do
     (
         # Compile test .cpp → .o (skip if cached)
         test_obj="$OBJ_DIR/${name}.o"
-        if [[ ! "$test_obj" -nt "$file" ]]; then
+        if [[ -f "$test_obj" ]] && [[ "$test_obj" -nt "$file" ]] && ! header_newer_than "$test_obj"; then
+            :
+        else
             $CXX $CXXFLAGS $INCLUDES -c "$file" -o "$test_obj" 2>"$BUILD_LOGS_DIR/${name}_compile.log" || {
                 echo "COMPILE_FAIL" > "$BUILD_LOGS_DIR/${name}.status"
                 exit 1

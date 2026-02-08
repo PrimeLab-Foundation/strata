@@ -92,6 +92,13 @@ class NdjsonStream {
     std::vector<JsonValue> next_batch(size_t batch_size, bool skip_errors = false);
 
     /**
+     * Validate the full NDJSON buffer once for UTF-8 correctness.
+     *
+     * @return true if the buffer is valid UTF-8 (or empty), false otherwise.
+     */
+    bool validate_utf8_once();
+
+    /**
      * Get current line number (1-indexed).
      *
      * @return Current line number
@@ -118,6 +125,9 @@ class NdjsonStream {
     size_t line_num_;
     size_t lines_processed_;
     size_t error_count_;
+    ParseSaxContext parse_context_;
+    bool utf8_checked_;
+    bool utf8_ok_;
 
     // Extract next line from data
     std::string_view next_line();

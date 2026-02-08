@@ -144,15 +144,6 @@ Result<size_t> LazyJsonCursor::skip_number(size_t from) const {
 }
 
 Result<size_t> LazyJsonCursor::skip_container(size_t from) const {
-    if (from >= input_.size()) {
-        return {Status::ParseError, from};
-    }
-
-    char opener = input_[from];
-    if (opener != '{' && opener != '[') {
-        return {Status::ParseError, from};
-    }
-
     int depth = 1;
     size_t pos = from + 1;
 

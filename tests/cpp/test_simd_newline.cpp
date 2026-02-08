@@ -303,6 +303,20 @@ void test_collect_newlines_at_boundaries() {
     std::cout << "✓ test_collect_newlines_at_boundaries passed\n";
 }
 
+void test_collect_newlines_edge_cases() {
+    std::vector<size_t> positions;
+
+    // start_pos beyond end should be a no-op
+    collect_newlines_simd("abc", 3, 3, 10, positions);
+    assert(positions.empty());
+
+    // max_positions == 0 should be a no-op
+    collect_newlines_simd("a\nb\nc", 5, 0, 0, positions);
+    assert(positions.empty());
+
+    std::cout << "✓ test_collect_newlines_edge_cases passed\n";
+}
+
 // ============================================================================
 // Tests for skip_whitespace_simd
 // ============================================================================
@@ -534,6 +548,7 @@ int main() {
     test_collect_newlines_with_start();
     test_collect_newlines_max_positions();
     test_collect_newlines_at_boundaries();
+    test_collect_newlines_edge_cases();
 
     // skip_whitespace_simd tests
     std::cout << "\n=== skip_whitespace_simd tests ===\n";

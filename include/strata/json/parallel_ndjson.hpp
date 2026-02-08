@@ -3,12 +3,34 @@
 #include "strata/json/json_core.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 namespace strata {
+
+/**
+ * Profiling output for parallel NDJSON parsing.
+ *
+ * All durations are in nanoseconds. overhead_ns is an approximation:
+ * submit + merge + max(0, wait - max(parse_chunk)).
+ */
+struct ParallelNdjsonProfile {
+    size_t data_size = 0;
+    size_t line_count = 0;
+    size_t chunk_count = 0;
+    uint64_t line_scan_ns = 0;
+    uint64_t partition_ns = 0;
+    uint64_t submit_ns = 0;
+    uint64_t wait_ns = 0;
+    uint64_t merge_ns = 0;
+    uint64_t parse_ns_total = 0;
+    uint64_t parse_ns_max = 0;
+    uint64_t overhead_ns = 0;
+    uint64_t overhead_per_chunk_ns = 0;
+};
 
 /**
  * Configuration for parallel NDJSON processing.
@@ -18,13 +40,16 @@ struct ParallelNdjsonConfig {
     size_t num_threads = 0;
 
     /// Minimum bytes per thread chunk to avoid overhead for small data
-    size_t min_chunk_size = 64 * 1024;  // 64KB
+    size_t min_chunk_size = 1024 * 1024;  // 1MB
 
     /// Minimum lines to enable parallel mode (below this, use sequential)
     size_t min_lines_for_parallel = 1000;
 
     /// Skip malformed lines instead of stopping on error
     bool skip_errors = false;
+
+    /// Optional profiling output (nullptr = disabled)
+    ParallelNdjsonProfile* profile = nullptr;
 };
 
 /**
@@ -110,6 +135,8 @@ class ParallelNdjsonStream {
     size_t lines_processed_ = 0;
     size_t error_count_ = 0;
     bool used_parallel_mode_ = false;
+    bool utf8_checked_ = false;
+    bool utf8_ok_ = true;
 
     // Internal chunk representation
     struct Chunk {
@@ -133,7 +160,8 @@ class ParallelNdjsonStream {
     std::vector<Chunk> partition_chunks(const std::vector<size_t>& boundaries);
 
     // Phase 3: Parse single chunk (called by worker threads)
-    ChunkResult parse_chunk(const Chunk& chunk);
+    ChunkResult parse_chunk(const Chunk& chunk, bool skip_utf8_validation,
+                            std::vector<uint64_t>* chunk_parse_ns);
 
     // Phase 4: Merge results in sequence order
     void merge_results(std::vector<ChunkResult>& results, std::vector<JsonValue>& out_values,
@@ -142,6 +170,8 @@ class ParallelNdjsonStream {
     // Sequential fallback for small files
     std::vector<JsonValue> parse_sequential();
     ParallelParseResult parse_sequential_with_errors();
+
+    bool validate_utf8_once();
 };
 
 }  // namespace strata

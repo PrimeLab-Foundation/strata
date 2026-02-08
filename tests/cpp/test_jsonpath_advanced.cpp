@@ -594,6 +594,180 @@ void test_filter_decimal_comparison() {
 }
 
 // ============================================================================
+// Evaluation Edge Coverage
+// ============================================================================
+
+void test_eval_empty_path() {
+    auto doc = JsonDocument::from_string("null");
+    assert(doc.ok());
+
+    CompiledPath empty_path;
+    auto results = eval_jsonpath(doc.value, empty_path);
+    assert(results.empty());
+
+    auto limited = eval_jsonpath(doc.value, empty_path, 1);
+    assert(limited.empty());
+
+    std::cout << "✓ test_eval_empty_path passed\n";
+}
+
+void test_eval_root_field_short_circuit() {
+    auto array_doc = JsonDocument::from_string("[1, 2, 3]");
+    assert(array_doc.ok());
+
+    auto missing = compile_jsonpath("$.missing");
+    assert(missing.ok());
+
+    auto results = eval_jsonpath(array_doc.value, missing.value);
+    assert(results.empty());
+
+    auto limited_array = eval_jsonpath(array_doc.value, missing.value, 1);
+    assert(limited_array.empty());
+
+    auto obj_doc = JsonDocument::from_string("{\"a\": 1}");
+    assert(obj_doc.ok());
+    auto results_missing = eval_jsonpath(obj_doc.value, missing.value);
+    assert(results_missing.empty());
+
+    auto limited_missing = eval_jsonpath(obj_doc.value, missing.value, 1);
+    assert(limited_missing.empty());
+
+    std::cout << "✓ test_eval_root_field_short_circuit passed\n";
+}
+
+void test_eval_limit_short_circuit_wildcard_slice() {
+    auto doc = JsonDocument::from_string("[1, 2, 3, 4]");
+    assert(doc.ok());
+
+    auto wildcard = compile_jsonpath("$[*]");
+    assert(wildcard.ok());
+    auto results = eval_jsonpath(doc.value, wildcard.value, 1);
+    assert(results.size() == 1);
+
+    auto slice = compile_jsonpath("$[0:4]");
+    assert(slice.ok());
+    auto slice_results = eval_jsonpath(doc.value, slice.value, 1);
+    assert(slice_results.size() == 1);
+
+    std::cout << "✓ test_eval_limit_short_circuit_wildcard_slice passed\n";
+}
+
+void test_eval_limit_short_circuit_filter() {
+    auto doc = JsonDocument::from_string(R"([{"age": 10}, {"age": 20}, {"age": 30}])");
+    assert(doc.ok());
+
+    auto filter = compile_jsonpath("$[?(@.age >= 0)]");
+    assert(filter.ok());
+    auto results = eval_jsonpath(doc.value, filter.value, 1);
+    assert(results.size() == 1);
+
+    std::cout << "✓ test_eval_limit_short_circuit_filter passed\n";
+}
+
+void test_eval_recursive_descent_limit() {
+    auto doc = JsonDocument::from_string(R"({"a": {"name": "x"}, "b": {"name": "y"}})");
+    assert(doc.ok());
+
+    auto path = compile_jsonpath("$..name");
+    assert(path.ok());
+
+    auto results = eval_jsonpath(doc.value, path.value, 1);
+    assert(results.size() == 1);
+
+    std::cout << "✓ test_eval_recursive_descent_limit passed\n";
+}
+
+void test_eval_filter_default_ops() {
+    auto doc = JsonDocument::from_string(R"([{"age": 10, "name": "alice"}, {"age": 20, "name": "bob"}])");
+    assert(doc.ok());
+
+    PathStep root(PathOp::Root);
+    PathStep filter_step(PathOp::Filter);
+    filter_step.filter.field = "age";
+    filter_step.filter.op = FilterOp::And; // Unsupported for numeric filters
+    filter_step.filter.numeric_value = 10.0;
+    filter_step.filter.is_numeric = true;
+
+    CompiledPath numeric_path({root, filter_step});
+    auto numeric_results = eval_jsonpath(doc.value, numeric_path);
+    assert(numeric_results.empty());
+
+    PathStep string_filter(PathOp::Filter);
+    string_filter.filter.field = "name";
+    string_filter.filter.op = FilterOp::GreaterThan; // Unsupported for string filters
+    string_filter.filter.string_value = "x";
+    string_filter.filter.is_numeric = false;
+
+    CompiledPath string_path({root, string_filter});
+    auto string_results = eval_jsonpath(doc.value, string_path);
+    assert(string_results.empty());
+
+    std::cout << "✓ test_eval_filter_default_ops passed\n";
+}
+
+void test_eval_end_step_and_default_cursor() {
+    JsonCursor cursor;
+    CompiledPath end_path({PathStep(PathOp::Root), PathStep(PathOp::End)});
+    auto results = eval_jsonpath(cursor, end_path);
+    assert(results.size() == 1);
+
+    std::cout << "✓ test_eval_end_step_and_default_cursor passed\n";
+}
+
+void test_eval_manual_wildcard_limit() {
+    auto array_doc = JsonDocument::from_string("[1, 2, 3]");
+    assert(array_doc.ok());
+    CompiledPath wildcard_path({PathStep(PathOp::Root), PathStep(PathOp::Wildcard)});
+    auto results = eval_jsonpath(array_doc.value, wildcard_path, 1);
+    assert(results.size() == 1);
+
+    auto obj_doc = JsonDocument::from_string(R"({"a": 1, "b": 2})");
+    assert(obj_doc.ok());
+    auto obj_results = eval_jsonpath(obj_doc.value, wildcard_path, 1);
+    assert(obj_results.size() == 1);
+
+    std::cout << "✓ test_eval_manual_wildcard_limit passed\n";
+}
+
+void test_eval_manual_slice_filter_limit() {
+    auto doc = JsonDocument::from_string("[1, 2, 3, 4]");
+    assert(doc.ok());
+
+    PathStep slice(PathOp::Slice);
+    slice.slice_start = 0;
+    slice.slice_end = 4;
+    slice.slice_step = 1;
+    CompiledPath slice_path({PathStep(PathOp::Root), slice});
+    auto slice_results = eval_jsonpath(doc.value, slice_path, 1);
+    assert(slice_results.size() == 1);
+
+    PathStep filter(PathOp::Filter);
+    filter.filter.field = "age";
+    filter.filter.op = FilterOp::GreaterEqual;
+    filter.filter.numeric_value = 0.0;
+    filter.filter.is_numeric = true;
+    auto doc_objs = JsonDocument::from_string(R"([{"age": 1}, {"age": 2}])");
+    assert(doc_objs.ok());
+    CompiledPath filter_path({PathStep(PathOp::Root), filter});
+    auto filter_results = eval_jsonpath(doc_objs.value, filter_path, 1);
+    assert(filter_results.size() == 1);
+
+    std::cout << "✓ test_eval_manual_slice_filter_limit passed\n";
+}
+
+void test_eval_manual_recursive_descent_limit() {
+    auto doc = JsonDocument::from_string(R"({"a": {"name": "x"}, "b": {"name": "y"}})");
+    assert(doc.ok());
+
+    PathStep rec(PathOp::RecursiveDescent, "name");
+    CompiledPath rec_path({PathStep(PathOp::Root), rec});
+    auto results = eval_jsonpath(doc.value, rec_path, 1);
+    assert(results.size() == 1);
+
+    std::cout << "✓ test_eval_manual_recursive_descent_limit passed\n";
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -649,6 +823,16 @@ int main() {
     test_slice_on_non_array();
     test_recursive_on_scalar();
     test_filter_decimal_comparison();
+    test_eval_empty_path();
+    test_eval_root_field_short_circuit();
+    test_eval_limit_short_circuit_wildcard_slice();
+    test_eval_limit_short_circuit_filter();
+    test_eval_recursive_descent_limit();
+    test_eval_filter_default_ops();
+    test_eval_end_step_and_default_cursor();
+    test_eval_manual_wildcard_limit();
+    test_eval_manual_slice_filter_limit();
+    test_eval_manual_recursive_descent_limit();
 
     std::cout << "\n✅ All JSONPath Advanced tests passed!\n";
     return 0;

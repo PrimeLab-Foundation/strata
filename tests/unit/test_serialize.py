@@ -536,6 +536,15 @@ class TestErrorHandling:
             strata.dumps({"bad": object()})
 
 
+class TestLoadsTape:
+    """Test tape-based parsing wrapper."""
+
+    def test_loads_tape_basic(self):
+        data = '{"a": 1, "b": [true, null]}'
+        result = strata.loads_tape(data)
+        assert result == {"a": 1, "b": [True, None]}
+
+
 class TestDuplicateKeyPolicy:
     """Test configurable duplicate key handling."""
 
@@ -607,3 +616,15 @@ class TestCyclePolicy:
         with pytest.warns(RuntimeWarning):
             result = strata.dumps(root)
         assert "null" in result
+
+
+class TestDumpsTypeOrder:
+    """Test dumps type-order configuration."""
+
+    def teardown_method(self):
+        strata.set_dumps_type_order("strings_first")
+
+    def test_ints_first(self):
+        strata.set_dumps_type_order("ints_first")
+        assert strata.dumps(1) == "1"
+        assert strata.dumps("1") == '"1"'

@@ -41,12 +41,24 @@ enum class DuplicateKeyPolicy {
     Warn       ///< Keep first, emit warning
 };
 
+struct ParseSaxOptions {
+    bool validate_utf8 = true;
+};
+
+struct ParseSaxContext {
+    std::vector<size_t> structural_tape;
+};
+
 // Parse a JSON text into a JsonValue tree.
 // Supports: null, true, false, numbers, strings, arrays, objects.
 Result<JsonValue> parse_json(std::string_view text);
+Result<JsonValue> parse_json(std::string_view text, const ParseSaxOptions& options,
+                             ParseSaxContext* context);
 
 // Parse a JSON text using a SAX handler.
 Status parse_sax(std::string_view text, JsonSaxHandler& handler);
+Status parse_sax(std::string_view text, JsonSaxHandler& handler, const ParseSaxOptions& options,
+                 ParseSaxContext* context);
 
 // Parse a JSON text into a tape format for efficient repeated access.
 // The tape can later be converted to DOM using tape_to_dom().

@@ -107,13 +107,26 @@
          kNotCommon = 255
      };
 
-     explicit KeyCache(strata::util::Arena* arena, bool /* prewarm */ = true)
-         : arena_(arena) {
-         // Initialize hash map buckets (all empty)
-         std::memset(buckets_, 0, sizeof(buckets_));
-         std::memset(distances_, 0, sizeof(distances_));
-         // Common keys are now managed by persistent thread-local cache
-         // No per-call initialization needed - just get references
+     KeyCache() = default;
+
+     explicit KeyCache(strata::util::Arena* arena, bool /* prewarm */ = true) {
+         reset(arena);
+     }
+
+     void reset(strata::util::Arena* arena) {
+         arena_ = arena;
+         // Generation-based occupancy avoids clearing buckets/distances per reset.
+         if (++generation_ == 0) {
+             if (Py_IsInitialized()) {
+                 for (size_t i = 0; i < kBucketCount; ++i) {
+                     if (bucket_generations_[i] != 0 && buckets_[i].py_key) {
+                         Py_DECREF(buckets_[i].py_key);
+                     }
+                 }
+             }
+             std::memset(bucket_generations_, 0, sizeof(bucket_generations_));
+             generation_ = 1;
+         }
      }
 
      PyObject* get(std::string_view key) {
@@ -135,7 +148,7 @@
          // Common keys are managed by PersistentCommonKeys - don't release them
          // Only release cached keys in hash map
          for (size_t i = 0; i < kBucketCount; ++i) {
-             if (buckets_[i].py_key) {
+             if (bucket_generations_[i] != 0 && buckets_[i].py_key) {
                  Py_DECREF(buckets_[i].py_key);
              }
          }
@@ -144,7 +157,7 @@
    private:
      // Robin hood hash map entry
      struct Bucket {
-         uint64_t hash;         // Cached hash value (0 = empty bucket)
+         uint64_t hash;         // Cached hash value
          PyObject* py_key;      // Interned Python string
          const char* key_data;  // Pointer to key string (in arena or static)
          uint16_t key_len;      // Key length
@@ -155,9 +168,11 @@
      static constexpr size_t kBucketMask = kBucketCount - 1;
      static constexpr uint8_t kMaxProbeDistance = 32;
 
-     strata::util::Arena* arena_;
+     strata::util::Arena* arena_ = nullptr;
      Bucket buckets_[kBucketCount];
      uint8_t distances_[kBucketCount];  // Probe distances for robin hood
+     uint32_t generation_ = 0;
+     uint32_t bucket_generations_[kBucketCount] = {};
      // Common keys are now managed by PersistentCommonKeys
 
      // Fast-path lookup using string length and first character
@@ -215,12 +230,12 @@
 
          // Linear probe with robin hood
          while (dist < kMaxProbeDistance) {
-             Bucket& bucket = buckets_[idx];
-
              // Empty bucket - insert here
-             if (bucket.hash == 0) {
+             if (bucket_generations_[idx] != generation_) {
                  return insert_at(idx, hash, key, dist);
              }
+
+             Bucket& bucket = buckets_[idx];
 
              // Found existing key
              if (bucket.hash == hash &&
@@ -268,11 +283,15 @@
 
          // Store in bucket
          Bucket& bucket = buckets_[idx];
+         if (bucket_generations_[idx] != 0 && bucket.py_key) {
+             Py_DECREF(bucket.py_key);
+         }
          bucket.hash = hash;
          bucket.py_key = py_key;
          bucket.key_data = key_copy;
          bucket.key_len = static_cast<uint16_t>(key.size());
          distances_[idx] = dist;
+         bucket_generations_[idx] = generation_;
 
          return py_key;
      }
@@ -283,27 +302,44 @@
     using StackAllocator = strata::util::ArenaAllocator<PyObject*>;
     using SizeAllocator = strata::util::ArenaAllocator<size_t>;
 
-    explicit PythonObjectBuilder(strata::util::Arena* arena)
+    PythonObjectBuilder(strata::util::Arena* arena, KeyCache& cache)
         : arena_(arena), stack_(StackAllocator(arena)), keys_(StackAllocator(arena)),
           list_indices_(SizeAllocator(arena)), list_sizes_(SizeAllocator(arena)),
-          cache_(arena) {
+          cache_(cache) {
         stack_.reserve(32);
         keys_.reserve(32);
         list_indices_.reserve(32);
         list_sizes_.reserve(32);
     }
 
-     ~PythonObjectBuilder() {
+    void reset() {
         if (!Py_IsInitialized()) {
+            root_ = nullptr;
+            stack_.clear();
+            keys_.clear();
+            list_indices_.clear();
+            list_sizes_.clear();
+            current_list_depth_ = 0;
             return;
         }
         if (root_) {
             Py_DECREF(root_);
+            root_ = nullptr;
         }
         for (auto obj : stack_) {
             Py_DECREF(obj);
         }
-     }
+        stack_.clear();
+        for (auto key : keys_) {
+            Py_DECREF(key);
+        }
+        keys_.clear();
+        list_indices_.clear();
+        list_sizes_.clear();
+        current_list_depth_ = 0;
+    }
+
+    ~PythonObjectBuilder() { reset(); }
 
      bool on_null() override {
          // Python 3.12+ has immortal None/True/False - no refcount needed
@@ -500,44 +536,77 @@
              PyObject* key = keys_.back();
              keys_.pop_back();
 
-             // Duplicate key handling
-             if (strata::get_duplicate_key_policy() != strata::DuplicateKeyPolicy::LastWins) {
-                 if (PyDict_Contains(top, key)) {
-                     switch (strata::get_duplicate_key_policy()) {
-                     case strata::DuplicateKeyPolicy::FirstWins:
-                         Py_DECREF(key);
-                         Py_DECREF(val);
-                         return true;
-                     case strata::DuplicateKeyPolicy::Warn: {
-                         PyObject* key_repr = PyObject_Repr(key);
-                         const char* key_str = PyUnicode_AsUTF8(key_repr);
-                         std::string msg = "Duplicate key encountered: ";
-                         msg += key_str;
-                         PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
-                         Py_XDECREF(key_repr);
-                         Py_DECREF(key);
-                         Py_DECREF(val);
-                         return true;
-                     }
-                     case strata::DuplicateKeyPolicy::Error:
-                         Py_DECREF(key);
-                         Py_DECREF(val);
-                         return false;
-                     default:
-                         break;
-                     }
-                 }
-             }
+             const auto policy = strata::get_duplicate_key_policy();
+            if (policy == strata::DuplicateKeyPolicy::LastWins) {
+                if (PyDict_SetItem(top, key, val) < 0) {
+                    Py_DECREF(key);
+                    Py_DECREF(val);
+                    return false;
+                }
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return true;
+            }
 
-             if (PyDict_SetItem(top, key, val) < 0) {
-                 Py_DECREF(key);
-                 Py_DECREF(val);
-                 return false;
-             }
-             Py_DECREF(key);
-             Py_DECREF(val);
-             return true;
-         }
+            if (policy == strata::DuplicateKeyPolicy::FirstWins) {
+                if (!PyDict_SetDefault(top, key, val)) {
+                    Py_DECREF(key);
+                    Py_DECREF(val);
+                    return false;
+                }
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return true;
+            }
+
+            Py_hash_t hash = PyObject_Hash(key);
+            if (hash == -1 && PyErr_Occurred()) {
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return false;
+            }
+
+            PyObject* existing = _PyDict_GetItem_KnownHash(top, key, hash);
+            if (!existing && PyErr_Occurred()) {
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return false;
+            }
+            if (existing) {
+                switch (policy) {
+                case strata::DuplicateKeyPolicy::FirstWins:
+                    Py_DECREF(key);
+                    Py_DECREF(val);
+                    return true;
+                case strata::DuplicateKeyPolicy::Warn: {
+                    PyObject* key_repr = PyObject_Repr(key);
+                    const char* key_str = PyUnicode_AsUTF8(key_repr);
+                    std::string msg = "Duplicate key encountered: ";
+                    msg += key_str;
+                    PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+                    Py_XDECREF(key_repr);
+                    Py_DECREF(key);
+                    Py_DECREF(val);
+                    return true;
+                }
+                case strata::DuplicateKeyPolicy::Error:
+                    Py_DECREF(key);
+                    Py_DECREF(val);
+                    return false;
+                default:
+                    break;
+                }
+            }
+
+            if (PyDict_SetItem(top, key, val) < 0) {
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return false;
+            }
+            Py_DECREF(key);
+            Py_DECREF(val);
+            return true;
+        }
          Py_DECREF(val);
          return false;
      }
@@ -549,7 +618,7 @@
    std::vector<size_t, SizeAllocator> list_indices_;
    std::vector<size_t, SizeAllocator> list_sizes_;
    size_t current_list_depth_ = 0;  // O(1) list depth tracking
-   KeyCache cache_;
+   KeyCache& cache_;
 };
 
  } // namespace bindings

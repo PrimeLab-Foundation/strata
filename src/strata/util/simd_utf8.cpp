@@ -77,8 +77,9 @@ static inline unsigned char utf8_byte_type(unsigned char b) {
     return kUtf8Invalid;
 }
 
+#if !defined(STRATA_HAS_AVX2) && !defined(STRATA_HAS_SSE42) && !defined(STRATA_HAS_NEON)
 // Scalar UTF-8 validator with full second-byte checks (E0/ED/F0/F4)
-[[maybe_unused]] static bool validate_utf8_scalar(const char* data, size_t len) {
+static bool validate_utf8_scalar(const char* data, size_t len) {
     size_t i = 0;
     int expected_cont = 0;
     unsigned char lead_byte = 0;
@@ -135,6 +136,7 @@ static inline unsigned char utf8_byte_type(unsigned char b) {
     }
     return expected_cont == 0;
 }
+#endif
 
 #ifdef STRATA_HAS_AVX2
 
@@ -525,7 +527,8 @@ static bool is_ascii_only_neon(const char* data, size_t len) {
 
 #endif
 
-[[maybe_unused]] static bool is_ascii_only_scalar(const char* data, size_t len) {
+#if !defined(STRATA_HAS_AVX2) && !defined(STRATA_HAS_SSE42) && !defined(STRATA_HAS_NEON)
+static bool is_ascii_only_scalar(const char* data, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         if (static_cast<unsigned char>(data[i]) >= 0x80) {
             return false;
@@ -533,6 +536,7 @@ static bool is_ascii_only_neon(const char* data, size_t len) {
     }
     return true;
 }
+#endif
 
 bool is_ascii_only_simd(const char* data, size_t len) {
 #ifdef STRATA_HAS_AVX2

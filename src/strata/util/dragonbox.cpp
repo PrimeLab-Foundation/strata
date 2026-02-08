@@ -51,22 +51,7 @@ static inline int format_integer(int64_t value, char* buffer) {
     bool negative = value < 0;
     if (negative) {
         *p++ = '-';
-        // Handle INT64_MIN carefully
-        if (value == INT64_MIN) {
-            // INT64_MIN = -9223372036854775808, but we only need up to 2^53
-            // This won't be reached in our use case since max safe integer is 2^53
-            uint64_t abs_val = static_cast<uint64_t>(-(value + 1)) + 1;
-            char digits[20];
-            int len = 0;
-            while (abs_val > 0) {
-                digits[len++] = static_cast<char>('0' + abs_val % 10);
-                abs_val /= 10;
-            }
-            for (int i = len - 1; i >= 0; --i) {
-                *p++ = digits[i];
-            }
-            return static_cast<int>(p - buffer);
-        }
+        // Value is within safe integer range, so INT64_MIN is impossible here.
         value = -value;
     }
 

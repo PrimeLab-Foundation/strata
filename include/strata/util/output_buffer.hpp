@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -16,7 +17,10 @@ class OutputBuffer {
     OutputBuffer(const OutputBuffer&) = delete;
     OutputBuffer& operator=(const OutputBuffer&) = delete;
 
-    void clear() { size_ = 0; }
+    void clear() {
+        size_ = 0;
+        reserved_extra_ = 0;
+    }
 
     const char* data() const { return data_; }
     char* data() { return data_; }
@@ -24,24 +28,44 @@ class OutputBuffer {
     size_t capacity() const { return capacity_; }
 
     void reserve(size_t min_capacity) {
-        if (min_capacity <= capacity_) {
+        size_t needed = min_capacity;
+        if (reserved_extra_ > 0 && size_ + reserved_extra_ > needed) {
+            needed = size_ + reserved_extra_;
+        }
+        if (needed <= capacity_) {
             return;
         }
-        grow(min_capacity);
+        grow(needed);
+    }
+
+    void ensure_extra(size_t n) {
+        if (n == 0) {
+            return;
+        }
+        reserved_extra_ += n;
+        ensure(size_ + reserved_extra_);
     }
 
     void append(const char* src, size_t len) {
         if (len == 0) {
             return;
         }
-        ensure(size_ + len);
+        ensure(size_ + len + reserved_extra_);
         std::memcpy(data_ + size_, src, len);
         size_ += len;
     }
 
     void push_back(char c) {
-        ensure(size_ + 1);
+        ensure(size_ + 1 + reserved_extra_);
         data_[size_++] = c;
+    }
+
+    void push_back_unchecked(char c) {
+        assert(reserved_extra_ > 0);
+        data_[size_++] = c;
+        if (reserved_extra_ > 0) {
+            --reserved_extra_;
+        }
     }
 
   private:
@@ -68,6 +92,7 @@ class OutputBuffer {
     char* data_ = nullptr;
     size_t size_ = 0;
     size_t capacity_ = 0;
+    size_t reserved_extra_ = 0; // Remaining structural bytes reserved for unchecked writes.
 };
 
 class FixedOutputBuffer {
@@ -86,6 +111,8 @@ class FixedOutputBuffer {
     bool overflowed() const { return overflowed_; }
 
     void reserve(size_t) {}
+
+    void ensure_extra(size_t) {}
 
     void append(const char* src, size_t len) {
         if (len == 0 || overflowed_) {
@@ -109,6 +136,8 @@ class FixedOutputBuffer {
         }
         data_[size_++] = c;
     }
+
+    void push_back_unchecked(char c) { push_back(c); }
 
   private:
     char* data_ = nullptr;

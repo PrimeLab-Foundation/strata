@@ -169,7 +169,8 @@ static inline bool is_whitespace_only_neon(const char* data, size_t len) {
 
 #endif
 
-[[maybe_unused]] static inline bool is_whitespace_only_scalar(const char* data, size_t len) {
+#if !defined(STRATA_HAS_AVX2) && !defined(STRATA_HAS_SSE42) && !defined(STRATA_HAS_NEON)
+static inline bool is_whitespace_only_scalar(const char* data, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         if (!is_json_whitespace(static_cast<unsigned char>(data[i]))) {
             return false;
@@ -177,6 +178,7 @@ static inline bool is_whitespace_only_neon(const char* data, size_t len) {
     }
     return true;
 }
+#endif
 
 bool is_whitespace_only_simd(const char* data, size_t len) {
 #ifdef STRATA_HAS_AVX2
@@ -475,8 +477,8 @@ static inline size_t count_newlines_neon(const char* data, size_t len) {
 #endif
 
 // Scalar fallback
-[[maybe_unused]] static inline size_t find_newline_scalar(const char* data, size_t len,
-                                                          size_t start_pos) {
+#if !defined(STRATA_HAS_AVX2) && !defined(STRATA_HAS_SSE42) && !defined(STRATA_HAS_NEON)
+static inline size_t find_newline_scalar(const char* data, size_t len, size_t start_pos) {
     for (size_t i = start_pos; i < len; ++i) {
         if (data[i] == '\n') {
             return i;
@@ -485,7 +487,7 @@ static inline size_t count_newlines_neon(const char* data, size_t len) {
     return len;
 }
 
-[[maybe_unused]] static inline size_t count_newlines_scalar(const char* data, size_t len) {
+static inline size_t count_newlines_scalar(const char* data, size_t len) {
     size_t count = 0;
     for (size_t i = 0; i < len; ++i) {
         if (data[i] == '\n') {
@@ -494,6 +496,7 @@ static inline size_t count_newlines_neon(const char* data, size_t len) {
     }
     return count;
 }
+#endif
 
 [[maybe_unused]] static inline void append_newlines_from_mask(uint32_t mask, size_t base,
                                                               size_t max_positions,

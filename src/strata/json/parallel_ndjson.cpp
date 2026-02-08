@@ -5,6 +5,8 @@
 #include "strata/util/thread_pool.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <functional>
 #include <future>
 #include <stdexcept>
 #include <thread>
@@ -12,6 +14,13 @@
 namespace strata {
 
 namespace {
+
+using Clock = std::chrono::steady_clock;
+
+static inline uint64_t duration_ns(Clock::time_point start, Clock::time_point end) {
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
+}
 
 // Check if a line is empty or whitespace-only
 static inline bool is_json_whitespace(unsigned char c) {
@@ -45,11 +54,24 @@ ParallelNdjsonStream::ParallelNdjsonStream(std::string_view data, ParallelNdjson
     : data_(data), config_(config) {
     // Validate config
     if (config_.num_threads == 0) {
-        config_.num_threads = std::thread::hardware_concurrency();
-        if (config_.num_threads == 0) {
-            config_.num_threads = 4;  // Fallback
+        size_t hw_threads = std::thread::hardware_concurrency();
+        if (hw_threads == 0) {
+            hw_threads = 4;  // Fallback
         }
+        size_t target_threads = data_.size() / config_.min_chunk_size;
+        if (target_threads == 0) {
+            target_threads = 1;
+        }
+        config_.num_threads = std::min(hw_threads, target_threads);
     }
+}
+
+bool ParallelNdjsonStream::validate_utf8_once() {
+    if (!utf8_checked_) {
+        utf8_ok_ = util::validate_utf8_lazy(data_.data(), data_.size());
+        utf8_checked_ = true;
+    }
+    return utf8_ok_;
 }
 
 std::vector<size_t> ParallelNdjsonStream::collect_line_boundaries() {
@@ -140,12 +162,23 @@ std::vector<ParallelNdjsonStream::Chunk> ParallelNdjsonStream::partition_chunks(
     return chunks;
 }
 
-ParallelNdjsonStream::ChunkResult ParallelNdjsonStream::parse_chunk(const Chunk& chunk) {
+ParallelNdjsonStream::ChunkResult ParallelNdjsonStream::parse_chunk(
+    const Chunk& chunk,
+    bool skip_utf8_validation,
+    std::vector<uint64_t>* chunk_parse_ns) {
     ChunkResult result;
     result.sequence = chunk.sequence;
 
     if (chunk.data.empty()) {
+        if (chunk_parse_ns) {
+            (*chunk_parse_ns)[chunk.sequence] = 0;
+        }
         return result;
+    }
+
+    Clock::time_point start;
+    if (chunk_parse_ns) {
+        start = Clock::now();
     }
 
     // Pre-allocate based on estimated line count
@@ -154,6 +187,9 @@ ParallelNdjsonStream::ChunkResult ParallelNdjsonStream::parse_chunk(const Chunk&
 
     size_t pos = 0;
     size_t line_num = chunk.start_line;
+    thread_local ParseSaxContext parse_context;
+    ParseSaxOptions options;
+    options.validate_utf8 = !skip_utf8_validation;
 
     while (pos < chunk.data.size()) {
         // Find next newline
@@ -167,7 +203,7 @@ ParallelNdjsonStream::ChunkResult ParallelNdjsonStream::parse_chunk(const Chunk&
 
         // Skip whitespace-only lines
         if (!is_whitespace_only_line(line)) {
-            auto parse_result = parse_json(line);
+            auto parse_result = parse_json(line, options, &parse_context);
 
             if (parse_result.ok()) {
                 result.values.push_back(std::move(parse_result.value));
@@ -180,6 +216,10 @@ ParallelNdjsonStream::ChunkResult ParallelNdjsonStream::parse_chunk(const Chunk&
         // Move to next line
         pos = (newline_pos < chunk.data.size()) ? (newline_pos + 1) : chunk.data.size();
         line_num++;
+    }
+
+    if (chunk_parse_ns) {
+        (*chunk_parse_ns)[chunk.sequence] = duration_ns(start, Clock::now());
     }
 
     return result;
@@ -221,6 +261,11 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_sequential() {
     size_t line_count = util::count_newlines_simd(data_.data(), data_.size()) + 1;
     results.reserve(line_count);
 
+    validate_utf8_once();
+    ParseSaxContext parse_context;
+    ParseSaxOptions options;
+    options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+
     size_t pos = 0;
     size_t line_num = 1;
 
@@ -234,7 +279,7 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_sequential() {
 
         if (!is_whitespace_only_line(line)) {
             lines_processed_++;
-            auto parse_result = parse_json(line);
+            auto parse_result = parse_json(line, options, &parse_context);
 
             if (parse_result.ok()) {
                 results.push_back(std::move(parse_result.value));
@@ -259,6 +304,11 @@ ParallelParseResult ParallelNdjsonStream::parse_sequential_with_errors() {
     size_t line_count = util::count_newlines_simd(data_.data(), data_.size()) + 1;
     result.values.reserve(line_count);
 
+    validate_utf8_once();
+    ParseSaxContext parse_context;
+    ParseSaxOptions options;
+    options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+
     size_t pos = 0;
     size_t line_num = 1;
 
@@ -272,7 +322,7 @@ ParallelParseResult ParallelNdjsonStream::parse_sequential_with_errors() {
 
         if (!is_whitespace_only_line(line)) {
             result.lines_processed++;
-            auto parse_result = parse_json(line);
+            auto parse_result = parse_json(line, options, &parse_context);
 
             if (parse_result.ok()) {
                 result.values.push_back(std::move(parse_result.value));
@@ -296,8 +346,18 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_all_parallel() {
         return {};
     }
 
+    validate_utf8_once();
+    const bool skip_utf8_validation = utf8_checked_ && utf8_ok_;
+
     // Count lines to decide parallelization strategy
     size_t line_count = util::count_newlines_simd(data_.data(), data_.size()) + 1;
+    ParallelNdjsonProfile* profile = config_.profile;
+    std::vector<uint64_t> chunk_parse_ns;
+    if (profile) {
+        *profile = ParallelNdjsonProfile{};
+        profile->data_size = data_.size();
+        profile->line_count = line_count;
+    }
 
     // Fall back to sequential for small inputs
     if (line_count < config_.min_lines_for_parallel ||
@@ -309,10 +369,26 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_all_parallel() {
     used_parallel_mode_ = true;
 
     // Phase 1: Collect line boundaries
+    Clock::time_point line_scan_start;
+    if (profile) {
+        line_scan_start = Clock::now();
+    }
     std::vector<size_t> boundaries = collect_line_boundaries();
+    if (profile) {
+        profile->line_scan_ns = duration_ns(line_scan_start, Clock::now());
+    }
 
     // Phase 2: Partition into chunks
+    Clock::time_point partition_start;
+    if (profile) {
+        partition_start = Clock::now();
+    }
     std::vector<Chunk> chunks = partition_chunks(boundaries);
+    if (profile) {
+        profile->partition_ns = duration_ns(partition_start, Clock::now());
+        profile->chunk_count = chunks.size();
+        chunk_parse_ns.assign(chunks.size(), 0);
+    }
 
     if (chunks.size() <= 1) {
         // Single chunk - sequential is more efficient
@@ -323,25 +399,54 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_all_parallel() {
     // Phase 3: Parse chunks in parallel
     util::ThreadPool pool(config_.num_threads);
 
+    std::vector<std::function<ChunkResult()>> tasks;
+    tasks.reserve(chunks.size());
+
     std::vector<std::future<ChunkResult>> futures;
     futures.reserve(chunks.size());
 
+    std::vector<uint64_t>* parse_ns_out = profile ? &chunk_parse_ns : nullptr;
     for (const auto& chunk : chunks) {
-        futures.push_back(pool.submit([this, &chunk]() { return parse_chunk(chunk); }));
+        tasks.emplace_back([this, chunk, skip_utf8_validation, parse_ns_out]() {
+            return parse_chunk(chunk, skip_utf8_validation, parse_ns_out);
+        });
+    }
+
+    Clock::time_point submit_start;
+    if (profile) {
+        submit_start = Clock::now();
+    }
+    pool.submit_bulk(tasks, futures);
+    if (profile) {
+        profile->submit_ns = duration_ns(submit_start, Clock::now());
     }
 
     // Collect results
     std::vector<ChunkResult> chunk_results;
     chunk_results.reserve(futures.size());
 
+    Clock::time_point wait_start;
+    if (profile) {
+        wait_start = Clock::now();
+    }
     for (auto& f : futures) {
         chunk_results.push_back(f.get());
+    }
+    if (profile) {
+        profile->wait_ns = duration_ns(wait_start, Clock::now());
     }
 
     // Phase 4: Merge results in order
     std::vector<JsonValue> values;
     std::vector<std::pair<size_t, std::string>> errors;
+    Clock::time_point merge_start;
+    if (profile) {
+        merge_start = Clock::now();
+    }
     merge_results(chunk_results, values, errors);
+    if (profile) {
+        profile->merge_ns = duration_ns(merge_start, Clock::now());
+    }
 
     // Update statistics
     lines_processed_ = values.size() + errors.size();
@@ -351,6 +456,26 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_all_parallel() {
     if (!errors.empty() && !config_.skip_errors) {
         throw std::runtime_error("Parse error at line " + std::to_string(errors[0].first) + ": " +
                                  errors[0].second);
+    }
+
+    if (profile) {
+        uint64_t parse_total = 0;
+        uint64_t parse_max = 0;
+        for (uint64_t ns : chunk_parse_ns) {
+            parse_total += ns;
+            if (ns > parse_max) {
+                parse_max = ns;
+            }
+        }
+        profile->parse_ns_total = parse_total;
+        profile->parse_ns_max = parse_max;
+        uint64_t overhead_ns = profile->submit_ns + profile->merge_ns;
+        if (profile->wait_ns > parse_max) {
+            overhead_ns += (profile->wait_ns - parse_max);
+        }
+        profile->overhead_ns = overhead_ns;
+        profile->overhead_per_chunk_ns =
+            profile->chunk_count ? (overhead_ns / profile->chunk_count) : 0;
     }
 
     return values;
@@ -363,8 +488,18 @@ ParallelParseResult ParallelNdjsonStream::parse_all_parallel_with_errors() {
         return result;
     }
 
+    validate_utf8_once();
+    const bool skip_utf8_validation = utf8_checked_ && utf8_ok_;
+
     // Count lines to decide parallelization strategy
     size_t line_count = util::count_newlines_simd(data_.data(), data_.size()) + 1;
+    ParallelNdjsonProfile* profile = config_.profile;
+    std::vector<uint64_t> chunk_parse_ns;
+    if (profile) {
+        *profile = ParallelNdjsonProfile{};
+        profile->data_size = data_.size();
+        profile->line_count = line_count;
+    }
 
     // Fall back to sequential for small inputs
     if (line_count < config_.min_lines_for_parallel ||
@@ -376,10 +511,26 @@ ParallelParseResult ParallelNdjsonStream::parse_all_parallel_with_errors() {
     used_parallel_mode_ = true;
 
     // Phase 1: Collect line boundaries
+    Clock::time_point line_scan_start;
+    if (profile) {
+        line_scan_start = Clock::now();
+    }
     std::vector<size_t> boundaries = collect_line_boundaries();
+    if (profile) {
+        profile->line_scan_ns = duration_ns(line_scan_start, Clock::now());
+    }
 
     // Phase 2: Partition into chunks
+    Clock::time_point partition_start;
+    if (profile) {
+        partition_start = Clock::now();
+    }
     std::vector<Chunk> chunks = partition_chunks(boundaries);
+    if (profile) {
+        profile->partition_ns = duration_ns(partition_start, Clock::now());
+        profile->chunk_count = chunks.size();
+        chunk_parse_ns.assign(chunks.size(), 0);
+    }
 
     if (chunks.size() <= 1) {
         used_parallel_mode_ = false;
@@ -389,28 +540,77 @@ ParallelParseResult ParallelNdjsonStream::parse_all_parallel_with_errors() {
     // Phase 3: Parse chunks in parallel
     util::ThreadPool pool(config_.num_threads);
 
+    std::vector<std::function<ChunkResult()>> tasks;
+    tasks.reserve(chunks.size());
+
     std::vector<std::future<ChunkResult>> futures;
     futures.reserve(chunks.size());
 
+    std::vector<uint64_t>* parse_ns_out = profile ? &chunk_parse_ns : nullptr;
     for (const auto& chunk : chunks) {
-        futures.push_back(pool.submit([this, &chunk]() { return parse_chunk(chunk); }));
+        tasks.emplace_back([this, chunk, skip_utf8_validation, parse_ns_out]() {
+            return parse_chunk(chunk, skip_utf8_validation, parse_ns_out);
+        });
+    }
+
+    Clock::time_point submit_start;
+    if (profile) {
+        submit_start = Clock::now();
+    }
+    pool.submit_bulk(tasks, futures);
+    if (profile) {
+        profile->submit_ns = duration_ns(submit_start, Clock::now());
     }
 
     // Collect results
     std::vector<ChunkResult> chunk_results;
     chunk_results.reserve(futures.size());
 
+    Clock::time_point wait_start;
+    if (profile) {
+        wait_start = Clock::now();
+    }
     for (auto& f : futures) {
         chunk_results.push_back(f.get());
     }
+    if (profile) {
+        profile->wait_ns = duration_ns(wait_start, Clock::now());
+    }
 
     // Phase 4: Merge results in order
+    Clock::time_point merge_start;
+    if (profile) {
+        merge_start = Clock::now();
+    }
     merge_results(chunk_results, result.values, result.errors);
+    if (profile) {
+        profile->merge_ns = duration_ns(merge_start, Clock::now());
+    }
 
     // Update statistics
     result.lines_processed = result.values.size() + result.errors.size();
     lines_processed_ = result.lines_processed;
     error_count_ = result.errors.size();
+
+    if (profile) {
+        uint64_t parse_total = 0;
+        uint64_t parse_max = 0;
+        for (uint64_t ns : chunk_parse_ns) {
+            parse_total += ns;
+            if (ns > parse_max) {
+                parse_max = ns;
+            }
+        }
+        profile->parse_ns_total = parse_total;
+        profile->parse_ns_max = parse_max;
+        uint64_t overhead_ns = profile->submit_ns + profile->merge_ns;
+        if (profile->wait_ns > parse_max) {
+            overhead_ns += (profile->wait_ns - parse_max);
+        }
+        profile->overhead_ns = overhead_ns;
+        profile->overhead_per_chunk_ns =
+            profile->chunk_count ? (overhead_ns / profile->chunk_count) : 0;
+    }
 
     return result;
 }

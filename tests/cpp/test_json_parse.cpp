@@ -177,6 +177,44 @@ void test_parse_object() {
     std::cout << "✓ test_parse_object passed\n";
 }
 
+void test_parse_escaped_key() {
+    auto result = parse_json("{\"a\\tb\": 1}");
+    assert(result.ok());
+    const auto& obj = result.value.as_object();
+    auto it = obj.find("a\tb");
+    assert(it != obj.end());
+    assert(it->second.as_number() == 1.0);
+    std::cout << "✓ test_parse_escaped_key passed\n";
+}
+
+void test_parse_unsigned_large() {
+    auto result = parse_json("9223372036854775808"); // INT64_MAX + 1
+    assert(result.ok());
+    assert(result.value.is_number());
+    assert(result.value.as_number() > 9.22e18);
+    std::cout << "✓ test_parse_unsigned_large passed\n";
+}
+
+void test_duplicate_key_policies() {
+    auto original_policy = get_duplicate_key_policy();
+
+    set_duplicate_key_policy(DuplicateKeyPolicy::Warn);
+    auto warn_result = parse_json("{\"a\": 1, \"a\": 2}");
+    assert(warn_result.ok());
+    auto warnings = consume_parse_warnings();
+    assert(warnings.size() == 1);
+    assert(warnings[0].find("Duplicate key encountered") != std::string::npos);
+    auto warnings_cleared = consume_parse_warnings();
+    assert(warnings_cleared.empty());
+
+    set_duplicate_key_policy(DuplicateKeyPolicy::Error);
+    auto error_result = parse_json("{\"a\": 1, \"a\": 2}");
+    assert(!error_result.ok());
+
+    set_duplicate_key_policy(original_policy);
+    std::cout << "✓ test_duplicate_key_policies passed\n";
+}
+
 void test_parse_nested_object() {
     auto result = parse_json("{\"user\": {\"name\": \"Bob\", \"age\": 25}}");
     assert(result.ok());
@@ -301,11 +339,14 @@ int main() {
     test_parse_array();
     test_parse_nested_array();
     test_parse_object();
+    test_parse_escaped_key();
     test_parse_nested_object();
     test_parse_mixed_structure();
     test_parse_whitespace();
     test_parse_errors();
     test_parse_large_numbers();
+    test_parse_unsigned_large();
+    test_duplicate_key_policies();
 
     std::cout << "\n✅ All JSON parsing tests passed!\n";
     return 0;

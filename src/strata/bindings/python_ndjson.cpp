@@ -17,11 +17,23 @@
 // NdjsonStream Type
 //=============================================================================
 
+struct NdjsonPythonContext {
+    strata::util::Arena key_arena;
+    strata::bindings::KeyCache key_cache;
+    strata::util::Arena builder_arena;
+    strata::bindings::PythonObjectBuilder builder;
+
+    NdjsonPythonContext()
+        : key_cache(&key_arena), builder_arena(4 * 1024), builder(&builder_arena, key_cache) {}
+};
+
 typedef struct {
     PyObject_HEAD strata::NdjsonStream* stream;
+    NdjsonPythonContext* context;
 } PyNdjsonStream;
 
 static void PyNdjsonStream_dealloc(PyNdjsonStream* self) {
+    delete self->context;
     delete self->stream;
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
@@ -30,6 +42,7 @@ static PyObject* PyNdjsonStream_new(PyTypeObject* type, PyObject* args, PyObject
     PyNdjsonStream* self = (PyNdjsonStream*)type->tp_alloc(type, 0);
     if (self != NULL) {
         self->stream = nullptr;
+        self->context = nullptr;
     }
     return (PyObject*)self;
 }
@@ -102,6 +115,7 @@ static PyObject* PyNdjsonStream_from_string(PyObject* cls, PyObject* args) {
         return NULL;
 
     self->stream = new strata::NdjsonStream(std::string_view(text, len));
+    self->context = new NdjsonPythonContext();
 
     return (PyObject*)self;
 
@@ -115,11 +129,12 @@ static PyObject* PyNdjsonStream_has_next(PyNdjsonStream* self, PyObject* Py_UNUS
 static PyObject* PyNdjsonStream_next_line(PyNdjsonStream* self, PyObject* Py_UNUSED(ignored)) {
     STRATA_CPP_TRY
 
-    strata::util::Arena arena;
-    strata::bindings::PythonObjectBuilder builder(&arena);
-    auto status = self->stream->next_sax(builder);
+    NdjsonPythonContext* context = self->context;
+    context->builder.reset();
+    auto status = self->stream->next_sax(context->builder);
 
     if (status != strata::Status::Ok) {
+        context->builder.reset();
         if (status == strata::Status::KeyNotFound) {
             PyErr_SetNone(PyExc_StopIteration);
         } else if (status == strata::Status::ParseError) {
@@ -132,8 +147,9 @@ static PyObject* PyNdjsonStream_next_line(PyNdjsonStream* self, PyObject* Py_UNU
         return NULL;
     }
 
-    PyObject* result = builder.take_root();
+    PyObject* result = context->builder.take_root();
     if (!result) {
+        context->builder.reset();
         PyErr_SetString(PyExc_RuntimeError, "NDJSON parse produced no result");
         return NULL;
     }
@@ -153,25 +169,17 @@ static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) 
     std::vector<PyObject*> items;
     items.reserve(256);
 
-    strata::util::Arena arena;
+    NdjsonPythonContext* context = self->context;
+    self->stream->validate_utf8_once();
     PyGcPause gc_pause;
 
-    // Batch processing: reset arena only between batches, not per line
-    // With O(1) list depth tracking in PythonObjectBuilder, larger batches are efficient
-    constexpr size_t kBatchSize = 128;
-    size_t lines_in_batch = 0;
-
     while (true) {
-        // Reset arena at start of each batch for shared allocation across lines
-        if (lines_in_batch == 0) {
-            arena.reset();
-        }
-
-        strata::bindings::PythonObjectBuilder builder(&arena);
-        auto status = self->stream->next_sax(builder);
+        context->builder.reset();
+        auto status = self->stream->next_sax(context->builder);
         if (status == strata::Status::Ok) {
-            PyObject* obj = builder.take_root();
+            PyObject* obj = context->builder.take_root();
             if (!obj) {
+                context->builder.reset();
                 for (auto* item : items) {
                     Py_DECREF(item);
                 }
@@ -179,15 +187,10 @@ static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) 
                 return NULL;
             }
             items.push_back(obj);
-            lines_in_batch++;
-
-            // Reset batch counter to trigger arena reset on next iteration
-            if (lines_in_batch >= kBatchSize) {
-                lines_in_batch = 0;
-            }
             continue;
         }
 
+        context->builder.reset();
         if (status == strata::Status::KeyNotFound) {
             break;
         }
@@ -202,9 +205,6 @@ static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) 
         if (!skip_errors) {
             break;
         }
-
-        // On error, reset batch counter
-        lines_in_batch = 0;
     }
 
     PyObject* list = PyList_New(items.size());
@@ -239,25 +239,17 @@ static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args)
     std::vector<PyObject*> items;
     items.reserve(static_cast<size_t>(batch_size));
 
-    strata::util::Arena arena;
+    NdjsonPythonContext* context = self->context;
+    self->stream->validate_utf8_once();
     PyGcPause gc_pause;
 
-    // Batch processing: reset arena only periodically within the batch
-    // With O(1) list depth tracking in PythonObjectBuilder, larger intervals are efficient
-    constexpr size_t kArenaResetInterval = 128;
-    size_t lines_since_reset = 0;
-
     while (items.size() < static_cast<size_t>(batch_size)) {
-        // Reset arena periodically for shared allocation across lines
-        if (lines_since_reset == 0) {
-            arena.reset();
-        }
-
-        strata::bindings::PythonObjectBuilder builder(&arena);
-        auto status = self->stream->next_sax(builder);
+        context->builder.reset();
+        auto status = self->stream->next_sax(context->builder);
         if (status == strata::Status::Ok) {
-            PyObject* obj = builder.take_root();
+            PyObject* obj = context->builder.take_root();
             if (!obj) {
+                context->builder.reset();
                 for (auto* item : items) {
                     Py_DECREF(item);
                 }
@@ -265,15 +257,10 @@ static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args)
                 return NULL;
             }
             items.push_back(obj);
-            lines_since_reset++;
-
-            // Reset counter to trigger arena reset on next iteration
-            if (lines_since_reset >= kArenaResetInterval) {
-                lines_since_reset = 0;
-            }
             continue;
         }
 
+        context->builder.reset();
         if (status == strata::Status::KeyNotFound) {
             break;
         }
@@ -288,9 +275,6 @@ static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args)
         if (!skip_errors) {
             break;
         }
-
-        // On error, reset counter
-        lines_since_reset = 0;
     }
 
     PyObject* list = PyList_New(items.size());

@@ -22,6 +22,7 @@ import json
 import statistics
 import sys
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -137,6 +138,9 @@ class UnifiedBenchmarkSuite:
     ALL_LIBRARIES = ["strata", "orjson", "msgspec", "ujson", "json", "simdjson"]
     CORE_LIBRARIES = ["strata", "orjson", "msgspec", "json"]
 
+    CYCLE_POLICY_VARIANTS = ["error", "ignore", "nocheck"]
+    DUMPS_TYPE_ORDER_VARIANTS = ["ints_first"]
+
     def __init__(
         self,
         *,
@@ -148,6 +152,7 @@ class UnifiedBenchmarkSuite:
         randomize: bool = True,
         seed: int | None = None,
         verbose: bool = True,
+        include_strata_policy_variants: bool = False,
     ):
         """
         Initialize the benchmark suite.
@@ -161,6 +166,7 @@ class UnifiedBenchmarkSuite:
             randomize: Whether to use random data (if False, uses fixed seed)
             seed: Fixed random seed for reproducibility
             verbose: Whether to print progress
+            include_strata_policy_variants: Whether to benchmark Strata policy variants
         """
         self.repeat = repeat
         self.warmup = warmup
@@ -168,6 +174,13 @@ class UnifiedBenchmarkSuite:
         self.features = features or self.CORE_FEATURES
         self.libraries = libraries or self._detect_available_libraries()
         self.verbose = verbose
+        self.include_strata_policy_variants = include_strata_policy_variants
+
+        self._strata_cycle_policy = "warn"
+        self._strata_dumps_type_order = "strings_first"
+        if "strata" in self.libraries:
+            self._set_strata_cycle_policy(self._strata_cycle_policy)
+            self._set_strata_dumps_type_order(self._strata_dumps_type_order)
 
         # Initialize data generator
         if seed is not None:
@@ -267,6 +280,65 @@ class UnifiedBenchmarkSuite:
             "result": result,
         }
 
+    def _run_benchmark_with_policies(
+        self,
+        name: str,
+        func: Callable[[], Any],
+        *,
+        strata_policies: dict[str, str] | None,
+    ) -> dict:
+        if not strata_policies:
+            return self._run_benchmark(name, func)
+        with self._strata_policy_context(**strata_policies):
+            return self._run_benchmark(name, func)
+
+    def _set_strata_cycle_policy(self, policy: str) -> None:
+        strata.set_cycle_policy(policy)
+        self._strata_cycle_policy = policy
+
+    def _set_strata_dumps_type_order(self, policy: str) -> None:
+        strata.set_dumps_type_order(policy)
+        self._strata_dumps_type_order = policy
+
+    def _strata_variant_label(
+        self,
+        base: str,
+        *,
+        cycle_policy: str | None = None,
+        dumps_type_order: str | None = None,
+    ) -> str:
+        parts = []
+        if cycle_policy:
+            parts.append(f"cycle={cycle_policy}")
+        if dumps_type_order:
+            parts.append(f"order={dumps_type_order}")
+        if not parts:
+            return base
+        return f"{base} ({', '.join(parts)})"
+
+    @contextmanager
+    def _strata_policy_context(
+        self,
+        *,
+        cycle_policy: str | None = None,
+        dumps_type_order: str | None = None,
+    ):
+        prev_cycle = self._strata_cycle_policy
+        prev_order = self._strata_dumps_type_order
+
+        if cycle_policy and cycle_policy != prev_cycle:
+            self._set_strata_cycle_policy(cycle_policy)
+        if dumps_type_order and dumps_type_order != prev_order:
+            self._set_strata_dumps_type_order(dumps_type_order)
+
+        try:
+            yield
+        finally:
+            if self._strata_cycle_policy != prev_cycle:
+                self._set_strata_cycle_policy(prev_cycle)
+            if self._strata_dumps_type_order != prev_order:
+                self._set_strata_dumps_type_order(prev_order)
+
     def _bench_loads(self) -> FeatureReport:
         """Benchmark JSON parsing (loads)."""
         report = FeatureReport(feature_name="loads")
@@ -279,37 +351,41 @@ class UnifiedBenchmarkSuite:
             data, json_bytes, metadata = self._generated_data[size]
             self._log(f"\n--- Dataset: {size} ({len(json_bytes):,} bytes) ---")
 
-            runners: list[tuple[str, Callable[[], Any]]] = []
+            runners: list[tuple[str, Callable[[], Any], dict[str, str] | None]] = []
 
             # Strata
             if "strata" in self.libraries:
-                runners.append(("strata", lambda b=json_bytes: strata.loads(b)))
+                runners.append(("strata", lambda b=json_bytes: strata.loads(b), None))
 
             # orjson
             if "orjson" in self.libraries and HAS_ORJSON:
-                runners.append(("orjson", lambda b=json_bytes: orjson.loads(b)))
+                runners.append(("orjson", lambda b=json_bytes: orjson.loads(b), None))
 
             # msgspec
             if "msgspec" in self.libraries and HAS_MSGSPEC:
-                runners.append(("msgspec", lambda b=json_bytes: msgspec.json.decode(b)))
+                runners.append(("msgspec", lambda b=json_bytes: msgspec.json.decode(b), None))
 
             # ujson
             if "ujson" in self.libraries and HAS_UJSON:
-                runners.append(("ujson", lambda b=json_bytes: ujson.loads(b)))
+                runners.append(("ujson", lambda b=json_bytes: ujson.loads(b), None))
 
             # simdjson
             if "simdjson" in self.libraries and HAS_SIMDJSON:
                 parser = simdjson.Parser()
-                runners.append(("simdjson", lambda b=json_bytes, p=parser: p.parse(b)))
+                runners.append(("simdjson", lambda b=json_bytes, p=parser: p.parse(b), None))
 
             # stdlib json
             if "json" in self.libraries:
-                runners.append(("json", lambda b=json_bytes: json.loads(b)))
+                runners.append(("json", lambda b=json_bytes: json.loads(b), None))
 
-            for lib_name, run_func in runners:
+            for lib_name, run_func, strata_policies in runners:
                 self._log(f"  {lib_name}: ", end="")
                 try:
-                    result = self._run_benchmark(lib_name, run_func)
+                    result = self._run_benchmark_with_policies(
+                        lib_name,
+                        run_func,
+                        strata_policies=strata_policies,
+                    )
                     result["library"] = lib_name
                     result["dataset"] = size
                     result["input_size_bytes"] = len(json_bytes)
@@ -337,19 +413,26 @@ class UnifiedBenchmarkSuite:
 
             # Only strata has tape parsing
             if "strata" in self.libraries:
-                self._log("  strata (tape): ", end="")
-                try:
-                    result = self._run_benchmark("strata_tape", lambda b=json_bytes: strata.loads_tape(b))
-                    result["library"] = "strata"
-                    result["dataset"] = size
-                    result["input_size_bytes"] = len(json_bytes)
-                    del result["result"]
-                    del result["times_ms"]
-                    report.results.append(result)
-                    self._log(f"median={result['median_ms']:.2f}ms, rss={result['rss_mb']:.1f}MB")
-                except Exception as e:
-                    self._log(f"ERROR: {e}")
-                    report.errors.append({"library": "strata", "dataset": size, "error": str(e)})
+                variants = [("strata", None)]
+
+                for lib_name, strata_policies in variants:
+                    self._log(f"  {lib_name} (tape): ", end="")
+                    try:
+                        result = self._run_benchmark_with_policies(
+                            lib_name,
+                            lambda b=json_bytes: strata.loads_tape(b),
+                            strata_policies=strata_policies,
+                        )
+                        result["library"] = lib_name
+                        result["dataset"] = size
+                        result["input_size_bytes"] = len(json_bytes)
+                        del result["result"]
+                        del result["times_ms"]
+                        report.results.append(result)
+                        self._log(f"median={result['median_ms']:.2f}ms, rss={result['rss_mb']:.1f}MB")
+                    except Exception as e:
+                        self._log(f"ERROR: {e}")
+                        report.errors.append({"library": lib_name, "dataset": size, "error": str(e)})
 
         return report
 
@@ -365,32 +448,43 @@ class UnifiedBenchmarkSuite:
             data, json_bytes, metadata = self._generated_data[size]
             self._log(f"\n--- Dataset: {size} ---")
 
-            runners: list[tuple[str, Callable[[], Any]]] = []
+            runners: list[tuple[str, Callable[[], Any], dict[str, str] | None]] = []
 
             # Strata
             if "strata" in self.libraries:
-                runners.append(("strata", lambda d=data: strata.dumps(d)))
+                runners.append(("strata", lambda d=data: strata.dumps(d), None))
+                if self.include_strata_policy_variants:
+                    for policy in self.CYCLE_POLICY_VARIANTS:
+                        label = self._strata_variant_label("strata", cycle_policy=policy)
+                        runners.append((label, lambda d=data: strata.dumps(d), {"cycle_policy": policy}))
+                    for order in self.DUMPS_TYPE_ORDER_VARIANTS:
+                        label = self._strata_variant_label("strata", dumps_type_order=order)
+                        runners.append((label, lambda d=data: strata.dumps(d), {"dumps_type_order": order}))
 
             # orjson (returns bytes, decode for fair comparison)
             if "orjson" in self.libraries and HAS_ORJSON:
-                runners.append(("orjson", lambda d=data: orjson.dumps(d).decode("utf-8")))
+                runners.append(("orjson", lambda d=data: orjson.dumps(d).decode("utf-8"), None))
 
             # msgspec (returns bytes, decode for fair comparison)
             if "msgspec" in self.libraries and HAS_MSGSPEC:
-                runners.append(("msgspec", lambda d=data: msgspec.json.encode(d).decode("utf-8")))
+                runners.append(("msgspec", lambda d=data: msgspec.json.encode(d).decode("utf-8"), None))
 
             # ujson
             if "ujson" in self.libraries and HAS_UJSON:
-                runners.append(("ujson", lambda d=data: ujson.dumps(d)))
+                runners.append(("ujson", lambda d=data: ujson.dumps(d), None))
 
             # stdlib json
             if "json" in self.libraries:
-                runners.append(("json", lambda d=data: json.dumps(d)))
+                runners.append(("json", lambda d=data: json.dumps(d), None))
 
-            for lib_name, run_func in runners:
+            for lib_name, run_func, strata_policies in runners:
                 self._log(f"  {lib_name}: ", end="")
                 try:
-                    result = self._run_benchmark(lib_name, run_func)
+                    result = self._run_benchmark_with_policies(
+                        lib_name,
+                        run_func,
+                        strata_policies=strata_policies,
+                    )
                     output = result["result"]
                     output_size = len(output.encode("utf-8")) if isinstance(output, str) else len(output)
                     result["library"] = lib_name
@@ -418,32 +512,43 @@ class UnifiedBenchmarkSuite:
             data, json_bytes, metadata = self._generated_data[size]
             self._log(f"\n--- Dataset: {size} ---")
 
-            runners: list[tuple[str, Callable[[], Any]]] = []
+            runners: list[tuple[str, Callable[[], Any], dict[str, str] | None]] = []
 
             # Strata
             if "strata" in self.libraries:
-                runners.append(("strata", lambda d=data: strata.dumps_bytes(d)))
+                runners.append(("strata", lambda d=data: strata.dumps_bytes(d), None))
+                if self.include_strata_policy_variants:
+                    for policy in self.CYCLE_POLICY_VARIANTS:
+                        label = self._strata_variant_label("strata", cycle_policy=policy)
+                        runners.append((label, lambda d=data: strata.dumps_bytes(d), {"cycle_policy": policy}))
+                    for order in self.DUMPS_TYPE_ORDER_VARIANTS:
+                        label = self._strata_variant_label("strata", dumps_type_order=order)
+                        runners.append((label, lambda d=data: strata.dumps_bytes(d), {"dumps_type_order": order}))
 
             # orjson (native bytes)
             if "orjson" in self.libraries and HAS_ORJSON:
-                runners.append(("orjson", lambda d=data: orjson.dumps(d)))
+                runners.append(("orjson", lambda d=data: orjson.dumps(d), None))
 
             # msgspec (native bytes)
             if "msgspec" in self.libraries and HAS_MSGSPEC:
-                runners.append(("msgspec", lambda d=data: msgspec.json.encode(d)))
+                runners.append(("msgspec", lambda d=data: msgspec.json.encode(d), None))
 
             # ujson + encode
             if "ujson" in self.libraries and HAS_UJSON:
-                runners.append(("ujson", lambda d=data: ujson.dumps(d).encode("utf-8")))
+                runners.append(("ujson", lambda d=data: ujson.dumps(d).encode("utf-8"), None))
 
             # stdlib json + encode
             if "json" in self.libraries:
-                runners.append(("json", lambda d=data: json.dumps(d).encode("utf-8")))
+                runners.append(("json", lambda d=data: json.dumps(d).encode("utf-8"), None))
 
-            for lib_name, run_func in runners:
+            for lib_name, run_func, strata_policies in runners:
                 self._log(f"  {lib_name}: ", end="")
                 try:
-                    result = self._run_benchmark(lib_name, run_func)
+                    result = self._run_benchmark_with_policies(
+                        lib_name,
+                        run_func,
+                        strata_policies=strata_policies,
+                    )
                     output = result["result"]
                     output_size = len(output)
                     result["library"] = lib_name
@@ -473,32 +578,36 @@ class UnifiedBenchmarkSuite:
             lines = [line for line in ndjson_text.strip().split("\n") if line.strip()]
             self._log(f"\n--- Dataset: {size} ({len(ndjson_bytes):,} bytes, {len(lines)} lines) ---")
 
-            runners: list[tuple[str, Callable[[], Any]]] = []
+            runners: list[tuple[str, Callable[[], Any], dict[str, str] | None]] = []
 
             # Strata parse_ndjson (auto mode)
             if "strata" in self.libraries:
-                runners.append(("strata", lambda t=ndjson_text: strata.parse_ndjson(t)))
+                runners.append(("strata", lambda t=ndjson_text: strata.parse_ndjson(t), None))
 
             # orjson line-by-line
             if "orjson" in self.libraries and HAS_ORJSON:
-                runners.append(("orjson", lambda ls=lines: [orjson.loads(line) for line in ls]))
+                runners.append(("orjson", lambda ls=lines: [orjson.loads(line) for line in ls], None))
 
             # msgspec line-by-line
             if "msgspec" in self.libraries and HAS_MSGSPEC:
-                runners.append(("msgspec", lambda ls=lines: [msgspec.json.decode(line) for line in ls]))
+                runners.append(("msgspec", lambda ls=lines: [msgspec.json.decode(line) for line in ls], None))
 
             # ujson line-by-line
             if "ujson" in self.libraries and HAS_UJSON:
-                runners.append(("ujson", lambda ls=lines: [ujson.loads(line) for line in ls]))
+                runners.append(("ujson", lambda ls=lines: [ujson.loads(line) for line in ls], None))
 
             # stdlib json line-by-line
             if "json" in self.libraries:
-                runners.append(("json", lambda ls=lines: [json.loads(line) for line in ls]))
+                runners.append(("json", lambda ls=lines: [json.loads(line) for line in ls], None))
 
-            for lib_name, run_func in runners:
+            for lib_name, run_func, strata_policies in runners:
                 self._log(f"  {lib_name}: ", end="")
                 try:
-                    result = self._run_benchmark(lib_name, run_func)
+                    result = self._run_benchmark_with_policies(
+                        lib_name,
+                        run_func,
+                        strata_policies=strata_policies,
+                    )
                     parsed = result["result"]
                     lines_parsed = len(parsed) if isinstance(parsed, list) else 0
                     result["library"] = lib_name
@@ -531,25 +640,32 @@ class UnifiedBenchmarkSuite:
 
             # Strata iter_ndjson
             if "strata" in self.libraries:
-                self._log("  strata (iter): ", end="")
-                try:
-                    def run_iter(t=ndjson_text):
-                        return list(strata.iter_ndjson(t))
+                variants = [("strata", None)]
 
-                    result = self._run_benchmark("strata_iter", run_iter)
-                    parsed = result["result"]
-                    lines_parsed = len(parsed) if isinstance(parsed, list) else 0
-                    result["library"] = "strata"
-                    result["dataset"] = size
-                    result["input_size_bytes"] = len(ndjson_bytes)
-                    result["lines_parsed"] = lines_parsed
-                    del result["result"]
-                    del result["times_ms"]
-                    report.results.append(result)
-                    self._log(f"median={result['median_ms']:.2f}ms, lines={lines_parsed}, rss={result['rss_mb']:.1f}MB")
-                except Exception as e:
-                    self._log(f"ERROR: {e}")
-                    report.errors.append({"library": "strata", "dataset": size, "error": str(e)})
+                for lib_name, strata_policies in variants:
+                    self._log(f"  {lib_name} (iter): ", end="")
+                    try:
+                        def run_iter(t=ndjson_text):
+                            return list(strata.iter_ndjson(t))
+
+                        result = self._run_benchmark_with_policies(
+                            lib_name,
+                            run_iter,
+                            strata_policies=strata_policies,
+                        )
+                        parsed = result["result"]
+                        lines_parsed = len(parsed) if isinstance(parsed, list) else 0
+                        result["library"] = lib_name
+                        result["dataset"] = size
+                        result["input_size_bytes"] = len(ndjson_bytes)
+                        result["lines_parsed"] = lines_parsed
+                        del result["result"]
+                        del result["times_ms"]
+                        report.results.append(result)
+                        self._log(f"median={result['median_ms']:.2f}ms, lines={lines_parsed}, rss={result['rss_mb']:.1f}MB")
+                    except Exception as e:
+                        self._log(f"ERROR: {e}")
+                        report.errors.append({"library": lib_name, "dataset": size, "error": str(e)})
 
         return report
 
@@ -579,27 +695,44 @@ class UnifiedBenchmarkSuite:
 
                 # Strata (using string input)
                 if "strata" in self.libraries:
-                    self._log("    strata: ", end="")
                     try:
                         path = strata.compile_path(strata_query)
-
-                        def run_strata(t=json_text, p=path):
-                            return strata.search(t, p)
-
-                        result = self._run_benchmark("strata", run_strata)
-                        res_list = result["result"]
-                        result_count = len(res_list) if isinstance(res_list, list) else 1
-                        result["library"] = "strata"
-                        result["dataset"] = size
-                        result["query"] = strata_query
-                        result["result_count"] = result_count
-                        del result["result"]
-                        del result["times_ms"]
-                        report.results.append(result)
-                        self._log(f"median={result['median_ms']:.2f}ms, results={result_count}")
                     except Exception as e:
+                        self._log("    strata: ", end="")
                         self._log(f"ERROR: {e}")
                         report.errors.append({"library": "strata", "dataset": size, "query": strata_query, "error": str(e)})
+                    else:
+                        variants = [("strata", None)]
+
+                        for lib_name, strata_policies in variants:
+                            self._log(f"    {lib_name}: ", end="")
+                            try:
+                                def run_strata(t=json_text, p=path):
+                                    return strata.search(t, p)
+
+                                result = self._run_benchmark_with_policies(
+                                    lib_name,
+                                    run_strata,
+                                    strata_policies=strata_policies,
+                                )
+                                res_list = result["result"]
+                                result_count = len(res_list) if isinstance(res_list, list) else 1
+                                result["library"] = lib_name
+                                result["dataset"] = size
+                                result["query"] = strata_query
+                                result["result_count"] = result_count
+                                del result["result"]
+                                del result["times_ms"]
+                                report.results.append(result)
+                                self._log(f"median={result['median_ms']:.2f}ms, results={result_count}")
+                            except Exception as e:
+                                self._log(f"ERROR: {e}")
+                                report.errors.append({
+                                    "library": lib_name,
+                                    "dataset": size,
+                                    "query": strata_query,
+                                    "error": str(e),
+                                })
 
                 # jmespath (if available and query is supported)
                 # NOTE: Include JSON parsing to match strata's parse+search model
@@ -667,19 +800,26 @@ class UnifiedBenchmarkSuite:
             self._log(f"\n--- Dataset: {size} ---")
 
             if "strata" in self.libraries:
-                self._log("  strata (cursor): ", end="")
-                try:
-                    result = self._run_benchmark("strata_cursor", lambda t=json_text: strata.parse_json(t))
-                    result["library"] = "strata"
-                    result["dataset"] = size
-                    result["input_size_bytes"] = len(json_bytes)
-                    del result["result"]
-                    del result["times_ms"]
-                    report.results.append(result)
-                    self._log(f"median={result['median_ms']:.2f}ms, rss={result['rss_mb']:.1f}MB")
-                except Exception as e:
-                    self._log(f"ERROR: {e}")
-                    report.errors.append({"library": "strata", "dataset": size, "error": str(e)})
+                variants = [("strata", None)]
+
+                for lib_name, strata_policies in variants:
+                    self._log(f"  {lib_name} (cursor): ", end="")
+                    try:
+                        result = self._run_benchmark_with_policies(
+                            lib_name,
+                            lambda t=json_text: strata.parse_json(t),
+                            strata_policies=strata_policies,
+                        )
+                        result["library"] = lib_name
+                        result["dataset"] = size
+                        result["input_size_bytes"] = len(json_bytes)
+                        del result["result"]
+                        del result["times_ms"]
+                        report.results.append(result)
+                        self._log(f"median={result['median_ms']:.2f}ms, rss={result['rss_mb']:.1f}MB")
+                    except Exception as e:
+                        self._log(f"ERROR: {e}")
+                        report.errors.append({"library": lib_name, "dataset": size, "error": str(e)})
 
         return report
 
@@ -705,19 +845,26 @@ class UnifiedBenchmarkSuite:
             self._log(f"\n--- Dataset: {size} ({len(json_bytes):,} bytes) ---")
 
             if "strata" in self.libraries:
-                self._log("  strata (mmap): ", end="")
-                try:
-                    result = self._run_benchmark("strata_mmap", lambda p=temp_path: strata.parse_json_file(p))
-                    result["library"] = "strata"
-                    result["dataset"] = size
-                    result["input_size_bytes"] = len(json_bytes)
-                    del result["result"]
-                    del result["times_ms"]
-                    report.results.append(result)
-                    self._log(f"median={result['median_ms']:.2f}ms, rss={result['rss_mb']:.1f}MB")
-                except Exception as e:
-                    self._log(f"ERROR: {e}")
-                    report.errors.append({"library": "strata", "dataset": size, "error": str(e)})
+                variants = [("strata", None)]
+
+                for lib_name, strata_policies in variants:
+                    self._log(f"  {lib_name} (mmap): ", end="")
+                    try:
+                        result = self._run_benchmark_with_policies(
+                            lib_name,
+                            lambda p=temp_path: strata.parse_json_file(p),
+                            strata_policies=strata_policies,
+                        )
+                        result["library"] = lib_name
+                        result["dataset"] = size
+                        result["input_size_bytes"] = len(json_bytes)
+                        del result["result"]
+                        del result["times_ms"]
+                        report.results.append(result)
+                        self._log(f"median={result['median_ms']:.2f}ms, rss={result['rss_mb']:.1f}MB")
+                    except Exception as e:
+                        self._log(f"ERROR: {e}")
+                        report.errors.append({"library": lib_name, "dataset": size, "error": str(e)})
 
             # Clean up temp file
             Path(temp_path).unlink()
@@ -733,6 +880,8 @@ class UnifiedBenchmarkSuite:
         self._log(f"Sizes: {', '.join(self.sizes)}")
         self._log(f"Libraries: {', '.join(self.libraries)}")
         self._log(f"Repeat: {self.repeat}, Warmup: {self.warmup}")
+        if self.include_strata_policy_variants:
+            self._log("Strata policy variants: cycle=error|ignore|nocheck, order=ints_first")
 
         # Generate datasets
         self._generate_datasets()
@@ -953,7 +1102,7 @@ Examples:
     parser.add_argument(
         "--comprehensive",
         action="store_true",
-        help="Comprehensive mode (all features, all sizes, more iterations)",
+        help="Comprehensive mode (all features, all sizes, more iterations, Strata policy variants)",
     )
     parser.add_argument(
         "--append-progress-log",
@@ -1010,6 +1159,7 @@ Examples:
         libraries=libraries,
         seed=args.seed,
         verbose=not args.quiet,
+        include_strata_policy_variants=args.comprehensive,
     )
 
     report = suite.run_all()

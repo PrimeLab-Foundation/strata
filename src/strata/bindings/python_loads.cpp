@@ -9,10 +9,22 @@
 
 // Thread-local arena for zero-allocation parsing
 thread_local strata::util::Arena g_parse_arena;
+thread_local strata::bindings::KeyCache g_key_cache;
+thread_local strata::util::Arena g_parse_builder_arena(4 * 1024);
+thread_local strata::bindings::PythonObjectBuilder g_parse_builder(&g_parse_builder_arena,
+                                                                  g_key_cache);
 
 namespace {
 using strata::bindings::KeyCache;
-using strata::bindings::PythonObjectBuilder;
+
+struct BuilderResetGuard {
+    strata::bindings::PythonObjectBuilder& builder;
+    explicit BuilderResetGuard(strata::bindings::PythonObjectBuilder& builder_ref)
+        : builder(builder_ref) {}
+    ~BuilderResetGuard() { builder.reset(); }
+    BuilderResetGuard(const BuilderResetGuard&) = delete;
+    BuilderResetGuard& operator=(const BuilderResetGuard&) = delete;
+};
 } // namespace
 
 static void emit_duplicate_key_warnings() {
@@ -114,13 +126,23 @@ PyObject* strata_loads(PyObject* self, PyObject* args) {
 
     // Reset thread-local arena for reuse
     g_parse_arena.reset();
-
-    // Pause GC during parsing to reduce collection overhead
-    ::PyGcPause gc_pause;
+    g_key_cache.reset(&g_parse_arena);
+    g_parse_builder.reset();
+    BuilderResetGuard builder_guard(g_parse_builder);
 
     // Use fast path: Direct-to-Python via SAX
-    PythonObjectBuilder builder(&g_parse_arena);
-    auto status = strata::parse_sax(std::string_view(data, len), builder);
+    constexpr size_t kGcPauseMinSize = 64 * 1024;
+    const size_t size = static_cast<size_t>(len);
+    auto parse = [&]() {
+        return strata::parse_sax(std::string_view(data, size), g_parse_builder);
+    };
+    strata::Status status = strata::Status::ParseError;
+    if (size >= kGcPauseMinSize) {
+        ::PyGcPause gc_pause;
+        status = parse();
+    } else {
+        status = parse();
+    }
 
     if (status != strata::Status::Ok) {
         if (!PyErr_Occurred()) {
@@ -129,7 +151,7 @@ PyObject* strata_loads(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    return builder.take_root();
+    return g_parse_builder.take_root();
 
     STRATA_CPP_CATCH
 }

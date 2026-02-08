@@ -11,6 +11,7 @@ extern PyObject* strata_loads_tape(PyObject* self, PyObject* args);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args);
+extern PyObject* strata_set_dumps_type_order(PyObject* self, PyObject* args);
 extern PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args);
 extern int register_document_types(PyObject* module);
 extern int register_ndjson_types(PyObject* module);
@@ -64,6 +65,9 @@ static PyMethodDef strata_methods[] = {
     {"set_duplicate_key_policy", strata_set_duplicate_key_policy, METH_VARARGS,
      "set_duplicate_key_policy(policy)\n\n"
      "Policy: first (default), last, error, warn."},
+    {"set_dumps_type_order", strata_set_dumps_type_order, METH_VARARGS,
+     "set_dumps_type_order(policy)\n\n"
+     "Policy: strings_first (default), ints_first."},
     {"set_cycle_policy", strata_set_cycle_policy, METH_VARARGS,
      "set_cycle_policy(policy)\n\n"
      "Policy: warn (default), error, ignore."},

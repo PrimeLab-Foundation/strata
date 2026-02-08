@@ -15,6 +15,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sys/stat.h>
 #include <string>
 #include <unistd.h>
 
@@ -39,6 +40,23 @@ static std::string create_temp_file(const char* content) {
 static void remove_temp_file(const std::string& filename) {
     if (!filename.empty()) {
         std::remove(filename.c_str());
+    }
+}
+
+// Helper to create a temporary directory
+static std::string create_temp_dir() {
+    static int counter = 0;
+    std::string dirname = "/tmp/strata_test_mmap_dir_" + std::to_string(getpid()) + "_" + std::to_string(++counter);
+    if (::mkdir(dirname.c_str(), 0700) != 0) {
+        return "";
+    }
+    return dirname;
+}
+
+// Helper to remove a temporary directory
+static void remove_temp_dir(const std::string& dirname) {
+    if (!dirname.empty()) {
+        ::rmdir(dirname.c_str());
     }
 }
 
@@ -195,6 +213,20 @@ void test_parse_invalid_json_file() {
     std::cout << " OK\n";
 }
 
+void test_parse_directory() {
+    std::cout << "  test_parse_directory..." << std::flush;
+
+    std::string dirname = create_temp_dir();
+    assert(!dirname.empty());
+
+    auto result = parse_json_file(dirname.c_str());
+    assert(!result.ok());
+    assert(result.status == Status::ParseError);
+
+    remove_temp_dir(dirname);
+    std::cout << " OK\n";
+}
+
 void test_parse_json_file_cursor() {
     std::cout << "  test_parse_json_file_cursor..." << std::flush;
 
@@ -275,6 +307,7 @@ int main() {
     test_parse_empty_file();
     test_parse_nonexistent_file();
     test_parse_invalid_json_file();
+    test_parse_directory();
     test_parse_json_file_cursor();
     test_parse_file_cursor_nonexistent();
     test_parse_unicode_file();

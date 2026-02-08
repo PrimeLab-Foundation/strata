@@ -106,6 +106,26 @@ class TestParseNdjson:
         assert len(results) == 3
         assert results == [{"a": 1}, {"b": 2}, {"c": 3}]
 
+    def test_parse_parallel_forced(self):
+        """Test forced parallel parsing path."""
+        data = '{"a": 1}\n{"b": 2}'
+        results = strata.parse_ndjson(data, parallel=True, num_threads=1)
+
+        assert results == [{"a": 1}, {"b": 2}]
+
+    def test_parse_auto_detect_large_small_lines(self):
+        """Test auto-detect path for large data with small lines."""
+        payload = "x" * 2000
+        line = '{"id": 1, "payload": "' + payload + '"}'
+        lines = 600
+        data = "\n".join([line] * lines)
+
+        assert len(data) >= 1 * 1024 * 1024
+        results = strata.parse_ndjson(data)
+
+        assert len(results) == lines
+        assert results[0]["payload"] == payload
+
     def test_parse_empty(self):
         """Test parsing empty data."""
         data = ''

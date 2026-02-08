@@ -1,4 +1,4 @@
-.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-all clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
+.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-all bench-ndjson clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
 
 # Default target: run all tests (Rule 16: Make is the interface)
 all: test
@@ -6,6 +6,7 @@ all: test
 PYTHON ?= python3.14
 VENV ?= .venv
 VERSION ?= 0.1.0
+CXX_COVERAGE_MIN ?= 95
 
 tag-create:
 	@git tag $(VERSION)
@@ -55,7 +56,14 @@ gate: venv
 	@$(MAKE) test-py || (echo "❌ GATE FAILED: Python tests failed" && exit 1)
 	@echo ""
 	@echo "Step 4/5: Collecting C++ coverage..."
-	@$(MAKE) coverage-cpp || echo "⚠️  C++ coverage not available (install llvm)"
+	@status=0; \
+	$(MAKE) coverage-cpp || status=$$?; \
+	if [ $$status -eq 2 ]; then \
+		echo "⚠️  C++ coverage not available (install llvm)"; \
+	elif [ $$status -ne 0 ]; then \
+		echo "❌ GATE FAILED: C++ coverage check failed"; \
+		exit $$status; \
+	fi
 	@echo ""
 	@echo "Step 5/5: Collecting Python coverage..."
 	@$(MAKE) coverage-py || echo "⚠️  Python coverage collection had issues"
@@ -183,6 +191,14 @@ $(BENCH_LARGE_JSON) $(BENCH_LARGE_NDJSON):
 bench-data: $(BENCH_SMALL_JSON) $(BENCH_MEDIUM_JSON) $(BENCH_LARGE_JSON)
 	@echo "Benchmark data ready: small, medium, large"
 
+# Run NDJSON-specific benchmark on the medium dataset
+bench-ndjson: $(BENCH_MEDIUM_NDJSON)
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  Benchmarks: NDJSON (MEDIUM)"
+	@echo "════════════════════════════════════════════════════════════════"
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson \
+		--data $(BENCH_MEDIUM_NDJSON)
+
 # Run full benchmark suite (bench_main) on small data
 bench-small: $(BENCH_SMALL_JSON)
 	@echo "════════════════════════════════════════════════════════════════"
@@ -273,7 +289,7 @@ test: test-py test-cpp
 	@echo "════════════════════════════════════════════════════════════════"
 
 # ============================================================================
-# Coverage Collection (Rule 14: 100% coverage target)
+# Coverage Collection (Rule 14: C++ target $(CXX_COVERAGE_MIN)%)
 # ============================================================================
 
 .PHONY: coverage-cpp coverage-py coverage-report coverage
@@ -282,9 +298,10 @@ coverage-cpp:
 	@echo "Collecting C++ coverage..."
 	@mkdir -p build_coverage
 	@echo "Compiling C++ tests with coverage flags..."
-	@for test in json_parse json_serialize jsonpath ndjson json_cursor json_document float_precision; do \
+	@for test_file in tests/cpp/test_*.cpp; do \
+		test_name=$$(basename "$${test_file}" .cpp); \
 		clang++ -std=c++20 -O0 -fprofile-instr-generate -fcoverage-mapping \
-			-Iinclude -Isrc tests/cpp/test_$${test}.cpp \
+			-Iinclude -Isrc "$${test_file}" \
 			src/strata/json/json_parse.cpp \
 			src/strata/json/json_cursor.cpp \
 			src/strata/json/json_document.cpp \
@@ -305,24 +322,52 @@ coverage-cpp:
 			src/strata/util/simd_structural.cpp \
 			src/strata/util/fast_parse.cpp \
 			src/strata/util/thread_pool.cpp \
-			-o build_coverage/test_$${test}; \
-		LLVM_PROFILE_FILE="build_coverage/test_$${test}.profraw" ./build_coverage/test_$${test} > /dev/null 2>&1 || true; \
+			-o build_coverage/$${test_name}; \
+		LLVM_PROFILE_FILE="build_coverage/$${test_name}.profraw" ./build_coverage/$${test_name} > /dev/null 2>&1 || true; \
 	done
 	@echo "Merging coverage data..."
-	@xcrun llvm-profdata merge -sparse build_coverage/*.profraw -o build_coverage/merged.profdata 2>/dev/null || true
-	@echo "Generating coverage report..."
-	@xcrun llvm-cov report build_coverage/test_json_parse -instr-profile=build_coverage/merged.profdata src/ 2>/dev/null || echo "⚠️  Coverage tools not available"
+	@set -e; \
+	LLVM_PROFDATA=""; \
+	if command -v xcrun >/dev/null 2>&1; then \
+		LLVM_PROFDATA="xcrun llvm-profdata"; \
+	elif command -v llvm-profdata >/dev/null 2>&1; then \
+		LLVM_PROFDATA="llvm-profdata"; \
+	fi; \
+	if [ -z "$$LLVM_PROFDATA" ]; then \
+		echo "❌ llvm-profdata not found. Install LLVM to collect C++ coverage."; \
+		exit 2; \
+	fi; \
+	$$LLVM_PROFDATA merge -sparse build_coverage/*.profraw -o build_coverage/merged.profdata; \
+	echo "Generating coverage report..."; \
+	LLVM_COV=""; \
+	if command -v xcrun >/dev/null 2>&1; then \
+		LLVM_COV="xcrun llvm-cov"; \
+	elif command -v llvm-cov >/dev/null 2>&1; then \
+		LLVM_COV="llvm-cov"; \
+	fi; \
+	if [ -z "$$LLVM_COV" ]; then \
+		echo "❌ llvm-cov not found. Install LLVM to collect C++ coverage."; \
+		exit 2; \
+	fi; \
+	$$LLVM_COV report build_coverage/test_json_parse -instr-profile=build_coverage/merged.profdata src/ > build_coverage/coverage_cpp.txt; \
+	cat build_coverage/coverage_cpp.txt; \
+	coverage=$$(awk '/^TOTAL/ {count=0; for (i=1; i<=NF; i++) if ($$i ~ /%$$/) {count++; if (count==3) {print $$i; exit}} }' build_coverage/coverage_cpp.txt | sed 's/%//'); \
+	if [ -z "$$coverage" ]; then \
+		echo "❌ Failed to parse C++ coverage total."; \
+		exit 1; \
+	fi; \
+	awk -v cov="$$coverage" -v min="$(CXX_COVERAGE_MIN)" 'BEGIN { if (cov + 0 < min + 0) { printf("❌ C++ line coverage %.2f%% is below %.2f%%\n", cov, min); exit 1 } else { printf("✅ C++ line coverage %.2f%% meets %.2f%%\n", cov, min); } }'
 	@echo "✅ C++ coverage collected (see build_coverage/)"
 
 coverage-py:
 	@echo "Collecting Python coverage..."
-	$(VENV)/bin/pytest tests/unit/ --cov=strata --cov-report=term --cov-report=html:build_coverage/htmlcov
+	$(VENV)/bin/pytest tests/unit/ --cov=python/strata --cov-report=term --cov-report=html:build_coverage/htmlcov
 	@echo "✅ Python coverage collected (see build_coverage/htmlcov/)"
 
 coverage-report: coverage-cpp coverage-py
 	@echo ""
 	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Coverage Report (Rule 14: Target 100%)"
+	@echo "Coverage Report (Rule 14: C++ target $(CXX_COVERAGE_MIN)%)"
 	@echo "════════════════════════════════════════════════════════════════"
 	@echo "C++ coverage:    See build_coverage/"
 	@echo "Python coverage: See build_coverage/htmlcov/"
@@ -369,4 +414,3 @@ help:  ## Show this help (main targets)
 	@echo "Strata — main targets (Rule 16: Make → scripts/)"
 	@echo ""
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
-

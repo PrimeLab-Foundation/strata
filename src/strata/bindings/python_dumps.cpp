@@ -4,10 +4,7 @@
 #include "strata/util/output_buffer.hpp"
 #include "strata/util/simd_string.hpp"
 
-#include <charconv>
-#include <cinttypes>
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -16,9 +13,17 @@
 // Thread-local buffers for zero-allocation serialization
 thread_local strata::util::OutputBuffer g_serialize_buffer;
 thread_local strata::util::Arena g_serialize_arena;
+thread_local size_t g_last_dumps_size = 0;
 
 enum class CyclePolicy { Warn, Error, Ignore, NoCheck };
 static CyclePolicy g_cycle_policy = CyclePolicy::Warn;
+
+enum class DumpsTypeOrder { StringsFirst, IntsFirst };
+#if defined(STRATA_DUMPS_INTS_FIRST)
+static DumpsTypeOrder g_dumps_type_order = DumpsTypeOrder::IntsFirst;
+#else
+static DumpsTypeOrder g_dumps_type_order = DumpsTypeOrder::StringsFirst;
+#endif
 
 bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     if (policy == nullptr) {
@@ -42,6 +47,23 @@ bool set_cycle_policy_from_string(const char* policy, std::string& error) {
         return true;
     }
     error = "unknown cycle policy (expected warn|error|ignore|nocheck)";
+    return false;
+}
+
+bool set_dumps_type_order_from_string(const char* order, std::string& error) {
+    if (order == nullptr) {
+        error = "dumps type order must be a string";
+        return false;
+    }
+    if (strcmp(order, "strings_first") == 0) {
+        g_dumps_type_order = DumpsTypeOrder::StringsFirst;
+        return true;
+    }
+    if (strcmp(order, "ints_first") == 0) {
+        g_dumps_type_order = DumpsTypeOrder::IntsFirst;
+        return true;
+    }
+    error = "unknown dumps type order (expected strings_first|ints_first)";
     return false;
 }
 
@@ -128,16 +150,16 @@ static inline void append_literal(Buffer& out, const char* data, size_t len) {
 }
 
 template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t value) {
-    static const char kDigitPairs[] = "00010203040506070809"
-                                      "10111213141516171819"
-                                      "20212223242526272829"
-                                      "30313233343536373839"
-                                      "40414243444546474849"
-                                      "50515253545556575859"
-                                      "60616263646566676869"
-                                      "70717273747576777879"
-                                      "80818283848586878889"
-                                      "90919293949596979899";
+    static constexpr char kDigitPairs[] = "00010203040506070809"
+                                          "10111213141516171819"
+                                          "20212223242526272829"
+                                          "30313233343536373839"
+                                          "40414243444546474849"
+                                          "50515253545556575859"
+                                          "60616263646566676869"
+                                          "70717273747576777879"
+                                          "80818283848586878889"
+                                          "90919293949596979899";
 
     if (LIKELY(value >= -9999 && value <= 9999)) {
         uint32_t v = static_cast<uint32_t>(value);
@@ -167,28 +189,41 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
     }
 
     char buf[32];
-#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
-    auto result = std::to_chars(buf, buf + sizeof(buf), value);
-    if (result.ec != std::errc()) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to format integer");
-        return false;
+    char* ptr = buf + sizeof(buf);
+    uint64_t v = 0;
+    if (value < 0) {
+        v = static_cast<uint64_t>(-(value + 1)) + 1;
+    } else {
+        v = static_cast<uint64_t>(value);
     }
-    out.append(buf, static_cast<size_t>(result.ptr - buf));
-#else
-    int n = std::snprintf(buf, sizeof(buf), "%" PRId64, value);
-    if (n < 0 || static_cast<size_t>(n) >= sizeof(buf)) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to format integer");
-        return false;
+
+    while (v >= 100) {
+        uint32_t idx = static_cast<uint32_t>(v % 100);
+        v /= 100;
+        ptr -= 2;
+        std::memcpy(ptr, kDigitPairs + idx * 2, 2);
     }
-    out.append(buf, static_cast<size_t>(n));
-#endif
+
+    if (v < 10) {
+        *--ptr = static_cast<char>('0' + static_cast<int>(v));
+    } else {
+        ptr -= 2;
+        std::memcpy(ptr, kDigitPairs + v * 2, 2);
+    }
+
+    if (value < 0) {
+        *--ptr = '-';
+    }
+
+    out.append(ptr, static_cast<size_t>(buf + sizeof(buf) - ptr));
     return true;
 }
 
 template <typename Buffer> static inline bool append_py_long(Buffer& out, PyObject* obj) {
 #ifdef PyUnstable_Long_IsCompact
-    if (PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(obj))) {
-        Py_ssize_t val = PyUnstable_Long_CompactValue(reinterpret_cast<PyLongObject*>(obj));
+    auto* long_obj = reinterpret_cast<PyLongObject*>(obj);
+    if (LIKELY(PyUnstable_Long_IsCompact(long_obj))) {
+        Py_ssize_t val = PyUnstable_Long_CompactValue(long_obj);
         return append_int64(out, static_cast<int64_t>(val));
     }
 #endif
@@ -248,7 +283,7 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
 }
 
 template <typename Buffer>
-static inline bool serialize_primitive(PyObject* obj, Buffer& out, bool& handled) {
+static inline bool serialize_primitive(PyObject* obj, Buffer& out, bool& handled, bool ints_first) {
     if (obj == Py_None) {
         append_literal(out, "null", 4);
         handled = true;
@@ -264,15 +299,27 @@ static inline bool serialize_primitive(PyObject* obj, Buffer& out, bool& handled
         handled = true;
         return true;
     }
-    if (PyUnicode_Check(obj)) {
-        handled = true;
-        return append_string(obj, out);
-    }
-
-    PyTypeObject* type = Py_TYPE(obj);
-    if (type == &PyLong_Type) {
-        handled = true;
-        return append_py_long(out, obj);
+    PyTypeObject* type = nullptr;
+    if (ints_first) {
+        type = Py_TYPE(obj);
+        if (type == &PyLong_Type) {
+            handled = true;
+            return append_py_long(out, obj);
+        }
+        if (PyUnicode_Check(obj)) {
+            handled = true;
+            return append_string(obj, out);
+        }
+    } else {
+        if (PyUnicode_Check(obj)) {
+            handled = true;
+            return append_string(obj, out);
+        }
+        type = Py_TYPE(obj);
+        if (type == &PyLong_Type) {
+            handled = true;
+            return append_py_long(out, obj);
+        }
     }
     if (type == &PyFloat_Type) {
         handled = true;
@@ -298,35 +345,123 @@ static bool serialize_iterative_with_memo(PyObject* root, Buffer& out, PyObject*
 
 template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out);
 
-// Estimation constants for pre-sizing output buffer
-static constexpr size_t kMinEstimate = 1024;  // minimum buffer size (larger to reduce reallocs)
+static inline size_t structural_budget(Frame::Type type, Py_ssize_t size) {
+    if (size <= 0) {
+        return 2;
+    }
+    if (type == Frame::Type::Dict) {
+        return static_cast<size_t>(size) * 2 + 1;
+    }
+    return static_cast<size_t>(size) + 1;
+}
 
-// Lightweight size estimate - O(1) based on top-level container size
-// Avoids expensive recursive traversal of Python objects
-static inline size_t estimate_size(PyObject* obj) {
-    // Simple heuristic: top-level container size * multiplier
-    // This is much faster than recursive estimation
+// Estimation constants for pre-sizing output buffer
+static constexpr size_t kMinEstimate = 1024;
+static constexpr size_t kMaxEstimate = static_cast<size_t>(PY_SSIZE_T_MAX);
+static constexpr size_t kDictEntryEstimate = 96;
+static constexpr size_t kListEntryEstimate = 64;
+static constexpr size_t kContainerOverhead = 2;
+static constexpr size_t kStringOverhead = 16;
+static constexpr int kMaxEstimateDepth = 2;
+
+static inline size_t clamp_add(size_t a, size_t b, size_t cap) {
+    if (a > cap - b) {
+        return cap;
+    }
+    return a + b;
+}
+
+static inline size_t clamp_mul(size_t a, size_t b, size_t cap) {
+    if (a == 0 || b == 0) {
+        return 0;
+    }
+    if (a > cap / b) {
+        return cap;
+    }
+    return a * b;
+}
+
+static inline size_t apply_growth_factor(size_t estimate) {
+    return clamp_add(estimate, estimate / 2, kMaxEstimate);
+}
+
+static inline size_t estimate_value_size(PyObject* obj, int depth);
+
+static inline size_t estimate_sequence_size(PyObject* obj, Py_ssize_t size, int depth, bool is_tuple) {
+    if (size <= 0) {
+        return kContainerOverhead;
+    }
+    size_t estimate =
+        clamp_add(clamp_mul(static_cast<size_t>(size), kListEntryEstimate, kMaxEstimate), kContainerOverhead,
+                  kMaxEstimate);
+    if (depth < kMaxEstimateDepth) {
+        PyObject* first = is_tuple ? PyTuple_GET_ITEM(obj, 0) : PyList_GET_ITEM(obj, 0);
+        if (first && PyDict_CheckExact(first)) {
+            size_t dict_est = estimate_value_size(first, depth + 1);
+            size_t scaled =
+                clamp_add(clamp_mul(static_cast<size_t>(size), dict_est, kMaxEstimate), kContainerOverhead,
+                          kMaxEstimate);
+            if (scaled > estimate) {
+                estimate = scaled;
+            }
+        }
+    }
+    return estimate;
+}
+
+static inline size_t estimate_dict_size(PyObject* obj, int depth) {
+    Py_ssize_t size = PyDict_GET_SIZE(obj);
+    if (size <= 0) {
+        return kContainerOverhead;
+    }
+    size_t per_entry = kDictEntryEstimate;
+    if (depth < kMaxEstimateDepth) {
+        PyObject* key = nullptr;
+        PyObject* value = nullptr;
+        Py_ssize_t pos = 0;
+        if (PyDict_Next(obj, &pos, &key, &value) && value != nullptr) {
+            if (PyList_CheckExact(value) || PyTuple_Check(value)) {
+                size_t list_est = estimate_value_size(value, depth + 1);
+                size_t adjusted = clamp_add(list_est, kStringOverhead, kMaxEstimate);
+                if (adjusted > per_entry) {
+                    per_entry = adjusted;
+                }
+            }
+        }
+    }
+    return clamp_add(clamp_mul(static_cast<size_t>(size), per_entry, kMaxEstimate), kContainerOverhead,
+                     kMaxEstimate);
+}
+
+static inline size_t estimate_value_size(PyObject* obj, int depth) {
     if (PyDict_CheckExact(obj)) {
-        // Dicts: estimate based on number of keys
-        // Each entry is ~50-100 bytes on average (key + value + separators)
-        Py_ssize_t size = PyDict_GET_SIZE(obj);
-        return static_cast<size_t>(size) * 96 + kMinEstimate;
+        return estimate_dict_size(obj, depth);
     }
     if (PyList_CheckExact(obj)) {
-        // Lists: estimate based on number of items
-        // Each item is ~30-60 bytes on average
-        Py_ssize_t size = PyList_GET_SIZE(obj);
-        return static_cast<size_t>(size) * 64 + kMinEstimate;
+        return estimate_sequence_size(obj, PyList_GET_SIZE(obj), depth, false);
     }
     if (PyTuple_Check(obj)) {
-        Py_ssize_t size = PyTuple_GET_SIZE(obj);
-        return static_cast<size_t>(size) * 64 + kMinEstimate;
+        return estimate_sequence_size(obj, PyTuple_GET_SIZE(obj), depth, true);
     }
-    // Primitives and strings
     if (PyUnicode_Check(obj)) {
-        return static_cast<size_t>(PyUnicode_GET_LENGTH(obj)) + 16;  // +quotes+margin
+        return clamp_add(static_cast<size_t>(PyUnicode_GET_LENGTH(obj)), kStringOverhead, kMaxEstimate);
     }
-    return kMinEstimate;
+    return kStringOverhead;
+}
+
+// Depth-limited size estimate with one-element sampling.
+static inline size_t estimate_size(PyObject* obj) {
+    size_t estimate = estimate_value_size(obj, 0);
+    if (g_last_dumps_size > estimate) {
+        estimate = g_last_dumps_size;
+    }
+    if (estimate < kMinEstimate) {
+        estimate = kMinEstimate;
+    }
+    if (estimate > kMaxEstimate) {
+        estimate = kMaxEstimate;
+    }
+    return apply_growth_factor(estimate);
 }
 
 // Direct serialization into a PyUnicode compact-ASCII object.
@@ -368,6 +503,9 @@ static PyObject* dumps_str_direct(PyObject* obj, size_t estimate) {
     if (!strata::util::is_ascii_only_simd(buffer, actual)) {
         PyObject* result = PyUnicode_DecodeUTF8(buffer, static_cast<Py_ssize_t>(actual), nullptr);
         Py_DECREF(unicode);
+        if (result) {
+            g_last_dumps_size = actual;
+        }
         return result;
     }
 
@@ -379,6 +517,7 @@ static PyObject* dumps_str_direct(PyObject* obj, size_t estimate) {
 
     if (actual == estimate) {
         // Perfect fit — nothing to do.
+        g_last_dumps_size = actual;
         return unicode;
     }
 
@@ -392,6 +531,7 @@ static PyObject* dumps_str_direct(PyObject* obj, size_t estimate) {
     }
     std::memcpy(PyUnicode_1BYTE_DATA(trimmed), buffer, actual);
     Py_DECREF(unicode);
+    g_last_dumps_size = actual;
     return trimmed;
 }
 
@@ -430,6 +570,7 @@ static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
             return nullptr;
         }
     }
+    g_last_dumps_size = static_cast<size_t>(actual);
     return bytes;
 }
 
@@ -444,29 +585,47 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     // pathologically deep structures.  Skipped entirely for NoCheck.
     const bool check_cycles = (g_cycle_policy != CyclePolicy::NoCheck);
     SmallCycleSet seen;
+    const bool ints_first = (g_dumps_type_order == DumpsTypeOrder::IntsFirst);
 
     PyObject* current = root;
 
     while (true) {
         if (current) {
             // Fast path for primitives first (avoid is_container check for most common types)
-            // Strings are most common in JSON, then integers
-            if (LIKELY(PyUnicode_Check(current))) {
-                if (!append_string(current, out)) {
-                    return false;
+            // String vs int order can be configured to match workload profiles.
+            PyTypeObject* type = nullptr;
+            if (ints_first) {
+                type = Py_TYPE(current);
+                if (LIKELY(type == &PyLong_Type)) {
+                    if (!append_py_long(out, current)) {
+                        return false;
+                    }
+                    current = nullptr;
+                    continue;
                 }
-                current = nullptr;
-                continue;
-            }
-
-            PyTypeObject* type = Py_TYPE(current);
-
-            if (LIKELY(type == &PyLong_Type)) {
-                if (!append_py_long(out, current)) {
-                    return false;
+                if (LIKELY(PyUnicode_Check(current))) {
+                    if (!append_string(current, out)) {
+                        return false;
+                    }
+                    current = nullptr;
+                    continue;
                 }
-                current = nullptr;
-                continue;
+            } else {
+                if (LIKELY(PyUnicode_Check(current))) {
+                    if (!append_string(current, out)) {
+                        return false;
+                    }
+                    current = nullptr;
+                    continue;
+                }
+                type = Py_TYPE(current);
+                if (LIKELY(type == &PyLong_Type)) {
+                    if (!append_py_long(out, current)) {
+                        return false;
+                    }
+                    current = nullptr;
+                    continue;
+                }
             }
 
             if (LIKELY(type == &PyFloat_Type)) {
@@ -524,14 +683,16 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
             if (LIKELY(PyDict_CheckExact(current))) {
                 Py_ssize_t size = PyDict_GET_SIZE(current);
+                out.ensure_extra(structural_budget(Frame::Type::Dict, size));
                 if (size == 0) {
                     if (check_cycles) seen.erase(current);
-                    append_literal(out, "{}", 2);
+                    out.push_back_unchecked('{');
+                    out.push_back_unchecked('}');
                     current = nullptr;
                     continue;
                 }
 
-                out.push_back('{');
+                out.push_back_unchecked('{');
                 stack.push_back(Frame{Frame::Type::Dict, current, 0, size, 0, true});
                 current = nullptr;
                 continue;
@@ -539,14 +700,16 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
             if (LIKELY(PyList_CheckExact(current))) {
                 Py_ssize_t size = PyList_GET_SIZE(current);
+                out.ensure_extra(structural_budget(Frame::Type::List, size));
                 if (size == 0) {
                     if (check_cycles) seen.erase(current);
-                    append_literal(out, "[]", 2);
+                    out.push_back_unchecked('[');
+                    out.push_back_unchecked(']');
                     current = nullptr;
                     continue;
                 }
 
-                out.push_back('[');
+                out.push_back_unchecked('[');
                 stack.push_back(Frame{Frame::Type::List, current, 0, size, 0, true});
                 current = nullptr;
                 continue;
@@ -554,14 +717,16 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
             if (PyTuple_Check(current)) {
                 Py_ssize_t size = PyTuple_GET_SIZE(current);
+                out.ensure_extra(structural_budget(Frame::Type::Tuple, size));
                 if (size == 0) {
                     if (check_cycles) seen.erase(current);
-                    append_literal(out, "[]", 2);
+                    out.push_back_unchecked('[');
+                    out.push_back_unchecked(']');
                     current = nullptr;
                     continue;
                 }
 
-                out.push_back('[');
+                out.push_back_unchecked('[');
                 stack.push_back(Frame{Frame::Type::Tuple, current, 0, size, 0, true});
                 current = nullptr;
                 continue;
@@ -582,7 +747,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             PyObject* value = nullptr;
             if (PyDict_Next(frame.obj, &frame.pos, &key, &value)) {
                 if (!frame.first) {
-                    out.push_back(',');
+                    out.push_back_unchecked(',');
                 }
                 frame.first = false;
 
@@ -593,9 +758,9 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 if (!append_string(key, out)) {
                     return false;
                 }
-                out.push_back(':');
+                out.push_back_unchecked(':');
                 bool handled = false;
-                if (!serialize_primitive(value, out, handled)) {
+                if (!serialize_primitive(value, out, handled, ints_first)) {
                     return false;
                 }
                 if (handled) {
@@ -603,7 +768,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 }
                 current = value;
             } else {
-                out.push_back('}');
+                out.push_back_unchecked('}');
                 if (check_cycles) seen.erase(frame.obj);
                 stack.pop_back();
             }
@@ -612,7 +777,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
         if (frame.index < frame.size) {
             if (!frame.first) {
-                out.push_back(',');
+                out.push_back_unchecked(',');
             }
             frame.first = false;
 
@@ -621,7 +786,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                                  : PyTuple_GET_ITEM(frame.obj, frame.index);
             frame.index += 1;
             bool handled = false;
-            if (!serialize_primitive(item, out, handled)) {
+            if (!serialize_primitive(item, out, handled, ints_first)) {
                 return false;
             }
             if (handled) {
@@ -631,7 +796,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             continue;
         }
 
-        out.push_back(']');
+        out.push_back_unchecked(']');
         if (check_cycles) seen.erase(frame.obj);
         stack.pop_back();
     }
@@ -670,6 +835,7 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
 
     const char* data = g_serialize_buffer.data();
     size_t len = g_serialize_buffer.size();
+    g_last_dumps_size = len;
 
     // Fast path for ASCII-only output (common case): allocate a compact
     // ASCII PyUnicode and memcpy.  Avoids the full UTF-8 decode that
@@ -713,9 +879,25 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
         return NULL;
     }
 
+    g_last_dumps_size = g_serialize_buffer.size();
     return PyBytes_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
 
     STRATA_CPP_CATCH
+}
+
+PyObject* strata_set_dumps_type_order(PyObject* self, PyObject* args) {
+    const char* order = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &order)) {
+        return NULL;
+    }
+
+    std::string error;
+    if (!set_dumps_type_order_from_string(order, error)) {
+        PyErr_SetString(PyExc_ValueError, error.c_str());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
 }
 
 PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args) {
