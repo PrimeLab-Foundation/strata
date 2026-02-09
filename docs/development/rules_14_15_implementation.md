@@ -94,16 +94,14 @@ install-skip-tests: venv
 ```makefile
 gate: venv
     @echo "GATE: Comprehensive build validation (Rules 14+15)"
-    @make test-cpp || (echo "❌ GATE FAILED: C++ tests failed" && exit 1)
     @$(VENV)/bin/$(PYTHON) -m pip install --force-reinstall --no-deps -e .
-    @make test-py || (echo "❌ GATE FAILED: Python tests failed" && exit 1)
     @make coverage-cpp || echo "⚠️  C++ coverage not available"
     @make coverage-py || echo "⚠️  Python coverage collection had issues"
     @echo "✅ GATE PASSED: All tests passed, coverage collected"
 ```
 
 - Single command for comprehensive validation
-- Runs: C++ tests → build → Python tests → coverage
+- Runs: test-gated build (C++ pre-build + Python post-build) → coverage
 - Fails fast on any error
 - **Required** for releases per Rule 14
 

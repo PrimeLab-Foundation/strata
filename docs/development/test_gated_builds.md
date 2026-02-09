@@ -16,7 +16,7 @@ Tests run at two critical points:
 make install
 pip install -e .
 
-# Comprehensive gate (build + tests + coverage, Rules 14+15)
+# Comprehensive gate (test-gated build + coverage, Rules 14+15)
 make gate
 
 # Emergency escape hatch (STRONGLY DISCOURAGED, logged, not for CI/release)
@@ -56,9 +56,11 @@ make gate
 
 This runs:
 
-1. C++ tests
-1. Python tests
-1. Coverage collection (best effort)
+1. Test-gated build (C++ tests pre-build + Python tests post-build)
+1. Coverage collection (C++ then Python, best effort)
+
+To avoid duplicate runs, `make gate` relies on the build's test gates instead of
+calling `make test-cpp`/`make test-py` separately.
 
 ## Test Structure
 

@@ -201,7 +201,7 @@ make build
 # Install in development mode
 pip install -e .
 
-# Gate command (build + C++ tests + Python tests)
+# Gate command (test-gated build + coverage)
 make gate
 
 # Clean build artifacts

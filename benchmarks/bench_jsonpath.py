@@ -108,6 +108,50 @@ QUERIES: dict[str, dict[str, Any]] = {
     },
 }
 
+# NDJSON variant: root is a list of user objects, not {"users": [...]}
+NDJSON_QUERIES: dict[str, dict[str, Any]] = {
+    "simple_field": {
+        "strata": "$[*].id",
+        "jmespath": "[].id",
+        "description": "Extract all user IDs",
+    },
+    "nested_field": {
+        "strata": "$[*].metadata.created",
+        "jmespath": "[].metadata.created",
+        "description": "Extract nested timestamp field",
+    },
+    "double_wildcard": {
+        "strata": "$[*].orders[*].items[*].price",
+        "jmespath": "[].orders[].items[].price",
+        "description": "Extract order item prices (double wildcard)",
+    },
+    "deep_path": {
+        "strata": "$[0].orders[0].items[0].price",
+        "jmespath": "[0].orders[0].items[0].price",
+        "description": "Deep path navigation",
+    },
+    "all_names": {
+        "strata": "$[*].name",
+        "jmespath": "[].name",
+        "description": "Extract all user names",
+    },
+    "filter_numeric": {
+        "strata": "$[?(@.age > 30)].name",
+        "jmespath": "[?age > `30`].name",
+        "description": "Filter users by age (numeric predicate)",
+    },
+    "recursive_prices": {
+        "strata": "$..price",
+        "jmespath": None,
+        "description": "Recursively find all prices",
+    },
+    "array_slice": {
+        "strata": "$[0:10].id",
+        "jmespath": "[:10].id",
+        "description": "Slice first 10 users, extract IDs",
+    },
+}
+
 
 def _run_query_benchmark(
     run_func: Any,
@@ -128,6 +172,36 @@ def _run_query_benchmark(
     return times_ms, get_rss_mb(), last_result
 
 
+def _ndjson_lines(text: str) -> list[str]:
+    return [line for line in text.splitlines() if line.strip()]
+
+
+def _load_json_data(
+    data_file: Path,
+) -> tuple[str, Any, float, int, bool]:
+    """Load JSON or NDJSON data for querying; return (text, data, size_mb, records, is_ndjson)."""
+    if data_file.suffix == ".ndjson":
+        ndjson_text = data_file.read_text(encoding="utf-8")
+        lines = _ndjson_lines(ndjson_text)
+        json_text = "[" + ",".join(lines) + "]"
+        json_data = [json.loads(line) for line in lines]
+        size_mb = data_file.stat().st_size / 1024 / 1024
+        record_count = len(json_data)
+        return json_text, json_data, size_mb, record_count, True
+
+    json_bytes = data_file.read_bytes()
+    json_text = json_bytes.decode("utf-8")
+    json_data = json.loads(json_text)
+    size_mb = len(json_bytes) / 1024 / 1024
+    if isinstance(json_data, dict) and "users" in json_data:
+        record_count = len(json_data.get("users") or [])
+    elif isinstance(json_data, list):
+        record_count = len(json_data)
+    else:
+        record_count = 1
+    return json_text, json_data, size_mb, record_count, False
+
+
 def run_all(
     data_file: Path,
     *,
@@ -142,22 +216,28 @@ def run_all(
                  "dict" = search(loads(text), path) [dumps+parse+query per call]. Use for loads()+search() comparison.
     """
     data_file = Path(data_file)
-    json_bytes = data_file.read_bytes()
-    json_text = json_bytes.decode("utf-8")
-    json_data = json.loads(json_text)
+    json_text, json_data, size_mb, record_count, is_ndjson = _load_json_data(data_file)
+    queries = NDJSON_QUERIES if is_ndjson else QUERIES
+    effective_strata_mode = strata_mode
+    strata_mode_label = strata_mode
+    if is_ndjson and strata_mode == "cursor":
+        effective_strata_mode = "dict"
+        strata_mode_label = "dict (NDJSON cursor unsupported)"
 
     print()
     print("=" * 70)
     print("JSONPath Query Benchmarks")
     print("=" * 70)
     print(f"Data file: {data_file}")
-    print(f"Size: {len(json_bytes) / 1024 / 1024:.2f} MB")
-    print(f"Repeat: {repeat}, Warmup: {warmup}, Strata mode: {strata_mode}")
+    print(f"Size: {size_mb:.2f} MB")
+    if record_count:
+        print(f"Records: {record_count}")
+    print(f"Repeat: {repeat}, Warmup: {warmup}, Strata mode: {strata_mode_label}")
     print()
 
     results: list[QueryBenchResult] = []
 
-    for query_name, query_def in QUERIES.items():
+    for query_name, query_def in queries.items():
         description = query_def["description"]
         print(f"\n--- Query: {description} ---")
 
@@ -166,13 +246,13 @@ def run_all(
         try:
             path = strata.compile_path(query_def["strata"])
 
-            if strata_mode == "dict":
+            if effective_strata_mode == "dict":
                 parsed_strata = strata.loads(json_text)
 
                 def run_strata():
                     return strata.search(parsed_strata, path)
 
-            elif strata_mode == "string":
+            elif effective_strata_mode == "string":
 
                 def run_strata():
                     return strata.search(json_text, path)
@@ -316,10 +396,79 @@ def print_summary(results: list[QueryBenchResult]) -> None:
                 )
 
 
+def _format_markdown(
+    results: list[QueryBenchResult],
+    data_file: Path,
+    size_mb: float,
+    record_count: int,
+    is_ndjson: bool,
+    repeat: int,
+    warmup: int,
+    strata_mode: str,
+) -> str:
+    label = "NDJSON" if is_ndjson else "JSON"
+    lines = [
+        f"### {data_file.name} ({label})",
+        "",
+        f"- Source: {data_file}",
+        f"- Size: {size_mb:.2f} MB",
+        f"- Records: {record_count}",
+        f"- Repeat: {repeat}",
+        f"- Warmup: {warmup}",
+        f"- Strata mode: {strata_mode}",
+        "",
+    ]
+
+    if not results:
+        lines.append("*No results available*")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.extend(
+        [
+            "| Query | Library | Min (ms) | Median (ms) | P95 (ms) | Results | RSS (MB) |",
+            "|-------|---------|----------|-------------|----------|---------|---------|",
+        ]
+    )
+    queries = NDJSON_QUERIES if is_ndjson else QUERIES
+    desc_map = {name: q["description"] for name, q in queries.items()}
+    for r in sorted(results, key=lambda x: (desc_map.get(x.query_name, x.query_name), x.median_ms)):
+        desc = desc_map.get(r.query_name, r.query_name)
+        if r.error:
+            lines.append(f"| {desc} | {r.library} | ERROR | - | - | - | - |")
+            continue
+        lines.append(
+            f"| {desc} | {r.library} | {r.min_ms:.2f} | {r.median_ms:.2f} | {r.p95_ms:.2f} | {r.result_count} | {r.rss_mb:.1f} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _append_markdown_section(
+    output_path: Path,
+    section_title: str,
+    body: str,
+    append: bool,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    header = f"## {section_title}\n\n"
+    if append and output_path.exists():
+        existing = output_path.read_text(encoding="utf-8")
+        include_header = header.strip() not in existing
+        prefix = "" if existing.endswith("\n") else "\n"
+        addition = (header if include_header else "") + body
+        output_path.write_text(existing + prefix + addition, encoding="utf-8")
+        return
+    output_path.write_text(header + body, encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run JSONPath query benchmarks")
     parser.add_argument(
-        "--data", type=Path, default=Path("benchmarks/data/generated/users.json"), help="JSON file"
+        "--data",
+        type=Path,
+        default=Path("benchmarks/data/generated/users.json"),
+        help="JSON or NDJSON file",
     )
     parser.add_argument("--repeat", type=int, default=5, help="Iterations")
     parser.add_argument("--warmup", type=int, default=1, help="Warmup iterations")
@@ -329,6 +478,8 @@ def main() -> int:
         default="cursor",
         help="Strata input: cursor=parse_json_file then search(cursor,path) [query only, default]; dict=search(loads(text),path); string=search(text,path). Use --strata-mode dict for loads()+search() comparison.",
     )
+    parser.add_argument("--output", type=Path, help="Write Markdown results to file")
+    parser.add_argument("--append", action="store_true", help="Append to --output if set")
     args = parser.parse_args()
 
     if not args.data.exists():
@@ -342,6 +493,22 @@ def main() -> int:
         strata_mode=args.strata_mode,
     )
     print_summary(results)
+    if args.output:
+        _json_text, _json_data, size_mb, record_count, is_ndjson = _load_json_data(args.data)
+        strata_mode_label = args.strata_mode
+        if is_ndjson and args.strata_mode == "cursor":
+            strata_mode_label = "dict (NDJSON cursor unsupported)"
+        body = _format_markdown(
+            results,
+            args.data,
+            size_mb,
+            record_count,
+            is_ndjson,
+            args.repeat,
+            args.warmup,
+            strata_mode_label,
+        )
+        _append_markdown_section(args.output, "Search Benchmarks (JSONPath)", body, args.append)
     return 0
 
 

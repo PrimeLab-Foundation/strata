@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-JSON parsing (loads) benchmarks.
+JSON/NDJSON parsing (loads) benchmarks.
 
 Compares Strata loads against orjson, ujson, msgspec, pysimdjson, and stdlib json.
 Uses shared harness for timing and RSS. Pair with bench_dumps.py (serialize).
@@ -48,14 +48,55 @@ class LoadsResult:
     rss_mb: float
 
 
+@dataclass
+class BenchInfo:
+    """Metadata about a benchmark run."""
+
+    data_file: Path
+    size_mb: float
+    is_ndjson: bool
+    line_count: int | None = None
+
+
 def _p95(times_ms: list[float]) -> float:
     if len(times_ms) >= 20:
         return statistics.quantiles(times_ms, n=20)[18]
     return max(times_ms) if times_ms else 0.0
 
 
-def _get_loads_runners() -> list[tuple[str, Callable[[bytes], Any]]]:
-    """Return [(library_name, parse_func)] where parse_func(bytes) -> parsed value."""
+def _ndjson_lines(text: str) -> list[str]:
+    return [line for line in text.splitlines() if line.strip()]
+
+
+def _get_loads_runners(is_ndjson: bool) -> list[tuple[str, Callable[[bytes | str], Any]]]:
+    """Return [(library_name, parse_func)] where parse_func(data) -> parsed value."""
+
+    if is_ndjson:
+
+        def strata_run(text: str):
+            return strata.parse_ndjson(text)
+
+        def orjson_run(text: str):
+            return [orjson.loads(line) for line in _ndjson_lines(text)]
+
+        def msgspec_run(text: str):
+            return [msgspec.json.decode(line) for line in _ndjson_lines(text)]
+
+        def ujson_run(text: str):
+            return [ujson.loads(line) for line in _ndjson_lines(text)]
+
+        def stdlib_run(text: str):
+            return [json.loads(line) for line in _ndjson_lines(text)]
+
+        runners: list[tuple[str, Callable[[bytes | str], Any]]] = [("strata", strata_run)]
+        if orjson is not None:
+            runners.append(("orjson", orjson_run))
+        if msgspec is not None:
+            runners.append(("msgspec", msgspec_run))
+        if ujson is not None:
+            runners.append(("ujson", ujson_run))
+        runners.append(("json (stdlib)", stdlib_run))
+        return runners
 
     def strata_run(data: bytes):
         return strata.loads(data)
@@ -77,7 +118,7 @@ def _get_loads_runners() -> list[tuple[str, Callable[[bytes], Any]]]:
     def stdlib_run(data: bytes):
         return json.loads(data)
 
-    runners: list[tuple[str, Callable[[bytes], Any]]] = [("strata", strata_run)]
+    runners = [("strata", strata_run)]
     if orjson is not None:
         runners.append(("orjson", orjson_run))
     if msgspec is not None:
@@ -95,22 +136,32 @@ def run_benchmarks(
     *,
     repeat: int = 10,
     warmup: int = 2,
-) -> list[LoadsResult]:
-    """Run loads (parse) benchmarks; return list of LoadsResult."""
-    data = data_file.read_bytes()
-    size_mb = len(data) / 1024 / 1024
+) -> tuple[list[LoadsResult], BenchInfo]:
+    """Run loads (parse) benchmarks; return (results, info)."""
+    is_ndjson = data_file.suffix == ".ndjson"
+    if is_ndjson:
+        data = data_file.read_text(encoding="utf-8")
+        line_count = len(_ndjson_lines(data))
+        size_mb = data_file.stat().st_size / 1024 / 1024
+    else:
+        data = data_file.read_bytes()
+        line_count = None
+        size_mb = len(data) / 1024 / 1024
 
     print()
     print("=" * 70)
-    print("JSON Parsing (loads) Benchmarks")
+    label = "NDJSON" if is_ndjson else "JSON"
+    print(f"{label} Parsing (loads) Benchmarks")
     print("=" * 70)
     print(f"Data file: {data_file}")
     print(f"Input size: {size_mb:.2f} MB")
+    if line_count is not None:
+        print(f"Lines: {line_count}")
     print(f"Repeat: {repeat}, Warmup: {warmup}")
     print()
 
     results: list[LoadsResult] = []
-    for library_name, parse_func in _get_loads_runners():
+    for library_name, parse_func in _get_loads_runners(is_ndjson):
         print(f"--- Benchmarking {library_name} ---")
         try:
             tr = run_single_benchmark(
@@ -134,7 +185,13 @@ def run_benchmarks(
         except Exception as e:
             print(f"  ERROR: {e}")
 
-    return results
+    info = BenchInfo(
+        data_file=data_file,
+        size_mb=size_mb,
+        is_ndjson=is_ndjson,
+        line_count=line_count,
+    )
+    return results, info
 
 
 def print_summary(results: list[LoadsResult]) -> None:
@@ -177,16 +234,72 @@ def print_summary(results: list[LoadsResult]) -> None:
             print(f"  -> {pct:.1f}% behind #{1} ({first.library})")
 
 
+def _format_markdown(results: list[LoadsResult], info: BenchInfo, repeat: int, warmup: int) -> str:
+    label = "NDJSON" if info.is_ndjson else "JSON"
+    lines = [
+        f"### {info.data_file.name} ({label})",
+        "",
+        f"- Source: {info.data_file}",
+        f"- Input size: {info.size_mb:.2f} MB",
+    ]
+    if info.line_count is not None:
+        lines.append(f"- Lines: {info.line_count}")
+    lines.extend(
+        [
+            f"- Repeat: {repeat}",
+            f"- Warmup: {warmup}",
+            "",
+        ]
+    )
+    if not results:
+        lines.append("*No results available*")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.extend(
+        [
+            "| Library | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |",
+            "|---------|----------|-------------|----------|---------|",
+        ]
+    )
+    for r in sorted(results, key=lambda x: x.median_ms):
+        lines.append(
+            f"| {r.library} | {r.min_ms:.2f} | {r.median_ms:.2f} | {r.p95_ms:.2f} | {r.rss_mb:.1f} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _append_markdown_section(
+    output_path: Path,
+    section_title: str,
+    body: str,
+    append: bool,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    header = f"## {section_title}\n\n"
+    if append and output_path.exists():
+        existing = output_path.read_text(encoding="utf-8")
+        include_header = header.strip() not in existing
+        prefix = "" if existing.endswith("\n") else "\n"
+        addition = (header if include_header else "") + body
+        output_path.write_text(existing + prefix + addition, encoding="utf-8")
+        return
+    output_path.write_text(header + body, encoding="utf-8")
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Benchmark JSON parsing (loads)")
+    parser = argparse.ArgumentParser(description="Benchmark JSON/NDJSON parsing (loads)")
     parser.add_argument(
         "--data",
         type=Path,
         default=Path("benchmarks/data/generated/users.json"),
-        help="Path to JSON file",
+        help="Path to JSON or NDJSON file",
     )
     parser.add_argument("--repeat", type=int, default=10, help="Iterations per benchmark")
     parser.add_argument("--warmup", type=int, default=2, help="Warmup iterations")
+    parser.add_argument("--output", type=Path, help="Write Markdown results to file")
+    parser.add_argument("--append", action="store_true", help="Append to --output if set")
     args = parser.parse_args()
 
     if not args.data.exists():
@@ -194,8 +307,11 @@ def main() -> int:
         print("Generate with: python -m benchmarks.data.generate_bench_data")
         return 1
 
-    results = run_benchmarks(args.data, repeat=args.repeat, warmup=args.warmup)
+    results, info = run_benchmarks(args.data, repeat=args.repeat, warmup=args.warmup)
     print_summary(results)
+    if args.output:
+        body = _format_markdown(results, info, args.repeat, args.warmup)
+        _append_markdown_section(args.output, "Loads Benchmarks", body, args.append)
     return 0
 
 
