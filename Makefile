@@ -194,7 +194,7 @@ bench-ndjson: $(BENCH_MEDIUM_NDJSON)
 		--data $(BENCH_MEDIUM_NDJSON)
 
 # Run full benchmark suite (bench_main) on small data
-bench-small: $(BENCH_SMALL_JSON)
+bench-small: $(BENCH_SMALL_JSON) $(BENCH_SMALL_NDJSON)
 	@echo "════════════════════════════════════════════════════════════════"
 	@echo "  Benchmarks: SMALL"
 	@echo "════════════════════════════════════════════════════════════════"
@@ -210,7 +210,7 @@ bench-small: $(BENCH_SMALL_JSON)
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_SMALL_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
 
 # Run full benchmark suite on medium data
-bench-medium: $(BENCH_MEDIUM_JSON)
+bench-medium: $(BENCH_MEDIUM_JSON) $(BENCH_MEDIUM_NDJSON)
 	@echo "════════════════════════════════════════════════════════════════"
 	@echo "  Benchmarks: MEDIUM"
 	@echo "════════════════════════════════════════════════════════════════"
@@ -226,7 +226,7 @@ bench-medium: $(BENCH_MEDIUM_JSON)
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_MEDIUM_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
 
 # Run full benchmark suite on large data
-bench-large: $(BENCH_LARGE_JSON)
+bench-large: $(BENCH_LARGE_JSON) $(BENCH_LARGE_NDJSON)
 	@echo "════════════════════════════════════════════════════════════════"
 	@echo "  Benchmarks: LARGE"
 	@echo "════════════════════════════════════════════════════════════════"
