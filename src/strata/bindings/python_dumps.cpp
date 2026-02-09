@@ -515,24 +515,16 @@ static PyObject* dumps_str_direct(PyObject* obj, size_t estimate) {
         return nullptr;
     }
 
-    if (actual == estimate) {
-        // Perfect fit — nothing to do.
-        g_last_dumps_size = actual;
-        return unicode;
+    if (actual != estimate) {
+        // Shrink in-place when possible to avoid a second allocation+copy.
+        if (PyUnicode_Resize(&unicode, actual_ssize) < 0) {
+            Py_DECREF(unicode);
+            return nullptr;
+        }
     }
 
-    // Actual size differs from estimate — we must create a correctly-sized
-    // object because PyUnicode internals store the length and there is no
-    // public resize API.
-    PyObject* trimmed = PyUnicode_New(actual_ssize, 127);
-    if (!trimmed) {
-        Py_DECREF(unicode);
-        return nullptr;
-    }
-    std::memcpy(PyUnicode_1BYTE_DATA(trimmed), buffer, actual);
-    Py_DECREF(unicode);
     g_last_dumps_size = actual;
-    return trimmed;
+    return unicode;
 }
 
 static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
