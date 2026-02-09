@@ -24,7 +24,10 @@ Result<bool> JsonCursor::get_bool() const {
 Result<int64_t> JsonCursor::get_int64() const {
     if (!is_number())
         return {Status::TypeMismatch, 0};
-    double d = value_->as_number();
+    if (value_->is_int()) {
+        return {Status::Ok, value_->as_int()};
+    }
+    double d = value_->as_double();
     if (!std::isfinite(d))
         return {Status::TypeMismatch, 0};
     double int_part = 0.0;
@@ -37,9 +40,15 @@ Result<int64_t> JsonCursor::get_int64() const {
 }
 
 Result<uint64_t> JsonCursor::get_uint64() const {
-    if (!is_number() || value_->as_number() < 0)
+    if (!is_number())
         return {Status::TypeMismatch, 0};
-    double d = value_->as_number();
+    if (value_->is_int()) {
+        if (value_->as_int() < 0) {
+            return {Status::TypeMismatch, 0};
+        }
+        return {Status::Ok, static_cast<uint64_t>(value_->as_int())};
+    }
+    double d = value_->as_double();
     if (!std::isfinite(d))
         return {Status::TypeMismatch, 0};
     double int_part = 0.0;
@@ -53,7 +62,10 @@ Result<uint64_t> JsonCursor::get_uint64() const {
 Result<double> JsonCursor::get_double() const {
     if (!is_number())
         return {Status::TypeMismatch, 0.0};
-    return {Status::Ok, value_->as_number()};
+    if (value_->is_int()) {
+        return {Status::Ok, static_cast<double>(value_->as_int())};
+    }
+    return {Status::Ok, value_->as_double()};
 }
 
 Result<std::string_view> JsonCursor::get_string() const {

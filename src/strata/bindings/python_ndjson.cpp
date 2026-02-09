@@ -80,7 +80,8 @@ static PyMethodDef parallel_ndjson_methods[] = {
      "Args:\n"
      "    data (str): NDJSON string data\n"
      "    skip_errors (bool): Skip malformed lines (default: True)\n"
-     "    num_threads (int): Number of threads (0 = auto-detect, default: 0)\n\n"
+     "    num_threads (int): Number of threads (0 = auto-detect, default: 0)\n"
+     "    min_chunk_size (int): Minimum bytes per chunk (0 = default)\n\n"
      "Returns:\n"
      "    list: Parsed JSON values in order\n"},
     {NULL, NULL, 0, NULL}};
@@ -306,11 +307,12 @@ static PyObject* parallel_parse_ndjson(PyObject* self, PyObject* args, PyObject*
     Py_ssize_t data_len;
     int skip_errors = 1;
     int num_threads = 0;
+    Py_ssize_t min_chunk_size = 0;
 
-    static const char* kwlist[] = {"data", "skip_errors", "num_threads", NULL};
+    static const char* kwlist[] = {"data", "skip_errors", "num_threads", "min_chunk_size", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|pi", const_cast<char**>(kwlist), &data,
-                                     &data_len, &skip_errors, &num_threads)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|pin", const_cast<char**>(kwlist), &data,
+                                     &data_len, &skip_errors, &num_threads, &min_chunk_size)) {
         return NULL;
     }
 
@@ -320,6 +322,13 @@ static PyObject* parallel_parse_ndjson(PyObject* self, PyObject* args, PyObject*
     strata::ParallelNdjsonConfig config;
     config.skip_errors = skip_errors != 0;
     config.num_threads = num_threads > 0 ? static_cast<size_t>(num_threads) : 0;
+    if (min_chunk_size < 0) {
+        PyErr_SetString(PyExc_ValueError, "min_chunk_size must be non-negative");
+        return NULL;
+    }
+    if (min_chunk_size > 0) {
+        config.min_chunk_size = static_cast<size_t>(min_chunk_size);
+    }
 
     // Create parallel stream
     strata::ParallelNdjsonStream stream(std::string_view(data, data_len), config);

@@ -111,15 +111,20 @@ def run_benchmarks(
     for library_name, dump_func in runners:
         print(f"--- Benchmarking {library_name} ---")
         try:
+            last_output: bytes | str | None = None
+
+            def run():
+                nonlocal last_output
+                last_output = dump_func(data)
+                return last_output
+
             tr = run_single_benchmark(
-                lambda: dump_func(data),
+                run,
                 warmup=warmup,
                 repeat=repeat,
                 capture_rss=True,
             )
-            # Output size from last run
-            output = dump_func(data)
-            output_size = len(output)
+            output_size = len(last_output) if last_output is not None else 0
             result = DumpsResult(
                 library=library_name,
                 min_ms=tr.min_ms,

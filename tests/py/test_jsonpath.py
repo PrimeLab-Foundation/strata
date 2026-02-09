@@ -166,6 +166,13 @@ class TestComplexQueries:
         results = strata.search(json_text, "$..a")
         assert results == [{"a": {"value": 1}, "value": 2}, {"value": 1}]
 
+    def test_large_integer_preserved(self):
+        """Large integers should stay as Python ints."""
+        json_text = '{"value": 9007199254740993}'
+        results = strata.search(json_text, "$.value")
+        assert results == [9007199254740993]
+        assert isinstance(results[0], int)
+
 
 class TestCompileAndReuse:
     """Test compiling paths and reusing them."""

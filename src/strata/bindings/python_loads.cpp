@@ -3,6 +3,7 @@
 #include "python_types.h"
 #include "strata/json/json_parse.hpp"
 
+#include <climits>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -45,8 +46,16 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
         return result;
     }
 
-    if (val.is_number()) {
-        return PyFloat_FromDouble(val.as_number());
+    if (val.is_int()) {
+        int64_t v = val.as_int();
+        if (v >= LONG_MIN && v <= LONG_MAX) {
+            return PyLong_FromLong(static_cast<long>(v));
+        }
+        return PyLong_FromLongLong(v);
+    }
+
+    if (val.is_double()) {
+        return PyFloat_FromDouble(val.as_double());
     }
 
     if (val.is_string()) {

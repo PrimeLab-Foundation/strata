@@ -53,16 +53,21 @@ class DomBuilderHandler : public JsonSaxHandler {
     bool on_null() override { return push_value(JsonValue()); }
     bool on_bool(bool v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
     bool on_int(int64_t v) override {
-        return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
+        return push_value(JsonValue(JsonValue::Variant(v)));
     }
     bool on_uint(uint64_t v) override {
+        if (v <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+            return push_value(JsonValue(JsonValue::Variant(static_cast<int64_t>(v))));
+        }
         return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
     }
     bool on_double(double v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
     bool on_string(std::string_view v, bool has_escapes = false) override {
-        // Use LazyString to defer unescaping until value is actually accessed
-        LazyString lazy(v, has_escapes);
-        return push_value(JsonValue(JsonValue::Variant(lazy.value())));
+        if (has_escapes) {
+            // Store escaped strings lazily; unescape when accessed.
+            return push_value(JsonValue(JsonValue::Variant(LazyString(v, true))));
+        }
+        return push_value(JsonValue(JsonValue::Variant(std::string(v))));
     }
 
     bool on_start_object(size_t) override {
@@ -71,9 +76,12 @@ class DomBuilderHandler : public JsonSaxHandler {
     }
 
     bool on_key(std::string_view v, bool has_escapes = false) override {
-        // Use LazyString to defer unescaping until value is actually accessed
-        LazyString lazy(v, has_escapes);
-        keys_.emplace_back(lazy.value());
+        if (has_escapes) {
+            LazyString lazy(v, true);
+            keys_.emplace_back(lazy.value());
+        } else {
+            keys_.emplace_back(v);
+        }
         return true;
     }
 

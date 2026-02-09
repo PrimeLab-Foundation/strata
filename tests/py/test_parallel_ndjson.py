@@ -14,9 +14,9 @@ class TestParallelNdjsonBasics:
         data = '{"a": 1}\n{"b": 2}\n{"c": 3}'
         result = native.ndjson_parallel_parse_all(data)
         assert len(result) == 3
-        assert result[0] == {"a": 1.0}
-        assert result[1] == {"b": 2.0}
-        assert result[2] == {"c": 3.0}
+        assert result[0] == {"a": 1}
+        assert result[1] == {"b": 2}
+        assert result[2] == {"c": 3}
 
     def test_empty_data(self):
         """Parse empty string."""
@@ -104,8 +104,8 @@ class TestParallelNdjsonErrors:
         result = native.ndjson_parallel_parse_all(data)
         # Should have 2 valid results
         assert len(result) == 2
-        assert result[0] == {"a": 1.0}
-        assert result[1] == {"c": 3.0}
+        assert result[0] == {"a": 1}
+        assert result[1] == {"c": 3}
 
     def test_skip_errors_explicit_true(self):
         """Skip errors when explicitly set."""
@@ -145,10 +145,10 @@ class TestParallelNdjsonTypes:
         assert result[0] is None
         assert result[1] is True
         assert result[2] is False
-        assert result[3] == 42.0
+        assert result[3] == 42
         assert abs(result[4] - 3.14) < 0.001
         assert result[5] == "string"
-        assert result[6] == [1.0, 2.0, 3.0]
+        assert result[6] == [1, 2, 3]
         assert result[7] == {"key": "value"}
 
     def test_arrays_as_root(self):
@@ -158,7 +158,7 @@ class TestParallelNdjsonTypes:
         result = native.ndjson_parallel_parse_all(data)
         assert len(result) == 100
         for i, item in enumerate(result):
-            assert item == [float(i), float(i+1), float(i+2)]
+            assert item == [i, i + 1, i + 2]
 
 
 class TestParallelNdjsonEdgeCases:
@@ -196,18 +196,18 @@ class TestParseNdjsonPublicAPI:
         data = '{"a": 1}\n{"b": 2}'
         result = strata.parse_ndjson(data)
         assert len(result) == 2
-        assert result[0] == {"a": 1.0}
-        assert result[1] == {"b": 2.0}
+        assert result[0] == {"a": 1}
+        assert result[1] == {"b": 2}
 
     def test_default_auto_large_data(self):
         """Large data should use parallel by default (auto mode)."""
-        # Create >128KB of data to trigger parallel mode
-        lines = [f'{{"id": {i}, "padding": "{("x" * 100)}"}}' for i in range(2000)]
+        # Create >2MB of data to trigger parallel mode
+        lines = [f'{{"id": {i}, "padding": "{("x" * 400)}"}}' for i in range(6000)]
         data = '\n'.join(lines)
-        assert len(data) > 128 * 1024  # Verify it's large enough
+        assert len(data) > 2 * 1024 * 1024  # Verify it's large enough
 
         result = strata.parse_ndjson(data)
-        assert len(result) == 2000
+        assert len(result) == len(lines)
         for i, item in enumerate(result):
             assert item["id"] == i
 
@@ -222,8 +222,8 @@ class TestParseNdjsonPublicAPI:
         data = '{"a": 1}\n{"b": 2}'
         result = strata.parse_ndjson(data, parallel=True)
         assert len(result) == 2
-        assert result[0] == {"a": 1.0}
-        assert result[1] == {"b": 2.0}
+        assert result[0] == {"a": 1}
+        assert result[1] == {"b": 2}
 
     def test_parallel_false_forces_sequential(self):
         """parallel=False forces sequential mode even for large data."""
@@ -250,8 +250,8 @@ class TestParseNdjsonPublicAPI:
         data = '{"a": 1}\n{invalid\n{"c": 3}'
         result = strata.parse_ndjson(data, skip_errors=True, parallel=True)
         assert len(result) == 2
-        assert result[0] == {"a": 1.0}
-        assert result[1] == {"c": 3.0}
+        assert result[0] == {"a": 1}
+        assert result[1] == {"c": 3}
 
     def test_bytes_input(self):
         """parse_ndjson accepts bytes input."""

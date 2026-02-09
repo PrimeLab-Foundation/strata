@@ -17,6 +17,10 @@ static JsonValue materialize(const JsonCursor& cursor) {
     } else if (cursor.is_bool()) {
         return JsonValue(JsonValue::Variant(cursor.get_bool_or_throw()));
     } else if (cursor.is_number()) {
+        const JsonValue* raw = cursor.raw();
+        if (raw && raw->is_int()) {
+            return JsonValue(JsonValue::Variant(raw->as_int()));
+        }
         return JsonValue(JsonValue::Variant(cursor.get_float()));
     } else if (cursor.is_string()) {
         return JsonValue(JsonValue::Variant(cursor.get_str()));

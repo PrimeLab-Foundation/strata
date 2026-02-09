@@ -2,6 +2,7 @@
 #include "strata/json/json_lazy_cursor.hpp"
 #include "strata/json/json_parse.hpp"
 
+#include <climits>
 #include <string>
 
 // ============================================================================
@@ -220,8 +221,15 @@ static PyObject* json_value_to_python(const strata::JsonValue& value) {
         }
         Py_RETURN_FALSE;
     }
-    if (value.is_number()) {
-        return PyFloat_FromDouble(value.as_number());
+    if (value.is_int()) {
+        int64_t v = value.as_int();
+        if (v >= LONG_MIN && v <= LONG_MAX) {
+            return PyLong_FromLong(static_cast<long>(v));
+        }
+        return PyLong_FromLongLong(v);
+    }
+    if (value.is_double()) {
+        return PyFloat_FromDouble(value.as_double());
     }
     if (value.is_string()) {
         const std::string& s = value.as_string();

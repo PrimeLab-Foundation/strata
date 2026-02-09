@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <string>
 
 using namespace strata;
@@ -30,8 +31,8 @@ void test_serialize_bool() {
 }
 
 void test_serialize_number() {
-    // Integer-like float (compact format: no ".0" suffix)
-    JsonValue int_val(JsonValue::Variant(42.0));
+    // Integer (compact format: no ".0" suffix)
+    JsonValue int_val(JsonValue::Variant(static_cast<int64_t>(42)));
     std::string result = serialize_json(int_val);
     assert(result == "42");
 
@@ -41,7 +42,7 @@ void test_serialize_number() {
     assert(result.find("3.14") != std::string::npos);
 
     // Negative (compact format)
-    JsonValue neg_val(JsonValue::Variant(-123.0));
+    JsonValue neg_val(JsonValue::Variant(static_cast<int64_t>(-123)));
     result = serialize_json(neg_val);
     assert(result == "-123");
 
@@ -121,9 +122,9 @@ void test_serialize_array() {
 
     // Simple array (integer-like floats use compact format)
     JsonValue::Array arr;
-    arr.push_back(JsonValue(JsonValue::Variant(1.0)));
-    arr.push_back(JsonValue(JsonValue::Variant(2.0)));
-    arr.push_back(JsonValue(JsonValue::Variant(3.0)));
+    arr.push_back(JsonValue(JsonValue::Variant(static_cast<int64_t>(1))));
+    arr.push_back(JsonValue(JsonValue::Variant(static_cast<int64_t>(2))));
+    arr.push_back(JsonValue(JsonValue::Variant(static_cast<int64_t>(3))));
     JsonValue value(JsonValue::Variant(std::move(arr)));
     assert(serialize_json(value) == "[1,2,3]");
 
@@ -139,7 +140,7 @@ void test_serialize_object() {
     // Simple object
     JsonValue::Object obj;
     obj["name"] = JsonValue(JsonValue::Variant(std::string("Alice")));
-    obj["age"] = JsonValue(JsonValue::Variant(30.0));
+    obj["age"] = JsonValue(JsonValue::Variant(static_cast<int64_t>(30)));
     JsonValue value(JsonValue::Variant(std::move(obj)));
     std::string result = serialize_json(value);
 
@@ -156,8 +157,8 @@ void test_serialize_nested() {
     // Nested structure
     JsonValue::Object obj;
     JsonValue::Array arr;
-    arr.push_back(JsonValue(JsonValue::Variant(1.0)));
-    arr.push_back(JsonValue(JsonValue::Variant(2.0)));
+    arr.push_back(JsonValue(JsonValue::Variant(static_cast<int64_t>(1))));
+    arr.push_back(JsonValue(JsonValue::Variant(static_cast<int64_t>(2))));
 
     obj["numbers"] = JsonValue(JsonValue::Variant(std::move(arr)));
     obj["active"] = JsonValue(JsonValue::Variant(true));
@@ -175,7 +176,7 @@ void test_roundtrip() {
     // Create a value, serialize it, parse it back
     JsonValue::Object obj;
     obj["name"] = JsonValue(JsonValue::Variant(std::string("Test")));
-    obj["value"] = JsonValue(JsonValue::Variant(42.0));
+    obj["value"] = JsonValue(JsonValue::Variant(static_cast<int64_t>(42)));
     JsonValue original(JsonValue::Variant(std::move(obj)));
 
     std::string json_str = serialize_json(original);
@@ -187,7 +188,7 @@ void test_roundtrip() {
     assert(parsed.is_object());
     const auto& parsed_obj = parsed.as_object();
     assert(parsed_obj.at("name").as_string() == "Test");
-    assert(parsed_obj.at("value").as_number() == 42.0);
+    assert(parsed_obj.at("value").as_int() == 42);
 
     std::cout << "✓ test_roundtrip passed\n";
 }
@@ -196,7 +197,7 @@ void test_serialize_json_to() {
     // Test serialize_json_to function (alternative API that writes to pre-existing string)
     JsonValue::Object obj;
     obj["name"] = JsonValue(JsonValue::Variant(std::string("Test")));
-    obj["value"] = JsonValue(JsonValue::Variant(42.0));
+    obj["value"] = JsonValue(JsonValue::Variant(static_cast<int64_t>(42)));
     JsonValue original(JsonValue::Variant(std::move(obj)));
 
     std::string out;
@@ -236,33 +237,38 @@ void test_special_floats() {
 
 void test_serialize_integer_edge_cases() {
     // Zero - tests the value == 0 path in format_integer
-    JsonValue zero{JsonValue::Variant(0.0)};
+    JsonValue zero{JsonValue::Variant(static_cast<int64_t>(0))};
     std::string result = serialize_json(zero);
     assert(result == "0");
 
     // Small integers
-    JsonValue one{JsonValue::Variant(1.0)};
+    JsonValue one{JsonValue::Variant(static_cast<int64_t>(1))};
     assert(serialize_json(one) == "1");
 
-    JsonValue neg_one{JsonValue::Variant(-1.0)};
+    JsonValue neg_one{JsonValue::Variant(static_cast<int64_t>(-1))};
     assert(serialize_json(neg_one) == "-1");
 
     // Larger integers that still fit exactly in double
-    JsonValue large_pos{JsonValue::Variant(123456789.0)};
+    JsonValue large_pos{JsonValue::Variant(static_cast<int64_t>(123456789))};
     assert(serialize_json(large_pos) == "123456789");
 
-    JsonValue large_neg{JsonValue::Variant(-123456789.0)};
+    JsonValue large_neg{JsonValue::Variant(static_cast<int64_t>(-123456789))};
     assert(serialize_json(large_neg) == "-123456789");
 
     // Max safe integer for double (2^53 - 1)
-    JsonValue max_safe{JsonValue::Variant(9007199254740991.0)};
+    JsonValue max_safe{JsonValue::Variant(static_cast<int64_t>(9007199254740991LL))};
     result = serialize_json(max_safe);
     assert(result.find("9007199254740991") != std::string::npos);
 
     // Negative large integer
-    JsonValue neg_large{JsonValue::Variant(-9007199254740991.0)};
+    JsonValue neg_large{JsonValue::Variant(static_cast<int64_t>(-9007199254740991LL))};
     result = serialize_json(neg_large);
     assert(result.find("-9007199254740991") != std::string::npos);
+
+    // INT64_MIN formatting
+    JsonValue min_val{JsonValue::Variant(std::numeric_limits<int64_t>::min())};
+    result = serialize_json(min_val);
+    assert(result == "-9223372036854775808");
 
     std::cout << "✓ test_serialize_integer_edge_cases passed\n";
 }

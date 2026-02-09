@@ -13,15 +13,12 @@ from . import _strata as _native
 
 
 # Thresholds for automatic parallel mode selection.
-# Parallel parsing is only faster when objects are large (>5KB each) because:
-# - Sequential uses direct SAX-to-Python (single pass)
-# - Parallel builds C++ DOM then converts to Python (double materialization)
-# The parallel overhead is only worthwhile when C++ parsing time dominates.
-# Profiling shows thread-pool overhead per chunk is in the low µs range; the
-# dominant cost for small objects is double materialization.
-# Testing shows crossover around ~5-6KB, so we use 5KB for a safety margin.
+# Parallel parsing is useful once total input is large enough to amortize
+# thread-pool overhead. For smaller lines, use larger chunks to reduce per-task
+# overhead from submission/collection/merge.
 _PARALLEL_MIN_SIZE = 2 * 1024 * 1024  # 2 MB minimum total size
-_PARALLEL_MIN_AVG_LINE_SIZE = 5 * 1024  # 5 KB minimum average line size
+_PARALLEL_SMALL_LINE_THRESHOLD = 4 * 1024  # 4 KB average line size
+_PARALLEL_SMALL_LINE_CHUNK_SIZE = 2 * 1024 * 1024  # 2 MB minimum chunk size
 
 
 def iter_ndjson(
@@ -77,19 +74,20 @@ def parse_ndjson(
     Parse all NDJSON lines into a single list.
 
     Uses an optimal parsing strategy based on the data characteristics:
-    - **Small objects** (< 5KB each): Uses sequential SAX-to-Python parsing
-    - **Large objects** (≥ 5KB each, ≥ 2MB total): Uses multi-threaded parallel parsing
+    - **Small inputs** (< 2MB total): Uses sequential SAX-to-Python parsing
+    - **Large inputs** (≥ 2MB total): Uses multi-threaded parallel parsing
+      (with larger chunks for smaller average line sizes to amortize overhead)
 
     This auto-detection is based on benchmarks showing that parallel parsing
-    only provides speedups when individual JSON objects are large and complex.
-    For typical NDJSON with many small objects, sequential parsing is faster.
+    only provides speedups once total input is large enough to amortize overhead.
+    For smaller inputs, sequential parsing is faster.
 
     Args:
         data: NDJSON text as string or bytes.
         skip_errors: If True, skip malformed lines. If False, raise on first error.
         parallel: Control parallel parsing:
-            - ``None`` (default): Auto-detect based on object size and total size
-            - ``True``: Force parallel parsing (best for large objects ≥5KB, ≥2MB total)
+            - ``None`` (default): Auto-detect based on total size, adjust chunking for line size
+            - ``True``: Force parallel parsing
             - ``False``: Force sequential parsing (best for small objects)
         num_threads: Number of threads for parallel parsing.
             0 (default) = auto-detect based on CPU cores.
@@ -110,26 +108,29 @@ def parse_ndjson(
 
     Note:
         For streaming/iterator access, use :func:`iter_ndjson` instead.
-        Parallel parsing is most effective for files with large (≥5KB) objects
-        and enough total data (≥2MB) to amortize overhead.
+        Parallel parsing is most effective when total data is ≥2MB. For smaller
+        average line sizes, larger chunks are used to reduce per-task overhead.
     """
     text = data.decode("utf-8") if isinstance(data, bytes) else data
 
     # Determine whether to use parallel parsing
     use_parallel: bool
+    min_chunk_size = 0
     if parallel is None:
-        # Auto-detect based on data size AND average object size.
-        # Parallel is only faster when objects are large (>5KB each).
+        # Auto-detect based primarily on total size. For smaller lines, use
+        # larger chunks to reduce per-task overhead.
         data_size = len(text)
         if data_size < _PARALLEL_MIN_SIZE:
             # Too small for parallel overhead to be worthwhile
             use_parallel = False
         else:
-            # Estimate average line size by counting newlines
             newline_count = text.count('\n')
             line_count = newline_count + 1 if text and not text.endswith('\n') else max(newline_count, 1)
             avg_line_size = data_size / line_count
-            use_parallel = avg_line_size >= _PARALLEL_MIN_AVG_LINE_SIZE
+            use_parallel = True
+            if (avg_line_size < _PARALLEL_SMALL_LINE_THRESHOLD and
+                    data_size >= _PARALLEL_SMALL_LINE_CHUNK_SIZE * 2):
+                min_chunk_size = _PARALLEL_SMALL_LINE_CHUNK_SIZE
     else:
         use_parallel = parallel
 
@@ -139,6 +140,7 @@ def parse_ndjson(
             text,
             skip_errors=skip_errors,
             num_threads=num_threads,
+            min_chunk_size=min_chunk_size,
         )
     else:
         # Use sequential parsing

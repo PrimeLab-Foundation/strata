@@ -520,6 +520,82 @@ void test_large_dataset() {
     std::cout << "✓ test_large_dataset passed\n";
 }
 
+void test_parallel_single_chunk_fallback() {
+    std::string data = generate_sequential_ndjson(10);
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 2;
+    config.min_chunk_size = 1;
+    config.num_threads = 1;  // Force a single chunk
+
+    ParallelNdjsonStream stream(data, config);
+    auto results = stream.parse_all_parallel();
+
+    assert(results.size() == 10);
+    assert(!stream.used_parallel_mode());
+
+    std::cout << "✓ test_parallel_single_chunk_fallback passed\n";
+}
+
+void test_profile_metrics_parallel() {
+    std::string data = generate_sequential_ndjson(5000);
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 10;
+    config.min_chunk_size = 64;
+    config.num_threads = 2;
+
+    ParallelNdjsonProfile profile;
+    config.profile = &profile;
+
+    ParallelNdjsonStream stream(data, config);
+    auto results = stream.parse_all_parallel();
+
+    size_t expected_line_count = 1;
+    for (char c : data) {
+        if (c == '\n') {
+            expected_line_count++;
+        }
+    }
+
+    assert(results.size() == 5000);
+    assert(stream.used_parallel_mode());
+    assert(profile.data_size == data.size());
+    assert(profile.line_count == expected_line_count);
+    assert(profile.chunk_count > 1);
+    uint64_t timed_ns = profile.line_scan_ns + profile.partition_ns + profile.submit_ns +
+                        profile.wait_ns + profile.merge_ns;
+    assert(timed_ns > 0);
+    assert(profile.parse_ns_total >= profile.parse_ns_max);
+    assert(profile.parse_ns_max > 0);
+
+    std::cout << "✓ test_profile_metrics_parallel passed\n";
+}
+
+void test_profile_metrics_with_errors() {
+    std::string data = generate_ndjson_with_errors(200, {10, 50, 150});
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 10;
+    config.min_chunk_size = 64;
+    config.num_threads = 2;
+    config.skip_errors = true;
+
+    ParallelNdjsonProfile profile;
+    config.profile = &profile;
+
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.parse_all_parallel_with_errors();
+
+    assert(stream.used_parallel_mode());
+    assert(result.errors.size() == 3);
+    assert(result.lines_processed == result.values.size() + result.errors.size());
+    assert(profile.chunk_count > 1);
+    assert(profile.parse_ns_total >= profile.parse_ns_max);
+
+    std::cout << "✓ test_profile_metrics_with_errors passed\n";
+}
+
 int main() {
     std::cout << "Running Parallel NDJSON tests...\n\n";
 
@@ -545,6 +621,9 @@ int main() {
     test_mixed_json_types();
     test_no_trailing_newline();
     test_large_dataset();
+    test_parallel_single_chunk_fallback();
+    test_profile_metrics_parallel();
+    test_profile_metrics_with_errors();
 
     std::cout << "\nAll Parallel NDJSON tests passed!\n";
     return 0;

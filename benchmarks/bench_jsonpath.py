@@ -113,18 +113,19 @@ def _run_query_benchmark(
     run_func: Any,
     warmup: int,
     repeat: int,
-) -> tuple[list[float], float]:
-    """Warmup + repeat, return (times_ms, rss_mb)."""
+) -> tuple[list[float], float, Any]:
+    """Warmup + repeat, return (times_ms, rss_mb, last_result)."""
+    last_result = None
     for _ in range(warmup):
         gc.collect()
-        run_func()
+        last_result = run_func()
     times_ms = []
     for _ in range(repeat):
         gc.collect()
         start = time.perf_counter()
-        run_func()
+        last_result = run_func()
         times_ms.append((time.perf_counter() - start) * 1000)
-    return times_ms, get_rss_mb()
+    return times_ms, get_rss_mb(), last_result
 
 
 def run_all(
@@ -182,8 +183,7 @@ def run_all(
                 def run_strata():
                     return strata.search(cursor, path)
 
-            times_ms, rss_mb = _run_query_benchmark(run_strata, warmup, repeat)
-            result_list = run_strata()
+            times_ms, rss_mb, result_list = _run_query_benchmark(run_strata, warmup, repeat)
             n = len(result_list) if isinstance(result_list, list) else 1
             results.append(
                 QueryBenchResult(
@@ -212,8 +212,7 @@ def run_all(
                 def run_jmespath():
                     return compiled.search(json_data)
 
-                times_ms, rss_mb = _run_query_benchmark(run_jmespath, warmup, repeat)
-                res = compiled.search(json_data)
+                times_ms, rss_mb, res = _run_query_benchmark(run_jmespath, warmup, repeat)
                 n = len(res) if isinstance(res, (list, tuple)) else 1
                 results.append(
                     QueryBenchResult(
@@ -250,8 +249,8 @@ def run_all(
                     def run_jp():
                         return [m.value for m in compiled.find(json_data)]
 
-                    times_ms, rss_mb = _run_query_benchmark(run_jp, warmup, repeat)
-                    n = len(compiled.find(json_data))
+                    times_ms, rss_mb, res = _run_query_benchmark(run_jp, warmup, repeat)
+                    n = len(res) if isinstance(res, list) else 1
                     results.append(
                         QueryBenchResult(
                             library="jsonpath-ng",

@@ -132,14 +132,20 @@ def run_benchmarks(
     for library_name, parse_func in _get_ndjson_runners():
         print(f"--- Benchmarking {library_name} ---")
         try:
+            last_result: list[Any] | None = None
+
+            def run():
+                nonlocal last_result
+                last_result = parse_func(ndjson_text)
+                return last_result
+
             tr = run_single_benchmark(
-                lambda: parse_func(ndjson_text),
+                run,
                 warmup=warmup,
                 repeat=repeat,
                 capture_rss=True,
             )
-            parsed = parse_func(ndjson_text)
-            lines_parsed = len(parsed)
+            lines_parsed = len(last_result) if isinstance(last_result, list) else 0
             result = NdjsonResult(
                 library=library_name,
                 min_ms=tr.min_ms,

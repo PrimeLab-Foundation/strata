@@ -304,14 +304,20 @@ class BenchmarkRunner:
 
             # Baseline (Python eval)
             try:
+                last_result = None
+
+                def run_once():
+                    nonlocal last_result
+                    last_result = eval_query_users_json(parsed, query_id)
+                    return last_result
+
                 tr = run_single_benchmark(
-                    lambda q=query_id: eval_query_users_json(parsed, q),
+                    run_once,
                     warmup=self.warmup,
                     repeat=self.repeat,
                     capture_rss=True,
                 )
-                result = eval_query_users_json(parsed, query_id)
-                n = len(result) if isinstance(result, list) else 1
+                n = len(last_result) if isinstance(last_result, list) else 1
                 self.results.append(
                     BenchResult(
                         library="eval_query (baseline)",
@@ -338,14 +344,20 @@ class BenchmarkRunner:
                         3: "users[*].orders[*].items[*].price | [*]",
                     }
                     expr = jmespath.compile(exprs[query_id])
+                    last_result = None
+
+                    def run_jmespath():
+                        nonlocal last_result
+                        last_result = expr.search(parsed)
+                        return last_result
+
                     tr = run_single_benchmark(
-                        lambda: expr.search(parsed),
+                        run_jmespath,
                         warmup=self.warmup,
                         repeat=self.repeat,
                         capture_rss=True,
                     )
-                    res = expr.search(parsed)
-                    n = len(res) if isinstance(res, (list, tuple)) else 1
+                    n = len(last_result) if isinstance(last_result, (list, tuple)) else 1
                     self.results.append(
                         BenchResult(
                             library="jmespath",
@@ -376,9 +388,12 @@ class BenchmarkRunner:
                 expr_str = exprs.get(query_id)
                 if expr_str:
                     compiled = jp_parse(expr_str)
+                    last_result = None
 
                     def run_jp():
-                        return [m.value for m in compiled.find(parsed)]
+                        nonlocal last_result
+                        last_result = [m.value for m in compiled.find(parsed)]
+                        return last_result
 
                     tr = run_single_benchmark(
                         run_jp,
@@ -386,7 +401,7 @@ class BenchmarkRunner:
                         repeat=self.repeat,
                         capture_rss=True,
                     )
-                    n = len(compiled.find(parsed))
+                    n = len(last_result) if isinstance(last_result, list) else 1
                     self.results.append(
                         BenchResult(
                             library="jsonpath-ng",

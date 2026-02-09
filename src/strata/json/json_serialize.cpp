@@ -27,9 +27,11 @@
 #include "strata/util/dragonbox.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <stdexcept>
+#include <system_error>
 
 namespace strata {
 
@@ -82,7 +84,21 @@ static void escape_string(std::string_view str, std::string& out) {
 
 // Serialize a number
 static void serialize_number(const JsonValue& value, std::string& out) {
-    double d = value.as_number();
+    if (value.is_int()) {
+        char buf[32];
+        auto res = std::to_chars(buf, buf + sizeof(buf), value.as_int());
+        if (res.ec == std::errc()) {
+            out.append(buf, static_cast<size_t>(res.ptr - buf));
+            return;
+        }
+        int len = std::snprintf(buf, sizeof(buf), "%lld", static_cast<long long>(value.as_int()));
+        if (len > 0) {
+            out.append(buf, static_cast<size_t>(len));
+        }
+        return;
+    }
+
+    double d = value.as_double();
 
     // Handle special float values (NaN, Inf)
     if (std::isnan(d) || std::isinf(d)) {

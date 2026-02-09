@@ -13,13 +13,15 @@
  * Design rationale:
  * - JsonValue uses std::variant for type-safe value storage
  * - FlatMap provides O(n) lookup for small objects and a hash index for larger ones
- * - Number type is double (sufficient for JSON's numeric range)
+ * - Numbers preserve integers as int64_t and use double for non-integers
  * - Status/Result enable exception-free hot paths
  *
  * @note This header is pure C++ with no Python dependencies.
  */
 
 #pragma once
+
+#include "strata/util/lazy_string.hpp"
 
 #include <cstdint>
 #include <stdexcept>
@@ -163,9 +165,11 @@ template <typename T> struct Result {
 struct JsonValue {
     using Array = std::vector<JsonValue>;
     using Object = FlatMap<std::string, JsonValue>; // FlatMap + hash index for larger objects
-    using Number = double;                          // keep it simple for now
+    using Int = int64_t;
+    using Number = double;
 
-    using Variant = std::variant<std::nullptr_t, bool, Number, std::string, Array, Object>;
+    using Variant =
+        std::variant<std::nullptr_t, bool, Int, Number, std::string, LazyString, Array, Object>;
 
     Variant data;
 
@@ -174,20 +178,39 @@ struct JsonValue {
 
     bool is_null() const { return std::holds_alternative<std::nullptr_t>(data); }
     bool is_bool() const { return std::holds_alternative<bool>(data); }
-    bool is_number() const { return std::holds_alternative<Number>(data); }
-    bool is_string() const { return std::holds_alternative<std::string>(data); }
+    bool is_int() const { return std::holds_alternative<Int>(data); }
+    bool is_double() const { return std::holds_alternative<Number>(data); }
+    bool is_number() const { return is_int() || is_double(); }
+    bool is_string() const {
+        return std::holds_alternative<std::string>(data) ||
+               std::holds_alternative<LazyString>(data);
+    }
     bool is_array() const { return std::holds_alternative<Array>(data); }
     bool is_object() const { return std::holds_alternative<Object>(data); }
 
     const bool& as_bool() const { return std::get<bool>(data); }
-    const Number& as_number() const { return std::get<Number>(data); }
-    const std::string& as_string() const { return std::get<std::string>(data); }
+    const Int& as_int() const { return std::get<Int>(data); }
+    const Number& as_double() const { return std::get<Number>(data); }
+    Number as_number() const { return is_int() ? static_cast<Number>(as_int()) : as_double(); }
+    const std::string& as_string() const {
+        if (std::holds_alternative<std::string>(data)) {
+            return std::get<std::string>(data);
+        }
+        return std::get<LazyString>(data).value();
+    }
     const Array& as_array() const { return std::get<Array>(data); }
     const Object& as_object() const { return std::get<Object>(data); }
 
     bool& as_bool() { return std::get<bool>(data); }
-    Number& as_number() { return std::get<Number>(data); }
-    std::string& as_string() { return std::get<std::string>(data); }
+    Int& as_int() { return std::get<Int>(data); }
+    Number& as_double() { return std::get<Number>(data); }
+    Number as_number() { return is_int() ? static_cast<Number>(as_int()) : as_double(); }
+    std::string& as_string() {
+        if (!std::holds_alternative<std::string>(data)) {
+            data = std::string(std::get<LazyString>(data).value());
+        }
+        return std::get<std::string>(data);
+    }
     Array& as_array() { return std::get<Array>(data); }
     Object& as_object() { return std::get<Object>(data); }
 };

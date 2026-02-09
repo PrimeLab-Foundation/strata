@@ -1,5 +1,6 @@
 #include "strata/json/json_tape.hpp"
 
+#include <limits>
 #include <vector>
 
 namespace strata {
@@ -49,14 +50,15 @@ class TapeToDomBuilder {
             case TapeToken::Int64: {
                 int64_t v = it_.as_int64();
                 ++it_;
-                // Convert to double to match DomBuilderHandler behavior
-                return {Status::Ok, JsonValue(JsonValue::Variant(static_cast<double>(v)))};
+                return {Status::Ok, JsonValue(JsonValue::Variant(v))};
             }
 
             case TapeToken::Uint64: {
                 uint64_t v = it_.as_uint64();
                 ++it_;
-                // Convert to double to match DomBuilderHandler behavior
+                if (v <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+                    return {Status::Ok, JsonValue(JsonValue::Variant(static_cast<int64_t>(v)))};
+                }
                 return {Status::Ok, JsonValue(JsonValue::Variant(static_cast<double>(v)))};
             }
 

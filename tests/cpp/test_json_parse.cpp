@@ -38,22 +38,26 @@ void test_parse_number() {
     auto result_int = parse_json("42");
     assert(result_int.ok());
     assert(result_int.value.is_number());
-    assert(result_int.value.as_number() == 42.0);
+    assert(result_int.value.is_int());
+    assert(result_int.value.as_int() == 42);
 
     // Negative
     auto result_neg = parse_json("-123");
     assert(result_neg.ok());
-    assert(result_neg.value.as_number() == -123.0);
+    assert(result_neg.value.is_int());
+    assert(result_neg.value.as_int() == -123);
 
     // Float
     auto result_float = parse_json("3.14");
     assert(result_float.ok());
-    assert(std::abs(result_float.value.as_number() - 3.14) < 0.001);
+    assert(result_float.value.is_double());
+    assert(std::abs(result_float.value.as_double() - 3.14) < 0.001);
 
     // Scientific notation
     auto result_sci = parse_json("1.23e10");
     assert(result_sci.ok());
-    assert(result_sci.value.as_number() == 1.23e10);
+    assert(result_sci.value.is_double());
+    assert(result_sci.value.as_double() == 1.23e10);
 
     std::cout << "✓ test_parse_number passed\n";
 }
@@ -138,9 +142,9 @@ void test_parse_array() {
     assert(result.value.is_array());
     const auto& arr = result.value.as_array();
     assert(arr.size() == 3);
-    assert(arr[0].as_number() == 1.0);
-    assert(arr[1].as_number() == 2.0);
-    assert(arr[2].as_number() == 3.0);
+    assert(arr[0].as_int() == 1);
+    assert(arr[1].as_int() == 2);
+    assert(arr[2].as_int() == 3);
 
     std::cout << "✓ test_parse_array passed\n";
 }
@@ -153,7 +157,7 @@ void test_parse_nested_array() {
     assert(arr.size() == 2);
     assert(arr[0].is_array());
     assert(arr[0].as_array().size() == 2);
-    assert(arr[0].as_array()[0].as_number() == 1.0);
+    assert(arr[0].as_array()[0].as_int() == 1);
 
     std::cout << "✓ test_parse_nested_array passed\n";
 }
@@ -172,7 +176,7 @@ void test_parse_object() {
     const auto& obj = result.value.as_object();
     assert(obj.size() == 2);
     assert(obj.at("name").as_string() == "Alice");
-    assert(obj.at("age").as_number() == 30.0);
+    assert(obj.at("age").as_int() == 30);
 
     std::cout << "✓ test_parse_object passed\n";
 }
@@ -183,7 +187,7 @@ void test_parse_escaped_key() {
     const auto& obj = result.value.as_object();
     auto it = obj.find("a\tb");
     assert(it != obj.end());
-    assert(it->second.as_number() == 1.0);
+    assert(it->second.as_int() == 1);
     std::cout << "✓ test_parse_escaped_key passed\n";
 }
 
@@ -191,7 +195,8 @@ void test_parse_unsigned_large() {
     auto result = parse_json("9223372036854775808"); // INT64_MAX + 1
     assert(result.ok());
     assert(result.value.is_number());
-    assert(result.value.as_number() > 9.22e18);
+    assert(result.value.is_double());
+    assert(result.value.as_double() > 9.22e18);
     std::cout << "✓ test_parse_unsigned_large passed\n";
 }
 
@@ -222,7 +227,7 @@ void test_parse_nested_object() {
     assert(obj.at("user").is_object());
     const auto& user = obj.at("user").as_object();
     assert(user.at("name").as_string() == "Bob");
-    assert(user.at("age").as_number() == 25.0);
+    assert(user.at("age").as_int() == 25);
 
     std::cout << "✓ test_parse_nested_object passed\n";
 }
@@ -252,7 +257,7 @@ void test_parse_whitespace() {
     // Leading/trailing whitespace
     auto result = parse_json("  { \"a\" : 1 }  ");
     assert(result.ok());
-    assert(result.value.as_object().at("a").as_number() == 1.0);
+    assert(result.value.as_object().at("a").as_int() == 1);
 
     // Lots of whitespace
     auto result2 = parse_json("[\n  1,\n  2,\n  3\n]");
@@ -316,12 +321,14 @@ void test_parse_large_numbers() {
     // Large integer
     auto result_big = parse_json("9007199254740991");
     assert(result_big.ok());
-    assert(result_big.value.as_number() == 9007199254740991.0);
+    assert(result_big.value.is_int());
+    assert(result_big.value.as_int() == 9007199254740991LL);
 
     // Very small
     auto result_small = parse_json("0.0000001");
     assert(result_small.ok());
-    assert(result_small.value.as_number() > 0);
+    assert(result_small.value.is_double());
+    assert(result_small.value.as_double() > 0);
 
     std::cout << "✓ test_parse_large_numbers passed\n";
 }
