@@ -2,6 +2,7 @@
 #include "python_document.h"
 #include "python_ndjson.h"
 #include "python_types.h"
+#include "strata/json/json_mmap.hpp"
 #include "strata/json/json_parse.hpp"
 #include "strata/search/jsonpath.hpp"
 
@@ -33,6 +34,7 @@ enum class StrataSearchMode {
     Dict,
     String,
     Cursor,
+    File,
 };
 
 bool parse_strata_mode(PyObject* mode_obj, StrataSearchMode* mode) {
@@ -45,7 +47,8 @@ bool parse_strata_mode(PyObject* mode_obj, StrataSearchMode* mode) {
         return true;
     }
     if (!PyUnicode_Check(mode_obj)) {
-        PyErr_SetString(PyExc_TypeError, "strata_mode must be 'dict', 'string', or 'cursor'");
+        PyErr_SetString(PyExc_TypeError,
+                        "strata_mode must be 'dict', 'string', 'cursor', or 'file'");
         return false;
     }
     const char* raw = PyUnicode_AsUTF8(mode_obj);
@@ -67,7 +70,11 @@ bool parse_strata_mode(PyObject* mode_obj, StrataSearchMode* mode) {
         *mode = StrataSearchMode::Cursor;
         return true;
     }
-    PyErr_SetString(PyExc_ValueError, "strata_mode must be 'dict', 'string', or 'cursor'");
+    if (value == "file") {
+        *mode = StrataSearchMode::File;
+        return true;
+    }
+    PyErr_SetString(PyExc_ValueError, "strata_mode must be 'dict', 'string', 'cursor', or 'file'");
     return false;
 }
 
@@ -130,6 +137,71 @@ std::string_view trim_line_endings(std::string_view line) {
     return line;
 }
 
+bool looks_like_json_text(const char* data, Py_ssize_t len) {
+    if (!data || len <= 0) {
+        return true;
+    }
+    Py_ssize_t i = 0;
+    while (i < len && is_json_whitespace(static_cast<unsigned char>(data[i]))) {
+        ++i;
+    }
+    if (i >= len) {
+        return true;
+    }
+    unsigned char c = static_cast<unsigned char>(data[i]);
+    if (c == '{' || c == '[' || c == '"' || c == '-' || c == 't' || c == 'f' || c == 'n') {
+        return true;
+    }
+    return c >= '0' && c <= '9';
+}
+
+bool ends_with_ndjson(const char* data, Py_ssize_t len) {
+    static const char suffix[] = ".ndjson";
+    constexpr Py_ssize_t suffix_len = static_cast<Py_ssize_t>(sizeof(suffix) - 1);
+    if (!data || len < suffix_len) {
+        return false;
+    }
+    return std::equal(suffix, suffix + suffix_len, data + (len - suffix_len));
+}
+
+bool is_ndjson_name(PyObject* obj) {
+    if (PyUnicode_Check(obj)) {
+        Py_ssize_t len = 0;
+        const char* text = PyUnicode_AsUTF8AndSize(obj, &len);
+        if (!text) {
+            return false;
+        }
+        return ends_with_ndjson(text, len);
+    }
+    if (PyBytes_Check(obj)) {
+        char* data = nullptr;
+        Py_ssize_t len = 0;
+        if (PyBytes_AsStringAndSize(obj, &data, &len) < 0) {
+            return false;
+        }
+        return ends_with_ndjson(data, len);
+    }
+    PyObject* pathlike = PyOS_FSPath(obj);
+    if (pathlike) {
+        bool result = is_ndjson_name(pathlike);
+        Py_DECREF(pathlike);
+        return result;
+    }
+    PyErr_Clear();
+    return false;
+}
+
+bool detect_ndjson_name_attr(PyObject* obj) {
+    PyObject* name_obj = PyObject_GetAttrString(obj, "name");
+    if (!name_obj) {
+        PyErr_Clear();
+        return false;
+    }
+    bool result = is_ndjson_name(name_obj);
+    Py_DECREF(name_obj);
+    return result;
+}
+
 bool append_ndjson_match(PyObject* results, size_t line_no,
                          const std::vector<strata::JsonValue>& matches) {
     PyObject* matches_list = json_value_list_to_python(matches);
@@ -179,45 +251,123 @@ PyObject* search_from_json_buffer(const char* data, Py_ssize_t len,
     return json_value_list_to_python(result_values);
 }
 
+PyObject* search_dict_mode(PyObject* data_obj, const strata::CompiledPath& compiled_path) {
+    PyObject* json_bytes = strata_dumps_bytes(nullptr, data_obj);
+    if (!json_bytes) {
+        return NULL;
+    }
+    char* json_data = nullptr;
+    Py_ssize_t json_len = 0;
+    if (PyBytes_AsStringAndSize(json_bytes, &json_data, &json_len) < 0) {
+        Py_DECREF(json_bytes);
+        return NULL;
+    }
+    PyObject* result = search_from_json_buffer(json_data, json_len, compiled_path);
+    Py_DECREF(json_bytes);
+    return result;
+}
+
+PyObject* search_from_file_like(PyObject* data_obj, const strata::CompiledPath& compiled_path) {
+    PyObject* payload = PyObject_CallMethod(data_obj, "read", NULL);
+    if (!payload) {
+        return NULL;
+    }
+
+    PyObject* result = NULL;
+    if (PyUnicode_Check(payload)) {
+        Py_ssize_t json_len = 0;
+        const char* json_data = PyUnicode_AsUTF8AndSize(payload, &json_len);
+        if (json_data) {
+            result = search_from_json_buffer(json_data, json_len, compiled_path);
+        }
+    } else if (PyBytes_Check(payload)) {
+        char* json_data = nullptr;
+        Py_ssize_t json_len = 0;
+        if (PyBytes_AsStringAndSize(payload, &json_data, &json_len) == 0) {
+            result = search_from_json_buffer(json_data, json_len, compiled_path);
+        }
+    } else if (PyByteArray_Check(payload) || PyMemoryView_Check(payload)) {
+        PyObject* bytes_obj = PyBytes_FromObject(payload);
+        if (bytes_obj) {
+            char* json_data = nullptr;
+            Py_ssize_t json_len = 0;
+            if (PyBytes_AsStringAndSize(bytes_obj, &json_data, &json_len) == 0) {
+                result = search_from_json_buffer(json_data, json_len, compiled_path);
+            }
+            Py_DECREF(bytes_obj);
+        }
+    } else {
+        PyErr_SetString(PyExc_TypeError, "file-like object must return str or bytes from read()");
+    }
+
+    Py_DECREF(payload);
+    return result;
+}
+
 PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& compiled_path) {
+    PyObject* cursor_obj = data_obj;
+    PyObject* borrowed = NULL;
+    if (!is_py_json_cursor(data_obj) && !is_py_json_document(data_obj) && !is_py_ndjson_cursor(data_obj)) {
+        int has_cursor = PyObject_HasAttrString(data_obj, "_cursor");
+        if (has_cursor < 0) {
+            return NULL;
+        }
+        if (has_cursor) {
+            borrowed = PyObject_GetAttrString(data_obj, "_cursor");
+            if (borrowed && is_py_json_cursor(borrowed)) {
+                cursor_obj = borrowed;
+            } else {
+                Py_XDECREF(borrowed);
+                borrowed = NULL;
+            }
+        }
+    }
+
     if (is_py_json_document(data_obj)) {
         auto* doc = get_py_json_document(data_obj);
         if (!doc) {
+            Py_XDECREF(borrowed);
             PyErr_SetString(PyExc_TypeError, "Invalid JsonDocument");
             return NULL;
         }
 
         strata::JsonCursor cursor(doc->root());
         auto result_values = strata::eval_jsonpath(cursor, compiled_path);
+        Py_XDECREF(borrowed);
         return json_value_list_to_python(result_values);
     }
 
-    if (is_py_json_cursor(data_obj)) {
-        auto* cursor_ptr = get_py_json_cursor(data_obj);
+    if (is_py_json_cursor(cursor_obj)) {
+        auto* cursor_ptr = get_py_json_cursor(cursor_obj);
         if (!cursor_ptr) {
+            Py_XDECREF(borrowed);
             PyErr_SetString(PyExc_TypeError, "Invalid JsonCursor");
             return NULL;
         }
 
         auto result_values = strata::eval_jsonpath(*cursor_ptr, compiled_path);
+        Py_XDECREF(borrowed);
         return json_value_list_to_python(result_values);
     }
 
     if (is_py_ndjson_cursor(data_obj)) {
         auto* cursor_data = get_py_ndjson_cursor(data_obj);
         if (!cursor_data) {
+            Py_XDECREF(borrowed);
             PyErr_SetString(PyExc_TypeError, "Invalid NdjsonCursor");
             return NULL;
         }
         const auto& values = cursor_data->values;
         const auto& line_numbers = cursor_data->line_numbers;
         if (values.size() != line_numbers.size()) {
+            Py_XDECREF(borrowed);
             PyErr_SetString(PyExc_RuntimeError, "NdjsonCursor data is inconsistent");
             return NULL;
         }
 
         PyObject* results = PyList_New(0);
         if (!results) {
+            Py_XDECREF(borrowed);
             return NULL;
         }
 
@@ -229,14 +379,45 @@ PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& com
             }
             if (!append_ndjson_match(results, line_numbers[i], matches)) {
                 Py_DECREF(results);
+                Py_XDECREF(borrowed);
                 return NULL;
             }
         }
+        Py_XDECREF(borrowed);
         return results;
     }
 
+    Py_XDECREF(borrowed);
     PyErr_SetString(PyExc_TypeError, "cursor mode expects JsonDocument, JsonCursor, or NdjsonCursor");
     return NULL;
+}
+
+PyObject* search_file_pathlike(PyObject* pathlike,
+                               const strata::CompiledPath& compiled_path) {
+    const char* filepath = nullptr;
+    if (PyUnicode_Check(pathlike)) {
+        filepath = PyUnicode_AsUTF8(pathlike);
+    } else if (PyBytes_Check(pathlike)) {
+        filepath = PyBytes_AsString(pathlike);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "path must be str or bytes");
+        return NULL;
+    }
+    if (!filepath) {
+        return NULL;
+    }
+
+    auto result = strata::parse_json_file(filepath);
+    if (!result.ok()) {
+        PyErr_SetString(PyExc_ValueError, "Failed to parse JSON file");
+        return NULL;
+    }
+
+    emit_duplicate_key_warnings();
+
+    strata::JsonCursor cursor(result.value.root());
+    auto result_values = strata::eval_jsonpath(cursor, compiled_path);
+    return json_value_list_to_python(result_values);
 }
 
 bool process_ndjson_line(std::string_view line, size_t line_no,
@@ -270,6 +451,195 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
         return true;
     }
     return append_ndjson_match(results, line_no, matches);
+}
+
+bool process_ndjson_text(const char* data, Py_ssize_t len, const strata::CompiledPath& compiled_path,
+                         NdjsonErrorMode mode, PyObject* results,
+                         strata::ParseSaxOptions& options, strata::ParseSaxContext& parse_context) {
+    if (!data || len <= 0) {
+        return true;
+    }
+    Py_ssize_t start = 0;
+    size_t line_no = 0;
+    while (start < len) {
+        Py_ssize_t end = start;
+        while (end < len && data[end] != '\n') {
+            ++end;
+        }
+        std::string_view line(data + start, static_cast<size_t>(end - start));
+        line_no++;
+        if (!line.empty() && line.back() == '\r') {
+            line.remove_suffix(1);
+        }
+        if (!process_ndjson_line(line, line_no, compiled_path, mode, results, options, parse_context)) {
+            return false;
+        }
+        start = end + 1;
+    }
+    return true;
+}
+
+bool process_ndjson_iterable(PyObject* data_obj, const strata::CompiledPath& compiled_path,
+                             NdjsonErrorMode mode, PyObject* results,
+                             strata::ParseSaxOptions& options, strata::ParseSaxContext& parse_context) {
+    PyObject* iter = PyObject_GetIter(data_obj);
+    if (!iter) {
+        return false;
+    }
+    size_t line_no = 0;
+    PyObject* line_obj;
+    while ((line_obj = PyIter_Next(iter))) {
+        line_no++;
+        std::string_view view;
+        if (PyBytes_Check(line_obj)) {
+            char* data = nullptr;
+            Py_ssize_t len = 0;
+            if (PyBytes_AsStringAndSize(line_obj, &data, &len) < 0) {
+                Py_DECREF(line_obj);
+                Py_DECREF(iter);
+                return false;
+            }
+            view = std::string_view(data, static_cast<size_t>(len));
+        } else if (PyUnicode_Check(line_obj)) {
+            Py_ssize_t len = 0;
+            const char* data = PyUnicode_AsUTF8AndSize(line_obj, &len);
+            if (!data) {
+                Py_DECREF(line_obj);
+                Py_DECREF(iter);
+                return false;
+            }
+            view = std::string_view(data, static_cast<size_t>(len));
+        } else {
+            Py_DECREF(line_obj);
+            Py_DECREF(iter);
+            PyErr_SetString(PyExc_TypeError, "NDJSON lines must be str or bytes");
+            return false;
+        }
+        view = trim_line_endings(view);
+        bool ok = process_ndjson_line(view, line_no, compiled_path, mode, results, options, parse_context);
+        Py_DECREF(line_obj);
+        if (!ok) {
+            Py_DECREF(iter);
+            return false;
+        }
+    }
+    Py_DECREF(iter);
+    if (PyErr_Occurred()) {
+        return false;
+    }
+    return true;
+}
+
+PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& compiled_path,
+                             NdjsonErrorMode mode, bool treat_string_as_text) {
+    PyObject* results = PyList_New(0);
+    if (!results) {
+        return NULL;
+    }
+
+    strata::ParseSaxOptions options;
+    strata::ParseSaxContext parse_context;
+
+    if (treat_string_as_text) {
+        if (PyUnicode_Check(data_obj)) {
+            Py_ssize_t len = 0;
+            const char* data = PyUnicode_AsUTF8AndSize(data_obj, &len);
+            if (!data) {
+                Py_DECREF(results);
+                return NULL;
+            }
+            if (!process_ndjson_text(data, len, compiled_path, mode, results, options, parse_context)) {
+                Py_DECREF(results);
+                return NULL;
+            }
+            return results;
+        }
+        if (PyBytes_Check(data_obj) || PyByteArray_Check(data_obj) || PyMemoryView_Check(data_obj)) {
+            PyObject* bytes_obj = data_obj;
+            PyObject* temp_bytes = NULL;
+            if (!PyBytes_Check(data_obj)) {
+                temp_bytes = PyBytes_FromObject(data_obj);
+                if (!temp_bytes) {
+                    Py_DECREF(results);
+                    return NULL;
+                }
+                bytes_obj = temp_bytes;
+            }
+            char* data = nullptr;
+            Py_ssize_t len = 0;
+            if (PyBytes_AsStringAndSize(bytes_obj, &data, &len) < 0) {
+                Py_XDECREF(temp_bytes);
+                Py_DECREF(results);
+                return NULL;
+            }
+            bool ok = process_ndjson_text(data, len, compiled_path, mode, results, options, parse_context);
+            Py_XDECREF(temp_bytes);
+            if (!ok) {
+                Py_DECREF(results);
+                return NULL;
+            }
+            return results;
+        }
+    }
+
+    PyObject* pathlike = PyOS_FSPath(data_obj);
+    if (pathlike) {
+        const char* filepath = nullptr;
+        if (PyUnicode_Check(pathlike)) {
+            filepath = PyUnicode_AsUTF8(pathlike);
+        } else if (PyBytes_Check(pathlike)) {
+            filepath = PyBytes_AsString(pathlike);
+        } else {
+            Py_DECREF(pathlike);
+            Py_DECREF(results);
+            PyErr_SetString(PyExc_TypeError, "path must be str or bytes");
+            return NULL;
+        }
+        if (!filepath) {
+            Py_DECREF(pathlike);
+            Py_DECREF(results);
+            return NULL;
+        }
+
+        std::ifstream file(filepath, std::ios::binary);
+        if (!file) {
+            Py_DECREF(pathlike);
+            Py_DECREF(results);
+            PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
+            return NULL;
+        }
+
+        std::string line;
+        size_t line_no = 0;
+        while (std::getline(file, line)) {
+            line_no++;
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+            std::string_view view(line);
+            if (!process_ndjson_line(view, line_no, compiled_path, mode, results, options,
+                                     parse_context)) {
+                Py_DECREF(pathlike);
+                Py_DECREF(results);
+                return NULL;
+            }
+        }
+        if (file.bad()) {
+            Py_DECREF(pathlike);
+            Py_DECREF(results);
+            PyErr_SetString(PyExc_OSError, "Error reading NDJSON file");
+            return NULL;
+        }
+        Py_DECREF(pathlike);
+        return results;
+    }
+    PyErr_Clear();
+
+    if (!process_ndjson_iterable(data_obj, compiled_path, mode, results, options, parse_context)) {
+        Py_DECREF(results);
+        return NULL;
+    }
+    return results;
 }
 
 } // namespace
@@ -423,15 +793,26 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* data_obj;
     PyObject* path_obj;
     PyObject* mode_obj = Py_None;
+    PyObject* ndjson_obj = Py_None;
+    int skip_errors = 0;
+    PyObject* on_error_obj = Py_None;
+    PyObject* parallel_obj = Py_None;
+    int num_threads = 0;
 
-    static const char* kwlist[] = {"data", "path", "strata_mode", NULL};
+    static const char* kwlist[] = {"data",      "path",       "strata_mode", "ndjson",
+                                   "skip_errors", "on_error", "parallel",    "num_threads",
+                                   NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|O", const_cast<char**>(kwlist), &data_obj,
-                                     &path_obj, &mode_obj)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|OOpOOi", const_cast<char**>(kwlist),
+                                     &data_obj, &path_obj, &mode_obj, &ndjson_obj, &skip_errors,
+                                     &on_error_obj, &parallel_obj, &num_threads)) {
         return NULL;
     }
 
     STRATA_CPP_TRY
+
+    (void)parallel_obj;
+    (void)num_threads;
 
     StrataSearchMode mode;
     if (!parse_strata_mode(mode_obj, &mode)) {
@@ -462,20 +843,31 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         return NULL;
     }
 
+    bool ndjson_flag_set = false;
+    bool ndjson_flag = false;
+    if (ndjson_obj != Py_None) {
+        int truth = PyObject_IsTrue(ndjson_obj);
+        if (truth < 0) {
+            return NULL;
+        }
+        ndjson_flag_set = true;
+        ndjson_flag = truth != 0;
+    }
+
+    if (ndjson_flag_set && !ndjson_flag && (skip_errors || on_error_obj != Py_None)) {
+        PyErr_SetString(PyExc_TypeError, "ndjson=False cannot be used with skip_errors/on_error");
+        return NULL;
+    }
+
+    if (mode != StrataSearchMode::Auto) {
+        if ((ndjson_flag_set && ndjson_flag) || skip_errors || on_error_obj != Py_None) {
+            PyErr_SetString(PyExc_TypeError, "ndjson options are only supported in auto mode");
+            return NULL;
+        }
+    }
+
     if (mode == StrataSearchMode::Dict) {
-        PyObject* json_bytes = strata_dumps_bytes(nullptr, data_obj);
-        if (!json_bytes) {
-            return NULL;
-        }
-        char* json_data = nullptr;
-        Py_ssize_t json_len = 0;
-        if (PyBytes_AsStringAndSize(json_bytes, &json_data, &json_len) < 0) {
-            Py_DECREF(json_bytes);
-            return NULL;
-        }
-        PyObject* result = search_from_json_buffer(json_data, json_len, compiled_path);
-        Py_DECREF(json_bytes);
-        return result;
+        return search_dict_mode(data_obj, compiled_path);
     }
 
     if (mode == StrataSearchMode::String) {
@@ -503,20 +895,109 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         return search_cursor_mode(data_obj, compiled_path);
     }
 
-    // Handle JsonDocument/JsonCursor inputs (parsed once, no reparse)
-    if (is_py_json_document(data_obj)) {
+    if (mode == StrataSearchMode::File) {
+        PyObject* pathlike = PyOS_FSPath(data_obj);
+        if (!pathlike) {
+            return NULL;
+        }
+        PyObject* result = search_file_pathlike(pathlike, compiled_path);
+        Py_DECREF(pathlike);
+        return result;
+    }
+
+    bool has_text = false;
+    bool looks_like_json = false;
+    if (PyUnicode_Check(data_obj)) {
+        Py_ssize_t text_len = 0;
+        const char* text = PyUnicode_AsUTF8AndSize(data_obj, &text_len);
+        if (!text) {
+            return NULL;
+        }
+        has_text = true;
+        looks_like_json = looks_like_json_text(text, text_len);
+    } else if (PyBytes_Check(data_obj)) {
+        char* text = nullptr;
+        Py_ssize_t text_len = 0;
+        if (PyBytes_AsStringAndSize(data_obj, &text, &text_len) < 0) {
+            return NULL;
+        }
+        has_text = true;
+        looks_like_json = looks_like_json_text(text, text_len);
+    }
+
+    if (PyDict_Check(data_obj) || PyList_Check(data_obj)) {
+        if ((ndjson_flag_set && ndjson_flag) || skip_errors || on_error_obj != Py_None) {
+            PyErr_SetString(PyExc_TypeError, "ndjson options are only supported for NDJSON search");
+            return NULL;
+        }
+        return search_dict_mode(data_obj, compiled_path);
+    }
+
+    int has_cursor_attr = PyObject_HasAttrString(data_obj, "_cursor");
+    if (has_cursor_attr < 0) {
+        return NULL;
+    }
+    if (is_py_json_document(data_obj) || is_py_json_cursor(data_obj) || is_py_ndjson_cursor(data_obj) ||
+        has_cursor_attr) {
         return search_cursor_mode(data_obj, compiled_path);
     }
 
-    if (is_py_json_cursor(data_obj)) {
-        return search_cursor_mode(data_obj, compiled_path);
+    bool ndjson_requested = false;
+    if (ndjson_flag_set) {
+        ndjson_requested = ndjson_flag;
+    } else if (skip_errors || on_error_obj != Py_None) {
+        ndjson_requested = true;
     }
 
-    if (is_py_ndjson_cursor(data_obj)) {
-        return search_cursor_mode(data_obj, compiled_path);
+    if (!ndjson_flag_set && !ndjson_requested) {
+        bool ndjson_by_name = detect_ndjson_name_attr(data_obj);
+        if (PyErr_Occurred()) {
+            return NULL;
+        }
+        bool ndjson_by_extension = ndjson_by_name;
+        if (!ndjson_by_extension) {
+            bool check_pathlike = !has_text || !looks_like_json;
+            if (check_pathlike) {
+                PyObject* pathlike = PyOS_FSPath(data_obj);
+                if (pathlike) {
+                    ndjson_by_extension = is_ndjson_name(pathlike);
+                    Py_DECREF(pathlike);
+                    if (PyErr_Occurred()) {
+                        return NULL;
+                    }
+                } else {
+                    PyErr_Clear();
+                }
+            }
+        }
+        ndjson_requested = ndjson_by_extension;
     }
 
-    // Handle string input (JSON text)
+    if (ndjson_requested) {
+        NdjsonErrorMode ndjson_mode;
+        if (!parse_ndjson_error_mode(skip_errors, on_error_obj, &ndjson_mode)) {
+            return NULL;
+        }
+        bool treat_string_as_text = has_text && looks_like_json;
+        return search_ndjson_data(data_obj, compiled_path, ndjson_mode, treat_string_as_text);
+    }
+
+    if (skip_errors || on_error_obj != Py_None) {
+        PyErr_SetString(PyExc_TypeError, "on_error is only supported for NDJSON search");
+        return NULL;
+    }
+
+    bool check_pathlike = !has_text || !looks_like_json;
+    if (check_pathlike) {
+        PyObject* pathlike = PyOS_FSPath(data_obj);
+        if (pathlike) {
+            PyObject* result = search_file_pathlike(pathlike, compiled_path);
+            Py_DECREF(pathlike);
+            return result;
+        }
+        PyErr_Clear();
+    }
+
     if (PyUnicode_Check(data_obj)) {
         Py_ssize_t json_len;
         const char* json_data = PyUnicode_AsUTF8AndSize(data_obj, &json_len);
@@ -535,9 +1016,17 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         return search_from_json_buffer(json_data, json_len, compiled_path);
     }
 
+    int has_read = PyObject_HasAttrString(data_obj, "read");
+    if (has_read < 0) {
+        return NULL;
+    }
+    if (has_read) {
+        return search_from_file_like(data_obj, compiled_path);
+    }
+
     PyErr_SetString(PyExc_TypeError,
-                    "search() expects JSON text (str/bytes), dict mode data, or a "
-                    "JsonDocument/JsonCursor/NdjsonCursor");
+                    "search() expects JSON text (str/bytes), dict/list data, a "
+                    "JsonDocument/JsonCursor/NdjsonCursor, or a file-like object");
     return NULL;
 
     STRATA_CPP_CATCH

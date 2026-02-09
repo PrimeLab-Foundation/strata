@@ -125,7 +125,7 @@ ______________________________________________________________________
 # Too many ways to do the same thing
 from strata.serialize import loads, dumps
 from strata.ndjson import NdjsonStream
-from strata.jsonpath import compile_path, CompiledPath
+from strata import compile_path
 
 stream = NdjsonStream.from_string(data)
 while stream.has_next():

@@ -83,7 +83,7 @@ ______________________________________________________________________
 ```python
 from strata.serialize import loads, dumps
 from strata.ndjson import NdjsonStream
-from strata.jsonpath import compile_path, CompiledPath
+from strata import compile_path
 
 # Complex NDJSON
 stream = NdjsonStream.from_string(data)

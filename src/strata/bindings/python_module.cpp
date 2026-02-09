@@ -62,9 +62,11 @@ static PyMethodDef strata_methods[] = {
     {"compile_path", strata_compile_path, METH_VARARGS,
      "compile_path(path) -> CompiledPath\n\nCompile a JSONPath expression."},
     {"search", (PyCFunction)strata_search, METH_VARARGS | METH_KEYWORDS,
-     "search(data, path, *, strata_mode=None) -> list\n\n"
-     "Search JSON data or NdjsonCursor using JSONPath.\n"
-     "strata_mode: 'dict', 'string', or 'cursor' to force input handling."},
+     "search(data, path, *, strata_mode=None, ndjson=None, skip_errors=False, on_error=None,\n"
+     "       parallel=None, num_threads=0) -> list\n\n"
+     "Search JSON/NDJSON data using JSONPath.\n"
+     "strata_mode: 'dict', 'string', 'cursor', or 'file' to force input handling.\n"
+     "ndjson/skip_errors/on_error control NDJSON handling when auto-detected or forced."},
     {"search_ndjson", (PyCFunction)strata_search_ndjson, METH_VARARGS | METH_KEYWORDS,
      "search_ndjson(data, path, *, skip_errors=False, on_error=None) -> list\n\n"
      "Search NDJSON data line-by-line using JSONPath."},

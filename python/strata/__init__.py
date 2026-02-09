@@ -7,7 +7,6 @@ High-performance parsing, serialization, and querying powered by C++.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from functools import lru_cache
 import io
 import os
 from pathlib import Path
@@ -18,21 +17,7 @@ from . import ndjson as _ndjson
 
 __version__ = "0.2.0"
 
-_PATH_CACHE_SIZE = 256
 _NDJSON_KWARGS = {"skip_errors", "parallel", "num_threads"}
-
-
-@lru_cache(maxsize=_PATH_CACHE_SIZE)
-def _compile_path_cached(expression: str) -> _native.CompiledPath:
-    return _native.compile_path(expression)
-
-
-def _compiled_path(expression: str | _native.CompiledPath) -> _native.CompiledPath:
-    if isinstance(expression, _native.CompiledPath):
-        return expression
-    if not isinstance(expression, str):
-        raise TypeError("expression must be a JSONPath string")
-    return _compile_path_cached(expression)
 
 
 def _is_pathlike(value: Any) -> bool:
@@ -86,54 +71,29 @@ def _write_bytes_or_text(handle: Any, data: str | bytes | bytearray) -> None:
     handle.write(data)
 
 
+def compile_path(expression: str) -> _native.CompiledPath:
+    """Compile a search expression for repeated use."""
+    return _native.compile_path(expression)
+
+
 def search(
-    source: str | os.PathLike[str] | Any,
+    source: str | bytes | os.PathLike[str] | Any,
     expression: str | _native.CompiledPath,
     **kwargs: Any,
 ) -> list:
     """
-    Search a JSON/NDJSON file or cursor for values matching a JSONPath expression.
+    Search JSON/NDJSON data for values matching a JSONPath expression.
 
     Args:
-        source: File path, file-like object, or NdjsonCursor.
-        expression: JSONPath string.
+        source: JSON text, dict/list, file path, file-like object, JsonCursor, or NdjsonCursor.
+        expression: JSONPath string or CompiledPath.
         ndjson: Optional bool to force NDJSON mode.
         skip_errors: Skip malformed NDJSON lines when enabled.
         on_error: NDJSON error handling: "skip", "warn", or "error" (default).
         parallel/num_threads: Accepted for compatibility; NDJSON search streams line-by-line.
+        strata_mode: Optional explicit mode ("dict", "string", "cursor", "file").
     """
-    ndjson = kwargs.pop("ndjson", None)
-    on_error = kwargs.pop("on_error", None)
-    ndjson_kwargs = _pop_ndjson_kwargs(kwargs)
-    _ensure_no_extra_kwargs(kwargs)
-
-    if isinstance(source, _native.NdjsonCursor):
-        if on_error is not None:
-            raise TypeError("on_error is only supported for NDJSON file search")
-        if ndjson_kwargs:
-            keys = ", ".join(sorted(ndjson_kwargs))
-            raise TypeError(f"unsupported keyword argument(s): {keys}")
-        compiled = _compiled_path(expression)
-        return _native.search(source, compiled)
-
-    if _detect_ndjson(source, ndjson):
-        compiled = _compiled_path(expression)
-        return _native.search_ndjson(
-            source,
-            compiled,
-            skip_errors=ndjson_kwargs.get("skip_errors", False),
-            on_error=on_error,
-        )
-    if on_error is not None:
-        raise TypeError("on_error is only supported for NDJSON search")
-
-    compiled = _compiled_path(expression)
-    if _is_pathlike(source):
-        _document, cursor = _native.parse_json_file(str(source))
-        return _native.search(cursor, compiled)
-
-    data = _read_source(source)
-    return _native.search(data, compiled)
+    return _native.search(source, expression, **kwargs)
 
 
 def query(
@@ -147,9 +107,7 @@ def query(
     _ensure_no_extra_kwargs(kwargs)
     if not isinstance(data, (dict, list)):
         raise TypeError("query() expects a dict or list")
-    compiled = _compiled_path(expression)
-    payload = _native.dumps_bytes(data)
-    return _native.search(payload, compiled)
+    return search(data, expression)
 
 
 def load(
@@ -278,4 +236,13 @@ def dumps(obj: Any, **kwargs: Any) -> str | bytes | bytearray:
     raise TypeError("return_type must be 'str', 'bytes', or 'bytearray'")
 
 
-__all__ = ["search", "query", "load", "dump", "loads", "dumps", "__version__"]
+__all__ = [
+    "compile_path",
+    "search",
+    "query",
+    "load",
+    "dump",
+    "loads",
+    "dumps",
+    "__version__",
+]
