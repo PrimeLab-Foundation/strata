@@ -262,23 +262,35 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
 }
 
 template <typename Buffer> static inline bool append_string(PyObject* obj, Buffer& out) {
+    Py_ssize_t len = 0;
+    const char* data = nullptr;
     if (PyUnicode_IS_COMPACT_ASCII(obj)) {
         // Fast path for compact ASCII strings (most common case)
-        // Use single-pass escape_or_copy to avoid double-scan
-        Py_ssize_t len = PyUnicode_GET_LENGTH(obj);
-        const char* data = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(obj));
-        strata::util::escape_or_copy_string_simd(data, static_cast<size_t>(len), out);
-        return true;
+        len = PyUnicode_GET_LENGTH(obj);
+        data = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(obj));
+    } else {
+        data = PyUnicode_AsUTF8AndSize(obj, &len);
+        if (!data) {
+            return false;
+        }
     }
 
-    Py_ssize_t len = 0;
-    const char* data = PyUnicode_AsUTF8AndSize(obj, &len);
-    if (!data) {
-        return false;
+    size_t size = static_cast<size_t>(len);
+    if (size <= 16) {
+        uint32_t needs_escape = 0;
+        for (size_t i = 0; i < size; ++i) {
+            unsigned char c = static_cast<unsigned char>(data[i]);
+            needs_escape |= static_cast<uint32_t>((c < 0x20) | (c == '"') | (c == '\\'));
+        }
+        if (needs_escape == 0) {
+            out.push_back('"');
+            out.append(data, size);
+            out.push_back('"');
+            return true;
+        }
     }
 
-    // Non-ASCII strings: use single-pass escape_or_copy
-    strata::util::escape_or_copy_string_simd(data, static_cast<size_t>(len), out);
+    strata::util::escape_or_copy_string_simd(data, size, out);
     return true;
 }
 
