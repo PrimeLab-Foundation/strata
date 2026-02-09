@@ -5,7 +5,6 @@
 #include "strata/util/simd_string.hpp"
 
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -72,77 +71,6 @@ int strata_get_cycle_policy() { return static_cast<int>(g_cycle_policy); }
 static inline bool is_container(PyObject* obj) {
     return PyDict_CheckExact(obj) || PyList_CheckExact(obj) || PyTuple_Check(obj);
 }
-
-// Stack-allocated small buffer for cycle detection with hash-set spillover.
-// Linear scan over a fixed array is faster than unordered_set for typical
-// JSON nesting depths (< 32).  Falls back to a heap-allocated hash set
-// only when depth exceeds kInlineCapacity.
-class SmallCycleSet {
-    static constexpr size_t kInlineCapacity = 32;
-    PyObject* inline_buf_[kInlineCapacity];
-    size_t inline_size_ = 0;
-
-    // Spillover set — only allocated when inline buffer overflows.
-    // We use a sorted vector for the spillover since insertions beyond depth
-    // 32 are rare and the set stays small.
-    PyObject** spill_ = nullptr;
-    size_t spill_size_ = 0;
-    size_t spill_cap_ = 0;
-
-  public:
-    SmallCycleSet() = default;
-    ~SmallCycleSet() { std::free(spill_); }
-
-    // Non-copyable
-    SmallCycleSet(const SmallCycleSet&) = delete;
-    SmallCycleSet& operator=(const SmallCycleSet&) = delete;
-
-    bool contains(PyObject* ptr) const {
-        // Linear scan over inline buffer (branch-free on modern CPUs for small N)
-        for (size_t i = 0; i < inline_size_; ++i) {
-            if (inline_buf_[i] == ptr) return true;
-        }
-        // Scan spillover (rare path)
-        for (size_t i = 0; i < spill_size_; ++i) {
-            if (spill_[i] == ptr) return true;
-        }
-        return false;
-    }
-
-    void insert(PyObject* ptr) {
-        if (LIKELY(inline_size_ < kInlineCapacity)) {
-            inline_buf_[inline_size_++] = ptr;
-            return;
-        }
-        // Spillover path
-        if (spill_size_ == spill_cap_) {
-            size_t new_cap = spill_cap_ == 0 ? 16 : spill_cap_ * 2;
-            auto* p = static_cast<PyObject**>(std::realloc(spill_, new_cap * sizeof(PyObject*)));
-            if (!p) return;  // OOM — skip (cycle detection is best-effort)
-            spill_ = p;
-            spill_cap_ = new_cap;
-        }
-        spill_[spill_size_++] = ptr;
-    }
-
-    void erase(PyObject* ptr) {
-        // Check inline buffer (search from end — LIFO pattern for nesting)
-        for (size_t i = inline_size_; i-- > 0;) {
-            if (inline_buf_[i] == ptr) {
-                // Swap with last element for O(1) removal
-                inline_buf_[i] = inline_buf_[--inline_size_];
-                return;
-            }
-        }
-        // Check spillover
-        for (size_t i = spill_size_; i-- > 0;) {
-            if (spill_[i] == ptr) {
-                spill_[i] = spill_[--spill_size_];
-                return;
-            }
-        }
-    }
-};
 
 template <typename Buffer>
 static inline void append_literal(Buffer& out, const char* data, size_t len) {
@@ -583,16 +511,23 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     std::vector<Frame, FrameAllocator> stack{FrameAllocator(&g_serialize_arena)};
     stack.reserve(64);
 
-    // Lightweight cycle detection using stack-allocated small buffer.
-    // Linear scan over 32-element array is faster than unordered_set for
-    // typical nesting depths.  Falls back to heap allocation only for
-    // pathologically deep structures.  Skipped entirely for NoCheck.
+    // Cycle detection scans open frames back-to-front and is skipped for shallow depths.
     const bool check_cycles = (g_cycle_policy != CyclePolicy::NoCheck);
-    SmallCycleSet seen;
+    constexpr size_t kCycleCheckDepth = 4;
+    size_t nesting_depth = 0;
     const bool ints_first = (g_dumps_type_order == DumpsTypeOrder::IntsFirst);
 
     PyObject* current = root;
     bool current_is_container = false;
+
+    auto has_cycle = [&stack](PyObject* ptr) -> bool {
+        for (size_t i = stack.size(); i-- > 0;) {
+            if (stack[i].obj == ptr) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     while (true) {
         if (current) {
@@ -663,9 +598,8 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             // Now check containers (need cycle detection)
             bool container = current_is_container || is_container(current);
             current_is_container = false;
-            if (container && check_cycles) {
-                bool cycle = seen.contains(current);
-                if (cycle) {
+            if (container && check_cycles && nesting_depth >= kCycleCheckDepth) {
+                if (has_cycle(current)) {
                     switch (g_cycle_policy) {
                     case CyclePolicy::Warn:
                         PyErr_WarnEx(PyExc_RuntimeWarning,
@@ -686,14 +620,12 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                         break;
                     }
                 }
-                seen.insert(current);
             }
 
             if (LIKELY(PyDict_CheckExact(current))) {
                 Py_ssize_t size = PyDict_GET_SIZE(current);
                 out.ensure_extra(structural_budget(Frame::Type::Dict, size));
                 if (size == 0) {
-                    if (check_cycles) seen.erase(current);
                     out.push_back_unchecked('{');
                     out.push_back_unchecked('}');
                     current = nullptr;
@@ -702,6 +634,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
                 out.push_back_unchecked('{');
                 stack.push_back(Frame{Frame::Type::Dict, current, 0, size, 0, true});
+                ++nesting_depth;
                 current = nullptr;
                 continue;
             }
@@ -710,7 +643,6 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 Py_ssize_t size = PyList_GET_SIZE(current);
                 out.ensure_extra(structural_budget(Frame::Type::List, size));
                 if (size == 0) {
-                    if (check_cycles) seen.erase(current);
                     out.push_back_unchecked('[');
                     out.push_back_unchecked(']');
                     current = nullptr;
@@ -719,6 +651,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
                 out.push_back_unchecked('[');
                 stack.push_back(Frame{Frame::Type::List, current, 0, size, 0, true});
+                ++nesting_depth;
                 current = nullptr;
                 continue;
             }
@@ -727,7 +660,6 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 Py_ssize_t size = PyTuple_GET_SIZE(current);
                 out.ensure_extra(structural_budget(Frame::Type::Tuple, size));
                 if (size == 0) {
-                    if (check_cycles) seen.erase(current);
                     out.push_back_unchecked('[');
                     out.push_back_unchecked(']');
                     current = nullptr;
@@ -736,6 +668,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
                 out.push_back_unchecked('[');
                 stack.push_back(Frame{Frame::Type::Tuple, current, 0, size, 0, true});
+                ++nesting_depth;
                 current = nullptr;
                 continue;
             }
@@ -778,8 +711,8 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 current_is_container = true;
             } else {
                 out.push_back_unchecked('}');
-                if (check_cycles) seen.erase(frame.obj);
                 stack.pop_back();
+                --nesting_depth;
             }
             continue;
         }
@@ -807,8 +740,8 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
         }
 
         out.push_back_unchecked(']');
-        if (check_cycles) seen.erase(frame.obj);
         stack.pop_back();
+        --nesting_depth;
     }
 
     return true;
