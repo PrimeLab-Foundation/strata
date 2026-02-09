@@ -294,39 +294,50 @@ test: test-py test-cpp
 
 .PHONY: coverage-cpp coverage-py coverage-report coverage
 
-coverage-cpp:
+coverage-cpp: cmake-check
 	@echo "Collecting C++ coverage..."
-	@mkdir -p build_coverage
-	@echo "Compiling C++ tests with coverage flags..."
-	@for test_file in tests/cpp/test_*.cpp; do \
-		test_name=$$(basename "$${test_file}" .cpp); \
-		clang++ -std=c++20 -O0 -fprofile-instr-generate -fcoverage-mapping \
-			-Iinclude -Isrc "$${test_file}" \
-			src/strata/json/json_parse.cpp \
-			src/strata/json/json_cursor.cpp \
-			src/strata/json/json_document.cpp \
-			src/strata/json/json_serialize.cpp \
-			src/strata/json/json_tape.cpp \
-			src/strata/json/json_mmap.cpp \
-			src/strata/json/json_lazy_cursor.cpp \
-			src/strata/json/ndjson_stream.cpp \
-			src/strata/json/parallel_ndjson.cpp \
-			src/strata/search/jsonpath_compile.cpp \
-			src/strata/search/jsonpath_eval.cpp \
-			src/strata/util/ryu_dtoa.cpp \
-			src/strata/util/dragonbox.cpp \
-			src/strata/util/simd_escape.cpp \
-			src/strata/util/simd_newline.cpp \
-			src/strata/util/simd_utf8.cpp \
-			src/strata/util/simd_numbers.cpp \
-			src/strata/util/simd_structural.cpp \
-			src/strata/util/fast_parse.cpp \
-			src/strata/util/thread_pool.cpp \
-			-o build_coverage/$${test_name}; \
-		LLVM_PROFILE_FILE="build_coverage/$${test_name}.profraw" ./build_coverage/$${test_name} > /dev/null 2>&1 || true; \
-	done
+	@mkdir -p build_coverage build_coverage/profiles
+	@set -e; \
+	compiler="$$(command -v clang++ || true)"; \
+	if [ -z "$$compiler" ]; then \
+		echo "❌ clang++ not found. Install LLVM/Clang to collect C++ coverage."; \
+		exit 2; \
+	fi; \
+	launcher=""; \
+	if [ -n "$$CMAKE_CXX_COMPILER_LAUNCHER" ]; then \
+		launcher="$$CMAKE_CXX_COMPILER_LAUNCHER"; \
+	elif command -v sccache >/dev/null 2>&1; then \
+		launcher="sccache"; \
+	elif command -v ccache >/dev/null 2>&1; then \
+		launcher="ccache"; \
+	fi; \
+	launcher_args=""; \
+	if [ -n "$$launcher" ]; then \
+		echo "Using compiler cache: $$launcher"; \
+		launcher_args="-DCMAKE_C_COMPILER_LAUNCHER=$$launcher -DCMAKE_CXX_COMPILER_LAUNCHER=$$launcher"; \
+	fi; \
+	cmake -S . -B build_coverage -DCMAKE_BUILD_TYPE=Debug -DSTRATA_ENABLE_COVERAGE=ON -DCMAKE_CXX_COMPILER="$$compiler" $$launcher_args; \
+	cpu=1; \
+	if command -v nproc >/dev/null 2>&1; then \
+		cpu=$$(nproc); \
+	elif command -v sysctl >/dev/null 2>&1; then \
+		cpu=$$(sysctl -n hw.ncpu); \
+	elif command -v getconf >/dev/null 2>&1; then \
+		cpu=$$(getconf _NPROCESSORS_ONLN); \
+	fi; \
+	if [ -z "$$cpu" ] || [ "$$cpu" -lt 1 ]; then \
+		cpu=1; \
+	fi; \
+	echo "Building C++ tests with coverage flags (parallel=$$cpu)..."; \
+	cmake --build build_coverage --parallel $$cpu; \
+	echo "Running C++ tests with coverage (ctest, parallel=$$cpu)..."; \
+	LLVM_PROFILE_FILE="profiles/%p.profraw" ctest --test-dir build_coverage --output-on-failure --parallel $$cpu
 	@echo "Merging coverage data..."
 	@set -e; \
+	if ! ls build_coverage/profiles/*.profraw >/dev/null 2>&1; then \
+		echo "❌ No coverage profiles were generated."; \
+		exit 1; \
+	fi; \
 	LLVM_PROFDATA=""; \
 	if command -v xcrun >/dev/null 2>&1; then \
 		LLVM_PROFDATA="xcrun llvm-profdata"; \
@@ -337,7 +348,7 @@ coverage-cpp:
 		echo "❌ llvm-profdata not found. Install LLVM to collect C++ coverage."; \
 		exit 2; \
 	fi; \
-	$$LLVM_PROFDATA merge -sparse build_coverage/*.profraw -o build_coverage/merged.profdata; \
+	$$LLVM_PROFDATA merge -sparse build_coverage/profiles/*.profraw -o build_coverage/merged.profdata; \
 	echo "Generating coverage report..."; \
 	LLVM_COV=""; \
 	if command -v xcrun >/dev/null 2>&1; then \
@@ -349,7 +360,7 @@ coverage-cpp:
 		echo "❌ llvm-cov not found. Install LLVM to collect C++ coverage."; \
 		exit 2; \
 	fi; \
-	$$LLVM_COV report build_coverage/test_json_parse -instr-profile=build_coverage/merged.profdata src/ > build_coverage/coverage_cpp.txt; \
+	$$LLVM_COV report build_coverage/json_parse_tests -instr-profile=build_coverage/merged.profdata src/ > build_coverage/coverage_cpp.txt; \
 	cat build_coverage/coverage_cpp.txt; \
 	coverage=$$(awk '/^TOTAL/ {count=0; for (i=1; i<=NF; i++) if ($$i ~ /%$$/) {count++; if (count==3) {print $$i; exit}} }' build_coverage/coverage_cpp.txt | sed 's/%//'); \
 	if [ -z "$$coverage" ]; then \

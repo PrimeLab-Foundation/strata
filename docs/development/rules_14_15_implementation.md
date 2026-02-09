@@ -112,8 +112,9 @@ gate: venv
 ```makefile
 coverage-cpp:
     @echo "Collecting C++ coverage..."
-    # Compile with coverage flags: -fprofile-instr-generate -fcoverage-mapping
-    # Run tests, generate .profraw files
+    # Configure coverage build via CMake (STRATA_ENABLE_COVERAGE=ON)
+    # Build C++ tests in parallel and run them via ctest
+    # Generate .profraw files (LLVM_PROFILE_FILE) and merge with llvm-profdata
     # Merge with llvm-profdata
     # Report with llvm-cov
 ```

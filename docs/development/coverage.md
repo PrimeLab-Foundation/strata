@@ -50,23 +50,25 @@ make coverage-cpp
 
 **What it does:**
 
-1. Compiles C++ tests with coverage instrumentation (`-fprofile-instr-generate -fcoverage-mapping`)
-1. Runs all C++ test executables
-1. Generates `.profraw` files for each test
+1. Configures a coverage build via CMake (`STRATA_ENABLE_COVERAGE=ON`)
+1. Builds C++ tests in parallel
+1. Runs all C++ tests via `ctest` (parallel), emitting `.profraw` files
 1. Merges coverage data with `llvm-profdata`
 1. Reports coverage with `llvm-cov`
 
 **Output:**
 
-- Coverage data: `build_coverage/*.profraw`
+- Coverage data: `build_coverage/profiles/*.profraw`
 - Merged profile: `build_coverage/merged.profdata`
-- Coverage report: Terminal output
+- Coverage report: Terminal output + `build_coverage/coverage_cpp.txt`
 
 **Requirements:**
 
+- CMake (used for coverage builds)
 - Clang/LLVM toolchain with coverage support
 - `xcrun llvm-profdata` (macOS) or `llvm-profdata` (Linux)
 - `xcrun llvm-cov` (macOS) or `llvm-cov` (Linux)
+- Optional: `sccache` or `ccache` for faster rebuilds
 
 #### Python Coverage
 
@@ -214,7 +216,7 @@ make coverage-cpp
 
 ```bash
 # Generate HTML report for C++ coverage
-xcrun llvm-cov show build_coverage/test_json_parse \
+xcrun llvm-cov show build_coverage/json_parse_tests \
   -instr-profile=build_coverage/merged.profdata \
   src/ -format=html > build_coverage/cpp_coverage.html
 
@@ -326,8 +328,8 @@ clang++ -fprofile-instr-generate -fcoverage-mapping ...
 
 ```bash
 # Manually merge and report
-xcrun llvm-profdata merge -sparse build_coverage/*.profraw -o build_coverage/merged.profdata
-xcrun llvm-cov report build_coverage/test_json_parse -instr-profile=build_coverage/merged.profdata src/
+xcrun llvm-profdata merge -sparse build_coverage/profiles/*.profraw -o build_coverage/merged.profdata
+xcrun llvm-cov report build_coverage/json_parse_tests -instr-profile=build_coverage/merged.profdata src/
 ```
 
 ______________________________________________________________________
