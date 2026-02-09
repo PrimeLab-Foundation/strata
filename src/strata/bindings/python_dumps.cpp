@@ -294,52 +294,52 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
     return true;
 }
 
+enum class PrimitiveResult { Handled, IsContainer, Error };
+
 template <typename Buffer>
-static inline bool serialize_primitive(PyObject* obj, Buffer& out, bool& handled, bool ints_first) {
+static inline PrimitiveResult serialize_primitive(PyObject* obj, Buffer& out, bool ints_first) {
     if (obj == Py_None) {
         append_literal(out, "null", 4);
-        handled = true;
-        return true;
+        return PrimitiveResult::Handled;
     }
     if (obj == Py_True) {
         append_literal(out, "true", 4);
-        handled = true;
-        return true;
+        return PrimitiveResult::Handled;
     }
     if (obj == Py_False) {
         append_literal(out, "false", 5);
-        handled = true;
-        return true;
+        return PrimitiveResult::Handled;
     }
     PyTypeObject* type = nullptr;
     if (ints_first) {
         type = Py_TYPE(obj);
         if (type == &PyLong_Type) {
-            handled = true;
-            return append_py_long(out, obj);
+            return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
         if (PyUnicode_Check(obj)) {
-            handled = true;
-            return append_string(obj, out);
+            return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
     } else {
         if (PyUnicode_Check(obj)) {
-            handled = true;
-            return append_string(obj, out);
+            return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
         type = Py_TYPE(obj);
         if (type == &PyLong_Type) {
-            handled = true;
-            return append_py_long(out, obj);
+            return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
     }
     if (type == &PyFloat_Type) {
-        handled = true;
-        return append_double(out, PyFloat_AS_DOUBLE(obj));
+        return append_double(out, PyFloat_AS_DOUBLE(obj)) ? PrimitiveResult::Handled
+                                                          : PrimitiveResult::Error;
     }
 
-    handled = false;
-    return true;
+    if (is_container(obj)) {
+        return PrimitiveResult::IsContainer;
+    }
+
+    PyErr_SetString(PyExc_TypeError,
+                    "Object of unsupported type cannot be serialized to JSON");
+    return PrimitiveResult::Error;
 }
 
 struct Frame {
@@ -592,73 +592,77 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     const bool ints_first = (g_dumps_type_order == DumpsTypeOrder::IntsFirst);
 
     PyObject* current = root;
+    bool current_is_container = false;
 
     while (true) {
         if (current) {
-            // Fast path for primitives first (avoid is_container check for most common types)
-            // String vs int order can be configured to match workload profiles.
             PyTypeObject* type = nullptr;
-            if (ints_first) {
-                type = Py_TYPE(current);
-                if (LIKELY(type == &PyLong_Type)) {
-                    if (!append_py_long(out, current)) {
-                        return false;
+            if (!current_is_container) {
+                // Fast path for primitives first (avoid is_container check for most common types)
+                // String vs int order can be configured to match workload profiles.
+                if (ints_first) {
+                    type = Py_TYPE(current);
+                    if (LIKELY(type == &PyLong_Type)) {
+                        if (!append_py_long(out, current)) {
+                            return false;
+                        }
+                        current = nullptr;
+                        continue;
                     }
-                    current = nullptr;
-                    continue;
-                }
-                if (LIKELY(PyUnicode_Check(current))) {
-                    if (!append_string(current, out)) {
-                        return false;
+                    if (LIKELY(PyUnicode_Check(current))) {
+                        if (!append_string(current, out)) {
+                            return false;
+                        }
+                        current = nullptr;
+                        continue;
                     }
-                    current = nullptr;
-                    continue;
-                }
-            } else {
-                if (LIKELY(PyUnicode_Check(current))) {
-                    if (!append_string(current, out)) {
-                        return false;
-                    }
-                    current = nullptr;
-                    continue;
-                }
-                type = Py_TYPE(current);
-                if (LIKELY(type == &PyLong_Type)) {
-                    if (!append_py_long(out, current)) {
-                        return false;
-                    }
-                    current = nullptr;
-                    continue;
-                }
-            }
-
-            if (LIKELY(type == &PyFloat_Type)) {
-                double val = PyFloat_AS_DOUBLE(current);
-                if (!append_double(out, val)) {
-                    return false;
-                }
-                current = nullptr;
-                continue;
-            }
-
-            if (current == Py_None) {
-                append_literal(out, "null", 4);
-                current = nullptr;
-                continue;
-            }
-
-            if (UNLIKELY(type == &PyBool_Type)) {
-                if (current == Py_True) {
-                    append_literal(out, "true", 4);
                 } else {
-                    append_literal(out, "false", 5);
+                    if (LIKELY(PyUnicode_Check(current))) {
+                        if (!append_string(current, out)) {
+                            return false;
+                        }
+                        current = nullptr;
+                        continue;
+                    }
+                    type = Py_TYPE(current);
+                    if (LIKELY(type == &PyLong_Type)) {
+                        if (!append_py_long(out, current)) {
+                            return false;
+                        }
+                        current = nullptr;
+                        continue;
+                    }
                 }
-                current = nullptr;
-                continue;
+
+                if (LIKELY(type == &PyFloat_Type)) {
+                    double val = PyFloat_AS_DOUBLE(current);
+                    if (!append_double(out, val)) {
+                        return false;
+                    }
+                    current = nullptr;
+                    continue;
+                }
+
+                if (current == Py_None) {
+                    append_literal(out, "null", 4);
+                    current = nullptr;
+                    continue;
+                }
+
+                if (UNLIKELY(type == &PyBool_Type)) {
+                    if (current == Py_True) {
+                        append_literal(out, "true", 4);
+                    } else {
+                        append_literal(out, "false", 5);
+                    }
+                    current = nullptr;
+                    continue;
+                }
             }
 
             // Now check containers (need cycle detection)
-            bool container = is_container(current);
+            bool container = current_is_container || is_container(current);
+            current_is_container = false;
             if (container && check_cycles) {
                 bool cycle = seen.contains(current);
                 if (cycle) {
@@ -763,14 +767,15 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                     return false;
                 }
                 out.push_back_unchecked(':');
-                bool handled = false;
-                if (!serialize_primitive(value, out, handled, ints_first)) {
-                    return false;
-                }
-                if (handled) {
+                PrimitiveResult result = serialize_primitive(value, out, ints_first);
+                if (result == PrimitiveResult::Handled) {
                     continue;
                 }
+                if (result == PrimitiveResult::Error) {
+                    return false;
+                }
                 current = value;
+                current_is_container = true;
             } else {
                 out.push_back_unchecked('}');
                 if (check_cycles) seen.erase(frame.obj);
@@ -789,14 +794,15 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                                  ? PyList_GET_ITEM(frame.obj, frame.index)
                                  : PyTuple_GET_ITEM(frame.obj, frame.index);
             frame.index += 1;
-            bool handled = false;
-            if (!serialize_primitive(item, out, handled, ints_first)) {
-                return false;
-            }
-            if (handled) {
+            PrimitiveResult result = serialize_primitive(item, out, ints_first);
+            if (result == PrimitiveResult::Handled) {
                 continue;
             }
+            if (result == PrimitiveResult::Error) {
+                return false;
+            }
             current = item;
+            current_is_container = true;
             continue;
         }
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .harness import run_single_benchmark
+from .markdown_tables import build_markdown_table
 
 try:
     import orjson
@@ -257,16 +258,23 @@ def _format_markdown(results: list[LoadsResult], info: BenchInfo, repeat: int, w
         lines.append("")
         return "\n".join(lines)
 
-    lines.extend(
-        [
-            "| Library | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |",
-            "|---------|----------|-------------|----------|---------|",
-        ]
-    )
+    table_rows: list[list[str]] = []
     for r in sorted(results, key=lambda x: x.median_ms):
-        lines.append(
-            f"| {r.library} | {r.min_ms:.2f} | {r.median_ms:.2f} | {r.p95_ms:.2f} | {r.rss_mb:.1f} |"
+        table_rows.append(
+            [
+                r.library,
+                f"{r.min_ms:.2f}",
+                f"{r.median_ms:.2f}",
+                f"{r.p95_ms:.2f}",
+                f"{r.rss_mb:.1f}",
+            ]
         )
+    lines.extend(
+        build_markdown_table(
+            ["Library", "Min (ms)", "Median (ms)", "P95 (ms)", "RSS (MB)"],
+            table_rows,
+        )
+    )
     lines.append("")
     return "\n".join(lines)
 

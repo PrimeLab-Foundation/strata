@@ -23,6 +23,7 @@ from typing import Any, Callable
 
 from .harness import run_single_benchmark
 from .data.generate_bench_data import generate_users_datasets
+from .markdown_tables import build_markdown_table
 from .query_helpers import (
     get_query_description,
     query_users_json,
@@ -513,18 +514,30 @@ class BenchmarkRunner:
                 [
                     "## Parsing Benchmarks",
                     "",
-                    "| Library | Dataset | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |",
-                    "|---------|---------|----------|-------------|----------|---------|",
                 ]
             )
             parse_results.sort(key=lambda r: (r.dataset, r.median_ms))
+            parse_rows: list[list[str]] = []
             for r in parse_results:
                 if r.error:
-                    lines.append(f"| {r.library} | {r.dataset} | ERROR | - | - | - |")
+                    parse_rows.append([r.library, r.dataset, "ERROR", "-", "-", "-"])
                 else:
-                    lines.append(
-                        f"| {r.library} | {r.dataset} | {r.min_ms:.3f} | {r.median_ms:.3f} | {r.p95_ms:.3f} | {r.rss_mb:.1f} |"
+                    parse_rows.append(
+                        [
+                            r.library,
+                            r.dataset,
+                            f"{r.min_ms:.3f}",
+                            f"{r.median_ms:.3f}",
+                            f"{r.p95_ms:.3f}",
+                            f"{r.rss_mb:.1f}",
+                        ]
                     )
+            lines.extend(
+                build_markdown_table(
+                    ["Library", "Dataset", "Min (ms)", "Median (ms)", "P95 (ms)", "RSS (MB)"],
+                    parse_rows,
+                )
+            )
 
         query_results = [r for r in self.results if r.operation == "query"]
         if query_results:
@@ -533,23 +546,28 @@ class BenchmarkRunner:
                     "",
                     "## Query Benchmarks",
                     "",
-                    "| Query | Library | Min (ms) | Results |",
-                    "|-------|---------|----------|----------|",
                 ]
             )
             by_query: dict[str, list[BenchResult]] = {}
             for r in query_results:
                 by_query.setdefault(r.query, []).append(r)
+            query_rows: list[list[str]] = []
             for query, results in by_query.items():
                 results.sort(key=lambda r: r.min_ms)
                 for i, r in enumerate(results):
                     qcol = query if i == 0 else ""
                     if r.error:
-                        lines.append(f"| {qcol} | {r.library} | ERROR | - |")
+                        query_rows.append([qcol, r.library, "ERROR", "-"])
                     else:
-                        lines.append(
-                            f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} |"
+                        query_rows.append(
+                            [qcol, r.library, f"{r.min_ms:.3f}", str(r.result_count)]
                         )
+            lines.extend(
+                build_markdown_table(
+                    ["Query", "Library", "Min (ms)", "Results"],
+                    query_rows,
+                )
+            )
 
         out.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"\nResults saved to {output_path}")
