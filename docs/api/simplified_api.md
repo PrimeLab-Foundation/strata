@@ -79,6 +79,10 @@ data = {"users": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]}
 names = strata.search(data, "$.users[*].name")
 # → ['Alice', 'Bob']
 
+# NDJSON search (line-numbered results)
+matches = strata.search("events.ndjson", "$.id")
+# → [{'line': 1, 'matches': [1]}, {'line': 4, 'matches': [8]}]
+
 # Pre-compile for reuse (faster)
 path = strata.compile_path("$.users[*].id")
 ids1 = strata.search(data1, path)
@@ -213,7 +217,7 @@ ______________________________________________________________________
 | `dumps_bytes(obj)`                 | Python object           | bytes         | Serialize to bytes (faster) |
 | `iter_ndjson(data)`                | str/bytes               | Iterator      | Stream NDJSON lines         |
 | `parse_ndjson(data)`               | str/bytes               | List          | Parse all NDJSON            |
-| `search(data, path)`               | data + str/CompiledPath | List          | Query with JSONPath         |
+| `search(data, path)`               | data + str/CompiledPath | List          | Query with JSONPath (NDJSON returns line-numbered matches) |
 | `compile_path(expr)`               | str                     | CompiledPath  | Pre-compile path            |
 | `set_duplicate_key_policy(policy)` | str                     | None          | Duplicate-key strategy      |
 | `set_cycle_policy(policy)`         | str                     | None          | Cycle strategy in dumps     |

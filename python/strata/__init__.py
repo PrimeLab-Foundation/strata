@@ -12,6 +12,7 @@ import io
 import os
 from pathlib import Path
 from typing import Any
+import warnings
 
 from . import _strata as _native
 from . import ndjson as _ndjson
@@ -20,6 +21,7 @@ __version__ = "0.2.0"
 
 _PATH_CACHE_SIZE = 256
 _NDJSON_KWARGS = {"skip_errors", "parallel", "num_threads"}
+_NDJSON_ERROR_MODES = {"skip", "warn", "error"}
 
 
 @lru_cache(maxsize=_PATH_CACHE_SIZE)
@@ -86,6 +88,87 @@ def _write_bytes_or_text(handle: Any, data: str | bytes | bytearray) -> None:
     handle.write(data)
 
 
+def _open_line_source(source: Any) -> tuple[Any, bool]:
+    if _is_pathlike(source):
+        return open(str(source), "rb"), True
+    return source, False
+
+
+def _iter_line_source(handle: Any) -> Iterable[tuple[int, str | bytes]]:
+    try:
+        iterator = iter(handle)
+    except TypeError:
+        if not hasattr(handle, "readline"):
+            raise TypeError("file-like object must be iterable or support readline()")
+        line_no = 0
+        while True:
+            line = handle.readline()
+            if line == "" or line == b"":
+                break
+            line_no += 1
+            yield line_no, line
+        return
+    for line_no, line in enumerate(iterator, start=1):
+        yield line_no, line
+
+
+def _normalize_line(line: Any) -> str | bytes:
+    if isinstance(line, bytearray):
+        return bytes(line)
+    if isinstance(line, memoryview):
+        return line.tobytes()
+    if isinstance(line, (str, bytes)):
+        return line
+    raise TypeError("NDJSON lines must be str or bytes")
+
+
+def _resolve_ndjson_error_mode(skip_errors: bool, on_error: str | None) -> str:
+    if on_error is None:
+        return "skip" if skip_errors else "error"
+    if not isinstance(on_error, str):
+        raise TypeError("on_error must be 'skip', 'warn', or 'error'")
+    mode = on_error.strip().lower()
+    if mode not in _NDJSON_ERROR_MODES:
+        raise ValueError("on_error must be 'skip', 'warn', or 'error'")
+    return mode
+
+
+def _search_ndjson_stream(
+    source: Any,
+    compiled: _native.CompiledPath,
+    *,
+    skip_errors: bool = False,
+    on_error: str | None = None,
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    error_mode = _resolve_ndjson_error_mode(bool(skip_errors), on_error)
+    handle, should_close = _open_line_source(source)
+    try:
+        for line_no, line in _iter_line_source(handle):
+            line = _normalize_line(line)
+            if not line.strip():
+                continue
+            try:
+                matches = _native.search(line, compiled)
+            except ValueError as exc:
+                if error_mode == "skip":
+                    continue
+                if error_mode == "warn":
+                    warnings.warn(
+                        f"Invalid JSON on line {line_no}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                    continue
+                raise ValueError(f"Invalid JSON on line {line_no}") from exc
+            if matches:
+                results.append({"line": line_no, "matches": matches})
+    finally:
+        if should_close:
+            handle.close()
+    return results
+
+
 def search(
     source: str | os.PathLike[str] | Any,
     expression: str | _native.CompiledPath,
@@ -98,16 +181,25 @@ def search(
         source: File path or file-like object.
         expression: JSONPath string.
         ndjson: Optional bool to force NDJSON mode.
-        skip_errors/parallel/num_threads: Forwarded to NDJSON parsing when enabled.
+        skip_errors: Skip malformed NDJSON lines when enabled.
+        on_error: NDJSON error handling: "skip", "warn", or "error" (default).
+        parallel/num_threads: Accepted for compatibility; NDJSON search streams line-by-line.
     """
     ndjson = kwargs.pop("ndjson", None)
+    on_error = kwargs.pop("on_error", None)
     ndjson_kwargs = _pop_ndjson_kwargs(kwargs)
     _ensure_no_extra_kwargs(kwargs)
 
     if _detect_ndjson(source, ndjson):
-        data = Path(source).read_bytes() if _is_pathlike(source) else _read_source(source)
-        records = _ndjson.parse_ndjson(data, **ndjson_kwargs)
-        return query(records, expression)
+        compiled = _compiled_path(expression)
+        return _search_ndjson_stream(
+            source,
+            compiled,
+            skip_errors=ndjson_kwargs.get("skip_errors", False),
+            on_error=on_error,
+        )
+    if on_error is not None:
+        raise TypeError("on_error is only supported for NDJSON search")
 
     compiled = _compiled_path(expression)
     if _is_pathlike(source):

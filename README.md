@@ -20,14 +20,17 @@ Search a JSON or NDJSON file for values matching a JSONPath expression.
 - `source`: file path (str or Path) or file-like object
 - `expression`: JSONPath string (e.g. `"$.users[*].id"`)
 - `ndjson`: optional bool to force NDJSON mode
-- `skip_errors`, `parallel`, `num_threads`: forwarded to NDJSON parsing when enabled
-- returns: list of matches
+- `skip_errors`: skip malformed NDJSON lines when enabled
+- `on_error`: NDJSON error handling: `"skip"`, `"warn"`, or `"error"` (default)
+- `parallel`, `num_threads`: accepted for compatibility; NDJSON search streams line-by-line
+- returns: list of matches (JSON) or list of `{"line": int, "matches": list}` (NDJSON)
 
 ```python
 import strata
 
 ids = strata.search("users.json", "$.users[*].id")
-prices = strata.search("orders.ndjson", "$..price")
+matches = strata.search("orders.ndjson", "$.price")
+# [{"line": 1, "matches": [9.99]}, {"line": 4, "matches": [12.5, 3.2]}]
 ```
 
 ### query
