@@ -513,7 +513,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
     // Cycle detection scans open frames back-to-front and is skipped for shallow depths.
     const bool check_cycles = (g_cycle_policy != CyclePolicy::NoCheck);
-    constexpr size_t kCycleCheckDepth = 4;
+    constexpr size_t kCycleCheckDepth = 1;
     size_t nesting_depth = 0;
     const bool ints_first = (g_dumps_type_order == DumpsTypeOrder::IntsFirst);
 

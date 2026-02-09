@@ -11,6 +11,7 @@ extern PyObject* strata_loads_tape(PyObject* self, PyObject* args);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args);
+extern PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_set_dumps_type_order(PyObject* self, PyObject* args);
 extern PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args);
 extern int register_document_types(PyObject* module);
@@ -62,6 +63,9 @@ static PyMethodDef strata_methods[] = {
      "compile_path(path) -> CompiledPath\n\nCompile a JSONPath expression."},
     {"search", strata_search, METH_VARARGS,
      "search(data, path) -> list\n\nSearch JSON data using JSONPath."},
+    {"search_ndjson", (PyCFunction)strata_search_ndjson, METH_VARARGS | METH_KEYWORDS,
+     "search_ndjson(data, path, *, skip_errors=False, on_error=None) -> list\n\n"
+     "Search NDJSON data line-by-line using JSONPath."},
     {"set_duplicate_key_policy", strata_set_duplicate_key_policy, METH_VARARGS,
      "set_duplicate_key_policy(policy)\n\n"
      "Policy: first (default), last, error, warn."},
