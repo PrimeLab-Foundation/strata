@@ -27,11 +27,11 @@ Generated: 2026-01-31 00:28:45
 
 | Query                                      | Library               | Min (ms) | Results |
 | ------------------------------------------ | --------------------- | -------- | ------- |
-| $.users\[\*\].id                           | eval_query (baseline) | 0.310    | 5000    |
+| $.users\[\*\].id                           | query | 0.310    | 5000    |
 |                                            | jmespath              | 1.207    | 5000    |
-| $.users\[*\].orders\[*\].items\[\*\].price | eval_query (baseline) | 3.154    | 62331   |
+| $.users\[*\].orders\[*\].items\[\*\].price | query | 3.154    | 62331   |
 |                                            | jmespath              | 30.919   | 5000    |
 | $..price                                   | jmespath              | 29.566   | 5000    |
-|                                            | eval_query (baseline) | 30.852   | 62331   |
-| $.users\[?(@.age>30)\]                     | eval_query (baseline) | 0.373    | 3999    |
-| $..orders\[?(@.status=="shipped")\]        | eval_query (baseline) | 32.636   | 16804   |
+|                                            | query | 30.852   | 62331   |
+| $.users\[?(@.age>30)\]                     | query | 0.373    | 3999    |
+| $..orders\[?(@.status=="shipped")\]        | query | 32.636   | 16804   |

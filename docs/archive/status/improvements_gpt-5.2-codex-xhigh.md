@@ -25,7 +25,7 @@
 | P1       | Build/Docs | Align binding strategy (C API vs pybind11)          | Med             | S      | `docs/status/current_status.md`, `.cursor/rules/01-cpp-owns-cpu.mdc`            |
 | P1       | Testing    | Parity enforcement + coverage gates in CI           | Med             | M      | `docs/development/coverage.md`, `docs/test_coverage_summary.md`                 |
 | P1       | Bench      | Add missing dataset variants (escape/unicode heavy) | Med             | M      | `docs/benchmarks/datasets.md`                                                   |
-| P2       | Search     | JSONPath AND/OR, unions                             | Med             | M      | `docs/benchmarks/jsonpath_results.md`                                           |
+| P2       | Search     | JSONPath AND/OR, unions                             | Med             | M      | `docs/benchmarks/search_results.md`                                           |
 | P2       | Docs       | Consolidate benchmark result files and indexing     | Low             | S      | `docs/README.md`, `docs/benchmarks/*`                                           |
 
 ## 3. Detailed recommendations
@@ -136,7 +136,7 @@
 ### 3.7 JSONPath feature completeness (P2)
 
 - Problem: AND/OR and unions not yet implemented.
-- Evidence: `docs/benchmarks/jsonpath_results.md` (not implemented section).
+- Evidence: `docs/benchmarks/search_results.md` (not implemented section).
 - Proposed change:
   - Add parser support for boolean expressions and union syntax.
   - Extend tests and benchmarks for those queries.

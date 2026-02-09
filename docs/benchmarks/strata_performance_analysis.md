@@ -12,7 +12,7 @@ ______________________________________________________________________
 | **loads** (parse)     | #5 / 5               | ~166% behind                    | orjson   |
 | **dumps** (serialize) | #3 / 5               | ~304% behind                    | msgspec  |
 | **NDJSON**            | #5 / 5               | ~144% behind                    | msgspec  |
-| **JSONPath**          | Last on most queries | 10–40× slower on simple queries | jmespath |
+| **Search**          | Last on most queries | 10–40× slower on simple queries | jmespath |
 
 Strata is slow in almost every area compared to the top libraries. Below are the **root causes** by area and what would be needed to improve.
 
@@ -93,16 +93,16 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## 4. JSONPath: Why Strata Is 10–40× Slower on Simple Queries (Critical)
+## 4. Search: Why Strata Is 10–40× Slower on Simple Queries (Critical)
 
 **Observed**: For “Extract all user IDs”, Strata ~8.2 ms vs jmespath ~0.23 ms. For “Deep path navigation” (single result), Strata ~8.3 ms vs jmespath ~0.01 ms.
 
 **Root cause: dict input forces full conversion → query**
 
-When `search(data, path)` is called with a **Python dict/list** (e.g. the result of `strata.loads()`), the C++ binding converts the entire Python tree into a C++ `JsonValue` before running JSONPath:
+When `search(data, path)` is called with a **Python dict/list** (e.g. the result of `strata.loads()`), the C++ binding converts the entire Python tree into a C++ `JsonValue` before running Search:
 
 1. **Convert** dict/list → `JsonValue` (full tree walk + allocations).
-1. **Execute** JSONPath on the resulting C++ value.
+1. **Execute** Search on the resulting C++ value.
 
 So **every** `search(parsed_dict, path)` pays **conversion + query**. That still dominates runtime versus jmespath/jsonpath-ng, which walk the existing Python dict in place (no conversion).
 
@@ -119,7 +119,7 @@ auto parse_result = strata::parse_json(std::string_view(json_data, json_len));
 
 **Implications:**
 
-- **Benchmark fairness**: The current JSONPath benchmark uses `parsed_strata = strata.loads(json_text)` then `strata.search(parsed_strata, path)`. That always hits the “dict → dumps → parse → query” path. So Strata is not “slow at JSONPath evaluation” per se; it is slow because each call does a full round-trip.
+- **Benchmark fairness**: The current Search benchmark uses `parsed_strata = strata.loads(json_text)` then `strata.search(parsed_strata, path)`. That always hits the “dict → dumps → parse → query” path. So Strata is not “slow at Search evaluation” per se; it is slow because each call does a full round-trip.
 - **Fast path**: If the user passes a **JsonCursor** (e.g. from `strata.parse_json_file(path)`) or **JsonDocument**, `search()` runs directly on the C++ tree (no dumps, no re-parse). So for repeated queries on the same document, the recommended pattern is:
   - `cursor = strata.parse_json_file("file.json")` (or keep a C++ document handle if exposed), then
   - `strata.search(cursor, path)` for each query.
@@ -127,11 +127,11 @@ auto parse_result = strata::parse_json(std::string_view(json_data, json_len));
 
 **Recommendations:**
 
-1. **Document** in API docs and benchmark methodology: “For JSONPath, pass a JsonCursor or raw JSON string when comparing to libraries that operate on an in-memory dict; passing a dict from `loads()` triggers a full conversion per query.”
+1. **Document** in API docs and benchmark methodology: “For Search, pass a JsonCursor or raw JSON string when comparing to libraries that operate on an in-memory dict; passing a dict from `loads()` triggers a full conversion per query.”
 1. **Optionally** add a benchmark mode that times `search(json_text, path)` (parse + query) and/or `parse_json_file` + `search(cursor, path)` (one parse, many queries) so that Strata’s query engine is compared on equal footing.
 1. **Long-term**: Implement a true PyObject-based cursor so `search(data, path)` walks the Python dict/list without building a C++ tree; that would align behavior with jmespath/jsonpath-ng and remove per-query conversion cost.
 
-**References:** `src/strata/bindings/python_jsonpath.cpp` (dict branch and JsonCursor/JsonDocument branches), `python/strata/jsonpath.py`, `docs/benchmarks/jsonpath_results.md`.
+**References:** `src/strata/bindings/python_jsonpath.cpp` (dict branch and JsonCursor/JsonDocument branches), `python/strata/jsonpath.py`, `docs/benchmarks/search_results.md`.
 
 ______________________________________________________________________
 
@@ -150,7 +150,7 @@ ______________________________________________________________________
 | **loads**    | SIMD structural parsing; fewer/smaller allocations; optional “cursor-only” API (no full Python tree) for query-heavy workloads.                                                                                                  |
 | **dumps**    | Smaller output (match competitor formatting); faster number formatting (avoid snprintf in hot path); fewer buffer reallocations.                                                                                                 |
 | **NDJSON**   | Faster single-doc parse (same as loads); optional streaming/stateful NDJSON parser to reduce per-line overhead.                                                                                                                  |
-| **JSONPath** | **Stop re-serializing and re-parsing on dict input**: either (a) implement PyObject-based traversal for dict/list, or (b) document and benchmark using cursor/string so that “parse once, query many” is the default comparison. |
+| **Search** | **Stop re-serializing and re-parsing on dict input**: either (a) implement PyObject-based traversal for dict/list, or (b) document and benchmark using cursor/string so that “parse once, query many” is the default comparison. |
 
 ______________________________________________________________________
 
@@ -161,7 +161,7 @@ make bench-data   # ensure small/medium/large generated
 PYTHONPATH=. .venv/bin/python -m benchmarks.bench_loads   --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2
 PYTHONPATH=. .venv/bin/python -m benchmarks.bench_dumps  --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2
 PYTHONPATH=. .venv/bin/python -m benchmarks.bench_ndjson --data benchmarks/data/generated/small/users.ndjson --repeat 5 --warmup 2
-PYTHONPATH=. .venv/bin/python -m benchmarks.bench_jsonpath --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2
+PYTHONPATH=. .venv/bin/python -m benchmarks.bench_search --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2
 ```
 
 See `benchmarks/methodology.md` and `docs/benchmarks/` for full methodology and result history.
@@ -176,16 +176,16 @@ Prioritized by impact and effort. Each step should include C++ tests + Python te
 
 | #   | Step                                      | Why                                                                                                                                                                                                                                    | Where                                                                               |
 | --- | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 1   | **Benchmark JSONPath with cursor/string** | Current bench uses dict → serialize→parse per query; Strata looks 10–40× slower than jmespath. Add a mode that times `search(json_text, path)` or `parse_json_file` + `search(cursor, path)` so query-engine speed is compared fairly. | `benchmarks/bench_jsonpath.py`, `docs/benchmarks/methodology.md`                    |
+| 1   | **Benchmark Search with cursor/string** | Current bench uses dict → serialize→parse per query; Strata looks 10–40× slower than jmespath. Add a mode that times `search(json_text, path)` or `parse_json_file` + `search(cursor, path)` so query-engine speed is compared fairly. | `benchmarks/bench_search.py`, `docs/benchmarks/methodology.md`                    |
 | 2   | **Document “parse once, query many”**     | In API docs and docstrings: for repeated queries, use `parse_json_file(path)` then `search(cursor, path)`, or pass raw JSON string to `search()`; avoid passing a dict from `loads()` if you care about query latency.                 | `python/strata/jsonpath.py`, `docs/api/simplified_api.md`                           |
 | 3   | **Enable PGO in CI or release**           | PGO+LTO already improves dumps (~33%); make it the default for release builds or at least run weekly so regressions are visible.                                                                                                       | `scripts/pgo_build.sh`, `.github/workflows/`, `docs/development/pgo_performance.md` |
 
-### Phase 2: JSONPath dict path (high impact, medium effort)
+### Phase 2: Search dict path (high impact, medium effort)
 
 | #   | Step                                                    | Why                                                                                                                                                                                                                                                                                                                                                   | Where                                                                                                       |
 | --- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 4   | **Implement PyObject traversal for search(dict, path)** | When `search(data, path)` receives a Python dict/list, stop doing dumps→parse→query. Add a path that walks the PyObject tree from C++ and runs the existing JSONPath engine on a lightweight cursor/view, or converts dict→JsonValue once and reuses it. Then “load once, query many” with `loads()` + `search()` is fast and comparable to jmespath. | `src/strata/bindings/python_jsonpath.cpp`, possibly `src/strata/search/jsonpath.cpp` (cursor from PyObject) |
-| 5   | **C++ tests for PyObject-based query**                  | Ensure JSONPath results match when input is dict vs when input is JsonDocument/cursor.                                                                                                                                                                                                                                                                | `tests/cpp/`, Python contract tests in `tests/py/`                                                          |
+| 4   | **Implement PyObject traversal for search(dict, path)** | When `search(data, path)` receives a Python dict/list, stop doing dumps→parse→query. Add a path that walks the PyObject tree from C++ and runs the existing Search engine on a lightweight cursor/view, or converts dict→JsonValue once and reuses it. Then “load once, query many” with `loads()` + `search()` is fast and comparable to jmespath. | `src/strata/bindings/python_jsonpath.cpp`, possibly `src/strata/search/jsonpath.cpp` (cursor from PyObject) |
+| 5   | **C++ tests for PyObject-based query**                  | Ensure Search results match when input is dict vs when input is JsonDocument/cursor.                                                                                                                                                                                                                                                                | `tests/cpp/`, Python contract tests in `tests/py/`                                                          |
 
 ### Phase 3: Parsing (loads) — close gap to orjson/msgspec
 
@@ -213,7 +213,7 @@ Prioritized by impact and effort. Each step should include C++ tests + Python te
 ### Ordering and dependencies
 
 - **Do first**: 1, 2, 3 (benchmark fairness, docs, PGO).
-- **Then**: 4, 5 (JSONPath dict path) — biggest perceived win for “Strata is slow” on queries.
+- **Then**: 4, 5 (Search dict path) — biggest perceived win for “Strata is slow” on queries.
 - **Then**: 6, 7, 8 (parse); 9, 10, 11 (dumps); 12, 13 (NDJSON) — in parallel or by priority (e.g. parse if loads is the bottleneck, dumps if serialization is).
 
 ### Rules to respect

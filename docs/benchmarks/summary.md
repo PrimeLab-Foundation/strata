@@ -9,7 +9,7 @@ This document summarizes the benchmark improvements achieved in the 2026-02-02 o
 | Parse users.json (loads)     | 10.56 ms          | 8.84 ms       | -16.3% | ✅ Improved |
 | Parse users.ndjson           | 13.30 ms          | 13.02 ms      | -2.1%  | ✅ Improved |
 | Serialize users.json (dumps) | 8.41 ms           | 8.14 ms       | -3.2%  | ✅ Improved |
-| JSONPath ($.users\[\*\].id)  | 0.01 ms           | 0.01 ms       | 0%     | ✅ Stable   |
+| Search ($.users\[\*\].id)  | 0.01 ms           | 0.01 ms       | 0%     | ✅ Stable   |
 
 *Note: Baseline measured at start of session. Post measured after all optimizations.*
 

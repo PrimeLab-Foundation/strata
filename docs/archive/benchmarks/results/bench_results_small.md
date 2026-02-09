@@ -33,14 +33,14 @@ Generated: 2026-02-05 02:24:43
 
 | Query | Library | Min (ms) | Results |
 |-------|---------|----------|----------|
-| $.users[*].id | eval_query (baseline) | 0.026 | 1000 |
+| $.users[*].id | query | 0.026 | 1000 |
 |  | jmespath | 0.193 | 1000 |
 |  | jsonpath-ng | 1.522 | 1000 |
-| $.users[*].orders[*].items[*].price | eval_query (baseline) | 0.539 | 12046 |
+| $.users[*].orders[*].items[*].price | query | 0.539 | 12046 |
 |  | jmespath | 5.682 | 1000 |
 |  | jsonpath-ng | 17.224 | 12046 |
 | $..price | jmespath | 5.684 | 1000 |
-|  | eval_query (baseline) | 5.931 | 12046 |
+|  | query | 5.931 | 12046 |
 |  | jsonpath-ng | 74.282 | 12046 |
-| $.users[?(@.age>30)] | eval_query (baseline) | 0.030 | 794 |
-| $..orders[?(@.status=="shipped")] | eval_query (baseline) | 6.291 | 3208 |
+| $.users[?(@.age>30)] | query | 0.030 | 794 |
+| $..orders[?(@.status=="shipped")] | query | 6.291 | 3208 |

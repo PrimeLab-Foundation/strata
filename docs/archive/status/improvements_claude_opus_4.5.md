@@ -584,7 +584,7 @@ ______________________________________________________________________
 - `benchmarks/bench_main.py` - Main benchmark orchestrator
 - `benchmarks/bench_dumps.py` - Serialization benchmarks
 - `benchmarks/bench_ndjson.py` - NDJSON benchmarks
-- `benchmarks/bench_jsonpath.py` - Query benchmarks
+- `benchmarks/bench_search.py` - Query benchmarks
 
 ______________________________________________________________________
 

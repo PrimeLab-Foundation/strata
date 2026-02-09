@@ -235,8 +235,8 @@ class MarkdownReporter:
         # ----------------------------------------------------------
         # Build the table
         # ----------------------------------------------------------
-        if feature_name == "jsonpath":
-            lines.extend(self._format_jsonpath_table(sorted_results))
+        if feature_name == "search":
+            lines.extend(self._format_search_table(sorted_results))
         else:
             headers, aligns, rows = self._feature_table_data(feature_name, sorted_results)
             lines.extend(_build_table(headers, rows, aligns))
@@ -251,7 +251,7 @@ class MarkdownReporter:
     @staticmethod
     def _group_key_func(feature_name: str):
         """Return a function that extracts the ranking-group key."""
-        if feature_name == "jsonpath":
+        if feature_name == "search":
             return lambda r: (r.get("dataset", ""), r.get("query", ""))
         return lambda r: r.get("dataset", "default")
 
@@ -262,7 +262,7 @@ class MarkdownReporter:
     def _feature_table_data(
         self, feature_name: str, sorted_results: list[dict]
     ) -> tuple[list[str], list[_Align], list[list[str]]]:
-        """Return (headers, aligns, rows) for non-jsonpath features."""
+        """Return (headers, aligns, rows) for non-search features."""
 
         if feature_name in ("loads", "loads_tape"):
             headers = ["Library", "Dataset", "Median (ms)", "Throughput (MB/s)", "RSS (MB)", "Rank"]
@@ -333,11 +333,11 @@ class MarkdownReporter:
         return headers, aligns, rows
 
     # ----------------------------------------------------------
-    # JSONPath: one sub-table per dataset, grouped by query
+    # Search: one sub-table per dataset, grouped by query
     # ----------------------------------------------------------
 
-    def _format_jsonpath_table(self, sorted_results: list[dict]) -> list[str]:
-        """Format jsonpath results as per-dataset sub-tables for readability."""
+    def _format_search_table(self, sorted_results: list[dict]) -> list[str]:
+        """Format search results as per-dataset sub-tables for readability."""
         lines: list[str] = []
 
         # Group by dataset
@@ -396,8 +396,8 @@ class MarkdownReporter:
             rank = strata_result.get("rank", 0)
             query = strata_result.get("query")
 
-            # Find comparison results for same dataset (and query for jsonpath)
-            if feature_name == "jsonpath" and query:
+            # Find comparison results for same dataset (and query for search)
+            if feature_name == "search" and query:
                 others = [
                     r
                     for r in report.results
@@ -506,7 +506,7 @@ class MarkdownReporter:
                 strata_ms = result.get("median_ms", 0)
                 query = result.get("query")
 
-                if feature_name == "jsonpath" and query:
+                if feature_name == "search" and query:
                     others = [
                         r
                         for r in feature_report.results

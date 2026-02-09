@@ -29,7 +29,7 @@ ______________________________________________________________________
 - **Status**: Complete
 - **Deliverables**:
   - `benchmarks/bench_main.py` - Full benchmark orchestrator
-  - `benchmarks/eval_queries.py` - Query evaluation helpers
+  - `benchmarks/query_helpers.py` - Query evaluation helpers
   - `benchmarks/data/generate_bench_data.py` - Data generator (already existed)
   - Automated benchmark workflow with stats (min/median/p95)
 
@@ -277,7 +277,7 @@ ______________________________________________________________________
 ### Benchmark Infrastructure
 
 - `benchmarks/bench_main.py` - Main orchestrator
-- `benchmarks/eval_queries.py` - Query helpers
+- `benchmarks/query_helpers.py` - Query helpers
 - `benchmarks/__init__.py`
 
 ### Benchmark Results

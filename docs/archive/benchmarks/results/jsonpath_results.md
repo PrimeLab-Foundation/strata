@@ -14,7 +14,7 @@ ______________________________________________________________________
 ### Latest Runs (2026-01-31)
 
 Command:
-`python -m benchmarks.bench_jsonpath --data benchmarks/data/generated/users.json --repeat 50 --warmup 3`
+`python -m benchmarks.bench_search --data benchmarks/data/generated/users.json --repeat 50 --warmup 3`
 
 | Query                     | Strata (median ms) | JMESPath (median ms) | Speedup |
 | ------------------------- | ------------------ | -------------------- | ------- |
@@ -223,7 +223,7 @@ ______________________________________________________________________
 **Command**:
 
 ```bash
-python -m benchmarks.bench_jsonpath --data benchmarks/data/generated/users.json --repeat 5 --warmup 1
+python -m benchmarks.bench_search --data benchmarks/data/generated/users.json --repeat 5 --warmup 1
 ```
 
 **Key Results (median)**:

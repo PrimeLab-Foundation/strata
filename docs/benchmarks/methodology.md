@@ -57,9 +57,9 @@ When `psutil` is available:
 - Error messages are captured and reported
 - Partial results are never used
 
-### 6. JSONPath Strata Mode (Fair Comparison)
+### 6. Search Strata Mode (Fair Comparison)
 
-For JSONPath benchmarks, the **default** is cursor (query only), so query-engine speed is compared fairly without changing any option. Use `--strata-mode` only when you want to measure a different workflow:
+For Search benchmarks, the **default** is cursor (query only), so query-engine speed is compared fairly without changing any option. Use `--strata-mode` only when you want to measure a different workflow:
 
 - **cursor** (default): `parse_json_file(path)` once, then `search(cursor, path)` — **query only**; fair comparison vs jmespath/jsonpath-ng.
 - **string**: `search(text, path)` — parse+query per call (no dumps); fairer when comparing “one parse + one query”.
@@ -78,8 +78,8 @@ Benchmarks compare against:
 | **msgspec**       | Latest   | C + Python     | Modern fast serialization          |
 | **ijson**         | Latest   | Python + C     | Streaming JSON parser              |
 | **pysimdjson**    | Latest   | C++ (simdjson) | SIMD-accelerated                   |
-| **jmespath**      | Latest   | Python         | JSONPath queries                   |
-| **jsonpath-ng**   | Latest   | Python         | JSONPath queries                   |
+| **jmespath**      | Latest   | Python         | Search queries                   |
+| **jsonpath-ng**   | Latest   | Python         | Search queries                   |
 | **json (stdlib)** | Built-in | Python         | Baseline reference                 |
 
 **Import Rules:**
@@ -206,7 +206,7 @@ Results saved as markdown tables:
 
 1. **No NDJSON benchmarks** (API not implemented)
 1. **No dumps benchmarks** (serialization not implemented)
-1. **Limited query benchmarks** (JSONPath not implemented)
+1. **Limited query benchmarks** (Search not implemented)
 1. **pysimdjson often unavailable** (Python 3.14 compatibility)
 
 ### Platform Differences

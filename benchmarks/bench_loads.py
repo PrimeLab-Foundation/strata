@@ -35,6 +35,7 @@ except ImportError:
     simdjson = None
 
 import strata
+import strata.ndjson as strata_ndjson
 
 
 @dataclass
@@ -74,7 +75,7 @@ def _get_loads_runners(is_ndjson: bool) -> list[tuple[str, Callable[[bytes | str
     if is_ndjson:
 
         def strata_run(text: str):
-            return strata.parse_ndjson(text)
+            return strata_ndjson.parse_ndjson(text)
 
         def orjson_run(text: str):
             return [orjson.loads(line) for line in _ndjson_lines(text)]

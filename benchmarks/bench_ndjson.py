@@ -30,7 +30,7 @@ try:
 except ImportError:
     ujson = None
 
-import strata
+import strata.ndjson as strata_ndjson
 
 
 @dataclass
@@ -60,15 +60,15 @@ def _get_ndjson_runners() -> list[tuple[str, Callable[[str], list[Any]]]]:
 
     # Strata with auto-detection (picks optimal mode based on object size)
     def strata_auto_run(text: str) -> list:
-        return strata.parse_ndjson(text)
+        return strata_ndjson.parse_ndjson(text)
 
     # Force sequential (for comparison)
     def strata_seq_run(text: str) -> list:
-        return strata.parse_ndjson(text, parallel=False)
+        return strata_ndjson.parse_ndjson(text, parallel=False)
 
     # Force parallel (for comparison)
     def strata_par_run(text: str) -> list:
-        return strata.parse_ndjson(text, parallel=True)
+        return strata_ndjson.parse_ndjson(text, parallel=True)
 
     def orjson_run(text: str) -> list:
         return [orjson.loads(line) for line in _lines(text)]

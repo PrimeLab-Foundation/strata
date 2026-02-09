@@ -61,7 +61,7 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-### 3. Query Benchmarks (JSONPath)
+### 3. Query Benchmarks (Search)
 
 | Query                                      | Strata (ms) | jmespath (ms) | Winner      | Speedup      |
 | ------------------------------------------ | ----------- | ------------- | ----------- | ------------ |
@@ -289,7 +289,7 @@ ______________________________________________________________________
 
 1. Parsing-heavy workloads (API consumption)
 1. Memory-constrained environments
-1. Query-intensive applications (JSONPath)
+1. Query-intensive applications (Search)
 1. When C++ integration is preferred
 
 ### Near-Term (Close dumps Gap)

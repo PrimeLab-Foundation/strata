@@ -67,25 +67,25 @@ Library              Query                                    Min (ms)     Resul
 --------------------------------------------------------------------------------
 
   $.users[*].id
-    eval_query (baseline)      0.054ms      1000 results
+    query      0.054ms      1000 results
     jmespath                0.338ms      1000 results
     jsonpath-ng             2.938ms      1000 results
 
   $.users[*].orders[*].items[*].price
-    eval_query (baseline)      0.991ms     12046 results
+    query      0.991ms     12046 results
     jmespath                9.939ms      1000 results
     jsonpath-ng            30.474ms     12046 results
 
   $..price
     jmespath                9.928ms      1000 results
-    eval_query (baseline)     11.094ms     12046 results
+    query     11.094ms     12046 results
     jsonpath-ng           120.706ms     12046 results
 
   $.users[?(@.age>30)]
-    eval_query (baseline)      0.071ms       794 results
+    query      0.071ms       794 results
 
   $..orders[?(@.status=="shipped")]
-    eval_query (baseline)     11.563ms      3208 results
+    query     11.563ms      3208 results
 
 Results saved to docs/benchmarks/bench_results_small.md
 PYTHONPATH=. .venv/bin/python3.14 -m benchmarks.bench_loads --data benchmarks/data/generated/small/users.json --repeat 3 --warmup 1
@@ -190,10 +190,10 @@ strata               12.56        15.09      16.10     1000      53.5 0.57x
 
 Strata: Rank #5 / 5
   -> 74.9% behind #1 (msgspec)
-PYTHONPATH=. .venv/bin/python3.14 -m benchmarks.bench_jsonpath --data benchmarks/data/generated/small/users.json --repeat 2 --warmup 1
+PYTHONPATH=. .venv/bin/python3.14 -m benchmarks.bench_search --data benchmarks/data/generated/small/users.json --repeat 2 --warmup 1
 
 ======================================================================
-JSONPath Query Benchmarks
+Search Query Benchmarks
 ======================================================================
 Data file: benchmarks/data/generated/small/users.json
 Size: 0.96 MB

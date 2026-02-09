@@ -206,8 +206,8 @@ bench-small: $(BENCH_SMALL_JSON) $(BENCH_SMALL_NDJSON)
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_SMALL_NDJSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_dumps --data $(BENCH_SMALL_JSON) --repeat 3 --warmup 1
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson --data $(BENCH_SMALL_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_SMALL_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_SMALL_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_SMALL_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_SMALL_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
 
 # Run full benchmark suite on medium data
 bench-medium: $(BENCH_MEDIUM_JSON) $(BENCH_MEDIUM_NDJSON)
@@ -222,8 +222,8 @@ bench-medium: $(BENCH_MEDIUM_JSON) $(BENCH_MEDIUM_NDJSON)
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_MEDIUM_NDJSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_dumps --data $(BENCH_MEDIUM_JSON) --repeat 3 --warmup 1
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson --data $(BENCH_MEDIUM_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_MEDIUM_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_MEDIUM_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_MEDIUM_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_MEDIUM_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
 
 # Run full benchmark suite on large data
 bench-large: $(BENCH_LARGE_JSON) $(BENCH_LARGE_NDJSON)
@@ -238,8 +238,8 @@ bench-large: $(BENCH_LARGE_JSON) $(BENCH_LARGE_NDJSON)
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_LARGE_NDJSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_dumps --data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson --data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_LARGE_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_LARGE_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_LARGE_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_LARGE_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
 
 # Generate all data once, then run small + medium + large
 bench-all: bench-data bench-small bench-medium bench-large

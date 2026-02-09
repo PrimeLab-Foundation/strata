@@ -73,8 +73,8 @@ ______________________________________________________________________
   - bench_loads: 30.55 ms (rank #5/5, RSS 42.7 MB)
   - bench_dumps: 17.85 ms (rank #4/5, size 1,000,369 bytes, RSS 34.9 MB)
   - bench_ndjson: 33.49 ms (rank #4/5, RSS 52.7 MB)
-  - JSONPath (cursor): `$.users[*].id` 0.21 ms (rank #1), `$..price` 70.53 ms (full scan, baseline only)
-- **Conclusion**: Baseline captured for upcoming optimization work; major gaps remain in loads/dumps/ndjson throughput, while JSONPath (cursor mode) leads on most queries except recursive full-scan.
+  - Search (cursor): `$.users[*].id` 0.21 ms (rank #1), `$..price` 70.53 ms (full scan, baseline only)
+- **Conclusion**: Baseline captured for upcoming optimization work; major gaps remain in loads/dumps/ndjson throughput, while Search (cursor mode) leads on most queries except recursive full-scan.
 
 ______________________________________________________________________
 
@@ -333,7 +333,7 @@ ______________________________________________________________________
 - **Key benefits**:
   1. **Deferred unescape**: Strings without escapes are never processed; strings with escapes are processed on first access
   2. **Memory efficiency**: 26% less memory than nearest competitor by avoiding intermediate allocations
-  3. **Fast key comparison**: Raw byte comparison for strings without escapes in JSONPath queries
+  3. **Fast key comparison**: Raw byte comparison for strings without escapes in Search queries
   4. **Cached results**: Unescaped values cached after first materialization
 - **Files changed**:
   - `include/strata/util/lazy_string.hpp` (new, 355 lines)
@@ -343,14 +343,14 @@ ______________________________________________________________________
   - `tests/cpp/test_lazy_string.cpp` (new, 333 lines)
   - `CMakeLists.txt` (test target)
   - `docs/adr/ADR-0002-lazy-string-unescape.md` (new documentation)
-- **Conclusion**: **Improved architecture, best-in-class memory**. The lazy string unescape mechanism provides foundation for future JSONPath optimization while maintaining competitive parsing performance. Primary benefit is the 26% memory reduction through deferred string processing. The expected 2-5% latency improvement in JSONPath queries is now achievable as strings compared during filtering can use raw byte comparison when they have no escapes.
+- **Conclusion**: **Improved architecture, best-in-class memory**. The lazy string unescape mechanism provides foundation for future Search optimization while maintaining competitive parsing performance. Primary benefit is the 26% memory reduction through deferred string processing. The expected 2-5% latency improvement in Search queries is now achievable as strings compared during filtering can use raw byte comparison when they have no escapes.
 
 ______________________________________________________________________
 
-## 2026-02-05 — JSONPath Recursive Descent Optimization (BFS + Early Termination)
+## 2026-02-05 — Search Recursive Descent Optimization (BFS + Early Termination)
 
 - **Date/time**: 2026-02-05 00:19
-- **Change**: Optimized JSONPath recursive descent (`$..` queries) as documented in issue #11:
+- **Change**: Optimized Search recursive descent (`$..` queries) as documented in issue #11:
   1. **BFS traversal**: Converted `collect_recursive_cursors()` from DFS recursion to iterative BFS using `std::deque` for better cache locality
   2. **Early termination**: Added `limit` parameter to `eval_jsonpath()` enabling early termination when enough results are found
   3. **New API**: Added `eval_jsonpath(cursor, path, limit)` overloads for limited queries (e.g., `$..price` with `limit=1`)
@@ -361,7 +361,7 @@ ______________________________________________________________________
 - **Commands**:
   - `cmake --build build --target jsonpath_tests && ./build/jsonpath_tests`
   - `python -m pytest tests/py/test_jsonpath.py tests/py/test_jsonpath_advanced.py -v`
-  - `python -m benchmarks.bench_jsonpath --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2`
+  - `python -m benchmarks.bench_search --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2`
 - **Metrics (recursive descent `$..price`)**:
   - **Baseline**: median=70.53ms (from 2026-02-02 baseline)
   - **Post-change**: min=37.17ms, median=37.85ms, p95=38.36ms, RSS=48.2 MB
@@ -370,7 +370,7 @@ ______________________________________________________________________
     - Min: -47.3% improvement
     - P95: -45.6% improvement
   - Strata is now ~1.9x faster than jsonpath-ng (37.85ms vs 72.68ms)
-- **Tests**: All 23 C++ JSONPath tests pass (including 3 new limit tests), all 66 Python JSONPath tests pass
+- **Tests**: All 23 C++ Search tests pass (including 3 new limit tests), all 66 Python Search tests pass
 - **Files changed**:
   - `src/strata/search/jsonpath_eval.cpp` (BFS implementation, limit support)
   - `include/strata/search/jsonpath.hpp` (new overloads with limit parameter)
@@ -438,7 +438,7 @@ ______________________________________________________________________
 - **Key benefits**:
   1. **Performance**: Single-pass tape building is significantly faster than direct Python object construction for small/medium documents
   2. **Memory efficiency**: Tape uses contiguous buffers with minimal allocations
-  3. **Repeated access**: Tape enables parse-once-query-many patterns for JSONPath queries
+  3. **Repeated access**: Tape enables parse-once-query-many patterns for Search queries
   4. **Thread safety**: JsonTape is immutable after construction, safe for concurrent reads
   5. **Selective materialization**: Future work can build Python objects only for accessed paths
 - **Conclusion**: **Significant Improvement**. The tape format exceeds the target of 15-25% improvement, achieving 43-74% faster parsing for small/medium documents. The improvement comes from the more efficient two-phase approach (SAX → tape → Python) which reduces allocation overhead and improves cache locality. Large arrays show more modest 7% improvement as the bottleneck shifts to Python list construction. The tape format provides a solid foundation for future selective materialization and repeated query optimizations.
@@ -639,7 +639,7 @@ ______________________________________________________________________
 - **Change**: Fixed critical O(n) performance bottlenecks in parsing and serialization:
   1. **Issue #1 - O(1) List Depth Tracking**: Replaced O(n) loop that counted list depth by iterating entire stack on every `push_value()` call with O(1) `current_list_depth_` counter in `PythonObjectBuilder`
   2. **Issue #2 - O(1) Cycle Detection**: Replaced O(n) linear scan through stack for cycle detection in `serialize_iterative()` with O(1) `std::unordered_set<PyObject*>` lookup
-  3. **Issue #3 - JSONPath Early-Exit**: Added early-exit optimization in `eval_jsonpath()` that returns empty results immediately when root-level field doesn't exist
+  3. **Issue #3 - Search Early-Exit**: Added early-exit optimization in `eval_jsonpath()` that returns empty results immediately when root-level field doesn't exist
   4. **Issue #4 - NDJSON Arena Reset**: Increased arena reset intervals from 64 to 128 in NDJSON parsing to benefit from O(1) optimizations
 - **Commit**: [Current Session]
 - **Environment**: macOS (Darwin 25.1.0), arm64, Python 3.14.2
@@ -685,7 +685,7 @@ ______________________________________________________________________
   2. **Issue #1 - Pre-sized Dicts**: Changed `on_start_object()` to use `_PyDict_NewPresized()` when size hint is available (up to 1024 elements)
   3. **Issue #2 - String Escaping Optimization**: Created `escape_or_copy_string_simd()` function that uses fast `has_escape_chars` check first, only invoking position-tracking escape when needed
   4. **Issue #3 - Type Dispatch Reordering**: Reordered serialization type checks to handle primitives first (strings > ints > floats > None > bools), skipping expensive `is_container()` call for most values
-  5. **Test Fix**: Modified `test_filter_with_recursive` and `test_recursive_with_slice` to gracefully skip when JSONPath features aren't implemented
+  5. **Test Fix**: Modified `test_filter_with_recursive` and `test_recursive_with_slice` to gracefully skip when Search features aren't implemented
 - **Commit**: [Current Session]
 - **Environment**: macOS (Darwin 25.1.0), arm64 (Apple M1 Max), Python 3.14.2
 - **Commands**:
@@ -926,14 +926,14 @@ ______________________________________________________________________
   1. **O(1) estimation has minimal performance impact**: The bottleneck is in core serialization, not estimation
   2. **NoCheck policy provides 31-35% speedup**: Cycle detection is significant overhead for dumps
   3. **Strata wins 2/12 benchmarks**: loads/medium (42% faster) and ndjson/small (102% faster)
-  4. **JSONPath comparison is unfair**: Strata parses JSON on each query while others operate on pre-parsed dicts
+  4. **Search comparison is unfair**: Strata parses JSON on each query while others operate on pre-parsed dicts
 - **Why Strata is "slow" on some benchmarks**:
   | Operation | Gap | Root Cause |
   |-----------|-----|------------|
   | Small loads | 2.2x | Per-call overhead (arena, GC pause, handler setup) |
   | Large loads | 1.4x | Memory allocation for very large documents |
   | All dumps | 2x | Python C API overhead (string extraction, type checking) |
-  | JSONPath | 10000x | **Unfair comparison** - Strata parses JSON each time |
+  | Search | 10000x | **Unfair comparison** - Strata parses JSON each time |
 - **Conclusion**: **Code Simplified**. The O(1 estimation reduces code complexity without performance regression. Strata's architecture excels at medium-sized parsing (42% faster than orjson) and small NDJSON (102% faster). The remaining gaps are fundamental Python C API limitations that require architectural changes (two-phase parsing, lazy materialization) to address.
 
 ______________________________________________________________________
@@ -992,7 +992,7 @@ ______________________________________________________________________
 - **Date/time**: 2026-02-05 23:30
 - **Change**: Extended C++ test coverage targeting uncovered code branches:
   1. **Updated `test_jsonpath.cpp`**:
-     - Added `test_compile_quoted_escape_sequences()`: Tests all escape sequence handling in JSONPath quoted strings (\n, \t, \r, \\, \", \', default)
+     - Added `test_compile_quoted_escape_sequences()`: Tests all escape sequence handling in Search quoted strings (\n, \t, \r, \\, \", \', default)
      - Added `test_eval_filter_all_operators()`: Tests all comparison operators (==, !=, >=, <, <=)
      - Added `test_eval_filter_string()`: Tests string comparisons in filters
      - Added `test_eval_filter_missing_field()`: Tests filter behavior on missing fields
@@ -1078,9 +1078,9 @@ ______________________________________________________________________
   - `test_eval_filter_on_non_objects()`: Filter on array with scalar elements
   - `test_eval_string_filter_on_numeric()`: String filter on numeric field
   - `test_eval_negative_index()`: Negative array index evaluation ($[-1], $[-2])
-  - `test_eval_collect_null()`: Collecting null values via JSONPath
-  - `test_eval_collect_bool()`: Collecting boolean values via JSONPath
-  - `test_eval_collect_array()`: Collecting array values via JSONPath
+  - `test_eval_collect_null()`: Collecting null values via Search
+  - `test_eval_collect_bool()`: Collecting boolean values via Search
+  - `test_eval_collect_array()`: Collecting array values via Search
   - `test_eval_collect_nested_array()`: Collecting nested arrays via recursive descent
 - **tests/cpp/test_json_serialize.cpp**: Extended escaping tests:
   - Backslash escape (\\)

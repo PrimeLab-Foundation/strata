@@ -36,11 +36,11 @@ Generated: 2026-01-31 21:01:00
 
 | Query                                      | Library               | Min (ms) | Results |
 | ------------------------------------------ | --------------------- | -------- | ------- |
-| $.users\[\*\].id                           | eval_query (baseline) | 0.398    | 2000    |
+| $.users\[\*\].id                           | query | 0.398    | 2000    |
 |                                            | jmespath              | 1.041    | 2000    |
-| $.users\[*\].orders\[*\].items\[\*\].price | eval_query (baseline) | 78.208   | 2485232 |
+| $.users\[*\].orders\[*\].items\[\*\].price | query | 78.208   | 2485232 |
 |                                            | jmespath              | 595.810  | 2000    |
 | $..price                                   | jmespath              | 574.783  | 2000    |
-|                                            | eval_query (baseline) | 770.840  | 2485232 |
-| $.users\[?(@.age>30)\]                     | eval_query (baseline) | 0.387    | 1563    |
-| $..orders\[?(@.status=="shipped")\]        | eval_query (baseline) | 818.412  | 66414   |
+|                                            | query | 770.840  | 2485232 |
+| $.users\[?(@.age>30)\]                     | query | 0.387    | 1563    |
+| $..orders\[?(@.status=="shipped")\]        | query | 818.412  | 66414   |

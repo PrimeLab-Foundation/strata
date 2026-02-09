@@ -51,7 +51,7 @@ ______________________________________________________________________
 
 ## Query Benchmarks
 
-**Status**: Baseline queries only (no JSONPath engine in Strata yet)
+**Status**: Baseline queries only (no Search engine in Strata yet)
 
 ### Results
 
@@ -66,8 +66,8 @@ ______________________________________________________________________
 ### Key Insights
 
 1. **Huge opportunity**: Python baseline is 2.7-9.6x faster than JMESPath for simple queries
-1. **Target**: A C++-based JSONPath implementation should beat both by 10-50x
-1. **Next phase**: Port JSONPath engine from cpp_bkp
+1. **Target**: A C++-based Search implementation should beat both by 10-50x
+1. **Next phase**: Port Search engine from cpp_bkp
 
 ______________________________________________________________________
 
@@ -154,7 +154,7 @@ ______________________________________________________________________
 
 **Effort**: High (8-16 hours of work)
 
-### Phase 3: JSONPath Engine (Target: Feature completeness)
+### Phase 3: Search Engine (Target: Feature completeness)
 
 **Goal**: Enable query benchmarks and beat jmespath/jsonpath-ng
 
@@ -198,7 +198,7 @@ The initial implementation is already competitive with best-in-class libraries:
 **Next steps:**
 
 1. Implement Phase 1 optimizations (should beat orjson)
-1. Add JSONPath support (enable query benchmarks)
+1. Add Search support (enable query benchmarks)
 1. Consider SIMD for maximum performance
 
 **Confidence**: High. The gap is small and well-understood optimizations should close it.

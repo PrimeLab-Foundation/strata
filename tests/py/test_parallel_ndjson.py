@@ -2,7 +2,7 @@
 
 import pytest
 
-import strata
+import strata.ndjson as ndjson
 import strata._strata as native
 
 
@@ -194,7 +194,7 @@ class TestParseNdjsonPublicAPI:
     def test_default_auto_small_data(self):
         """Small data should use sequential by default (auto mode)."""
         data = '{"a": 1}\n{"b": 2}'
-        result = strata.parse_ndjson(data)
+        result = ndjson.parse_ndjson(data)
         assert len(result) == 2
         assert result[0] == {"a": 1}
         assert result[1] == {"b": 2}
@@ -206,7 +206,7 @@ class TestParseNdjsonPublicAPI:
         data = '\n'.join(lines)
         assert len(data) > 2 * 1024 * 1024  # Verify it's large enough
 
-        result = strata.parse_ndjson(data)
+        result = ndjson.parse_ndjson(data)
         assert len(result) == len(lines)
         for i, item in enumerate(result):
             assert item["id"] == i
@@ -214,13 +214,13 @@ class TestParseNdjsonPublicAPI:
     def test_parallel_none_auto_mode(self):
         """parallel=None uses auto-detection."""
         data = '{"a": 1}\n{"b": 2}'
-        result = strata.parse_ndjson(data, parallel=None)
+        result = ndjson.parse_ndjson(data, parallel=None)
         assert len(result) == 2
 
     def test_parallel_true_forces_parallel(self):
         """parallel=True forces parallel mode even for small data."""
         data = '{"a": 1}\n{"b": 2}'
-        result = strata.parse_ndjson(data, parallel=True)
+        result = ndjson.parse_ndjson(data, parallel=True)
         assert len(result) == 2
         assert result[0] == {"a": 1}
         assert result[1] == {"b": 2}
@@ -230,7 +230,7 @@ class TestParseNdjsonPublicAPI:
         # Create large data
         lines = [f'{{"id": {i}}}' for i in range(5000)]
         data = '\n'.join(lines)
-        result = strata.parse_ndjson(data, parallel=False)
+        result = ndjson.parse_ndjson(data, parallel=False)
         assert len(result) == 5000
         for i, item in enumerate(result):
             assert item["id"] == i
@@ -242,13 +242,13 @@ class TestParseNdjsonPublicAPI:
 
         # Test with various thread counts
         for threads in [1, 2, 4]:
-            result = strata.parse_ndjson(data, parallel=True, num_threads=threads)
+            result = ndjson.parse_ndjson(data, parallel=True, num_threads=threads)
             assert len(result) == 1000
 
     def test_skip_errors_parameter(self):
         """skip_errors parameter works in parallel mode."""
         data = '{"a": 1}\n{invalid\n{"c": 3}'
-        result = strata.parse_ndjson(data, skip_errors=True, parallel=True)
+        result = ndjson.parse_ndjson(data, skip_errors=True, parallel=True)
         assert len(result) == 2
         assert result[0] == {"a": 1}
         assert result[1] == {"c": 3}
@@ -256,7 +256,7 @@ class TestParseNdjsonPublicAPI:
     def test_bytes_input(self):
         """parse_ndjson accepts bytes input."""
         data = b'{"a": 1}\n{"b": 2}'
-        result = strata.parse_ndjson(data)
+        result = ndjson.parse_ndjson(data)
         assert len(result) == 2
 
     def test_parity_sequential_vs_parallel(self):
@@ -264,8 +264,8 @@ class TestParseNdjsonPublicAPI:
         lines = [f'{{"id": {i}, "value": "item_{i}"}}' for i in range(5000)]
         data = '\n'.join(lines)
 
-        seq_result = strata.parse_ndjson(data, parallel=False)
-        par_result = strata.parse_ndjson(data, parallel=True)
+        seq_result = ndjson.parse_ndjson(data, parallel=False)
+        par_result = ndjson.parse_ndjson(data, parallel=True)
 
         assert len(seq_result) == len(par_result)
         for s, p in zip(seq_result, par_result):
@@ -276,7 +276,7 @@ class TestParseNdjsonPublicAPI:
         lines = [f'{{"index": {i}}}' for i in range(10000)]
         data = '\n'.join(lines)
 
-        result = strata.parse_ndjson(data, parallel=True)
+        result = ndjson.parse_ndjson(data, parallel=True)
         assert len(result) == 10000
         for i, item in enumerate(result):
             assert item["index"] == i

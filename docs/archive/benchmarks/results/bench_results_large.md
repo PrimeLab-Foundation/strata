@@ -34,14 +34,14 @@ Generated: 2026-02-01 03:00:37
 
 | Query                                      | Library               | Min (ms) | Results |
 | ------------------------------------------ | --------------------- | -------- | ------- |
-| $.users\[\*\].id                           | eval_query (baseline) | 0.621    | 4000    |
+| $.users\[\*\].id                           | query | 0.621    | 4000    |
 |                                            | jmespath              | 1.570    | 4000    |
 |                                            | jsonpath-ng           | 32.151   | 4000    |
-| $.users\[*\].orders\[*\].items\[\*\].price | eval_query (baseline) | 27.291   | 789913  |
+| $.users\[*\].orders\[*\].items\[\*\].price | query | 27.291   | 789913  |
 |                                            | jmespath              | 215.874  | 4000    |
 |                                            | jsonpath-ng           | 1080.817 | 789913  |
 | $..price                                   | jmespath              | 218.731  | 4000    |
-|                                            | eval_query (baseline) | 264.605  | 789913  |
+|                                            | query | 264.605  | 789913  |
 |                                            | jsonpath-ng           | 3809.092 | 789913  |
-| $.users\[?(@.age>30)\]                     | eval_query (baseline) | 0.597    | 3212    |
-| $..orders\[?(@.status=="shipped")\]        | eval_query (baseline) | 281.879  | 52812   |
+| $.users\[?(@.age>30)\]                     | query | 0.597    | 3212    |
+| $..orders\[?(@.status=="shipped")\]        | query | 281.879  | 52812   |

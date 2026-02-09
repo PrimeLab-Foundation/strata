@@ -4,7 +4,7 @@ Tests for LazyCursor (selective materialization / lazy parsing).
 
 import pytest
 
-from strata import LazyCursor, lazy
+from strata._strata import LazyCursor, lazy
 
 
 class TestLazyCursorBasic:

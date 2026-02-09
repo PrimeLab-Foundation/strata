@@ -592,12 +592,12 @@ ______________________________________________________________________
 - `benchmarks/bench_main.py` - Main benchmark harness
 - `benchmarks/bench_dumps.py` - dumps benchmarks
 - `benchmarks/bench_ndjson.py` - NDJSON benchmarks
-- `benchmarks/bench_jsonpath.py` - JSONPath benchmarks
+- `benchmarks/bench_search.py` - Search benchmarks
 
 **Documentation:**
 
 - `docs/benchmarks/dumps_results.md` - dumps benchmark results
 - `docs/benchmarks/ndjson_results.md` - NDJSON benchmark results
-- `docs/benchmarks/jsonpath_results.md` - JSONPath benchmark results
+- `docs/benchmarks/search_results.md` - Search benchmark results
 - `docs/build/lto.md` - LTO documentation
 - `docs/build/pgo.md` - PGO documentation

@@ -76,7 +76,7 @@ ______________________________________________________________________
    - Stats tracking (min/median/p95/RSS)
    - HTML output support
    - Warmup and repeat iterations
-1. `benchmarks/eval_queries.py` - Query evaluation helpers
+1. `benchmarks/query_helpers.py` - Query evaluation helpers
 1. `benchmarks/data/generate_bench_data.py` - Already existed
 1. Makefile targets: `make bench-small`, `make bench-all`
 

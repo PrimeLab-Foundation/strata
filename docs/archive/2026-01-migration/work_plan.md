@@ -40,7 +40,7 @@ Build **Strata** as the fastest and most memory-efficient JSON engine, beating a
 1. ✅ Analyze project structure
 1. 🔄 Create work plans and improvement plans
 1. ⏳ Build benchmark orchestrator (`benchmarks/bench_main.py`)
-1. ⏳ Build query evaluation helpers (`benchmarks/eval_queries.py`)
+1. ⏳ Build query evaluation helpers (`benchmarks/query_helpers.py`)
 1. ⏳ Generate benchmark data
 1. ⏳ Run initial benchmarks against all competitors
 1. ⏳ Document baseline performance in `BENCH_RESULTS.md`

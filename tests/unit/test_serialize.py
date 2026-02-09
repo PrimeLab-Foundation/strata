@@ -8,6 +8,8 @@ import warnings
 import pytest
 
 import strata
+import strata.serialize as serialize
+from strata.json_cursor import parse_json
 
 
 class TestBasicSerialization:
@@ -151,10 +153,10 @@ class TestRoundTrip:
         assert result["object"] == {"nested": "value"}
 
     def test_roundtrip_strata_parse(self):
-        """Test round-trip using strata.parse_json."""
+        """Test round-trip using parse_json."""
         obj = {"name": "Alice", "scores": [95, 87, 92]}
         json_str = strata.dumps(obj)
-        cursor = strata.parse_json(json_str)
+        cursor = parse_json(json_str)
 
         # Verify we can access the data
         assert cursor.field("name").get_str() == "Alice"
@@ -249,13 +251,13 @@ class TestDumpsBytes:
 
     def test_dumps_bytes_basic(self):
         """Test dumps_bytes returns bytes."""
-        result = strata.dumps_bytes({"key": "value"})
+        result = serialize.dumps_bytes({"key": "value"})
         assert isinstance(result, bytes)
         assert json.loads(result) == {"key": "value"}
 
     def test_dumps_bytes_unicode(self):
         """Test dumps_bytes with Unicode."""
-        result = strata.dumps_bytes({"emoji": "👋"})
+        result = serialize.dumps_bytes({"emoji": "👋"})
         assert isinstance(result, bytes)
         parsed = json.loads(result.decode('utf-8'))
         assert parsed["emoji"] == "👋"
@@ -541,7 +543,7 @@ class TestLoadsTape:
 
     def test_loads_tape_basic(self):
         data = '{"a": 1, "b": [true, null]}'
-        result = strata.loads_tape(data)
+        result = serialize.loads_tape(data)
         assert result == {"a": 1, "b": [True, None]}
 
 
@@ -549,20 +551,20 @@ class TestDuplicateKeyPolicy:
     """Test configurable duplicate key handling."""
 
     def teardown_method(self):
-        strata.set_duplicate_key_policy("first")
+        serialize.set_duplicate_key_policy("first")
 
     def test_last_wins(self):
-        strata.set_duplicate_key_policy("last")
+        serialize.set_duplicate_key_policy("last")
         result = strata.loads('{"a": 1, "a": 2}')
         assert result["a"] == 2
 
     def test_error_wins(self):
-        strata.set_duplicate_key_policy("error")
+        serialize.set_duplicate_key_policy("error")
         with pytest.raises(ValueError):
             strata.loads('{"a": 1, "a": 2}')
 
     def test_warn_keeps_first(self):
-        strata.set_duplicate_key_policy("warn")
+        serialize.set_duplicate_key_policy("warn")
         with pytest.warns(RuntimeWarning):
             result = strata.loads('{"a": 1, "a": 2}')
         assert result["a"] == 1
@@ -572,7 +574,7 @@ class TestCyclePolicy:
     """Test cycle detection strategies during serialization."""
 
     def teardown_method(self):
-        strata.set_cycle_policy("warn")
+        serialize.set_cycle_policy("warn")
 
     def test_warn_emits_null(self):
         data = []
@@ -583,14 +585,14 @@ class TestCyclePolicy:
     def test_error_raises(self):
         data = []
         data.append(data)
-        strata.set_cycle_policy("error")
+        serialize.set_cycle_policy("error")
         with pytest.raises(ValueError):
             strata.dumps(data)
 
     def test_ignore_suppresses_warning(self):
         data = []
         data.append(data)
-        strata.set_cycle_policy("ignore")
+        serialize.set_cycle_policy("ignore")
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             assert strata.dumps(data) == "[null]"
@@ -598,7 +600,7 @@ class TestCyclePolicy:
 
     def test_nocheck_skips_detection(self):
         """nocheck policy serializes without cycle detection (acyclic data)."""
-        strata.set_cycle_policy("nocheck")
+        serialize.set_cycle_policy("nocheck")
         data = {"a": [1, 2, {"b": True}], "c": "hello"}
         result = strata.dumps(data)
         assert '"a"' in result
@@ -622,9 +624,9 @@ class TestDumpsTypeOrder:
     """Test dumps type-order configuration."""
 
     def teardown_method(self):
-        strata.set_dumps_type_order("strings_first")
+        serialize.set_dumps_type_order("strings_first")
 
     def test_ints_first(self):
-        strata.set_dumps_type_order("ints_first")
+        serialize.set_dumps_type_order("ints_first")
         assert strata.dumps(1) == "1"
         assert strata.dumps("1") == '"1"'

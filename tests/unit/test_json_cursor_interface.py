@@ -1,4 +1,4 @@
-from strata import JsonCursor
+from strata.json_cursor import JsonCursor
 
 
 def test_root_is_object(json_root: JsonCursor):

@@ -4,7 +4,7 @@
 Measure the performance impact of transitioning from DOM-based parsing to a SAX-based hybrid architecture with a direct-to-Python builder.
 
 ## Commands to run
-- **Full suite**: `make bench-small` (runs `bench_main`, `bench_loads`, `bench_dumps`, `bench_ndjson`, `bench_jsonpath` with warmup + repeats).
+- **Full suite**: `make bench-small` (runs `bench_main`, `bench_loads`, `bench_dumps`, `bench_ndjson`, `bench_search` with warmup + repeats).
 - **Targeted parsing bench**: `PYTHONPATH=. .venv/bin/python3.14 -m benchmarks.bench_loads --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2`
 
 ## Datasets

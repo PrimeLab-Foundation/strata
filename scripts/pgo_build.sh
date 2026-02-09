@@ -120,7 +120,7 @@ run_benchmarks() {
   PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_ndjson --data "$PGO_PRIMARY_NDJSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
 
   # 4. JSONPath queries - search and query evaluation
-  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_jsonpath --data "$PGO_PRIMARY_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
+  PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_search --data "$PGO_PRIMARY_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
 
   # Optional: Also run with small dataset for edge-case coverage if using larger primary
   if [ "$PGO_DATASET_SIZE" != "small" ]; then

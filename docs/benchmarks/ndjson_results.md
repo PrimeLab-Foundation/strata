@@ -312,7 +312,7 @@ ______________________________________________________________________
 | Large files (>100MB) | **NDJSON**      | Memory efficient       |
 | Small files (\<10MB) | JSON            | Faster parsing         |
 | Streaming data       | **NDJSON**      | Progressive processing |
-| Complex queries      | JSON + JSONPath | Query support          |
+| Complex queries      | JSON + Search | Query support          |
 | One-shot parsing     | JSON            | Simpler API            |
 
 ______________________________________________________________________
@@ -325,7 +325,7 @@ ______________________________________________________________________
 | -------------------- | ----------- | ----------------------------- |
 | **JSON parsing**     | ✅          | **97%** (3% behind orjson) ⚡ |
 | **Memory**           | ✅          | **#1** (18% better) ⚡⚡      |
-| **JSONPath queries** | ✅          | **2-10x faster** ⚡⚡⚡       |
+| **Search queries** | ✅          | **2-10x faster** ⚡⚡⚡       |
 | **dumps**            | ✅          | 11% (8.8x behind) ❌          |
 | **NDJSON**           | ✅          | **61%** (1.6x behind) ⚠️      |
 

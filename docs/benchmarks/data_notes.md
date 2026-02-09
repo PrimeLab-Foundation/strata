@@ -54,8 +54,8 @@ For `users.ndjson`, those are mapped to equivalent record-root queries:
 - `$[?(@.age>30)]` (filter over a synthetic array of records)
 - `$..orders[?(@.status=="shipped")]`
 
-These queries are implemented in `benchmarks/eval_queries.py` for Python-side
-evaluation when needed (e.g., for libraries without a JSONPath engine).
+These queries are implemented in `benchmarks/query_helpers.py` for Python-side
+evaluation when needed (e.g., for libraries without a Search engine).
 
 ## Dataset sizes and roles
 

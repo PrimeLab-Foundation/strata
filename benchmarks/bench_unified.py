@@ -80,6 +80,11 @@ except ImportError:
     HAS_JSONPATH_NG = False
 
 import strata
+import strata.json_cursor as strata_cursor
+import strata.mmap_io as strata_mmap
+import strata.ndjson as strata_ndjson
+import strata.serialize as strata_serialize
+from strata import _strata as _native
 
 
 @dataclass
@@ -130,9 +135,19 @@ class UnifiedBenchmarkSuite:
     """Single interface for all Strata benchmarks."""
 
     # Default feature sets
-    ALL_FEATURES = ["loads", "loads_tape", "dumps", "dumps_bytes", "ndjson", "iter_ndjson", "jsonpath", "cursor", "mmap"]
+    ALL_FEATURES = [
+        "loads",
+        "loads_tape",
+        "dumps",
+        "dumps_bytes",
+        "ndjson",
+        "iter_ndjson",
+        "search",
+        "cursor",
+        "mmap",
+    ]
     QUICK_FEATURES = ["loads", "dumps", "ndjson"]
-    CORE_FEATURES = ["loads", "dumps", "ndjson", "jsonpath"]
+    CORE_FEATURES = ["loads", "dumps", "ndjson", "search"]
 
     # Default libraries to test
     ALL_LIBRARIES = ["strata", "orjson", "msgspec", "ujson", "json", "simdjson"]
@@ -293,11 +308,11 @@ class UnifiedBenchmarkSuite:
             return self._run_benchmark(name, func)
 
     def _set_strata_cycle_policy(self, policy: str) -> None:
-        strata.set_cycle_policy(policy)
+        strata_serialize.set_cycle_policy(policy)
         self._strata_cycle_policy = policy
 
     def _set_strata_dumps_type_order(self, policy: str) -> None:
-        strata.set_dumps_type_order(policy)
+        strata_serialize.set_dumps_type_order(policy)
         self._strata_dumps_type_order = policy
 
     def _strata_variant_label(
@@ -420,7 +435,7 @@ class UnifiedBenchmarkSuite:
                     try:
                         result = self._run_benchmark_with_policies(
                             lib_name,
-                            lambda b=json_bytes: strata.loads_tape(b),
+                            lambda b=json_bytes: strata_serialize.loads_tape(b),
                             strata_policies=strata_policies,
                         )
                         result["library"] = lib_name
@@ -516,14 +531,14 @@ class UnifiedBenchmarkSuite:
 
             # Strata
             if "strata" in self.libraries:
-                runners.append(("strata", lambda d=data: strata.dumps_bytes(d), None))
+                runners.append(("strata", lambda d=data: strata_serialize.dumps_bytes(d), None))
                 if self.include_strata_policy_variants:
                     for policy in self.CYCLE_POLICY_VARIANTS:
                         label = self._strata_variant_label("strata", cycle_policy=policy)
-                        runners.append((label, lambda d=data: strata.dumps_bytes(d), {"cycle_policy": policy}))
+                        runners.append((label, lambda d=data: strata_serialize.dumps_bytes(d), {"cycle_policy": policy}))
                     for order in self.DUMPS_TYPE_ORDER_VARIANTS:
                         label = self._strata_variant_label("strata", dumps_type_order=order)
-                        runners.append((label, lambda d=data: strata.dumps_bytes(d), {"dumps_type_order": order}))
+                        runners.append((label, lambda d=data: strata_serialize.dumps_bytes(d), {"dumps_type_order": order}))
 
             # orjson (native bytes)
             if "orjson" in self.libraries and HAS_ORJSON:
@@ -582,7 +597,7 @@ class UnifiedBenchmarkSuite:
 
             # Strata parse_ndjson (auto mode)
             if "strata" in self.libraries:
-                runners.append(("strata", lambda t=ndjson_text: strata.parse_ndjson(t), None))
+                runners.append(("strata", lambda t=ndjson_text: strata_ndjson.parse_ndjson(t), None))
 
             # orjson line-by-line
             if "orjson" in self.libraries and HAS_ORJSON:
@@ -646,7 +661,7 @@ class UnifiedBenchmarkSuite:
                     self._log(f"  {lib_name} (iter): ", end="")
                     try:
                         def run_iter(t=ndjson_text):
-                            return list(strata.iter_ndjson(t))
+                            return list(strata_ndjson.iter_ndjson(t))
 
                         result = self._run_benchmark_with_policies(
                             lib_name,
@@ -669,12 +684,12 @@ class UnifiedBenchmarkSuite:
 
         return report
 
-    def _bench_jsonpath(self) -> FeatureReport:
-        """Benchmark JSONPath queries."""
-        report = FeatureReport(feature_name="jsonpath")
+    def _bench_search(self) -> FeatureReport:
+        """Benchmark search queries."""
+        report = FeatureReport(feature_name="search")
 
         self._log("\n" + "=" * 70)
-        self._log("Benchmarking: JSONPath queries")
+        self._log("Benchmarking: Search queries")
         self._log("=" * 70)
 
         # Test queries
@@ -696,7 +711,7 @@ class UnifiedBenchmarkSuite:
                 # Strata (using string input)
                 if "strata" in self.libraries:
                     try:
-                        path = strata.compile_path(strata_query)
+                        path = _native.compile_path(strata_query)
                     except Exception as e:
                         self._log("    strata: ", end="")
                         self._log(f"ERROR: {e}")
@@ -708,7 +723,7 @@ class UnifiedBenchmarkSuite:
                             self._log(f"    {lib_name}: ", end="")
                             try:
                                 def run_strata(t=json_text, p=path):
-                                    return strata.search(t, p)
+                                    return _native.search(t, p)
 
                                 result = self._run_benchmark_with_policies(
                                     lib_name,
@@ -764,7 +779,11 @@ class UnifiedBenchmarkSuite:
                 if HAS_JSONPATH_NG:
                     self._log("    jsonpath-ng: ", end="")
                     try:
-                        compiled = jsonpath_parse(strata_query)
+                        try:
+                            compiled = jsonpath_parse(strata_query)
+                        except Exception:
+                            self._log("SKIPPED (unsupported query)")
+                            continue
 
                         def run_jpng(t=json_text, c=compiled):
                             return [m.value for m in c.find(json.loads(t))]
@@ -807,7 +826,7 @@ class UnifiedBenchmarkSuite:
                     try:
                         result = self._run_benchmark_with_policies(
                             lib_name,
-                            lambda t=json_text: strata.parse_json(t),
+                            lambda t=json_text: strata_cursor.parse_json(t),
                             strata_policies=strata_policies,
                         )
                         result["library"] = lib_name
@@ -852,7 +871,7 @@ class UnifiedBenchmarkSuite:
                     try:
                         result = self._run_benchmark_with_policies(
                             lib_name,
-                            lambda p=temp_path: strata.parse_json_file(p),
+                            lambda p=temp_path: strata_mmap.parse_json_file(p),
                             strata_policies=strata_policies,
                         )
                         result["library"] = lib_name
@@ -894,7 +913,7 @@ class UnifiedBenchmarkSuite:
             "dumps_bytes": self._bench_dumps_bytes,
             "ndjson": self._bench_ndjson,
             "iter_ndjson": self._bench_iter_ndjson,
-            "jsonpath": self._bench_jsonpath,
+            "search": self._bench_search,
             "cursor": self._bench_cursor,
             "mmap": self._bench_mmap,
         }
@@ -919,7 +938,7 @@ class UnifiedBenchmarkSuite:
             "dumps_bytes": self._bench_dumps_bytes,
             "ndjson": self._bench_ndjson,
             "iter_ndjson": self._bench_iter_ndjson,
-            "jsonpath": self._bench_jsonpath,
+            "search": self._bench_search,
             "cursor": self._bench_cursor,
             "mmap": self._bench_mmap,
         }
@@ -967,11 +986,11 @@ class UnifiedBenchmarkSuite:
         strata_wins = 0
 
         for feature_name, feature_report in self._report.features.items():
-            # Group by (dataset) or (dataset, query) for jsonpath
+            # Group by (dataset) or (dataset, query) for search
             by_group: dict[str, list[dict]] = {}
             for result in feature_report.results:
                 ds = result.get("dataset", "default")
-                if feature_name == "jsonpath":
+                if feature_name == "search":
                     query = result.get("query", "")
                     key = f"{ds}|{query}"
                 else:
@@ -990,7 +1009,7 @@ class UnifiedBenchmarkSuite:
                     strata_wins += 1
 
                 # Build display label
-                if feature_name == "jsonpath" and "|" in group_key:
+                if feature_name == "search" and "|" in group_key:
                     ds, query = group_key.split("|", 1)
                     label = f"{feature_name}/{ds} ({query})"
                 else:
@@ -1042,7 +1061,7 @@ Examples:
         "--feature",
         "-f",
         type=str,
-        help="Single feature to benchmark (loads, dumps, ndjson, jsonpath, etc.)",
+        help="Single feature to benchmark (loads, dumps, ndjson, search, etc.)",
     )
     parser.add_argument(
         "--size",

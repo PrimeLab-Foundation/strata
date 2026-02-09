@@ -1,7 +1,6 @@
 import pytest
 
-import strata
-from strata import JsonCursor
+from strata.json_cursor import JsonCursor, parse_json
 
 
 @pytest.fixture
@@ -26,4 +25,4 @@ def json_root(sample_json_text) -> JsonCursor:
     """
     Return a JsonCursor positioned at the root of the sample JSON document.
     """
-    return strata.parse_json(sample_json_text)
+    return parse_json(sample_json_text)

@@ -23,9 +23,9 @@ from typing import Any, Callable
 
 from .harness import run_single_benchmark
 from .data.generate_bench_data import generate_users_datasets
-from .eval_queries import (
-    eval_query_users_json,
+from .query_helpers import (
     get_query_description,
+    query_users_json,
 )
 
 
@@ -123,9 +123,9 @@ def _get_parse_ndjson_runners(strict_missing: bool) -> list[tuple[str, Callable[
     lines_getter = lambda t: [line for line in t.splitlines() if line.strip()]
 
     try:
-        import strata
+        import strata.ndjson as strata_ndjson
 
-        runners.append(("strata", lambda t: list(strata.iter_ndjson(t))))
+        runners.append(("strata", lambda t: list(strata_ndjson.iter_ndjson(t))))
     except ImportError:
         if strict_missing:
             print("Warning: strata not installed")
@@ -291,7 +291,7 @@ class BenchmarkRunner:
         self._run_parse_suite(path, data_bytes=None, data_text=text, is_ndjson=True)
 
     def bench_query_json(self, dataset_path: str) -> None:
-        """Benchmark JSONPath-style queries on users.json."""
+        """Benchmark search-style queries on users.json."""
         path = Path(dataset_path)
         data = path.read_bytes()
         dataset_name = path.stem
@@ -302,13 +302,13 @@ class BenchmarkRunner:
             query_desc = get_query_description(query_id, is_ndjson=False)
             print(f"\n  Query {query_id}: {query_desc}")
 
-            # Baseline (Python eval)
+            # Query (Python)
             try:
                 last_result = None
 
                 def run_once():
                     nonlocal last_result
-                    last_result = eval_query_users_json(parsed, query_id)
+                    last_result = query_users_json(parsed, query_id)
                     return last_result
 
                 tr = run_single_benchmark(
@@ -320,7 +320,7 @@ class BenchmarkRunner:
                 n = len(last_result) if isinstance(last_result, list) else 1
                 self.results.append(
                     BenchResult(
-                        library="eval_query (baseline)",
+                        library="query",
                         operation="query",
                         dataset=dataset_name,
                         query=query_desc,
@@ -329,9 +329,9 @@ class BenchmarkRunner:
                         rss_mb=tr.rss_mb,
                     )
                 )
-                print(f"    strata:    {tr.min_ms:.3f}ms → {n} results")
+                print(f"    query:     {tr.min_ms:.3f}ms → {n} results")
             except Exception as e:
-                print(f"    strata:    ERROR: {e}")
+                print(f"    query:     ERROR: {e}")
 
             # jmespath (queries 1–3)
             if query_id in (1, 2, 3):
@@ -387,33 +387,38 @@ class BenchmarkRunner:
                 }
                 expr_str = exprs.get(query_id)
                 if expr_str:
-                    compiled = jp_parse(expr_str)
-                    last_result = None
+                    try:
+                        compiled = jp_parse(expr_str)
+                    except Exception:
+                        print("    jsonpath-ng: SKIPPED (unsupported query)")
+                        compiled = None
+                    if compiled is not None:
+                        last_result = None
 
-                    def run_jp():
-                        nonlocal last_result
-                        last_result = [m.value for m in compiled.find(parsed)]
-                        return last_result
+                        def run_jp():
+                            nonlocal last_result
+                            last_result = [m.value for m in compiled.find(parsed)]
+                            return last_result
 
-                    tr = run_single_benchmark(
-                        run_jp,
-                        warmup=self.warmup,
-                        repeat=self.repeat,
-                        capture_rss=True,
-                    )
-                    n = len(last_result) if isinstance(last_result, list) else 1
-                    self.results.append(
-                        BenchResult(
-                            library="jsonpath-ng",
-                            operation="query",
-                            dataset=dataset_name,
-                            query=query_desc,
-                            times_ms=tr.times_ms,
-                            result_count=n,
-                            rss_mb=tr.rss_mb,
+                        tr = run_single_benchmark(
+                            run_jp,
+                            warmup=self.warmup,
+                            repeat=self.repeat,
+                            capture_rss=True,
                         )
-                    )
-                    print(f"    jsonpath-ng: {tr.min_ms:.3f}ms → {n} results")
+                        n = len(last_result) if isinstance(last_result, list) else 1
+                        self.results.append(
+                            BenchResult(
+                                library="jsonpath-ng",
+                                operation="query",
+                                dataset=dataset_name,
+                                query=query_desc,
+                                times_ms=tr.times_ms,
+                                result_count=n,
+                                rss_mb=tr.rss_mb,
+                            )
+                        )
+                        print(f"    jsonpath-ng: {tr.min_ms:.3f}ms → {n} results")
             except ImportError:
                 pass
             except Exception as e:

@@ -36,14 +36,14 @@ Generated: 2026-01-31 03:33:54
 
 | Query                                      | Library               | Min (ms) | Results |
 | ------------------------------------------ | --------------------- | -------- | ------- |
-| $.users\[\*\].id                           | eval_query (baseline) | 0.337    | 5000    |
+| $.users\[\*\].id                           | query | 0.337    | 5000    |
 |                                            | jmespath              | 1.077    | 5000    |
-| $.users\[*\].orders\[*\].items\[\*\].price | eval_query (baseline) | 3.323    | 62331   |
+| $.users\[*\].orders\[*\].items\[\*\].price | query | 3.323    | 62331   |
 |                                            | jmespath              | 29.025   | 5000    |
 | $..price                                   | jmespath              | 30.760   | 5000    |
-|                                            | eval_query (baseline) | 31.571   | 62331   |
-| $.users\[?(@.age>30)\]                     | eval_query (baseline) | 0.561    | 3999    |
-| $..orders\[?(@.status=="shipped")\]        | eval_query (baseline) | 35.278   | 16804   |
+|                                            | query | 31.571   | 62331   |
+| $.users\[?(@.age>30)\]                     | query | 0.561    | 3999    |
+| $..orders\[?(@.status=="shipped")\]        | query | 35.278   | 16804   |
 
 ## Serialization Benchmarks (dumps)
 

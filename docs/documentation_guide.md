@@ -95,7 +95,7 @@ ______________________________________________________________________
 | `methodology.md`         | Benchmark methodology    | Understanding results |
 | `datasets.md`            | Test datasets            | Understanding tests   |
 | `dumps_results.md`       | Serialization benchmarks | Specific: dumps perf  |
-| `jsonpath_results.md`    | Query benchmarks         | Specific: query perf  |
+| `search_results.md`    | Query benchmarks         | Specific: query perf  |
 | `ndjson_results.md`      | Streaming benchmarks     | Specific: NDJSON perf |
 
 ### **Design Documents** (`design/`)

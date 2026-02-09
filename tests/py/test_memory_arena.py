@@ -5,6 +5,7 @@ import pytest
 psutil = pytest.importorskip("psutil")
 
 import strata
+import strata.ndjson as ndjson
 
 
 def _rss_mb() -> float:
@@ -42,7 +43,7 @@ def test_repeated_ndjson_batches_memory_stable():
 
     total = 0
     for _ in range(120):
-        for obj in strata.iter_ndjson(payload, batch_size=16):
+        for obj in ndjson.iter_ndjson(payload, batch_size=16):
             total += obj["a"]
 
     gc.collect()
