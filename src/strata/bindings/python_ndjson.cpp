@@ -1,17 +1,129 @@
 #include "python_convert.h"
+#include "python_ndjson.h"
 #include "python_object_builder.h"
 #include "python_types.h"
+#include "strata/json/json_parse.hpp"
 #include "strata/json/ndjson_stream.hpp"
 #include "strata/json/parallel_ndjson.hpp"
 #include "strata/util/arena_allocator.hpp"
 
+#include <algorithm>
+#include <cctype>
+#include <fstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // Run a block inside STRATA_CPP_TRY/STRATA_CPP_CATCH for one-liner stream methods.
 #define STRATA_NDJSON_TRY_RETURN_BLOCK(block)                                                      \
     STRATA_CPP_TRY                                                                                 \
     block STRATA_CPP_CATCH
+
+static void emit_duplicate_key_warnings() {
+    auto warnings = strata::consume_parse_warnings();
+    for (const auto& msg : warnings) {
+        PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+    }
+}
+
+namespace {
+
+enum class NdjsonErrorMode {
+    Skip,
+    Warn,
+    Error,
+};
+
+bool parse_ndjson_error_mode(int skip_errors, PyObject* on_error_obj, NdjsonErrorMode* mode) {
+    if (!mode) {
+        PyErr_SetString(PyExc_RuntimeError, "invalid error mode output");
+        return false;
+    }
+    if (on_error_obj == Py_None) {
+        *mode = skip_errors ? NdjsonErrorMode::Skip : NdjsonErrorMode::Error;
+        return true;
+    }
+    if (!PyUnicode_Check(on_error_obj)) {
+        PyErr_SetString(PyExc_TypeError, "on_error must be 'skip', 'warn', or 'error'");
+        return false;
+    }
+    const char* raw = PyUnicode_AsUTF8(on_error_obj);
+    if (!raw) {
+        return false;
+    }
+    std::string value(raw);
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (value == "skip") {
+        *mode = NdjsonErrorMode::Skip;
+        return true;
+    }
+    if (value == "warn") {
+        *mode = NdjsonErrorMode::Warn;
+        return true;
+    }
+    if (value == "error") {
+        *mode = NdjsonErrorMode::Error;
+        return true;
+    }
+    PyErr_SetString(PyExc_ValueError, "on_error must be 'skip', 'warn', or 'error'");
+    return false;
+}
+
+inline bool is_json_whitespace(unsigned char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+}
+
+bool is_whitespace_only(std::string_view line) {
+    for (unsigned char c : line) {
+        if (!is_json_whitespace(c)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string_view trim_line_endings(std::string_view line) {
+    if (!line.empty() && line.back() == '\n') {
+        line.remove_suffix(1);
+    }
+    if (!line.empty() && line.back() == '\r') {
+        line.remove_suffix(1);
+    }
+    return line;
+}
+
+bool process_ndjson_cursor_line(std::string_view line, size_t line_no, NdjsonErrorMode mode,
+                                strata::bindings::NdjsonCursorData& cursor_data,
+                                strata::ParseSaxOptions& options,
+                                strata::ParseSaxContext& parse_context) {
+    if (line.empty() || is_whitespace_only(line)) {
+        return true;
+    }
+    auto parse_result = strata::parse_json(line, options, &parse_context);
+    if (!parse_result.ok()) {
+        if (mode == NdjsonErrorMode::Skip) {
+            return true;
+        }
+        std::string message = "Invalid JSON on line " + std::to_string(line_no);
+        if (mode == NdjsonErrorMode::Warn) {
+            if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
+                return false;
+            }
+            return true;
+        }
+        PyErr_SetString(PyExc_ValueError, message.c_str());
+        return false;
+    }
+
+    emit_duplicate_key_warnings();
+
+    cursor_data.line_numbers.push_back(line_no);
+    cursor_data.values.push_back(std::move(parse_result.value));
+    return true;
+}
+
+} // namespace
 
 //=============================================================================
 // NdjsonStream Type
@@ -298,6 +410,218 @@ static PyObject* PyNdjsonStream_error_count(PyNdjsonStream* self, PyObject* Py_U
 }
 
 //=============================================================================
+// NdjsonCursor Type
+//=============================================================================
+
+typedef struct {
+    PyObject_HEAD strata::bindings::NdjsonCursorData* cursor;
+} PyNdjsonCursor;
+
+static void PyNdjsonCursor_dealloc(PyNdjsonCursor* self) {
+    delete self->cursor;
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject* PyNdjsonCursor_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
+    PyNdjsonCursor* self = (PyNdjsonCursor*)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->cursor = nullptr;
+    }
+    return (PyObject*)self;
+}
+
+// Forward declarations
+static PyObject* PyNdjsonCursor_from_string(PyObject* cls, PyObject* args, PyObject* kwargs);
+static PyObject* PyNdjsonCursor_from_file(PyObject* cls, PyObject* args, PyObject* kwargs);
+
+// Method table
+static PyMethodDef PyNdjsonCursor_methods[] = {
+    {"from_string", (PyCFunction)PyNdjsonCursor_from_string,
+     METH_VARARGS | METH_KEYWORDS | METH_CLASS, "Create NdjsonCursor from string"},
+    {"from_file", (PyCFunction)PyNdjsonCursor_from_file,
+     METH_VARARGS | METH_KEYWORDS | METH_CLASS, "Create NdjsonCursor from file"},
+    {NULL, NULL, 0, NULL}};
+
+// Type object
+static PyTypeObject PyNdjsonCursorType = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "strata._strata.NdjsonCursor",
+    .tp_basicsize = sizeof(PyNdjsonCursor),
+    .tp_dealloc = (destructor)PyNdjsonCursor_dealloc,
+    .tp_new = PyNdjsonCursor_new,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_doc = "NDJSON Cursor",
+    .tp_methods = PyNdjsonCursor_methods,
+};
+
+//=============================================================================
+// NdjsonCursor Method Implementations
+//=============================================================================
+
+static PyObject* PyNdjsonCursor_from_string(PyObject* cls, PyObject* args, PyObject* kwargs) {
+    (void)cls;  // Unused
+    PyObject* data_obj;
+    int skip_errors = 0;
+    PyObject* on_error_obj = Py_None;
+
+    static const char* kwlist[] = {"data", "skip_errors", "on_error", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|pO", const_cast<char**>(kwlist), &data_obj,
+                                     &skip_errors, &on_error_obj)) {
+        return NULL;
+    }
+
+    NdjsonErrorMode mode;
+    if (!parse_ndjson_error_mode(skip_errors, on_error_obj, &mode)) {
+        return NULL;
+    }
+
+    const char* data = nullptr;
+    Py_ssize_t len = 0;
+    if (PyBytes_Check(data_obj)) {
+        char* bytes = nullptr;
+        if (PyBytes_AsStringAndSize(data_obj, &bytes, &len) < 0) {
+            return NULL;
+        }
+        data = bytes;
+    } else if (PyUnicode_Check(data_obj)) {
+        data = PyUnicode_AsUTF8AndSize(data_obj, &len);
+        if (!data) {
+            return NULL;
+        }
+    } else {
+        PyErr_SetString(PyExc_TypeError, "data must be str or bytes");
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    auto* cursor_data = new strata::bindings::NdjsonCursorData();
+    strata::ParseSaxOptions options;
+    strata::ParseSaxContext parse_context;
+
+    std::string_view text(data, static_cast<size_t>(len));
+    size_t line_no = 0;
+    size_t pos = 0;
+    while (pos < text.size()) {
+        size_t next = text.find('\n', pos);
+        if (next == std::string_view::npos) {
+            next = text.size();
+        }
+        line_no++;
+        std::string_view line(text.data() + pos, next - pos);
+        line = trim_line_endings(line);
+        if (!process_ndjson_cursor_line(line, line_no, mode, *cursor_data, options,
+                                        parse_context)) {
+            delete cursor_data;
+            return NULL;
+        }
+        if (next == text.size()) {
+            break;
+        }
+        pos = next + 1;
+    }
+
+    PyNdjsonCursor* self_obj = (PyNdjsonCursor*)PyType_GenericAlloc(&PyNdjsonCursorType, 0);
+    if (!self_obj) {
+        delete cursor_data;
+        return NULL;
+    }
+    self_obj->cursor = cursor_data;
+    return (PyObject*)self_obj;
+
+    STRATA_CPP_CATCH
+}
+
+static PyObject* PyNdjsonCursor_from_file(PyObject* cls, PyObject* args, PyObject* kwargs) {
+    (void)cls;  // Unused
+    PyObject* path_obj;
+    int skip_errors = 0;
+    PyObject* on_error_obj = Py_None;
+
+    static const char* kwlist[] = {"filepath", "skip_errors", "on_error", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|pO", const_cast<char**>(kwlist), &path_obj,
+                                     &skip_errors, &on_error_obj)) {
+        return NULL;
+    }
+
+    NdjsonErrorMode mode;
+    if (!parse_ndjson_error_mode(skip_errors, on_error_obj, &mode)) {
+        return NULL;
+    }
+
+    PyObject* pathlike = PyOS_FSPath(path_obj);
+    if (!pathlike) {
+        return NULL;
+    }
+    const char* filepath = nullptr;
+    if (PyUnicode_Check(pathlike)) {
+        filepath = PyUnicode_AsUTF8(pathlike);
+    } else if (PyBytes_Check(pathlike)) {
+        filepath = PyBytes_AsString(pathlike);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "path must be str or bytes");
+    }
+    Py_DECREF(pathlike);
+    if (!filepath) {
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    std::ifstream file(filepath, std::ios::binary);
+    if (!file) {
+        PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
+        return NULL;
+    }
+
+    auto* cursor_data = new strata::bindings::NdjsonCursorData();
+    strata::ParseSaxOptions options;
+    strata::ParseSaxContext parse_context;
+
+    std::string line;
+    size_t line_no = 0;
+    while (std::getline(file, line)) {
+        line_no++;
+        std::string_view view(line);
+        view = trim_line_endings(view);
+        if (!process_ndjson_cursor_line(view, line_no, mode, *cursor_data, options,
+                                        parse_context)) {
+            delete cursor_data;
+            return NULL;
+        }
+    }
+    if (file.bad()) {
+        delete cursor_data;
+        PyErr_SetString(PyExc_OSError, "Error reading NDJSON file");
+        return NULL;
+    }
+
+    PyNdjsonCursor* self_obj = (PyNdjsonCursor*)PyType_GenericAlloc(&PyNdjsonCursorType, 0);
+    if (!self_obj) {
+        delete cursor_data;
+        return NULL;
+    }
+    self_obj->cursor = cursor_data;
+    return (PyObject*)self_obj;
+
+    STRATA_CPP_CATCH
+}
+
+//=============================================================================
+// NdjsonCursor Type helpers (exported for other bindings)
+//=============================================================================
+
+bool is_py_ndjson_cursor(PyObject* obj) { return obj && Py_TYPE(obj) == &PyNdjsonCursorType; }
+
+strata::bindings::NdjsonCursorData* get_py_ndjson_cursor(PyObject* obj) {
+    if (!is_py_ndjson_cursor(obj)) {
+        return nullptr;
+    }
+    return ((PyNdjsonCursor*)obj)->cursor;
+}
+
+//=============================================================================
 // Parallel NDJSON Implementation
 //=============================================================================
 
@@ -351,9 +675,17 @@ int register_ndjson_types(PyObject* module) {
     if (PyType_Ready(&PyNdjsonStreamType) < 0) {
         return -1;
     }
+    if (PyType_Ready(&PyNdjsonCursorType) < 0) {
+        return -1;
+    }
     Py_INCREF(&PyNdjsonStreamType);
     if (PyModule_AddObject(module, "NdjsonStream", (PyObject*)&PyNdjsonStreamType) < 0) {
         Py_DECREF(&PyNdjsonStreamType);
+        return -1;
+    }
+    Py_INCREF(&PyNdjsonCursorType);
+    if (PyModule_AddObject(module, "NdjsonCursor", (PyObject*)&PyNdjsonCursorType) < 0) {
+        Py_DECREF(&PyNdjsonCursorType);
         return -1;
     }
 

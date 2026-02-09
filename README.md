@@ -31,6 +31,12 @@ import strata
 ids = strata.search("users.json", "$.users[*].id")
 matches = strata.search("orders.ndjson", "$.price")
 # [{"line": 1, "matches": [9.99]}, {"line": 4, "matches": [12.5, 3.2]}]
+
+# Reuse an NDJSON cursor for repeated queries
+import strata.ndjson as ndjson
+
+cursor = ndjson.parse_ndjson_file("orders.ndjson")
+matches = strata.search(cursor, "$.price")
 ```
 
 ### query

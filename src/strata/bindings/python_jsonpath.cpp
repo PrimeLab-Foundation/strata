@@ -1,5 +1,6 @@
 #include "python_convert.h"
 #include "python_document.h"
+#include "python_ndjson.h"
 #include "python_types.h"
 #include "strata/json/json_parse.hpp"
 #include "strata/search/jsonpath.hpp"
@@ -9,6 +10,8 @@
 #include <fstream>
 #include <string>
 #include <vector>
+
+extern PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
 
 static void emit_duplicate_key_warnings() {
     auto warnings = strata::consume_parse_warnings();
@@ -24,6 +27,49 @@ enum class NdjsonErrorMode {
     Warn,
     Error,
 };
+
+enum class StrataSearchMode {
+    Auto,
+    Dict,
+    String,
+    Cursor,
+};
+
+bool parse_strata_mode(PyObject* mode_obj, StrataSearchMode* mode) {
+    if (!mode) {
+        PyErr_SetString(PyExc_RuntimeError, "invalid strata_mode output");
+        return false;
+    }
+    if (mode_obj == Py_None) {
+        *mode = StrataSearchMode::Auto;
+        return true;
+    }
+    if (!PyUnicode_Check(mode_obj)) {
+        PyErr_SetString(PyExc_TypeError, "strata_mode must be 'dict', 'string', or 'cursor'");
+        return false;
+    }
+    const char* raw = PyUnicode_AsUTF8(mode_obj);
+    if (!raw) {
+        return false;
+    }
+    std::string value(raw);
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (value == "dict") {
+        *mode = StrataSearchMode::Dict;
+        return true;
+    }
+    if (value == "string") {
+        *mode = StrataSearchMode::String;
+        return true;
+    }
+    if (value == "cursor") {
+        *mode = StrataSearchMode::Cursor;
+        return true;
+    }
+    PyErr_SetString(PyExc_ValueError, "strata_mode must be 'dict', 'string', or 'cursor'");
+    return false;
+}
 
 bool parse_ndjson_error_mode(int skip_errors, PyObject* on_error_obj, NdjsonErrorMode* mode) {
     if (!mode) {
@@ -116,6 +162,81 @@ bool append_ndjson_match(PyObject* results, size_t line_no,
     }
     Py_DECREF(entry);
     return true;
+}
+
+PyObject* search_from_json_buffer(const char* data, Py_ssize_t len,
+                                  const strata::CompiledPath& compiled_path) {
+    auto parse_result = strata::parse_json(std::string_view(data, static_cast<size_t>(len)));
+    if (!parse_result.ok()) {
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+        return NULL;
+    }
+
+    emit_duplicate_key_warnings();
+
+    strata::JsonCursor cursor(&parse_result.value);
+    auto result_values = strata::eval_jsonpath(cursor, compiled_path);
+    return json_value_list_to_python(result_values);
+}
+
+PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& compiled_path) {
+    if (is_py_json_document(data_obj)) {
+        auto* doc = get_py_json_document(data_obj);
+        if (!doc) {
+            PyErr_SetString(PyExc_TypeError, "Invalid JsonDocument");
+            return NULL;
+        }
+
+        strata::JsonCursor cursor(doc->root());
+        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
+        return json_value_list_to_python(result_values);
+    }
+
+    if (is_py_json_cursor(data_obj)) {
+        auto* cursor_ptr = get_py_json_cursor(data_obj);
+        if (!cursor_ptr) {
+            PyErr_SetString(PyExc_TypeError, "Invalid JsonCursor");
+            return NULL;
+        }
+
+        auto result_values = strata::eval_jsonpath(*cursor_ptr, compiled_path);
+        return json_value_list_to_python(result_values);
+    }
+
+    if (is_py_ndjson_cursor(data_obj)) {
+        auto* cursor_data = get_py_ndjson_cursor(data_obj);
+        if (!cursor_data) {
+            PyErr_SetString(PyExc_TypeError, "Invalid NdjsonCursor");
+            return NULL;
+        }
+        const auto& values = cursor_data->values;
+        const auto& line_numbers = cursor_data->line_numbers;
+        if (values.size() != line_numbers.size()) {
+            PyErr_SetString(PyExc_RuntimeError, "NdjsonCursor data is inconsistent");
+            return NULL;
+        }
+
+        PyObject* results = PyList_New(0);
+        if (!results) {
+            return NULL;
+        }
+
+        for (size_t i = 0; i < values.size(); ++i) {
+            strata::JsonCursor cursor(&values[i]);
+            auto matches = strata::eval_jsonpath(cursor, compiled_path);
+            if (matches.empty()) {
+                continue;
+            }
+            if (!append_ndjson_match(results, line_numbers[i], matches)) {
+                Py_DECREF(results);
+                return NULL;
+            }
+        }
+        return results;
+    }
+
+    PyErr_SetString(PyExc_TypeError, "cursor mode expects JsonDocument, JsonCursor, or NdjsonCursor");
+    return NULL;
 }
 
 bool process_ndjson_line(std::string_view line, size_t line_no,
@@ -298,15 +419,24 @@ PyObject* strata_compile_path(PyObject* self, PyObject* args) {
     STRATA_CPP_CATCH
 }
 
-PyObject* strata_search(PyObject* self, PyObject* args) {
+PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* data_obj;
     PyObject* path_obj;
+    PyObject* mode_obj = Py_None;
 
-    if (!PyArg_ParseTuple(args, "OO", &data_obj, &path_obj)) {
+    static const char* kwlist[] = {"data", "path", "strata_mode", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|O", const_cast<char**>(kwlist), &data_obj,
+                                     &path_obj, &mode_obj)) {
         return NULL;
     }
 
     STRATA_CPP_TRY
+
+    StrataSearchMode mode;
+    if (!parse_strata_mode(mode_obj, &mode)) {
+        return NULL;
+    }
 
     // Compile the path (if it's a string)
     strata::CompiledPath compiled_path;
@@ -332,50 +462,68 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    // Handle JsonDocument/JsonCursor inputs (parsed once, no reparse)
-    if (is_py_json_document(data_obj)) {
-        auto* doc = get_py_json_document(data_obj);
-        if (!doc) {
-            PyErr_SetString(PyExc_TypeError, "Invalid JsonDocument");
+    if (mode == StrataSearchMode::Dict) {
+        PyObject* json_bytes = strata_dumps_bytes(nullptr, data_obj);
+        if (!json_bytes) {
             return NULL;
         }
+        char* json_data = nullptr;
+        Py_ssize_t json_len = 0;
+        if (PyBytes_AsStringAndSize(json_bytes, &json_data, &json_len) < 0) {
+            Py_DECREF(json_bytes);
+            return NULL;
+        }
+        PyObject* result = search_from_json_buffer(json_data, json_len, compiled_path);
+        Py_DECREF(json_bytes);
+        return result;
+    }
 
-        strata::JsonCursor cursor(doc->root());
-        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-        return json_value_list_to_python(result_values);
+    if (mode == StrataSearchMode::String) {
+        if (PyUnicode_Check(data_obj)) {
+            Py_ssize_t json_len;
+            const char* json_data = PyUnicode_AsUTF8AndSize(data_obj, &json_len);
+            if (!json_data) {
+                return NULL;
+            }
+            return search_from_json_buffer(json_data, json_len, compiled_path);
+        }
+        if (PyBytes_Check(data_obj)) {
+            char* json_data = nullptr;
+            Py_ssize_t json_len = 0;
+            if (PyBytes_AsStringAndSize(data_obj, &json_data, &json_len) < 0) {
+                return NULL;
+            }
+            return search_from_json_buffer(json_data, json_len, compiled_path);
+        }
+        PyErr_SetString(PyExc_TypeError, "string mode expects JSON text (str or bytes)");
+        return NULL;
+    }
+
+    if (mode == StrataSearchMode::Cursor) {
+        return search_cursor_mode(data_obj, compiled_path);
+    }
+
+    // Handle JsonDocument/JsonCursor inputs (parsed once, no reparse)
+    if (is_py_json_document(data_obj)) {
+        return search_cursor_mode(data_obj, compiled_path);
     }
 
     if (is_py_json_cursor(data_obj)) {
-        auto* cursor_ptr = get_py_json_cursor(data_obj);
-        if (!cursor_ptr) {
-            PyErr_SetString(PyExc_TypeError, "Invalid JsonCursor");
-            return NULL;
-        }
+        return search_cursor_mode(data_obj, compiled_path);
+    }
 
-        auto result_values = strata::eval_jsonpath(*cursor_ptr, compiled_path);
-        return json_value_list_to_python(result_values);
+    if (is_py_ndjson_cursor(data_obj)) {
+        return search_cursor_mode(data_obj, compiled_path);
     }
 
     // Handle string input (JSON text)
     if (PyUnicode_Check(data_obj)) {
         Py_ssize_t json_len;
         const char* json_data = PyUnicode_AsUTF8AndSize(data_obj, &json_len);
-        if (!json_data)
-            return NULL;
-
-        // Parse JSON text
-        auto parse_result = strata::parse_json(std::string_view(json_data, json_len));
-        if (!parse_result.ok()) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+        if (!json_data) {
             return NULL;
         }
-
-        emit_duplicate_key_warnings();
-
-        // Execute query
-        strata::JsonCursor cursor(&parse_result.value);
-        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-        return json_value_list_to_python(result_values);
+        return search_from_json_buffer(json_data, json_len, compiled_path);
     }
 
     if (PyBytes_Check(data_obj)) {
@@ -384,21 +532,12 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         if (PyBytes_AsStringAndSize(data_obj, &json_data, &json_len) < 0) {
             return NULL;
         }
-        auto parse_result = strata::parse_json(std::string_view(json_data, json_len));
-        if (!parse_result.ok()) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
-            return NULL;
-        }
-
-        emit_duplicate_key_warnings();
-
-        strata::JsonCursor cursor(&parse_result.value);
-        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-        return json_value_list_to_python(result_values);
+        return search_from_json_buffer(json_data, json_len, compiled_path);
     }
 
     PyErr_SetString(PyExc_TypeError,
-                    "search() expects JSON text (str/bytes) or a JsonDocument/JsonCursor");
+                    "search() expects JSON text (str/bytes), dict mode data, or a "
+                    "JsonDocument/JsonCursor/NdjsonCursor");
     return NULL;
 
     STRATA_CPP_CATCH

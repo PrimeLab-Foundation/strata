@@ -7,8 +7,8 @@ Uses shared harness for timing and RSS. Uses internal Strata bindings for fair m
 
 Note: Strata search(data, path) with a Python dict (e.g. from loads()) triggers
 serialize→parse→query per call; jmespath/jsonpath-ng walk the dict in place.
-For fair repeated-query comparison use parse_json_file() + search(cursor, path), or
-see docs/benchmarks/strata_performance_analysis.md.
+For fair repeated-query comparison use parse_json_file() + search(cursor, path)
+for JSON or NdjsonCursor.from_file() + search(cursor, path) for NDJSON.
 """
 
 from __future__ import annotations
@@ -213,7 +213,8 @@ def run_all(
 ) -> list[QueryBenchResult]:
     """Run all query benchmarks; return list of QueryBenchResult.
 
-    strata_mode: "cursor" (default) = parse_json_file once, then search(cursor, path) [query only];
+    strata_mode: "cursor" (default) = parse_json_file (JSON) or NdjsonCursor.from_file (NDJSON)
+                 once, then search(cursor, path) [query only];
                  "string" = search(text, path) [parse+query per call, no dumps];
                  "dict" = search(loads(text), path) [dumps+parse+query per call]. Use for loads()+search() comparison.
     """
@@ -223,8 +224,8 @@ def run_all(
     effective_strata_mode = strata_mode
     strata_mode_label = strata_mode
     if is_ndjson and strata_mode == "cursor":
-        effective_strata_mode = "dict"
-        strata_mode_label = "dict (NDJSON cursor unsupported)"
+        effective_strata_mode = "ndjson_cursor"
+        strata_mode_label = "ndjson_cursor"
 
     print()
     print("=" * 70)
@@ -258,6 +259,12 @@ def run_all(
 
                 def run_strata():
                     return _native.search(json_text, path)
+
+            elif effective_strata_mode == "ndjson_cursor":
+                cursor = _native.NdjsonCursor.from_file(str(data_file))
+
+                def run_strata():
+                    return _native.search(cursor, path)
 
             else:  # cursor: parse once per query, time query only
                 _document, cursor = _native.parse_json_file(str(data_file))
@@ -491,7 +498,7 @@ def main() -> int:
         "--strata-mode",
         choices=["dict", "string", "cursor"],
         default="cursor",
-        help="Strata input: cursor=parse_json_file then search(cursor,path) [query only, default]; dict=search(loads(text),path); string=search(text,path). Use --strata-mode dict for loads()+search() comparison.",
+        help="Strata input: cursor=parse_json_file (JSON) or NdjsonCursor.from_file (NDJSON) then search(cursor,path) [query only, default]; dict=search(loads(text),path); string=search(text,path). Use --strata-mode dict for loads()+search() comparison.",
     )
     parser.add_argument("--output", type=Path, help="Write Markdown results to file")
     parser.add_argument("--append", action="store_true", help="Append to --output if set")
@@ -512,7 +519,7 @@ def main() -> int:
         _json_text, _json_data, size_mb, record_count, is_ndjson = _load_json_data(args.data)
         strata_mode_label = args.strata_mode
         if is_ndjson and args.strata_mode == "cursor":
-            strata_mode_label = "dict (NDJSON cursor unsupported)"
+            strata_mode_label = "ndjson_cursor"
         body = _format_markdown(
             results,
             args.data,

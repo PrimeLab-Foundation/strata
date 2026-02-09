@@ -92,10 +92,10 @@ def search(
     **kwargs: Any,
 ) -> list:
     """
-    Search a JSON/NDJSON file for values matching a JSONPath expression.
+    Search a JSON/NDJSON file or cursor for values matching a JSONPath expression.
 
     Args:
-        source: File path or file-like object.
+        source: File path, file-like object, or NdjsonCursor.
         expression: JSONPath string.
         ndjson: Optional bool to force NDJSON mode.
         skip_errors: Skip malformed NDJSON lines when enabled.
@@ -106,6 +106,15 @@ def search(
     on_error = kwargs.pop("on_error", None)
     ndjson_kwargs = _pop_ndjson_kwargs(kwargs)
     _ensure_no_extra_kwargs(kwargs)
+
+    if isinstance(source, _native.NdjsonCursor):
+        if on_error is not None:
+            raise TypeError("on_error is only supported for NDJSON file search")
+        if ndjson_kwargs:
+            keys = ", ".join(sorted(ndjson_kwargs))
+            raise TypeError(f"unsupported keyword argument(s): {keys}")
+        compiled = _compiled_path(expression)
+        return _native.search(source, compiled)
 
     if _detect_ndjson(source, ndjson):
         compiled = _compiled_path(expression)

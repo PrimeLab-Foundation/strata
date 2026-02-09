@@ -8,6 +8,7 @@ Automatically uses multi-threaded parallel parsing for large objects.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
 
 from . import _strata as _native
 
@@ -147,5 +148,48 @@ def parse_ndjson(
         stream = _native.NdjsonStream.from_string(text)
         return stream.parse_all(skip_errors)
 
+def parse_ndjson_cursor(
+    data: str | bytes,
+    *,
+    skip_errors: bool = False,
+    on_error: str | None = None,
+) -> _native.NdjsonCursor:
+    """
+    Parse NDJSON text into a cursor for repeated JSONPath queries.
 
-__all__ = ["iter_ndjson", "parse_ndjson"]
+    Args:
+        data: NDJSON text as string or bytes.
+        skip_errors: If True, skip malformed lines. If False, raise on first error.
+        on_error: Override error handling ("skip", "warn", or "error").
+    """
+    return _native.NdjsonCursor.from_string(data, skip_errors=skip_errors, on_error=on_error)
+
+
+def parse_ndjson_file(
+    path: str | Path,
+    *,
+    skip_errors: bool = False,
+    on_error: str | None = None,
+) -> _native.NdjsonCursor:
+    """
+    Parse an NDJSON file into a cursor for repeated JSONPath queries.
+
+    Args:
+        path: File path to the NDJSON file.
+        skip_errors: If True, skip malformed lines. If False, raise on first error.
+        on_error: Override error handling ("skip", "warn", or "error").
+    """
+    path_str = str(path) if isinstance(path, Path) else path
+    return _native.NdjsonCursor.from_file(path_str, skip_errors=skip_errors, on_error=on_error)
+
+
+NdjsonCursor = _native.NdjsonCursor
+
+
+__all__ = [
+    "iter_ndjson",
+    "parse_ndjson",
+    "parse_ndjson_cursor",
+    "parse_ndjson_file",
+    "NdjsonCursor",
+]
