@@ -35,6 +35,7 @@
 
 #include <cctype>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 #include <vector>
@@ -70,8 +71,12 @@ class DomBuilderHandler : public JsonSaxHandler {
         return push_value(JsonValue(JsonValue::Variant(std::string(v))));
     }
 
-    bool on_start_object(size_t) override {
-        stack_.emplace_back(JsonValue::Variant(JsonValue::Object()));
+    bool on_start_object(size_t size_hint) override {
+        JsonValue::Object obj;
+        if (size_hint > 0) {
+            obj.reserve(size_hint);
+        }
+        stack_.emplace_back(JsonValue::Variant(std::move(obj)));
         return true;
     }
 
@@ -93,8 +98,12 @@ class DomBuilderHandler : public JsonSaxHandler {
         return push_value(std::move(obj));
     }
 
-    bool on_start_array(size_t) override {
-        stack_.emplace_back(JsonValue::Variant(JsonValue::Array()));
+    bool on_start_array(size_t size_hint) override {
+        JsonValue::Array arr;
+        if (size_hint > 0) {
+            arr.reserve(size_hint);
+        }
+        stack_.emplace_back(JsonValue::Variant(std::move(arr)));
         return true;
     }
 
@@ -238,6 +247,221 @@ struct Parser {
         sync_structural_tape();
     }
 
+    static constexpr size_t kHintMaxScan = 512;
+    static constexpr size_t kHintMaxRoot = 131072;
+    static constexpr size_t kHintMaxNested = 8192;
+
+    size_t skip_ws_local(size_t pos) const {
+        return util::skip_whitespace_fast(data, len, pos);
+    }
+
+    bool skip_string_local(size_t& pos, size_t limit) const {
+        if (pos >= limit || data[pos] != '"') {
+            return false;
+        }
+        ++pos;
+        while (pos < limit) {
+            unsigned char c = static_cast<unsigned char>(data[pos++]);
+            if (c == '"') {
+                return true;
+            }
+            if (c == '\\') {
+                if (pos >= limit) {
+                    return false;
+                }
+                unsigned char esc = static_cast<unsigned char>(data[pos++]);
+                switch (esc) {
+                case '"':
+                case '\\':
+                case '/':
+                case 'b':
+                case 'f':
+                case 'n':
+                case 'r':
+                case 't':
+                    break;
+                case 'u':
+                    if (pos + 4 > limit) {
+                        return false;
+                    }
+                    pos += 4;
+                    break;
+                default:
+                    return false;
+                }
+            } else if (c < 0x20) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    bool skip_literal_local(size_t& pos, size_t limit, const char* literal,
+                            size_t literal_len) const {
+        if (pos + literal_len > limit) {
+            return false;
+        }
+        if (std::memcmp(data + pos, literal, literal_len) != 0) {
+            return false;
+        }
+        pos += literal_len;
+        return true;
+    }
+
+    bool skip_number_local(size_t& pos, size_t limit) const {
+        const size_t start = pos;
+        if (start >= limit) {
+            return false;
+        }
+        const size_t max_len = limit - start;
+        int64_t int_val;
+        size_t consumed = 0;
+        if (util::parse_int_fast(data + start, max_len, int_val, consumed)) {
+            if (start + consumed < limit &&
+                (data[start + consumed] == '.' || data[start + consumed] == 'e' ||
+                 data[start + consumed] == 'E')) {
+                // Fall through to double parse.
+            } else {
+                pos = start + consumed;
+                return true;
+            }
+        }
+
+        if (data[start] != '-') {
+            uint64_t uint_val;
+            size_t consumed_uint = 0;
+            if (util::parse_uint_fast(data + start, max_len, uint_val, consumed_uint)) {
+                if (start + consumed_uint < limit &&
+                    (data[start + consumed_uint] == '.' || data[start + consumed_uint] == 'e' ||
+                     data[start + consumed_uint] == 'E')) {
+                    // Fall through to double parse.
+                } else {
+                    pos = start + consumed_uint;
+                    return true;
+                }
+            }
+        }
+
+        double double_val;
+        if (util::parse_double_fast(data + start, max_len, double_val, consumed)) {
+            pos = start + consumed;
+            return true;
+        }
+        return false;
+    }
+
+    bool skip_scalar_local(size_t& pos, size_t limit) const {
+        if (pos >= limit) {
+            return false;
+        }
+        char c = data[pos];
+        if (c == '"') {
+            return skip_string_local(pos, limit);
+        }
+        if (c == '-' || (c >= '0' && c <= '9')) {
+            return skip_number_local(pos, limit);
+        }
+        if (c == 'n') {
+            return skip_literal_local(pos, limit, "null", 4);
+        }
+        if (c == 't') {
+            return skip_literal_local(pos, limit, "true", 4);
+        }
+        if (c == 'f') {
+            return skip_literal_local(pos, limit, "false", 5);
+        }
+        return false;
+    }
+
+    size_t estimate_container_size_hint(size_t start_pos, char closing, size_t max_hint) const {
+        size_t limit = start_pos + kHintMaxScan;
+        if (limit > len) {
+            limit = len;
+        }
+        size_t pos = skip_ws_local(start_pos);
+        if (pos >= limit) {
+            return 0;
+        }
+        if (data[pos] == closing) {
+            return 0;
+        }
+
+        size_t count = 1;
+        bool in_string = false;
+        bool escape = false;
+        int depth = 0;
+
+        for (; pos < limit; ++pos) {
+            char c = data[pos];
+            if (in_string) {
+                if (escape) {
+                    escape = false;
+                    continue;
+                }
+                if (c == '\\') {
+                    escape = true;
+                    continue;
+                }
+                if (c == '"') {
+                    in_string = false;
+                }
+                continue;
+            }
+
+            if (c == '"') {
+                in_string = true;
+                continue;
+            }
+            if (c == '{' || c == '[') {
+                ++depth;
+                continue;
+            }
+            if (c == '}' || c == ']') {
+                if (depth == 0) {
+                    size_t exact = count;
+                    if (exact > max_hint) {
+                        exact = max_hint;
+                    }
+                    return exact;
+                }
+                --depth;
+                continue;
+            }
+            if (c == ',' && depth == 0) {
+                ++count;
+                if (count >= max_hint) {
+                    return max_hint;
+                }
+            }
+        }
+
+        size_t scanned = pos - start_pos;
+        if (scanned == 0) {
+            return 0;
+        }
+        size_t avg = scanned / count;
+        if (avg == 0) {
+            return count > max_hint ? max_hint : count;
+        }
+        size_t remaining = len - start_pos;
+        size_t estimate = remaining / avg;
+        if (estimate == 0) {
+            estimate = 1;
+        }
+        if (estimate > max_hint) {
+            estimate = max_hint;
+        }
+        return estimate;
+    }
+
+    size_t estimate_array_size_hint(size_t start_pos, size_t max_hint) const {
+        return estimate_container_size_hint(start_pos, ']', max_hint);
+    }
+
+    size_t estimate_object_size_hint(size_t start_pos, size_t max_hint) const {
+        return estimate_container_size_hint(start_pos, '}', max_hint);
+    }
+
     static int hex_value(char c) {
         if (c >= '0' && c <= '9')
             return c - '0';
@@ -333,7 +557,9 @@ struct Parser {
         if (stack_.size() >= kMaxNestingDepth)
             return false;
         ++i; // consume '['
-        if (!handler.on_start_array())
+        size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
+        size_t size_hint = estimate_array_size_hint(i, max_hint);
+        if (!handler.on_start_array(size_hint))
             return false;
         skip_ws();
         if (peek() == ']') {
@@ -348,7 +574,9 @@ struct Parser {
         if (stack_.size() >= kMaxNestingDepth)
             return false;
         ++i; // consume '{'
-        if (!handler.on_start_object())
+        size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
+        size_t size_hint = estimate_object_size_hint(i, max_hint);
+        if (!handler.on_start_object(size_hint))
             return false;
         skip_ws();
         if (peek() == '}') {
@@ -608,13 +836,45 @@ struct Parser {
 
 namespace {
 
+constexpr size_t kAsciiSwarPrefixMax = 128;
+
+inline bool is_ascii_prefix_swar(const char* data, size_t len) {
+    if (!data || len == 0) {
+        return true;
+    }
+    size_t i = 0;
+    uint64_t mask = 0;
+    for (; i + sizeof(uint64_t) <= len; i += sizeof(uint64_t)) {
+        uint64_t chunk = 0;
+        std::memcpy(&chunk, data + i, sizeof(uint64_t));
+        mask |= chunk;
+    }
+    if (mask & 0x8080808080808080ULL) {
+        return false;
+    }
+    for (; i < len; ++i) {
+        if (static_cast<unsigned char>(data[i]) & 0x80) {
+            return false;
+        }
+    }
+    return true;
+}
+
 Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
                       const ParseSaxOptions& options, ParseSaxContext* context) {
     constexpr size_t kStructuralTapeMinSize = 4 * 1024;
+    constexpr size_t kStructuralTapeReserveDiv = 8;
+    constexpr size_t kStructuralTapeReserveMax = 8 * 1024 * 1024;
     const size_t size = text.size();
     if (options.validate_utf8 && size != 0) {
-        if (size < kStructuralTapeMinSize) {
-            // Tiny-doc fast path: skip full UTF-8 validation for ASCII-only input.
+        if (size <= kAsciiSwarPrefixMax) {
+            // Tiny-doc fast path: quick SWAR ASCII check before any SIMD validation.
+            if (!is_ascii_prefix_swar(text.data(), size) &&
+                !util::validate_utf8_simd(text.data(), size)) {
+                return Status::ParseError;
+            }
+        } else if (size < kStructuralTapeMinSize) {
+            // Small-doc fast path: skip full UTF-8 validation for ASCII-only input.
             if (!util::is_ascii_only_simd(text.data(), size) &&
                 !util::validate_utf8_simd(text.data(), size)) {
                 return Status::ParseError;
@@ -627,15 +887,30 @@ Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
         }
     }
     Parser p{text.data(), size, handler, 0, {}};
+    if (size >= kStructuralTapeMinSize) {
+        p.stack_.reserve(64);
+    } else {
+        p.stack_.reserve(16);
+    }
     const bool use_structural_tape = size >= kStructuralTapeMinSize;
     if (use_structural_tape) {
+        size_t reserve_hint = size / kStructuralTapeReserveDiv;
+        if (reserve_hint > kStructuralTapeReserveMax) {
+            reserve_hint = kStructuralTapeReserveMax;
+        }
         if (context) {
             context->structural_tape.clear();
+            if (context->structural_tape.capacity() < reserve_hint) {
+                context->structural_tape.reserve(reserve_hint);
+            }
             util::collect_structural_positions_simd(text.data(), size, context->structural_tape);
             p.attach_structural_tape(&context->structural_tape);
         } else {
             static thread_local std::vector<size_t> structural_tape;
             structural_tape.clear();
+            if (structural_tape.capacity() < reserve_hint) {
+                structural_tape.reserve(reserve_hint);
+            }
             util::collect_structural_positions_simd(text.data(), size, structural_tape);
             p.attach_structural_tape(&structural_tape);
         }

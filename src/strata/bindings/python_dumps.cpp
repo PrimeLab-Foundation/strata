@@ -5,10 +5,13 @@
 #include "strata/util/simd_string.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // Thread-local buffers for zero-allocation serialization
@@ -193,8 +196,50 @@ bool set_dumps_type_order_from_string(const char* order, std::string& error) {
 
 int strata_get_cycle_policy() { return static_cast<int>(g_cycle_policy); }
 
-static inline bool is_container(PyObject* obj) {
-    return PyDict_CheckExact(obj) || PyList_CheckExact(obj) || PyTuple_Check(obj);
+static inline bool is_unicode_type(PyTypeObject* type, unsigned long flags) {
+    return type == &PyUnicode_Type || (flags & Py_TPFLAGS_UNICODE_SUBCLASS);
+}
+
+static inline bool is_tuple_type(PyTypeObject* type, unsigned long flags) {
+    return type == &PyTuple_Type || (flags & Py_TPFLAGS_TUPLE_SUBCLASS);
+}
+
+static inline bool is_container_fast(PyTypeObject* type, unsigned long flags) {
+    return type == &PyDict_Type || type == &PyList_Type || is_tuple_type(type, flags);
+}
+
+static constexpr int kSmallIntMin = -5;
+static constexpr int kSmallIntMax = 256;
+static constexpr size_t kSmallIntCount =
+    static_cast<size_t>(kSmallIntMax - kSmallIntMin + 1);
+
+struct SmallIntTable {
+    std::array<std::array<char, 4>, kSmallIntCount> data{};
+    std::array<uint8_t, kSmallIntCount> len{};
+
+    SmallIntTable() {
+        for (int value = kSmallIntMin; value <= kSmallIntMax; ++value) {
+            char buf[8];
+            int written = std::snprintf(buf, sizeof(buf), "%d", value);
+            if (written <= 0) {
+                continue;
+            }
+            size_t idx = static_cast<size_t>(value - kSmallIntMin);
+            len[idx] = static_cast<uint8_t>(written);
+            std::memcpy(data[idx].data(), buf, static_cast<size_t>(written));
+        }
+    }
+};
+
+static const SmallIntTable kSmallIntTable;
+
+template <typename Buffer> static inline bool append_small_int(Buffer& out, int64_t value) {
+    if (value < kSmallIntMin || value > kSmallIntMax) {
+        return false;
+    }
+    size_t idx = static_cast<size_t>(value - kSmallIntMin);
+    out.append(kSmallIntTable.data[idx].data(), kSmallIntTable.len[idx]);
+    return true;
 }
 
 template <typename Buffer>
@@ -277,13 +322,20 @@ template <typename Buffer> static inline bool append_py_long(Buffer& out, PyObje
     auto* long_obj = reinterpret_cast<PyLongObject*>(obj);
     if (LIKELY(PyUnstable_Long_IsCompact(long_obj))) {
         Py_ssize_t val = PyUnstable_Long_CompactValue(long_obj);
-        return append_int64(out, static_cast<int64_t>(val));
+        int64_t value = static_cast<int64_t>(val);
+        if (append_small_int(out, value)) {
+            return true;
+        }
+        return append_int64(out, value);
     }
 #endif
 
     int overflow = 0;
     int64_t val = PyLong_AsLongLongAndOverflow(obj, &overflow);
     if (overflow == 0) {
+        if (append_small_int(out, val)) {
+            return true;
+        }
         return append_int64(out, val);
     }
 
@@ -363,20 +415,19 @@ static inline PrimitiveResult serialize_primitive(PyObject* obj, Buffer& out, bo
         append_literal(out, "false", 5);
         return PrimitiveResult::Handled;
     }
-    PyTypeObject* type = nullptr;
+    PyTypeObject* type = Py_TYPE(obj);
+    unsigned long flags = type->tp_flags;
     if (ints_first) {
-        type = Py_TYPE(obj);
         if (type == &PyLong_Type) {
             return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
-        if (PyUnicode_Check(obj)) {
+        if (is_unicode_type(type, flags)) {
             return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
     } else {
-        if (PyUnicode_Check(obj)) {
+        if (is_unicode_type(type, flags)) {
             return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
-        type = Py_TYPE(obj);
         if (type == &PyLong_Type) {
             return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
         }
@@ -386,7 +437,7 @@ static inline PrimitiveResult serialize_primitive(PyObject* obj, Buffer& out, bo
                                                           : PrimitiveResult::Error;
     }
 
-    if (is_container(obj)) {
+    if (is_container_fast(type, flags)) {
         return PrimitiveResult::IsContainer;
     }
 
@@ -428,6 +479,7 @@ static constexpr size_t kListEntryEstimate = 64;
 static constexpr size_t kContainerOverhead = 2;
 static constexpr size_t kStringOverhead = 16;
 static constexpr int kMaxEstimateDepth = 2;
+static constexpr Py_ssize_t kEstimateSampleLimit = 8;
 
 static inline size_t clamp_add(size_t a, size_t b, size_t cap) {
     if (a > cap - b) {
@@ -450,31 +502,75 @@ static inline size_t apply_growth_factor(size_t estimate) {
     return clamp_add(estimate, estimate / 2, kMaxEstimate);
 }
 
-static inline size_t estimate_value_size(PyObject* obj, int depth);
+struct EstimateCache {
+    std::array<std::unordered_map<PyObject*, size_t>, kMaxEstimateDepth + 1> by_depth;
 
-static inline size_t estimate_sequence_size(PyObject* obj, Py_ssize_t size, int depth, bool is_tuple) {
+    bool lookup(PyObject* obj, int depth, size_t& out) {
+        if (depth > kMaxEstimateDepth) {
+            return false;
+        }
+        auto& map = by_depth[depth];
+        auto it = map.find(obj);
+        if (it == map.end()) {
+            return false;
+        }
+        out = it->second;
+        return true;
+    }
+
+    void store(PyObject* obj, int depth, size_t value) {
+        if (depth > kMaxEstimateDepth) {
+            return;
+        }
+        by_depth[depth].emplace(obj, value);
+    }
+};
+
+static inline size_t estimate_unicode_bytes(PyObject* obj) {
+    size_t len = static_cast<size_t>(PyUnicode_GET_LENGTH(obj));
+    if (PyUnicode_IS_COMPACT_ASCII(obj)) {
+        return len;
+    }
+    Py_UCS4 max_char = PyUnicode_MAX_CHAR_VALUE(obj);
+    size_t bytes_per = 1;
+    if (max_char <= 0x7F) {
+        bytes_per = 1;
+    } else if (max_char <= 0x7FF) {
+        bytes_per = 2;
+    } else if (max_char <= 0xFFFF) {
+        bytes_per = 3;
+    } else {
+        bytes_per = 4;
+    }
+    return clamp_mul(len, bytes_per, kMaxEstimate);
+}
+
+static inline size_t estimate_value_size(PyObject* obj, int depth, EstimateCache& cache);
+
+static inline size_t estimate_sequence_size(PyObject* obj,
+                                            Py_ssize_t size,
+                                            int depth,
+                                            bool is_tuple,
+                                            EstimateCache& cache) {
     if (size <= 0) {
         return kContainerOverhead;
     }
-    size_t estimate =
-        clamp_add(clamp_mul(static_cast<size_t>(size), kListEntryEstimate, kMaxEstimate), kContainerOverhead,
-                  kMaxEstimate);
+    size_t per_entry = kListEntryEstimate;
     if (depth < kMaxEstimateDepth) {
         PyObject* first = is_tuple ? PyTuple_GET_ITEM(obj, 0) : PyList_GET_ITEM(obj, 0);
-        if (first && PyDict_CheckExact(first)) {
-            size_t dict_est = estimate_value_size(first, depth + 1);
-            size_t scaled =
-                clamp_add(clamp_mul(static_cast<size_t>(size), dict_est, kMaxEstimate), kContainerOverhead,
-                          kMaxEstimate);
-            if (scaled > estimate) {
-                estimate = scaled;
+        if (first) {
+            size_t first_est = estimate_value_size(first, depth + 1, cache);
+            if (first_est > per_entry) {
+                per_entry = first_est;
             }
         }
     }
-    return estimate;
+    per_entry = clamp_add(per_entry, 1, kMaxEstimate);
+    return clamp_add(clamp_mul(static_cast<size_t>(size), per_entry, kMaxEstimate), kContainerOverhead,
+                     kMaxEstimate);
 }
 
-static inline size_t estimate_dict_size(PyObject* obj, int depth) {
+static inline size_t estimate_dict_size(PyObject* obj, int depth, EstimateCache& cache) {
     Py_ssize_t size = PyDict_GET_SIZE(obj);
     if (size <= 0) {
         return kContainerOverhead;
@@ -484,13 +580,33 @@ static inline size_t estimate_dict_size(PyObject* obj, int depth) {
         PyObject* key = nullptr;
         PyObject* value = nullptr;
         Py_ssize_t pos = 0;
-        if (PyDict_Next(obj, &pos, &key, &value) && value != nullptr) {
-            if (PyList_CheckExact(value) || PyTuple_Check(value)) {
-                size_t list_est = estimate_value_size(value, depth + 1);
-                size_t adjusted = clamp_add(list_est, kStringOverhead, kMaxEstimate);
-                if (adjusted > per_entry) {
-                    per_entry = adjusted;
+        size_t key_total = 0;
+        size_t value_total = 0;
+        Py_ssize_t samples = 0;
+        while (samples < kEstimateSampleLimit && PyDict_Next(obj, &pos, &key, &value)) {
+            if (key != nullptr) {
+                PyTypeObject* key_type = Py_TYPE(key);
+                unsigned long key_flags = key_type->tp_flags;
+                if (is_unicode_type(key_type, key_flags)) {
+                    size_t key_len = clamp_add(estimate_unicode_bytes(key), kStringOverhead, kMaxEstimate);
+                    key_total = clamp_add(key_total, key_len, kMaxEstimate);
+                } else {
+                    key_total = clamp_add(key_total, kStringOverhead, kMaxEstimate);
                 }
+            }
+            if (value != nullptr) {
+                size_t value_est = estimate_value_size(value, depth + 1, cache);
+                value_total = clamp_add(value_total, value_est, kMaxEstimate);
+            }
+            ++samples;
+        }
+        if (samples > 0) {
+            size_t avg_key = key_total / static_cast<size_t>(samples);
+            size_t avg_val = value_total / static_cast<size_t>(samples);
+            per_entry = clamp_add(avg_key, avg_val, kMaxEstimate);
+            per_entry = clamp_add(per_entry, 2, kMaxEstimate);
+            if (per_entry < kDictEntryEstimate) {
+                per_entry = kDictEntryEstimate;
             }
         }
     }
@@ -498,25 +614,46 @@ static inline size_t estimate_dict_size(PyObject* obj, int depth) {
                      kMaxEstimate);
 }
 
-static inline size_t estimate_value_size(PyObject* obj, int depth) {
-    if (PyDict_CheckExact(obj)) {
-        return estimate_dict_size(obj, depth);
+static inline size_t estimate_value_size(PyObject* obj, int depth, EstimateCache& cache) {
+    PyTypeObject* type = Py_TYPE(obj);
+    unsigned long flags = type->tp_flags;
+    size_t cached = 0;
+    if (type == &PyDict_Type) {
+        if (cache.lookup(obj, depth, cached)) {
+            return cached;
+        }
+        size_t estimate = estimate_dict_size(obj, depth, cache);
+        cache.store(obj, depth, estimate);
+        return estimate;
     }
-    if (PyList_CheckExact(obj)) {
-        return estimate_sequence_size(obj, PyList_GET_SIZE(obj), depth, false);
+    if (type == &PyList_Type) {
+        if (cache.lookup(obj, depth, cached)) {
+            return cached;
+        }
+        size_t estimate =
+            estimate_sequence_size(obj, PyList_GET_SIZE(obj), depth, false, cache);
+        cache.store(obj, depth, estimate);
+        return estimate;
     }
-    if (PyTuple_Check(obj)) {
-        return estimate_sequence_size(obj, PyTuple_GET_SIZE(obj), depth, true);
+    if (is_tuple_type(type, flags)) {
+        if (cache.lookup(obj, depth, cached)) {
+            return cached;
+        }
+        size_t estimate =
+            estimate_sequence_size(obj, PyTuple_GET_SIZE(obj), depth, true, cache);
+        cache.store(obj, depth, estimate);
+        return estimate;
     }
-    if (PyUnicode_Check(obj)) {
-        return clamp_add(static_cast<size_t>(PyUnicode_GET_LENGTH(obj)), kStringOverhead, kMaxEstimate);
+    if (is_unicode_type(type, flags)) {
+        return clamp_add(estimate_unicode_bytes(obj), kStringOverhead, kMaxEstimate);
     }
     return kStringOverhead;
 }
 
 // Depth-limited size estimate with one-element sampling.
 static inline size_t estimate_size(PyObject* obj) {
-    size_t estimate = estimate_value_size(obj, 0);
+    EstimateCache cache;
+    size_t estimate = estimate_value_size(obj, 0, cache);
     if (g_last_dumps_size > estimate) {
         estimate = g_last_dumps_size;
     }
@@ -656,12 +793,12 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 
     while (true) {
         if (current) {
-            PyTypeObject* type = nullptr;
+            PyTypeObject* type = Py_TYPE(current);
+            unsigned long flags = type->tp_flags;
             if (!current_is_container) {
                 // Fast path for primitives first (avoid is_container check for most common types)
                 // String vs int order can be configured to match workload profiles.
                 if (ints_first) {
-                    type = Py_TYPE(current);
                     if (LIKELY(type == &PyLong_Type)) {
                         if (!append_py_long(out, current)) {
                             return false;
@@ -669,7 +806,14 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                         current = nullptr;
                         continue;
                     }
-                    if (LIKELY(PyUnicode_Check(current))) {
+                    if (LIKELY(type == &PyUnicode_Type)) {
+                        if (!append_string(current, out)) {
+                            return false;
+                        }
+                        current = nullptr;
+                        continue;
+                    }
+                    if (UNLIKELY(flags & Py_TPFLAGS_UNICODE_SUBCLASS)) {
                         if (!append_string(current, out)) {
                             return false;
                         }
@@ -677,14 +821,20 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                         continue;
                     }
                 } else {
-                    if (LIKELY(PyUnicode_Check(current))) {
+                    if (LIKELY(type == &PyUnicode_Type)) {
                         if (!append_string(current, out)) {
                             return false;
                         }
                         current = nullptr;
                         continue;
                     }
-                    type = Py_TYPE(current);
+                    if (UNLIKELY(flags & Py_TPFLAGS_UNICODE_SUBCLASS)) {
+                        if (!append_string(current, out)) {
+                            return false;
+                        }
+                        current = nullptr;
+                        continue;
+                    }
                     if (LIKELY(type == &PyLong_Type)) {
                         if (!append_py_long(out, current)) {
                             return false;
@@ -709,19 +859,24 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                     continue;
                 }
 
-                if (UNLIKELY(type == &PyBool_Type)) {
-                    if (current == Py_True) {
-                        append_literal(out, "true", 4);
-                    } else {
-                        append_literal(out, "false", 5);
-                    }
+                if (current == Py_True) {
+                    append_literal(out, "true", 4);
+                    current = nullptr;
+                    continue;
+                }
+
+                if (current == Py_False) {
+                    append_literal(out, "false", 5);
                     current = nullptr;
                     continue;
                 }
             }
 
             // Now check containers (need cycle detection)
-            bool container = current_is_container || is_container(current);
+            bool container = current_is_container;
+            if (!container) {
+                container = is_container_fast(type, flags);
+            }
             current_is_container = false;
             if (container && check_cycles && nesting_depth >= kCycleCheckDepth) {
                 if (has_cycle(current)) {
@@ -747,7 +902,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 }
             }
 
-            if (LIKELY(PyDict_CheckExact(current))) {
+            if (LIKELY(type == &PyDict_Type)) {
                 Py_ssize_t size = PyDict_GET_SIZE(current);
                 out.ensure_extra(structural_budget(Frame::Type::Dict, size));
                 if (size == 0) {
@@ -764,7 +919,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 continue;
             }
 
-            if (LIKELY(PyList_CheckExact(current))) {
+            if (LIKELY(type == &PyList_Type)) {
                 Py_ssize_t size = PyList_GET_SIZE(current);
                 out.ensure_extra(structural_budget(Frame::Type::List, size));
                 if (size == 0) {
@@ -781,7 +936,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 continue;
             }
 
-            if (PyTuple_Check(current)) {
+            if (is_tuple_type(type, flags)) {
                 Py_ssize_t size = PyTuple_GET_SIZE(current);
                 out.ensure_extra(structural_budget(Frame::Type::Tuple, size));
                 if (size == 0) {
@@ -817,7 +972,8 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 }
                 frame.first = false;
 
-                if (!PyUnicode_Check(key)) {
+                PyTypeObject* key_type = Py_TYPE(key);
+                if (!is_unicode_type(key_type, key_type->tp_flags)) {
                     PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
                     return false;
                 }

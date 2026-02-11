@@ -113,6 +113,12 @@ template <typename K, typename V> class FlatMap {
 
     size_t size() const { return data_.size(); }
     bool empty() const { return data_.empty(); }
+    void reserve(size_t n) {
+        data_.reserve(n);
+        if (n > kIndexThreshold) {
+            index_.reserve(n);
+        }
+    }
     void clear() {
         data_.clear();
         index_.clear();

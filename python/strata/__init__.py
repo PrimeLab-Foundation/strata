@@ -31,9 +31,9 @@ def dump(target, obj, **kwargs):
     return _native.dump(target, obj, **kwargs)
 
 
-def loads(source, **kwargs):
+def loads(source):
     """Parse JSON text into a Python object."""
-    return _native.loads(source, **kwargs)
+    return _native.loads(source)
 
 
 def dumps(obj, **kwargs):

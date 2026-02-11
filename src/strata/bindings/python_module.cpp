@@ -6,7 +6,7 @@
 // Forward declarations
 extern PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
-extern PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs);
+extern PyObject* strata_loads(PyObject* self, PyObject* source);
 extern PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_dump(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_loads_tape(PyObject* self, PyObject* args);
@@ -50,7 +50,7 @@ static PyObject* strata_set_duplicate_key_policy(PyObject* self, PyObject* args)
 
 // Method definitions
 static PyMethodDef strata_methods[] = {
-    {"loads", (PyCFunction)strata_loads, METH_VARARGS | METH_KEYWORDS,
+    {"loads", (PyCFunction)strata_loads, METH_O,
      "loads(source) -> object\n\nParse JSON string to Python object."},
     {"dumps", (PyCFunction)strata_dumps, METH_VARARGS | METH_KEYWORDS,
      "dumps(obj, *, return_type='str') -> str|bytes|bytearray\n\n"

@@ -6,6 +6,7 @@
 #include "strata/util/arena_allocator.hpp"
 #include "strata/util/lazy_string.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -107,27 +108,43 @@
          kNotCommon = 255
      };
 
-     KeyCache() = default;
+    KeyCache() { init_storage(kMinBucketCount); }
 
-     explicit KeyCache(strata::util::Arena* arena, bool /* prewarm */ = true) {
-         reset(arena);
-     }
+    explicit KeyCache(strata::util::Arena* arena, bool /* prewarm */ = true) {
+        init_storage(kMinBucketCount);
+        reset(arena);
+    }
 
-     void reset(strata::util::Arena* arena) {
-         arena_ = arena;
-         // Generation-based occupancy avoids clearing buckets/distances per reset.
-         if (++generation_ == 0) {
-             if (Py_IsInitialized()) {
-                 for (size_t i = 0; i < kBucketCount; ++i) {
-                     if (bucket_generations_[i] != 0 && buckets_[i].py_key) {
-                         Py_DECREF(buckets_[i].py_key);
-                     }
-                 }
-             }
-             std::memset(bucket_generations_, 0, sizeof(bucket_generations_));
-             generation_ = 1;
-         }
-     }
+    void reset(strata::util::Arena* arena) {
+        arena_ = arena;
+        if (buckets_.empty()) {
+            init_storage(kMinBucketCount);
+        }
+        // Generation-based occupancy avoids clearing buckets/distances per reset.
+        if (++generation_ == 0) {
+            release_cached_keys();
+            std::fill(bucket_generations_.begin(), bucket_generations_.end(), 0);
+            generation_ = 1;
+        }
+    }
+
+    void reserve(size_t expected_entries) {
+        if (expected_entries == 0) {
+            return;
+        }
+        size_t desired = next_pow2(expected_entries * 2);
+        if (desired < kMinBucketCount) {
+            desired = kMinBucketCount;
+        }
+        if (desired > kMaxBucketCount) {
+            desired = kMaxBucketCount;
+        }
+        if (desired <= bucket_count_) {
+            return;
+        }
+        release_cached_keys();
+        init_storage(desired);
+    }
 
      PyObject* get(std::string_view key) {
          // Fast-path: check if this is a common key using length + first char dispatch
@@ -141,18 +158,7 @@
          return lookup_or_insert(key);
      }
 
-     ~KeyCache() {
-         if (!Py_IsInitialized()) {
-             return;
-         }
-         // Common keys are managed by PersistentCommonKeys - don't release them
-         // Only release cached keys in hash map
-         for (size_t i = 0; i < kBucketCount; ++i) {
-             if (bucket_generations_[i] != 0 && buckets_[i].py_key) {
-                 Py_DECREF(buckets_[i].py_key);
-             }
-         }
-     }
+    ~KeyCache() { release_cached_keys(); }
 
    private:
      // Robin hood hash map entry
@@ -163,17 +169,59 @@
          uint16_t key_len;      // Key length
      };
 
-     // Hash map configuration - power of 2 for fast modulo
-     static constexpr size_t kBucketCount = 512;
-     static constexpr size_t kBucketMask = kBucketCount - 1;
-     static constexpr uint8_t kMaxProbeDistance = 32;
+    // Hash map configuration - power of 2 for fast modulo
+    static constexpr size_t kMinBucketCount = 512;
+    static constexpr size_t kMaxBucketCount = 65536;
+    static constexpr uint8_t kMaxProbeDistance = 32;
 
-     strata::util::Arena* arena_ = nullptr;
-     Bucket buckets_[kBucketCount];
-     uint8_t distances_[kBucketCount];  // Probe distances for robin hood
-     uint32_t generation_ = 0;
-     uint32_t bucket_generations_[kBucketCount] = {};
-     // Common keys are now managed by PersistentCommonKeys
+    strata::util::Arena* arena_ = nullptr;
+    size_t bucket_count_ = 0;
+    size_t bucket_mask_ = 0;
+    std::vector<Bucket> buckets_;
+    std::vector<uint8_t> distances_;  // Probe distances for robin hood
+    uint32_t generation_ = 0;
+    std::vector<uint32_t> bucket_generations_;
+    // Common keys are now managed by PersistentCommonKeys
+
+    static size_t next_pow2(size_t value) {
+        if (value <= 1) {
+            return 1;
+        }
+        --value;
+        value |= value >> 1;
+        value |= value >> 2;
+        value |= value >> 4;
+        value |= value >> 8;
+        value |= value >> 16;
+        if constexpr (sizeof(size_t) >= 8) {
+            value |= value >> 32;
+        }
+        return value + 1;
+    }
+
+    void init_storage(size_t bucket_count) {
+        bucket_count_ = bucket_count;
+        bucket_mask_ = bucket_count_ - 1;
+        buckets_.assign(bucket_count_, {});
+        distances_.assign(bucket_count_, 0);
+        bucket_generations_.assign(bucket_count_, 0);
+        generation_ = 1;
+    }
+
+    void release_cached_keys() {
+        if (!Py_IsInitialized()) {
+            return;
+        }
+        // Common keys are managed by PersistentCommonKeys - don't release them
+        // Only release cached keys in hash map
+        for (size_t i = 0; i < bucket_count_; ++i) {
+            if (i < bucket_generations_.size() && bucket_generations_[i] != 0 &&
+                buckets_[i].py_key) {
+                Py_DECREF(buckets_[i].py_key);
+                buckets_[i].py_key = nullptr;
+            }
+        }
+    }
 
      // Fast-path lookup using string length and first character
      // Returns nullptr if not a common key
@@ -225,7 +273,7 @@
      // Robin hood hash map lookup with insertion
      PyObject* lookup_or_insert(std::string_view key) {
          const uint64_t hash = fnv1a_hash(key);
-         size_t idx = hash & kBucketMask;
+        size_t idx = hash & bucket_mask_;
          uint8_t dist = 0;
 
          // Linear probe with robin hood
@@ -255,9 +303,9 @@
                  return result;
              }
 
-             idx = (idx + 1) & kBucketMask;
-             ++dist;
-         }
+            idx = (idx + 1) & bucket_mask_;
+            ++dist;
+        }
 
          // Probe distance exceeded - fallback to creating without caching
          // This shouldn't happen with reasonable load factor
@@ -301,6 +349,8 @@
   public:
     using StackAllocator = strata::util::ArenaAllocator<PyObject*>;
     using SizeAllocator = strata::util::ArenaAllocator<size_t>;
+    static constexpr size_t kMaxListPresize = 131072;
+    static constexpr size_t kMaxDictPresize = 16384;
 
     PythonObjectBuilder(strata::util::Arena* arena, KeyCache& cache)
         : arena_(arena), stack_(StackAllocator(arena)), keys_(StackAllocator(arena)),
@@ -402,14 +452,18 @@
      bool on_start_object(size_t size_hint) override {
          // Use _PyDict_NewPresized for better performance when size is known
          // This pre-allocates hash table capacity, reducing rehashing overhead
-         PyObject* dict;
-         if (size_hint > 0 && size_hint <= 1024) {
-             // Use internal API for pre-sized dict when hint is reasonable
-             dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(size_hint));
-         } else {
-             dict = PyDict_New();
-         }
-         if (!dict)
+        PyObject* dict;
+        size_t presize = size_hint;
+        if (presize > kMaxDictPresize) {
+            presize = kMaxDictPresize;
+        }
+        if (presize > 0) {
+            // Use internal API for pre-sized dict when hint is reasonable
+            dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
+        } else {
+            dict = PyDict_New();
+        }
+        if (!dict)
              return false;
          stack_.push_back(dict);
          return true;
@@ -442,15 +496,19 @@
      }
 
      bool on_start_array(size_t size_hint) override {
-         PyObject* list = size_hint > 0 ? PyList_New(size_hint) : PyList_New(0);
-         if (!list)
-             return false;
-         stack_.push_back(list);
-         list_indices_.push_back(0);
-         list_sizes_.push_back(size_hint);
-         current_list_depth_++;  // O(1) depth tracking
-         return true;
-     }
+        size_t presize = size_hint;
+        if (presize > kMaxListPresize) {
+            presize = kMaxListPresize;
+        }
+        PyObject* list = presize > 0 ? PyList_New(presize) : PyList_New(0);
+        if (!list)
+            return false;
+        stack_.push_back(list);
+        list_indices_.push_back(0);
+        list_sizes_.push_back(presize);
+        current_list_depth_++;  // O(1) depth tracking
+        return true;
+    }
 
      bool on_end_array() override {
          if (stack_.empty())

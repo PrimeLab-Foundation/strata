@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -223,75 +224,95 @@ class LazyString {
         std::string result;
         result.reserve(raw.size());
 
+        const char* data = raw.data();
+        const size_t len = raw.size();
         size_t i = 0;
-        while (i < raw.size()) {
-            if (raw[i] == '\\' && i + 1 < raw.size()) {
-                char esc = raw[i + 1];
-                switch (esc) {
-                case '"':
-                    result.push_back('"');
-                    i += 2;
-                    break;
-                case '\\':
-                    result.push_back('\\');
-                    i += 2;
-                    break;
-                case '/':
-                    result.push_back('/');
-                    i += 2;
-                    break;
-                case 'b':
-                    result.push_back('\b');
-                    i += 2;
-                    break;
-                case 'f':
-                    result.push_back('\f');
-                    i += 2;
-                    break;
-                case 'n':
-                    result.push_back('\n');
-                    i += 2;
-                    break;
-                case 'r':
-                    result.push_back('\r');
-                    i += 2;
-                    break;
-                case 't':
-                    result.push_back('\t');
-                    i += 2;
-                    break;
-                case 'u': {
-                    // Parse \uXXXX
-                    if (i + 5 >= raw.size())
-                        break;
-                    uint32_t codepoint = parse_hex4(raw, i + 2);
-                    i += 6;
 
-                    // Handle surrogate pairs
-                    if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
-                        // High surrogate - look for low surrogate
-                        if (i + 5 < raw.size() && raw[i] == '\\' && raw[i + 1] == 'u') {
-                            uint32_t low = parse_hex4(raw, i + 2);
-                            if (low >= 0xDC00 && low <= 0xDFFF) {
-                                codepoint =
-                                    0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00);
-                                i += 6;
-                            }
+        while (i < len) {
+            const char* slash =
+                static_cast<const char*>(std::memchr(data + i, '\\', len - i));
+            if (!slash) {
+                result.append(data + i, len - i);
+                break;
+            }
+
+            size_t run = static_cast<size_t>(slash - (data + i));
+            if (run > 0) {
+                result.append(data + i, run);
+                i += run;
+            }
+
+            if (i >= len || data[i] != '\\') {
+                continue;
+            }
+            if (i + 1 >= len) {
+                break;
+            }
+
+            char esc = data[i + 1];
+            switch (esc) {
+            case '"':
+                result.push_back('"');
+                i += 2;
+                break;
+            case '\\':
+                result.push_back('\\');
+                i += 2;
+                break;
+            case '/':
+                result.push_back('/');
+                i += 2;
+                break;
+            case 'b':
+                result.push_back('\b');
+                i += 2;
+                break;
+            case 'f':
+                result.push_back('\f');
+                i += 2;
+                break;
+            case 'n':
+                result.push_back('\n');
+                i += 2;
+                break;
+            case 'r':
+                result.push_back('\r');
+                i += 2;
+                break;
+            case 't':
+                result.push_back('\t');
+                i += 2;
+                break;
+            case 'u': {
+                // Parse \uXXXX
+                if (i + 5 >= len) {
+                    i += 2;
+                    break;
+                }
+                uint32_t codepoint = parse_hex4(raw, i + 2);
+                i += 6;
+
+                // Handle surrogate pairs
+                if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
+                    // High surrogate - look for low surrogate
+                    if (i + 5 < len && data[i] == '\\' && data[i + 1] == 'u') {
+                        uint32_t low = parse_hex4(raw, i + 2);
+                        if (low >= 0xDC00 && low <= 0xDFFF) {
+                            codepoint =
+                                0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00);
+                            i += 6;
                         }
                     }
+                }
 
-                    append_utf8(result, codepoint);
-                    break;
-                }
-                default:
-                    // Unknown escape - keep as-is (shouldn't happen in valid JSON)
-                    result.push_back(raw[i]);
-                    i += 1;
-                    break;
-                }
-            } else {
-                result.push_back(raw[i]);
+                append_utf8(result, codepoint);
+                break;
+            }
+            default:
+                // Unknown escape - keep as-is (shouldn't happen in valid JSON)
+                result.push_back(data[i]);
                 i += 1;
+                break;
             }
         }
 

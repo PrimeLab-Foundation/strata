@@ -25,6 +25,7 @@
 #include "strata/json/json_serialize.hpp"
 
 #include "strata/util/dragonbox.hpp"
+#include "strata/util/simd_string.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -40,46 +41,7 @@ static void serialize_value(const JsonValue& value, std::string& out);
 
 // Escape a string for JSON output
 static void escape_string(std::string_view str, std::string& out) {
-    out.push_back('"');
-
-    for (char c : str) {
-        switch (c) {
-        case '"':
-            out.append("\\\"");
-            break;
-        case '\\':
-            out.append("\\\\");
-            break;
-        case '\b':
-            out.append("\\b");
-            break;
-        case '\f':
-            out.append("\\f");
-            break;
-        case '\n':
-            out.append("\\n");
-            break;
-        case '\r':
-            out.append("\\r");
-            break;
-        case '\t':
-            out.append("\\t");
-            break;
-        default:
-            if (static_cast<unsigned char>(c) < 0x20) {
-                // Control characters: escape as \uXXXX
-                char buf[7];
-                std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
-                out.append(buf);
-            } else {
-                // Regular UTF-8 character
-                out.push_back(c);
-            }
-            break;
-        }
-    }
-
-    out.push_back('"');
+    util::escape_or_copy_string_simd(str.data(), str.size(), out);
 }
 
 // Serialize a number

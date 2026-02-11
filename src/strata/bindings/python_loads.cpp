@@ -4,10 +4,12 @@
 #include "strata/json/ndjson_stream.hpp"
 #include "strata/json/parallel_ndjson.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/util/fast_parse.hpp"
 
 #include <algorithm>
 #include <climits>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -18,6 +20,7 @@ thread_local strata::bindings::KeyCache g_key_cache;
 thread_local strata::util::Arena g_parse_builder_arena(4 * 1024);
 thread_local strata::bindings::PythonObjectBuilder g_parse_builder(&g_parse_builder_arena,
                                                                   g_key_cache);
+thread_local strata::ParseSaxContext g_parse_context;
 
 namespace {
 using strata::bindings::KeyCache;
@@ -168,6 +171,296 @@ size_t count_lines(const char* data, Py_ssize_t len) {
     return count;
 }
 
+constexpr size_t kFlatObjectMaxBytes = 1024;
+constexpr size_t kFlatObjectMaxPairs = 8;
+constexpr size_t kKeyCacheLargeInputThreshold = 1 * 1024 * 1024;
+constexpr size_t kKeyCacheBytesPerKey = 128;
+constexpr size_t kKeyCacheMinKeys = 256;
+constexpr size_t kKeyCacheMaxKeys = 8192;
+
+inline bool is_ascii_only_swar(const char* data, size_t len) {
+    if (!data || len == 0) {
+        return true;
+    }
+    size_t i = 0;
+    uint64_t mask = 0;
+    for (; i + sizeof(uint64_t) <= len; i += sizeof(uint64_t)) {
+        uint64_t chunk = 0;
+        std::memcpy(&chunk, data + i, sizeof(uint64_t));
+        mask |= chunk;
+    }
+    if (mask & 0x8080808080808080ULL) {
+        return false;
+    }
+    for (; i < len; ++i) {
+        if (static_cast<unsigned char>(data[i]) & 0x80) {
+            return false;
+        }
+    }
+    return true;
+}
+
+inline size_t skip_ws_fast(const char* data, size_t len, size_t pos) {
+    return strata::util::skip_whitespace_fast(data, len, pos);
+}
+
+size_t count_commas_outside_strings(const char* data, size_t len) {
+    if (!data || len == 0) {
+        return 0;
+    }
+    bool in_string = false;
+    bool escape = false;
+    size_t count = 0;
+    for (size_t i = 0; i < len; ++i) {
+        char c = data[i];
+        if (in_string) {
+            if (escape) {
+                escape = false;
+                continue;
+            }
+            if (c == '\\') {
+                escape = true;
+                continue;
+            }
+            if (c == '"') {
+                in_string = false;
+            }
+            continue;
+        }
+        if (c == '"') {
+            in_string = true;
+            continue;
+        }
+        if (c == ',') {
+            ++count;
+        }
+    }
+    return count;
+}
+
+inline bool parse_string_view(const char* data, size_t len, size_t& pos,
+                              std::string_view& out, bool& has_escapes) {
+    if (pos >= len || data[pos] != '"') {
+        return false;
+    }
+    size_t i = pos + 1;
+    const size_t start = i;
+    has_escapes = false;
+    while (i < len) {
+        unsigned char c = static_cast<unsigned char>(data[i++]);
+        if (c == '"') {
+            out = std::string_view(data + start, (i - 1) - start);
+            pos = i;
+            return true;
+        }
+        if (c == '\\') {
+            has_escapes = true;
+            if (i >= len) {
+                return false;
+            }
+            unsigned char esc = static_cast<unsigned char>(data[i++]);
+            switch (esc) {
+            case '"':
+            case '\\':
+            case '/':
+            case 'b':
+            case 'f':
+            case 'n':
+            case 'r':
+            case 't':
+                break;
+            case 'u':
+                if (i + 4 > len) {
+                    return false;
+                }
+                i += 4;
+                break;
+            default:
+                return false;
+            }
+        } else if (c < 0x20) {
+            return false;
+        }
+    }
+    return false;
+}
+
+inline bool parse_number_value(const char* data, size_t len, size_t& pos,
+                               strata::bindings::PythonObjectBuilder& builder) {
+    const size_t start = pos;
+    int64_t int_val = 0;
+    size_t consumed = 0;
+    if (strata::util::parse_int_fast(data + start, len - start, int_val, consumed)) {
+        if (start + consumed < len &&
+            (data[start + consumed] == '.' || data[start + consumed] == 'e' ||
+             data[start + consumed] == 'E')) {
+            // Fall through to double parse.
+        } else {
+            pos = start + consumed;
+            return builder.on_int(int_val);
+        }
+    }
+
+    if (data[start] != '-') {
+        uint64_t uint_val = 0;
+        size_t consumed_uint = 0;
+        if (strata::util::parse_uint_fast(data + start, len - start, uint_val, consumed_uint)) {
+            if (start + consumed_uint < len &&
+                (data[start + consumed_uint] == '.' || data[start + consumed_uint] == 'e' ||
+                 data[start + consumed_uint] == 'E')) {
+                // Fall through to double parse.
+            } else {
+                pos = start + consumed_uint;
+                return builder.on_uint(uint_val);
+            }
+        }
+    }
+
+    double double_val = 0.0;
+    if (strata::util::parse_double_fast(data + start, len - start, double_val, consumed)) {
+        pos = start + consumed;
+        return builder.on_double(double_val);
+    }
+    return false;
+}
+
+inline bool parse_literal_value(const char* data, size_t len, size_t& pos,
+                                strata::bindings::PythonObjectBuilder& builder) {
+    if (pos + 4 <= len && data[pos] == 'n' && data[pos + 1] == 'u' &&
+        data[pos + 2] == 'l' && data[pos + 3] == 'l') {
+        pos += 4;
+        return builder.on_null();
+    }
+    if (pos + 4 <= len && data[pos] == 't' && data[pos + 1] == 'r' &&
+        data[pos + 2] == 'u' && data[pos + 3] == 'e') {
+        pos += 4;
+        return builder.on_bool(true);
+    }
+    if (pos + 5 <= len && data[pos] == 'f' && data[pos + 1] == 'a' &&
+        data[pos + 2] == 'l' && data[pos + 3] == 's' && data[pos + 4] == 'e') {
+        pos += 5;
+        return builder.on_bool(false);
+    }
+    return false;
+}
+
+inline bool parse_scalar_value(const char* data, size_t len, size_t& pos,
+                               strata::bindings::PythonObjectBuilder& builder) {
+    if (pos >= len) {
+        return false;
+    }
+    unsigned char c = static_cast<unsigned char>(data[pos]);
+    if (c == '"') {
+        std::string_view value;
+        bool has_escapes = false;
+        if (!parse_string_view(data, len, pos, value, has_escapes)) {
+            return false;
+        }
+        return builder.on_string(value, has_escapes);
+    }
+    if (c == '-' || (c >= '0' && c <= '9')) {
+        return parse_number_value(data, len, pos, builder);
+    }
+    if (c == 'n' || c == 't' || c == 'f') {
+        return parse_literal_value(data, len, pos, builder);
+    }
+    return false;
+}
+
+enum class FlatParseStatus { Ok, NotApplicable, Error };
+
+FlatParseStatus parse_flat_object(const char* data, Py_ssize_t len, PyObject** out) {
+    if (!data || len <= 0) {
+        return FlatParseStatus::NotApplicable;
+    }
+    const size_t size = static_cast<size_t>(len);
+    if (size > kFlatObjectMaxBytes) {
+        return FlatParseStatus::NotApplicable;
+    }
+    if (!is_ascii_only_swar(data, size)) {
+        return FlatParseStatus::NotApplicable;
+    }
+
+    size_t pos = skip_ws_fast(data, size, 0);
+    if (pos >= size || data[pos] != '{') {
+        return FlatParseStatus::NotApplicable;
+    }
+    ++pos;
+
+    if (!g_parse_builder.on_start_object(kFlatObjectMaxPairs)) {
+        return FlatParseStatus::Error;
+    }
+
+    pos = skip_ws_fast(data, size, pos);
+    if (pos < size && data[pos] == '}') {
+        ++pos;
+        if (!g_parse_builder.on_end_object()) {
+            return FlatParseStatus::Error;
+        }
+        pos = skip_ws_fast(data, size, pos);
+        if (pos != size) {
+            return FlatParseStatus::NotApplicable;
+        }
+        *out = g_parse_builder.take_root();
+        return FlatParseStatus::Ok;
+    }
+
+    size_t pairs = 0;
+    while (pos < size) {
+        std::string_view key;
+        bool key_has_escapes = false;
+        if (!parse_string_view(data, size, pos, key, key_has_escapes)) {
+            return FlatParseStatus::NotApplicable;
+        }
+        if (!g_parse_builder.on_key(key, key_has_escapes)) {
+            return FlatParseStatus::Error;
+        }
+
+        pos = skip_ws_fast(data, size, pos);
+        if (pos >= size || data[pos] != ':') {
+            return FlatParseStatus::NotApplicable;
+        }
+        ++pos;
+        pos = skip_ws_fast(data, size, pos);
+        if (!parse_scalar_value(data, size, pos, g_parse_builder)) {
+            if (PyErr_Occurred()) {
+                return FlatParseStatus::Error;
+            }
+            return FlatParseStatus::NotApplicable;
+        }
+
+        ++pairs;
+        if (pairs > kFlatObjectMaxPairs) {
+            return FlatParseStatus::NotApplicable;
+        }
+
+        pos = skip_ws_fast(data, size, pos);
+        if (pos >= size) {
+            return FlatParseStatus::NotApplicable;
+        }
+        if (data[pos] == ',') {
+            ++pos;
+            pos = skip_ws_fast(data, size, pos);
+            continue;
+        }
+        if (data[pos] == '}') {
+            ++pos;
+            if (!g_parse_builder.on_end_object()) {
+                return FlatParseStatus::Error;
+            }
+            pos = skip_ws_fast(data, size, pos);
+            if (pos != size) {
+                return FlatParseStatus::NotApplicable;
+            }
+            *out = g_parse_builder.take_root();
+            return FlatParseStatus::Ok;
+        }
+        return FlatParseStatus::NotApplicable;
+    }
+
+    return FlatParseStatus::NotApplicable;
+}
+
 PyObject* parse_ndjson_text(const char* data, Py_ssize_t len, bool skip_errors,
                             PyObject* parallel_obj, int num_threads) {
     bool parallel_set = false;
@@ -271,7 +564,13 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
 
     if (val.is_object()) {
         const auto& obj = val.as_object();
-        PyObject* dict = PyDict_New();
+        size_t presize = obj.size();
+        if (presize > strata::bindings::PythonObjectBuilder::kMaxDictPresize) {
+            presize = strata::bindings::PythonObjectBuilder::kMaxDictPresize;
+        }
+        PyObject* dict = presize > 0
+                             ? _PyDict_NewPresized(static_cast<Py_ssize_t>(presize))
+                             : PyDict_New();
         if (!dict)
             return NULL;
 
@@ -313,19 +612,61 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
 
 static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     // Reset thread-local arena for reuse
+    const size_t size = static_cast<size_t>(len);
     g_parse_arena.reset();
     g_key_cache.reset(&g_parse_arena);
+    if (size >= kKeyCacheLargeInputThreshold) {
+        size_t expected_keys = size / kKeyCacheBytesPerKey;
+        if (expected_keys < kKeyCacheMinKeys) {
+            expected_keys = kKeyCacheMinKeys;
+        }
+        if (expected_keys > kKeyCacheMaxKeys) {
+            expected_keys = kKeyCacheMaxKeys;
+        }
+        g_key_cache.reserve(expected_keys);
+    }
     g_parse_builder.reset();
     BuilderResetGuard builder_guard(g_parse_builder);
 
+    if (len > 0 && static_cast<size_t>(len) <= kFlatObjectMaxBytes) {
+        PyObject* fast_result = nullptr;
+        FlatParseStatus status = parse_flat_object(data, len, &fast_result);
+        if (status == FlatParseStatus::Ok) {
+            return fast_result;
+        }
+        if (status == FlatParseStatus::Error) {
+            return NULL;
+        }
+        g_parse_builder.reset();
+    }
+
     // Use fast path: Direct-to-Python via SAX
     constexpr size_t kGcPauseMinSize = 64 * 1024;
-    const size_t size = static_cast<size_t>(len);
+    constexpr size_t kGcPauseAlwaysSize = 256 * 1024;
+    constexpr size_t kGcPauseSampleSize = 64 * 1024;
+    constexpr size_t kGcPauseMinValues = 4096;
     auto parse = [&]() {
-        return strata::parse_sax(std::string_view(data, size), g_parse_builder);
+        strata::ParseSaxOptions options;
+        return strata::parse_sax(std::string_view(data, size), g_parse_builder, options,
+                                 &g_parse_context);
     };
     strata::Status status = strata::Status::ParseError;
-    if (size >= kGcPauseMinSize) {
+    bool pause_gc = false;
+    if (size >= kGcPauseAlwaysSize) {
+        pause_gc = true;
+    } else if (size >= kGcPauseMinSize) {
+        size_t sample_len = size < kGcPauseSampleSize ? size : kGcPauseSampleSize;
+        size_t comma_count = count_commas_outside_strings(data, sample_len);
+        size_t scale = sample_len > 0 ? (size / sample_len) : 1;
+        if (scale == 0) {
+            scale = 1;
+        }
+        size_t estimated_values = comma_count * scale + 1;
+        if (estimated_values >= kGcPauseMinValues) {
+            pause_gc = true;
+        }
+    }
+    if (pause_gc) {
         ::PyGcPause gc_pause;
         status = parse();
     } else {
@@ -343,13 +684,7 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
 }
 
 // Python loads() function
-PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
-    PyObject* source = nullptr;
-
-    static const char* kwlist[] = {"source", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", const_cast<char**>(kwlist), &source)) {
-        return NULL;
-    }
+PyObject* strata_loads(PyObject* /*self*/, PyObject* source) {
 
     STRATA_CPP_TRY
 
