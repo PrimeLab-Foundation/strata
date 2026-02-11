@@ -42,6 +42,7 @@ class DumpsResult:
     median_ms: float
     p95_ms: float
     output_size: int
+    throughput_mbps: float
     rss_mb: float
 
 
@@ -49,6 +50,16 @@ def _p95(times_ms: list[float]) -> float:
     if len(times_ms) >= 20:
         return statistics.quantiles(times_ms, n=20)[18]
     return max(times_ms) if times_ms else 0.0
+
+
+def _output_size_bytes(output: bytes | str | None) -> int:
+    if output is None:
+        return 0
+    if isinstance(output, bytes):
+        return len(output)
+    if isinstance(output, str):
+        return len(output.encode("utf-8"))
+    return 0
 
 
 def _get_dumps_runners(bytes_mode: bool) -> list[tuple[str, Callable[[Any], Any]]]:
@@ -112,6 +123,8 @@ def run_benchmarks(
         print(f"--- Benchmarking {library_name} ---")
         try:
             last_output: bytes | str | None = None
+            probe_output = dump_func(data)
+            output_size = _output_size_bytes(probe_output)
 
             def run():
                 nonlocal last_output
@@ -123,20 +136,22 @@ def run_benchmarks(
                 warmup=warmup,
                 repeat=repeat,
                 capture_rss=True,
+                data_size_bytes=output_size,
             )
-            output_size = len(last_output) if last_output is not None else 0
             result = DumpsResult(
                 library=library_name,
                 min_ms=tr.min_ms,
                 median_ms=tr.median_ms,
                 p95_ms=_p95(tr.times_ms),
-                output_size=output_size,
+                output_size=_output_size_bytes(last_output) or output_size,
+                throughput_mbps=tr.throughput_mbps,
                 rss_mb=tr.rss_mb,
             )
             results.append(result)
             print(
                 f"  min={result.min_ms:.2f}ms, median={result.median_ms:.2f}ms, "
-                f"p95={result.p95_ms:.2f}ms, size={result.output_size} bytes, rss={result.rss_mb:.1f} MB"
+                f"p95={result.p95_ms:.2f}ms, mbps={result.throughput_mbps:.2f}, "
+                f"size={result.output_size} bytes, rss={result.rss_mb:.1f} MB"
             )
         except Exception as e:
             print(f"  ERROR: {e}")
@@ -159,14 +174,15 @@ def print_summary(results: list[DumpsResult]) -> None:
     print("=" * 70)
     print()
     print(
-        f"{'Library':<15} {'Min (ms)':>10} {'Median (ms)':>12} {'P95 (ms)':>10} {'Size (bytes)':>12} {'RSS (MB)':>9} {'Speedup':>10}"
+        f"{'Library':<15} {'Min (ms)':>10} {'Median (ms)':>12} {'P95 (ms)':>10} {'MB/s':>10} {'Size (bytes)':>12} {'RSS (MB)':>9} {'Speedup':>10}"
     )
-    print("-" * 90)
+    print("-" * 102)
 
     for r in results:
         speedup = baseline.median_ms / r.median_ms
         print(
-            f"{r.library:<15} {r.min_ms:>10.2f} {r.median_ms:>12.2f} {r.p95_ms:>10.2f} {r.output_size:>12} {r.rss_mb:>9.1f} {speedup:.2f}x"
+            f"{r.library:<15} {r.min_ms:>10.2f} {r.median_ms:>12.2f} {r.p95_ms:>10.2f} "
+            f"{r.throughput_mbps:>10.2f} {r.output_size:>12} {r.rss_mb:>9.1f} {speedup:.2f}x"
         )
 
     strata_result = next((r for r in results if r.library == "strata"), None)

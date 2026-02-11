@@ -36,7 +36,7 @@ def test_bench_search_runner_no_errors(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(bench_search, "jmespath", None)
 
-    results = bench_search.run_all(data_path, repeat=1, warmup=0)
+    results, _cursor_reuse_results = bench_search.run_all(data_path, repeat=1, warmup=0)
 
     assert results
     assert all(r.error == "" for r in results)

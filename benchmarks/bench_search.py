@@ -9,6 +9,9 @@ Note: Strata search(data, path) with a Python dict (e.g. from loads()) triggers
 serialize→parse→search per call; jmespath/jsonpath-ng walk the dict in place.
 For fair repeated-query comparison use parse_json_file() + search(cursor, path)
 for JSON or NdjsonCursor.from_file() + search(cursor, path) for NDJSON.
+This benchmark aligns parse cost with the selected Strata mode: cursor modes are
+query-only (pre-parsed data for all libraries), while string/dict modes include
+parsing per call for all libraries.
 """
 
 from __future__ import annotations
@@ -24,7 +27,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .harness import get_rss_mb
+from .harness import get_rss_mb, run_single_benchmark
 from .markdown_tables import build_markdown_table
 
 try:
@@ -49,6 +52,35 @@ class QueryBenchResult:
     times_ms: list[float] = field(default_factory=list)
     result_count: int = 0
     rss_mb: float = 0.0
+    throughput_mbps: float = 0.0
+    error: str = ""
+
+    @property
+    def min_ms(self) -> float:
+        return min(self.times_ms) if self.times_ms else 0.0
+
+    @property
+    def median_ms(self) -> float:
+        return statistics.median(self.times_ms) if self.times_ms else 0.0
+
+    @property
+    def p95_ms(self) -> float:
+        if not self.times_ms:
+            return 0.0
+        sorted_times = sorted(self.times_ms)
+        idx = min(int(len(sorted_times) * 0.95), len(sorted_times) - 1)
+        return sorted_times[idx]
+
+
+@dataclass
+class CursorReuseResult:
+    """Cursor reuse benchmark result (batch of queries)."""
+
+    label: str
+    times_ms: list[float] = field(default_factory=list)
+    rss_mb: float = 0.0
+    throughput_mbps: float = 0.0
+    queries_run: int = 0
     error: str = ""
 
     @property
@@ -168,6 +200,21 @@ def _is_simple_field_query(expr: str) -> bool:
     return bool(_SIMPLE_FIELD_RE.match(expr))
 
 
+def _throughput_mbps(data_size_bytes: int | None, times_ms: list[float]) -> float:
+    if not data_size_bytes or not times_ms:
+        return 0.0
+    median_ms = statistics.median(times_ms)
+    if median_ms <= 0:
+        return 0.0
+    return (data_size_bytes / (median_ms / 1000.0)) / 1e6
+
+
+def _validate_ndjson_queries() -> None:
+    missing = set(QUERIES) - set(NDJSON_QUERIES)
+    if missing:
+        raise ValueError(f"NDJSON_QUERIES missing entries: {sorted(missing)}")
+
+
 def _run_query_benchmark(
     run_func: Any,
     warmup: int,
@@ -193,28 +240,99 @@ def _ndjson_lines(text: str) -> list[str]:
 
 def _load_json_data(
     data_file: Path,
-) -> tuple[str, Any, float, int, bool]:
-    """Load JSON or NDJSON data for querying; return (text, data, size_mb, records, is_ndjson)."""
+) -> tuple[str, Any, int, float, int, bool]:
+    """Load JSON or NDJSON data for querying; return (text, data, size_bytes, size_mb, records, is_ndjson)."""
     if data_file.suffix == ".ndjson":
         ndjson_text = data_file.read_text(encoding="utf-8")
         lines = _ndjson_lines(ndjson_text)
         json_text = "[" + ",".join(lines) + "]"
         json_data = [json.loads(line) for line in lines]
-        size_mb = data_file.stat().st_size / 1024 / 1024
+        size_bytes = data_file.stat().st_size
+        size_mb = size_bytes / 1024 / 1024
         record_count = len(json_data)
-        return json_text, json_data, size_mb, record_count, True
+        return json_text, json_data, size_bytes, size_mb, record_count, True
 
     json_bytes = data_file.read_bytes()
     json_text = json_bytes.decode("utf-8")
     json_data = json.loads(json_text)
-    size_mb = len(json_bytes) / 1024 / 1024
+    size_bytes = len(json_bytes)
+    size_mb = size_bytes / 1024 / 1024
     if isinstance(json_data, dict) and "users" in json_data:
         record_count = len(json_data.get("users") or [])
     elif isinstance(json_data, list):
         record_count = len(json_data)
     else:
         record_count = 1
-    return json_text, json_data, size_mb, record_count, False
+    return json_text, json_data, size_bytes, size_mb, record_count, False
+
+
+def _run_cursor_reuse_benchmarks(
+    data_file: Path,
+    queries: dict[str, dict[str, Any]],
+    *,
+    repeat: int,
+    warmup: int,
+    is_ndjson: bool,
+    data_size_bytes: int,
+) -> list[CursorReuseResult]:
+    if not queries:
+        return []
+
+    compiled_paths: list[Any] = []
+    for query_def in queries.values():
+        compiled_paths.append(_native.compile_path(query_def["strata"]))
+
+    queries_run = len(compiled_paths)
+    total_bytes = data_size_bytes * queries_run if data_size_bytes else 0
+
+    def build_cursor() -> Any:
+        if is_ndjson:
+            return _native.NdjsonCursor.from_file(str(data_file))
+        _document, cursor = _native.parse_json_file(str(data_file))
+        return cursor
+
+    def run_reuse():
+        cursor = build_cursor()
+        last_result = None
+        for path in compiled_paths:
+            last_result = _native.search(cursor, path)
+        return last_result
+
+    def run_reparse():
+        last_result = None
+        for path in compiled_paths:
+            cursor = build_cursor()
+            last_result = _native.search(cursor, path)
+        return last_result
+
+    results: list[CursorReuseResult] = []
+    for label, run_func in [
+        ("strata_cursor_reuse", run_reuse),
+        ("strata_cursor_reparse", run_reparse),
+    ]:
+        try:
+            tr = run_single_benchmark(
+                run_func,
+                warmup=warmup,
+                repeat=repeat,
+                capture_rss=True,
+                data_size_bytes=total_bytes,
+            )
+            results.append(
+                CursorReuseResult(
+                    label=label,
+                    times_ms=tr.times_ms,
+                    rss_mb=tr.rss_mb,
+                    throughput_mbps=tr.throughput_mbps,
+                    queries_run=queries_run,
+                )
+            )
+        except Exception as e:
+            results.append(
+                CursorReuseResult(label=label, queries_run=queries_run, error=str(e))
+            )
+
+    return results
 
 
 def run_all(
@@ -224,16 +342,22 @@ def run_all(
     warmup: int = 1,
     strata_mode: str = "cursor",
     ndjson_parallel: str = "auto",
-) -> list[QueryBenchResult]:
-    """Run all query benchmarks; return list of QueryBenchResult.
+    cursor_reuse: bool = True,
+) -> tuple[list[QueryBenchResult], list[CursorReuseResult]]:
+    """Run all query benchmarks; return (query_results, cursor_reuse_results).
 
     strata_mode: "cursor" (default) = parse_json_file (JSON) or NdjsonCursor.from_file (NDJSON)
                  once, then search(cursor, path) [query only];
                  "string" = search(text, path) [parse+query per call, no dumps];
                  "dict" = search(loads(text), path) [dumps+parse+query per call]. Use for loads()+search() comparison.
+    cursor_reuse: if True, run a batch benchmark that compares cursor reuse vs reparse for all queries.
     """
     data_file = Path(data_file)
-    json_text, json_data, size_mb, record_count, is_ndjson = _load_json_data(data_file)
+    json_text, json_data, size_bytes, size_mb, record_count, is_ndjson = _load_json_data(
+        data_file
+    )
+    if is_ndjson:
+        _validate_ndjson_queries()
     ndjson_text = data_file.read_text(encoding="utf-8") if is_ndjson else ""
     queries = NDJSON_QUERIES if is_ndjson else QUERIES
     effective_strata_mode = strata_mode
@@ -254,10 +378,13 @@ def run_all(
     print()
 
     results: list[QueryBenchResult] = []
+    cursor_reuse_results: list[CursorReuseResult] = []
 
     parallel_kwargs: dict[str, Any] = {}
     if is_ndjson and ndjson_parallel != "auto":
         parallel_kwargs["parallel"] = ndjson_parallel == "true"
+
+    parse_each_run = effective_strata_mode in ("string", "dict")
 
     for query_name, query_def in queries.items():
         description = query_def["description"]
@@ -302,11 +429,13 @@ def run_all(
                     times_ms=times_ms,
                     result_count=n,
                     rss_mb=rss_mb,
+                    throughput_mbps=_throughput_mbps(size_bytes, times_ms),
                 )
             )
             r = results[-1]
             print(
-                f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
             )
         except Exception as e:
             print(f"ERROR: {e}")
@@ -330,11 +459,13 @@ def run_all(
                         times_ms=times_ms,
                         result_count=n,
                         rss_mb=rss_mb,
+                        throughput_mbps=_throughput_mbps(size_bytes, times_ms),
                     )
                 )
                 r = results[-1]
                 print(
-                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                    f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
                 )
             except Exception as e:
                 print(f"ERROR: {e}")
@@ -361,11 +492,13 @@ def run_all(
                         times_ms=times_ms,
                         result_count=n,
                         rss_mb=rss_mb,
+                        throughput_mbps=_throughput_mbps(size_bytes, times_ms),
                     )
                 )
                 r = results[-1]
                 print(
-                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                    f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
                 )
             except Exception as e:
                 print(f"ERROR: {e}")
@@ -382,8 +515,15 @@ def run_all(
             try:
                 compiled = jmespath.compile(jmes_expr)
 
-                def run_jmespath():
-                    return compiled.search(json_data)
+                if parse_each_run:
+
+                    def run_jmespath():
+                        return compiled.search(json.loads(json_text))
+
+                else:
+
+                    def run_jmespath():
+                        return compiled.search(json_data)
 
                 times_ms, rss_mb, res = _run_query_benchmark(run_jmespath, warmup, repeat)
                 n = len(res) if isinstance(res, (list, tuple)) else 1
@@ -394,11 +534,13 @@ def run_all(
                         times_ms=times_ms,
                         result_count=n,
                         rss_mb=rss_mb,
+                        throughput_mbps=_throughput_mbps(size_bytes, times_ms),
                     )
                 )
                 r = results[-1]
                 print(
-                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                    f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
                 )
             except Exception as e:
                 print(f"ERROR: {e}")
@@ -424,7 +566,11 @@ def run_all(
                 try:
 
                     def run_jp():
-                        return [m.value for m in compiled.find(json_data)]
+                        if parse_each_run:
+                            data = json.loads(json_text)
+                        else:
+                            data = json_data
+                        return [m.value for m in compiled.find(data)]
 
                     times_ms, rss_mb, res = _run_query_benchmark(run_jp, warmup, repeat)
                     n = len(res) if isinstance(res, list) else 1
@@ -435,11 +581,13 @@ def run_all(
                             times_ms=times_ms,
                             result_count=n,
                             rss_mb=rss_mb,
+                            throughput_mbps=_throughput_mbps(size_bytes, times_ms),
                         )
                     )
                     r = results[-1]
                     print(
-                        f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                        f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                        f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
                     )
                 except Exception as e:
                     print(f"ERROR: {e}")
@@ -451,28 +599,64 @@ def run_all(
         else:
             print("  jsonpath-ng:  NOT INSTALLED")
 
-    return results
+    if cursor_reuse:
+        print("\n--- Cursor Reuse Benchmark (compiled paths, all queries) ---")
+        cursor_reuse_results = _run_cursor_reuse_benchmarks(
+            data_file,
+            queries,
+            repeat=repeat,
+            warmup=warmup,
+            is_ndjson=is_ndjson,
+            data_size_bytes=size_bytes,
+        )
+        for r in cursor_reuse_results:
+            if r.error:
+                print(f"  {r.label}: ERROR: {r.error}")
+            else:
+                print(
+                    f"  {r.label}: min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                    f"p95={r.p95_ms:.2f}ms, mbps={r.throughput_mbps:.2f}, "
+                    f"rss={r.rss_mb:.1f} MB"
+                )
+        reuse = next((r for r in cursor_reuse_results if r.label == "strata_cursor_reuse"), None)
+        reparse = next(
+            (r for r in cursor_reuse_results if r.label == "strata_cursor_reparse"), None
+        )
+        if reuse and reparse and not reuse.error and not reparse.error and reuse.median_ms > 0:
+            speedup = reparse.median_ms / reuse.median_ms
+            print(f"  speedup (reuse vs reparse): {speedup:.2f}x")
+
+    return results, cursor_reuse_results
 
 
-def print_summary(results: list[QueryBenchResult]) -> None:
+def print_summary(
+    results: list[QueryBenchResult],
+    cursor_reuse_results: list[CursorReuseResult] | None = None,
+) -> None:
     """Print summary grouped by query."""
     print()
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
 
+    use_ndjson = any(
+        r.query_name not in QUERIES and r.query_name in NDJSON_QUERIES for r in results
+    )
+    query_defs = NDJSON_QUERIES if use_ndjson else QUERIES
+    desc_map = {name: q["description"] for name, q in query_defs.items()}
+
     by_query: dict[str, list[QueryBenchResult]] = {}
     for r in results:
         by_query.setdefault(r.query_name, []).append(r)
 
     for query_name, query_results in by_query.items():
-        query_def = QUERIES.get(query_name, {})
-        desc = query_def.get("description", query_name)
+        desc = desc_map.get(query_name, query_name)
         print(f"\n{desc}:")
         print(
-            f"{'Library':<15} {'Min (ms)':>12} {'Median (ms)':>12} {'P95 (ms)':>12} {'Results':>10} {'RSS (MB)':>9} {'Speedup':>10}"
+            f"{'Library':<15} {'Min (ms)':>12} {'Median (ms)':>12} {'P95 (ms)':>12} "
+            f"{'MB/s':>10} {'Results':>10} {'RSS (MB)':>9} {'Speedup':>10}"
         )
-        print("-" * 92)
+        print("-" * 104)
 
         baseline_median = None
         for r in query_results:
@@ -489,12 +673,42 @@ def print_summary(results: list[QueryBenchResult]) -> None:
                     speedup_str = f"{baseline_median / r.median_ms:.2f}x"
                 print(
                     f"{r.library:<15} {r.min_ms:>12.2f} {r.median_ms:>12.2f} "
-                    f"{r.p95_ms:>12.2f} {r.result_count:>10} {r.rss_mb:>9.1f} {speedup_str:>10}"
+                    f"{r.p95_ms:>12.2f} {r.throughput_mbps:>10.2f} "
+                    f"{r.result_count:>10} {r.rss_mb:>9.1f} {speedup_str:>10}"
                 )
+
+    if cursor_reuse_results:
+        print()
+        print("=" * 70)
+        print("CURSOR REUSE SUMMARY")
+        print("=" * 70)
+        print(
+            f"{'Mode':<22} {'Min (ms)':>12} {'Median (ms)':>12} {'P95 (ms)':>12} "
+            f"{'MB/s':>10} {'RSS (MB)':>9}"
+        )
+        print("-" * 80)
+        for r in cursor_reuse_results:
+            if r.error:
+                print(f"{r.label:<22} ERROR")
+            else:
+                print(
+                    f"{r.label:<22} {r.min_ms:>12.2f} {r.median_ms:>12.2f} "
+                    f"{r.p95_ms:>12.2f} {r.throughput_mbps:>10.2f} {r.rss_mb:>9.1f}"
+                )
+        reuse = next(
+            (r for r in cursor_reuse_results if r.label == "strata_cursor_reuse"), None
+        )
+        reparse = next(
+            (r for r in cursor_reuse_results if r.label == "strata_cursor_reparse"), None
+        )
+        if reuse and reparse and not reuse.error and not reparse.error and reuse.median_ms > 0:
+            speedup = reparse.median_ms / reuse.median_ms
+            print(f"\nSpeedup (reuse vs reparse): {speedup:.2f}x")
 
 
 def _format_markdown(
     results: list[QueryBenchResult],
+    cursor_reuse_results: list[CursorReuseResult] | None,
     data_file: Path,
     size_mb: float,
     record_count: int,
@@ -527,7 +741,7 @@ def _format_markdown(
     for r in sorted(results, key=lambda x: (desc_map.get(x.query_name, x.query_name), x.median_ms)):
         desc = desc_map.get(r.query_name, r.query_name)
         if r.error:
-            table_rows.append([desc, r.library, "ERROR", "-", "-", "-", "-"])
+            table_rows.append([desc, r.library, "ERROR", "-", "-", "-", "-", "-"])
             continue
         table_rows.append(
             [
@@ -536,16 +750,64 @@ def _format_markdown(
                 f"{r.min_ms:.2f}",
                 f"{r.median_ms:.2f}",
                 f"{r.p95_ms:.2f}",
+                f"{r.throughput_mbps:.2f}",
                 str(r.result_count),
                 f"{r.rss_mb:.1f}",
             ]
         )
     lines.extend(
         build_markdown_table(
-            ["Query", "Library", "Min (ms)", "Median (ms)", "P95 (ms)", "Results", "RSS (MB)"],
+            [
+                "Query",
+                "Library",
+                "Min (ms)",
+                "Median (ms)",
+                "P95 (ms)",
+                "MB/s",
+                "Results",
+                "RSS (MB)",
+            ],
             table_rows,
         )
     )
+    if cursor_reuse_results:
+        lines.extend(
+            [
+                "",
+                "#### Cursor Reuse (All Queries)",
+                "",
+            ]
+        )
+        reuse_rows: list[list[str]] = []
+        for r in cursor_reuse_results:
+            if r.error:
+                reuse_rows.append([r.label, "ERROR", "-", "-", "-", "-"])
+            else:
+                reuse_rows.append(
+                    [
+                        r.label,
+                        f"{r.min_ms:.2f}",
+                        f"{r.median_ms:.2f}",
+                        f"{r.p95_ms:.2f}",
+                        f"{r.throughput_mbps:.2f}",
+                        f"{r.rss_mb:.1f}",
+                    ]
+                )
+        lines.extend(
+            build_markdown_table(
+                ["Mode", "Min (ms)", "Median (ms)", "P95 (ms)", "MB/s", "RSS (MB)"],
+                reuse_rows,
+            )
+        )
+        reuse = next(
+            (r for r in cursor_reuse_results if r.label == "strata_cursor_reuse"), None
+        )
+        reparse = next(
+            (r for r in cursor_reuse_results if r.label == "strata_cursor_reparse"), None
+        )
+        if reuse and reparse and not reuse.error and not reparse.error and reuse.median_ms > 0:
+            speedup = reparse.median_ms / reuse.median_ms
+            lines.append(f"- Speedup (reuse vs reparse): {speedup:.2f}x")
     lines.append("")
     return "\n".join(lines)
 
@@ -590,6 +852,11 @@ def main() -> int:
         default="auto",
         help="For NDJSON string benchmarks, pass parallel flag to strata.search (auto, true, false).",
     )
+    parser.add_argument(
+        "--no-cursor-reuse",
+        action="store_true",
+        help="Disable cursor reuse benchmark (parse once vs reparse per query).",
+    )
     parser.add_argument("--output", type=Path, help="Write Markdown results to file")
     parser.add_argument("--append", action="store_true", help="Append to --output if set")
     args = parser.parse_args()
@@ -598,21 +865,25 @@ def main() -> int:
         print(f"Error: Data file not found: {args.data}")
         return 1
 
-    results = run_all(
+    results, cursor_reuse_results = run_all(
         args.data,
         repeat=args.repeat,
         warmup=args.warmup,
         strata_mode=args.strata_mode,
         ndjson_parallel=args.ndjson_parallel,
+        cursor_reuse=not args.no_cursor_reuse,
     )
-    print_summary(results)
+    print_summary(results, cursor_reuse_results)
     if args.output:
-        _json_text, _json_data, size_mb, record_count, is_ndjson = _load_json_data(args.data)
+        _json_text, _json_data, _size_bytes, size_mb, record_count, is_ndjson = _load_json_data(
+            args.data
+        )
         strata_mode_label = args.strata_mode
         if is_ndjson and args.strata_mode == "cursor":
             strata_mode_label = "ndjson_cursor"
         body = _format_markdown(
             results,
+            cursor_reuse_results,
             args.data,
             size_mb,
             record_count,

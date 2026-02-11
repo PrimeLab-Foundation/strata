@@ -47,6 +47,7 @@ class LoadsResult:
     min_ms: float
     median_ms: float
     p95_ms: float
+    throughput_mbps: float
     rss_mb: float
 
 
@@ -141,14 +142,15 @@ def run_benchmarks(
 ) -> tuple[list[LoadsResult], BenchInfo]:
     """Run loads (parse) benchmarks; return (results, info)."""
     is_ndjson = data_file.suffix == ".ndjson"
+    data_size_bytes = data_file.stat().st_size
     if is_ndjson:
         data = data_file.read_text(encoding="utf-8")
         line_count = len(_ndjson_lines(data))
-        size_mb = data_file.stat().st_size / 1024 / 1024
+        size_mb = data_size_bytes / 1024 / 1024
     else:
         data = data_file.read_bytes()
         line_count = None
-        size_mb = len(data) / 1024 / 1024
+        size_mb = data_size_bytes / 1024 / 1024
 
     print()
     print("=" * 70)
@@ -171,18 +173,21 @@ def run_benchmarks(
                 warmup=warmup,
                 repeat=repeat,
                 capture_rss=True,
+                data_size_bytes=data_size_bytes,
             )
             result = LoadsResult(
                 library=library_name,
                 min_ms=tr.min_ms,
                 median_ms=tr.median_ms,
                 p95_ms=_p95(tr.times_ms),
+                throughput_mbps=tr.throughput_mbps,
                 rss_mb=tr.rss_mb,
             )
             results.append(result)
             print(
                 f"  min={result.min_ms:.2f}ms, median={result.median_ms:.2f}ms, "
-                f"p95={result.p95_ms:.2f}ms, rss={result.rss_mb:.1f} MB"
+                f"p95={result.p95_ms:.2f}ms, mbps={result.throughput_mbps:.2f}, "
+                f"rss={result.rss_mb:.1f} MB"
             )
         except Exception as e:
             print(f"  ERROR: {e}")
@@ -211,14 +216,15 @@ def print_summary(results: list[LoadsResult]) -> None:
     print("=" * 70)
     print()
     print(
-        f"{'Library':<15} {'Min (ms)':>10} {'Median (ms)':>12} {'P95 (ms)':>10} {'RSS (MB)':>9} {'Speedup':>10}"
+        f"{'Library':<15} {'Min (ms)':>10} {'Median (ms)':>12} {'P95 (ms)':>10} {'MB/s':>10} {'RSS (MB)':>9} {'Speedup':>10}"
     )
-    print("-" * 70)
+    print("-" * 82)
 
     for r in results:
         speedup = baseline.median_ms / r.median_ms
         print(
-            f"{r.library:<15} {r.min_ms:>10.2f} {r.median_ms:>12.2f} {r.p95_ms:>10.2f} {r.rss_mb:>9.1f} {speedup:.2f}x"
+            f"{r.library:<15} {r.min_ms:>10.2f} {r.median_ms:>12.2f} {r.p95_ms:>10.2f} "
+            f"{r.throughput_mbps:>10.2f} {r.rss_mb:>9.1f} {speedup:.2f}x"
         )
 
     strata_result = next((r for r in results if r.library == "strata"), None)
@@ -266,12 +272,13 @@ def _format_markdown(results: list[LoadsResult], info: BenchInfo, repeat: int, w
                 f"{r.min_ms:.2f}",
                 f"{r.median_ms:.2f}",
                 f"{r.p95_ms:.2f}",
+                f"{r.throughput_mbps:.2f}",
                 f"{r.rss_mb:.1f}",
             ]
         )
     lines.extend(
         build_markdown_table(
-            ["Library", "Min (ms)", "Median (ms)", "P95 (ms)", "RSS (MB)"],
+            ["Library", "Min (ms)", "Median (ms)", "P95 (ms)", "MB/s", "RSS (MB)"],
             table_rows,
         )
     )

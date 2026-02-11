@@ -692,6 +692,9 @@ class UnifiedBenchmarkSuite:
         self._log("Benchmarking: Search queries")
         self._log("=" * 70)
 
+        # Methodology: search benchmarks here include JSON parsing for all libraries.
+        # Strata uses _native.search(text, path); jmespath/jsonpath-ng parse from text each run.
+        # For query-only (pre-parsed/cursor) comparisons, use benchmarks.bench_search --strata-mode cursor.
         # Test queries
         queries = [
             ("$.users[*].id", "users[*].id", "Extract all user IDs"),

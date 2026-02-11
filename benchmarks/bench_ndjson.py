@@ -42,6 +42,7 @@ class NdjsonResult:
     median_ms: float
     p95_ms: float
     lines_parsed: int
+    throughput_mbps: float
     rss_mb: float
 
 
@@ -105,6 +106,7 @@ def run_benchmarks(
     """Run NDJSON benchmarks. data_file can be .json (converted to NDJSON) or .ndjson."""
     if data_file.suffix == ".ndjson":
         ndjson_text = data_file.read_text(encoding="utf-8")
+        data_size_bytes = data_file.stat().st_size
     else:
         with open(data_file, encoding="utf-8") as f:
             data = json.load(f)
@@ -115,9 +117,10 @@ def run_benchmarks(
         else:
             raise ValueError("Expected array or object with 'users' field")
         ndjson_text = "\n".join(json.dumps(item, ensure_ascii=False) for item in items)
+        data_size_bytes = len(ndjson_text.encode("utf-8"))
 
     line_count = len(_lines(ndjson_text))
-    size_mb = len(ndjson_text) / 1024 / 1024
+    size_mb = data_size_bytes / 1024 / 1024
 
     print()
     print("=" * 70)
@@ -144,6 +147,7 @@ def run_benchmarks(
                 warmup=warmup,
                 repeat=repeat,
                 capture_rss=True,
+                data_size_bytes=data_size_bytes,
             )
             lines_parsed = len(last_result) if isinstance(last_result, list) else 0
             result = NdjsonResult(
@@ -152,12 +156,14 @@ def run_benchmarks(
                 median_ms=tr.median_ms,
                 p95_ms=_p95(tr.times_ms),
                 lines_parsed=lines_parsed,
+                throughput_mbps=tr.throughput_mbps,
                 rss_mb=tr.rss_mb,
             )
             results.append(result)
             print(
                 f"  min={result.min_ms:.2f}ms, median={result.median_ms:.2f}ms, "
-                f"p95={result.p95_ms:.2f}ms, lines={result.lines_parsed}, rss={result.rss_mb:.1f} MB"
+                f"p95={result.p95_ms:.2f}ms, mbps={result.throughput_mbps:.2f}, "
+                f"lines={result.lines_parsed}, rss={result.rss_mb:.1f} MB"
             )
         except Exception as e:
             print(f"  ERROR: {e}")
@@ -180,14 +186,15 @@ def print_summary(results: list[NdjsonResult]) -> None:
     print("=" * 70)
     print()
     print(
-        f"{'Library':<15} {'Min (ms)':>10} {'Median (ms)':>12} {'P95 (ms)':>10} {'Lines':>8} {'RSS (MB)':>9} {'Speedup':>10}"
+        f"{'Library':<15} {'Min (ms)':>10} {'Median (ms)':>12} {'P95 (ms)':>10} {'MB/s':>10} {'Lines':>8} {'RSS (MB)':>9} {'Speedup':>10}"
     )
-    print("-" * 85)
+    print("-" * 97)
 
     for r in results:
         speedup = baseline.median_ms / r.median_ms
         print(
-            f"{r.library:<15} {r.min_ms:>10.2f} {r.median_ms:>12.2f} {r.p95_ms:>10.2f} {r.lines_parsed:>8} {r.rss_mb:>9.1f} {speedup:.2f}x"
+            f"{r.library:<15} {r.min_ms:>10.2f} {r.median_ms:>12.2f} {r.p95_ms:>10.2f} "
+            f"{r.throughput_mbps:>10.2f} {r.lines_parsed:>8} {r.rss_mb:>9.1f} {speedup:.2f}x"
         )
 
     # Report on strata
