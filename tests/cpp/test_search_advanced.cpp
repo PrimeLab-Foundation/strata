@@ -137,6 +137,87 @@ void test_filter_string_not_equal() {
     std::cout << "✓ test_filter_string_not_equal passed\n";
 }
 
+void test_filter_string_status_equal() {
+    auto doc =
+        JsonDocument::from_string(R"([{"status": "active"}, {"status": "inactive"}, {"status": "active"}])");
+    assert(doc.ok());
+
+    auto path = compile_search_path(R"($[?(@.status == "active")])");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 2);
+    for (const auto& r : results) {
+        assert(r.as_object().at("status").as_string() == "active");
+    }
+
+    std::cout << "✓ test_filter_string_status_equal passed\n";
+}
+
+void test_filter_exists() {
+    auto doc = JsonDocument::from_string(
+        R"([{"field": 1}, {"other": 2}, {"field": null}, {"field": false}])");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$[?(@.field)]");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 3);
+    for (const auto& r : results) {
+        assert(r.as_object().count("field") == 1);
+    }
+
+    std::cout << "✓ test_filter_exists passed\n";
+}
+
+void test_filter_boolean_true() {
+    auto doc = JsonDocument::from_string(
+        R"([{"active": true}, {"active": false}, {"active": true}, {"active": "true"}])");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$[?(@.active == true)]");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 2);
+    for (const auto& r : results) {
+        assert(r.as_object().at("active").as_bool() == true);
+    }
+
+    std::cout << "✓ test_filter_boolean_true passed\n";
+}
+
+void test_filter_boolean_false() {
+    auto doc = JsonDocument::from_string(
+        R"([{"active": true}, {"active": false}, {"active": true}, {"active": "false"}])");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$[?(@.active == false)]");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].as_object().at("active").as_bool() == false);
+
+    std::cout << "✓ test_filter_boolean_false passed\n";
+}
+
+void test_filter_null_equal() {
+    auto doc = JsonDocument::from_string(
+        R"([{"deleted": null}, {"deleted": false}, {"deleted": 0}, {"other": null}])");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$[?(@.deleted == null)]");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].as_object().at("deleted").is_null());
+
+    std::cout << "✓ test_filter_null_equal passed\n";
+}
+
 void test_filter_with_nested_path() {
     auto doc = JsonDocument::from_string(
         R"({"users": [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]})");
@@ -784,6 +865,11 @@ int main() {
     test_filter_numeric_less_equal();
     test_filter_string_equal();
     test_filter_string_not_equal();
+    test_filter_string_status_equal();
+    test_filter_exists();
+    test_filter_boolean_true();
+    test_filter_boolean_false();
+    test_filter_null_equal();
     test_filter_with_nested_path();
     test_filter_then_field_access();
     test_filter_missing_field();

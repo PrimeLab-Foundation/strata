@@ -192,6 +192,15 @@ struct PathParser {
 
         skip_ws();
 
+        // Existence check: [ ?(@.field) ]
+        if (peek() == ')') {
+            filter.op = FilterOp::Exists;
+            filter.value_type = FilterValueType::Unspecified;
+            filter.is_numeric = false;
+            consume(')');
+            return {Status::Ok, filter};
+        }
+
         // Parse operator - need to check multi-char operators first
         char first = peek();
         if (first == '=' || first == '!' || first == '>' || first == '<') {
@@ -226,13 +235,31 @@ struct PathParser {
         // Parse value (number or string)
         if (peek() == '"' || peek() == '\'') {
             filter.is_numeric = false;
+            filter.value_type = FilterValueType::String;
             filter.string_value = parse_quoted_string();
         } else if (std::isdigit(static_cast<unsigned char>(peek())) || peek() == '-' ||
                    peek() == '.') {
             filter.is_numeric = true;
+            filter.value_type = FilterValueType::Numeric;
             try {
                 filter.numeric_value = parse_double();
             } catch (...) {
+                return {Status::ParseError, filter};
+            }
+        } else if (std::isalpha(static_cast<unsigned char>(peek()))) {
+            std::string ident = parse_identifier();
+            if (ident == "true") {
+                filter.bool_value = true;
+                filter.value_type = FilterValueType::Boolean;
+                filter.is_numeric = false;
+            } else if (ident == "false") {
+                filter.bool_value = false;
+                filter.value_type = FilterValueType::Boolean;
+                filter.is_numeric = false;
+            } else if (ident == "null") {
+                filter.value_type = FilterValueType::Null;
+                filter.is_numeric = false;
+            } else {
                 return {Status::ParseError, filter};
             }
         } else {

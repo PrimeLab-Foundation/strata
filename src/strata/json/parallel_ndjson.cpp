@@ -1,6 +1,7 @@
 #include "strata/json/parallel_ndjson.hpp"
 
 #include "strata/json/json_parse.hpp"
+#include "strata/search/search.hpp"
 #include "strata/util/simd_string.hpp"
 #include "strata/util/thread_pool.hpp"
 
@@ -225,6 +226,59 @@ ParallelNdjsonStream::ChunkResult ParallelNdjsonStream::parse_chunk(
     return result;
 }
 
+ParallelNdjsonStream::ChunkSearchResult ParallelNdjsonStream::search_chunk(
+    const Chunk& chunk,
+    const CompiledPath& path,
+    bool skip_utf8_validation) {
+    ChunkSearchResult result;
+    result.sequence = chunk.sequence;
+
+    if (chunk.data.empty()) {
+        return result;
+    }
+
+    size_t estimated_lines = chunk.end_line - chunk.start_line;
+    result.matches.reserve(estimated_lines);
+
+    size_t pos = 0;
+    size_t line_num = chunk.start_line;
+    thread_local ParseSaxContext parse_context;
+    ParseSaxOptions options;
+    options.validate_utf8 = !skip_utf8_validation;
+
+    while (pos < chunk.data.size()) {
+        size_t newline_pos = util::find_newline_simd(chunk.data.data(), chunk.data.size(), pos);
+
+        size_t line_len = (newline_pos < chunk.data.size()) ? (newline_pos - pos)
+                                                            : (chunk.data.size() - pos);
+
+        std::string_view line = extract_line(chunk.data.data() + pos, line_len);
+
+        if (!is_whitespace_only_line(line)) {
+            result.lines_processed++;
+            auto parse_result = parse_json(line, options, &parse_context);
+
+            if (parse_result.ok()) {
+                JsonCursor cursor(&parse_result.value);
+                auto matches = eval_search_path(cursor, path);
+                if (!matches.empty()) {
+                    NdjsonSearchMatch entry;
+                    entry.line = line_num;
+                    entry.matches = std::move(matches);
+                    result.matches.push_back(std::move(entry));
+                }
+            } else {
+                result.errors.emplace_back(line_num, "Invalid JSON");
+            }
+        }
+
+        pos = (newline_pos < chunk.data.size()) ? (newline_pos + 1) : chunk.data.size();
+        line_num++;
+    }
+
+    return result;
+}
+
 void ParallelNdjsonStream::merge_results(std::vector<ChunkResult>& results,
                                           std::vector<JsonValue>& out_values,
                                           std::vector<std::pair<size_t, std::string>>& out_errors) {
@@ -250,6 +304,40 @@ void ParallelNdjsonStream::merge_results(std::vector<ChunkResult>& results,
         }
         for (auto& e : r.errors) {
             out_errors.push_back(std::move(e));
+        }
+    }
+}
+
+void ParallelNdjsonStream::merge_search_results(std::vector<ChunkSearchResult>& results,
+                                                std::vector<NdjsonSearchMatch>& out_matches,
+                                                std::vector<std::pair<size_t, std::string>>& out_errors,
+                                                size_t* out_lines_processed) {
+    std::sort(results.begin(), results.end(),
+              [](const ChunkSearchResult& a, const ChunkSearchResult& b) {
+                  return a.sequence < b.sequence;
+              });
+
+    size_t total_matches = 0;
+    size_t total_errors = 0;
+    size_t total_lines = 0;
+    for (const auto& r : results) {
+        total_matches += r.matches.size();
+        total_errors += r.errors.size();
+        total_lines += r.lines_processed;
+    }
+
+    out_matches.reserve(total_matches);
+    out_errors.reserve(total_errors);
+    if (out_lines_processed) {
+        *out_lines_processed = total_lines;
+    }
+
+    for (auto& r : results) {
+        for (auto& match : r.matches) {
+            out_matches.push_back(std::move(match));
+        }
+        for (auto& err : r.errors) {
+            out_errors.push_back(std::move(err));
         }
     }
 }
@@ -296,6 +384,54 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_sequential() {
     }
 
     return results;
+}
+
+ParallelSearchResult ParallelNdjsonStream::search_sequential_with_errors(
+    const CompiledPath& path) {
+    ParallelSearchResult result;
+
+    validate_utf8_once();
+    ParseSaxContext parse_context;
+    ParseSaxOptions options;
+    options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+
+    size_t pos = 0;
+    size_t line_num = 1;
+
+    while (pos < data_.size()) {
+        size_t newline_pos = util::find_newline_simd(data_.data(), data_.size(), pos);
+
+        size_t line_len = (newline_pos < data_.size()) ? (newline_pos - pos)
+                                                       : (data_.size() - pos);
+
+        std::string_view line = extract_line(data_.data() + pos, line_len);
+
+        if (!is_whitespace_only_line(line)) {
+            result.lines_processed++;
+            auto parse_result = parse_json(line, options, &parse_context);
+
+            if (parse_result.ok()) {
+                JsonCursor cursor(&parse_result.value);
+                auto matches = eval_search_path(cursor, path);
+                if (!matches.empty()) {
+                    NdjsonSearchMatch entry;
+                    entry.line = line_num;
+                    entry.matches = std::move(matches);
+                    result.matches.push_back(std::move(entry));
+                }
+            } else {
+                result.errors.emplace_back(line_num, "Invalid JSON");
+            }
+        }
+
+        pos = (newline_pos < data_.size()) ? (newline_pos + 1) : data_.size();
+        line_num++;
+    }
+
+    lines_processed_ = result.lines_processed;
+    error_count_ = result.errors.size();
+
+    return result;
 }
 
 ParallelParseResult ParallelNdjsonStream::parse_sequential_with_errors() {
@@ -611,6 +747,140 @@ ParallelParseResult ParallelNdjsonStream::parse_all_parallel_with_errors() {
         profile->overhead_per_chunk_ns =
             profile->chunk_count ? (overhead_ns / profile->chunk_count) : 0;
     }
+
+    return result;
+}
+
+std::vector<NdjsonSearchMatch> ParallelNdjsonStream::search_all_parallel(
+    const CompiledPath& path) {
+    if (data_.empty()) {
+        return {};
+    }
+
+    validate_utf8_once();
+    const bool skip_utf8_validation = utf8_checked_ && utf8_ok_;
+
+    size_t line_count = util::count_newlines_simd(data_.data(), data_.size()) + 1;
+
+    if (line_count < config_.min_lines_for_parallel ||
+        data_.size() < config_.min_chunk_size * 2) {
+        used_parallel_mode_ = false;
+        ParallelSearchResult seq = search_sequential_with_errors(path);
+        if (!seq.errors.empty() && !config_.skip_errors) {
+            throw std::runtime_error("Parse error at line " +
+                                     std::to_string(seq.errors[0].first) + ": " +
+                                     seq.errors[0].second);
+        }
+        return seq.matches;
+    }
+
+    used_parallel_mode_ = true;
+
+    std::vector<size_t> boundaries = collect_line_boundaries();
+    std::vector<Chunk> chunks = partition_chunks(boundaries);
+
+    if (chunks.size() <= 1) {
+        used_parallel_mode_ = false;
+        ParallelSearchResult seq = search_sequential_with_errors(path);
+        if (!seq.errors.empty() && !config_.skip_errors) {
+            throw std::runtime_error("Parse error at line " +
+                                     std::to_string(seq.errors[0].first) + ": " +
+                                     seq.errors[0].second);
+        }
+        return seq.matches;
+    }
+
+    util::ThreadPool pool(config_.num_threads);
+    std::vector<std::function<ChunkSearchResult()>> tasks;
+    tasks.reserve(chunks.size());
+
+    std::vector<std::future<ChunkSearchResult>> futures;
+    futures.reserve(chunks.size());
+
+    for (const auto& chunk : chunks) {
+        tasks.emplace_back([this, chunk, &path, skip_utf8_validation]() {
+            return search_chunk(chunk, path, skip_utf8_validation);
+        });
+    }
+
+    pool.submit_bulk(tasks, futures);
+
+    std::vector<ChunkSearchResult> chunk_results;
+    chunk_results.reserve(futures.size());
+    for (auto& f : futures) {
+        chunk_results.push_back(f.get());
+    }
+
+    std::vector<NdjsonSearchMatch> matches;
+    std::vector<std::pair<size_t, std::string>> errors;
+    size_t lines_processed = 0;
+    merge_search_results(chunk_results, matches, errors, &lines_processed);
+
+    lines_processed_ = lines_processed;
+    error_count_ = errors.size();
+
+    if (!errors.empty() && !config_.skip_errors) {
+        throw std::runtime_error("Parse error at line " + std::to_string(errors[0].first) +
+                                 ": " + errors[0].second);
+    }
+
+    return matches;
+}
+
+ParallelSearchResult ParallelNdjsonStream::search_all_parallel_with_errors(
+    const CompiledPath& path) {
+    ParallelSearchResult result;
+
+    if (data_.empty()) {
+        return result;
+    }
+
+    validate_utf8_once();
+    const bool skip_utf8_validation = utf8_checked_ && utf8_ok_;
+
+    size_t line_count = util::count_newlines_simd(data_.data(), data_.size()) + 1;
+
+    if (line_count < config_.min_lines_for_parallel ||
+        data_.size() < config_.min_chunk_size * 2) {
+        used_parallel_mode_ = false;
+        return search_sequential_with_errors(path);
+    }
+
+    used_parallel_mode_ = true;
+
+    std::vector<size_t> boundaries = collect_line_boundaries();
+    std::vector<Chunk> chunks = partition_chunks(boundaries);
+
+    if (chunks.size() <= 1) {
+        used_parallel_mode_ = false;
+        return search_sequential_with_errors(path);
+    }
+
+    util::ThreadPool pool(config_.num_threads);
+    std::vector<std::function<ChunkSearchResult()>> tasks;
+    tasks.reserve(chunks.size());
+
+    std::vector<std::future<ChunkSearchResult>> futures;
+    futures.reserve(chunks.size());
+
+    for (const auto& chunk : chunks) {
+        tasks.emplace_back([this, chunk, &path, skip_utf8_validation]() {
+            return search_chunk(chunk, path, skip_utf8_validation);
+        });
+    }
+
+    pool.submit_bulk(tasks, futures);
+
+    std::vector<ChunkSearchResult> chunk_results;
+    chunk_results.reserve(futures.size());
+    for (auto& f : futures) {
+        chunk_results.push_back(f.get());
+    }
+
+    merge_search_results(chunk_results, result.matches, result.errors, &result.lines_processed);
+
+    lines_processed_ = result.lines_processed;
+    error_count_ = result.errors.size();
 
     return result;
 }

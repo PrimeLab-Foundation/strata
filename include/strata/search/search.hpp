@@ -32,8 +32,12 @@ enum class FilterOp {
     LessThan,     // <
     LessEqual,    // <=
     And,          // &&
-    Or            // ||
+    Or,           // ||
+    Exists        // (field exists)
 };
+
+// Filter predicate value types
+enum class FilterValueType { Unspecified, Numeric, String, Boolean, Null };
 
 // Filter predicate (simplified for Phase 2.2)
 struct FilterPredicate {
@@ -41,9 +45,16 @@ struct FilterPredicate {
     FilterOp op;              // Comparison operator
     double numeric_value;     // For numeric comparisons
     std::string string_value; // For string comparisons
-    bool is_numeric;          // True for numeric, false for string
+    bool bool_value;          // For boolean comparisons
+    FilterValueType value_type; // Value type for comparisons
+    bool is_numeric;          // Legacy: True for numeric, false for string
 
-    FilterPredicate() : op(FilterOp::Equal), numeric_value(0), is_numeric(true) {}
+    FilterPredicate()
+        : op(FilterOp::Equal),
+          numeric_value(0),
+          bool_value(false),
+          value_type(FilterValueType::Unspecified),
+          is_numeric(true) {}
 };
 
 // Single path step in a JSONPath expression

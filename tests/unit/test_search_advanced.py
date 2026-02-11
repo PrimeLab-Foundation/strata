@@ -65,6 +65,41 @@ class TestFilterPredicates:
         assert len(results) == 1
         assert results[0]["name"] == "Bob"
 
+    def test_filter_string_status_equal(self):
+        """Test string == comparison on status field."""
+        json_text = '[{"status": "active"}, {"status": "inactive"}, {"status": "active"}]'
+        results = strata.search(json_text, '$[?(@.status == "active")]')
+        assert len(results) == 2
+        assert all(r["status"] == "active" for r in results)
+
+    def test_filter_exists(self):
+        """Test existence checks."""
+        json_text = '[{"field": 1}, {"other": 2}, {"field": null}, {"field": false}]'
+        results = strata.search(json_text, "$[?(@.field)]")
+        assert len(results) == 3
+        assert all("field" in r for r in results)
+
+    def test_filter_boolean_true(self):
+        """Test boolean == true comparison."""
+        json_text = '[{"active": true}, {"active": false}, {"active": true}, {"active": "true"}]'
+        results = strata.search(json_text, "$[?(@.active == true)]")
+        assert len(results) == 2
+        assert all(r["active"] is True for r in results)
+
+    def test_filter_boolean_false(self):
+        """Test boolean == false comparison."""
+        json_text = '[{"active": true}, {"active": false}, {"active": true}, {"active": "false"}]'
+        results = strata.search(json_text, "$[?(@.active == false)]")
+        assert len(results) == 1
+        assert results[0]["active"] is False
+
+    def test_filter_null_equal(self):
+        """Test null == comparison."""
+        json_text = '[{"deleted": null}, {"deleted": false}, {"deleted": 0}, {"other": null}]'
+        results = strata.search(json_text, "$[?(@.deleted == null)]")
+        assert len(results) == 1
+        assert results[0]["deleted"] is None
+
     def test_filter_with_nested_path(self):
         """Test filter on nested objects."""
         json_text = '{"users": [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]}'

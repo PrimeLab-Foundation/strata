@@ -54,48 +54,84 @@ static bool eval_filter(const JsonCursor& cursor, const FilterPredicate& filter)
         return false;
     }
 
-    try {
-        JsonCursor field_cursor = cursor.field(filter.field);
+    if (filter.op == FilterOp::Exists) {
+        return cursor.get_field(filter.field).ok();
+    }
 
-        if (filter.is_numeric) {
-            if (!field_cursor.is_number()) {
-                return false;
-            }
-            double value = field_cursor.get_float();
+    auto field_result = cursor.get_field(filter.field);
+    if (!field_result.ok()) {
+        return false;
+    }
 
-            switch (filter.op) {
-            case FilterOp::Equal:
-                return value == filter.numeric_value;
-            case FilterOp::NotEqual:
-                return value != filter.numeric_value;
-            case FilterOp::GreaterThan:
-                return value > filter.numeric_value;
-            case FilterOp::GreaterEqual:
-                return value >= filter.numeric_value;
-            case FilterOp::LessThan:
-                return value < filter.numeric_value;
-            case FilterOp::LessEqual:
-                return value <= filter.numeric_value;
-            default:
-                return false;
-            }
-        } else {
-            if (!field_cursor.is_string()) {
-                return false;
-            }
-            std::string value = field_cursor.get_str();
+    JsonCursor field_cursor = field_result.value;
+    FilterValueType value_type = filter.value_type;
+    if (value_type == FilterValueType::Unspecified) {
+        value_type = filter.is_numeric ? FilterValueType::Numeric : FilterValueType::String;
+    }
 
-            switch (filter.op) {
-            case FilterOp::Equal:
-                return value == filter.string_value;
-            case FilterOp::NotEqual:
-                return value != filter.string_value;
-            default:
-                return false; // Other ops not supported for strings
-            }
+    switch (value_type) {
+    case FilterValueType::Numeric: {
+        if (!field_cursor.is_number()) {
+            return false;
         }
-    } catch (...) {
-        // Field not found or access error
+        double value = field_cursor.get_float();
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return value == filter.numeric_value;
+        case FilterOp::NotEqual:
+            return value != filter.numeric_value;
+        case FilterOp::GreaterThan:
+            return value > filter.numeric_value;
+        case FilterOp::GreaterEqual:
+            return value >= filter.numeric_value;
+        case FilterOp::LessThan:
+            return value < filter.numeric_value;
+        case FilterOp::LessEqual:
+            return value <= filter.numeric_value;
+        default:
+            return false;
+        }
+    }
+    case FilterValueType::String: {
+        if (!field_cursor.is_string()) {
+            return false;
+        }
+        std::string value = field_cursor.get_str();
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return value == filter.string_value;
+        case FilterOp::NotEqual:
+            return value != filter.string_value;
+        default:
+            return false; // Other ops not supported for strings
+        }
+    }
+    case FilterValueType::Boolean: {
+        if (!field_cursor.is_bool()) {
+            return false;
+        }
+        bool value = field_cursor.get_bool_or_throw();
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return value == filter.bool_value;
+        case FilterOp::NotEqual:
+            return value != filter.bool_value;
+        default:
+            return false;
+        }
+    }
+    case FilterValueType::Null: {
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return field_cursor.is_null();
+        case FilterOp::NotEqual:
+            return !field_cursor.is_null();
+        default:
+            return false;
+        }
+    }
+    case FilterValueType::Unspecified:
+    default:
         return false;
     }
 }

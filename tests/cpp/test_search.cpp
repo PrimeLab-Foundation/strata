@@ -281,13 +281,17 @@ void test_compile_filter_errors() {
     auto r8 = compile_search_path("$[?(@.age !5)]");
     assert(!r8.ok());
 
-    // Filter with no operator at all
+    // Filter existence check (now valid)
     auto r9 = compile_search_path("$[?(@.age)]");
-    assert(!r9.ok());
+    assert(r9.ok());
 
     // Filter value that's not string or number (identifier)
     auto r10 = compile_search_path("$[?(@.age > xyz)]");
     assert(!r10.ok());
+
+    // Filter with missing value after operator
+    auto r10b = compile_search_path("$[?(@.age > )]");
+    assert(!r10b.ok());
 
     // Filter without closing paren
     auto r11 = compile_search_path("$[?(@.age > 5]");

@@ -4,8 +4,10 @@
 #include "python_types.h"
 #include "strata/json/json_mmap.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/json/parallel_ndjson.hpp"
 #include "strata/search/search.hpp"
 #include "strata/search/search_ndjson_fused.hpp"
+#include "strata/util/simd_string.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -197,6 +199,10 @@ bool looks_like_json_text(const char* data, Py_ssize_t len) {
     }
     return c >= '0' && c <= '9';
 }
+
+constexpr size_t kParallelMinSize = 2 * 1024 * 1024;
+constexpr size_t kParallelSmallLineThreshold = 4 * 1024;
+constexpr size_t kParallelSmallLineChunkSize = 2 * 1024 * 1024;
 
 bool ends_with_ndjson(const char* data, Py_ssize_t len) {
     static const char suffix[] = ".ndjson";
@@ -609,7 +615,8 @@ bool process_ndjson_iterable(PyObject* data_obj, const strata::CompiledPath& com
 }
 
 PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& compiled_path,
-                             NdjsonErrorMode mode, bool treat_string_as_text) {
+                             NdjsonErrorMode mode, bool treat_string_as_text,
+                             bool parallel_set, bool parallel, int num_threads) {
     PyObject* results = PyList_New(0);
     if (!results) {
         return NULL;
@@ -630,38 +637,118 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
     const SimpleFieldExtractionSpec* simple_spec_ptr = use_fused ? &simple_spec : nullptr;
 
     if (treat_string_as_text) {
-        if (PyUnicode_Check(data_obj)) {
-            Py_ssize_t len = 0;
-            const char* data = PyUnicode_AsUTF8AndSize(data_obj, &len);
-            if (!data) {
-                Py_DECREF(results);
-                return NULL;
-            }
-            if (!process_ndjson_text(data, len, compiled_path, simple_spec_ptr, mode, results,
-                                     options, parse_context, fused_matches)) {
-                Py_DECREF(results);
-                return NULL;
-            }
-            return results;
-        }
-        if (PyBytes_Check(data_obj) || PyByteArray_Check(data_obj) || PyMemoryView_Check(data_obj)) {
+        if (PyUnicode_Check(data_obj) || PyBytes_Check(data_obj) || PyByteArray_Check(data_obj) ||
+            PyMemoryView_Check(data_obj)) {
             PyObject* bytes_obj = data_obj;
             PyObject* temp_bytes = NULL;
-            if (!PyBytes_Check(data_obj)) {
-                temp_bytes = PyBytes_FromObject(data_obj);
-                if (!temp_bytes) {
+            const char* data = nullptr;
+            Py_ssize_t len = 0;
+            if (PyUnicode_Check(data_obj)) {
+                data = PyUnicode_AsUTF8AndSize(data_obj, &len);
+                if (!data) {
                     Py_DECREF(results);
                     return NULL;
                 }
-                bytes_obj = temp_bytes;
+            } else {
+                if (!PyBytes_Check(data_obj)) {
+                    temp_bytes = PyBytes_FromObject(data_obj);
+                    if (!temp_bytes) {
+                        Py_DECREF(results);
+                        return NULL;
+                    }
+                    bytes_obj = temp_bytes;
+                }
+                if (PyBytes_AsStringAndSize(bytes_obj, const_cast<char**>(&data), &len) < 0) {
+                    Py_XDECREF(temp_bytes);
+                    Py_DECREF(results);
+                    return NULL;
+                }
             }
-            char* data = nullptr;
-            Py_ssize_t len = 0;
-            if (PyBytes_AsStringAndSize(bytes_obj, &data, &len) < 0) {
+
+            bool use_parallel = false;
+            size_t min_chunk_size = 0;
+            if (parallel_set) {
+                use_parallel = parallel;
+            } else {
+                size_t data_size = static_cast<size_t>(len);
+                if (data_size >= kParallelMinSize) {
+                    use_parallel = true;
+                    size_t newline_count =
+                        strata::util::count_newlines_simd(data, static_cast<size_t>(len));
+                    size_t line_count = newline_count;
+                    if (data_size > 0 && len > 0 && data[len - 1] != '\n') {
+                        line_count += 1;
+                    } else if (line_count == 0) {
+                        line_count = 1;
+                    }
+                    if (line_count > 0) {
+                        double avg_line_size =
+                            static_cast<double>(data_size) / static_cast<double>(line_count);
+                        if (avg_line_size < static_cast<double>(kParallelSmallLineThreshold) &&
+                            data_size >= kParallelSmallLineChunkSize * 2) {
+                            min_chunk_size = kParallelSmallLineChunkSize;
+                        }
+                    }
+                }
+            }
+
+            if (use_parallel) {
+                if (num_threads < 0) {
+                    PyErr_SetString(PyExc_ValueError, "num_threads must be non-negative");
+                    Py_XDECREF(temp_bytes);
+                    Py_DECREF(results);
+                    return NULL;
+                }
+                strata::ParallelNdjsonConfig config;
+                config.skip_errors = (mode != NdjsonErrorMode::Error);
+                config.num_threads = num_threads > 0 ? static_cast<size_t>(num_threads) : 0;
+                if (min_chunk_size > 0) {
+                    config.min_chunk_size = min_chunk_size;
+                }
+                strata::ParallelNdjsonStream stream(
+                    std::string_view(data, static_cast<size_t>(len)), config);
+                if (mode == NdjsonErrorMode::Warn || mode == NdjsonErrorMode::Error) {
+                    auto search_result = stream.search_all_parallel_with_errors(compiled_path);
+                    if (mode == NdjsonErrorMode::Error && !search_result.errors.empty()) {
+                        std::string message =
+                            "Invalid JSON on line " + std::to_string(search_result.errors[0].first);
+                        PyErr_SetString(PyExc_ValueError, message.c_str());
+                        Py_XDECREF(temp_bytes);
+                        Py_DECREF(results);
+                        return NULL;
+                    }
+                    if (mode == NdjsonErrorMode::Warn) {
+                        for (const auto& err : search_result.errors) {
+                            std::string message =
+                                "Invalid JSON on line " + std::to_string(err.first);
+                            if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
+                                Py_XDECREF(temp_bytes);
+                                Py_DECREF(results);
+                                return NULL;
+                            }
+                        }
+                    }
+                    for (const auto& entry : search_result.matches) {
+                        if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                            Py_XDECREF(temp_bytes);
+                            Py_DECREF(results);
+                            return NULL;
+                        }
+                    }
+                } else {
+                    auto matches = stream.search_all_parallel(compiled_path);
+                    for (const auto& entry : matches) {
+                        if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                            Py_XDECREF(temp_bytes);
+                            Py_DECREF(results);
+                            return NULL;
+                        }
+                    }
+                }
                 Py_XDECREF(temp_bytes);
-                Py_DECREF(results);
-                return NULL;
+                return results;
             }
+
             bool ok = process_ndjson_text(data, len, compiled_path, simple_spec_ptr, mode, results,
                                           options, parse_context, fused_matches);
             Py_XDECREF(temp_bytes);
@@ -690,6 +777,120 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
             Py_DECREF(pathlike);
             Py_DECREF(results);
             return NULL;
+        }
+
+        bool use_parallel = false;
+        if (parallel_set) {
+            use_parallel = parallel;
+        } else {
+            std::ifstream size_file(filepath, std::ios::binary | std::ios::ate);
+            if (!size_file) {
+                Py_DECREF(pathlike);
+                Py_DECREF(results);
+                PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
+                return NULL;
+            }
+            std::streamsize size = size_file.tellg();
+            if (size >= 0 && static_cast<size_t>(size) >= kParallelMinSize) {
+                use_parallel = true;
+            }
+        }
+
+        if (use_parallel) {
+            if (num_threads < 0) {
+                Py_DECREF(pathlike);
+                Py_DECREF(results);
+                PyErr_SetString(PyExc_ValueError, "num_threads must be non-negative");
+                return NULL;
+            }
+            std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+            if (!file) {
+                Py_DECREF(pathlike);
+                Py_DECREF(results);
+                PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
+                return NULL;
+            }
+            std::streamsize size = file.tellg();
+            if (size < 0) {
+                Py_DECREF(pathlike);
+                Py_DECREF(results);
+                PyErr_SetString(PyExc_OSError, "Failed to read NDJSON file size");
+                return NULL;
+            }
+            file.seekg(0, std::ios::beg);
+            std::string data(static_cast<size_t>(size), '\0');
+            if (!file.read(&data[0], size)) {
+                Py_DECREF(pathlike);
+                Py_DECREF(results);
+                PyErr_SetString(PyExc_OSError, "Failed to read NDJSON file");
+                return NULL;
+            }
+
+            size_t data_size = data.size();
+            size_t min_chunk_size = 0;
+            size_t newline_count = strata::util::count_newlines_simd(data.data(), data_size);
+            size_t line_count = newline_count;
+            if (data_size > 0 && data[data_size - 1] != '\n') {
+                line_count += 1;
+            } else if (line_count == 0) {
+                line_count = 1;
+            }
+            if (line_count > 0) {
+                double avg_line_size =
+                    static_cast<double>(data_size) / static_cast<double>(line_count);
+                if (avg_line_size < static_cast<double>(kParallelSmallLineThreshold) &&
+                    data_size >= kParallelSmallLineChunkSize * 2) {
+                    min_chunk_size = kParallelSmallLineChunkSize;
+                }
+            }
+
+            strata::ParallelNdjsonConfig config;
+            config.skip_errors = (mode != NdjsonErrorMode::Error);
+            config.num_threads = num_threads > 0 ? static_cast<size_t>(num_threads) : 0;
+            if (min_chunk_size > 0) {
+                config.min_chunk_size = min_chunk_size;
+            }
+            strata::ParallelNdjsonStream stream(std::string_view(data), config);
+            if (mode == NdjsonErrorMode::Warn || mode == NdjsonErrorMode::Error) {
+                auto search_result = stream.search_all_parallel_with_errors(compiled_path);
+                if (mode == NdjsonErrorMode::Error && !search_result.errors.empty()) {
+                    std::string message =
+                        "Invalid JSON on line " + std::to_string(search_result.errors[0].first);
+                    PyErr_SetString(PyExc_ValueError, message.c_str());
+                    Py_DECREF(pathlike);
+                    Py_DECREF(results);
+                    return NULL;
+                }
+                if (mode == NdjsonErrorMode::Warn) {
+                    for (const auto& err : search_result.errors) {
+                        std::string message =
+                            "Invalid JSON on line " + std::to_string(err.first);
+                        if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
+                            Py_DECREF(pathlike);
+                            Py_DECREF(results);
+                            return NULL;
+                        }
+                    }
+                }
+                for (const auto& entry : search_result.matches) {
+                    if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                        Py_DECREF(pathlike);
+                        Py_DECREF(results);
+                        return NULL;
+                    }
+                }
+            } else {
+                auto matches = stream.search_all_parallel(compiled_path);
+                for (const auto& entry : matches) {
+                    if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                        Py_DECREF(pathlike);
+                        Py_DECREF(results);
+                        return NULL;
+                    }
+                }
+            }
+            Py_DECREF(pathlike);
+            return results;
         }
 
         std::ifstream file(filepath, std::ios::binary);
@@ -903,8 +1104,20 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
 
     STRATA_CPP_TRY
 
-    (void)parallel_obj;
-    (void)num_threads;
+    bool parallel_set = false;
+    bool parallel = false;
+    if (parallel_obj != Py_None) {
+        int truth = PyObject_IsTrue(parallel_obj);
+        if (truth < 0) {
+            return NULL;
+        }
+        parallel_set = true;
+        parallel = truth != 0;
+    }
+    if (num_threads < 0) {
+        PyErr_SetString(PyExc_ValueError, "num_threads must be non-negative");
+        return NULL;
+    }
 
     StrataSearchMode mode;
     if (!parse_strata_mode(mode_obj, &mode)) {
@@ -1071,7 +1284,8 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
             return NULL;
         }
         bool treat_string_as_text = has_text && looks_like_json;
-        return search_ndjson_data(data_obj, compiled_path, ndjson_mode, treat_string_as_text);
+        return search_ndjson_data(data_obj, compiled_path, ndjson_mode, treat_string_as_text,
+                                  parallel_set, parallel, num_threads);
     }
 
     if (skip_errors || on_error_obj != Py_None) {

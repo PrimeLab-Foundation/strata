@@ -223,6 +223,7 @@ def run_all(
     repeat: int = 5,
     warmup: int = 1,
     strata_mode: str = "cursor",
+    ndjson_parallel: str = "auto",
 ) -> list[QueryBenchResult]:
     """Run all query benchmarks; return list of QueryBenchResult.
 
@@ -253,6 +254,10 @@ def run_all(
     print()
 
     results: list[QueryBenchResult] = []
+
+    parallel_kwargs: dict[str, Any] = {}
+    if is_ndjson and ndjson_parallel != "auto":
+        parallel_kwargs["parallel"] = ndjson_parallel == "true"
 
     for query_name, query_def in queries.items():
         description = query_def["description"]
@@ -314,7 +319,7 @@ def run_all(
                 os.environ["STRATA_DISABLE_FUSED_NDJSON"] = "1"
 
                 def run_full():
-                    return _native.search(ndjson_text, path, ndjson=True)
+                    return _native.search(ndjson_text, path, ndjson=True, **parallel_kwargs)
 
                 times_ms, rss_mb, result_list = _run_query_benchmark(run_full, warmup, repeat)
                 n = len(result_list) if isinstance(result_list, list) else 1
@@ -345,7 +350,7 @@ def run_all(
             try:
 
                 def run_fused():
-                    return _native.search(ndjson_text, path, ndjson=True)
+                    return _native.search(ndjson_text, path, ndjson=True, **parallel_kwargs)
 
                 times_ms, rss_mb, result_list = _run_query_benchmark(run_fused, warmup, repeat)
                 n = len(result_list) if isinstance(result_list, list) else 1
@@ -579,6 +584,12 @@ def main() -> int:
         default="cursor",
         help="Strata input: cursor=parse_json_file (JSON) or NdjsonCursor.from_file (NDJSON) then search(cursor,path) [query only, default]; dict=search(loads(text),path); string=search(text,path). Use --strata-mode dict for loads()+search() comparison.",
     )
+    parser.add_argument(
+        "--ndjson-parallel",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="For NDJSON string benchmarks, pass parallel flag to strata.search (auto, true, false).",
+    )
     parser.add_argument("--output", type=Path, help="Write Markdown results to file")
     parser.add_argument("--append", action="store_true", help="Append to --output if set")
     args = parser.parse_args()
@@ -592,6 +603,7 @@ def main() -> int:
         repeat=args.repeat,
         warmup=args.warmup,
         strata_mode=args.strata_mode,
+        ndjson_parallel=args.ndjson_parallel,
     )
     print_summary(results)
     if args.output:

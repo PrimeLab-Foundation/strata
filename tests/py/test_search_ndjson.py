@@ -106,3 +106,14 @@ def test_search_ndjson_simple_field_fused_matches_full(tmp_path):
     fused = strata.search(text, "$[*].name", ndjson=True)
 
     assert fused == baseline
+
+
+def test_search_ndjson_parallel_matches_sequential():
+    lines = [f'{{"id": {i}, "name": "user_{i:06d}"}}' for i in range(80000)]
+    text = "\n".join(lines)
+    assert len(text) > 2 * 1024 * 1024
+
+    seq = strata.search(text, "$.id", ndjson=True, parallel=False)
+    par = strata.search(text, "$.id", ndjson=True, parallel=True)
+
+    assert par == seq

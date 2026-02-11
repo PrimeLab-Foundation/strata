@@ -11,6 +11,8 @@
 
 namespace strata {
 
+class CompiledPath;
+
 /**
  * Profiling output for parallel NDJSON parsing.
  *
@@ -67,6 +69,23 @@ struct ParallelParseResult {
 };
 
 /**
+ * Single NDJSON search match with line number.
+ */
+struct NdjsonSearchMatch {
+    size_t line = 0;
+    std::vector<JsonValue> matches;
+};
+
+/**
+ * Result of parallel NDJSON search with error collection.
+ */
+struct ParallelSearchResult {
+    std::vector<NdjsonSearchMatch> matches;
+    std::vector<std::pair<size_t, std::string>> errors;
+    size_t lines_processed = 0;
+};
+
+/**
  * Parallel NDJSON (Newline Delimited JSON) streaming parser.
  *
  * Achieves 2-4x speedup for large files by parsing independent lines
@@ -113,6 +132,18 @@ class ParallelNdjsonStream {
     ParallelParseResult parse_all_parallel_with_errors();
 
     /**
+     * Search all lines in parallel, maintaining input order.
+     *
+     * Throws on error if skip_errors is false.
+     */
+    std::vector<NdjsonSearchMatch> search_all_parallel(const CompiledPath& path);
+
+    /**
+     * Search all lines with error collection (no exceptions).
+     */
+    ParallelSearchResult search_all_parallel_with_errors(const CompiledPath& path);
+
+    /**
      * Get total lines processed (after parsing).
      */
     size_t lines_processed() const noexcept { return lines_processed_; }
@@ -153,6 +184,13 @@ class ParallelNdjsonStream {
         std::vector<std::pair<size_t, std::string>> errors;  // (line_num, message)
     };
 
+    struct ChunkSearchResult {
+        size_t sequence;      // For ordering
+        std::vector<NdjsonSearchMatch> matches;
+        std::vector<std::pair<size_t, std::string>> errors;  // (line_num, message)
+        size_t lines_processed = 0;
+    };
+
     // Phase 1: SIMD line boundary collection
     std::vector<size_t> collect_line_boundaries();
 
@@ -163,13 +201,24 @@ class ParallelNdjsonStream {
     ChunkResult parse_chunk(const Chunk& chunk, bool skip_utf8_validation,
                             std::vector<uint64_t>* chunk_parse_ns);
 
+    // Phase 3: Search single chunk (called by worker threads)
+    ChunkSearchResult search_chunk(const Chunk& chunk, const CompiledPath& path,
+                                   bool skip_utf8_validation);
+
     // Phase 4: Merge results in sequence order
     void merge_results(std::vector<ChunkResult>& results, std::vector<JsonValue>& out_values,
                        std::vector<std::pair<size_t, std::string>>& out_errors);
 
+    void merge_search_results(std::vector<ChunkSearchResult>& results,
+                              std::vector<NdjsonSearchMatch>& out_matches,
+                              std::vector<std::pair<size_t, std::string>>& out_errors,
+                              size_t* out_lines_processed);
+
     // Sequential fallback for small files
     std::vector<JsonValue> parse_sequential();
     ParallelParseResult parse_sequential_with_errors();
+
+    ParallelSearchResult search_sequential_with_errors(const CompiledPath& path);
 
     bool validate_utf8_once();
 };

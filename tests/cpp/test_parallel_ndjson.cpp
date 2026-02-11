@@ -5,6 +5,7 @@
 #include "strata/json/json_core.hpp"
 #include "strata/json/ndjson_stream.hpp"
 #include "strata/json/parallel_ndjson.hpp"
+#include "strata/search/search.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -142,6 +143,50 @@ void test_matches_sequential_results() {
     }
 
     std::cout << "✓ test_matches_sequential_results passed\n";
+}
+
+void test_parallel_search_matches_sequential() {
+    std::string data = generate_sequential_ndjson(5000);
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+    const auto& path = compile_result.value;
+
+    NdjsonStream seq_stream(data);
+    auto seq_values = seq_stream.parse_all();
+
+    std::vector<NdjsonSearchMatch> seq_matches;
+    seq_matches.reserve(seq_values.size());
+    for (size_t i = 0; i < seq_values.size(); ++i) {
+        JsonCursor cursor(&seq_values[i]);
+        auto matches = eval_search_path(cursor, path);
+        if (matches.empty()) {
+            continue;
+        }
+        NdjsonSearchMatch entry;
+        entry.line = i + 1;
+        entry.matches = std::move(matches);
+        seq_matches.push_back(std::move(entry));
+    }
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 100;
+    config.min_chunk_size = 1024;
+    config.num_threads = 4;
+
+    ParallelNdjsonStream par_stream(data, config);
+    auto par_matches = par_stream.search_all_parallel(path);
+
+    assert(seq_matches.size() == par_matches.size());
+    for (size_t i = 0; i < seq_matches.size(); ++i) {
+        assert(seq_matches[i].line == par_matches[i].line);
+        assert(seq_matches[i].matches.size() == par_matches[i].matches.size());
+        double seq_id = seq_matches[i].matches[0].as_number();
+        double par_id = par_matches[i].matches[0].as_number();
+        assert(seq_id == par_id);
+    }
+
+    std::cout << "✓ test_parallel_search_matches_sequential passed\n";
 }
 
 void test_single_line() {
@@ -603,6 +648,7 @@ int main() {
     test_preserves_line_order();
     test_collects_errors_from_multiple_chunks();
     test_matches_sequential_results();
+    test_parallel_search_matches_sequential();
     test_single_line();
     test_lines_less_than_threads();
     test_empty_lines();
