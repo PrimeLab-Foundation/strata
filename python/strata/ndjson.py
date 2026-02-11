@@ -13,20 +13,9 @@ from pathlib import Path
 from . import _strata as _native
 
 
-# Thresholds for automatic parallel mode selection.
-# Parallel parsing is useful once total input is large enough to amortize
-# thread-pool overhead. For smaller lines, use larger chunks to reduce per-task
-# overhead from submission/collection/merge.
-_PARALLEL_MIN_SIZE = 2 * 1024 * 1024  # 2 MB minimum total size
-_PARALLEL_SMALL_LINE_THRESHOLD = 4 * 1024  # 4 KB average line size
-_PARALLEL_SMALL_LINE_CHUNK_SIZE = 2 * 1024 * 1024  # 2 MB minimum chunk size
-
-
 def iter_ndjson(
     data: str | bytes,
-    *,
-    skip_errors: bool = False,
-    batch_size: int = 1024,
+    **kwargs,
 ) -> Iterator[dict | list]:
     """
     Iterate over NDJSON lines, yielding each parsed object.
@@ -51,25 +40,12 @@ def iter_ndjson(
         {'a': 1}
         {'b': 2}
     """
-    text = data.decode("utf-8") if isinstance(data, bytes) else data
-    stream = _native.NdjsonStream.from_string(text)
-
-    while stream.has_next():
-        errors_before = stream.error_count()
-        batch = stream.next_batch(batch_size, skip_errors)
-
-        yield from batch
-
-        if not skip_errors and stream.error_count() > errors_before:
-            raise ValueError("Invalid JSON in NDJSON line")
+    return _native.iter_ndjson(data, **kwargs)
 
 
 def parse_ndjson(
     data: str | bytes,
-    *,
-    skip_errors: bool = False,
-    parallel: bool | None = None,
-    num_threads: int = 0,
+    **kwargs,
 ) -> list[dict | list]:
     """
     Parse all NDJSON lines into a single list.
@@ -112,47 +88,12 @@ def parse_ndjson(
         Parallel parsing is most effective when total data is ≥2MB. For smaller
         average line sizes, larger chunks are used to reduce per-task overhead.
     """
-    text = data.decode("utf-8") if isinstance(data, bytes) else data
+    return _native.parse_ndjson(data, **kwargs)
 
-    # Determine whether to use parallel parsing
-    use_parallel: bool
-    min_chunk_size = 0
-    if parallel is None:
-        # Auto-detect based primarily on total size. For smaller lines, use
-        # larger chunks to reduce per-task overhead.
-        data_size = len(text)
-        if data_size < _PARALLEL_MIN_SIZE:
-            # Too small for parallel overhead to be worthwhile
-            use_parallel = False
-        else:
-            newline_count = text.count('\n')
-            line_count = newline_count + 1 if text and not text.endswith('\n') else max(newline_count, 1)
-            avg_line_size = data_size / line_count
-            use_parallel = True
-            if (avg_line_size < _PARALLEL_SMALL_LINE_THRESHOLD and
-                    data_size >= _PARALLEL_SMALL_LINE_CHUNK_SIZE * 2):
-                min_chunk_size = _PARALLEL_SMALL_LINE_CHUNK_SIZE
-    else:
-        use_parallel = parallel
-
-    if use_parallel:
-        # Use multi-threaded parallel parsing
-        return _native.ndjson_parallel_parse_all(
-            text,
-            skip_errors=skip_errors,
-            num_threads=num_threads,
-            min_chunk_size=min_chunk_size,
-        )
-    else:
-        # Use sequential parsing
-        stream = _native.NdjsonStream.from_string(text)
-        return stream.parse_all(skip_errors)
 
 def parse_ndjson_cursor(
     data: str | bytes,
-    *,
-    skip_errors: bool = False,
-    on_error: str | None = None,
+    **kwargs,
 ) -> _native.NdjsonCursor:
     """
     Parse NDJSON text into a cursor for repeated JSONPath queries.
@@ -162,14 +103,12 @@ def parse_ndjson_cursor(
         skip_errors: If True, skip malformed lines. If False, raise on first error.
         on_error: Override error handling ("skip", "warn", or "error").
     """
-    return _native.NdjsonCursor.from_string(data, skip_errors=skip_errors, on_error=on_error)
+    return _native.NdjsonCursor.from_string(data, **kwargs)
 
 
 def parse_ndjson_file(
     path: str | Path,
-    *,
-    skip_errors: bool = False,
-    on_error: str | None = None,
+    **kwargs,
 ) -> _native.NdjsonCursor:
     """
     Parse an NDJSON file into a cursor for repeated JSONPath queries.
@@ -179,8 +118,7 @@ def parse_ndjson_file(
         skip_errors: If True, skip malformed lines. If False, raise on first error.
         on_error: Override error handling ("skip", "warn", or "error").
     """
-    path_str = str(path) if isinstance(path, Path) else path
-    return _native.NdjsonCursor.from_file(path_str, skip_errors=skip_errors, on_error=on_error)
+    return _native.NdjsonCursor.from_file(path, **kwargs)
 
 
 NdjsonCursor = _native.NdjsonCursor

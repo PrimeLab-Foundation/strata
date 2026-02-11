@@ -252,13 +252,13 @@ def main() -> int:
 
     parsing_rows, query_rows = parse_bench_results_md(results_path)
 
-    if args.save_strata:
+    if args.save_baseline:
         save_baseline(baseline_path, parsing_rows, query_rows)
         print(f"Baseline saved to {baseline_path}")
         return 0
 
     baseline = load_baseline(baseline_path)
-    if not strata:
+    if not baseline:
         print(
             "No baseline found; run with --save-baseline to create one. Skipping regression check."
         )

@@ -123,6 +123,23 @@ bool process_ndjson_cursor_line(std::string_view line, size_t line_no, NdjsonErr
     return true;
 }
 
+constexpr size_t kParallelMinSize = 2 * 1024 * 1024;
+constexpr size_t kParallelSmallLineThreshold = 4 * 1024;
+constexpr size_t kParallelSmallLineChunkSize = 2 * 1024 * 1024;
+
+size_t count_newlines(const char* data, Py_ssize_t len) {
+    if (!data || len <= 0) {
+        return 0;
+    }
+    size_t count = 0;
+    for (Py_ssize_t i = 0; i < len; ++i) {
+        if (data[i] == '\n') {
+            ++count;
+        }
+    }
+    return count;
+}
+
 } // namespace
 
 //=============================================================================
@@ -138,6 +155,66 @@ struct NdjsonPythonContext {
     NdjsonPythonContext()
         : key_cache(&key_arena), builder_arena(4 * 1024), builder(&builder_arena, key_cache) {}
 };
+
+namespace {
+
+PyObject* parse_ndjson_sequential(const char* data, Py_ssize_t len, bool skip_errors) {
+    strata::NdjsonStream stream(std::string_view(data, static_cast<size_t>(len)));
+    NdjsonPythonContext context;
+    std::vector<PyObject*> items;
+    items.reserve(256);
+
+    stream.validate_utf8_once();
+    PyGcPause gc_pause;
+
+    while (true) {
+        context.builder.reset();
+        auto status = stream.next_sax(context.builder);
+        if (status == strata::Status::Ok) {
+            PyObject* obj = context.builder.take_root();
+            if (!obj) {
+                context.builder.reset();
+                for (auto* item : items) {
+                    Py_DECREF(item);
+                }
+                PyErr_SetString(PyExc_RuntimeError, "NDJSON parse produced no result");
+                return NULL;
+            }
+            items.push_back(obj);
+            continue;
+        }
+
+        context.builder.reset();
+        if (status == strata::Status::KeyNotFound) {
+            break;
+        }
+
+        if (PyErr_Occurred()) {
+            for (auto* item : items) {
+                Py_DECREF(item);
+            }
+            return NULL;
+        }
+
+        if (!skip_errors) {
+            break;
+        }
+    }
+
+    PyObject* list = PyList_New(items.size());
+    if (!list) {
+        for (auto* item : items) {
+            Py_DECREF(item);
+        }
+        return NULL;
+    }
+    for (size_t i = 0; i < items.size(); ++i) {
+        PyList_SET_ITEM(list, i, items[i]);
+    }
+    return list;
+}
+
+} // namespace
 
 typedef struct {
     PyObject_HEAD strata::NdjsonStream* stream;
@@ -169,6 +246,8 @@ static PyObject* PyNdjsonStream_error_count(PyNdjsonStream* self, PyObject* Py_U
 
 // Parallel NDJSON function (standalone, not a method on NdjsonStream)
 static PyObject* parallel_parse_ndjson(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* strata_parse_ndjson(PyObject* self, PyObject* args, PyObject* kwargs);
+static PyObject* strata_iter_ndjson(PyObject* self, PyObject* args, PyObject* kwargs);
 
 // Method table
 static PyMethodDef PyNdjsonStream_methods[] = {
@@ -184,8 +263,14 @@ static PyMethodDef PyNdjsonStream_methods[] = {
      "Get number of errors encountered"},
     {NULL, NULL, 0, NULL}};
 
-// Module-level parallel_parse_ndjson function - exposed as ndjson_parallel_parse_all
-static PyMethodDef parallel_ndjson_methods[] = {
+// Module-level NDJSON functions
+static PyMethodDef ndjson_module_methods[] = {
+    {"parse_ndjson", (PyCFunction)strata_parse_ndjson, METH_VARARGS | METH_KEYWORDS,
+     "parse_ndjson(data, *, skip_errors=False, parallel=None, num_threads=0) -> list\n\n"
+     "Parse NDJSON data into a list of Python objects."},
+    {"iter_ndjson", (PyCFunction)strata_iter_ndjson, METH_VARARGS | METH_KEYWORDS,
+     "iter_ndjson(data, *, skip_errors=False, batch_size=1024) -> iterator\n\n"
+     "Iterate over NDJSON lines as Python objects."},
     {"ndjson_parallel_parse_all", (PyCFunction)parallel_parse_ndjson,
      METH_VARARGS | METH_KEYWORDS,
      "Parse NDJSON data in parallel.\n\n"
@@ -410,6 +495,180 @@ static PyObject* PyNdjsonStream_error_count(PyNdjsonStream* self, PyObject* Py_U
 }
 
 //=============================================================================
+// NdjsonIterator Type
+//=============================================================================
+
+typedef struct {
+    PyObject_HEAD strata::NdjsonStream* stream;
+    NdjsonPythonContext* context;
+    PyObject* data_ref;
+    int skip_errors;
+    Py_ssize_t batch_size;
+    PyObject* batch_list;
+    Py_ssize_t batch_index;
+    int pending_error;
+    int finished;
+} PyNdjsonIterator;
+
+static void PyNdjsonIterator_dealloc(PyNdjsonIterator* self) {
+    delete self->context;
+    delete self->stream;
+    Py_XDECREF(self->data_ref);
+    Py_XDECREF(self->batch_list);
+    Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject* PyNdjsonIterator_new(PyTypeObject* type, PyObject* args, PyObject* kwds) {
+    PyNdjsonIterator* self = (PyNdjsonIterator*)type->tp_alloc(type, 0);
+    if (self != NULL) {
+        self->stream = nullptr;
+        self->context = nullptr;
+        self->data_ref = nullptr;
+        self->skip_errors = 0;
+        self->batch_size = 0;
+        self->batch_list = nullptr;
+        self->batch_index = 0;
+        self->pending_error = 0;
+        self->finished = 0;
+    }
+    return (PyObject*)self;
+}
+
+static PyObject* PyNdjsonIterator_iter(PyObject* self) {
+    Py_INCREF(self);
+    return self;
+}
+
+static PyObject* ndjson_iterator_next_batch(PyNdjsonIterator* self, int* hit_error) {
+    if (hit_error) {
+        *hit_error = 0;
+    }
+
+    std::vector<PyObject*> items;
+    items.reserve(static_cast<size_t>(self->batch_size));
+
+    NdjsonPythonContext* context = self->context;
+    self->stream->validate_utf8_once();
+    PyGcPause gc_pause;
+
+    bool saw_error = false;
+
+    while (items.size() < static_cast<size_t>(self->batch_size)) {
+        context->builder.reset();
+        auto status = self->stream->next_sax(context->builder);
+        if (status == strata::Status::Ok) {
+            PyObject* obj = context->builder.take_root();
+            if (!obj) {
+                context->builder.reset();
+                for (auto* item : items) {
+                    Py_DECREF(item);
+                }
+                PyErr_SetString(PyExc_RuntimeError, "NDJSON parse produced no result");
+                return NULL;
+            }
+            items.push_back(obj);
+            continue;
+        }
+
+        context->builder.reset();
+        if (status == strata::Status::KeyNotFound) {
+            self->finished = 1;
+            break;
+        }
+
+        if (PyErr_Occurred()) {
+            for (auto* item : items) {
+                Py_DECREF(item);
+            }
+            return NULL;
+        }
+
+        if (!self->skip_errors) {
+            saw_error = true;
+            self->finished = 1;
+            break;
+        }
+    }
+
+    if (hit_error) {
+        *hit_error = saw_error ? 1 : 0;
+    }
+
+    PyObject* list = PyList_New(items.size());
+    if (!list) {
+        for (auto* item : items) {
+            Py_DECREF(item);
+        }
+        return NULL;
+    }
+    for (size_t i = 0; i < items.size(); ++i) {
+        PyList_SET_ITEM(list, i, items[i]);
+    }
+    return list;
+}
+
+static PyObject* PyNdjsonIterator_iternext(PyNdjsonIterator* self) {
+    if (self->batch_list && self->batch_index < PyList_GET_SIZE(self->batch_list)) {
+        PyObject* item = PyList_GET_ITEM(self->batch_list, self->batch_index++);
+        Py_INCREF(item);
+        return item;
+    }
+
+    Py_CLEAR(self->batch_list);
+    self->batch_index = 0;
+
+    if (self->pending_error) {
+        self->pending_error = 0;
+        self->finished = 1;
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON in NDJSON line");
+        return NULL;
+    }
+
+    if (self->finished) {
+        PyErr_SetNone(PyExc_StopIteration);
+        return NULL;
+    }
+
+    int hit_error = 0;
+    PyObject* batch = ndjson_iterator_next_batch(self, &hit_error);
+    if (!batch) {
+        return NULL;
+    }
+
+    self->batch_list = batch;
+    self->batch_index = 0;
+    self->pending_error = hit_error;
+
+    if (PyList_GET_SIZE(self->batch_list) == 0) {
+        if (self->pending_error) {
+            self->pending_error = 0;
+            self->finished = 1;
+            PyErr_SetString(PyExc_ValueError, "Invalid JSON in NDJSON line");
+            return NULL;
+        }
+        if (self->finished) {
+            PyErr_SetNone(PyExc_StopIteration);
+            return NULL;
+        }
+    }
+
+    PyObject* item = PyList_GET_ITEM(self->batch_list, self->batch_index++);
+    Py_INCREF(item);
+    return item;
+}
+
+static PyTypeObject PyNdjsonIteratorType = {
+    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "strata._strata.NdjsonIterator",
+    .tp_basicsize = sizeof(PyNdjsonIterator),
+    .tp_dealloc = (destructor)PyNdjsonIterator_dealloc,
+    .tp_new = PyNdjsonIterator_new,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_doc = "NDJSON Iterator",
+    .tp_iter = PyNdjsonIterator_iter,
+    .tp_iternext = (iternextfunc)PyNdjsonIterator_iternext,
+};
+
+//=============================================================================
 // NdjsonCursor Type
 //=============================================================================
 
@@ -622,6 +881,197 @@ strata::bindings::NdjsonCursorData* get_py_ndjson_cursor(PyObject* obj) {
 }
 
 //=============================================================================
+// Public NDJSON API
+//=============================================================================
+
+static PyObject* strata_parse_ndjson(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self;  // Unused
+    PyObject* data_obj;
+    int skip_errors = 0;
+    PyObject* parallel_obj = Py_None;
+    int num_threads = 0;
+
+    static const char* kwlist[] = {"data", "skip_errors", "parallel", "num_threads", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|pOi", const_cast<char**>(kwlist), &data_obj,
+                                     &skip_errors, &parallel_obj, &num_threads)) {
+        return NULL;
+    }
+
+    PyObject* unicode_obj = nullptr;
+    const char* data = nullptr;
+    Py_ssize_t data_len = 0;
+    size_t data_chars = 0;
+
+    if (PyUnicode_Check(data_obj)) {
+        data = PyUnicode_AsUTF8AndSize(data_obj, &data_len);
+        if (!data) {
+            return NULL;
+        }
+        data_chars = static_cast<size_t>(PyUnicode_GetLength(data_obj));
+    } else if (PyBytes_Check(data_obj)) {
+        char* bytes = nullptr;
+        Py_ssize_t len = 0;
+        if (PyBytes_AsStringAndSize(data_obj, &bytes, &len) < 0) {
+            return NULL;
+        }
+        unicode_obj = PyUnicode_DecodeUTF8(bytes, len, "strict");
+        if (!unicode_obj) {
+            return NULL;
+        }
+        data = PyUnicode_AsUTF8AndSize(unicode_obj, &data_len);
+        if (!data) {
+            Py_DECREF(unicode_obj);
+            return NULL;
+        }
+        data_chars = static_cast<size_t>(PyUnicode_GetLength(unicode_obj));
+    } else {
+        PyErr_SetString(PyExc_TypeError, "data must be str or bytes");
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    bool parallel_set = false;
+    bool parallel = false;
+    if (parallel_obj != Py_None) {
+        int truth = PyObject_IsTrue(parallel_obj);
+        if (truth < 0) {
+            Py_XDECREF(unicode_obj);
+            return NULL;
+        }
+        parallel_set = true;
+        parallel = truth != 0;
+    }
+
+    bool use_parallel = false;
+    size_t min_chunk_size = 0;
+    if (parallel_set) {
+        use_parallel = parallel;
+    } else {
+        size_t data_size = data_chars;
+        if (data_size >= kParallelMinSize) {
+            use_parallel = true;
+            size_t newline_count = count_newlines(data, data_len);
+            size_t line_count = newline_count;
+            if (data_size > 0 && data_len > 0 && data[data_len - 1] != '\n') {
+                line_count += 1;
+            } else if (line_count == 0) {
+                line_count = 1;
+            }
+            if (line_count > 0) {
+                double avg_line_size =
+                    static_cast<double>(data_size) / static_cast<double>(line_count);
+                if (avg_line_size < static_cast<double>(kParallelSmallLineThreshold) &&
+                    data_size >= kParallelSmallLineChunkSize * 2) {
+                    min_chunk_size = kParallelSmallLineChunkSize;
+                }
+            }
+        }
+    }
+
+    PyObject* result = nullptr;
+    if (use_parallel) {
+        if (num_threads < 0) {
+            PyErr_SetString(PyExc_ValueError, "num_threads must be non-negative");
+            Py_XDECREF(unicode_obj);
+            return NULL;
+        }
+        strata::ParallelNdjsonConfig config;
+        config.skip_errors = skip_errors != 0;
+        config.num_threads = num_threads > 0 ? static_cast<size_t>(num_threads) : 0;
+        if (min_chunk_size > 0) {
+            config.min_chunk_size = min_chunk_size;
+        }
+        strata::ParallelNdjsonStream stream(std::string_view(data, static_cast<size_t>(data_len)),
+                                            config);
+        std::vector<strata::JsonValue> cpp_results = stream.parse_all_parallel();
+        result = json_value_list_to_python(cpp_results);
+    } else {
+        result = parse_ndjson_sequential(data, data_len, skip_errors != 0);
+    }
+
+    Py_XDECREF(unicode_obj);
+    return result;
+
+    STRATA_CPP_CATCH
+}
+
+static PyObject* strata_iter_ndjson(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self;  // Unused
+    PyObject* data_obj;
+    int skip_errors = 0;
+    Py_ssize_t batch_size = 1024;
+
+    static const char* kwlist[] = {"data", "skip_errors", "batch_size", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|pn", const_cast<char**>(kwlist), &data_obj,
+                                     &skip_errors, &batch_size)) {
+        return NULL;
+    }
+
+    if (batch_size <= 0) {
+        PyErr_SetString(PyExc_ValueError, "batch_size must be positive");
+        return NULL;
+    }
+
+    PyObject* data_ref = nullptr;
+    const char* data = nullptr;
+    Py_ssize_t data_len = 0;
+
+    if (PyUnicode_Check(data_obj)) {
+        data = PyUnicode_AsUTF8AndSize(data_obj, &data_len);
+        if (!data) {
+            return NULL;
+        }
+        data_ref = data_obj;
+        Py_INCREF(data_ref);
+    } else if (PyBytes_Check(data_obj)) {
+        char* bytes = nullptr;
+        Py_ssize_t len = 0;
+        if (PyBytes_AsStringAndSize(data_obj, &bytes, &len) < 0) {
+            return NULL;
+        }
+        PyObject* unicode_obj = PyUnicode_DecodeUTF8(bytes, len, "strict");
+        if (!unicode_obj) {
+            return NULL;
+        }
+        data = PyUnicode_AsUTF8AndSize(unicode_obj, &data_len);
+        if (!data) {
+            Py_DECREF(unicode_obj);
+            return NULL;
+        }
+        data_ref = unicode_obj;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "data must be str or bytes");
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    PyNdjsonIterator* iter =
+        (PyNdjsonIterator*)PyType_GenericAlloc(&PyNdjsonIteratorType, 0);
+    if (!iter) {
+        Py_XDECREF(data_ref);
+        return NULL;
+    }
+
+    iter->stream = new strata::NdjsonStream(std::string_view(data, static_cast<size_t>(data_len)));
+    iter->context = new NdjsonPythonContext();
+    iter->data_ref = data_ref;
+    iter->skip_errors = skip_errors != 0;
+    iter->batch_size = batch_size;
+    iter->batch_list = nullptr;
+    iter->batch_index = 0;
+    iter->pending_error = 0;
+    iter->finished = 0;
+
+    return (PyObject*)iter;
+
+    STRATA_CPP_CATCH
+}
+
+//=============================================================================
 // Parallel NDJSON Implementation
 //=============================================================================
 
@@ -678,6 +1128,9 @@ int register_ndjson_types(PyObject* module) {
     if (PyType_Ready(&PyNdjsonCursorType) < 0) {
         return -1;
     }
+    if (PyType_Ready(&PyNdjsonIteratorType) < 0) {
+        return -1;
+    }
     Py_INCREF(&PyNdjsonStreamType);
     if (PyModule_AddObject(module, "NdjsonStream", (PyObject*)&PyNdjsonStreamType) < 0) {
         Py_DECREF(&PyNdjsonStreamType);
@@ -688,9 +1141,14 @@ int register_ndjson_types(PyObject* module) {
         Py_DECREF(&PyNdjsonCursorType);
         return -1;
     }
+    Py_INCREF(&PyNdjsonIteratorType);
+    if (PyModule_AddObject(module, "NdjsonIterator", (PyObject*)&PyNdjsonIteratorType) < 0) {
+        Py_DECREF(&PyNdjsonIteratorType);
+        return -1;
+    }
 
-    // Add parallel NDJSON functions to module
-    for (PyMethodDef* method = parallel_ndjson_methods; method->ml_name != NULL; ++method) {
+    // Add NDJSON functions to module
+    for (PyMethodDef* method = ndjson_module_methods; method->ml_name != NULL; ++method) {
         PyObject* func = PyCFunction_New(method, NULL);
         if (!func) {
             return -1;

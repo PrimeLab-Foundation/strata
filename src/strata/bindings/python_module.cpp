@@ -11,6 +11,7 @@ extern PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_dump(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_loads_tape(PyObject* self, PyObject* args);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
+extern PyObject* strata_parse_json(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs);
@@ -86,6 +87,8 @@ static PyMethodDef strata_methods[] = {
     {"parse_json_file", strata_parse_json_file, METH_VARARGS,
      "parse_json_file(filepath) -> (JsonDocument, JsonCursor)\n\n"
      "Parse JSON file using memory-mapped I/O."},
+    {"parse_json", (PyCFunction)strata_parse_json, METH_VARARGS | METH_KEYWORDS,
+     "parse_json(text) -> JsonCursor\n\nParse JSON text into a cursor."},
     {"search_ndjson", (PyCFunction)strata_search_ndjson, METH_VARARGS | METH_KEYWORDS,
      "search_ndjson(data, path, *, skip_errors=False, on_error=None) -> list\n\n"
      "Search NDJSON data line-by-line using JSONPath."},

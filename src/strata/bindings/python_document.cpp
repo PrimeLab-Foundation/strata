@@ -20,6 +20,82 @@ static void emit_duplicate_key_warnings() {
     }
 }
 
+// Module-level parse_json(text) -> JsonCursor
+PyObject* strata_parse_json(PyObject* self, PyObject* args, PyObject* kwargs) {
+    (void)self; // Unused
+    PyObject* text_obj = nullptr;
+
+    static const char* kwlist[] = {"text", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", const_cast<char**>(kwlist), &text_obj)) {
+        return NULL;
+    }
+
+    const char* data = nullptr;
+    Py_ssize_t len = 0;
+    PyObject* bytes_obj = nullptr;
+
+    if (PyUnicode_Check(text_obj)) {
+        data = PyUnicode_AsUTF8AndSize(text_obj, &len);
+        if (!data) {
+            return NULL;
+        }
+    } else if (PyBytes_Check(text_obj)) {
+        char* bytes = nullptr;
+        if (PyBytes_AsStringAndSize(text_obj, &bytes, &len) < 0) {
+            return NULL;
+        }
+        data = bytes;
+    } else if (PyByteArray_Check(text_obj) || PyMemoryView_Check(text_obj)) {
+        bytes_obj = PyBytes_FromObject(text_obj);
+        if (!bytes_obj) {
+            return NULL;
+        }
+        char* bytes = nullptr;
+        if (PyBytes_AsStringAndSize(bytes_obj, &bytes, &len) < 0) {
+            Py_DECREF(bytes_obj);
+            return NULL;
+        }
+        data = bytes;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "parse_json expects str or bytes");
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    auto result = strata::parse_json(std::string_view(data, static_cast<size_t>(len)));
+    if (!result.ok()) {
+        Py_XDECREF(bytes_obj);
+        PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+        return NULL;
+    }
+
+    emit_duplicate_key_warnings();
+
+    strata::JsonDocument doc(std::move(result.value));
+    PyObject* py_doc = create_py_json_document(std::move(doc));
+    if (!py_doc) {
+        Py_XDECREF(bytes_obj);
+        return NULL;
+    }
+
+    strata::JsonDocument* doc_ptr = get_py_json_document(py_doc);
+    if (!doc_ptr) {
+        Py_DECREF(py_doc);
+        Py_XDECREF(bytes_obj);
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create JsonDocument");
+        return NULL;
+    }
+
+    strata::JsonCursor cursor = doc_ptr->root();
+    PyObject* py_cursor = create_py_json_cursor(std::move(cursor), py_doc);
+    Py_DECREF(py_doc);
+    Py_XDECREF(bytes_obj);
+    return py_cursor;
+
+    STRATA_CPP_CATCH
+}
+
 //=============================================================================
 // Type Structures
 //=============================================================================
