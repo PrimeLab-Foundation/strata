@@ -43,6 +43,8 @@ enum class DuplicateKeyPolicy {
 
 struct ParseSaxOptions {
     bool validate_utf8 = true;
+    bool allow_abort = false;
+    bool use_structural_tape = true;
 };
 
 struct ParseSaxContext {

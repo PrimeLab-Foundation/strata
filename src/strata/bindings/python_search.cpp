@@ -5,9 +5,11 @@
 #include "strata/json/json_mmap.hpp"
 #include "strata/json/json_parse.hpp"
 #include "strata/search/search.hpp"
+#include "strata/search/search_ndjson_fused.hpp"
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -35,6 +37,12 @@ enum class StrataSearchMode {
     String,
     Cursor,
     File,
+};
+
+struct SimpleFieldExtractionSpec {
+    bool enabled = false;
+    strata::SimpleFieldMode mode = strata::SimpleFieldMode::RootField;
+    std::string_view field;
 };
 
 bool parse_strata_mode(PyObject* mode_obj, StrataSearchMode* mode) {
@@ -112,6 +120,41 @@ bool parse_ndjson_error_mode(int skip_errors, PyObject* on_error_obj, NdjsonErro
     }
     PyErr_SetString(PyExc_ValueError, "on_error must be 'skip', 'warn', or 'error'");
     return false;
+}
+
+bool fused_ndjson_enabled() {
+    const char* env = std::getenv("STRATA_DISABLE_FUSED_NDJSON");
+    if (!env || *env == '\0') {
+        return true;
+    }
+    std::string value(env);
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (value == "0" || value == "false" || value == "no") {
+        return true;
+    }
+    return false;
+}
+
+SimpleFieldExtractionSpec get_simple_field_spec(const strata::CompiledPath& path) {
+    SimpleFieldExtractionSpec spec;
+    const auto& steps = path.steps();
+    if (steps.size() == 2 && steps[0].op == strata::PathOp::Root &&
+        steps[1].op == strata::PathOp::Field) {
+        spec.enabled = true;
+        spec.mode = strata::SimpleFieldMode::RootField;
+        spec.field = steps[1].field;
+        return spec;
+    }
+    if (steps.size() == 3 && steps[0].op == strata::PathOp::Root &&
+        steps[1].op == strata::PathOp::Wildcard &&
+        steps[2].op == strata::PathOp::Field) {
+        spec.enabled = true;
+        spec.mode = strata::SimpleFieldMode::RootWildcardField;
+        spec.field = steps[2].field;
+        return spec;
+    }
+    return spec;
 }
 
 inline bool is_json_whitespace(unsigned char c) {
@@ -421,12 +464,41 @@ PyObject* search_file_pathlike(PyObject* pathlike,
 }
 
 bool process_ndjson_line(std::string_view line, size_t line_no,
-                         const strata::CompiledPath& compiled_path, NdjsonErrorMode mode,
+                         const strata::CompiledPath& compiled_path,
+                         const SimpleFieldExtractionSpec* simple_spec, NdjsonErrorMode mode,
                          PyObject* results, strata::ParseSaxOptions& options,
-                         strata::ParseSaxContext& parse_context) {
+                         strata::ParseSaxContext& parse_context,
+                         std::vector<strata::JsonValue>& fused_matches) {
     if (line.empty() || is_whitespace_only(line)) {
         return true;
     }
+
+    if (simple_spec && simple_spec->enabled) {
+        fused_matches.clear();
+        auto status = strata::extract_simple_field_matches(line, simple_spec->field,
+                                                           simple_spec->mode, fused_matches,
+                                                           options, &parse_context);
+        if (status != strata::Status::Ok) {
+            if (mode == NdjsonErrorMode::Skip) {
+                return true;
+            }
+            std::string message = "Invalid JSON on line " + std::to_string(line_no);
+            if (mode == NdjsonErrorMode::Warn) {
+                if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
+                    return false;
+                }
+                return true;
+            }
+            PyErr_SetString(PyExc_ValueError, message.c_str());
+            return false;
+        }
+
+        if (fused_matches.empty()) {
+            return true;
+        }
+        return append_ndjson_match(results, line_no, fused_matches);
+    }
+
     auto parse_result = strata::parse_json(line, options, &parse_context);
     if (!parse_result.ok()) {
         if (mode == NdjsonErrorMode::Skip) {
@@ -454,8 +526,10 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
 }
 
 bool process_ndjson_text(const char* data, Py_ssize_t len, const strata::CompiledPath& compiled_path,
-                         NdjsonErrorMode mode, PyObject* results,
-                         strata::ParseSaxOptions& options, strata::ParseSaxContext& parse_context) {
+                         const SimpleFieldExtractionSpec* simple_spec, NdjsonErrorMode mode,
+                         PyObject* results, strata::ParseSaxOptions& options,
+                         strata::ParseSaxContext& parse_context,
+                         std::vector<strata::JsonValue>& fused_matches) {
     if (!data || len <= 0) {
         return true;
     }
@@ -471,7 +545,8 @@ bool process_ndjson_text(const char* data, Py_ssize_t len, const strata::Compile
         if (!line.empty() && line.back() == '\r') {
             line.remove_suffix(1);
         }
-        if (!process_ndjson_line(line, line_no, compiled_path, mode, results, options, parse_context)) {
+        if (!process_ndjson_line(line, line_no, compiled_path, simple_spec, mode, results,
+                                 options, parse_context, fused_matches)) {
             return false;
         }
         start = end + 1;
@@ -480,8 +555,10 @@ bool process_ndjson_text(const char* data, Py_ssize_t len, const strata::Compile
 }
 
 bool process_ndjson_iterable(PyObject* data_obj, const strata::CompiledPath& compiled_path,
-                             NdjsonErrorMode mode, PyObject* results,
-                             strata::ParseSaxOptions& options, strata::ParseSaxContext& parse_context) {
+                             const SimpleFieldExtractionSpec* simple_spec, NdjsonErrorMode mode,
+                             PyObject* results, strata::ParseSaxOptions& options,
+                             strata::ParseSaxContext& parse_context,
+                             std::vector<strata::JsonValue>& fused_matches) {
     PyObject* iter = PyObject_GetIter(data_obj);
     if (!iter) {
         return false;
@@ -516,7 +593,8 @@ bool process_ndjson_iterable(PyObject* data_obj, const strata::CompiledPath& com
             return false;
         }
         view = trim_line_endings(view);
-        bool ok = process_ndjson_line(view, line_no, compiled_path, mode, results, options, parse_context);
+        bool ok = process_ndjson_line(view, line_no, compiled_path, simple_spec, mode, results,
+                                      options, parse_context, fused_matches);
         Py_DECREF(line_obj);
         if (!ok) {
             Py_DECREF(iter);
@@ -539,6 +617,17 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
 
     strata::ParseSaxOptions options;
     strata::ParseSaxContext parse_context;
+    std::vector<strata::JsonValue> fused_matches;
+
+    SimpleFieldExtractionSpec simple_spec;
+    bool use_fused = fused_ndjson_enabled() && compiled_path.is_simple_field_extraction();
+    if (use_fused) {
+        simple_spec = get_simple_field_spec(compiled_path);
+        if (!simple_spec.enabled) {
+            use_fused = false;
+        }
+    }
+    const SimpleFieldExtractionSpec* simple_spec_ptr = use_fused ? &simple_spec : nullptr;
 
     if (treat_string_as_text) {
         if (PyUnicode_Check(data_obj)) {
@@ -548,7 +637,8 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                 Py_DECREF(results);
                 return NULL;
             }
-            if (!process_ndjson_text(data, len, compiled_path, mode, results, options, parse_context)) {
+            if (!process_ndjson_text(data, len, compiled_path, simple_spec_ptr, mode, results,
+                                     options, parse_context, fused_matches)) {
                 Py_DECREF(results);
                 return NULL;
             }
@@ -572,7 +662,8 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                 Py_DECREF(results);
                 return NULL;
             }
-            bool ok = process_ndjson_text(data, len, compiled_path, mode, results, options, parse_context);
+            bool ok = process_ndjson_text(data, len, compiled_path, simple_spec_ptr, mode, results,
+                                          options, parse_context, fused_matches);
             Py_XDECREF(temp_bytes);
             if (!ok) {
                 Py_DECREF(results);
@@ -617,8 +708,8 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                 line.pop_back();
             }
             std::string_view view(line);
-            if (!process_ndjson_line(view, line_no, compiled_path, mode, results, options,
-                                     parse_context)) {
+            if (!process_ndjson_line(view, line_no, compiled_path, simple_spec_ptr, mode, results,
+                                     options, parse_context, fused_matches)) {
                 Py_DECREF(pathlike);
                 Py_DECREF(results);
                 return NULL;
@@ -635,7 +726,8 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
     }
     PyErr_Clear();
 
-    if (!process_ndjson_iterable(data_obj, compiled_path, mode, results, options, parse_context)) {
+    if (!process_ndjson_iterable(data_obj, compiled_path, simple_spec_ptr, mode, results, options,
+                                 parse_context, fused_matches)) {
         Py_DECREF(results);
         return NULL;
     }
@@ -1089,6 +1181,17 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
 
     strata::ParseSaxOptions options;
     strata::ParseSaxContext parse_context;
+    std::vector<strata::JsonValue> fused_matches;
+
+    SimpleFieldExtractionSpec simple_spec;
+    bool use_fused = fused_ndjson_enabled() && compiled_path.is_simple_field_extraction();
+    if (use_fused) {
+        simple_spec = get_simple_field_spec(compiled_path);
+        if (!simple_spec.enabled) {
+            use_fused = false;
+        }
+    }
+    const SimpleFieldExtractionSpec* simple_spec_ptr = use_fused ? &simple_spec : nullptr;
 
     PyObject* pathlike = PyOS_FSPath(data_obj);
     if (pathlike) {
@@ -1121,8 +1224,8 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
                 line.pop_back();
             }
             std::string_view view(line);
-            if (!process_ndjson_line(view, line_no, compiled_path, mode, results, options,
-                                     parse_context)) {
+            if (!process_ndjson_line(view, line_no, compiled_path, simple_spec_ptr, mode, results,
+                                     options, parse_context, fused_matches)) {
                 Py_DECREF(results);
                 return NULL;
             }
@@ -1171,8 +1274,8 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
                 return NULL;
             }
             view = trim_line_endings(view);
-            bool ok = process_ndjson_line(view, line_no, compiled_path, mode, results, options,
-                                          parse_context);
+            bool ok = process_ndjson_line(view, line_no, compiled_path, simple_spec_ptr, mode,
+                                          results, options, parse_context, fused_matches);
             Py_DECREF(line_obj);
             if (!ok) {
                 Py_DECREF(iter);
@@ -1245,8 +1348,8 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
 
         line_no++;
         view = trim_line_endings(view);
-        bool ok = process_ndjson_line(view, line_no, compiled_path, mode, results, options,
-                                      parse_context);
+        bool ok = process_ndjson_line(view, line_no, compiled_path, simple_spec_ptr, mode, results,
+                                      options, parse_context, fused_matches);
         Py_DECREF(line_obj);
         if (!ok) {
             Py_DECREF(results);

@@ -187,6 +187,16 @@ struct Parser {
     std::vector<StackFrame> stack_;
     const std::vector<size_t>* structural_tape = nullptr;
     size_t tape_idx = 0;
+    bool aborted_ = false;
+
+    bool aborted() const { return aborted_; }
+
+    bool call_handler(bool ok) {
+        if (!ok) {
+            aborted_ = true;
+        }
+        return ok;
+    }
 
     bool eof() const { return i >= len; }
     char peek() const { return eof() ? '\0' : data[i]; }
@@ -559,12 +569,12 @@ struct Parser {
         ++i; // consume '['
         size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
         size_t size_hint = estimate_array_size_hint(i, max_hint);
-        if (!handler.on_start_array(size_hint))
+        if (!call_handler(handler.on_start_array(size_hint)))
             return false;
         skip_ws();
         if (peek() == ']') {
             ++i;
-            return handler.on_end_array();
+            return call_handler(handler.on_end_array());
         }
         stack_.push_back({ContainerType::Array, ContainerState::ExpectValue});
         return true;
@@ -576,12 +586,12 @@ struct Parser {
         ++i; // consume '{'
         size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
         size_t size_hint = estimate_object_size_hint(i, max_hint);
-        if (!handler.on_start_object(size_hint))
+        if (!call_handler(handler.on_start_object(size_hint)))
             return false;
         skip_ws();
         if (peek() == '}') {
             ++i;
-            return handler.on_end_object();
+            return call_handler(handler.on_end_object());
         }
         stack_.push_back({ContainerType::Object, ContainerState::ExpectKey});
         return true;
@@ -614,7 +624,7 @@ struct Parser {
             if (c == ']') {
                 consume_structural_at(pos);
                 stack_.pop_back();
-                return handler.on_end_array();
+                return call_handler(handler.on_end_array());
             } else if (c == ',') {
                 consume_structural_at(pos);
                 frame.state = ContainerState::ExpectValue;
@@ -667,7 +677,7 @@ struct Parser {
             if (c == '}') {
                 consume_structural_at(pos);
                 stack_.pop_back();
-                return handler.on_end_object();
+                return call_handler(handler.on_end_object());
             } else if (c == ',') {
                 consume_structural_at(pos);
                 frame.state = ContainerState::ExpectKey;
@@ -683,7 +693,7 @@ struct Parser {
         if (i + 4 <= len && data[i] == 'n' && data[i + 1] == 'u' && data[i + 2] == 'l' &&
             data[i + 3] == 'l') {
             i += 4;
-            return handler.on_null();
+            return call_handler(handler.on_null());
         }
         return false;
     }
@@ -692,12 +702,12 @@ struct Parser {
         if (i + 4 <= len && data[i] == 't' && data[i + 1] == 'r' && data[i + 2] == 'u' &&
             data[i + 3] == 'e') {
             i += 4;
-            return handler.on_bool(true);
+            return call_handler(handler.on_bool(true));
         }
         if (i + 5 <= len && data[i] == 'f' && data[i + 1] == 'a' && data[i + 2] == 'l' &&
             data[i + 3] == 's' && data[i + 4] == 'e') {
             i += 5;
-            return handler.on_bool(false);
+            return call_handler(handler.on_bool(false));
         }
         return false;
     }
@@ -716,7 +726,7 @@ struct Parser {
                 // Fall through to double parsing
             } else {
                 i += consumed;
-                return handler.on_int(int_val);
+                return call_handler(handler.on_int(int_val));
             }
         }
 
@@ -731,7 +741,7 @@ struct Parser {
                     // Fall through to double parsing
                 } else {
                     i += consumed_uint;
-                    return handler.on_uint(uint_val);
+                    return call_handler(handler.on_uint(uint_val));
                 }
             }
         }
@@ -740,7 +750,7 @@ struct Parser {
         double double_val;
         if (util::parse_double_fast(data + start, len - start, double_val, consumed)) {
             i = start + consumed;
-            return handler.on_double(double_val);
+            return call_handler(handler.on_double(double_val));
         }
 
         return false;
@@ -758,7 +768,8 @@ struct Parser {
             std::string_view result(data + i, scan_pos);
             i += scan_pos + 1; // +1 for closing quote
             // No escapes - pass with has_escapes=false for lazy string optimization
-            return is_key ? handler.on_key(result, false) : handler.on_string(result, false);
+            return call_handler(is_key ? handler.on_key(result, false)
+                                       : handler.on_string(result, false));
         }
 
         // Slow path: has escapes or control chars
@@ -770,8 +781,8 @@ struct Parser {
             if (c == '"') {
                 // String complete - pass raw bytes with has_escapes=true
                 std::string_view raw_str(data + string_start, i - string_start - 1);
-                return is_key ? handler.on_key(raw_str, true)
-                              : handler.on_string(raw_str, true);
+                return call_handler(is_key ? handler.on_key(raw_str, true)
+                                           : handler.on_string(raw_str, true));
             }
             if (c == '\\') {
                 // Validate escape sequence without building output
@@ -892,7 +903,7 @@ Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
     } else {
         p.stack_.reserve(16);
     }
-    const bool use_structural_tape = size >= kStructuralTapeMinSize;
+    const bool use_structural_tape = options.use_structural_tape && size >= kStructuralTapeMinSize;
     if (use_structural_tape) {
         size_t reserve_hint = size / kStructuralTapeReserveDiv;
         if (reserve_hint > kStructuralTapeReserveMax) {
@@ -915,8 +926,12 @@ Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
             p.attach_structural_tape(&structural_tape);
         }
     }
-    if (!p.parse_value())
+    if (!p.parse_value()) {
+        if (options.allow_abort && p.aborted()) {
+            return Status::Ok;
+        }
         return Status::ParseError;
+    }
     p.skip_ws();
     if (!p.eof())
         return Status::ParseError;

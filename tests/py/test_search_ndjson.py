@@ -5,6 +5,7 @@ Tests for NDJSON search via strata.search().
 import pytest
 
 import strata
+from strata import _strata as _native
 
 
 def _write_ndjson(path, lines):
@@ -87,3 +88,21 @@ def test_search_ndjson_mixed_types(tmp_path):
         {"line": 4, "matches": [42]},
         {"line": 5, "matches": [True]},
     ]
+
+
+def test_search_ndjson_simple_field_fused_matches_full(tmp_path):
+    path = tmp_path / "names.ndjson"
+    lines = [
+        '[{"name": "alpha"}, {"name": "beta"}]',
+        '[{"name": "gamma"}]',
+    ]
+    _write_ndjson(path, lines)
+
+    compiled = _native.compile_path("$[*].name")
+    cursor = _native.NdjsonCursor.from_file(str(path))
+    baseline = _native.search(cursor, compiled)
+
+    text = "\n".join(lines)
+    fused = strata.search(text, "$[*].name", ndjson=True)
+
+    assert fused == baseline

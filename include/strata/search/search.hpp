@@ -72,6 +72,7 @@ class CompiledPath {
 
     const std::vector<PathStep>& steps() const { return steps_; }
     bool empty() const { return steps_.empty(); }
+    bool is_simple_field_extraction() const;
 
   private:
     std::vector<PathStep> steps_;

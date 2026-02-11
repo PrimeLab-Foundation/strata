@@ -4,7 +4,9 @@
 
 #include "strata/json/json_core.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/json/json_serialize.hpp"
 #include "strata/search/search.hpp"
+#include "strata/search/search_ndjson_fused.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -13,6 +15,15 @@
 #include <vector>
 
 using namespace strata;
+
+std::vector<std::string> serialize_values(const std::vector<JsonValue>& values) {
+    std::vector<std::string> out;
+    out.reserve(values.size());
+    for (const auto& v : values) {
+        out.push_back(serialize_json(v));
+    }
+    return out;
+}
 
 void test_compile_root() {
     auto result = compile_search_path("$");
@@ -765,6 +776,54 @@ void test_eval_collect_nested_array() {
     std::cout << "✓ test_eval_collect_nested_array passed\n";
 }
 
+void test_ndjson_fused_field_extraction() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::vector<std::string> lines = {
+        R"({"id": 1, "name": "alpha"})",
+        R"({"name": "beta"})",
+        R"({"id": 3, "nested": {"id": 99}})",
+    };
+
+    auto compiled = compile_search_path("$.id");
+    assert(compiled.ok());
+
+    for (const auto& line : lines) {
+        auto parsed = parse_json(line, options, &context);
+        assert(parsed.ok());
+        JsonCursor cursor(&parsed.value);
+        auto expected = eval_search_path(cursor, compiled.value);
+
+        std::vector<JsonValue> fused;
+        Status status =
+            extract_simple_field_matches(line, "id", SimpleFieldMode::RootField, fused, options,
+                                         &context);
+        assert(status == Status::Ok);
+
+        assert(serialize_values(expected) == serialize_values(fused));
+    }
+
+    std::string array_line = R"([{"id": 10}, {"id": 20}, {"other": 30}])";
+    auto compiled_wildcard = compile_search_path("$[*].id");
+    assert(compiled_wildcard.ok());
+
+    auto parsed = parse_json(array_line, options, &context);
+    assert(parsed.ok());
+    JsonCursor cursor(&parsed.value);
+    auto expected = eval_search_path(cursor, compiled_wildcard.value);
+
+    std::vector<JsonValue> fused;
+    Status status = extract_simple_field_matches(array_line, "id",
+                                                 SimpleFieldMode::RootWildcardField, fused,
+                                                 options, &context);
+    assert(status == Status::Ok);
+
+    assert(serialize_values(expected) == serialize_values(fused));
+
+    std::cout << "✓ test_ndjson_fused_field_extraction passed\n";
+}
+
 int main() {
     std::cout << "Running JSONPath tests...\n\n";
     // Compilation tests
@@ -812,6 +871,7 @@ int main() {
     test_eval_collect_bool();
     test_eval_collect_array();
     test_eval_collect_nested_array();
+    test_ndjson_fused_field_extraction();
 
     std::cout << "\n✅ All JSONPath tests passed!\n";
     return 0;

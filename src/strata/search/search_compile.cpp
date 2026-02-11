@@ -396,4 +396,16 @@ Result<CompiledPath> compile_search_path(std::string_view expr) {
     return parser.parse();
 }
 
+bool CompiledPath::is_simple_field_extraction() const {
+    if (steps_.size() == 2 && steps_[0].op == PathOp::Root &&
+        steps_[1].op == PathOp::Field) {
+        return true;
+    }
+    if (steps_.size() == 3 && steps_[0].op == PathOp::Root &&
+        steps_[1].op == PathOp::Wildcard && steps_[2].op == PathOp::Field) {
+        return true;
+    }
+    return false;
+}
+
 } // namespace strata

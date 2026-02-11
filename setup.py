@@ -292,6 +292,7 @@ ext_modules = [
             "src/strata/json/json_tape.cpp",
             "src/strata/search/search_compile.cpp",
             "src/strata/search/search_eval.cpp",
+            "src/strata/search/search_ndjson_fused.cpp",
             "src/strata/json/ndjson_stream.cpp",
             "src/strata/json/parallel_ndjson.cpp",
             "src/strata/json/json_mmap.cpp",

@@ -56,6 +56,7 @@ set(STRATA_CORE_SOURCES
     src/strata/json/parallel_ndjson.cpp
     src/strata/search/search_compile.cpp
     src/strata/search/search_eval.cpp
+    src/strata/search/search_ndjson_fused.cpp
     src/strata/util/ryu_dtoa.cpp
     src/strata/util/simd_numbers.cpp
     src/strata/util/dragonbox.cpp

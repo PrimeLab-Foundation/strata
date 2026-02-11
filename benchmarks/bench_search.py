@@ -16,6 +16,8 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
+import re
 import statistics
 import time
 from dataclasses import dataclass, field
@@ -112,6 +114,11 @@ QUERIES: dict[str, dict[str, Any]] = {
 
 # NDJSON variant: root is a list of user objects, not {"users": [...]}
 NDJSON_QUERIES: dict[str, dict[str, Any]] = {
+    "root_field": {
+        "strata": "$.id",
+        "jmespath": None,
+        "description": "NDJSON root field (id)",
+    },
     "simple_field": {
         "strata": "$[*].id",
         "jmespath": "[].id",
@@ -153,6 +160,12 @@ NDJSON_QUERIES: dict[str, dict[str, Any]] = {
         "description": "Slice first 10 users, extract IDs",
     },
 }
+
+_SIMPLE_FIELD_RE = re.compile(r"^\$\.[A-Za-z0-9_]+$|^\$\[\*\]\.[A-Za-z0-9_]+$")
+
+
+def _is_simple_field_query(expr: str) -> bool:
+    return bool(_SIMPLE_FIELD_RE.match(expr))
 
 
 def _run_query_benchmark(
@@ -220,6 +233,7 @@ def run_all(
     """
     data_file = Path(data_file)
     json_text, json_data, size_mb, record_count, is_ndjson = _load_json_data(data_file)
+    ndjson_text = data_file.read_text(encoding="utf-8") if is_ndjson else ""
     queries = NDJSON_QUERIES if is_ndjson else QUERIES
     effective_strata_mode = strata_mode
     strata_mode_label = strata_mode
@@ -246,8 +260,10 @@ def run_all(
 
         # Strata (public API; mode controls input to search() for fair comparison)
         print("  strata:       ", end="", flush=True)
+        compiled_ok = False
         try:
             path = _native.compile_path(query_def["strata"])
+            compiled_ok = True
 
             if effective_strata_mode == "dict":
                 parsed_strata = strata.loads(json_text)
@@ -290,6 +306,69 @@ def run_all(
         except Exception as e:
             print(f"ERROR: {e}")
             results.append(QueryBenchResult(library="strata", query_name=query_name, error=str(e)))
+
+        # Fused NDJSON path vs full parse path for simple field extraction
+        if compiled_ok and is_ndjson and _is_simple_field_query(query_def["strata"]):
+            print("  strata_ndjson_full: ", end="", flush=True)
+            try:
+                os.environ["STRATA_DISABLE_FUSED_NDJSON"] = "1"
+
+                def run_full():
+                    return _native.search(ndjson_text, path, ndjson=True)
+
+                times_ms, rss_mb, result_list = _run_query_benchmark(run_full, warmup, repeat)
+                n = len(result_list) if isinstance(result_list, list) else 1
+                results.append(
+                    QueryBenchResult(
+                        library="strata_ndjson_full",
+                        query_name=query_name,
+                        times_ms=times_ms,
+                        result_count=n,
+                        rss_mb=rss_mb,
+                    )
+                )
+                r = results[-1]
+                print(
+                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                )
+            except Exception as e:
+                print(f"ERROR: {e}")
+                results.append(
+                    QueryBenchResult(
+                        library="strata_ndjson_full", query_name=query_name, error=str(e)
+                    )
+                )
+            finally:
+                os.environ.pop("STRATA_DISABLE_FUSED_NDJSON", None)
+
+            print("  strata_ndjson_fused:", end="", flush=True)
+            try:
+
+                def run_fused():
+                    return _native.search(ndjson_text, path, ndjson=True)
+
+                times_ms, rss_mb, result_list = _run_query_benchmark(run_fused, warmup, repeat)
+                n = len(result_list) if isinstance(result_list, list) else 1
+                results.append(
+                    QueryBenchResult(
+                        library="strata_ndjson_fused",
+                        query_name=query_name,
+                        times_ms=times_ms,
+                        result_count=n,
+                        rss_mb=rss_mb,
+                    )
+                )
+                r = results[-1]
+                print(
+                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                )
+            except Exception as e:
+                print(f"ERROR: {e}")
+                results.append(
+                    QueryBenchResult(
+                        library="strata_ndjson_fused", query_name=query_name, error=str(e)
+                    )
+                )
 
         # jmespath
         jmes_expr = query_def.get("jmespath")
