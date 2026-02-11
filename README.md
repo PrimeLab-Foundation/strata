@@ -1,13 +1,14 @@
 # Strata
 
-Fast JSON parsing, serialization, and JSONPath search for Python.
+Fast JSON parsing, serialization, and search for Python.
 
 ## Public API
 
-`strata` exposes exactly six functions:
+`strata` exposes these core functions:
 
 - `search(source, expression, **kwargs) -> list`
 - `query(data, expression, **kwargs) -> list`
+- `compile_path(expression) -> CompiledPath`
 - `load(source, **kwargs) -> object`
 - `dump(target, obj, **kwargs) -> int`
 - `loads(source, **kwargs) -> object`
@@ -15,10 +16,11 @@ Fast JSON parsing, serialization, and JSONPath search for Python.
 
 ### search
 
-Search a JSON or NDJSON file for values matching a JSONPath expression.
+Search JSON or NDJSON data for values matching a JSONPath expression.
 
-- `source`: file path (str or Path) or file-like object
-- `expression`: JSONPath string (e.g. `"$.users[*].id"`)
+- `source`: file path (str or Path), JSON text (str or bytes), dict/list, JsonCursor/NdjsonCursor,
+  or file-like object
+- `expression`: JSONPath string or `CompiledPath` (e.g. `"$.users[*].id"`)
 - `ndjson`: optional bool to force NDJSON mode
 - `skip_errors`: skip malformed NDJSON lines when enabled
 - `on_error`: NDJSON error handling: `"skip"`, `"warn"`, or `"error"` (default)
@@ -32,6 +34,9 @@ ids = strata.search("users.json", "$.users[*].id")
 matches = strata.search("orders.ndjson", "$.price")
 # [{"line": 1, "matches": [9.99]}, {"line": 4, "matches": [12.5, 3.2]}]
 
+data = {"users": [{"id": 1}, {"id": 2}]}
+ids = strata.search(data, "$.users[*].id")
+
 # Reuse an NDJSON cursor for repeated queries
 import strata.ndjson as ndjson
 
@@ -39,9 +44,20 @@ cursor = ndjson.parse_ndjson_file("orders.ndjson")
 matches = strata.search(cursor, "$.price")
 ```
 
+### compile_path
+
+Compile a JSONPath expression for repeated use.
+
+```python
+import strata
+
+path = strata.compile_path("$.users[*].id")
+ids = strata.search("users.json", path)
+```
+
 ### query
 
-Search a Python dict or list using JSONPath.
+Search a Python dict or list using JSONPath (alias of `search` for dict/list data).
 
 - `data`: dict or list
 - `expression`: JSONPath string

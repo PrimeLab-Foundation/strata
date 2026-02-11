@@ -5,7 +5,7 @@
 
 #include "strata/json/json_lazy_cursor.hpp"
 #include "strata/json/json_parse.hpp"
-#include "strata/search/jsonpath.hpp"
+#include "strata/search/search.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -575,6 +575,7 @@ TEST(MalformedJsonError) {
     auto result = cursor.get_field("key");
     // The result status depends on implementation - either ParseError or unexpected behavior
     // At minimum, the key lookup will fail or return error
+    (void)result;
 }
 
 TEST(ErrorIncludesByteOffset) {
@@ -874,12 +875,12 @@ TEST(PeekCharAtEnd) {
     ASSERT_FALSE(cursor.is_null());
 }
 
-TEST(LazyJsonpathStubs) {
+TEST(LazySearchPathStubs) {
     CompiledPath path;
-    auto values = eval_jsonpath_lazy("{}", path, 1);
+    auto values = eval_search_path_lazy("{}", path, 1);
     ASSERT_TRUE(values.empty());
 
-    auto cursors = find_jsonpath_lazy("{}", path, 1);
+    auto cursors = find_search_path_lazy("{}", path, 1);
     ASSERT_TRUE(cursors.empty());
 }
 

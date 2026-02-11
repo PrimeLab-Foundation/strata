@@ -6,8 +6,14 @@ import json
 
 import pytest
 
+from strata import _strata as _native
 from strata.json_cursor import parse_json
-from strata.mmap_io import parse_json_file
+
+
+def parse_json_file(path):
+    path_str = str(path)
+    document, cursor = _native.parse_json_file(path_str)
+    return cursor
 
 
 class TestParseJsonFile:

@@ -6,7 +6,7 @@ Compares Strata search against jmespath and jsonpath-ng.
 Uses shared harness for timing and RSS. Uses internal Strata bindings for fair modes.
 
 Note: Strata search(data, path) with a Python dict (e.g. from loads()) triggers
-serialize→parse→query per call; jmespath/jsonpath-ng walk the dict in place.
+serialize→parse→search per call; jmespath/jsonpath-ng walk the dict in place.
 For fair repeated-query comparison use parse_json_file() + search(cursor, path)
 for JSON or NdjsonCursor.from_file() + search(cursor, path) for NDJSON.
 """

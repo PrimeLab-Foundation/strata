@@ -19,8 +19,8 @@ Python C API bindings for Strata. This module bridges the C++ core to Python.
 ### NDJSON
 - **`python_ndjson.cpp`** - NDJSON streaming/parsing bindings
 
-### JSONPath
-- **`python_jsonpath.cpp`** - JSONPath query bindings
+### Search
+- **`python_search.cpp`** - JSONPath search bindings
 
 ### Memory
 - **`python_mmap.cpp`** - Memory-mapped file I/O bindings

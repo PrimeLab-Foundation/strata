@@ -1,4 +1,4 @@
-#include "strata/search/jsonpath.hpp"
+#include "strata/search/search.hpp"
 
 #include <cctype>
 #include <cstdint>
@@ -391,7 +391,7 @@ struct PathParser {
     }
 };
 
-Result<CompiledPath> compile_jsonpath(std::string_view expr) {
+Result<CompiledPath> compile_search_path(std::string_view expr) {
     PathParser parser(expr);
     return parser.parse();
 }

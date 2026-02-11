@@ -4,7 +4,7 @@
 #include "python_types.h"
 #include "strata/json/json_mmap.hpp"
 #include "strata/json/json_parse.hpp"
-#include "strata/search/jsonpath.hpp"
+#include "strata/search/search.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -247,7 +247,7 @@ PyObject* search_from_json_buffer(const char* data, Py_ssize_t len,
     emit_duplicate_key_warnings();
 
     strata::JsonCursor cursor(&parse_result.value);
-    auto result_values = strata::eval_jsonpath(cursor, compiled_path);
+    auto result_values = strata::eval_search_path(cursor, compiled_path);
     return json_value_list_to_python(result_values);
 }
 
@@ -332,7 +332,7 @@ PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& com
         }
 
         strata::JsonCursor cursor(doc->root());
-        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
+        auto result_values = strata::eval_search_path(cursor, compiled_path);
         Py_XDECREF(borrowed);
         return json_value_list_to_python(result_values);
     }
@@ -345,7 +345,7 @@ PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& com
             return NULL;
         }
 
-        auto result_values = strata::eval_jsonpath(*cursor_ptr, compiled_path);
+        auto result_values = strata::eval_search_path(*cursor_ptr, compiled_path);
         Py_XDECREF(borrowed);
         return json_value_list_to_python(result_values);
     }
@@ -373,7 +373,7 @@ PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& com
 
         for (size_t i = 0; i < values.size(); ++i) {
             strata::JsonCursor cursor(&values[i]);
-            auto matches = strata::eval_jsonpath(cursor, compiled_path);
+            auto matches = strata::eval_search_path(cursor, compiled_path);
             if (matches.empty()) {
                 continue;
             }
@@ -416,7 +416,7 @@ PyObject* search_file_pathlike(PyObject* pathlike,
     emit_duplicate_key_warnings();
 
     strata::JsonCursor cursor(result.value.root());
-    auto result_values = strata::eval_jsonpath(cursor, compiled_path);
+    auto result_values = strata::eval_search_path(cursor, compiled_path);
     return json_value_list_to_python(result_values);
 }
 
@@ -446,7 +446,7 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
     emit_duplicate_key_warnings();
 
     strata::JsonCursor cursor(&parse_result.value);
-    auto matches = strata::eval_jsonpath(cursor, compiled_path);
+    auto matches = strata::eval_search_path(cursor, compiled_path);
     if (matches.empty()) {
         return true;
     }
@@ -700,7 +700,7 @@ static PyObject* PyCompiledPath_from_string(PyObject* cls, PyObject* args) {
 
     STRATA_CPP_TRY
 
-    auto result = strata::compile_jsonpath(path_str);
+    auto result = strata::compile_search_path(path_str);
     if (!result.ok()) {
         PyErr_SetString(PyExc_ValueError, "Invalid JSONPath expression");
         return NULL;
@@ -753,7 +753,7 @@ static PyObject* PyCompiledPath_execute(PyCompiledPath* self, PyObject* args) {
 
     STRATA_CPP_TRY
 
-    auto result_values = strata::eval_jsonpath(*cursor_ptr, *self->path);
+    auto result_values = strata::eval_search_path(*cursor_ptr, *self->path);
     return json_value_list_to_python(result_values);
 
     STRATA_CPP_CATCH
@@ -772,7 +772,7 @@ PyObject* strata_compile_path(PyObject* self, PyObject* args) {
 
     STRATA_CPP_TRY
 
-    auto result = strata::compile_jsonpath(path_str);
+    auto result = strata::compile_search_path(path_str);
     if (!result.ok()) {
         PyErr_SetString(PyExc_ValueError, "Invalid JSONPath expression");
         return NULL;
@@ -828,7 +828,7 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         if (!path_str)
             return NULL;
 
-        auto compile_result = strata::compile_jsonpath(path_str);
+        auto compile_result = strata::compile_search_path(path_str);
         if (!compile_result.ok()) {
             PyErr_SetString(PyExc_ValueError, "Invalid JSONPath expression");
             return NULL;
@@ -987,7 +987,17 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         return NULL;
     }
 
-    bool check_pathlike = !has_text || !looks_like_json;
+    if (!has_text) {
+        PyObject* pathlike = PyOS_FSPath(data_obj);
+        if (pathlike) {
+            PyObject* result = search_file_pathlike(pathlike, compiled_path);
+            Py_DECREF(pathlike);
+            return result;
+        }
+        PyErr_Clear();
+    }
+
+    bool check_pathlike = has_text && !looks_like_json;
     if (check_pathlike) {
         PyObject* pathlike = PyOS_FSPath(data_obj);
         if (pathlike) {
@@ -1058,7 +1068,7 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
         if (!path_str) {
             return NULL;
         }
-        auto compile_result = strata::compile_jsonpath(path_str);
+        auto compile_result = strata::compile_search_path(path_str);
         if (!compile_result.ok()) {
             PyErr_SetString(PyExc_ValueError, "Invalid JSONPath expression");
             return NULL;
@@ -1249,11 +1259,53 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
     STRATA_CPP_CATCH
 }
 
+PyObject* strata_query(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PyObject* data_obj;
+    PyObject* path_obj;
+
+    static const char* kwlist[] = {"data", "path", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", const_cast<char**>(kwlist), &data_obj,
+                                     &path_obj)) {
+        return NULL;
+    }
+
+    if (!PyDict_Check(data_obj) && !PyList_Check(data_obj)) {
+        PyErr_SetString(PyExc_TypeError, "query() expects a dict or list");
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    strata::CompiledPath compiled_path;
+    if (PyUnicode_Check(path_obj)) {
+        const char* path_str = PyUnicode_AsUTF8(path_obj);
+        if (!path_str) {
+            return NULL;
+        }
+        auto compile_result = strata::compile_search_path(path_str);
+        if (!compile_result.ok()) {
+            PyErr_SetString(PyExc_ValueError, "Invalid JSONPath expression");
+            return NULL;
+        }
+        compiled_path = std::move(compile_result.value);
+    } else if (Py_TYPE(path_obj) == &PyCompiledPathType) {
+        PyCompiledPath* compiled_obj = (PyCompiledPath*)path_obj;
+        compiled_path = *compiled_obj->path;
+    } else {
+        PyErr_SetString(PyExc_TypeError, "path must be a string or CompiledPath");
+        return NULL;
+    }
+
+    return search_dict_mode(data_obj, compiled_path);
+
+    STRATA_CPP_CATCH
+}
+
 //=============================================================================
 // Module Registration
 //=============================================================================
 
-int register_jsonpath_types(PyObject* module) {
+int register_search_types(PyObject* module) {
     // Register CompiledPath type
     if (PyType_Ready(&PyCompiledPathType) < 0) {
         return -1;
@@ -1268,4 +1320,4 @@ int register_jsonpath_types(PyObject* module) {
 }
 
 // Methods are added to main module via python_module.cpp
-// No need for get_jsonpath_methods() here
+// No need for get_search_methods() here

@@ -42,8 +42,8 @@ CORE_SOURCES=(
     src/strata/json/json_lazy_cursor.cpp
     src/strata/json/ndjson_stream.cpp
     src/strata/json/parallel_ndjson.cpp
-    src/strata/search/jsonpath_compile.cpp
-    src/strata/search/jsonpath_eval.cpp
+    src/strata/search/search_compile.cpp
+    src/strata/search/search_eval.cpp
     src/strata/util/ryu_dtoa.cpp
     src/strata/util/dragonbox.cpp
     src/strata/util/simd_escape.cpp
@@ -61,8 +61,8 @@ TESTS=(
     "json_cursor_tests:tests/cpp/test_json_cursor.cpp"
     "json_document_tests:tests/cpp/test_json_document.cpp"
     "json_serialize_tests:tests/cpp/test_json_serialize.cpp"
-    "jsonpath_tests:tests/cpp/test_jsonpath.cpp"
-    "jsonpath_advanced_tests:tests/cpp/test_jsonpath_advanced.cpp"
+    "search_tests:tests/cpp/test_search.cpp"
+    "search_advanced_tests:tests/cpp/test_search_advanced.cpp"
     "ndjson_tests:tests/cpp/test_ndjson.cpp"
     "parallel_ndjson_tests:tests/cpp/test_parallel_ndjson.cpp"
     "json_tape_tests:tests/cpp/test_json_tape.cpp"

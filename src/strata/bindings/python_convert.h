@@ -7,11 +7,11 @@
 
 #include <Python.h>
 
-/** Convert JsonValue to PyObject (defined in python_loads.cpp; used by document, jsonpath, ndjson).
+/** Convert JsonValue to PyObject (defined in python_loads.cpp; used by document, search, ndjson).
  */
 PyObject* json_value_to_python(const strata::JsonValue& val);
 
-/** Convert vector of JsonValue to Python list. Inline so callers (jsonpath, ndjson, loads) get
+/** Convert vector of JsonValue to Python list. Inline so callers (search, ndjson, loads) get
  * inlining without LTO. */
 inline PyObject* json_value_list_to_python(const std::vector<strata::JsonValue>& values) {
     PyGcPause gc_pause;

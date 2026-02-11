@@ -26,8 +26,8 @@ set(FUZZ_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/strata/json/json_document.cpp
     ${CMAKE_SOURCE_DIR}/src/strata/json/json_serialize.cpp
     ${CMAKE_SOURCE_DIR}/src/strata/json/ndjson_stream.cpp
-    ${CMAKE_SOURCE_DIR}/src/strata/search/jsonpath_compile.cpp
-    ${CMAKE_SOURCE_DIR}/src/strata/search/jsonpath_eval.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/search/search_compile.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/search/search_eval.cpp
     ${CMAKE_SOURCE_DIR}/src/strata/util/ryu_dtoa.cpp
     ${CMAKE_SOURCE_DIR}/src/strata/util/dragonbox.cpp
     ${CMAKE_SOURCE_DIR}/src/strata/util/simd_escape.cpp

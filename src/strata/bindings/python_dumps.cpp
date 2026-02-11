@@ -4,7 +4,9 @@
 #include "strata/util/output_buffer.hpp"
 #include "strata/util/simd_string.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -23,6 +25,129 @@ static DumpsTypeOrder g_dumps_type_order = DumpsTypeOrder::IntsFirst;
 #else
 static DumpsTypeOrder g_dumps_type_order = DumpsTypeOrder::StringsFirst;
 #endif
+
+PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
+
+namespace {
+enum class ReturnType { Str, Bytes, ByteArray };
+
+bool parse_return_type(PyObject* obj, ReturnType* out, ReturnType default_type) {
+    if (!out) {
+        PyErr_SetString(PyExc_RuntimeError, "invalid return_type output");
+        return false;
+    }
+    if (obj == Py_None || obj == nullptr) {
+        *out = default_type;
+        return true;
+    }
+    if (PyType_Check(obj)) {
+        if (obj == (PyObject*)&PyUnicode_Type) {
+            *out = ReturnType::Str;
+            return true;
+        }
+        if (obj == (PyObject*)&PyBytes_Type) {
+            *out = ReturnType::Bytes;
+            return true;
+        }
+        if (obj == (PyObject*)&PyByteArray_Type) {
+            *out = ReturnType::ByteArray;
+            return true;
+        }
+        PyErr_SetString(PyExc_TypeError, "return_type must be 'str', 'bytes', or 'bytearray'");
+        return false;
+    }
+    if (PyUnicode_Check(obj)) {
+        const char* value = PyUnicode_AsUTF8(obj);
+        if (!value) {
+            return false;
+        }
+        if (strcmp(value, "str") == 0) {
+            *out = ReturnType::Str;
+            return true;
+        }
+        if (strcmp(value, "bytes") == 0) {
+            *out = ReturnType::Bytes;
+            return true;
+        }
+        if (strcmp(value, "bytearray") == 0) {
+            *out = ReturnType::ByteArray;
+            return true;
+        }
+    }
+    PyErr_SetString(PyExc_TypeError, "return_type must be 'str', 'bytes', or 'bytearray'");
+    return false;
+}
+
+bool is_text_io(PyObject* obj) {
+    static PyObject* text_io_base = nullptr;
+    if (!text_io_base) {
+        PyObject* io_module = PyImport_ImportModule("io");
+        if (!io_module) {
+            PyErr_Clear();
+            return false;
+        }
+        text_io_base = PyObject_GetAttrString(io_module, "TextIOBase");
+        Py_DECREF(io_module);
+        if (!text_io_base) {
+            PyErr_Clear();
+            return false;
+        }
+    }
+    int result = PyObject_IsInstance(obj, text_io_base);
+    if (result < 0) {
+        PyErr_Clear();
+        return false;
+    }
+    return result == 1;
+}
+
+bool ends_with_ndjson(const char* data, Py_ssize_t len) {
+    static const char suffix[] = ".ndjson";
+    constexpr Py_ssize_t suffix_len = static_cast<Py_ssize_t>(sizeof(suffix) - 1);
+    if (!data || len < suffix_len) {
+        return false;
+    }
+    return std::equal(suffix, suffix + suffix_len, data + (len - suffix_len));
+}
+
+bool is_ndjson_name(PyObject* obj) {
+    if (PyUnicode_Check(obj)) {
+        Py_ssize_t len = 0;
+        const char* text = PyUnicode_AsUTF8AndSize(obj, &len);
+        if (!text) {
+            return false;
+        }
+        return ends_with_ndjson(text, len);
+    }
+    if (PyBytes_Check(obj)) {
+        char* data = nullptr;
+        Py_ssize_t len = 0;
+        if (PyBytes_AsStringAndSize(obj, &data, &len) < 0) {
+            return false;
+        }
+        return ends_with_ndjson(data, len);
+    }
+    PyObject* pathlike = PyOS_FSPath(obj);
+    if (pathlike) {
+        bool result = is_ndjson_name(pathlike);
+        Py_DECREF(pathlike);
+        return result;
+    }
+    PyErr_Clear();
+    return false;
+}
+
+bool detect_ndjson_name_attr(PyObject* obj) {
+    PyObject* name_obj = PyObject_GetAttrString(obj, "name");
+    if (!name_obj) {
+        PyErr_Clear();
+        return false;
+    }
+    bool result = is_ndjson_name(name_obj);
+    Py_DECREF(name_obj);
+    return result;
+}
+} // namespace
 
 bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     if (policy == nullptr) {
@@ -747,8 +872,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     return true;
 }
 
-// Python dumps() function
-PyObject* strata_dumps(PyObject* self, PyObject* obj) {
+static PyObject* dumps_str_impl(PyObject* obj) {
     STRATA_CPP_TRY
 
     g_serialize_arena.reset();
@@ -798,6 +922,47 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
     STRATA_CPP_CATCH
 }
 
+// Python dumps() function
+PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PyObject* obj = nullptr;
+    PyObject* return_type_obj = Py_None;
+
+    static const char* kwlist[] = {"obj", "return_type", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|O", const_cast<char**>(kwlist), &obj,
+                                     &return_type_obj)) {
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    ReturnType return_type = ReturnType::Str;
+    if (!parse_return_type(return_type_obj, &return_type, ReturnType::Str)) {
+        return NULL;
+    }
+
+    if (return_type == ReturnType::Str) {
+        return dumps_str_impl(obj);
+    }
+    if (return_type == ReturnType::Bytes) {
+        return strata_dumps_bytes(self, obj);
+    }
+    PyObject* bytes_obj = strata_dumps_bytes(self, obj);
+    if (!bytes_obj) {
+        return NULL;
+    }
+    char* data = nullptr;
+    Py_ssize_t len = 0;
+    if (PyBytes_AsStringAndSize(bytes_obj, &data, &len) < 0) {
+        Py_DECREF(bytes_obj);
+        return NULL;
+    }
+    PyObject* bytearray_obj = PyByteArray_FromStringAndSize(data, len);
+    Py_DECREF(bytes_obj);
+    return bytearray_obj;
+
+    STRATA_CPP_CATCH
+}
+
 // Python dumps_bytes() function
 PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
@@ -824,6 +989,382 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
 
     g_last_dumps_size = g_serialize_buffer.size();
     return PyBytes_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
+
+    STRATA_CPP_CATCH
+}
+
+namespace {
+PyObject* serialize_record(PyObject* value, ReturnType return_type) {
+    if (return_type == ReturnType::Str) {
+        return dumps_str_impl(value);
+    }
+    if (return_type == ReturnType::Bytes) {
+        return strata_dumps_bytes(nullptr, value);
+    }
+    PyObject* bytes_obj = strata_dumps_bytes(nullptr, value);
+    if (!bytes_obj) {
+        return NULL;
+    }
+    char* data = nullptr;
+    Py_ssize_t len = 0;
+    if (PyBytes_AsStringAndSize(bytes_obj, &data, &len) < 0) {
+        Py_DECREF(bytes_obj);
+        return NULL;
+    }
+    PyObject* bytearray_obj = PyByteArray_FromStringAndSize(data, len);
+    Py_DECREF(bytes_obj);
+    return bytearray_obj;
+}
+
+bool write_payload_file(std::FILE* file, PyObject* payload, ReturnType return_type) {
+    const char* data = nullptr;
+    Py_ssize_t len = 0;
+    if (return_type == ReturnType::Str) {
+        data = PyUnicode_AsUTF8AndSize(payload, &len);
+        if (!data) {
+            return false;
+        }
+    } else if (return_type == ReturnType::Bytes) {
+        char* bytes = nullptr;
+        if (PyBytes_AsStringAndSize(payload, &bytes, &len) < 0) {
+            return false;
+        }
+        data = bytes;
+    } else {
+        data = PyByteArray_AsString(payload);
+        if (!data) {
+            return false;
+        }
+        len = PyByteArray_Size(payload);
+    }
+
+    if (len > 0) {
+        size_t written = std::fwrite(data, 1, static_cast<size_t>(len), file);
+        if (written != static_cast<size_t>(len)) {
+            PyErr_SetFromErrno(PyExc_OSError);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool write_newline_file(std::FILE* file) {
+    const char newline = '\n';
+    size_t written = std::fwrite(&newline, 1, 1, file);
+    if (written != 1) {
+        PyErr_SetFromErrno(PyExc_OSError);
+        return false;
+    }
+    return true;
+}
+
+bool write_payload_filelike(PyObject* target, PyObject* payload) {
+    PyObject* result = PyObject_CallMethod(target, "write", "O", payload);
+    if (!result) {
+        return false;
+    }
+    Py_DECREF(result);
+    return true;
+}
+} // namespace
+
+// Python dump() function
+PyObject* strata_dump(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PyObject* target = nullptr;
+    PyObject* obj = nullptr;
+    PyObject* ndjson_obj = Py_None;
+    PyObject* return_type_obj = Py_None;
+
+    static const char* kwlist[] = {"target", "obj", "ndjson", "return_type", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|OO", const_cast<char**>(kwlist), &target,
+                                     &obj, &ndjson_obj, &return_type_obj)) {
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    bool ndjson_flag_set = false;
+    bool ndjson_flag = false;
+    if (ndjson_obj != Py_None) {
+        int truth = PyObject_IsTrue(ndjson_obj);
+        if (truth < 0) {
+            return NULL;
+        }
+        ndjson_flag_set = true;
+        ndjson_flag = truth != 0;
+    }
+
+    PyObject* pathlike = PyOS_FSPath(target);
+    bool target_is_path = pathlike != nullptr;
+    if (!target_is_path) {
+        PyErr_Clear();
+    }
+
+    bool use_ndjson = false;
+    if (ndjson_flag_set) {
+        use_ndjson = ndjson_flag;
+    } else if (target_is_path) {
+        use_ndjson = is_ndjson_name(pathlike);
+        if (PyErr_Occurred()) {
+            Py_DECREF(pathlike);
+            return NULL;
+        }
+    } else {
+        use_ndjson = detect_ndjson_name_attr(target);
+        if (PyErr_Occurred()) {
+            return NULL;
+        }
+    }
+
+    ReturnType default_type = ReturnType::Bytes;
+    if (!target_is_path && is_text_io(target)) {
+        default_type = ReturnType::Str;
+    }
+    ReturnType return_type = ReturnType::Str;
+    if (!parse_return_type(return_type_obj, &return_type, default_type)) {
+        Py_XDECREF(pathlike);
+        return NULL;
+    }
+
+    if (!target_is_path && return_type != ReturnType::Str && is_text_io(target)) {
+        Py_XDECREF(pathlike);
+        PyErr_SetString(PyExc_TypeError,
+                        "file-like object expects str; use return_type='str'");
+        return NULL;
+    }
+
+    size_t line_count = 0;
+
+    if (target_is_path) {
+        const char* filepath = nullptr;
+        if (PyUnicode_Check(pathlike)) {
+            filepath = PyUnicode_AsUTF8(pathlike);
+        } else if (PyBytes_Check(pathlike)) {
+            filepath = PyBytes_AsString(pathlike);
+        } else {
+            Py_DECREF(pathlike);
+            PyErr_SetString(PyExc_TypeError, "path must be str or bytes");
+            return NULL;
+        }
+        if (!filepath) {
+            Py_DECREF(pathlike);
+            return NULL;
+        }
+
+        const char* mode = (return_type == ReturnType::Str) ? "w" : "wb";
+        std::FILE* file = std::fopen(filepath, mode);
+        if (!file) {
+            Py_DECREF(pathlike);
+            PyErr_SetFromErrnoWithFilename(PyExc_OSError, filepath);
+            return NULL;
+        }
+
+        if (use_ndjson) {
+            if (PyDict_Check(obj)) {
+                PyObject* payload = serialize_record(obj, return_type);
+                if (!payload) {
+                    std::fclose(file);
+                    Py_DECREF(pathlike);
+                    return NULL;
+                }
+                if (!write_payload_file(file, payload, return_type) || !write_newline_file(file)) {
+                    Py_DECREF(payload);
+                    std::fclose(file);
+                    Py_DECREF(pathlike);
+                    return NULL;
+                }
+                Py_DECREF(payload);
+                line_count = 1;
+            } else if (PyUnicode_Check(obj) || PyBytes_Check(obj) || PyByteArray_Check(obj)) {
+                std::fclose(file);
+                Py_DECREF(pathlike);
+                PyErr_SetString(PyExc_TypeError,
+                                "ndjson dump expects JSON-serializable objects, not raw text");
+                return NULL;
+            } else {
+                PyObject* iter = PyObject_GetIter(obj);
+                if (!iter) {
+                    if (!PyErr_ExceptionMatches(PyExc_TypeError)) {
+                        std::fclose(file);
+                        Py_DECREF(pathlike);
+                        return NULL;
+                    }
+                    PyErr_Clear();
+                    PyObject* payload = serialize_record(obj, return_type);
+                    if (!payload) {
+                        std::fclose(file);
+                        Py_DECREF(pathlike);
+                        return NULL;
+                    }
+                    if (!write_payload_file(file, payload, return_type) ||
+                        !write_newline_file(file)) {
+                        Py_DECREF(payload);
+                        std::fclose(file);
+                        Py_DECREF(pathlike);
+                        return NULL;
+                    }
+                    Py_DECREF(payload);
+                    line_count = 1;
+                } else {
+                    PyObject* item;
+                    while ((item = PyIter_Next(iter))) {
+                        PyObject* payload = serialize_record(item, return_type);
+                        Py_DECREF(item);
+                        if (!payload) {
+                            Py_DECREF(iter);
+                            std::fclose(file);
+                            Py_DECREF(pathlike);
+                            return NULL;
+                        }
+                        if (!write_payload_file(file, payload, return_type) ||
+                            !write_newline_file(file)) {
+                            Py_DECREF(payload);
+                            Py_DECREF(iter);
+                            std::fclose(file);
+                            Py_DECREF(pathlike);
+                            return NULL;
+                        }
+                        Py_DECREF(payload);
+                        line_count++;
+                    }
+                    Py_DECREF(iter);
+                    if (PyErr_Occurred()) {
+                        std::fclose(file);
+                        Py_DECREF(pathlike);
+                        return NULL;
+                    }
+                }
+            }
+        } else {
+            PyObject* payload = serialize_record(obj, return_type);
+            if (!payload) {
+                std::fclose(file);
+                Py_DECREF(pathlike);
+                return NULL;
+            }
+            if (!write_payload_file(file, payload, return_type)) {
+                Py_DECREF(payload);
+                std::fclose(file);
+                Py_DECREF(pathlike);
+                return NULL;
+            }
+            Py_DECREF(payload);
+            line_count = 1;
+        }
+
+        std::fclose(file);
+        Py_DECREF(pathlike);
+        return PyLong_FromSize_t(line_count);
+    }
+
+    int has_write = PyObject_HasAttrString(target, "write");
+    if (has_write < 0) {
+        return NULL;
+    }
+    if (!has_write) {
+        PyErr_SetString(PyExc_TypeError, "dump() expects a path or file-like object");
+        return NULL;
+    }
+
+    PyObject* newline_obj = nullptr;
+    if (use_ndjson) {
+        if (return_type == ReturnType::Str) {
+            newline_obj = PyUnicode_FromString("\n");
+        } else if (return_type == ReturnType::Bytes) {
+            newline_obj = PyBytes_FromString("\n");
+        } else {
+            newline_obj = PyByteArray_FromStringAndSize("\n", 1);
+        }
+        if (!newline_obj) {
+            return NULL;
+        }
+    }
+
+    if (use_ndjson) {
+        if (PyDict_Check(obj)) {
+            PyObject* payload = serialize_record(obj, return_type);
+            if (!payload) {
+                Py_XDECREF(newline_obj);
+                return NULL;
+            }
+            if (!write_payload_filelike(target, payload) ||
+                !write_payload_filelike(target, newline_obj)) {
+                Py_DECREF(payload);
+                Py_XDECREF(newline_obj);
+                return NULL;
+            }
+            Py_DECREF(payload);
+            line_count = 1;
+        } else if (PyUnicode_Check(obj) || PyBytes_Check(obj) || PyByteArray_Check(obj)) {
+            Py_XDECREF(newline_obj);
+            PyErr_SetString(PyExc_TypeError,
+                            "ndjson dump expects JSON-serializable objects, not raw text");
+            return NULL;
+        } else {
+            PyObject* iter = PyObject_GetIter(obj);
+            if (!iter) {
+                if (!PyErr_ExceptionMatches(PyExc_TypeError)) {
+                    Py_XDECREF(newline_obj);
+                    return NULL;
+                }
+                PyErr_Clear();
+                PyObject* payload = serialize_record(obj, return_type);
+                if (!payload) {
+                    Py_XDECREF(newline_obj);
+                    return NULL;
+                }
+                if (!write_payload_filelike(target, payload) ||
+                    !write_payload_filelike(target, newline_obj)) {
+                    Py_DECREF(payload);
+                    Py_XDECREF(newline_obj);
+                    return NULL;
+                }
+                Py_DECREF(payload);
+                line_count = 1;
+            } else {
+                PyObject* item;
+                while ((item = PyIter_Next(iter))) {
+                    PyObject* payload = serialize_record(item, return_type);
+                    Py_DECREF(item);
+                    if (!payload) {
+                        Py_DECREF(iter);
+                        Py_XDECREF(newline_obj);
+                        return NULL;
+                    }
+                    if (!write_payload_filelike(target, payload) ||
+                        !write_payload_filelike(target, newline_obj)) {
+                        Py_DECREF(payload);
+                        Py_DECREF(iter);
+                        Py_XDECREF(newline_obj);
+                        return NULL;
+                    }
+                    Py_DECREF(payload);
+                    line_count++;
+                }
+                Py_DECREF(iter);
+                if (PyErr_Occurred()) {
+                    Py_XDECREF(newline_obj);
+                    return NULL;
+                }
+            }
+        }
+    } else {
+        PyObject* payload = serialize_record(obj, return_type);
+        if (!payload) {
+            Py_XDECREF(newline_obj);
+            return NULL;
+        }
+        if (!write_payload_filelike(target, payload)) {
+            Py_DECREF(payload);
+            Py_XDECREF(newline_obj);
+            return NULL;
+        }
+        Py_DECREF(payload);
+        line_count = 1;
+    }
+
+    Py_XDECREF(newline_obj);
+    return PyLong_FromSize_t(line_count);
 
     STRATA_CPP_CATCH
 }

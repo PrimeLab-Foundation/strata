@@ -96,7 +96,7 @@ ensure_bench_data() {
 }
 
 # Run comprehensive benchmark suite to generate representative profile data.
-# Covers all hot paths: loads, dumps, NDJSON streaming, JSONPath queries.
+# Covers all hot paths: loads, dumps, NDJSON streaming, search queries.
 run_benchmarks() {
   ensure_bench_data
   echo "Running PGO profiling benchmarks with $PGO_DATASET_SIZE dataset..."
@@ -119,7 +119,7 @@ run_benchmarks() {
   # 3. NDJSON streaming - line-by-line parsing
   PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_ndjson --data "$PGO_PRIMARY_NDJSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
 
-  # 4. JSONPath queries - search and query evaluation
+  # 4. Search queries - search and query evaluation
   PYTHONPATH=. "$VENV/bin/python" -m benchmarks.bench_search --data "$PGO_PRIMARY_JSON" --repeat "$PGO_BENCH_REPEAT" --warmup "$PGO_BENCH_WARMUP"
 
   # Optional: Also run with small dataset for edge-case coverage if using larger primary

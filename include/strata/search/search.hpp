@@ -77,7 +77,7 @@ class CompiledPath {
     std::vector<PathStep> steps_;
 };
 
-// Compile a JSONPath expression string into a path plan
+// Compile a JSONPath expression string into a search plan
 // Supported syntax (Phase 1):
 //   $ - root
 //   $.field - field access
@@ -87,18 +87,18 @@ class CompiledPath {
 //   $[n] - array index
 //   $.a.b.c - nested paths
 //   $.a[*].b - mixed navigation
-Result<CompiledPath> compile_jsonpath(std::string_view expr);
+Result<CompiledPath> compile_search_path(std::string_view expr);
 
 // Evaluate a compiled JSONPath on a document
 // Returns a vector of JsonValue results (materializes matches)
-std::vector<JsonValue> eval_jsonpath(const JsonDocument& doc, const CompiledPath& path);
+std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path);
 
 // Evaluate on a cursor (more flexible)
-std::vector<JsonValue> eval_jsonpath(const JsonCursor& cursor, const CompiledPath& path);
+std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path);
 
 // Evaluate with early termination after finding 'limit' results
 // Useful for queries like "$..price" with limit=1 for finding first match
-std::vector<JsonValue> eval_jsonpath(const JsonDocument& doc, const CompiledPath& path, size_t limit);
-std::vector<JsonValue> eval_jsonpath(const JsonCursor& cursor, const CompiledPath& path, size_t limit);
+std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path, size_t limit);
+std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path, size_t limit);
 
 } // namespace strata

@@ -6,7 +6,22 @@ alwaysApply: true
 Avoid API sprawl. Every new public symbol is a product commitment.
 
 ## Requirements
-- Keep Python surface small and consistent (e.g., `loads`, `dumps`, `iter_ndjson`, `search`, `compile_jsonpath`).
+- Keep the Python surface small and consistent. The entire public Python API is:
+
+```
+strata.load(source, **kwargs)         -> object
+strata.dump(target, obj, **kwargs)    -> int
+strata.loads(source, **kwargs)        -> object
+strata.dumps(obj, **kwargs)           -> str | bytes | bytearray
+strata.search(source, expr, **kwargs) -> list
+strata.query(data, expr, **kwargs)    -> list
+
+strata.compile_path(expression)       -> CompiledPath
+```
+
+No other public functions in `strata.__init__`. Configuration helpers
+(`set_cycle_policy`, `set_duplicate_key_policy`, `set_dumps_type_order`) live in
+`strata.serialize`.
 - Any new public API requires:
   1) C++ tests + Python tests
   2) docs update under `docs/`

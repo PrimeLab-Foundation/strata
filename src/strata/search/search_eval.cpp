@@ -1,4 +1,4 @@
-#include "strata/search/jsonpath.hpp"
+#include "strata/search/search.hpp"
 
 #include <algorithm>
 #include <deque>
@@ -348,8 +348,8 @@ static void eval_step(const JsonCursor& cursor, const std::vector<PathStep>& ste
     eval_step_with_limit(cursor, steps, step_idx, results, std::numeric_limits<size_t>::max());
 }
 
-std::vector<JsonValue> eval_jsonpath(const JsonDocument& doc, const CompiledPath& path) {
-    return eval_jsonpath(doc.root(), path);
+std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path) {
+    return eval_search_path(doc.root(), path);
 }
 
 // Helper to check if path has early-exit potential (starts with $.field)
@@ -363,7 +363,7 @@ static bool has_root_field_access(const std::vector<PathStep>& steps, std::strin
     return false;
 }
 
-std::vector<JsonValue> eval_jsonpath(const JsonCursor& cursor, const CompiledPath& path) {
+std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path) {
     std::vector<JsonValue> results;
 
     if (path.empty()) {
@@ -387,11 +387,11 @@ std::vector<JsonValue> eval_jsonpath(const JsonCursor& cursor, const CompiledPat
     return results;
 }
 
-std::vector<JsonValue> eval_jsonpath(const JsonDocument& doc, const CompiledPath& path, size_t limit) {
-    return eval_jsonpath(doc.root(), path, limit);
+std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path, size_t limit) {
+    return eval_search_path(doc.root(), path, limit);
 }
 
-std::vector<JsonValue> eval_jsonpath(const JsonCursor& cursor, const CompiledPath& path, size_t limit) {
+std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path, size_t limit) {
     std::vector<JsonValue> results;
 
     if (path.empty() || limit == 0) {

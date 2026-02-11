@@ -279,7 +279,7 @@ private:
  * @param limit Maximum number of results (default unlimited)
  * @return Vector of materialized JsonValue results
  */
-std::vector<JsonValue> eval_jsonpath_lazy(
+std::vector<JsonValue> eval_search_path_lazy(
     std::string_view json,
     const class CompiledPath& path,
     size_t limit = std::numeric_limits<size_t>::max()
@@ -292,7 +292,7 @@ std::vector<JsonValue> eval_jsonpath_lazy(
  * @param limit Maximum number of results (default unlimited)
  * @return Vector of LazyJsonCursor positioned at matches
  */
-std::vector<LazyJsonCursor> find_jsonpath_lazy(
+std::vector<LazyJsonCursor> find_search_path_lazy(
     std::string_view json,
     const class CompiledPath& path,
     size_t limit = std::numeric_limits<size_t>::max()

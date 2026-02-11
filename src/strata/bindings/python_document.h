@@ -7,7 +7,7 @@
 #include <Python.h>
 
 // Helper functions to create Python wrappers for C++ types
-// These are used by other Python binding modules (mmap, jsonpath, etc.)
+// These are used by other Python binding modules (mmap, search, etc.)
 
 PyObject* create_py_json_document(strata::JsonDocument&& doc);
 PyObject* create_py_json_cursor(strata::JsonCursor&& cursor, PyObject* doc_ref);

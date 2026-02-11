@@ -54,8 +54,8 @@ set(STRATA_CORE_SOURCES
     src/strata/json/json_serialize.cpp
     src/strata/json/ndjson_stream.cpp
     src/strata/json/parallel_ndjson.cpp
-    src/strata/search/jsonpath_compile.cpp
-    src/strata/search/jsonpath_eval.cpp
+    src/strata/search/search_compile.cpp
+    src/strata/search/search_eval.cpp
     src/strata/util/ryu_dtoa.cpp
     src/strata/util/simd_numbers.cpp
     src/strata/util/dragonbox.cpp
@@ -141,16 +141,16 @@ strata_apply_lto(json_serialize_tests)
 add_test(NAME json_serialize_tests COMMAND json_serialize_tests)
 
 # ---------------------------------------------------------------------------
-# 5) JSONPath Tests
+# 5) Search Tests
 # ---------------------------------------------------------------------------
-add_executable(jsonpath_tests
-    tests/cpp/test_jsonpath.cpp
+add_executable(search_tests
+    tests/cpp/test_search.cpp
     ${STRATA_CORE_LINK}
 )
-target_include_directories(jsonpath_tests PRIVATE ${STRATA_INCLUDE_DIRS})
-target_compile_options(jsonpath_tests PRIVATE -Wall -Wextra)
-strata_apply_lto(jsonpath_tests)
-add_test(NAME jsonpath_tests COMMAND jsonpath_tests)
+target_include_directories(search_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(search_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(search_tests)
+add_test(NAME search_tests COMMAND search_tests)
 
 # ---------------------------------------------------------------------------
 # 6) NDJSON Tests
@@ -313,16 +313,16 @@ target_compile_options(integer_optimization_tests PRIVATE -Wall -Wextra)
 strata_apply_lto(integer_optimization_tests)
 add_test(NAME integer_optimization_tests COMMAND integer_optimization_tests)
 # ---------------------------------------------------------------------------
-# 17) JSONPath Advanced Tests (filter predicates, recursive descent, slicing)
+# 17) Search Advanced Tests (filter predicates, recursive descent, slicing)
 # ---------------------------------------------------------------------------
-add_executable(jsonpath_advanced_tests
-    tests/cpp/test_jsonpath_advanced.cpp
+add_executable(search_advanced_tests
+    tests/cpp/test_search_advanced.cpp
     ${STRATA_CORE_LINK}
 )
-target_include_directories(jsonpath_advanced_tests PRIVATE ${STRATA_INCLUDE_DIRS})
-target_compile_options(jsonpath_advanced_tests PRIVATE -Wall -Wextra)
-strata_apply_lto(jsonpath_advanced_tests)
-add_test(NAME jsonpath_advanced_tests COMMAND jsonpath_advanced_tests)
+target_include_directories(search_advanced_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(search_advanced_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(search_advanced_tests)
+add_test(NAME search_advanced_tests COMMAND search_advanced_tests)
 # ---------------------------------------------------------------------------
 # 18) SIMD Escape Tests (SIMD-accelerated JSON string escaping)
 # ---------------------------------------------------------------------------

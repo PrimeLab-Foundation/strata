@@ -682,7 +682,7 @@ void LazyJsonCursor::ElementIterator::advance_to_next() {
 // Lazy JSONPath (stub implementations - full implementation in future)
 // ============================================================================
 
-std::vector<JsonValue> eval_jsonpath_lazy(
+std::vector<JsonValue> eval_search_path_lazy(
     std::string_view json,
     const CompiledPath& path,
     size_t limit
@@ -696,7 +696,7 @@ std::vector<JsonValue> eval_jsonpath_lazy(
     return {};
 }
 
-std::vector<LazyJsonCursor> find_jsonpath_lazy(
+std::vector<LazyJsonCursor> find_search_path_lazy(
     std::string_view json,
     const CompiledPath& path,
     size_t limit
