@@ -90,6 +90,19 @@ def test_search_ndjson_mixed_types(tmp_path):
     ]
 
 
+def test_search_ndjson_limit(tmp_path):
+    path = tmp_path / "limit.ndjson"
+    lines = [f'[{{"name": "user_{i}"}}]' for i in range(20)]
+    _write_ndjson(path, lines)
+
+    results = strata.search(path, "$[*].name", limit=5)
+
+    assert len(results) == 5
+    assert sum(len(entry["matches"]) for entry in results) == 5
+    assert results[0] == {"line": 1, "matches": ["user_0"]}
+    assert results[-1] == {"line": 5, "matches": ["user_4"]}
+
+
 def test_search_ndjson_simple_field_fused_matches_full(tmp_path):
     path = tmp_path / "names.ndjson"
     lines = [

@@ -728,6 +728,27 @@ void test_eval_array_recursive_with_limit() {
     std::cout << "✓ test_eval_array_recursive_with_limit passed\n";
 }
 
+void test_eval_limit_with_cursor() {
+    const char* json_str = R"({"users": [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}]})";
+
+    auto doc_result = JsonDocument::from_string(json_str);
+    assert(doc_result.ok());
+
+    auto path = compile_search_path("$.users[*].id");
+    assert(path.ok());
+
+    JsonCursor cursor(doc_result.value.root());
+    auto results = eval_search_path(cursor, path.value, 2);
+    assert(results.size() == 2);
+
+    auto serialized = serialize_values(results);
+    assert(serialized.size() == 2);
+    assert(serialized[0] == "1");
+    assert(serialized[1] == "2");
+
+    std::cout << "✓ test_eval_limit_with_cursor passed\n";
+}
+
 // ============================================================================
 // Additional coverage tests for uncovered eval paths
 // ============================================================================
@@ -1152,6 +1173,7 @@ int main() {
     test_eval_recursive_with_limit();
     test_eval_deep_recursive_with_limit();
     test_eval_array_recursive_with_limit();
+    test_eval_limit_with_cursor();
 
     // Additional coverage tests
     test_eval_filter_on_non_objects();

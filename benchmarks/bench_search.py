@@ -238,6 +238,14 @@ def _ndjson_lines(text: str) -> list[str]:
     return [line for line in text.splitlines() if line.strip()]
 
 
+def _count_ndjson_matches(result: Any) -> int:
+    if isinstance(result, list):
+        if result and isinstance(result[0], dict) and "matches" in result[0]:
+            return sum(len(entry.get("matches", [])) for entry in result)
+        return len(result)
+    return 0
+
+
 def _load_json_data(
     data_file: Path,
 ) -> tuple[str, Any, int, float, int, bool]:
@@ -264,6 +272,49 @@ def _load_json_data(
     else:
         record_count = 1
     return json_text, json_data, size_bytes, size_mb, record_count, False
+
+
+def _run_ndjson_limit_benchmark(
+    ndjson_text: str,
+    data_size_bytes: int,
+    *,
+    warmup: int,
+    repeat: int,
+    parallel_kwargs: dict[str, Any],
+) -> None:
+    if not ndjson_text:
+        return
+
+    expr = "$.id"
+    limit = 10
+
+    print("\n--- NDJSON Limit Benchmark (strata.search) ---")
+    print(f"  query={expr}, limit={limit}")
+
+    def run_full():
+        return strata.search(ndjson_text, expr, ndjson=True, **parallel_kwargs)
+
+    def run_limit():
+        return strata.search(ndjson_text, expr, ndjson=True, limit=limit, **parallel_kwargs)
+
+    times_full, rss_full, result_full = _run_query_benchmark(run_full, warmup, repeat)
+    times_limit, rss_limit, result_limit = _run_query_benchmark(run_limit, warmup, repeat)
+
+    full_median = statistics.median(times_full) if times_full else 0.0
+    limit_median = statistics.median(times_limit) if times_limit else 0.0
+    full_matches = _count_ndjson_matches(result_full)
+    limit_matches = _count_ndjson_matches(result_limit)
+
+    print(
+        f"  full:  median={full_median:.2f}ms, mbps={_throughput_mbps(data_size_bytes, times_full):.2f}, "
+        f"matches={full_matches}, rss={rss_full:.1f} MB"
+    )
+    print(
+        f"  limit: median={limit_median:.2f}ms, mbps={_throughput_mbps(data_size_bytes, times_limit):.2f}, "
+        f"matches={limit_matches}, rss={rss_limit:.1f} MB"
+    )
+    if limit_median > 0:
+        print(f"  speedup (full vs limit): {full_median / limit_median:.2f}x")
 
 
 def _run_cursor_reuse_benchmarks(
@@ -598,6 +649,15 @@ def run_all(
                 print("  jsonpath-ng:  SKIPPED")
         else:
             print("  jsonpath-ng:  NOT INSTALLED")
+
+    if is_ndjson:
+        _run_ndjson_limit_benchmark(
+            ndjson_text,
+            size_bytes,
+            warmup=warmup,
+            repeat=repeat,
+            parallel_kwargs=parallel_kwargs,
+        )
 
     if cursor_reuse:
         print("\n--- Cursor Reuse Benchmark (compiled paths, all queries) ---")

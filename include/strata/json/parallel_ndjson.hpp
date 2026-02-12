@@ -2,6 +2,7 @@
 
 #include "strata/json/json_core.hpp"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -136,12 +137,14 @@ class ParallelNdjsonStream {
      *
      * Throws on error if skip_errors is false.
      */
-    std::vector<NdjsonSearchMatch> search_all_parallel(const CompiledPath& path);
+    std::vector<NdjsonSearchMatch> search_all_parallel(const CompiledPath& path,
+                                                       size_t limit = 0);
 
     /**
      * Search all lines with error collection (no exceptions).
      */
-    ParallelSearchResult search_all_parallel_with_errors(const CompiledPath& path);
+    ParallelSearchResult search_all_parallel_with_errors(const CompiledPath& path,
+                                                         size_t limit = 0);
 
     /**
      * Get total lines processed (after parsing).
@@ -203,7 +206,8 @@ class ParallelNdjsonStream {
 
     // Phase 3: Search single chunk (called by worker threads)
     ChunkSearchResult search_chunk(const Chunk& chunk, const CompiledPath& path,
-                                   bool skip_utf8_validation);
+                                   bool skip_utf8_validation, size_t limit,
+                                   std::atomic<size_t>* stop_sequence);
 
     // Phase 4: Merge results in sequence order
     void merge_results(std::vector<ChunkResult>& results, std::vector<JsonValue>& out_values,
@@ -212,13 +216,13 @@ class ParallelNdjsonStream {
     void merge_search_results(std::vector<ChunkSearchResult>& results,
                               std::vector<NdjsonSearchMatch>& out_matches,
                               std::vector<std::pair<size_t, std::string>>& out_errors,
-                              size_t* out_lines_processed);
+                              size_t* out_lines_processed, size_t limit);
 
     // Sequential fallback for small files
     std::vector<JsonValue> parse_sequential();
     ParallelParseResult parse_sequential_with_errors();
 
-    ParallelSearchResult search_sequential_with_errors(const CompiledPath& path);
+    ParallelSearchResult search_sequential_with_errors(const CompiledPath& path, size_t limit);
 
     bool validate_utf8_once();
 };

@@ -218,6 +218,21 @@ class TestCompileAndReuse:
         assert results == [1, 2, 3]
 
 
+class TestLimits:
+    """Test search limit parameter."""
+
+    def test_search_limit(self):
+        json_text = (
+            '{"users": ['
+            + ",".join(f'{{"id": {i}}}' for i in range(25))
+            + "]}"
+        )
+
+        results = strata.search(json_text, "$.users[*].id", limit=10)
+
+        assert results == list(range(10))
+
+
 class TestErrorHandling:
     """Test error handling."""
 
