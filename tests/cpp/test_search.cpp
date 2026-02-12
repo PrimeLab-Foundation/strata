@@ -305,7 +305,71 @@ void test_compile_filter_errors() {
     auto r13 = compile_search_path("$.");
     assert(!r13.ok());
 
+    // Invalid numeric literal in filter (missing digits after '-')
+    auto r14 = compile_search_path("$[?(@.val > -)]");
+    assert(!r14.ok());
+
+    // Missing digits in numeric literal
+    auto r15 = compile_search_path("$[?(@.val > .)]");
+    assert(!r15.ok());
+
     std::cout << "✓ test_compile_filter_errors passed\n";
+}
+
+void test_compile_bracket_and_slice_errors() {
+    // Missing closing bracket after filter
+    auto r1 = compile_search_path("$[?(@.age > 5)");
+    assert(!r1.ok());
+
+    // Wildcard missing closing bracket
+    auto r2 = compile_search_path("$[*");
+    assert(!r2.ok());
+
+    // Quoted field missing closing bracket
+    auto r3 = compile_search_path("$['a'");
+    assert(!r3.ok());
+
+    // Index missing closing bracket
+    auto r4 = compile_search_path("$[0");
+    assert(!r4.ok());
+
+    // Slice missing closing bracket
+    auto r5 = compile_search_path("$[1:2");
+    assert(!r5.ok());
+
+    // Slice with junk after end
+    auto r6 = compile_search_path("$[1:foo]");
+    assert(!r6.ok());
+
+    // Slice with explicit step but no digits (defaults to 1)
+    auto r7 = compile_search_path("$[1:3:]");
+    assert(r7.ok());
+
+    // Invalid number token inside brackets
+    auto r8 = compile_search_path("$[-x]");
+    assert(!r8.ok());
+
+    // Unknown character after root
+    auto r9 = compile_search_path("$#");
+    assert(!r9.ok());
+
+    std::cout << "✓ test_compile_bracket_and_slice_errors passed\n";
+}
+
+void test_simple_field_extraction_flags() {
+    auto root_field = compile_search_path("$.name");
+    assert(root_field.ok());
+    assert(root_field.value.is_simple_field_extraction());
+
+    auto wildcard_field = compile_search_path("$[*].id");
+    assert(wildcard_field.ok());
+    assert(wildcard_field.value.is_simple_field_extraction());
+
+    auto non_simple = compile_search_path("$.a.b");
+    assert(non_simple.ok());
+    assert(!non_simple.value.is_simple_field_extraction());
+
+    std::cout << "✓ test_simple_field_extraction_flags passed\n";
 }
 
 void test_eval_root() {
@@ -828,6 +892,226 @@ void test_ndjson_fused_field_extraction() {
     std::cout << "✓ test_ndjson_fused_field_extraction passed\n";
 }
 
+void test_ndjson_fused_root_field_abort_and_invalid_tail() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"({"id": 42, "other": [1, 2, 3], "tail": )"; // invalid tail
+    std::vector<JsonValue> matches;
+    Status status =
+        extract_simple_field_matches(line, "id", SimpleFieldMode::RootField, matches, options,
+                                     &context);
+    assert(status == Status::Ok);
+    assert(matches.size() == 1);
+    assert(matches[0].as_number() == 42.0);
+
+    std::cout << "✓ test_ndjson_fused_root_field_abort_and_invalid_tail passed\n";
+}
+
+void test_ndjson_fused_root_field_escaped_key_and_value() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = "{\"a\\tb\": \"line1\\nline2\"}";
+    std::vector<JsonValue> matches;
+    Status status = extract_simple_field_matches(line, "a\tb", SimpleFieldMode::RootField,
+                                                 matches, options, &context);
+    assert(status == Status::Ok);
+    assert(matches.size() == 1);
+    assert(matches[0].is_string());
+    assert(matches[0].as_string().find('\n') != std::string::npos);
+
+    std::cout << "✓ test_ndjson_fused_root_field_escaped_key_and_value passed\n";
+}
+
+void test_ndjson_fused_root_wildcard_array_and_object() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string array_line = R"([{"id": 1}, {"id": 2}, {"other": 3}])";
+    std::vector<JsonValue> matches_array;
+    Status status_array = extract_simple_field_matches(array_line, "id",
+                                                       SimpleFieldMode::RootWildcardField,
+                                                       matches_array, options, &context);
+    assert(status_array == Status::Ok);
+    assert(matches_array.size() == 2);
+
+    std::string obj_line = R"({"a": {"id": 10}, "b": {"id": 20}, "c": {}})";
+    std::vector<JsonValue> matches_obj;
+    Status status_obj = extract_simple_field_matches(obj_line, "id",
+                                                     SimpleFieldMode::RootWildcardField,
+                                                     matches_obj, options, &context);
+    assert(status_obj == Status::Ok);
+    assert(matches_obj.size() == 2);
+
+    std::cout << "✓ test_ndjson_fused_root_wildcard_array_and_object passed\n";
+}
+
+void test_ndjson_fused_capture_array_and_object() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"({"items": [1, 2, 3], "obj": {"x": 1}})";
+
+    std::vector<JsonValue> array_matches;
+    Status status_array = extract_simple_field_matches(line, "items", SimpleFieldMode::RootField,
+                                                       array_matches, options, &context);
+    assert(status_array == Status::Ok);
+    assert(array_matches.size() == 1);
+    assert(array_matches[0].is_array());
+    assert(array_matches[0].as_array().size() == 3);
+
+    std::vector<JsonValue> object_matches;
+    Status status_obj = extract_simple_field_matches(line, "obj", SimpleFieldMode::RootField,
+                                                     object_matches, options, &context);
+    assert(status_obj == Status::Ok);
+    assert(object_matches.size() == 1);
+    assert(object_matches[0].is_object());
+    assert(object_matches[0].as_object().at("x").as_number() == 1.0);
+
+    std::cout << "✓ test_ndjson_fused_capture_array_and_object passed\n";
+}
+
+void test_ndjson_fused_large_uint_value() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"({"id": 9223372036854775808})";
+    std::vector<JsonValue> matches;
+    Status status =
+        extract_simple_field_matches(line, "id", SimpleFieldMode::RootField, matches, options,
+                                     &context);
+    assert(status == Status::Ok);
+    assert(matches.size() == 1);
+    assert(matches[0].is_number());
+    assert(matches[0].as_number() > 9.22e18);
+
+    std::cout << "✓ test_ndjson_fused_large_uint_value passed\n";
+}
+
+void test_ndjson_fused_invalid_json() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = "{bad json";
+    std::vector<JsonValue> matches;
+    Status status =
+        extract_simple_field_matches(line, "id", SimpleFieldMode::RootField, matches, options,
+                                     &context);
+    assert(status == Status::ParseError);
+    assert(matches.empty());
+
+    std::cout << "✓ test_ndjson_fused_invalid_json passed\n";
+}
+
+void test_ndjson_fused_root_field_non_object() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"([{"id": 1}, {"id": 2}])";
+    std::vector<JsonValue> matches;
+    Status status =
+        extract_simple_field_matches(line, "id", SimpleFieldMode::RootField, matches, options,
+                                     &context);
+    assert(status == Status::Ok);
+    assert(matches.empty());
+
+    std::cout << "✓ test_ndjson_fused_root_field_non_object passed\n";
+}
+
+void test_ndjson_fused_root_wildcard_ignores_nested() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"([{"id": 1, "nested": {"id": 99}}])";
+    std::vector<JsonValue> matches;
+    Status status = extract_simple_field_matches(line, "id",
+                                                 SimpleFieldMode::RootWildcardField, matches,
+                                                 options, &context);
+    assert(status == Status::Ok);
+    assert(matches.size() == 1);
+    assert(matches[0].as_number() == 1.0);
+
+    std::cout << "✓ test_ndjson_fused_root_wildcard_ignores_nested passed\n";
+}
+
+void test_ndjson_fused_capture_deep_nested_container() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"({"deep": {"a": [ {"b": 1}, {"b": 2} ] }})";
+    std::vector<JsonValue> matches;
+    Status status =
+        extract_simple_field_matches(line, "deep", SimpleFieldMode::RootField, matches, options,
+                                     &context);
+    assert(status == Status::Ok);
+    assert(matches.size() == 1);
+    assert(matches[0].is_object());
+    assert(matches[0].as_object().count("a") == 1);
+
+    std::cout << "✓ test_ndjson_fused_capture_deep_nested_container passed\n";
+}
+
+void test_ndjson_fused_primitive_values() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"({"n": null, "b": true, "d": 1.25, "s": "plain"})";
+
+    std::vector<JsonValue> n_matches;
+    Status n_status =
+        extract_simple_field_matches(line, "n", SimpleFieldMode::RootField, n_matches, options,
+                                     &context);
+    assert(n_status == Status::Ok);
+    assert(n_matches.size() == 1);
+    assert(n_matches[0].is_null());
+
+    std::vector<JsonValue> b_matches;
+    Status b_status =
+        extract_simple_field_matches(line, "b", SimpleFieldMode::RootField, b_matches, options,
+                                     &context);
+    assert(b_status == Status::Ok);
+    assert(b_matches.size() == 1);
+    assert(b_matches[0].is_bool());
+
+    std::vector<JsonValue> d_matches;
+    Status d_status =
+        extract_simple_field_matches(line, "d", SimpleFieldMode::RootField, d_matches, options,
+                                     &context);
+    assert(d_status == Status::Ok);
+    assert(d_matches.size() == 1);
+    assert(d_matches[0].is_number());
+
+    std::vector<JsonValue> s_matches;
+    Status s_status =
+        extract_simple_field_matches(line, "s", SimpleFieldMode::RootField, s_matches, options,
+                                     &context);
+    assert(s_status == Status::Ok);
+    assert(s_matches.size() == 1);
+    assert(s_matches[0].is_string());
+
+    std::cout << "✓ test_ndjson_fused_primitive_values passed\n";
+}
+
+void test_ndjson_fused_object_with_escaped_key() {
+    ParseSaxOptions options;
+    ParseSaxContext context;
+
+    std::string line = R"({"obj": {"a\\tb": 1}})";
+    std::vector<JsonValue> matches;
+    Status status =
+        extract_simple_field_matches(line, "obj", SimpleFieldMode::RootField, matches, options,
+                                     &context);
+    assert(status == Status::Ok);
+    assert(matches.size() == 1);
+    assert(matches[0].is_object());
+    const auto& obj = matches[0].as_object();
+    bool has_key = (obj.count("a\tb") == 1) || (obj.count("a\\tb") == 1);
+    assert(has_key);
+
+    std::cout << "✓ test_ndjson_fused_object_with_escaped_key passed\n";
+}
+
 int main() {
     std::cout << "Running JSONPath tests...\n\n";
     // Compilation tests
@@ -845,6 +1129,8 @@ int main() {
     test_compile_negative_numbers();
     test_compile_float_literals();
     test_compile_filter_errors();
+    test_compile_bracket_and_slice_errors();
+    test_simple_field_extraction_flags();
 
     // Evaluation tests
     test_eval_root();
@@ -876,6 +1162,17 @@ int main() {
     test_eval_collect_array();
     test_eval_collect_nested_array();
     test_ndjson_fused_field_extraction();
+    test_ndjson_fused_root_field_abort_and_invalid_tail();
+    test_ndjson_fused_root_field_escaped_key_and_value();
+    test_ndjson_fused_root_wildcard_array_and_object();
+    test_ndjson_fused_capture_array_and_object();
+    test_ndjson_fused_large_uint_value();
+    test_ndjson_fused_invalid_json();
+    test_ndjson_fused_root_field_non_object();
+    test_ndjson_fused_root_wildcard_ignores_nested();
+    test_ndjson_fused_capture_deep_nested_container();
+    test_ndjson_fused_primitive_values();
+    test_ndjson_fused_object_with_escaped_key();
 
     std::cout << "\n✅ All JSONPath tests passed!\n";
     return 0;

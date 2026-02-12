@@ -322,6 +322,81 @@ void test_extremely_deep_nesting() {
     std::cout << "✓ test_extremely_deep_nesting passed\n";
 }
 
+void test_depth_limit_exceeded() {
+    // Exceed parser depth limit (kMaxNestingDepth = 10000)
+    const int depth = 10001;
+    std::string json;
+    json.reserve(static_cast<size_t>(depth) * 2 + 2);
+    for (int i = 0; i < depth; ++i) json.push_back('[');
+    json += "0";
+    for (int i = 0; i < depth; ++i) json.push_back(']');
+
+    auto result = parse_json(json);
+    assert(!result.ok());
+
+    std::cout << "✓ test_depth_limit_exceeded passed\n";
+}
+
+void test_truncated_json_boundaries() {
+    const std::string json = R"({"a":[1,2,{"b":true},"x"],"c":null})";
+    for (size_t i = 1; i < json.size(); ++i) {
+        auto result = parse_json(json.substr(0, i));
+        assert(!result.ok());
+    }
+
+    std::cout << "✓ test_truncated_json_boundaries passed\n";
+}
+
+void test_large_invalid_array_missing_comma() {
+    // Ensure size is large enough to trigger structural tape path (>= 4KB).
+    const size_t count = 3000;
+    std::string json;
+    json.reserve(count * 2 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < count; ++i) {
+        json += "1";
+        if (i + 1 < count) {
+            if (i == 100) {
+                json.push_back(' '); // Missing comma between elements
+            } else {
+                json.push_back(',');
+            }
+        }
+    }
+    json.push_back(']');
+
+    auto result = parse_json(json);
+    assert(!result.ok());
+
+    std::cout << "✓ test_large_invalid_array_missing_comma passed\n";
+}
+
+void test_large_invalid_object_missing_colon() {
+    const size_t count = 800;
+    std::string json;
+    json.reserve(count * 12 + 2);
+    json.push_back('{');
+    for (size_t i = 0; i < count; ++i) {
+        if (i > 0) {
+            json.push_back(',');
+        }
+        json += "\"k";
+        json += std::to_string(i);
+        json += "\"";
+        if (i == 200) {
+            json += " 1"; // Missing colon before value
+        } else {
+            json += ":1";
+        }
+    }
+    json.push_back('}');
+
+    auto result = parse_json(json);
+    assert(!result.ok());
+
+    std::cout << "✓ test_large_invalid_object_missing_colon passed\n";
+}
+
 void test_empty_key_in_object() {
     // Empty string as key is valid JSON
     auto result = parse_json("{\"\" : \"empty key\"}");
@@ -524,6 +599,10 @@ int main() {
     // Edge cases
     std::cout << "\n--- Edge Cases ---\n";
     test_extremely_deep_nesting();
+    test_depth_limit_exceeded();
+    test_truncated_json_boundaries();
+    test_large_invalid_array_missing_comma();
+    test_large_invalid_object_missing_colon();
     test_empty_key_in_object();
     test_duplicate_keys();
     test_duplicate_key_policy_first_wins();

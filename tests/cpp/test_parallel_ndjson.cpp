@@ -189,6 +189,205 @@ void test_parallel_search_matches_sequential() {
     std::cout << "✓ test_parallel_search_matches_sequential passed\n";
 }
 
+void test_parallel_search_with_errors_skip_true() {
+    std::string data = "{\"id\": 1}\n{invalid}\n{\"id\": 2}\n{\"other\": 3}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 2;
+    config.min_chunk_size = 1;
+    config.num_threads = 2;
+    config.skip_errors = true;
+
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.search_all_parallel_with_errors(compile_result.value);
+
+    assert(result.matches.size() == 2);
+    assert(result.errors.size() == 1);
+    assert(result.lines_processed == 4);
+    assert(stream.error_count() == 1);
+
+    std::cout << "✓ test_parallel_search_with_errors_skip_true passed\n";
+}
+
+void test_parallel_search_throws_on_error() {
+    std::string data = "{\"id\": 1}\n{invalid}\n{\"id\": 2}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 2;
+    config.min_chunk_size = 1;
+    config.num_threads = 2;
+    config.skip_errors = false;
+
+    ParallelNdjsonStream stream(data, config);
+    bool threw = false;
+    try {
+        stream.search_all_parallel(compile_result.value);
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+
+    assert(threw);
+    assert(stream.used_parallel_mode());
+
+    std::cout << "✓ test_parallel_search_throws_on_error passed\n";
+}
+
+void test_parallel_search_sequential_fallback_with_errors() {
+    std::string data = "{\"id\": 1}\n{invalid}\n{\"id\": 2}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 100; // Force sequential
+    config.min_chunk_size = 1024;
+
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.search_all_parallel_with_errors(compile_result.value);
+
+    assert(!stream.used_parallel_mode());
+    assert(result.matches.size() == 2);
+    assert(result.errors.size() == 1);
+    assert(result.lines_processed == 3);
+
+    std::cout << "✓ test_parallel_search_sequential_fallback_with_errors passed\n";
+}
+
+void test_parallel_search_sequential_fallback_small_input() {
+    std::string data = "{\"id\": 1}\n{\"id\": 2}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 100; // Force sequential fallback
+    config.min_chunk_size = 1024;
+
+    ParallelNdjsonStream stream(data, config);
+    auto matches = stream.search_all_parallel(compile_result.value);
+
+    assert(!stream.used_parallel_mode());
+    assert(matches.size() == 2);
+
+    std::cout << "✓ test_parallel_search_sequential_fallback_small_input passed\n";
+}
+
+void test_parallel_search_single_chunk_fallback() {
+    std::string data = "{\"id\": 1}\n{\"id\": 2}\n{\"id\": 3}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 1;
+    config.min_chunk_size = 1;
+    config.num_threads = 1; // Force single chunk
+
+    ParallelNdjsonStream stream(data, config);
+    auto matches = stream.search_all_parallel(compile_result.value);
+
+    assert(!stream.used_parallel_mode());
+    assert(matches.size() == 3);
+
+    std::cout << "✓ test_parallel_search_single_chunk_fallback passed\n";
+}
+
+void test_parallel_search_sequential_fallback_throw_on_error() {
+    std::string data = "{\"id\": 1}\n{invalid}\n{\"id\": 2}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 100; // Force sequential fallback
+    config.min_chunk_size = 1024;
+    config.skip_errors = false;
+
+    ParallelNdjsonStream stream(data, config);
+    bool threw = false;
+    try {
+        stream.search_all_parallel(compile_result.value);
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+
+    assert(threw);
+    assert(!stream.used_parallel_mode());
+
+    std::cout << "✓ test_parallel_search_sequential_fallback_throw_on_error passed\n";
+}
+
+void test_parallel_search_single_chunk_throw_on_error() {
+    std::string data = "{\"id\": 1}\n{invalid}\n{\"id\": 2}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 1;
+    config.min_chunk_size = 1;
+    config.num_threads = 1; // Single chunk path
+    config.skip_errors = false;
+
+    ParallelNdjsonStream stream(data, config);
+    bool threw = false;
+    try {
+        stream.search_all_parallel(compile_result.value);
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+
+    assert(threw);
+    assert(!stream.used_parallel_mode());
+
+    std::cout << "✓ test_parallel_search_single_chunk_throw_on_error passed\n";
+}
+
+void test_parallel_search_with_errors_single_chunk_fallback() {
+    std::string data = "{\"id\": 1}\n{\"id\": 2}";
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 1;
+    config.min_chunk_size = 1;
+    config.num_threads = 1;
+
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.search_all_parallel_with_errors(compile_result.value);
+
+    assert(!stream.used_parallel_mode());
+    assert(result.matches.size() == 2);
+    assert(result.errors.empty());
+
+    std::cout << "✓ test_parallel_search_with_errors_single_chunk_fallback passed\n";
+}
+
+void test_parallel_search_empty_data() {
+    std::string data;
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    ParallelNdjsonStream stream(data, config);
+    auto matches = stream.search_all_parallel(compile_result.value);
+    auto result = stream.search_all_parallel_with_errors(compile_result.value);
+
+    assert(matches.empty());
+    assert(result.matches.empty());
+    assert(result.errors.empty());
+
+    std::cout << "✓ test_parallel_search_empty_data passed\n";
+}
+
 void test_single_line() {
     std::string data = "{\"single\": true}";
 
@@ -257,6 +456,19 @@ void test_sequential_with_errors_fallback() {
     assert(result.lines_processed == 3);
 
     std::cout << "✓ test_sequential_with_errors_fallback passed\n";
+}
+
+void test_parallel_with_errors_empty_data() {
+    std::string data;
+
+    ParallelNdjsonConfig config;
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.parse_all_parallel_with_errors();
+
+    assert(result.values.empty());
+    assert(result.errors.empty());
+
+    std::cout << "✓ test_parallel_with_errors_empty_data passed\n";
 }
 
 void test_sequential_throws_on_error() {
@@ -490,6 +702,22 @@ void test_thread_count_config() {
     std::cout << "✓ test_thread_count_config passed\n";
 }
 
+void test_auto_thread_count_config() {
+    std::string data = generate_sequential_ndjson(50);
+
+    ParallelNdjsonConfig config;
+    config.num_threads = 0; // Auto-detect
+    config.min_lines_for_parallel = 2;
+    config.min_chunk_size = 1;
+
+    ParallelNdjsonStream stream(data, config);
+    auto results = stream.parse_all_parallel();
+
+    assert(results.size() == 50);
+
+    std::cout << "✓ test_auto_thread_count_config passed\n";
+}
+
 void test_mixed_json_types() {
     std::ostringstream oss;
     oss << "null\n";
@@ -541,6 +769,23 @@ void test_no_trailing_newline() {
     std::cout << "✓ test_no_trailing_newline passed\n";
 }
 
+void test_trailing_newline_empty_chunk() {
+    std::string data = "{\"id\": 1}\n"; // Trailing newline creates an empty line
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 1;
+    config.min_chunk_size = 1;
+    config.num_threads = 2;
+
+    ParallelNdjsonStream stream(data, config);
+    auto results = stream.parse_all_parallel();
+
+    assert(results.size() == 1);
+    assert(stream.used_parallel_mode());
+
+    std::cout << "✓ test_trailing_newline_empty_chunk passed\n";
+}
+
 void test_large_dataset() {
     // Generate a large dataset to test real parallel processing
     std::string data = generate_sequential_ndjson(50000);
@@ -580,6 +825,82 @@ void test_parallel_single_chunk_fallback() {
     assert(!stream.used_parallel_mode());
 
     std::cout << "✓ test_parallel_single_chunk_fallback passed\n";
+}
+
+void test_parallel_single_chunk_with_errors_fallback() {
+    std::string data = generate_sequential_ndjson(5);
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 1;
+    config.min_chunk_size = 1;
+    config.num_threads = 1;
+    config.skip_errors = true;
+
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.parse_all_parallel_with_errors();
+
+    assert(!stream.used_parallel_mode());
+    assert(result.values.size() == 5);
+    assert(result.errors.empty());
+
+    std::cout << "✓ test_parallel_single_chunk_with_errors_fallback passed\n";
+}
+
+void test_parallel_partition_chunks_small_data_many_threads() {
+    std::string data = generate_sequential_ndjson(20);
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 2;
+    config.min_chunk_size = std::max<size_t>(1, data.size() / 3);
+    config.num_threads = 8;
+
+    ParallelNdjsonStream stream(data, config);
+    auto results = stream.parse_all_parallel();
+
+    assert(results.size() == 20);
+    assert(stream.used_parallel_mode());
+
+    std::cout << "✓ test_parallel_partition_chunks_small_data_many_threads passed\n";
+}
+
+void test_parallel_profile_empty_chunk_timing() {
+    std::string data = "{\"id\": 1}\n"; // Trailing newline produces empty chunk
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 1;
+    config.min_chunk_size = 1;
+    config.num_threads = 2;
+
+    ParallelNdjsonProfile profile;
+    config.profile = &profile;
+
+    ParallelNdjsonStream stream(data, config);
+    auto results = stream.parse_all_parallel();
+
+    assert(results.size() == 1);
+    assert(profile.chunk_count >= 2);
+
+    std::cout << "✓ test_parallel_profile_empty_chunk_timing passed\n";
+}
+
+void test_parallel_search_empty_chunk() {
+    std::string data = "{\"id\": 1}\n"; // Trailing newline produces empty chunk
+
+    auto compile_result = compile_search_path("$.id");
+    assert(compile_result.ok());
+
+    ParallelNdjsonConfig config;
+    config.min_lines_for_parallel = 1;
+    config.min_chunk_size = 1;
+    config.num_threads = 2;
+
+    ParallelNdjsonStream stream(data, config);
+    auto result = stream.search_all_parallel_with_errors(compile_result.value);
+
+    assert(result.matches.size() == 1);
+    assert(result.errors.empty());
+
+    std::cout << "✓ test_parallel_search_empty_chunk passed\n";
 }
 
 void test_profile_metrics_parallel() {
@@ -649,10 +970,20 @@ int main() {
     test_collects_errors_from_multiple_chunks();
     test_matches_sequential_results();
     test_parallel_search_matches_sequential();
+    test_parallel_search_with_errors_skip_true();
+    test_parallel_search_throws_on_error();
+    test_parallel_search_sequential_fallback_with_errors();
+    test_parallel_search_sequential_fallback_small_input();
+    test_parallel_search_single_chunk_fallback();
+    test_parallel_search_sequential_fallback_throw_on_error();
+    test_parallel_search_single_chunk_throw_on_error();
+    test_parallel_search_with_errors_single_chunk_fallback();
+    test_parallel_search_empty_data();
     test_single_line();
     test_lines_less_than_threads();
     test_empty_lines();
     test_sequential_with_errors_fallback();
+    test_parallel_with_errors_empty_data();
     test_sequential_throws_on_error();
     test_parallel_throws_on_error();
     test_very_long_lines();
@@ -664,10 +995,16 @@ int main() {
     test_arrays_as_root();
     test_statistics();
     test_thread_count_config();
+    test_auto_thread_count_config();
     test_mixed_json_types();
     test_no_trailing_newline();
+    test_trailing_newline_empty_chunk();
     test_large_dataset();
     test_parallel_single_chunk_fallback();
+    test_parallel_single_chunk_with_errors_fallback();
+    test_parallel_partition_chunks_small_data_many_threads();
+    test_parallel_profile_empty_chunk_timing();
+    test_parallel_search_empty_chunk();
     test_profile_metrics_parallel();
     test_profile_metrics_with_errors();
 

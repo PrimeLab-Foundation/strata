@@ -15,6 +15,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <sys/stat.h>
 #include <string>
 #include <unistd.h>
@@ -189,6 +190,20 @@ void test_parse_empty_file() {
     std::cout << " OK\n";
 }
 
+void test_parse_whitespace_only_file() {
+    std::cout << "  test_parse_whitespace_only_file..." << std::flush;
+
+    const char* json = "   \n\t  ";
+    std::string filename = create_temp_file(json);
+    assert(!filename.empty());
+
+    auto result = parse_json_file(filename.c_str());
+    assert(!result.ok());
+
+    remove_temp_file(filename);
+    std::cout << " OK\n";
+}
+
 void test_parse_nonexistent_file() {
     std::cout << "  test_parse_nonexistent_file..." << std::flush;
 
@@ -298,6 +313,32 @@ void test_parse_large_numbers() {
     std::cout << " OK\n";
 }
 
+void test_parse_large_file() {
+    std::cout << "  test_parse_large_file..." << std::flush;
+
+    std::ostringstream oss;
+    oss << "[";
+    for (int i = 0; i < 10000; ++i) {
+        if (i > 0) {
+            oss << ",";
+        }
+        oss << i;
+    }
+    oss << "]";
+
+    std::string json = oss.str();
+    std::string filename = create_temp_file(json.c_str());
+    assert(!filename.empty());
+
+    auto result = parse_json_file(filename.c_str());
+    assert(result.ok());
+    assert(result.value.root().is_array());
+    assert(result.value.root().array_size() == 10000);
+
+    remove_temp_file(filename);
+    std::cout << " OK\n";
+}
+
 int main() {
     std::cout << "test_json_mmap:\n";
 
@@ -305,6 +346,7 @@ int main() {
     test_parse_array();
     test_parse_nested_structure();
     test_parse_empty_file();
+    test_parse_whitespace_only_file();
     test_parse_nonexistent_file();
     test_parse_invalid_json_file();
     test_parse_directory();
@@ -312,6 +354,7 @@ int main() {
     test_parse_file_cursor_nonexistent();
     test_parse_unicode_file();
     test_parse_large_numbers();
+    test_parse_large_file();
 
     std::cout << "test_json_mmap: all tests passed\n";
     return 0;

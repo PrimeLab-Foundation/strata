@@ -12,6 +12,53 @@
 
 using namespace strata;
 
+class AbortOnKeyHandler : public JsonSaxHandler {
+  public:
+    bool saw_key = false;
+
+    bool on_null() override { return true; }
+    bool on_bool(bool) override { return true; }
+    bool on_int(int64_t) override { return true; }
+    bool on_uint(uint64_t) override { return true; }
+    bool on_double(double) override { return true; }
+    bool on_string(std::string_view, bool) override { return true; }
+    bool on_start_object(size_t) override { return true; }
+    bool on_key(std::string_view, bool) override {
+        saw_key = true;
+        return false; // Abort parsing after first key.
+    }
+    bool on_end_object() override { return true; }
+    bool on_start_array(size_t) override { return true; }
+    bool on_end_array() override { return true; }
+};
+
+static std::string build_large_array_json(size_t count) {
+    std::string json;
+    json.reserve(count * 2 + 2);
+    json.push_back('[');
+    for (size_t i = 0; i < count; ++i) {
+        json += "1";
+        if (i + 1 < count) {
+            json.push_back(',');
+        }
+    }
+    json.push_back(']');
+    return json;
+}
+
+static std::string make_invalid_utf8_json(size_t payload_len, unsigned char bad_byte) {
+    std::string json;
+    json.reserve(payload_len + 2);
+    json.push_back('"');
+    json.append(payload_len, 'a');
+    if (payload_len > 0) {
+        size_t bad_pos = payload_len / 2;
+        json[1 + bad_pos] = static_cast<char>(bad_byte);
+    }
+    json.push_back('"');
+    return json;
+}
+
 void test_parse_null() {
     auto result = parse_json("null");
     assert(result.ok());
@@ -147,6 +194,26 @@ void test_parse_array() {
     assert(arr[2].as_int() == 3);
 
     std::cout << "✓ test_parse_array passed\n";
+}
+
+void test_parse_array_size_hint_scalars() {
+    auto result = parse_json(
+        R"([123, -45, 3.14, 1e5, true, false, null, "a\nb", "\u0041", 18446744073709551615])");
+    assert(result.ok());
+    assert(result.value.is_array());
+    const auto& arr = result.value.as_array();
+    assert(arr.size() == 10);
+    assert(arr[0].as_int() == 123);
+    assert(arr[1].as_int() == -45);
+    assert(arr[2].is_double());
+    assert(arr[3].is_double());
+    assert(arr[4].as_bool() == true);
+    assert(arr[5].as_bool() == false);
+    assert(arr[6].is_null());
+    assert(arr[7].as_string().find('\n') != std::string::npos);
+    assert(arr[8].as_string() == "A");
+    assert(arr[9].is_number());
+    std::cout << "✓ test_parse_array_size_hint_scalars passed\n";
 }
 
 void test_parse_nested_array() {
@@ -333,6 +400,74 @@ void test_parse_large_numbers() {
     std::cout << "✓ test_parse_large_numbers passed\n";
 }
 
+void test_parse_sax_allow_abort() {
+    const char* json = R"({"a": 1, "b": 2})";
+
+    AbortOnKeyHandler abort_handler;
+    ParseSaxOptions allow_abort;
+    allow_abort.allow_abort = true;
+    Status status_ok = parse_sax(json, abort_handler, allow_abort, nullptr);
+    assert(status_ok == Status::Ok);
+    assert(abort_handler.saw_key);
+
+    AbortOnKeyHandler no_abort_handler;
+    ParseSaxOptions disallow_abort;
+    disallow_abort.allow_abort = false;
+    Status status_err = parse_sax(json, no_abort_handler, disallow_abort, nullptr);
+    assert(status_err == Status::ParseError);
+
+    std::cout << "✓ test_parse_sax_allow_abort passed\n";
+}
+
+void test_parse_structural_tape_large_array() {
+    std::string json = build_large_array_json(3000);
+
+    ParseSaxOptions options;
+    ParseSaxContext context;
+    auto result = parse_json(json, options, &context);
+    assert(result.ok());
+    assert(result.value.is_array());
+    assert(result.value.as_array().size() == 3000);
+    assert(!context.structural_tape.empty());
+
+    // Also exercise the thread-local structural tape path (no context provided).
+    auto result_thread_local = parse_json(json);
+    assert(result_thread_local.ok());
+    assert(result_thread_local.value.is_array());
+
+    std::cout << "✓ test_parse_structural_tape_large_array passed\n";
+}
+
+void test_parse_medium_ascii_string() {
+    std::string payload(200, 'a');
+    std::string json = "\"" + payload + "\"";
+    auto result = parse_json(json);
+    assert(result.ok());
+    assert(result.value.is_string());
+    assert(result.value.as_string().size() == payload.size());
+
+    std::cout << "✓ test_parse_medium_ascii_string passed\n";
+}
+
+void test_parse_invalid_utf8_size_branches() {
+    // Small (<= 128) input path
+    auto small = make_invalid_utf8_json(60, 0xC0);
+    auto small_result = parse_json(small);
+    assert(!small_result.ok());
+
+    // Medium (< 4KB) input path
+    auto medium = make_invalid_utf8_json(256, 0xC0);
+    auto medium_result = parse_json(medium);
+    assert(!medium_result.ok());
+
+    // Large (>= 4KB) input path
+    auto large = make_invalid_utf8_json(5000, 0xC0);
+    auto large_result = parse_json(large);
+    assert(!large_result.ok());
+
+    std::cout << "✓ test_parse_invalid_utf8_size_branches passed\n";
+}
+
 int main() {
     std::cout << "Running JSON parsing tests...\n\n";
 
@@ -344,6 +479,7 @@ int main() {
     test_parse_unicode();
     test_parse_utf8_validation();
     test_parse_array();
+    test_parse_array_size_hint_scalars();
     test_parse_nested_array();
     test_parse_object();
     test_parse_escaped_key();
@@ -354,6 +490,10 @@ int main() {
     test_parse_large_numbers();
     test_parse_unsigned_large();
     test_duplicate_key_policies();
+    test_parse_sax_allow_abort();
+    test_parse_structural_tape_large_array();
+    test_parse_medium_ascii_string();
+    test_parse_invalid_utf8_size_branches();
 
     std::cout << "\n✅ All JSON parsing tests passed!\n";
     return 0;

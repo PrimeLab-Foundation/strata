@@ -418,6 +418,18 @@ struct Parser {
                 continue;
             }
 
+            if (depth == 0) {
+                if (c == '"' || c == '-' || (c >= '0' && c <= '9') || c == 'n' || c == 't' ||
+                    c == 'f') {
+                    size_t scalar_pos = pos;
+                    if (skip_scalar_local(scalar_pos, limit)) {
+                        // Adjust for the loop increment after skipping a scalar.
+                        pos = (scalar_pos > 0) ? (scalar_pos - 1) : scalar_pos;
+                        continue;
+                    }
+                }
+            }
+
             if (c == '"') {
                 in_string = true;
                 continue;

@@ -386,6 +386,79 @@ void test_tape_to_dom_uint64() {
     std::cout << "✓ test_tape_to_dom_uint64 passed\n";
 }
 
+void test_tape_to_dom_uint64_small_value() {
+    TapeBuilder builder;
+    builder.on_uint(42);
+    JsonTape tape = builder.build();
+
+    auto dom_result = tape_to_dom(tape);
+    assert(dom_result.ok());
+    assert(dom_result.value.is_int());
+    assert(dom_result.value.as_int() == 42);
+
+    std::cout << "✓ test_tape_to_dom_uint64_small_value passed\n";
+}
+
+void test_tape_to_dom_invalid_token_value() {
+    auto tape_result = parse_to_tape("null");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    assert(!tokens.empty());
+    tokens[0] = 200; // Invalid token
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_invalid_token_value passed\n";
+}
+
+void test_tape_to_dom_object_missing_key() {
+    auto tape_result = parse_to_tape("{\"a\": 1}");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    assert(tokens.size() >= 3);
+    tokens[1] = static_cast<uint8_t>(TapeToken::Null); // Should be Key
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_object_missing_key passed\n";
+}
+
+void test_tape_to_dom_object_value_error() {
+    auto tape_result = parse_to_tape("{\"a\": 1}");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    assert(tokens.size() >= 4);
+    tokens[2] = static_cast<uint8_t>(TapeToken::RootEnd); // Invalid value token
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_object_value_error passed\n";
+}
+
+void test_tape_to_dom_array_value_error() {
+    auto tape_result = parse_to_tape("[1]");
+    assert(tape_result.ok());
+    auto tape = std::move(tape_result.value);
+
+    auto& tokens = const_cast<std::vector<uint8_t>&>(tape.tokens());
+    assert(tokens.size() >= 3);
+    tokens[1] = static_cast<uint8_t>(TapeToken::RootEnd); // Invalid value token
+
+    auto dom_result = tape_to_dom(tape);
+    assert(!dom_result.ok());
+
+    std::cout << "✓ test_tape_to_dom_array_value_error passed\n";
+}
+
 void test_tape_to_dom_invalid_token() {
     auto tape_result = parse_to_tape("null");
     assert(tape_result.ok());
@@ -493,6 +566,11 @@ int main() {
     test_tape_invalid_json();
     test_tape_to_dom_empty();
     test_tape_to_dom_uint64();
+    test_tape_to_dom_uint64_small_value();
+    test_tape_to_dom_invalid_token_value();
+    test_tape_to_dom_object_missing_key();
+    test_tape_to_dom_object_value_error();
+    test_tape_to_dom_array_value_error();
     test_tape_to_dom_invalid_token();
     test_tape_to_dom_missing_root_end();
     test_tape_to_dom_object_missing_end();

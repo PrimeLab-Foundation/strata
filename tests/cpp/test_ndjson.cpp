@@ -180,6 +180,22 @@ void test_unicode() {
     std::cout << "✓ test_unicode passed\n";
 }
 
+void test_validate_utf8_once_invalid() {
+    std::string data = "{\"text\": \"a";
+    data.push_back(static_cast<char>(0xC0));  // Invalid UTF-8 lead byte
+    data += "b\"}";
+
+    NdjsonStream stream(data);
+    bool ok = stream.validate_utf8_once();
+    assert(!ok);
+
+    auto results = stream.parse_all(true);
+    assert(results.empty());
+    assert(stream.error_count() == 1);
+
+    std::cout << "✓ test_validate_utf8_once_invalid passed\n";
+}
+
 void test_escaped_newlines() {
     std::string data = "{\"text\": \"line1\\nline2\"}\n{\"text\": \"line3\"}";
     NdjsonStream stream(data);
@@ -445,6 +461,21 @@ void test_ndjson_batch_empty_lines() {
     std::cout << "✓ test_ndjson_batch_empty_lines passed\n";
 }
 
+void test_ndjson_batch_zero_size() {
+    std::string ndjson = "{\"a\":1}\n{\"b\":2}";
+    NdjsonStream stream(ndjson);
+
+    auto batch = stream.next_batch(0, false);
+    assert(batch.empty());
+
+    // Ensure stream did not advance
+    auto first = stream.next();
+    assert(first.ok());
+    assert(first.value.as_object().at("a").as_number() == 1.0);
+
+    std::cout << "✓ test_ndjson_batch_zero_size passed\n";
+}
+
 void test_next_end_of_stream() {
     // Test that next() returns KeyNotFound when stream is exhausted
     std::string data = "{\"a\": 1}\n{\"b\": 2}";
@@ -507,6 +538,14 @@ void test_ndjson_parse_all_fast_with_errors() {
     std::cout << "✓ test_ndjson_parse_all_fast_with_errors passed\n";
 }
 
+void test_ndjson_parse_all_fast_empty() {
+    NdjsonStream stream("");
+    auto results = stream.parse_all_fast();
+    assert(results.empty());
+
+    std::cout << "✓ test_ndjson_parse_all_fast_empty passed\n";
+}
+
 int main() {
     std::cout << "Running NDJSON streaming tests...\n\n";
 
@@ -523,6 +562,7 @@ int main() {
     test_malformed_line_stops();
     test_skip_errors();
     test_unicode();
+    test_validate_utf8_once_invalid();
     test_escaped_newlines();
     test_line_numbers();
     test_large_stream();
@@ -540,7 +580,9 @@ int main() {
     test_ndjson_batch_with_errors();
     test_ndjson_batch_single_item();
     test_ndjson_batch_empty_lines();
+    test_ndjson_batch_zero_size();
     test_ndjson_parse_all_fast_with_errors();
+    test_ndjson_parse_all_fast_empty();
     test_next_end_of_stream();
     test_sax_whitespace_lines();
     std::cout << "\n✅ All NDJSON streaming tests passed!\n";

@@ -203,6 +203,21 @@ void test_filter_boolean_false() {
     std::cout << "✓ test_filter_boolean_false passed\n";
 }
 
+void test_filter_boolean_not_equal() {
+    auto doc = JsonDocument::from_string(
+        R"([{"active": true}, {"active": false}, {"active": true}, {"active": "true"}])");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$[?(@.active != true)]");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].as_object().at("active").as_bool() == false);
+
+    std::cout << "✓ test_filter_boolean_not_equal passed\n";
+}
+
 void test_filter_null_equal() {
     auto doc = JsonDocument::from_string(
         R"([{"deleted": null}, {"deleted": false}, {"deleted": 0}, {"other": null}])");
@@ -218,6 +233,19 @@ void test_filter_null_equal() {
     std::cout << "✓ test_filter_null_equal passed\n";
 }
 
+void test_filter_null_not_equal() {
+    auto doc = JsonDocument::from_string(
+        R"([{"deleted": null}, {"deleted": false}, {"deleted": 1}, {"other": null}])");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$[?(@.deleted != null)]");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 2);
+
+    std::cout << "✓ test_filter_null_not_equal passed\n";
+}
 void test_filter_with_nested_path() {
     auto doc = JsonDocument::from_string(
         R"({"users": [{"name": "Alice", "age": 30}, {"name": "Bob", "age": 25}]})");
@@ -379,6 +407,32 @@ void test_recursive_with_wildcards() {
     assert(results.size() == 2);
 
     std::cout << "✓ test_recursive_with_wildcards passed\n";
+}
+
+void test_recursive_deeply_nested_structure() {
+    auto doc = JsonDocument::from_string(R"({
+        "level1": {
+            "level2": {
+                "level3": {
+                    "level4": {
+                        "items": [
+                            {"target": 1},
+                            {"target": 2}
+                        ]
+                    }
+                }
+            }
+        }
+    })");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$..target");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.size() == 2);
+
+    std::cout << "✓ test_recursive_deeply_nested_structure passed\n";
 }
 
 // ============================================================================
@@ -554,6 +608,20 @@ void test_slice_out_of_bounds() {
     std::cout << "✓ test_slice_out_of_bounds passed\n";
 }
 
+void test_slice_step_zero_manual() {
+    auto doc = JsonDocument::from_string("[0, 1, 2, 3, 4]");
+    assert(doc.ok());
+
+    PathStep slice(PathOp::Slice);
+    slice.slice_start = 0;
+    slice.slice_end = 4;
+    slice.slice_step = 0; // Invalid step size
+    CompiledPath path({PathStep(PathOp::Root), slice});
+    auto results = eval_search_path(doc.value, path);
+    assert(results.empty());
+
+    std::cout << "✓ test_slice_step_zero_manual passed\n";
+}
 // ============================================================================
 // Combined Features Tests
 // ============================================================================
@@ -674,6 +742,19 @@ void test_filter_decimal_comparison() {
     std::cout << "✓ test_filter_decimal_comparison passed\n";
 }
 
+void test_index_negative_out_of_range() {
+    auto doc = JsonDocument::from_string("[1, 2, 3]");
+    assert(doc.ok());
+
+    auto path = compile_search_path("$[-10]");
+    assert(path.ok());
+
+    auto results = eval_search_path(doc.value, path.value);
+    assert(results.empty());
+
+    std::cout << "✓ test_index_negative_out_of_range passed\n";
+}
+
 // ============================================================================
 // Evaluation Edge Coverage
 // ============================================================================
@@ -783,6 +864,29 @@ void test_eval_filter_default_ops() {
     auto string_results = eval_search_path(doc.value, string_path);
     assert(string_results.empty());
 
+    auto bool_doc = JsonDocument::from_string(R"([{"active": true}, {"active": false}])");
+    assert(bool_doc.ok());
+    PathStep bool_filter(PathOp::Filter);
+    bool_filter.filter.field = "active";
+    bool_filter.filter.op = FilterOp::GreaterThan; // Unsupported for boolean filters
+    bool_filter.filter.bool_value = true;
+    bool_filter.filter.value_type = FilterValueType::Boolean;
+    bool_filter.filter.is_numeric = false;
+    CompiledPath bool_path({root, bool_filter});
+    auto bool_results = eval_search_path(bool_doc.value, bool_path);
+    assert(bool_results.empty());
+
+    auto null_doc = JsonDocument::from_string(R"([{"deleted": null}, {"deleted": false}])");
+    assert(null_doc.ok());
+    PathStep null_filter(PathOp::Filter);
+    null_filter.filter.field = "deleted";
+    null_filter.filter.op = FilterOp::GreaterThan; // Unsupported for null filters
+    null_filter.filter.value_type = FilterValueType::Null;
+    null_filter.filter.is_numeric = false;
+    CompiledPath null_path({root, null_filter});
+    auto null_results = eval_search_path(null_doc.value, null_path);
+    assert(null_results.empty());
+
     std::cout << "✓ test_eval_filter_default_ops passed\n";
 }
 
@@ -869,7 +973,9 @@ int main() {
     test_filter_exists();
     test_filter_boolean_true();
     test_filter_boolean_false();
+    test_filter_boolean_not_equal();
     test_filter_null_equal();
+    test_filter_null_not_equal();
     test_filter_with_nested_path();
     test_filter_then_field_access();
     test_filter_missing_field();
@@ -883,6 +989,7 @@ int main() {
     test_recursive_mixed_structure();
     test_recursive_no_matches();
     test_recursive_with_wildcards();
+    test_recursive_deeply_nested_structure();
 
     // Array slicing
     std::cout << "\n--- Array Slicing ---\n";
@@ -897,6 +1004,7 @@ int main() {
     test_slice_on_nested_array();
     test_slice_empty_range();
     test_slice_out_of_bounds();
+    test_slice_step_zero_manual();
 
     // Combined features
     std::cout << "\n--- Combined Features ---\n";
@@ -909,6 +1017,7 @@ int main() {
     test_slice_on_non_array();
     test_recursive_on_scalar();
     test_filter_decimal_comparison();
+    test_index_negative_out_of_range();
     test_eval_empty_path();
     test_eval_root_field_short_circuit();
     test_eval_limit_short_circuit_wildcard_slice();

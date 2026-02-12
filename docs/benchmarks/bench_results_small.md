@@ -1,10 +1,10 @@
 # Strata Benchmark Results
 
-Generated: 2026-02-12 01:09:07
+Generated: 2026-02-12 02:12:26
 
 ## Environment
 
-- Commit: 4b1934ea6b90104063201b6ada1fd68de1090565
+- Commit: 334cd9c91bd5c8d0997a34e0a112219177b470f0
 - OS: macOS-26.1-arm64-arm-64bit-Mach-O
 - CPU: arm64
 - Python: 3.14.2
@@ -19,32 +19,32 @@ Generated: 2026-02-12 01:09:07
 
 | Library       | Dataset      | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |
 | ------------- | ------------ | -------- | ----------- | -------- | -------- |
-| msgspec       | users.json   | 2.834    | 3.740       | 4.180    | 327.4    |
-| orjson        | users.json   | 2.429    | 4.315       | 4.468    | 324.2    |
-| ujson         | users.json   | 3.807    | 5.834       | 6.198    | 326.3    |
-| json (stdlib) | users.json   | 5.509    | 6.046       | 6.212    | 328.4    |
-| strata        | users.json   | 10.478   | 10.893      | 15.919   | 319.8    |
-| orjson        | users.ndjson | 2.580    | 3.491       | 3.589    | 332.0    |
-| msgspec       | users.ndjson | 2.688    | 3.617       | 3.747    | 334.1    |
-| ujson         | users.ndjson | 3.801    | 5.286       | 5.381    | 334.1    |
-| json (stdlib) | users.ndjson | 5.527    | 6.451       | 6.651    | 334.1    |
-| strata        | users.ndjson | 6.544    | 7.418       | 7.432    | 330.1    |
+| msgspec       | users.json   | 2.738    | 3.646       | 3.742    | 327.5    |
+| orjson        | users.json   | 3.523    | 3.729       | 4.737    | 324.3    |
+| ujson         | users.json   | 4.157    | 5.576       | 5.873    | 326.4    |
+| json (stdlib) | users.json   | 5.246    | 5.986       | 6.348    | 328.5    |
+| strata        | users.json   | 10.878   | 10.972      | 16.611   | 319.9    |
+| orjson        | users.ndjson | 2.704    | 3.530       | 3.848    | 331.8    |
+| msgspec       | users.ndjson | 2.754    | 3.736       | 3.972    | 333.9    |
+| ujson         | users.ndjson | 4.065    | 5.536       | 5.901    | 333.9    |
+| json (stdlib) | users.ndjson | 5.528    | 6.647       | 6.687    | 333.9    |
+| strata        | users.ndjson | 7.124    | 8.054       | 8.081    | 329.9    |
 
 ## Query Benchmarks
 
 | Query                               | Library     | Min (ms) | Results |
 | ----------------------------------- | ----------- | -------- | ------- |
-| $.users[*].id                       | query       | 0.038    | 1000    |
-|                                     | jmespath    | 0.184    | 1000    |
-|                                     | jsonpath-ng | 1.572    | 1000    |
-| $.users[*].orders[*].items[*].price | query       | 0.528    | 12046   |
-|                                     | jmespath    | 5.647    | 1000    |
-|                                     | jsonpath-ng | 18.076   | 12046   |
-| $..price                            | jmespath    | 5.475    | 1000    |
-|                                     | query       | 6.007    | 12046   |
-|                                     | jsonpath-ng | 70.441   | 12046   |
-| $.users[?(@.age>30)]                | query       | 0.029    | 794     |
-| $..orders[?(@.status=="shipped")]   | query       | 6.075    | 3208    |
+| $.users[*].id                       | query       | 0.028    | 1000    |
+|                                     | jmespath    | 0.185    | 1000    |
+|                                     | jsonpath-ng | 1.597    | 1000    |
+| $.users[*].orders[*].items[*].price | query       | 0.573    | 12046   |
+|                                     | jmespath    | 5.646    | 1000    |
+|                                     | jsonpath-ng | 18.305   | 12046   |
+| $..price                            | query       | 5.835    | 12046   |
+|                                     | jmespath    | 5.885    | 1000    |
+|                                     | jsonpath-ng | 72.108   | 12046   |
+| $.users[?(@.age>30)]                | query       | 0.033    | 794     |
+| $..orders[?(@.status=="shipped")]   | query       | 6.373    | 3208    |
 ## Loads Benchmarks
 
 ### users.json (JSON)
@@ -56,11 +56,11 @@ Generated: 2026-02-12 01:09:07
 
 | Library       | Min (ms) | Median (ms) | P95 (ms) | MB/s   | RSS (MB) |
 | ------------- | -------- | ----------- | -------- | ------ | -------- |
-| orjson        | 2.71     | 3.43        | 3.93     | 293.59 | 322.9    |
-| msgspec       | 2.67     | 3.88        | 4.43     | 259.96 | 323.0    |
-| ujson         | 3.81     | 5.50        | 5.77     | 183.35 | 326.1    |
-| json (stdlib) | 5.45     | 5.98        | 6.39     | 168.66 | 325.1    |
-| strata        | 10.00    | 10.21       | 15.95    | 98.77  | 319.1    |
+| orjson        | 2.63     | 3.46        | 4.30     | 291.32 | 322.9    |
+| msgspec       | 2.65     | 3.67        | 4.18     | 274.94 | 323.0    |
+| ujson         | 3.73     | 5.58        | 6.03     | 180.78 | 326.0    |
+| json (stdlib) | 5.22     | 5.98        | 6.37     | 168.49 | 325.0    |
+| strata        | 10.70    | 10.98       | 16.82    | 91.84  | 319.1    |
 ### users.ndjson (NDJSON)
 
 - Source: benchmarks/data/generated/small/users.ndjson
@@ -71,11 +71,11 @@ Generated: 2026-02-12 01:09:07
 
 | Library       | Min (ms) | Median (ms) | P95 (ms) | MB/s   | RSS (MB) |
 | ------------- | -------- | ----------- | -------- | ------ | -------- |
-| msgspec       | 2.77     | 3.61        | 3.98     | 278.91 | 36.6     |
-| orjson        | 2.78     | 3.78        | 3.80     | 266.30 | 36.5     |
-| ujson         | 3.98     | 5.44        | 5.70     | 184.99 | 39.7     |
-| strata        | 5.80     | 6.30        | 6.35     | 159.75 | 36.0     |
-| json (stdlib) | 5.50     | 6.52        | 6.71     | 154.54 | 38.7     |
+| orjson        | 2.82     | 3.65        | 3.85     | 275.68 | 36.5     |
+| msgspec       | 2.72     | 3.70        | 4.20     | 272.23 | 36.6     |
+| ujson         | 4.01     | 5.58        | 5.68     | 180.37 | 39.6     |
+| json (stdlib) | 5.83     | 6.60        | 6.89     | 152.70 | 38.6     |
+| strata        | 6.39     | 7.05        | 7.16     | 142.92 | 36.0     |
 ## Search Benchmarks
 
 ### users.json (JSON)
@@ -89,36 +89,36 @@ Generated: 2026-02-12 01:09:07
 
 | Query                                       | Library     | Min (ms) | Median (ms) | P95 (ms) | MB/s      | Results | RSS (MB) |
 | ------------------------------------------- | ----------- | -------- | ----------- | -------- | --------- | ------- | -------- |
-| Deep path navigation                        | strata      | 0.00     | 0.01        | 0.01     | 179235.23 | 1       | 241.1    |
-| Deep path navigation                        | jsonpath-ng | 0.01     | 0.01        | 0.01     | 126024.71 | 1       | 241.1    |
-| Deep path navigation                        | jmespath    | 0.01     | 0.01        | 0.01     | 116058.22 | 1       | 241.1    |
-| Extract all user IDs                        | jmespath    | 0.22     | 0.22        | 0.22     | 4572.34   | 1000    | 97.9     |
-| Extract all user IDs                        | strata      | 1.12     | 1.13        | 1.14     | 891.04    | 1000    | 97.8     |
-| Extract all user IDs                        | jsonpath-ng | 1.77     | 1.84        | 1.90     | 548.88    | 1000    | 98.6     |
-| Extract all user names                      | jmespath    | 0.19     | 0.21        | 0.23     | 4784.80   | 1000    | 288.7    |
-| Extract all user names                      | strata      | 1.14     | 1.21        | 1.27     | 835.99    | 1000    | 288.7    |
-| Extract all user names                      | jsonpath-ng | 1.52     | 1.56        | 1.60     | 646.30    | 1000    | 288.7    |
-| Extract nested timestamp field              | jmespath    | 0.55     | 0.56        | 0.56     | 1809.51   | 1000    | 159.2    |
-| Extract nested timestamp field              | strata      | 1.02     | 1.06        | 1.09     | 954.02    | 1000    | 159.1    |
-| Extract nested timestamp field              | jsonpath-ng | 2.09     | 2.30        | 2.51     | 438.57    | 1000    | 159.5    |
-| Extract order item prices (double wildcard) | jmespath    | 5.40     | 5.51        | 5.61     | 183.05    | 1000    | 192.0    |
-| Extract order item prices (double wildcard) | strata      | 13.69    | 13.73       | 13.76    | 73.44     | 12046   | 191.5    |
-| Extract order item prices (double wildcard) | jsonpath-ng | 17.59    | 17.66       | 17.73    | 57.09     | 12046   | 195.4    |
-| Filter users by age (numeric predicate)     | strata      | 0.98     | 0.99        | 1.00     | 1020.14   | 794     | 318.8    |
-| Filter users by age (numeric predicate)     | jmespath    | 1.11     | 1.11        | 1.12     | 906.21    | 794     | 318.8    |
-| Recursively find all prices                 | strata      | 31.28    | 31.51       | 31.74    | 32.00     | 12046   | 327.6    |
-| Recursively find all prices                 | jsonpath-ng | 73.07    | 73.24       | 73.41    | 13.77     | 12046   | 329.3    |
-| Slice first 10 users, extract IDs           | jmespath    | 0.01     | 0.01        | 0.02     | 87990.72  | 10      | 349.5    |
-| Slice first 10 users, extract IDs           | strata      | 0.01     | 0.02        | 0.02     | 57609.67  | 10      | 349.5    |
-| Slice first 10 users, extract IDs           | jsonpath-ng | 0.02     | 0.02        | 0.03     | 46801.51  | 10      | 349.5    |
+| Deep path navigation                        | strata      | 0.00     | 0.00        | 0.00     | 264445.89 | 1       | 225.0    |
+| Deep path navigation                        | jmespath    | 0.01     | 0.01        | 0.02     | 82301.89  | 1       | 225.0    |
+| Deep path navigation                        | jsonpath-ng | 0.01     | 0.01        | 0.02     | 71485.63  | 1       | 225.0    |
+| Extract all user IDs                        | jmespath    | 0.19     | 0.20        | 0.21     | 5077.47   | 1000    | 97.8     |
+| Extract all user IDs                        | strata      | 1.13     | 1.13        | 1.14     | 889.91    | 1000    | 97.7     |
+| Extract all user IDs                        | jsonpath-ng | 1.53     | 1.61        | 1.69     | 627.01    | 1000    | 98.5     |
+| Extract all user names                      | jmespath    | 0.21     | 0.21        | 0.21     | 4723.15   | 1000    | 250.2    |
+| Extract all user names                      | strata      | 1.14     | 1.14        | 1.14     | 883.61    | 1000    | 250.2    |
+| Extract all user names                      | jsonpath-ng | 1.67     | 1.69        | 1.72     | 595.20    | 1000    | 250.2    |
+| Extract nested timestamp field              | jmespath    | 0.55     | 0.59        | 0.63     | 1719.01   | 1000    | 159.1    |
+| Extract nested timestamp field              | strata      | 1.09     | 1.10        | 1.10     | 917.99    | 1000    | 159.1    |
+| Extract nested timestamp field              | jsonpath-ng | 2.19     | 2.23        | 2.27     | 452.35    | 1000    | 159.5    |
+| Extract order item prices (double wildcard) | jmespath    | 5.54     | 5.60        | 5.65     | 180.07    | 1000    | 192.1    |
+| Extract order item prices (double wildcard) | strata      | 13.79    | 13.89       | 13.99    | 72.57     | 12046   | 191.5    |
+| Extract order item prices (double wildcard) | jsonpath-ng | 17.69    | 17.81       | 17.94    | 56.59     | 12046   | 195.3    |
+| Filter users by age (numeric predicate)     | strata      | 0.87     | 0.91        | 0.95     | 1111.29   | 794     | 276.4    |
+| Filter users by age (numeric predicate)     | jmespath    | 1.09     | 1.12        | 1.14     | 903.13    | 794     | 276.4    |
+| Recursively find all prices                 | strata      | 33.62    | 34.19       | 34.76    | 29.49     | 12046   | 300.6    |
+| Recursively find all prices                 | jsonpath-ng | 72.72    | 72.92       | 73.13    | 13.83     | 12046   | 302.3    |
+| Slice first 10 users, extract IDs           | jmespath    | 0.01     | 0.01        | 0.01     | 147548.43 | 10      | 323.4    |
+| Slice first 10 users, extract IDs           | strata      | 0.01     | 0.01        | 0.01     | 83294.67  | 10      | 323.4    |
+| Slice first 10 users, extract IDs           | jsonpath-ng | 0.01     | 0.02        | 0.03     | 44767.01  | 10      | 323.4    |
 
 #### Cursor Reuse (All Queries)
 
 | Mode                  | Min (ms) | Median (ms) | P95 (ms) | MB/s   | RSS (MB) |
 | --------------------- | -------- | ----------- | -------- | ------ | -------- |
-| strata_cursor_reuse   | 59.09    | 59.10       | 59.12    | 136.47 | 378.4    |
-| strata_cursor_reparse | 122.34   | 123.92      | 125.50   | 65.09  | 841.7    |
-- Speedup (reuse vs reparse): 2.10x
+| strata_cursor_reuse   | 61.63    | 61.75       | 61.87    | 130.61 | 345.5    |
+| strata_cursor_reparse | 137.05   | 141.84      | 146.64   | 56.86  | 812.0    |
+- Speedup (reuse vs reparse): 2.30x
 ### users.ndjson (NDJSON)
 
 - Source: benchmarks/data/generated/small/users.ndjson
@@ -130,41 +130,41 @@ Generated: 2026-02-12 01:09:07
 
 | Query                                       | Library             | Min (ms) | Median (ms) | P95 (ms) | MB/s      | Results | RSS (MB) |
 | ------------------------------------------- | ------------------- | -------- | ----------- | -------- | --------- | ------- | -------- |
-| Deep path navigation                        | jmespath            | 0.01     | 0.01        | 0.01     | 177744.07 | 1       | 54.8     |
-| Deep path navigation                        | strata              | 0.01     | 0.01        | 0.01     | 160623.07 | 0       | 54.8     |
-| Deep path navigation                        | jsonpath-ng         | 0.01     | 0.01        | 0.01     | 128238.74 | 1       | 54.8     |
-| Extract all user IDs                        | jmespath            | 0.24     | 0.26        | 0.28     | 3898.16   | 1000    | 53.5     |
-| Extract all user IDs                        | jsonpath-ng         | 1.58     | 1.70        | 1.83     | 591.27    | 1000    | 53.5     |
-| Extract all user IDs                        | strata              | 2.55     | 2.60        | 2.64     | 387.86    | 0       | 53.5     |
-| Extract all user IDs                        | strata_ndjson_fused | 3.95     | 3.97        | 3.99     | 253.60    | 0       | 53.5     |
-| Extract all user IDs                        | strata_ndjson_full  | 8.39     | 8.42        | 8.46     | 119.58    | 0       | 53.5     |
-| Extract all user names                      | jmespath            | 0.20     | 0.21        | 0.22     | 4706.03   | 1000    | 54.9     |
-| Extract all user names                      | jsonpath-ng         | 1.48     | 1.71        | 1.95     | 587.28    | 1000    | 54.9     |
-| Extract all user names                      | strata              | 2.58     | 2.60        | 2.61     | 387.95    | 0       | 54.8     |
-| Extract all user names                      | strata_ndjson_fused | 3.99     | 4.01        | 4.04     | 250.95    | 0       | 54.9     |
-| Extract all user names                      | strata_ndjson_full  | 8.51     | 8.57        | 8.62     | 117.58    | 0       | 54.9     |
-| Extract nested timestamp field              | jmespath            | 0.54     | 0.55        | 0.55     | 1846.07   | 1000    | 53.6     |
-| Extract nested timestamp field              | jsonpath-ng         | 2.12     | 2.15        | 2.19     | 467.68    | 1000    | 53.7     |
-| Extract nested timestamp field              | strata              | 2.51     | 2.51        | 2.51     | 401.77    | 0       | 53.6     |
-| Extract order item prices (double wildcard) | strata              | 2.60     | 2.66        | 2.71     | 379.18    | 0       | 53.7     |
-| Extract order item prices (double wildcard) | jmespath            | 3.63     | 3.67        | 3.72     | 274.15    | 12046   | 53.8     |
-| Extract order item prices (double wildcard) | jsonpath-ng         | 18.21    | 18.42       | 18.63    | 54.67     | 12046   | 56.9     |
-| Filter users by age (numeric predicate)     | strata              | 0.01     | 0.01        | 0.01     | 183124.97 | 0       | 54.9     |
-| Filter users by age (numeric predicate)     | jmespath            | 1.08     | 1.08        | 1.08     | 936.68    | 794     | 54.9     |
-| NDJSON root field (id)                      | jsonpath-ng         | 0.00     | 0.01        | 0.01     | 117346.79 | 0       | 45.0     |
-| NDJSON root field (id)                      | strata              | 2.00     | 2.06        | 2.12     | 488.37    | 1000    | 44.7     |
-| NDJSON root field (id)                      | strata_ndjson_fused | 2.55     | 2.70        | 2.84     | 373.64    | 1000    | 45.0     |
-| NDJSON root field (id)                      | strata_ndjson_full  | 7.81     | 7.84        | 7.87     | 128.53    | 1000    | 45.0     |
-| Recursively find all prices                 | strata              | 31.49    | 31.53       | 31.56    | 31.94     | 878     | 55.0     |
-| Recursively find all prices                 | jsonpath-ng         | 71.38    | 71.77       | 72.16    | 14.03     | 12046   | 56.8     |
-| Slice first 10 users, extract IDs           | strata              | 0.00     | 0.01        | 0.01     | 195741.23 | 0       | 56.8     |
-| Slice first 10 users, extract IDs           | jmespath            | 0.02     | 0.02        | 0.02     | 54504.41  | 10      | 56.8     |
-| Slice first 10 users, extract IDs           | jsonpath-ng         | 0.01     | 0.02        | 0.03     | 49381.60  | 10      | 56.0     |
+| Deep path navigation                        | jmespath            | 0.01     | 0.01        | 0.01     | 179726.65 | 1       | 55.4     |
+| Deep path navigation                        | jsonpath-ng         | 0.01     | 0.01        | 0.01     | 163331.90 | 1       | 55.4     |
+| Deep path navigation                        | strata              | 0.01     | 0.01        | 0.01     | 160086.98 | 0       | 55.4     |
+| Extract all user IDs                        | jmespath            | 0.30     | 0.30        | 0.30     | 3363.59   | 1000    | 53.9     |
+| Extract all user IDs                        | jsonpath-ng         | 1.73     | 1.74        | 1.75     | 578.87    | 1000    | 53.9     |
+| Extract all user IDs                        | strata              | 2.70     | 2.70        | 2.70     | 373.41    | 0       | 53.6     |
+| Extract all user IDs                        | strata_ndjson_fused | 4.66     | 4.67        | 4.68     | 215.63    | 0       | 53.7     |
+| Extract all user IDs                        | strata_ndjson_full  | 9.20     | 9.35        | 9.49     | 107.75    | 0       | 53.7     |
+| Extract all user names                      | jmespath            | 0.21     | 0.24        | 0.26     | 4230.40   | 1000    | 55.4     |
+| Extract all user names                      | jsonpath-ng         | 1.66     | 1.67        | 1.67     | 604.89    | 1000    | 55.4     |
+| Extract all user names                      | strata              | 2.56     | 2.57        | 2.58     | 391.99    | 0       | 55.4     |
+| Extract all user names                      | strata_ndjson_fused | 4.41     | 4.42        | 4.43     | 227.93    | 0       | 55.4     |
+| Extract all user names                      | strata_ndjson_full  | 9.35     | 9.42        | 9.50     | 106.87    | 0       | 55.4     |
+| Extract nested timestamp field              | jmespath            | 0.58     | 0.62        | 0.66     | 1623.62   | 1000    | 54.0     |
+| Extract nested timestamp field              | jsonpath-ng         | 2.09     | 2.11        | 2.13     | 478.01    | 1000    | 54.0     |
+| Extract nested timestamp field              | strata              | 2.61     | 2.62        | 2.62     | 385.04    | 0       | 53.9     |
+| Extract order item prices (double wildcard) | strata              | 2.51     | 2.52        | 2.54     | 399.34    | 0       | 54.1     |
+| Extract order item prices (double wildcard) | jmespath            | 3.64     | 3.71        | 3.78     | 271.37    | 12046   | 54.4     |
+| Extract order item prices (double wildcard) | jsonpath-ng         | 18.43    | 18.54       | 18.64    | 54.33     | 12046   | 57.4     |
+| Filter users by age (numeric predicate)     | strata              | 0.01     | 0.01        | 0.01     | 142620.63 | 0       | 55.4     |
+| Filter users by age (numeric predicate)     | jmespath            | 1.13     | 1.14        | 1.14     | 886.54    | 794     | 55.4     |
+| NDJSON root field (id)                      | jsonpath-ng         | 0.01     | 0.01        | 0.02     | 80574.96  | 0       | 45.2     |
+| NDJSON root field (id)                      | strata              | 2.17     | 2.50        | 2.82     | 403.62    | 1000    | 44.8     |
+| NDJSON root field (id)                      | strata_ndjson_fused | 3.35     | 3.55        | 3.75     | 283.82    | 1000    | 45.2     |
+| NDJSON root field (id)                      | strata_ndjson_full  | 10.22    | 10.26       | 10.30    | 98.18     | 1000    | 45.2     |
+| Recursively find all prices                 | strata              | 32.21    | 32.43       | 32.64    | 31.06     | 878     | 55.5     |
+| Recursively find all prices                 | jsonpath-ng         | 77.06    | 78.66       | 80.26    | 12.80     | 12046   | 57.5     |
+| Slice first 10 users, extract IDs           | strata              | 0.01     | 0.01        | 0.01     | 76374.38  | 0       | 57.6     |
+| Slice first 10 users, extract IDs           | jmespath            | 0.01     | 0.02        | 0.02     | 63196.06  | 10      | 57.6     |
+| Slice first 10 users, extract IDs           | jsonpath-ng         | 0.02     | 0.02        | 0.03     | 44722.12  | 10      | 56.8     |
 
 #### Cursor Reuse (All Queries)
 
 | Mode                  | Min (ms) | Median (ms) | P95 (ms) | MB/s   | RSS (MB) |
 | --------------------- | -------- | ----------- | -------- | ------ | -------- |
-| strata_cursor_reuse   | 52.08    | 52.34       | 52.60    | 173.18 | 56.1     |
-| strata_cursor_reparse | 119.40   | 119.48      | 119.55   | 75.87  | 64.4     |
-- Speedup (reuse vs reparse): 2.28x
+| strata_cursor_reuse   | 54.15    | 54.16       | 54.16    | 167.38 | 56.8     |
+| strata_cursor_reparse | 126.55   | 127.91      | 129.27   | 70.87  | 65.2     |
+- Speedup (reuse vs reparse): 2.36x
