@@ -103,6 +103,30 @@ def test_search_ndjson_limit(tmp_path):
     assert results[-1] == {"line": 5, "matches": ["user_4"]}
 
 
+def test_search_ndjson_root_filter_on_object(tmp_path):
+    path = tmp_path / "ages.ndjson"
+    _write_ndjson(
+        path,
+        [
+            '{"name": "alice", "age": 25}',
+            '{"name": "bob", "age": 40}',
+            '{"name": "cara", "age": 31}',
+        ],
+    )
+
+    expected = [
+        {"line": 2, "matches": ["bob"]},
+        {"line": 3, "matches": ["cara"]},
+    ]
+
+    results = strata.search(path, "$[?(@.age > 30)].name")
+    assert results == expected
+
+    text = path.read_text(encoding="utf-8")
+    results_text = strata.search(text, "$[?(@.age > 30)].name", ndjson=True)
+    assert results_text == expected
+
+
 def test_search_ndjson_simple_field_fused_matches_full(tmp_path):
     path = tmp_path / "names.ndjson"
     lines = [

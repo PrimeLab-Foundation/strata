@@ -144,25 +144,26 @@ QUERIES: dict[str, dict[str, Any]] = {
     },
 }
 
-# NDJSON variant: root is a list of user objects, not {"users": [...]}
+# NDJSON variant: jmespath/jsonpath operate on a list of user objects (parsed from lines),
+# while Strata NDJSON cursor queries run per-record (each line is a root object).
 NDJSON_QUERIES: dict[str, dict[str, Any]] = {
     "root_field": {
-        "strata": "$.id",
-        "jmespath": None,
-        "description": "NDJSON root field (id)",
+        "strata": "$[0].id",
+        "jmespath": "[0].id",
+        "description": "NDJSON first record id",
     },
     "simple_field": {
-        "strata": "$[*].id",
+        "strata": "$.id",
         "jmespath": "[].id",
         "description": "Extract all user IDs",
     },
     "nested_field": {
-        "strata": "$[*].metadata.created",
+        "strata": "$.metadata.created",
         "jmespath": "[].metadata.created",
         "description": "Extract nested timestamp field",
     },
     "double_wildcard": {
-        "strata": "$[*].orders[*].items[*].price",
+        "strata": "$.orders[*].items[*].price",
         "jmespath": "[].orders[].items[].price",
         "description": "Extract order item prices (double wildcard)",
     },
@@ -172,7 +173,7 @@ NDJSON_QUERIES: dict[str, dict[str, Any]] = {
         "description": "Deep path navigation",
     },
     "all_names": {
-        "strata": "$[*].name",
+        "strata": "$.name",
         "jmespath": "[].name",
         "description": "Extract all user names",
     },
@@ -244,6 +245,16 @@ def _count_ndjson_matches(result: Any) -> int:
             return sum(len(entry.get("matches", [])) for entry in result)
         return len(result)
     return 0
+
+
+def _count_results(result: Any, *, is_ndjson: bool) -> int:
+    if is_ndjson:
+        if isinstance(result, list):
+            return _count_ndjson_matches(result)
+        return 1 if result is not None else 0
+    if isinstance(result, (list, tuple)):
+        return len(result)
+    return 1 if result is not None else 0
 
 
 def _load_json_data(
@@ -472,7 +483,7 @@ def run_all(
                     return _native.search(cursor, path)
 
             times_ms, rss_mb, result_list = _run_query_benchmark(run_strata, warmup, repeat)
-            n = len(result_list) if isinstance(result_list, list) else 1
+            n = _count_results(result_list, is_ndjson=is_ndjson)
             results.append(
                 QueryBenchResult(
                     library="strata",
@@ -502,7 +513,7 @@ def run_all(
                     return _native.search(ndjson_text, path, ndjson=True, **parallel_kwargs)
 
                 times_ms, rss_mb, result_list = _run_query_benchmark(run_full, warmup, repeat)
-                n = len(result_list) if isinstance(result_list, list) else 1
+                n = _count_results(result_list, is_ndjson=is_ndjson)
                 results.append(
                     QueryBenchResult(
                         library="strata_ndjson_full",
@@ -535,7 +546,7 @@ def run_all(
                     return _native.search(ndjson_text, path, ndjson=True, **parallel_kwargs)
 
                 times_ms, rss_mb, result_list = _run_query_benchmark(run_fused, warmup, repeat)
-                n = len(result_list) if isinstance(result_list, list) else 1
+                n = _count_results(result_list, is_ndjson=is_ndjson)
                 results.append(
                     QueryBenchResult(
                         library="strata_ndjson_fused",
@@ -577,7 +588,7 @@ def run_all(
                         return compiled.search(json_data)
 
                 times_ms, rss_mb, res = _run_query_benchmark(run_jmespath, warmup, repeat)
-                n = len(res) if isinstance(res, (list, tuple)) else 1
+                n = _count_results(res, is_ndjson=is_ndjson)
                 results.append(
                     QueryBenchResult(
                         library="jmespath",
@@ -624,7 +635,7 @@ def run_all(
                         return [m.value for m in compiled.find(data)]
 
                     times_ms, rss_mb, res = _run_query_benchmark(run_jp, warmup, repeat)
-                    n = len(res) if isinstance(res, list) else 1
+                    n = _count_results(res, is_ndjson=is_ndjson)
                     results.append(
                         QueryBenchResult(
                             library="jsonpath-ng",

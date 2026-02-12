@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <functional>
 #include <future>
 #include <limits>
@@ -48,6 +49,186 @@ static inline std::string_view extract_line(const char* start, size_t len) {
         --len;
     }
     return std::string_view(start, len);
+}
+
+struct RootFilterSpec {
+    bool enabled = false;
+    FilterPredicate filter;
+    CompiledPath subpath;
+};
+
+static CompiledPath build_subpath(const CompiledPath& path, size_t start_step) {
+    std::vector<PathStep> substeps;
+    const auto& steps = path.steps();
+    if (start_step >= steps.size()) {
+        substeps.emplace_back(PathOp::Root);
+        return CompiledPath(std::move(substeps));
+    }
+    substeps.reserve(1 + (steps.size() - start_step));
+    substeps.emplace_back(PathOp::Root);
+    for (size_t i = start_step; i < steps.size(); ++i) {
+        substeps.push_back(steps[i]);
+    }
+    return CompiledPath(std::move(substeps));
+}
+
+static bool try_get_field_fast(const JsonCursor& cursor, std::string_view field, JsonCursor& out) {
+    const JsonValue* raw = cursor.raw();
+    if (!raw || !raw->is_object()) {
+        return false;
+    }
+
+    const auto& obj = raw->as_object();
+    const size_t target_len = field.size();
+    if (target_len == 0) {
+        return false;
+    }
+
+    if (target_len <= 16) {
+        for (const auto& kv : obj) {
+            const std::string& key = kv.first;
+            if (key.size() != target_len) {
+                continue;
+            }
+            if (util::simd_string_eq(std::string_view(key.data(), key.size()), field)) {
+                out = JsonCursor(&kv.second);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    for (const auto& kv : obj) {
+        const std::string& key = kv.first;
+        if (key.size() != target_len) {
+            continue;
+        }
+        if (std::memcmp(key.data(), field.data(), target_len) == 0) {
+            out = JsonCursor(&kv.second);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool eval_filter_on_cursor(const JsonCursor& cursor, const FilterPredicate& filter) {
+    if (!cursor.is_object()) {
+        return false;
+    }
+
+    if (filter.op == FilterOp::Exists) {
+        JsonCursor found(nullptr);
+        return try_get_field_fast(cursor, filter.field, found);
+    }
+
+    JsonCursor field_cursor(nullptr);
+    if (!try_get_field_fast(cursor, filter.field, field_cursor)) {
+        return false;
+    }
+
+    FilterValueType value_type = filter.value_type;
+    if (value_type == FilterValueType::Unspecified) {
+        value_type = filter.is_numeric ? FilterValueType::Numeric : FilterValueType::String;
+    }
+
+    switch (value_type) {
+    case FilterValueType::Numeric: {
+        if (!field_cursor.is_number()) {
+            return false;
+        }
+        double value = field_cursor.get_float();
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return value == filter.numeric_value;
+        case FilterOp::NotEqual:
+            return value != filter.numeric_value;
+        case FilterOp::GreaterThan:
+            return value > filter.numeric_value;
+        case FilterOp::GreaterEqual:
+            return value >= filter.numeric_value;
+        case FilterOp::LessThan:
+            return value < filter.numeric_value;
+        case FilterOp::LessEqual:
+            return value <= filter.numeric_value;
+        default:
+            return false;
+        }
+    }
+    case FilterValueType::String: {
+        if (!field_cursor.is_string()) {
+            return false;
+        }
+        std::string value = field_cursor.get_str();
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return value == filter.string_value;
+        case FilterOp::NotEqual:
+            return value != filter.string_value;
+        default:
+            return false;
+        }
+    }
+    case FilterValueType::Boolean: {
+        if (!field_cursor.is_bool()) {
+            return false;
+        }
+        bool value = field_cursor.get_bool_or_throw();
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return value == filter.bool_value;
+        case FilterOp::NotEqual:
+            return value != filter.bool_value;
+        default:
+            return false;
+        }
+    }
+    case FilterValueType::Null: {
+        switch (filter.op) {
+        case FilterOp::Equal:
+            return field_cursor.is_null();
+        case FilterOp::NotEqual:
+            return !field_cursor.is_null();
+        default:
+            return false;
+        }
+    }
+    case FilterValueType::Unspecified:
+    default:
+        return false;
+    }
+}
+
+static RootFilterSpec build_root_filter_spec(const CompiledPath& path) {
+    RootFilterSpec spec;
+    const auto& steps = path.steps();
+    if (steps.size() >= 2 && steps[0].op == PathOp::Root && steps[1].op == PathOp::Filter) {
+        spec.enabled = true;
+        spec.filter = steps[1].filter;
+        spec.subpath = build_subpath(path, 2);
+    }
+    return spec;
+}
+
+static std::vector<JsonValue> eval_search_path_ndjson(
+    const JsonCursor& cursor,
+    const CompiledPath& path,
+    const RootFilterSpec& root_filter,
+    size_t remaining,
+    bool has_limit) {
+    if (root_filter.enabled && cursor.is_object()) {
+        if (!eval_filter_on_cursor(cursor, root_filter.filter)) {
+            return {};
+        }
+        if (has_limit) {
+            return eval_search_path(cursor, root_filter.subpath, remaining);
+        }
+        return eval_search_path(cursor, root_filter.subpath);
+    }
+    if (has_limit) {
+        return eval_search_path(cursor, path, remaining);
+    }
+    return eval_search_path(cursor, path);
 }
 
 }  // namespace
@@ -249,6 +430,7 @@ ParallelNdjsonStream::ChunkSearchResult ParallelNdjsonStream::search_chunk(
     ParseSaxOptions options;
     options.validate_utf8 = !skip_utf8_validation;
     size_t chunk_matches = 0;
+    RootFilterSpec root_filter = build_root_filter_spec(path);
 
     while (pos < chunk.data.size()) {
         if (limit > 0 && stop_sequence) {
@@ -271,8 +453,8 @@ ParallelNdjsonStream::ChunkSearchResult ParallelNdjsonStream::search_chunk(
 
             if (parse_result.ok()) {
                 JsonCursor cursor(&parse_result.value);
-                auto matches = limit > 0 ? eval_search_path(cursor, path, limit)
-                                         : eval_search_path(cursor, path);
+                auto matches = eval_search_path_ndjson(
+                    cursor, path, root_filter, limit, limit > 0);
                 if (!matches.empty()) {
                     size_t match_count = matches.size();
                     NdjsonSearchMatch entry;
@@ -418,6 +600,7 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_sequential() {
     ParseSaxContext parse_context;
     ParseSaxOptions options;
     options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+    RootFilterSpec root_filter = build_root_filter_spec(path);
 
     size_t pos = 0;
     size_t line_num = 1;
@@ -482,8 +665,8 @@ ParallelSearchResult ParallelNdjsonStream::search_sequential_with_errors(
             if (parse_result.ok()) {
                 JsonCursor cursor(&parse_result.value);
                 size_t remaining = limit > 0 ? (limit - total_matches) : 0;
-                auto matches = limit > 0 ? eval_search_path(cursor, path, remaining)
-                                         : eval_search_path(cursor, path);
+                auto matches = eval_search_path_ndjson(
+                    cursor, path, root_filter, remaining, limit > 0);
                 if (!matches.empty()) {
                     NdjsonSearchMatch entry;
                     entry.line = line_num;
