@@ -1130,3 +1130,23 @@ ______________________________________________________________________
 - ryu_dtoa.cpp (75%): Zero and INT64_MIN edge cases
 
 **Conclusion:** Coverage now at 83.02%, well exceeding the 80% target. Filter error path tests provided the best improvement opportunity.
+
+______________________________________________________________________
+
+## 2026-02-12 — Arena-backed OutputBuffer + stack dumps fast path
+
+- **Date/time**: 2026-02-12 02:31:37 EET
+- **Change**: OutputBuffer can allocate from thread-local arena (64KB initial, doubling growth, heap fallback); dumps uses arena-backed buffer on overflow; added 4KB stack-buffer fast path for small outputs; added size-bucket and dumps RSS stability tests.
+- **Commit**: (session; no new commit at log time)
+- **Environment**: macOS (darwin 25.1.0), arm64, Python 3.14.2, users.json 5.05 MB
+- **Commands**: `.venv/bin/python -m benchmarks.bench_dumps --repeat 20 --warmup 2`
+- **Metrics (strata dumps)**:
+  - Min: 20.32 ms
+  - Median: 20.74 ms
+  - P95: 21.19 ms
+  - Output size: 5,249,887 bytes
+  - RSS: 181.4 MB
+  - Rank: #3 / 5
+- **Baseline**: `docs/benchmarks/dumps_results.md` (2026-01-31, same dataset) median 7.63 ms, RSS 72.0 MB.
+- **Delta**: Not directly comparable (different build/environment); RSS remains lowest in this run (181.4 MB vs 277.7–377.4 MB for others).
+- **Conclusion**: **Mixed**. Arena-backed buffer + stack fast path landed; RSS still best-in-class for dumps in this run. A/B within the same environment is needed to isolate the change impact.

@@ -163,6 +163,30 @@ class TestRoundTrip:
         assert cursor.field("scores").at(0).get_float() == 95.0
 
 
+class TestSerializationSizes:
+    """Verify dumps correctness across size buckets."""
+
+    @pytest.mark.parametrize(
+        "size",
+        [
+            0,  # empty-ish
+            1,  # tiny
+            512,  # small
+            6 * 1024,  # medium (crosses stack buffer threshold)
+            256 * 1024,  # large
+        ],
+    )
+    def test_dumps_roundtrip_sizes(self, size):
+        payload = "a" * size
+        obj = {"payload": payload}
+
+        dumped = strata.dumps(obj)
+        assert strata.loads(dumped) == obj
+
+        dumped_bytes = strata.dumps(obj, return_type="bytes")
+        assert strata.loads(dumped_bytes.decode("utf-8")) == obj
+
+
 class TestEdgeCases:
     """Test edge cases and special values."""
 
@@ -217,6 +241,13 @@ class TestEdgeCases:
         obj = {"a": {"b": {"c": {"d": {"e": {"f": "deep"}}}}}}
         json_str = strata.dumps(obj)
         result = json.loads(json_str)
+        assert result == obj
+
+    def test_escape_overflow_roundtrip(self):
+        """Force escaped output expansion to hit the dynamic buffer path."""
+        payload = '"' * 3000
+        obj = {"payload": payload}
+        result = json.loads(strata.dumps(obj))
         assert result == obj
 
     def test_deep_nesting_iterative_serializer(self):

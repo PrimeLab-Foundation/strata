@@ -666,6 +666,8 @@ static inline size_t estimate_size(PyObject* obj) {
     return apply_growth_factor(estimate);
 }
 
+static constexpr size_t kStackBufferCap = 4 * 1024;
+
 // Direct serialization into a PyUnicode compact-ASCII object.
 // Avoids the OutputBuffer → PyUnicode_FromStringAndSize copy+decode path.
 // Returns nullptr (without setting an error) on overflow so the caller can
@@ -729,6 +731,34 @@ static PyObject* dumps_str_direct(PyObject* obj, size_t estimate) {
     return unicode;
 }
 
+static PyObject* dumps_str_stack(PyObject* obj) {
+    char stack_buffer[kStackBufferCap];
+    strata::util::FixedOutputBuffer fixed(stack_buffer, kStackBufferCap);
+    fixed.clear();
+
+    if (!serialize_iterative(obj, fixed) || PyErr_Occurred()) {
+        return nullptr;
+    }
+    if (fixed.overflowed()) {
+        return nullptr;
+    }
+
+    size_t actual = fixed.size();
+    g_last_dumps_size = actual;
+
+    if (strata::util::is_ascii_only_simd(stack_buffer, actual)) {
+        Py_ssize_t slen = static_cast<Py_ssize_t>(actual);
+        PyObject* unicode = PyUnicode_New(slen, 127);
+        if (!unicode) {
+            return nullptr;
+        }
+        std::memcpy(PyUnicode_1BYTE_DATA(unicode), stack_buffer, actual);
+        return unicode;
+    }
+
+    return PyUnicode_DecodeUTF8(stack_buffer, static_cast<Py_ssize_t>(actual), nullptr);
+}
+
 static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
     if (estimate == 0 || estimate > static_cast<size_t>(PY_SSIZE_T_MAX)) {
         return nullptr;
@@ -766,6 +796,23 @@ static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
     }
     g_last_dumps_size = static_cast<size_t>(actual);
     return bytes;
+}
+
+static PyObject* dumps_bytes_stack(PyObject* obj) {
+    char stack_buffer[kStackBufferCap];
+    strata::util::FixedOutputBuffer fixed(stack_buffer, kStackBufferCap);
+    fixed.clear();
+
+    if (!serialize_iterative(obj, fixed) || PyErr_Occurred()) {
+        return nullptr;
+    }
+    if (fixed.overflowed()) {
+        return nullptr;
+    }
+
+    size_t actual = fixed.size();
+    g_last_dumps_size = actual;
+    return PyBytes_FromStringAndSize(stack_buffer, static_cast<Py_ssize_t>(actual));
 }
 
 template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out) {
@@ -1034,6 +1081,16 @@ static PyObject* dumps_str_impl(PyObject* obj) {
     g_serialize_arena.reset();
     size_t estimate = estimate_size(obj);
 
+    if (estimate <= kStackBufferCap) {
+        if (PyObject* stack = dumps_str_stack(obj)) {
+            return stack;
+        }
+        if (PyErr_Occurred()) {
+            return NULL;
+        }
+        g_serialize_arena.reset();
+    }
+
     // Fast path: serialize directly into a PyUnicode compact-ASCII buffer.
     // Avoids the intermediate OutputBuffer and the PyUnicode_FromStringAndSize
     // UTF-8 decode + copy overhead.
@@ -1046,7 +1103,7 @@ static PyObject* dumps_str_impl(PyObject* obj) {
 
     // Fallback: estimate was too small (overflow) — use the dynamic buffer.
     g_serialize_arena.reset();
-    g_serialize_buffer.clear();
+    g_serialize_buffer.reset_with_arena(&g_serialize_arena);
     g_serialize_buffer.reserve(estimate);
 
     if (!serialize_iterative(obj, g_serialize_buffer)) {
@@ -1125,6 +1182,16 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
 
     g_serialize_arena.reset();
     size_t estimate = estimate_size(obj);
+
+    if (estimate <= kStackBufferCap) {
+        if (PyObject* stack = dumps_bytes_stack(obj)) {
+            return stack;
+        }
+        if (PyErr_Occurred()) {
+            return NULL;
+        }
+        g_serialize_arena.reset();
+    }
     if (PyObject* direct = dumps_bytes_direct(obj, estimate)) {
         return direct;
     }
@@ -1133,7 +1200,7 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     }
 
     g_serialize_arena.reset();
-    g_serialize_buffer.clear();
+    g_serialize_buffer.reset_with_arena(&g_serialize_arena);
     g_serialize_buffer.reserve(estimate);
 
     if (!serialize_iterative(obj, g_serialize_buffer)) {

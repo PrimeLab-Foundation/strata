@@ -52,3 +52,25 @@ def test_repeated_ndjson_batches_memory_stable():
     # Should stay bounded; allow generous slack for platform differences.
     assert end - start < 25, f"RSS grew too much: {end - start:.1f} MB"
     assert total > 0  # sanity
+
+
+def test_repeated_dumps_memory_stable():
+    payload = '"' * 5000  # forces escaping expansion beyond the stack buffer
+    sample = {
+        "users": [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}],
+        "payload": payload,
+        "flags": [True, False, None],
+        "nested": {"x": 1, "y": [1, 2, 3]},
+    }
+
+    gc.collect()
+    start = _rss_mb()
+
+    for _ in range(300):
+        out = strata.dumps(sample)
+        assert out.startswith("{")
+
+    gc.collect()
+    end = _rss_mb()
+
+    assert end - start < 25, f"RSS grew too much: {end - start:.1f} MB"
