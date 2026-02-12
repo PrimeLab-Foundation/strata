@@ -1150,3 +1150,46 @@ ______________________________________________________________________
 - **Baseline**: `docs/benchmarks/dumps_results.md` (2026-01-31, same dataset) median 7.63 ms, RSS 72.0 MB.
 - **Delta**: Not directly comparable (different build/environment); RSS remains lowest in this run (181.4 MB vs 277.7–377.4 MB for others).
 - **Conclusion**: **Mixed**. Arena-backed buffer + stack fast path landed; RSS still best-in-class for dumps in this run. A/B within the same environment is needed to isolate the change impact.
+
+______________________________________________________________________
+
+## 2026-02-12 — End-to-End Benchmark Validation (small/medium/large + unified)
+
+- **Date/time**: 2026-02-12 23:32:37 EET
+- **Change**: End-to-end benchmark validation run; restored missing `python/strata/mmap_io.py` so `bench_unified` executes.
+- **Commit**: 454fe03a16725c7bac048e9e5926d9bf888849a6 (dirty: yes — bench results + `python/strata/mmap_io.py`)
+- **Environment**: macOS 26.1, Apple M4 Pro (arm64), Python 3.14.2 (.venv), Apple clang 17.0.0
+- **Commands**:
+`make bench-data`, `make bench-small`, `make bench-medium`, `make bench-large`, `make bench-unified`
+Additional capture: `python -m benchmarks.bench_dumps` and `python -m benchmarks.bench_ndjson` for small/medium/large (repeat=3, warmup=1) to record dumps/NDJSON medians.
+- **Metrics (strata)**:
+**Loads (users.json, bench_loads)**:
+small: min/median/p95 `13.95/13.96/21.28 ms`, rank `#5/5`, delta `n/a (no prior full-suite entry)`
+medium: min/median/p95 `96.66/113.67/153.39 ms`, rank `#5/5`, delta `n/a`
+large: min/median/p95 `1934.22/2758.33/4088.06 ms`, rank `#5/5`, delta `n/a`
+
+**Dumps (users.json, bench_dumps)**:
+small: min/median/p95 `4.20/4.36/4.39 ms`, rank `#4/5`, delta `n/a`
+medium: min/median/p95 `31.28/32.32/40.24 ms`, rank `#4/5`, delta `+55.8% vs 2026-02-12 dumps-only (20.74 ms, different dataset)`
+large: min/median/p95 `235.30/244.67/248.87 ms`, rank `#4/5`, delta `n/a`
+
+**NDJSON streaming (bench_ndjson; orjson/ujson/msgspec = “+split” line parsing)**:
+small: min/median/p95 `7.91/7.98/8.84 ms`, rank `#4/5`, delta `n/a`
+medium: min/median/p95 `54.62/56.51/57.30 ms`, rank `#4/5`, delta `n/a`
+large: min/median/p95 `230.25/235.84/264.65 ms`, rank `#3/5`, delta `n/a`
+
+**Search/query (bench_search, JSON; common query set: Deep path navigation, Extract all user IDs, Extract all user names, Extract nested timestamp field, Extract order item prices, Slice first 10 users)**:
+small: min/median/p95 of per-query medians `0.01/1.34/16.34 ms`, rank `#2/3`, delta `n/a`
+medium: min/median/p95 of per-query medians `0.01/2.86/126.87 ms`, rank `#2/3`, delta `n/a`
+large: min/median/p95 of per-query medians `0.02/5.30/1058.66 ms`, rank `#2/3`, delta `n/a`
+
+**Memory (RSS; median RSS across loads/dumps/ndjson per size, with min/median/p95 across those three RSS values)**:
+small: min/median/p95 `36.3/46.4/319.0 MB`, rank `#1/5`, delta `n/a`
+medium: min/median/p95 `140.4/223.4/3110.5 MB`, rank `#2/5` (tied median with msgspec), delta `n/a`
+large: min/median/p95 `864.7/1694.4/13570.5 MB`, rank `#2/5`, delta `n/a`
+
+- **Unified benchmark (randomized data)**: Strata wins `7/21` sub-benchmarks; best at `ndjson/small` and most search queries on medium datasets; loses loads/dumps across sizes.
+- **Summary**:
+Improved: `n/a` (no comparable prior full-suite entry).
+Regressed: `n/a` (dumps delta is not directly comparable; dataset differs).
+Overall status: **Rule 13 not met** — Strata is not #1 across loads/dumps/ndjson/search for any size; memory leads on small and is competitive on medium/large but not best overall.
