@@ -212,4 +212,32 @@ std::vector<JsonValue> NdjsonStream::next_batch(size_t batch_size, bool skip_err
     return results;
 }
 
+std::vector<size_t> collect_line_offsets(std::string_view data) {
+    std::vector<size_t> offsets;
+    if (data.empty()) {
+        return offsets;
+    }
+
+    size_t newline_count = util::count_newlines_simd(data.data(), data.size());
+    offsets.reserve(newline_count + 1);
+    offsets.push_back(0);
+
+    if (newline_count == 0) {
+        return offsets;
+    }
+
+    std::vector<size_t> newline_positions;
+    newline_positions.reserve(newline_count);
+    util::collect_newlines_simd(data.data(), data.size(), 0, newline_count, newline_positions);
+
+    for (size_t pos : newline_positions) {
+        size_t next = pos + 1;
+        if (next < data.size()) {
+            offsets.push_back(next);
+        }
+    }
+
+    return offsets;
+}
+
 } // namespace strata

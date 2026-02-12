@@ -1,5 +1,6 @@
 #include "python_convert.h"
 #include "python_object_builder.h"
+#include "python_ndjson.h"
 #include "python_types.h"
 #include "strata/json/ndjson_stream.hpp"
 #include "strata/json/parallel_ndjson.hpp"
@@ -735,11 +736,13 @@ PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
     int skip_errors = 0;
     PyObject* parallel_obj = Py_None;
     int num_threads = 0;
+    PyObject* lazy_obj = Py_None;
 
     static const char* kwlist[] = {"source", "ndjson", "skip_errors", "parallel", "num_threads",
-                                   NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OpOi", const_cast<char**>(kwlist), &source,
-                                     &ndjson_obj, &skip_errors, &parallel_obj, &num_threads)) {
+                                   "lazy", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|OpOiO", const_cast<char**>(kwlist), &source,
+                                     &ndjson_obj, &skip_errors, &parallel_obj, &num_threads,
+                                     &lazy_obj)) {
         return NULL;
     }
 
@@ -754,6 +757,15 @@ PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
         }
         ndjson_flag_set = true;
         ndjson_flag = truth != 0;
+    }
+
+    bool lazy = false;
+    if (lazy_obj != Py_None) {
+        int truth = PyObject_IsTrue(lazy_obj);
+        if (truth < 0) {
+            return NULL;
+        }
+        lazy = truth != 0;
     }
 
     const char* text_data = nullptr;
@@ -778,6 +790,10 @@ PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
     }
 
     if (has_text && looks_like_json) {
+        if (lazy) {
+            PyErr_SetString(PyExc_TypeError, "lazy NDJSON requires a file path");
+            return NULL;
+        }
         if (ndjson_flag_set && ndjson_flag) {
             return parse_ndjson_text(text_data, text_len, skip_errors != 0, parallel_obj,
                                      num_threads);
@@ -813,6 +829,35 @@ PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
             return NULL;
         }
 
+        if (lazy) {
+            if (!use_ndjson) {
+                Py_DECREF(pathlike);
+                PyErr_SetString(PyExc_TypeError, "lazy requires ndjson=True for file loading");
+                return NULL;
+            }
+            if (parallel_obj != Py_None) {
+                Py_DECREF(pathlike);
+                PyErr_SetString(PyExc_TypeError, "lazy NDJSON does not support parallel parsing");
+                return NULL;
+            }
+            strata::bindings::NdjsonCursorErrorMode mode =
+                skip_errors ? strata::bindings::NdjsonCursorErrorMode::Skip
+                            : strata::bindings::NdjsonCursorErrorMode::Error;
+            std::string error_message;
+            auto* cursor_data =
+                create_lazy_ndjson_cursor_data(filepath, mode, &error_message);
+            Py_DECREF(pathlike);
+            if (!cursor_data) {
+                if (error_message.empty()) {
+                    PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
+                } else {
+                    PyErr_SetString(PyExc_OSError, error_message.c_str());
+                }
+                return NULL;
+            }
+            return create_py_ndjson_cursor(cursor_data);
+        }
+
         std::string payload;
         if (!read_file_bytes(filepath, &payload)) {
             Py_DECREF(pathlike);
@@ -834,6 +879,10 @@ PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
         return NULL;
     }
     if (has_read) {
+        if (lazy) {
+            PyErr_SetString(PyExc_TypeError, "lazy NDJSON requires a file path");
+            return NULL;
+        }
         PyObject* payload_obj = PyObject_CallMethod(source, "read", NULL);
         if (!payload_obj) {
             return NULL;

@@ -63,7 +63,7 @@ static PyMethodDef strata_methods[] = {
      "Write JSON/NDJSON to a path or file-like object."},
     {"search", (PyCFunction)strata_search, METH_VARARGS | METH_KEYWORDS,
      "search(data, path, *, strata_mode=None, ndjson=None, skip_errors=False, on_error=None,\n"
-     "       parallel=None, num_threads=0, limit=0) -> list\n\n"
+     "       parallel=None, num_threads=0, limit=0, lazy=False) -> list\n\n"
      "Search JSON/NDJSON data using JSONPath.\n"
      "strata_mode: 'dict', 'string', 'cursor', or 'file' to force input handling.\n"
      "ndjson/skip_errors/on_error control NDJSON handling when auto-detected or forced."},

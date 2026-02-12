@@ -121,6 +121,21 @@ def parse_ndjson_file(
     return _native.NdjsonCursor.from_file(path, **kwargs)
 
 
+def parse_ndjson_file_lazy(
+    path: str | Path,
+    **kwargs,
+) -> _native.NdjsonCursor:
+    """
+    Create a lazy NDJSON cursor from a file path.
+
+    Args:
+        path: File path to the NDJSON file.
+        skip_errors: If True, skip malformed lines. If False, raise on first error.
+        on_error: Override error handling ("skip", "warn", or "error").
+    """
+    return _native.NdjsonCursor.from_file_lazy(path, **kwargs)
+
+
 NdjsonCursor = _native.NdjsonCursor
 
 
@@ -129,5 +144,6 @@ __all__ = [
     "parse_ndjson",
     "parse_ndjson_cursor",
     "parse_ndjson_file",
+    "parse_ndjson_file_lazy",
     "NdjsonCursor",
 ]

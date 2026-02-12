@@ -137,4 +137,15 @@ class NdjsonStream {
     bool parse_batch_chunked(size_t max_results, bool skip_errors, std::vector<JsonValue>& results);
 };
 
+/**
+ * Collect byte offsets for the start of each line in NDJSON data.
+ *
+ * Uses SIMD-accelerated newline scanning to find line boundaries.
+ * Does not parse JSON; runs in O(n) time.
+ *
+ * @param data NDJSON text buffer
+ * @return Vector of byte offsets for each line start
+ */
+std::vector<size_t> collect_line_offsets(std::string_view data);
+
 } // namespace strata

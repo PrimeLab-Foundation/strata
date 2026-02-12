@@ -25,6 +25,36 @@ std::vector<std::string> serialize_values(const std::vector<JsonValue>& values) 
     return out;
 }
 
+static std::string make_object_with_keys(size_t total_keys, const std::string& target_key,
+                                         const std::string& target_value) {
+    std::string json;
+    json.reserve(32 + total_keys * 16);
+    json += "{";
+    if (total_keys == 0) {
+        json += "}";
+        return json;
+    }
+    for (size_t i = 0; i < total_keys; ++i) {
+        if (i > 0) {
+            json += ",";
+        }
+        if (i == total_keys - 1) {
+            json += "\"";
+            json += target_key;
+            json += "\":\"";
+            json += target_value;
+            json += "\"";
+        } else {
+            json += "\"k";
+            json += std::to_string(i);
+            json += "\":";
+            json += std::to_string(i);
+        }
+    }
+    json += "}";
+    return json;
+}
+
 void test_compile_root() {
     auto result = compile_search_path("$");
     assert(result.ok());
@@ -629,6 +659,77 @@ void test_eval_missing_field() {
     std::cout << "✓ test_eval_missing_field passed\n";
 }
 
+void test_eval_field_key_counts() {
+    std::string target_key = "name";
+    std::string target_value = "hit";
+    std::vector<size_t> counts = {1, 5, 20, 100};
+
+    for (size_t count : counts) {
+        std::string json = make_object_with_keys(count, target_key, target_value);
+        auto doc_result = JsonDocument::from_string(json);
+        assert(doc_result.ok());
+
+        std::string path_expr = "$['" + target_key + "']";
+        auto path = compile_search_path(path_expr);
+        assert(path.ok());
+
+        auto results = eval_search_path(doc_result.value, path.value);
+        assert(results.size() == 1);
+        assert(results[0].is_string());
+        assert(results[0].as_string() == target_value);
+    }
+
+    std::cout << "✓ test_eval_field_key_counts passed\n";
+}
+
+void test_eval_field_key_lengths() {
+    std::string key_len1 = "a";
+    std::string key_len8 = "field008";
+    std::string key_len16 = "field_name_len16";
+    std::string key_len32 = "abcdefghijklmnopqrstuvwxyzabcdef";
+
+    assert(key_len1.size() == 1);
+    assert(key_len8.size() == 8);
+    assert(key_len16.size() == 16);
+    assert(key_len32.size() == 32);
+
+    std::vector<std::string> keys = {key_len1, key_len8, key_len16, key_len32};
+    for (const auto& key : keys) {
+        std::string json = make_object_with_keys(20, key, "value");
+        auto doc_result = JsonDocument::from_string(json);
+        assert(doc_result.ok());
+
+        std::string path_expr = "$['" + key + "']";
+        auto path = compile_search_path(path_expr);
+        assert(path.ok());
+
+        auto results = eval_search_path(doc_result.value, path.value);
+        assert(results.size() == 1);
+        assert(results[0].is_string());
+        assert(results[0].as_string() == "value");
+    }
+
+    std::cout << "✓ test_eval_field_key_lengths passed\n";
+}
+
+void test_eval_field_unicode_key() {
+    std::string key = "caf\xc3\xa9"; // UTF-8 for "café"
+    std::string json = "{\"" + key + "\":\"espresso\"}";
+    auto doc_result = JsonDocument::from_string(json);
+    assert(doc_result.ok());
+
+    std::string path_expr = "$['" + key + "']";
+    auto path = compile_search_path(path_expr);
+    assert(path.ok());
+
+    auto results = eval_search_path(doc_result.value, path.value);
+    assert(results.size() == 1);
+    assert(results[0].is_string());
+    assert(results[0].as_string() == "espresso");
+
+    std::cout << "✓ test_eval_field_unicode_key passed\n";
+}
+
 void test_eval_recursive_with_limit() {
     // Test early termination with limit parameter
     const char* json_str = R"({
@@ -1168,6 +1269,9 @@ int main() {
     test_eval_recursive();
     test_eval_complex();
     test_eval_missing_field();
+    test_eval_field_key_counts();
+    test_eval_field_key_lengths();
+    test_eval_field_unicode_key();
 
     // Limit/early termination tests
     test_eval_recursive_with_limit();

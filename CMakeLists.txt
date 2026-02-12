@@ -61,6 +61,7 @@ set(STRATA_CORE_SOURCES
     src/strata/util/simd_numbers.cpp
     src/strata/util/dragonbox.cpp
     src/strata/util/simd_escape.cpp
+    src/strata/util/simd_string_eq.cpp
     src/strata/util/simd_newline.cpp
     src/strata/util/simd_utf8.cpp
     src/strata/util/simd_structural.cpp

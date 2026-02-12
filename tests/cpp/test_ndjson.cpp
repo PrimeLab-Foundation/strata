@@ -546,6 +546,33 @@ void test_ndjson_parse_all_fast_empty() {
     std::cout << "✓ test_ndjson_parse_all_fast_empty passed\n";
 }
 
+void test_collect_line_offsets_empty() {
+    auto offsets = collect_line_offsets("");
+    assert(offsets.empty());
+
+    std::cout << "✓ test_collect_line_offsets_empty passed\n";
+}
+
+void test_collect_line_offsets_single_line() {
+    std::string data = "{\"a\":1}";
+    auto offsets = collect_line_offsets(data);
+    assert(offsets.size() == 1);
+    assert(offsets[0] == 0);
+
+    std::cout << "✓ test_collect_line_offsets_single_line passed\n";
+}
+
+void test_collect_line_offsets_multiple_lines() {
+    std::string data = "1\n2\n3\n";
+    auto offsets = collect_line_offsets(data);
+    assert(offsets.size() == 3);
+    assert(offsets[0] == 0);
+    assert(offsets[1] == 2);
+    assert(offsets[2] == 4);
+
+    std::cout << "✓ test_collect_line_offsets_multiple_lines passed\n";
+}
+
 int main() {
     std::cout << "Running NDJSON streaming tests...\n\n";
 
@@ -583,6 +610,9 @@ int main() {
     test_ndjson_batch_zero_size();
     test_ndjson_parse_all_fast_with_errors();
     test_ndjson_parse_all_fast_empty();
+    test_collect_line_offsets_empty();
+    test_collect_line_offsets_single_line();
+    test_collect_line_offsets_multiple_lines();
     test_next_end_of_stream();
     test_sax_whitespace_lines();
     std::cout << "\n✅ All NDJSON streaming tests passed!\n";

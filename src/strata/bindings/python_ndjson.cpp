@@ -6,12 +6,19 @@
 #include "strata/json/ndjson_stream.hpp"
 #include "strata/json/parallel_ndjson.hpp"
 #include "strata/util/arena_allocator.hpp"
+#include "strata/util/simd_string.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <cctype>
+#include <cstring>
+#include <fcntl.h>
 #include <fstream>
 #include <string>
 #include <string_view>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <vector>
 
 // Run a block inside STRATA_CPP_TRY/STRATA_CPP_CATCH for one-liner stream methods.
@@ -28,19 +35,16 @@ static void emit_duplicate_key_warnings() {
 
 namespace {
 
-enum class NdjsonErrorMode {
-    Skip,
-    Warn,
-    Error,
-};
+using strata::bindings::NdjsonCursorErrorMode;
 
-bool parse_ndjson_error_mode(int skip_errors, PyObject* on_error_obj, NdjsonErrorMode* mode) {
+bool parse_ndjson_error_mode(int skip_errors, PyObject* on_error_obj,
+                             NdjsonCursorErrorMode* mode) {
     if (!mode) {
         PyErr_SetString(PyExc_RuntimeError, "invalid error mode output");
         return false;
     }
     if (on_error_obj == Py_None) {
-        *mode = skip_errors ? NdjsonErrorMode::Skip : NdjsonErrorMode::Error;
+        *mode = skip_errors ? NdjsonCursorErrorMode::Skip : NdjsonCursorErrorMode::Error;
         return true;
     }
     if (!PyUnicode_Check(on_error_obj)) {
@@ -55,15 +59,15 @@ bool parse_ndjson_error_mode(int skip_errors, PyObject* on_error_obj, NdjsonErro
     std::transform(value.begin(), value.end(), value.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     if (value == "skip") {
-        *mode = NdjsonErrorMode::Skip;
+        *mode = NdjsonCursorErrorMode::Skip;
         return true;
     }
     if (value == "warn") {
-        *mode = NdjsonErrorMode::Warn;
+        *mode = NdjsonCursorErrorMode::Warn;
         return true;
     }
     if (value == "error") {
-        *mode = NdjsonErrorMode::Error;
+        *mode = NdjsonCursorErrorMode::Error;
         return true;
     }
     PyErr_SetString(PyExc_ValueError, "on_error must be 'skip', 'warn', or 'error'");
@@ -93,7 +97,7 @@ std::string_view trim_line_endings(std::string_view line) {
     return line;
 }
 
-bool process_ndjson_cursor_line(std::string_view line, size_t line_no, NdjsonErrorMode mode,
+bool process_ndjson_cursor_line(std::string_view line, size_t line_no, NdjsonCursorErrorMode mode,
                                 strata::bindings::NdjsonCursorData& cursor_data,
                                 strata::ParseSaxOptions& options,
                                 strata::ParseSaxContext& parse_context) {
@@ -102,11 +106,11 @@ bool process_ndjson_cursor_line(std::string_view line, size_t line_no, NdjsonErr
     }
     auto parse_result = strata::parse_json(line, options, &parse_context);
     if (!parse_result.ok()) {
-        if (mode == NdjsonErrorMode::Skip) {
+        if (mode == NdjsonCursorErrorMode::Skip) {
             return true;
         }
         std::string message = "Invalid JSON on line " + std::to_string(line_no);
-        if (mode == NdjsonErrorMode::Warn) {
+        if (mode == NdjsonCursorErrorMode::Warn) {
             if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
                 return false;
             }
@@ -140,7 +144,135 @@ size_t count_newlines(const char* data, Py_ssize_t len) {
     return count;
 }
 
+struct MappedRegion {
+    const char* data = nullptr;
+    size_t size = 0;
+
+    ~MappedRegion() {
+        if (data && size > 0) {
+            munmap(const_cast<char*>(data), size);
+        }
+    }
+};
+
+static std::shared_ptr<void> map_file_readonly(const char* filepath, const char** data_out,
+                                               size_t* size_out,
+                                               std::string* error_message) {
+    if (data_out) {
+        *data_out = nullptr;
+    }
+    if (size_out) {
+        *size_out = 0;
+    }
+
+    int fd = ::open(filepath, O_RDONLY);
+    if (fd < 0) {
+        if (error_message) {
+            *error_message = std::string("Failed to open NDJSON file: ") + std::strerror(errno);
+        }
+        return {};
+    }
+
+    struct stat st;
+    if (fstat(fd, &st) < 0) {
+        ::close(fd);
+        if (error_message) {
+            *error_message = std::string("Failed to stat NDJSON file: ") + std::strerror(errno);
+        }
+        return {};
+    }
+
+    size_t size = static_cast<size_t>(st.st_size);
+    if (size_out) {
+        *size_out = size;
+    }
+    if (size == 0) {
+        ::close(fd);
+        if (data_out) {
+            *data_out = nullptr;
+        }
+        return {};
+    }
+
+    void* addr = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    ::close(fd);
+    if (addr == MAP_FAILED) {
+        if (error_message) {
+            *error_message = std::string("Failed to mmap NDJSON file: ") + std::strerror(errno);
+        }
+        return {};
+    }
+
+    const char* data = static_cast<const char*>(addr);
+    if (data_out) {
+        *data_out = data;
+    }
+
+    auto region = std::make_shared<MappedRegion>();
+    region->data = data;
+    region->size = size;
+    return std::shared_ptr<void>(region);
+}
+
 } // namespace
+
+strata::bindings::NdjsonCursorData* create_lazy_ndjson_cursor_data(
+    const char* filepath,
+    strata::bindings::NdjsonCursorErrorMode mode,
+    std::string* error_message) {
+    if (!filepath) {
+        if (error_message) {
+            *error_message = "Invalid NDJSON file path";
+        }
+        return nullptr;
+    }
+
+    const char* data_ptr = nullptr;
+    size_t data_size = 0;
+    std::shared_ptr<void> mapped = map_file_readonly(filepath, &data_ptr, &data_size,
+                                                     error_message);
+    if (!mapped && ((data_size > 0) || (error_message && !error_message->empty()))) {
+        return nullptr;
+    }
+
+    auto* cursor_data = new strata::bindings::NdjsonCursorData();
+    cursor_data->lazy = true;
+    cursor_data->error_mode = mode;
+    cursor_data->data_ptr = data_ptr;
+    cursor_data->data_size = data_size;
+    cursor_data->mapped = std::move(mapped);
+    cursor_data->parsed_lines = 0;
+
+    std::string_view data_view(data_ptr ? data_ptr : "", data_size);
+    cursor_data->line_offsets = strata::collect_line_offsets(data_view);
+
+    cursor_data->data_line_offsets.clear();
+    cursor_data->data_line_numbers.clear();
+    cursor_data->data_line_offsets.reserve(cursor_data->line_offsets.size());
+    cursor_data->data_line_numbers.reserve(cursor_data->line_offsets.size());
+
+    for (size_t i = 0; i < cursor_data->line_offsets.size(); ++i) {
+        size_t start = cursor_data->line_offsets[i];
+        size_t end = (i + 1 < cursor_data->line_offsets.size())
+                         ? cursor_data->line_offsets[i + 1]
+                         : data_size;
+        if (end < start) {
+            continue;
+        }
+        std::string_view line(data_view.data() + start, end - start);
+        line = trim_line_endings(line);
+        if (line.empty()) {
+            continue;
+        }
+        if (strata::util::is_whitespace_only_simd(line.data(), line.size())) {
+            continue;
+        }
+        cursor_data->data_line_offsets.push_back(start);
+        cursor_data->data_line_numbers.push_back(i + 1);
+    }
+
+    return cursor_data;
+}
 
 //=============================================================================
 // NdjsonStream Type
@@ -692,6 +824,8 @@ static PyObject* PyNdjsonCursor_new(PyTypeObject* type, PyObject* args, PyObject
 // Forward declarations
 static PyObject* PyNdjsonCursor_from_string(PyObject* cls, PyObject* args, PyObject* kwargs);
 static PyObject* PyNdjsonCursor_from_file(PyObject* cls, PyObject* args, PyObject* kwargs);
+static PyObject* PyNdjsonCursor_from_file_lazy(PyObject* cls, PyObject* args, PyObject* kwargs);
+static PyObject* PyNdjsonCursor_stats(PyNdjsonCursor* self, PyObject* args);
 
 // Method table
 static PyMethodDef PyNdjsonCursor_methods[] = {
@@ -699,6 +833,9 @@ static PyMethodDef PyNdjsonCursor_methods[] = {
      METH_VARARGS | METH_KEYWORDS | METH_CLASS, "Create NdjsonCursor from string"},
     {"from_file", (PyCFunction)PyNdjsonCursor_from_file,
      METH_VARARGS | METH_KEYWORDS | METH_CLASS, "Create NdjsonCursor from file"},
+    {"from_file_lazy", (PyCFunction)PyNdjsonCursor_from_file_lazy,
+     METH_VARARGS | METH_KEYWORDS | METH_CLASS, "Create lazy NdjsonCursor from file"},
+    {"stats", (PyCFunction)PyNdjsonCursor_stats, METH_NOARGS, "NdjsonCursor stats"},
     {NULL, NULL, 0, NULL}};
 
 // Type object
@@ -711,6 +848,19 @@ static PyTypeObject PyNdjsonCursorType = {
     .tp_doc = "NDJSON Cursor",
     .tp_methods = PyNdjsonCursor_methods,
 };
+
+PyObject* create_py_ndjson_cursor(strata::bindings::NdjsonCursorData* cursor_data) {
+    if (!cursor_data) {
+        return NULL;
+    }
+    PyNdjsonCursor* self_obj = (PyNdjsonCursor*)PyType_GenericAlloc(&PyNdjsonCursorType, 0);
+    if (!self_obj) {
+        delete cursor_data;
+        return NULL;
+    }
+    self_obj->cursor = cursor_data;
+    return (PyObject*)self_obj;
+}
 
 //=============================================================================
 // NdjsonCursor Method Implementations
@@ -729,7 +879,7 @@ static PyObject* PyNdjsonCursor_from_string(PyObject* cls, PyObject* args, PyObj
         return NULL;
     }
 
-    NdjsonErrorMode mode;
+    NdjsonCursorErrorMode mode;
     if (!parse_ndjson_error_mode(skip_errors, on_error_obj, &mode)) {
         return NULL;
     }
@@ -755,6 +905,8 @@ static PyObject* PyNdjsonCursor_from_string(PyObject* cls, PyObject* args, PyObj
     STRATA_CPP_TRY
 
     auto* cursor_data = new strata::bindings::NdjsonCursorData();
+    cursor_data->lazy = false;
+    cursor_data->error_mode = mode;
     strata::ParseSaxOptions options;
     strata::ParseSaxContext parse_context;
 
@@ -779,14 +931,8 @@ static PyObject* PyNdjsonCursor_from_string(PyObject* cls, PyObject* args, PyObj
         }
         pos = next + 1;
     }
-
-    PyNdjsonCursor* self_obj = (PyNdjsonCursor*)PyType_GenericAlloc(&PyNdjsonCursorType, 0);
-    if (!self_obj) {
-        delete cursor_data;
-        return NULL;
-    }
-    self_obj->cursor = cursor_data;
-    return (PyObject*)self_obj;
+    cursor_data->parsed_lines = cursor_data->values.size();
+    return create_py_ndjson_cursor(cursor_data);
 
     STRATA_CPP_CATCH
 }
@@ -804,7 +950,7 @@ static PyObject* PyNdjsonCursor_from_file(PyObject* cls, PyObject* args, PyObjec
         return NULL;
     }
 
-    NdjsonErrorMode mode;
+    NdjsonCursorErrorMode mode;
     if (!parse_ndjson_error_mode(skip_errors, on_error_obj, &mode)) {
         return NULL;
     }
@@ -835,6 +981,8 @@ static PyObject* PyNdjsonCursor_from_file(PyObject* cls, PyObject* args, PyObjec
     }
 
     auto* cursor_data = new strata::bindings::NdjsonCursorData();
+    cursor_data->lazy = false;
+    cursor_data->error_mode = mode;
     strata::ParseSaxOptions options;
     strata::ParseSaxContext parse_context;
 
@@ -856,15 +1004,106 @@ static PyObject* PyNdjsonCursor_from_file(PyObject* cls, PyObject* args, PyObjec
         return NULL;
     }
 
-    PyNdjsonCursor* self_obj = (PyNdjsonCursor*)PyType_GenericAlloc(&PyNdjsonCursorType, 0);
-    if (!self_obj) {
-        delete cursor_data;
-        return NULL;
-    }
-    self_obj->cursor = cursor_data;
-    return (PyObject*)self_obj;
+    cursor_data->parsed_lines = cursor_data->values.size();
+    return create_py_ndjson_cursor(cursor_data);
 
     STRATA_CPP_CATCH
+}
+
+static PyObject* PyNdjsonCursor_from_file_lazy(PyObject* cls, PyObject* args, PyObject* kwargs) {
+    (void)cls;  // Unused
+    PyObject* path_obj;
+    int skip_errors = 0;
+    PyObject* on_error_obj = Py_None;
+
+    static const char* kwlist[] = {"filepath", "skip_errors", "on_error", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|pO", const_cast<char**>(kwlist), &path_obj,
+                                     &skip_errors, &on_error_obj)) {
+        return NULL;
+    }
+
+    NdjsonCursorErrorMode mode;
+    if (!parse_ndjson_error_mode(skip_errors, on_error_obj, &mode)) {
+        return NULL;
+    }
+
+    PyObject* pathlike = PyOS_FSPath(path_obj);
+    if (!pathlike) {
+        return NULL;
+    }
+    const char* filepath = nullptr;
+    if (PyUnicode_Check(pathlike)) {
+        filepath = PyUnicode_AsUTF8(pathlike);
+    } else if (PyBytes_Check(pathlike)) {
+        filepath = PyBytes_AsString(pathlike);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "path must be str or bytes");
+    }
+    Py_DECREF(pathlike);
+    if (!filepath) {
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    std::string error_message;
+    auto* cursor_data = create_lazy_ndjson_cursor_data(filepath, mode, &error_message);
+    if (!cursor_data) {
+        if (error_message.empty()) {
+            PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
+        } else {
+            PyErr_SetString(PyExc_OSError, error_message.c_str());
+        }
+        return NULL;
+    }
+
+    return create_py_ndjson_cursor(cursor_data);
+
+    STRATA_CPP_CATCH
+}
+
+static PyObject* PyNdjsonCursor_stats(PyNdjsonCursor* self, PyObject* args) {
+    (void)args;
+    if (!self || !self->cursor) {
+        PyErr_SetString(PyExc_RuntimeError, "Invalid NdjsonCursor");
+        return NULL;
+    }
+    auto* cursor = self->cursor;
+    size_t line_count = cursor->lazy ? cursor->data_line_offsets.size() : cursor->values.size();
+    size_t cached_lines = cursor->values.size();
+    size_t parsed_lines = cursor->parsed_lines;
+
+    PyObject* result = PyDict_New();
+    if (!result) {
+        return NULL;
+    }
+
+    PyObject* lazy_obj = PyBool_FromLong(cursor->lazy ? 1 : 0);
+    PyObject* line_count_obj = PyLong_FromSize_t(line_count);
+    PyObject* cached_obj = PyLong_FromSize_t(cached_lines);
+    PyObject* parsed_obj = PyLong_FromSize_t(parsed_lines);
+
+    if (!lazy_obj || !line_count_obj || !cached_obj || !parsed_obj) {
+        Py_XDECREF(lazy_obj);
+        Py_XDECREF(line_count_obj);
+        Py_XDECREF(cached_obj);
+        Py_XDECREF(parsed_obj);
+        Py_DECREF(result);
+        return NULL;
+    }
+
+    PyDict_SetItemString(result, "lazy", lazy_obj);
+    PyDict_SetItemString(result, "line_count", line_count_obj);
+    PyDict_SetItemString(result, "cached_lines", cached_obj);
+    PyDict_SetItemString(result, "parsed_lines", parsed_obj);
+
+    Py_DECREF(lazy_obj);
+    Py_DECREF(line_count_obj);
+    Py_DECREF(cached_obj);
+    Py_DECREF(parsed_obj);
+
+    return result;
 }
 
 //=============================================================================

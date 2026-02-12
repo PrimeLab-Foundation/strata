@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace strata {
@@ -162,6 +163,14 @@ bool validate_utf8_simd(const char* data, size_t len);
  * @return true if valid (ASCII-only or valid UTF-8), false if invalid UTF-8
  */
 bool validate_utf8_lazy(const char* data, size_t len);
+
+/**
+ * SIMD-accelerated string equality for short field names.
+ *
+ * Uses SIMD compare for inputs up to 16 bytes (SSE2/NEON), and falls back
+ * to std::memcmp for longer inputs or unsupported platforms.
+ */
+bool simd_string_eq(std::string_view a, std::string_view b);
 
 } // namespace util
 } // namespace strata

@@ -1,6 +1,8 @@
 #include "strata/search/search.hpp"
+#include "strata/util/simd_string.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <deque>
 #include <limits>
 
@@ -9,6 +11,46 @@ namespace strata {
 // ============================================================================
 // JSONPath Evaluator
 // ============================================================================
+
+static bool try_get_field_simd(const JsonCursor& cursor, std::string_view field, JsonCursor& out) {
+    const JsonValue* raw = cursor.raw();
+    if (!raw || !raw->is_object()) {
+        return false;
+    }
+
+    const auto& obj = raw->as_object();
+    const size_t target_len = field.size();
+    if (target_len == 0) {
+        return false;
+    }
+
+    if (target_len <= 16) {
+        for (const auto& kv : obj) {
+            const std::string& key = kv.first;
+            if (key.size() != target_len) {
+                continue;
+            }
+            if (util::simd_string_eq(std::string_view(key.data(), key.size()), field)) {
+                out = JsonCursor(&kv.second);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    for (const auto& kv : obj) {
+        const std::string& key = kv.first;
+        if (key.size() != target_len) {
+            continue;
+        }
+        if (std::memcmp(key.data(), field.data(), target_len) == 0) {
+            out = JsonCursor(&kv.second);
+            return true;
+        }
+    }
+
+    return false;
+}
 
 // Helper to materialize a JsonValue from a cursor (deep copy)
 static JsonValue materialize(const JsonCursor& cursor) {
@@ -55,15 +97,15 @@ static bool eval_filter(const JsonCursor& cursor, const FilterPredicate& filter)
     }
 
     if (filter.op == FilterOp::Exists) {
-        return cursor.get_field(filter.field).ok();
+        JsonCursor found(nullptr);
+        return try_get_field_simd(cursor, filter.field, found);
     }
 
-    auto field_result = cursor.get_field(filter.field);
-    if (!field_result.ok()) {
+    JsonCursor field_cursor(nullptr);
+    if (!try_get_field_simd(cursor, filter.field, field_cursor)) {
         return false;
     }
 
-    JsonCursor field_cursor = field_result.value;
     FilterValueType value_type = filter.value_type;
     if (value_type == FilterValueType::Unspecified) {
         value_type = filter.is_numeric ? FilterValueType::Numeric : FilterValueType::String;
@@ -157,15 +199,13 @@ static bool collect_recursive_cursors_bfs(const JsonCursor& cursor, const std::s
 
         if (current.is_object()) {
             // Check if current node has the target field
-            try {
-                JsonCursor child = current.field(field_name);
+            JsonCursor child(nullptr);
+            if (try_get_field_simd(current, field_name, child)) {
                 cursors.push_back(child);
                 // Check limit after adding
                 if (cursors.size() >= limit) {
                     return true; // Early termination
                 }
-            } catch (...) {
-                // Field not found at this level
             }
 
             // Add all object values to queue for further processing
@@ -220,11 +260,9 @@ static bool eval_step_with_limit(const JsonCursor& cursor, const std::vector<Pat
 
     case PathOp::Field:
         if (cursor.is_object()) {
-            try {
-                JsonCursor child = cursor.field(step.field);
+            JsonCursor child(nullptr);
+            if (try_get_field_simd(cursor, step.field, child)) {
                 return eval_step_with_limit(child, steps, step_idx + 1, results, limit);
-            } catch (...) {
-                // Field not found - no results for this path
             }
         }
         break;

@@ -16,6 +16,28 @@
 
 using namespace strata;
 
+void test_simd_string_eq_edges() {
+    using util::simd_string_eq;
+
+    assert(simd_string_eq(std::string_view(), std::string_view()));
+    assert(!simd_string_eq(std::string_view("a"), std::string_view()));
+    assert(simd_string_eq(std::string_view("short"), std::string_view("short")));
+    assert(!simd_string_eq(std::string_view("short"), std::string_view("sh0rt")));
+
+    std::string len16 = "1234567890abcdef";
+    assert(len16.size() == 16);
+    assert(simd_string_eq(len16, len16));
+
+    std::string len32 = "1234567890abcdef1234567890abcdef";
+    assert(len32.size() == 32);
+    assert(simd_string_eq(len32, len32));
+    std::string len32_alt = len32;
+    len32_alt[31] = 'e';
+    assert(!simd_string_eq(len32, len32_alt));
+
+    std::cout << "✓ test_simd_string_eq_edges passed\n";
+}
+
 // ============================================================================
 // Escape Sequences Tests
 // ============================================================================
@@ -551,6 +573,10 @@ void test_is_ascii_only_simd() {
 
 int main() {
     std::cout << "Running Unicode and Escapes tests...\n\n";
+
+    // SIMD string equality
+    std::cout << "--- SIMD String Equality ---\n";
+    test_simd_string_eq_edges();
 
     // Escape sequences
     std::cout << "--- Escape Sequences ---\n";

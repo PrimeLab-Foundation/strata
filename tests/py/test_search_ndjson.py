@@ -130,3 +130,55 @@ def test_search_ndjson_parallel_matches_sequential():
     par = strata.search(text, "$.id", ndjson=True, parallel=True)
 
     assert par == seq
+
+
+def test_search_ndjson_lazy_cursor_matches_eager(tmp_path):
+    path = tmp_path / "lazy.ndjson"
+    lines = [
+        '{"id": 1, "name": "alpha"}',
+        '{"id": 2, "name": "beta"}',
+        '[{"id": 3}, {"id": 4}]',
+        '{"id": 5, "nested": {"name": "gamma"}}',
+    ]
+    _write_ndjson(path, lines)
+
+    eager = _native.NdjsonCursor.from_file(str(path))
+    lazy = _native.NdjsonCursor.from_file_lazy(str(path))
+
+    queries = ["$", "$.id", "$.nested.name", "$[*].id"]
+    for expr in queries:
+        eager_results = strata.search(eager, expr)
+        lazy_results = strata.search(lazy, expr)
+        assert lazy_results == eager_results
+
+
+def test_search_ndjson_lazy_cursor_random_access(tmp_path):
+    path = tmp_path / "random.ndjson"
+    lines = [f'{{"idx": {i}}}' for i in range(1000)]
+    _write_ndjson(path, lines)
+
+    lazy = _native.NdjsonCursor.from_file_lazy(str(path))
+
+    assert strata.search(lazy, "$[0]") == [{"line": 1, "matches": [{"idx": 0}]}]
+    assert strata.search(lazy, "$[999]") == [{"line": 1000, "matches": [{"idx": 999}]}]
+    assert strata.search(lazy, "$[-1]") == [{"line": 1000, "matches": [{"idx": 999}]}]
+
+
+def test_search_ndjson_lazy_cursor_memory_usage(tmp_path):
+    path = tmp_path / "mem.ndjson"
+    lines = [f'{{"idx": {i}}}' for i in range(1000)]
+    _write_ndjson(path, lines)
+
+    eager = _native.NdjsonCursor.from_file(str(path))
+    lazy = _native.NdjsonCursor.from_file_lazy(str(path))
+
+    eager_stats = eager.stats()
+    lazy_stats = lazy.stats()
+
+    assert eager_stats["cached_lines"] == 1000
+    assert lazy_stats["cached_lines"] == 0
+    assert lazy_stats["line_count"] == 1000
+
+    strata.search(lazy, "$[0]")
+    after_stats = lazy.stats()
+    assert after_stats["parsed_lines"] <= 1
