@@ -36,6 +36,94 @@ struct BuilderResetGuard {
     BuilderResetGuard(const BuilderResetGuard&) = delete;
     BuilderResetGuard& operator=(const BuilderResetGuard&) = delete;
 };
+
+enum class SizeHintContainer { Array, Object };
+
+struct SizeHintCollector : public strata::JsonSaxHandler {
+    explicit SizeHintCollector(std::vector<size_t>* hints) : hints_(hints) {
+        if (hints_) {
+            hints_->clear();
+        }
+        container_stack_.clear();
+        counts_.clear();
+        hint_indices_.clear();
+    }
+
+    bool on_null() override { return on_scalar(); }
+    bool on_bool(bool /*v*/) override { return on_scalar(); }
+    bool on_int(int64_t /*v*/) override { return on_scalar(); }
+    bool on_uint(uint64_t /*v*/) override { return on_scalar(); }
+    bool on_double(double /*v*/) override { return on_scalar(); }
+
+    bool on_string(std::string_view /*v*/, bool /*has_escapes*/) override { return on_scalar(); }
+
+    bool on_start_object(size_t /*size_hint*/) override {
+        if (is_in_array()) {
+            counts_.back()++;
+        }
+        return start_container(SizeHintContainer::Object);
+    }
+
+    bool on_key(std::string_view /*v*/, bool /*has_escapes*/) override {
+        if (!container_stack_.empty() &&
+            container_stack_.back() == SizeHintContainer::Object) {
+            counts_.back()++;
+        }
+        return true;
+    }
+
+    bool on_end_object() override { return end_container(); }
+
+    bool on_start_array(size_t /*size_hint*/) override {
+        if (is_in_array()) {
+            counts_.back()++;
+        }
+        return start_container(SizeHintContainer::Array);
+    }
+
+    bool on_end_array() override { return end_container(); }
+
+  private:
+    bool on_scalar() {
+        if (is_in_array()) {
+            counts_.back()++;
+        }
+        return true;
+    }
+
+    bool start_container(SizeHintContainer type) {
+        if (!hints_) {
+            return false;
+        }
+        hints_->push_back(0);
+        hint_indices_.push_back(hints_->size() - 1);
+        container_stack_.push_back(type);
+        counts_.push_back(0);
+        return true;
+    }
+
+    bool end_container() {
+        if (!hints_ || container_stack_.empty()) {
+            return false;
+        }
+        size_t idx = hint_indices_.back();
+        (*hints_)[idx] = counts_.back();
+        hint_indices_.pop_back();
+        container_stack_.pop_back();
+        counts_.pop_back();
+        return true;
+    }
+
+    bool is_in_array() const {
+        return !container_stack_.empty() &&
+            container_stack_.back() == SizeHintContainer::Array;
+    }
+
+    std::vector<size_t>* hints_ = nullptr;
+    std::vector<SizeHintContainer> container_stack_;
+    std::vector<size_t> counts_;
+    std::vector<size_t> hint_indices_;
+};
 } // namespace
 
 static void emit_duplicate_key_warnings() {
@@ -200,6 +288,49 @@ size_t get_size_hint_cutoff_bytes() {
     }
     cached = value;
     return cached;
+}
+
+enum class ExactSizeHintMode { Auto, Disabled, Enabled };
+
+ExactSizeHintMode get_exact_size_hint_mode() {
+    static ExactSizeHintMode cached = ExactSizeHintMode::Auto;
+    static bool initialized = false;
+    if (initialized) {
+        return cached;
+    }
+    initialized = true;
+    const char* env = std::getenv("STRATA_PYTHON_EXACT_SIZE_HINTS");
+    if (!env || *env == '\0') {
+        cached = ExactSizeHintMode::Auto;
+        return cached;
+    }
+    std::string setting(env);
+    std::transform(setting.begin(), setting.end(), setting.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (setting == "0" || setting == "false" || setting == "no" || setting == "off") {
+        cached = ExactSizeHintMode::Disabled;
+        return cached;
+    }
+    if (setting == "1" || setting == "true" || setting == "yes" || setting == "on") {
+        cached = ExactSizeHintMode::Enabled;
+        return cached;
+    }
+    cached = ExactSizeHintMode::Auto;
+    return cached;
+}
+
+bool should_collect_exact_size_hints(size_t size, bool use_structural_tape) {
+    ExactSizeHintMode mode = get_exact_size_hint_mode();
+    if (mode == ExactSizeHintMode::Disabled) {
+        return false;
+    }
+    if (mode == ExactSizeHintMode::Enabled) {
+        return true;
+    }
+    if (!use_structural_tape) {
+        return false;
+    }
+    return size >= get_size_hint_cutoff_bytes();
 }
 
 bool use_structural_tape_for_python() {
@@ -692,13 +823,32 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     constexpr size_t kGcPauseAlwaysSize = 256 * 1024;
     constexpr size_t kGcPauseSampleSize = 64 * 1024;
     constexpr size_t kGcPauseMinValues = 4096;
+    const bool use_structural_tape = use_structural_tape_for_python();
+    bool use_exact_size_hints = should_collect_exact_size_hints(size, use_structural_tape);
+    if (use_exact_size_hints) {
+        SizeHintCollector collector(&g_parse_context.size_hints);
+        strata::ParseSaxOptions hint_options;
+        hint_options.use_structural_tape = use_structural_tape;
+        hint_options.use_size_hints = false;
+        hint_options.use_array_size_hints = false;
+        hint_options.use_object_size_hints = false;
+        hint_options.use_exact_size_hints = false;
+        strata::Status hint_status =
+            strata::parse_sax(std::string_view(data, size), collector, hint_options,
+                              &g_parse_context);
+        if (hint_status != strata::Status::Ok) {
+            g_parse_context.size_hints.clear();
+            use_exact_size_hints = false;
+        }
+    }
     auto parse = [&]() {
         strata::ParseSaxOptions options;
-        options.use_structural_tape = use_structural_tape_for_python();
+        options.use_structural_tape = use_structural_tape;
+        options.use_exact_size_hints = use_exact_size_hints;
         // Size-hint scanning adds extra passes and can over-allocate large dicts.
         // Keep array hints, but disable object hints for large inputs.
         const size_t cutoff = get_size_hint_cutoff_bytes();
-        if (size >= cutoff) {
+        if (size >= cutoff && !use_exact_size_hints) {
             options.use_object_size_hints = false;
         }
         return strata::parse_sax(std::string_view(data, size), g_parse_builder, options,

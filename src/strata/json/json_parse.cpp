@@ -187,10 +187,13 @@ struct Parser {
     std::vector<StackFrame> stack_;
     const std::vector<size_t>* structural_tape = nullptr;
     size_t tape_idx = 0;
+    const std::vector<size_t>* size_hints = nullptr;
+    size_t size_hint_idx = 0;
     bool aborted_ = false;
     bool use_size_hints = true;
     bool use_array_size_hints = true;
     bool use_object_size_hints = true;
+    bool use_exact_size_hints = false;
 
     bool aborted() const { return aborted_; }
 
@@ -208,6 +211,11 @@ struct Parser {
     void attach_structural_tape(const std::vector<size_t>* tape) {
         structural_tape = tape;
         tape_idx = 0;
+    }
+
+    void attach_size_hints(const std::vector<size_t>* hints) {
+        size_hints = hints;
+        size_hint_idx = 0;
     }
 
     void sync_structural_tape() {
@@ -583,7 +591,12 @@ struct Parser {
             return false;
         ++i; // consume '['
         size_t size_hint = 0;
-        if (use_size_hints && use_array_size_hints) {
+        bool used_exact = false;
+        if (use_exact_size_hints && size_hints && size_hint_idx < size_hints->size()) {
+            size_hint = (*size_hints)[size_hint_idx++];
+            used_exact = true;
+        }
+        if (!used_exact && use_size_hints && use_array_size_hints) {
             size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
             size_hint = estimate_array_size_hint(i, max_hint);
         }
@@ -603,7 +616,12 @@ struct Parser {
             return false;
         ++i; // consume '{'
         size_t size_hint = 0;
-        if (use_size_hints && use_object_size_hints) {
+        bool used_exact = false;
+        if (use_exact_size_hints && size_hints && size_hint_idx < size_hints->size()) {
+            size_hint = (*size_hints)[size_hint_idx++];
+            used_exact = true;
+        }
+        if (!used_exact && use_size_hints && use_object_size_hints) {
             size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
             size_hint = estimate_object_size_hint(i, max_hint);
         }
@@ -922,6 +940,7 @@ Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
     p.use_size_hints = options.use_size_hints;
     p.use_array_size_hints = options.use_array_size_hints;
     p.use_object_size_hints = options.use_object_size_hints;
+    p.use_exact_size_hints = options.use_exact_size_hints;
     if (size >= kStructuralTapeMinSize) {
         p.stack_.reserve(64);
     } else {
@@ -949,6 +968,9 @@ Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
             util::collect_structural_positions_simd(text.data(), size, structural_tape);
             p.attach_structural_tape(&structural_tape);
         }
+    }
+    if (options.use_exact_size_hints && context) {
+        p.attach_size_hints(&context->size_hints);
     }
     if (!p.parse_value()) {
         if (options.allow_abort && p.aborted()) {

@@ -45,6 +45,8 @@ struct ParseSaxOptions {
     bool validate_utf8 = true;
     bool allow_abort = false;
     bool use_structural_tape = true;
+    // Use exact container sizes (precomputed) instead of approximate hints.
+    bool use_exact_size_hints = false;
     // Size hints can improve small-container performance but add extra scanning.
     bool use_size_hints = true;
     // Allow independently disabling array/object hints when large inputs over-allocate dicts.
@@ -54,6 +56,7 @@ struct ParseSaxOptions {
 
 struct ParseSaxContext {
     std::vector<size_t> structural_tape;
+    std::vector<size_t> size_hints;
 };
 
 // Parse a JSON text into a JsonValue tree.
