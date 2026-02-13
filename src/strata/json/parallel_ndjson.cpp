@@ -600,8 +600,6 @@ std::vector<JsonValue> ParallelNdjsonStream::parse_sequential() {
     ParseSaxContext parse_context;
     ParseSaxOptions options;
     options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
-    RootFilterSpec root_filter = build_root_filter_spec(path);
-
     size_t pos = 0;
     size_t line_num = 1;
 
@@ -642,6 +640,7 @@ ParallelSearchResult ParallelNdjsonStream::search_sequential_with_errors(
     ParseSaxContext parse_context;
     ParseSaxOptions options;
     options.validate_utf8 = !(utf8_checked_ && utf8_ok_);
+    RootFilterSpec root_filter = build_root_filter_spec(path);
 
     size_t pos = 0;
     size_t line_num = 1;

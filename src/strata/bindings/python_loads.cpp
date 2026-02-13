@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <climits>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <unordered_map>
@@ -178,6 +179,27 @@ constexpr size_t kKeyCacheLargeInputThreshold = 1 * 1024 * 1024;
 constexpr size_t kKeyCacheBytesPerKey = 128;
 constexpr size_t kKeyCacheMinKeys = 256;
 constexpr size_t kKeyCacheMaxKeys = 8192;
+
+size_t get_size_hint_cutoff_bytes() {
+    static size_t cached = 0;
+    static bool initialized = false;
+    if (initialized) {
+        return cached;
+    }
+    initialized = true;
+    // Default: disable object size hints at >= 1MB to avoid large dict over-allocation.
+    size_t value = 1 * 1024 * 1024;
+    const char* env = std::getenv("STRATA_SIZE_HINTS_CUTOFF_BYTES");
+    if (env && *env) {
+        char* end = nullptr;
+        unsigned long long parsed = std::strtoull(env, &end, 10);
+        if (end != env) {
+            value = static_cast<size_t>(parsed);
+        }
+    }
+    cached = value;
+    return cached;
+}
 
 inline bool is_ascii_only_swar(const char* data, size_t len) {
     if (!data || len == 0) {
@@ -648,6 +670,12 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     constexpr size_t kGcPauseMinValues = 4096;
     auto parse = [&]() {
         strata::ParseSaxOptions options;
+        // Size-hint scanning adds extra passes and can over-allocate large dicts.
+        // Keep array hints, but disable object hints for large inputs.
+        const size_t cutoff = get_size_hint_cutoff_bytes();
+        if (size >= cutoff) {
+            options.use_object_size_hints = false;
+        }
         return strata::parse_sax(std::string_view(data, size), g_parse_builder, options,
                                  &g_parse_context);
     };

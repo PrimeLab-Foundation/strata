@@ -1126,8 +1126,6 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
         }
     }
     const SimpleFieldExtractionSpec* simple_spec_ptr = use_fused ? &simple_spec : nullptr;
-    NdjsonRootFilterSpec root_filter = build_ndjson_root_filter(compiled_path);
-    const NdjsonRootFilterSpec* root_filter_ptr = root_filter.enabled ? &root_filter : nullptr;
 
     strata::ParseSaxOptions options;
     strata::ParseSaxContext parse_context;
@@ -1183,6 +1181,8 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
         }
     }
     const SimpleFieldExtractionSpec* simple_spec_ptr = use_fused ? &simple_spec : nullptr;
+    NdjsonRootFilterSpec root_filter = build_ndjson_root_filter(compiled_path);
+    const NdjsonRootFilterSpec* root_filter_ptr = root_filter.enabled ? &root_filter : nullptr;
 
     if (treat_string_as_text) {
         if (lazy) {
@@ -2025,6 +2025,8 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
         }
     }
     const SimpleFieldExtractionSpec* simple_spec_ptr = use_fused ? &simple_spec : nullptr;
+    NdjsonRootFilterSpec root_filter = build_ndjson_root_filter(compiled_path);
+    const NdjsonRootFilterSpec* root_filter_ptr = root_filter.enabled ? &root_filter : nullptr;
 
     PyObject* pathlike = PyOS_FSPath(data_obj);
     if (pathlike) {

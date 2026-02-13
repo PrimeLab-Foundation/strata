@@ -45,6 +45,11 @@ struct ParseSaxOptions {
     bool validate_utf8 = true;
     bool allow_abort = false;
     bool use_structural_tape = true;
+    // Size hints can improve small-container performance but add extra scanning.
+    bool use_size_hints = true;
+    // Allow independently disabling array/object hints when large inputs over-allocate dicts.
+    bool use_array_size_hints = true;
+    bool use_object_size_hints = true;
 };
 
 struct ParseSaxContext {

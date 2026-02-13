@@ -188,6 +188,9 @@ struct Parser {
     const std::vector<size_t>* structural_tape = nullptr;
     size_t tape_idx = 0;
     bool aborted_ = false;
+    bool use_size_hints = true;
+    bool use_array_size_hints = true;
+    bool use_object_size_hints = true;
 
     bool aborted() const { return aborted_; }
 
@@ -579,8 +582,11 @@ struct Parser {
         if (stack_.size() >= kMaxNestingDepth)
             return false;
         ++i; // consume '['
-        size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
-        size_t size_hint = estimate_array_size_hint(i, max_hint);
+        size_t size_hint = 0;
+        if (use_size_hints && use_array_size_hints) {
+            size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
+            size_hint = estimate_array_size_hint(i, max_hint);
+        }
         if (!call_handler(handler.on_start_array(size_hint)))
             return false;
         skip_ws();
@@ -596,8 +602,11 @@ struct Parser {
         if (stack_.size() >= kMaxNestingDepth)
             return false;
         ++i; // consume '{'
-        size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
-        size_t size_hint = estimate_object_size_hint(i, max_hint);
+        size_t size_hint = 0;
+        if (use_size_hints && use_object_size_hints) {
+            size_t max_hint = stack_.empty() ? kHintMaxRoot : kHintMaxNested;
+            size_hint = estimate_object_size_hint(i, max_hint);
+        }
         if (!call_handler(handler.on_start_object(size_hint)))
             return false;
         skip_ws();
@@ -910,6 +919,9 @@ Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
         }
     }
     Parser p{text.data(), size, handler, 0, {}};
+    p.use_size_hints = options.use_size_hints;
+    p.use_array_size_hints = options.use_array_size_hints;
+    p.use_object_size_hints = options.use_object_size_hints;
     if (size >= kStructuralTapeMinSize) {
         p.stack_.reserve(64);
     } else {
