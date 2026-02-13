@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -195,6 +196,29 @@ size_t get_size_hint_cutoff_bytes() {
         unsigned long long parsed = std::strtoull(env, &end, 10);
         if (end != env) {
             value = static_cast<size_t>(parsed);
+        }
+    }
+    cached = value;
+    return cached;
+}
+
+bool use_structural_tape_for_python() {
+    static bool cached = true;
+    static bool initialized = false;
+    if (initialized) {
+        return cached;
+    }
+    initialized = true;
+    bool value = true;
+    const char* env = std::getenv("STRATA_USE_STRUCTURAL_TAPE");
+    if (env && *env) {
+        std::string setting(env);
+        std::transform(setting.begin(), setting.end(), setting.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (setting == "0" || setting == "false" || setting == "no" || setting == "off") {
+            value = false;
+        } else if (setting == "1" || setting == "true" || setting == "yes" || setting == "on") {
+            value = true;
         }
     }
     cached = value;
@@ -670,6 +694,7 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     constexpr size_t kGcPauseMinValues = 4096;
     auto parse = [&]() {
         strata::ParseSaxOptions options;
+        options.use_structural_tape = use_structural_tape_for_python();
         // Size-hint scanning adds extra passes and can over-allocate large dicts.
         // Keep array hints, but disable object hints for large inputs.
         const size_t cutoff = get_size_hint_cutoff_bytes();
