@@ -392,6 +392,28 @@ The pool infrastructure is kept as-is for:
 
 ---
 
+## 2026-02-14 — Pooling Refactor + GC Fix
+
+**Commit:** `ce2c30a`  
+**Environment:** macOS arm64, Python 3.14.2 (`.venv`), Make benchmarks (3 reps, 1 warmup), datasets `benchmarks/data/generated/{small,medium,large}`.
+
+### Changes
+- Kept per-parse dict pool; introduced conservative list pool (used only when size hint exactly matches pooled presize) and restored end-of-array trimming to avoid NULL list slots.
+- Batched dict insertion (LastWins only); removed list batching to keep GC-safe invariants.
+- Short-string pooling currently disabled after GC crashes; pool drain now runs after result materialization.
+
+### Benchmarks (median ms, strata “extract all user IDs”)
+
+| Dataset | Baseline (earlier today) | Post-change | Δ |
+|---------|-------------------------|-------------|---|
+| small/users.json | 1.18 | 1.33 | +12.7% |
+| medium/users.json | 2.84 | 2.74 | -3.5% |
+| large/users.json | 5.98 | 5.61 | -6.2% |
+
+*Result:* Medium/large see modest gains; small regresses (~13%) but within tolerable envelope for now. All C++ (24) and Python (680) tests pass; benches run without crashes. Follow-up: reintroduce safe short-string pooling and recover small-input regression.
+
+---
+
 ## Future Entries
 
 Add new entries here as optimizations are implemented.

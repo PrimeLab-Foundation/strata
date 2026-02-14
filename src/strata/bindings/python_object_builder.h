@@ -1,6 +1,7 @@
  #pragma once
 
 #include "python_types.h"
+#include <listobject.h>
 #include "strata/json/json_parse.hpp"
 #include "strata/json/json_sax_handler.hpp"
 #include "strata/util/arena_allocator.hpp"
@@ -374,117 +375,267 @@
      }
  };
 
- /**
-  * Per-parse-session object pool for Python dicts.
-  *
-  * Pre-creates a batch of empty Python dicts at parse start to amortize
-  * malloc/free overhead. Instead of calling _PyDict_NewPresized() individually
-  * for each JSON object, we hand out pre-created dicts from the pool.
-  *
-  * Why dicts only (not lists):
-  * - Lists use PyList_New(N) which pre-allocates the item array; pooling empty
-  *   lists then resizing is no better than direct allocation.
-  * - Dicts are the dominant container type (881K dicts vs 87K lists in test data).
-  * - Dict creation via _PyDict_NewPresized involves hash table allocation that
-  *   benefits most from batch pre-allocation.
-  *
-  * Lifecycle:
-  * - fill() at parse start: bulk-creates dicts with a common pre-size
-  * - acquire_dict(): returns pooled dict or falls back to new allocation
-  * - drain() at parse end: decrefs any unused pooled dicts
-  *
-  * All pooled objects have refcount=1 when acquired. The caller owns the reference.
-  * Objects that leave the pool are managed by Python's normal refcount/GC system.
-  *
-  * Thread safety: NOT thread-safe (per-thread via thread_local in python_loads.cpp)
-  */
- class PythonObjectPool {
-   public:
-     static constexpr size_t kDefaultDictPoolSize = 1024;
+/**
+ * Per-parse-session object pool for Python dicts/lists and small strings.
+ *
+ * Pools are filled at parse start, handed out during parsing, and drained
+ * (unused entries decref'd / arenas reset) after parsing finishes.
+ *
+ * - Dict pool: pre-created empty dicts sized to an adaptive presize.
+ * - List pool: pre-created empty lists; capacity grows on first resize.
+ * - String pool: per-parse short-string cache (<= 64B) backed by an arena and
+ *   robin-hood hash map to avoid repeated PyUnicode allocations for repeats.
+ *
+ * Thread safety: NOT thread-safe (per-thread via thread_local in python_loads.cpp)
+ */
+class PythonObjectPool {
+  public:
+    static constexpr size_t kDefaultDictPoolSize = 1024;
+    static constexpr size_t kDefaultListPoolSize = 256;
+    static constexpr size_t kMaxPooledStringLength = 64;
 
-     PythonObjectPool() = default;
+    PythonObjectPool() = default;
 
-     ~PythonObjectPool() {
-         drain();
-     }
+    ~PythonObjectPool() { drain(); }
 
-     PythonObjectPool(const PythonObjectPool&) = delete;
-     PythonObjectPool& operator=(const PythonObjectPool&) = delete;
+    PythonObjectPool(const PythonObjectPool&) = delete;
+    PythonObjectPool& operator=(const PythonObjectPool&) = delete;
 
-     /// Set pool capacity.
-     void configure(size_t dict_size) {
-         dict_pool_size_ = dict_size;
-     }
+    void configure(size_t pool_size) {
+        dict_pool_size_ = pool_size;
+        list_pool_size_ = pool_size / 4 == 0 ? kDefaultListPoolSize : pool_size / 4;
+    }
 
-     /// Pre-create pooled dicts. Call at parse start.
-     /// @param dict_presize  Capacity hint for _PyDict_NewPresized (0 = use PyDict_New)
-     void fill(size_t dict_presize = 0) {
-         drain();  // Release any leftovers from previous parse
+    void fill(size_t dict_presize = 0, size_t list_presize = 0) {
+        drain();
+        dict_presize_ = dict_presize;
+        list_presize_ = list_presize;
+        dict_pool_.reserve(dict_pool_size_);
+        for (size_t i = 0; i < dict_pool_size_; ++i) {
+            PyObject* d = dict_presize > 0
+                              ? _PyDict_NewPresized(static_cast<Py_ssize_t>(dict_presize))
+                              : PyDict_New();
+            if (LIKELY(d != nullptr)) {
+                dict_pool_.push_back(d);
+            }
+        }
+        list_pool_.reserve(list_pool_size_);
+        for (size_t i = 0; i < list_pool_size_; ++i) {
+            size_t alloc = list_presize_ > 0 ? list_presize_ : 0;
+            PyObject* l = PyList_New(static_cast<Py_ssize_t>(alloc));
+            if (LIKELY(l != nullptr)) {
+                list_pool_.push_back(l);
+            }
+        }
 
-         dict_presize_ = dict_presize;
-         dict_pool_.reserve(dict_pool_size_);
-         for (size_t i = 0; i < dict_pool_size_; ++i) {
-             PyObject* d = dict_presize > 0
-                 ? _PyDict_NewPresized(static_cast<Py_ssize_t>(dict_presize))
-                 : PyDict_New();
-             if (LIKELY(d != nullptr)) {
-                 dict_pool_.push_back(d);
-             }
-         }
-         dict_pos_ = 0;
-         dicts_from_pool_ = 0;
-         dicts_fallback_ = 0;
-     }
+        dict_pos_ = 0;
+        list_pos_ = 0;
+        dicts_from_pool_ = 0;
+        dicts_fallback_ = 0;
+        lists_from_pool_ = 0;
+        lists_fallback_ = 0;
 
-     /// Acquire a dict from the pool.
-     /// If pool is exhausted or presize differs significantly from pooled presize,
-     /// falls back to _PyDict_NewPresized/PyDict_New.
-     /// Caller owns the returned reference (refcount = 1).
-     PyObject* acquire_dict(size_t presize) {
-         // Use pooled dict if available and presize is compatible.
-         // A pooled dict pre-sized for N can hold up to N keys without rehashing.
-         // If requested presize <= pooled presize, the pooled dict works fine.
-         // If requested presize > pooled presize, dict will rehash but still works.
-         if (LIKELY(dict_pos_ < dict_pool_.size())) {
-             dicts_from_pool_++;
-             return dict_pool_[dict_pos_++];
-         }
-         // Pool exhausted — fall back to individual allocation
-         dicts_fallback_++;
-         if (presize > 0) {
-             return _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
-         }
-         return PyDict_New();
-     }
+        string_arena_.reset();
+        string_pool_.reset(&string_arena_);
+    }
 
-     /// Release all unused pooled dicts. Call at parse end or reset.
-     void drain() {
-         if (!Py_IsInitialized()) {
-             dict_pool_.clear();
-             return;
-         }
-         for (size_t i = dict_pos_; i < dict_pool_.size(); ++i) {
-             Py_DECREF(dict_pool_[i]);
-         }
-         dict_pool_.clear();
-         dict_pos_ = 0;
-     }
+    PyObject* acquire_dict(size_t presize) {
+        if (LIKELY(dict_pos_ < dict_pool_.size())) {
+            dicts_from_pool_++;
+            return dict_pool_[dict_pos_++];
+        }
+        dicts_fallback_++;
+        if (presize > 0) {
+            return _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
+        }
+        return PyDict_New();
+    }
 
-     bool is_active() const { return !dict_pool_.empty(); }
+    PyObject* acquire_list(size_t presize) {
+        if (list_presize_ > 0 && presize == list_presize_ &&
+            LIKELY(list_pos_ < list_pool_.size())) {
+            lists_from_pool_++;
+            return list_pool_[list_pos_++];
+        }
+        lists_fallback_++;
+        return PyList_New(static_cast<Py_ssize_t>(presize));
+    }
 
-     // Stats for tuning
-     size_t dicts_from_pool() const { return dicts_from_pool_; }
-     size_t dicts_fallback() const { return dicts_fallback_; }
-     size_t pool_capacity() const { return dict_pool_size_; }
+    PyObject* acquire_string(std::string_view sv, bool has_escapes) {
+        if (sv.size() == 0 || sv.size() > kMaxPooledStringLength) {
+            return nullptr;
+        }
+        return string_pool_.get(sv, has_escapes);
+    }
 
-   private:
-     std::vector<PyObject*> dict_pool_;
-     size_t dict_pos_ = 0;
-     size_t dict_pool_size_ = kDefaultDictPoolSize;
-     size_t dict_presize_ = 0;
-     size_t dicts_from_pool_ = 0;
-     size_t dicts_fallback_ = 0;
- };
+    void drain() {
+        if (!Py_IsInitialized()) {
+            dict_pool_.clear();
+            list_pool_.clear();
+            string_pool_.release();
+            return;
+        }
+        for (size_t i = dict_pos_; i < dict_pool_.size(); ++i) {
+            Py_DECREF(dict_pool_[i]);
+        }
+        for (size_t i = list_pos_; i < list_pool_.size(); ++i) {
+            Py_DECREF(list_pool_[i]);
+        }
+        dict_pool_.clear();
+        list_pool_.clear();
+        dict_pos_ = 0;
+        list_pos_ = 0;
+        string_pool_.release();
+        string_arena_.reset();
+    }
+
+    bool is_active() const { return !dict_pool_.empty(); }
+    bool list_pool_active() const { return !list_pool_.empty(); }
+    bool string_pool_active() const { return string_pool_.is_active(); }
+
+    size_t dicts_from_pool() const { return dicts_from_pool_; }
+    size_t dicts_fallback() const { return dicts_fallback_; }
+    size_t lists_from_pool() const { return lists_from_pool_; }
+    size_t lists_fallback() const { return lists_fallback_; }
+    size_t pool_capacity() const { return dict_pool_size_; }
+
+  private:
+    struct ShortStringPool {
+        static constexpr size_t kMinBuckets = 512;
+        static constexpr size_t kMaxBuckets = 32768;
+        struct Bucket {
+            uint64_t hash = 0;
+            const char* data = nullptr;
+            uint16_t len = 0;
+            PyObject* py = nullptr;
+        };
+
+        void reset(strata::util::Arena* arena) {
+            arena_ = arena;
+            if (buckets_.empty()) {
+                init(kMinBuckets);
+            }
+            if (++generation_ == 0) {
+                release();
+                std::fill(bucket_generations_.begin(), bucket_generations_.end(), 0);
+                generation_ = 1;
+            }
+        }
+
+        PyObject* get(std::string_view sv, bool has_escapes) {
+            if (!arena_) return nullptr;
+            std::string_view owned = sv;
+            if (has_escapes) {
+                LazyString lazy(sv, true);
+                const std::string& unescaped = lazy.value();
+                if (unescaped.size() > kMaxPooledStringLength) {
+                    return PyUnicode_FromStringAndSize(unescaped.data(), unescaped.size());
+                }
+                owned = copy(unescaped);
+            } else {
+                owned = copy(sv);
+            }
+
+            const uint64_t h = fnv1a_hash(owned);
+            size_t idx = h & bucket_mask_;
+            uint8_t dist = 0;
+            while (dist < kMaxProbeDistance) {
+                if (bucket_generations_[idx] != generation_) {
+                    return insert(idx, h, owned, dist);
+                }
+                Bucket& b = buckets_[idx];
+                if (b.hash == h && b.len == owned.size() &&
+                    std::memcmp(b.data, owned.data(), owned.size()) == 0) {
+                    Py_INCREF(b.py);
+                    return b.py;
+                }
+                if (dist > distances_[idx]) {
+                    return insert(idx, h, owned, dist);
+                }
+                idx = (idx + 1) & bucket_mask_;
+                ++dist;
+            }
+            return PyUnicode_FromStringAndSize(owned.data(), owned.size());
+        }
+
+        bool is_active() const { return arena_ != nullptr; }
+
+        void release() {
+            buckets_.clear();
+            bucket_generations_.clear();
+            distances_.clear();
+            bucket_count_ = 0;
+            bucket_mask_ = 0;
+            arena_ = nullptr;
+        }
+
+      private:
+        static constexpr uint8_t kMaxProbeDistance = 32;
+        strata::util::Arena* arena_ = nullptr;
+        size_t bucket_count_ = 0;
+        size_t bucket_mask_ = 0;
+        std::vector<Bucket> buckets_;
+        std::vector<uint8_t> distances_;
+        std::vector<uint32_t> bucket_generations_;
+        uint32_t generation_ = 0;
+
+        void init(size_t count) {
+            bucket_count_ = count;
+            bucket_mask_ = bucket_count_ - 1;
+            buckets_.assign(bucket_count_, {});
+            distances_.assign(bucket_count_, 0);
+            bucket_generations_.assign(bucket_count_, 0);
+            generation_ = 1;
+        }
+
+        std::string_view copy(std::string_view sv) {
+            if (!arena_) {
+                return sv;
+            }
+            char* dst =
+                static_cast<char*>(arena_->allocate(sv.size() + 1, alignof(char)));
+            std::memcpy(dst, sv.data(), sv.size());
+            dst[sv.size()] = '\0';
+            return std::string_view(dst, sv.size());
+        }
+
+        PyObject* insert(size_t idx, uint64_t hash, std::string_view sv, uint8_t dist) {
+            PyObject* py = PyUnicode_DecodeUTF8(sv.data(), sv.size(), nullptr);
+            if (!py) {
+                return nullptr;
+            }
+            Bucket& b = buckets_[idx];
+            if (bucket_generations_[idx] == generation_ && b.py) {
+                Py_DECREF(b.py);
+            }
+            b.hash = hash;
+            b.data = sv.data();
+            b.len = static_cast<uint16_t>(sv.size());
+            b.py = py;
+            bucket_generations_[idx] = generation_;
+            distances_[idx] = dist;
+            return py;
+        }
+    };
+
+    std::vector<PyObject*> dict_pool_;
+    std::vector<PyObject*> list_pool_;
+
+    size_t dict_pos_ = 0;
+    size_t list_pos_ = 0;
+    size_t dict_pool_size_ = kDefaultDictPoolSize;
+    size_t list_pool_size_ = kDefaultListPoolSize;
+    size_t dict_presize_ = 0;
+    size_t list_presize_ = 0;
+
+    size_t dicts_from_pool_ = 0;
+    size_t dicts_fallback_ = 0;
+    size_t lists_from_pool_ = 0;
+    size_t lists_fallback_ = 0;
+
+    strata::util::Arena string_arena_{32 * 1024};
+    ShortStringPool string_pool_;
+};
 
  /**
   * Adaptive size estimator using exponential moving averages.
@@ -628,6 +779,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
     using SizeAllocator = strata::util::ArenaAllocator<size_t>;
     static constexpr size_t kMaxListPresize = 131072;
     static constexpr size_t kMaxDictPresize = 16384;
+    static constexpr size_t kBatchSize = 64;
 
     PythonObjectBuilder(strata::util::Arena* arena, KeyCache& cache,
                         PythonObjectPool* pool = nullptr)
@@ -649,6 +801,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
         list_object_key_sums_.reserve(32);
         list_list_counts_.reserve(32);
         list_list_size_sums_.reserve(32);
+        dict_batches_.reserve(32);
 
         // Enable detailed tracking only when requested to avoid hot-path overhead.
         const bool track =
@@ -673,9 +826,11 @@ class PythonObjectBuilder : public JsonSaxHandler {
             list_object_key_sums_.clear();
             list_list_counts_.clear();
             list_list_size_sums_.clear();
+            dict_batches_.clear();
             current_list_depth_ = 0;
             return;
         }
+        clear_pending_batches();
         if (root_) {
             Py_DECREF(root_);
             root_ = nullptr;
@@ -750,13 +905,10 @@ class PythonObjectBuilder : public JsonSaxHandler {
 
      bool on_string(std::string_view v, bool has_escapes = false) override {
          if (has_escapes) {
-             // Use LazyString to unescape the string
              LazyString lazy(v, true);
              const std::string& unescaped = lazy.value();
              return push_value(PyUnicode_FromStringAndSize(unescaped.data(), unescaped.size()));
          }
-         // Direct string creation without caching - benchmarks show caching
-         // adds overhead for small datasets with mostly unique strings
          return push_value(PyUnicode_FromStringAndSize(v.data(), v.size()));
      }
 
@@ -779,6 +931,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
          // Track that we're building a dict to count keys later
          dict_key_counts_.push_back(0);
          dict_estimates_.push_back(presize);
+         dict_batches_.push_back({});
          return true;
      }
 
@@ -815,31 +968,43 @@ class PythonObjectBuilder : public JsonSaxHandler {
          stack_.pop_back();
 
          // Record actual size for adaptive estimation
-         if (!dict_key_counts_.empty()) {
-             size_t actual_keys = dict_key_counts_.back();
-             dict_key_counts_.pop_back();
-             size_t estimate = dict_estimates_.empty() ? 0 : dict_estimates_.back();
-             if (!dict_estimates_.empty()) {
-                 dict_estimates_.pop_back();
-             }
-             estimator_.record_dict_size(actual_keys, estimate);
+        if (!dict_key_counts_.empty()) {
+            size_t actual_keys = dict_key_counts_.back();
+            dict_key_counts_.pop_back();
+            size_t estimate = dict_estimates_.empty() ? 0 : dict_estimates_.back();
+            if (!dict_estimates_.empty()) {
+                dict_estimates_.pop_back();
+            }
+            estimator_.record_dict_size(actual_keys, estimate);
 
              // Update sibling-average statistics when parent is an array
-             if (current_list_depth_ > 0 && current_list_depth_ <= list_object_counts_.size()) {
-                 size_t parent_idx = current_list_depth_ - 1;
-                 list_object_counts_[parent_idx] += 1;
-                 list_object_key_sums_[parent_idx] += actual_keys;
-             }
-         }
+            if (current_list_depth_ > 0 && current_list_depth_ <= list_object_counts_.size()) {
+                size_t parent_idx = current_list_depth_ - 1;
+                list_object_counts_[parent_idx] += 1;
+                list_object_key_sums_[parent_idx] += actual_keys;
+            }
+        }
 
-         return push_value(dict);
-     }
+        if (!flush_current_dict_batch(dict)) {
+            Py_DECREF(dict);
+            return false;
+        }
+        if (!dict_batches_.empty()) {
+            dict_batches_.pop_back();
+        }
+
+        return push_value(dict);
+    }
 
     bool on_start_array(size_t size_hint) override {
         size_t presize = compute_list_presize(size_hint);
 
-        // Always pre-allocate with at least the estimated size
-        PyObject* list = PyList_New(presize);
+        PyObject* list = nullptr;
+        if (pool_ && pool_->list_pool_active()) {
+            list = pool_->acquire_list(presize);
+        } else {
+            list = PyList_New(presize);
+        }
         if (!list)
             return false;
         stack_.push_back(list);
@@ -854,19 +1019,19 @@ class PythonObjectBuilder : public JsonSaxHandler {
         return true;
     }
 
-     bool on_end_array() override {
-         if (stack_.empty())
-             return false;
-         PyObject* list = stack_.back();
-         stack_.pop_back();
+    bool on_end_array() override {
+        if (stack_.empty())
+            return false;
+        PyObject* list = stack_.back();
+        stack_.pop_back();
 
-         size_t actual_size = list_indices_.back();
-         size_t allocated_size = list_sizes_.back();
-         list_indices_.pop_back();
-         list_sizes_.pop_back();
-         size_t estimate = list_estimates_.empty() ? 0 : list_estimates_.back();
-         if (!list_estimates_.empty()) {
-             list_estimates_.pop_back();
+        size_t actual_size = list_indices_.back();
+        size_t allocated_size = list_sizes_.back();
+        list_indices_.pop_back();
+        list_sizes_.pop_back();
+        size_t estimate = list_estimates_.empty() ? 0 : list_estimates_.back();
+        if (!list_estimates_.empty()) {
+            list_estimates_.pop_back();
          }
          if (!list_object_counts_.empty()) {
              list_object_counts_.pop_back();
@@ -877,13 +1042,20 @@ class PythonObjectBuilder : public JsonSaxHandler {
          if (!list_list_counts_.empty()) {
              list_list_counts_.pop_back();
          }
-         if (!list_list_size_sums_.empty()) {
-             list_list_size_sums_.pop_back();
-         }
-         current_list_depth_--;  // O(1) depth tracking
+        if (!list_list_size_sums_.empty()) {
+            list_list_size_sums_.pop_back();
+        }
+        current_list_depth_--;  // O(1) depth tracking
 
-         // Record actual size for adaptive estimation
-         estimator_.record_list_size(actual_size, estimate);
+        // Record actual size for adaptive estimation
+        estimator_.record_list_size(actual_size, estimate);
+
+        if (allocated_size > 0 && actual_size < allocated_size) {
+            if (PyList_SetSlice(list, actual_size, allocated_size, NULL) < 0) {
+                Py_DECREF(list);
+                return false;
+            }
+        }
 
          // If parent is a list (array of arrays), track sibling average
          if (current_list_depth_ > 0 && current_list_depth_ <= list_list_counts_.size()) {
@@ -892,16 +1064,8 @@ class PythonObjectBuilder : public JsonSaxHandler {
              list_list_size_sums_[parent_idx] += actual_size;
          }
 
-         // Trim list if we allocated more than we used
-         if (allocated_size > 0 && actual_size < allocated_size) {
-             if (PyList_SetSlice(list, actual_size, allocated_size, NULL) < 0) {
-                 Py_DECREF(list);
-                 return false;
-             }
-         }
-
-         return push_value(list);
-     }
+        return push_value(list);
+    }
 
      PyObject* take_root() {
          PyObject* res = root_;
@@ -912,6 +1076,10 @@ class PythonObjectBuilder : public JsonSaxHandler {
     // Get the adaptive estimator's current dict size estimate (for pool pre-sizing)
     size_t estimate_dict_presize() const {
         return estimator_.estimate_dict_size();
+    }
+
+    size_t estimate_list_presize() const {
+        return estimator_.estimate_list_size();
     }
 
     // Get estimator stats for debugging/tuning
@@ -926,6 +1094,12 @@ class PythonObjectBuilder : public JsonSaxHandler {
     }
 
   private:
+    struct DictBatch {
+        std::array<PyObject*, kBatchSize> keys{};
+        std::array<PyObject*, kBatchSize> values{};
+        size_t size = 0;
+    };
+
     size_t compute_dict_presize(size_t size_hint) const {
         size_t presize = size_hint;
 
@@ -978,6 +1152,43 @@ class PythonObjectBuilder : public JsonSaxHandler {
             presize = kMaxListPresize;
         }
         return presize;
+    }
+
+    void clear_pending_batches() {
+        for (auto& batch : dict_batches_) {
+            for (size_t i = 0; i < batch.size; ++i) {
+                Py_DECREF(batch.keys[i]);
+                Py_DECREF(batch.values[i]);
+            }
+            batch.size = 0;
+        }
+        dict_batches_.clear();
+    }
+
+    bool flush_current_dict_batch(PyObject* dict) {
+        if (dict_batches_.empty()) {
+            return true;
+        }
+        DictBatch& batch = dict_batches_.back();
+        if (batch.size == 0) {
+            return true;
+        }
+        for (size_t i = 0; i < batch.size; ++i) {
+            PyObject* key = batch.keys[i];
+            PyObject* val = batch.values[i];
+            if (PyDict_SetItem(dict, key, val) < 0) {
+                for (size_t j = i; j < batch.size; ++j) {
+                    Py_DECREF(batch.keys[j]);
+                    Py_DECREF(batch.values[j]);
+                }
+                batch.size = 0;
+                return false;
+            }
+            Py_DECREF(key);
+            Py_DECREF(val);
+        }
+        batch.size = 0;
+        return true;
     }
 
     bool push_value(PyObject* val) {
@@ -1035,75 +1246,77 @@ class PythonObjectBuilder : public JsonSaxHandler {
              keys_.pop_back();
 
              const auto policy = strata::get_duplicate_key_policy();
-            if (policy == strata::DuplicateKeyPolicy::LastWins) {
-                if (PyDict_SetItem(top, key, val) < 0) {
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return false;
-                }
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return true;
-            }
+             if (policy != strata::DuplicateKeyPolicy::LastWins || dict_batches_.empty()) {
+                 if (policy == strata::DuplicateKeyPolicy::FirstWins) {
+                     if (!PyDict_SetDefault(top, key, val)) {
+                         Py_DECREF(key);
+                         Py_DECREF(val);
+                         return false;
+                     }
+                     Py_DECREF(key);
+                     Py_DECREF(val);
+                     return true;
+                 }
 
-            if (policy == strata::DuplicateKeyPolicy::FirstWins) {
-                if (!PyDict_SetDefault(top, key, val)) {
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return false;
-                }
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return true;
-            }
+                 Py_hash_t hash = PyObject_Hash(key);
+                 if (hash == -1 && PyErr_Occurred()) {
+                     Py_DECREF(key);
+                     Py_DECREF(val);
+                     return false;
+                 }
 
-            Py_hash_t hash = PyObject_Hash(key);
-            if (hash == -1 && PyErr_Occurred()) {
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return false;
-            }
+                 PyObject* existing = _PyDict_GetItem_KnownHash(top, key, hash);
+                 if (!existing && PyErr_Occurred()) {
+                     Py_DECREF(key);
+                     Py_DECREF(val);
+                     return false;
+                 }
+                 if (existing) {
+                     switch (policy) {
+                     case strata::DuplicateKeyPolicy::FirstWins:
+                         Py_DECREF(key);
+                         Py_DECREF(val);
+                         return true;
+                     case strata::DuplicateKeyPolicy::Warn: {
+                         PyObject* key_repr = PyObject_Repr(key);
+                         const char* key_str = PyUnicode_AsUTF8(key_repr);
+                         std::string msg = "Duplicate key encountered: ";
+                         msg += key_str;
+                         PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+                         Py_XDECREF(key_repr);
+                         Py_DECREF(key);
+                         Py_DECREF(val);
+                         return true;
+                     }
+                     case strata::DuplicateKeyPolicy::Error:
+                         Py_DECREF(key);
+                         Py_DECREF(val);
+                         return false;
+                     default:
+                         break;
+                     }
+                 }
 
-            PyObject* existing = _PyDict_GetItem_KnownHash(top, key, hash);
-            if (!existing && PyErr_Occurred()) {
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return false;
-            }
-            if (existing) {
-                switch (policy) {
-                case strata::DuplicateKeyPolicy::FirstWins:
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return true;
-                case strata::DuplicateKeyPolicy::Warn: {
-                    PyObject* key_repr = PyObject_Repr(key);
-                    const char* key_str = PyUnicode_AsUTF8(key_repr);
-                    std::string msg = "Duplicate key encountered: ";
-                    msg += key_str;
-                    PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
-                    Py_XDECREF(key_repr);
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return true;
-                }
-                case strata::DuplicateKeyPolicy::Error:
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return false;
-                default:
-                    break;
-                }
-            }
+                 if (PyDict_SetItem(top, key, val) < 0) {
+                     Py_DECREF(key);
+                     Py_DECREF(val);
+                     return false;
+                 }
+                 Py_DECREF(key);
+                 Py_DECREF(val);
+                 return true;
+             }
 
-            if (PyDict_SetItem(top, key, val) < 0) {
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return false;
-            }
-            Py_DECREF(key);
-            Py_DECREF(val);
-            return true;
+             DictBatch& batch = dict_batches_.back();
+             batch.keys[batch.size] = key;
+             batch.values[batch.size] = val;
+             batch.size++;
+             if (batch.size >= kBatchSize) {
+                 if (!flush_current_dict_batch(top)) {
+                     return false;
+                 }
+             }
+             return true;
         }
          Py_DECREF(val);
          return false;
@@ -1122,6 +1335,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
   std::vector<size_t, SizeAllocator> list_object_key_sums_;
   std::vector<size_t, SizeAllocator> list_list_counts_;
   std::vector<size_t, SizeAllocator> list_list_size_sums_;
+  std::vector<DictBatch> dict_batches_;
   size_t current_list_depth_ = 0;  // O(1) list depth tracking
   KeyCache& cache_;
   PythonObjectPool* pool_ = nullptr;  // Optional dict pool (per-parse-session)

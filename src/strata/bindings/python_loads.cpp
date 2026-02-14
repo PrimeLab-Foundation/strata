@@ -1414,7 +1414,8 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
         }
         g_object_pool.configure(pool_size);
         // Pre-size pooled dicts with the adaptive estimator's current estimate
-        g_object_pool.fill(g_parse_builder.estimate_dict_presize());
+        g_object_pool.fill(g_parse_builder.estimate_dict_presize(),
+                           g_parse_builder.estimate_list_presize());
     }
 
     const bool use_structural_tape = use_structural_tape_for_python();
@@ -1471,11 +1472,6 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
         status = parse();
     }
 
-    // Drain unused pooled dicts (acquired dicts are owned by the result tree)
-    if (use_pool) {
-        g_object_pool.drain();
-    }
-
     if (status != strata::Status::Ok) {
         if (!PyErr_Occurred()) {
             PyErr_SetString(PyExc_ValueError, "Invalid JSON");
@@ -1497,7 +1493,11 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
                 list_n, list_avg, list_under, list_over, list_exact);
     }
 
-    return g_parse_builder.take_root();
+    PyObject* result = g_parse_builder.take_root();
+    if (use_pool) {
+        g_object_pool.drain();
+    }
+    return result;
 }
 
 // Python loads() function
