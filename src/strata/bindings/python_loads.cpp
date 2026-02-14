@@ -1483,6 +1483,20 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
         return NULL;
     }
 
+    if (std::getenv("STRATA_LOG_PRESIZE")) {
+        size_t dict_avg = 0, list_avg = 0, dict_n = 0, list_n = 0;
+        size_t dict_under = 0, dict_over = 0, dict_exact = 0;
+        size_t list_under = 0, list_over = 0, list_exact = 0;
+        g_parse_builder.get_estimator_stats(dict_avg, list_avg, dict_n, list_n);
+        g_parse_builder.get_accuracy_stats(dict_under, dict_over, dict_exact,
+                                           list_under, list_over, list_exact);
+        fprintf(stderr,
+                "[strata] presize stats: dict n=%zu avg=%zu under=%zu over=%zu exact=%zu; "
+                "list n=%zu avg=%zu under=%zu over=%zu exact=%zu\n",
+                dict_n, dict_avg, dict_under, dict_over, dict_exact,
+                list_n, list_avg, list_under, list_over, list_exact);
+    }
+
     return g_parse_builder.take_root();
 }
 

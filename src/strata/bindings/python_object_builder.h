@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <string>
@@ -489,54 +490,139 @@
   * Adaptive size estimator using exponential moving averages.
   * Tracks recent dict/list sizes to improve pre-allocation accuracy.
   */
- class AdaptiveSizeEstimator {
-   public:
-     AdaptiveSizeEstimator() = default;
+class AdaptiveSizeEstimator {
+  public:
+    AdaptiveSizeEstimator() = default;
 
-     // Update estimator with actual size observed
-     void record_dict_size(size_t actual_size) {
-         dict_count_++;
-         dict_sum_ += actual_size;
-         // Exponential moving average with alpha=0.125 (1/8)
-         // Balances recent observations with historical data
-         dict_ema_ = (dict_ema_ * 7 + actual_size) / 8;
-     }
+    static constexpr size_t kWindow = 256;
+    void enable_tracking(bool on) { tracking_enabled_ = on; }
 
-     void record_list_size(size_t actual_size) {
-         list_count_++;
-         list_sum_ += actual_size;
-         list_ema_ = (list_ema_ * 7 + actual_size) / 8;
-     }
+    // Update estimator with actual size observed
+    void record_dict_size(size_t actual_size, size_t estimated) {
+        dict_count_++;
+        dict_sum_ += actual_size;
+        // Exponential moving average with alpha=0.125 (1/8)
+        dict_ema_ = (dict_ema_ * 7 + actual_size) / 8;
 
-     // Get estimated size for next dict/list
-     size_t estimate_dict_size() const {
-         if (dict_count_ == 0) return 8;  // Conservative default, learns quickly
-         return dict_ema_ > 0 ? dict_ema_ : 8;
-     }
+        if (!tracking_enabled_) {
+            return;
+        }
 
-     size_t estimate_list_size() const {
-         if (dict_count_ == 0) return 8;
-         return list_ema_ > 0 ? list_ema_ : 8;
-     }
+        // Sliding window for recent-average estimation (size kWindow)
+        if (dict_recent_count_ < kWindow) {
+            dict_recent_[dict_recent_pos_] = actual_size;
+            dict_recent_sum_ += actual_size;
+            dict_recent_count_++;
+        } else {
+            dict_recent_sum_ -= dict_recent_[dict_recent_pos_];
+            dict_recent_[dict_recent_pos_] = actual_size;
+            dict_recent_sum_ += actual_size;
+        }
+        dict_recent_pos_ = (dict_recent_pos_ + 1) % kWindow;
 
-     // Get accuracy metrics for tuning
-     void get_stats(size_t& dict_avg, size_t& list_avg, size_t& dict_n, size_t& list_n) const {
-         dict_avg = dict_count_ > 0 ? dict_sum_ / dict_count_ : 0;
-         list_avg = list_count_ > 0 ? list_sum_ / list_count_ : 0;
-         dict_n = dict_count_;
-         list_n = list_count_;
-     }
+        // Track accuracy for tuning
+        if (actual_size > estimated) {
+            ++dict_under_estimate_;
+        } else if (actual_size < estimated) {
+            ++dict_over_estimate_;
+        } else {
+            ++dict_exact_estimate_;
+        }
+    }
 
-   private:
-     size_t dict_ema_ = 8;       // Exponential moving average for dict sizes
-     size_t list_ema_ = 8;       // Exponential moving average for list sizes
-     size_t dict_count_ = 0;     // Total dicts seen
-     size_t list_count_ = 0;     // Total lists seen
-     size_t dict_sum_ = 0;       // Sum for computing average
-     size_t list_sum_ = 0;       // Sum for computing average
- };
+    void record_list_size(size_t actual_size, size_t estimated) {
+        list_count_++;
+        list_sum_ += actual_size;
+        list_ema_ = (list_ema_ * 7 + actual_size) / 8;
 
- class PythonObjectBuilder : public JsonSaxHandler {
+        if (!tracking_enabled_) {
+            return;
+        }
+
+        if (list_recent_count_ < kWindow) {
+            list_recent_[list_recent_pos_] = actual_size;
+            list_recent_sum_ += actual_size;
+            list_recent_count_++;
+        } else {
+            list_recent_sum_ -= list_recent_[list_recent_pos_];
+            list_recent_[list_recent_pos_] = actual_size;
+            list_recent_sum_ += actual_size;
+        }
+        list_recent_pos_ = (list_recent_pos_ + 1) % kWindow;
+
+        if (actual_size > estimated) {
+            ++list_under_estimate_;
+        } else if (actual_size < estimated) {
+            ++list_over_estimate_;
+        } else {
+            ++list_exact_estimate_;
+        }
+    }
+
+    // Get estimated size for next dict/list
+    size_t estimate_dict_size() const {
+        if (dict_recent_count_ > 0) {
+            return dict_recent_sum_ / dict_recent_count_;
+        }
+        if (dict_count_ == 0) return 16;  // Conservative default, covers 80% of objects
+        size_t avg = dict_ema_ > 0 ? dict_ema_ : dict_sum_ / dict_count_;
+        return avg > 0 ? avg : 16;
+    }
+
+    size_t estimate_list_size() const {
+        if (list_recent_count_ > 0) {
+            return list_recent_sum_ / list_recent_count_;
+        }
+        if (list_count_ == 0) return 8;
+        size_t avg = list_ema_ > 0 ? list_ema_ : list_sum_ / list_count_;
+        return avg > 0 ? avg : 8;
+    }
+
+    // Get accuracy metrics for tuning
+    void get_stats(size_t& dict_avg, size_t& list_avg, size_t& dict_n, size_t& list_n) const {
+        dict_avg = dict_count_ > 0 ? dict_sum_ / dict_count_ : 0;
+        list_avg = list_count_ > 0 ? list_sum_ / list_count_ : 0;
+        dict_n = dict_count_;
+        list_n = list_count_;
+    }
+
+    void get_accuracy(size_t& dict_under, size_t& dict_over, size_t& dict_exact, size_t& list_under,
+                      size_t& list_over, size_t& list_exact) const {
+        dict_under = dict_under_estimate_;
+        dict_over = dict_over_estimate_;
+        dict_exact = dict_exact_estimate_;
+        list_under = list_under_estimate_;
+        list_over = list_over_estimate_;
+        list_exact = list_exact_estimate_;
+    }
+
+  private:
+    size_t dict_ema_ = 8;       // Exponential moving average for dict sizes
+    size_t list_ema_ = 8;       // Exponential moving average for list sizes
+    size_t dict_count_ = 0;     // Total dicts seen
+    size_t list_count_ = 0;     // Total lists seen
+    size_t dict_sum_ = 0;       // Sum for computing average
+    size_t list_sum_ = 0;       // Sum for computing average
+
+    std::array<size_t, kWindow> dict_recent_{};
+    std::array<size_t, kWindow> list_recent_{};
+    size_t dict_recent_sum_ = 0;
+    size_t list_recent_sum_ = 0;
+    size_t dict_recent_pos_ = 0;
+    size_t list_recent_pos_ = 0;
+    size_t dict_recent_count_ = 0;
+    size_t list_recent_count_ = 0;
+
+    size_t dict_under_estimate_ = 0;
+    size_t dict_over_estimate_ = 0;
+    size_t dict_exact_estimate_ = 0;
+    size_t list_under_estimate_ = 0;
+    size_t list_over_estimate_ = 0;
+    size_t list_exact_estimate_ = 0;
+    bool tracking_enabled_ = false;
+};
+
+class PythonObjectBuilder : public JsonSaxHandler {
   public:
     using StackAllocator = strata::util::ArenaAllocator<PyObject*>;
     using SizeAllocator = strata::util::ArenaAllocator<size_t>;
@@ -547,13 +633,28 @@
                         PythonObjectPool* pool = nullptr)
         : arena_(arena), stack_(StackAllocator(arena)), keys_(StackAllocator(arena)),
           list_indices_(SizeAllocator(arena)), list_sizes_(SizeAllocator(arena)),
-          dict_key_counts_(SizeAllocator(arena)),
+          dict_key_counts_(SizeAllocator(arena)), dict_estimates_(SizeAllocator(arena)),
+          list_estimates_(SizeAllocator(arena)),
+          list_object_counts_(SizeAllocator(arena)), list_object_key_sums_(SizeAllocator(arena)),
+          list_list_counts_(SizeAllocator(arena)), list_list_size_sums_(SizeAllocator(arena)),
           cache_(cache), pool_(pool) {
         stack_.reserve(32);
         keys_.reserve(32);
         list_indices_.reserve(32);
         list_sizes_.reserve(32);
         dict_key_counts_.reserve(32);
+        dict_estimates_.reserve(32);
+        list_estimates_.reserve(32);
+        list_object_counts_.reserve(32);
+        list_object_key_sums_.reserve(32);
+        list_list_counts_.reserve(32);
+        list_list_size_sums_.reserve(32);
+
+        // Enable detailed tracking only when requested to avoid hot-path overhead.
+        const bool track =
+            (std::getenv("STRATA_TRACK_PRESIZE") != nullptr) ||
+            (std::getenv("STRATA_LOG_PRESIZE") != nullptr);
+        estimator_.enable_tracking(track);
     }
 
     void set_pool(PythonObjectPool* pool) { pool_ = pool; }
@@ -566,6 +667,12 @@
             list_indices_.clear();
             list_sizes_.clear();
             dict_key_counts_.clear();
+            dict_estimates_.clear();
+            list_estimates_.clear();
+            list_object_counts_.clear();
+            list_object_key_sums_.clear();
+            list_list_counts_.clear();
+            list_list_size_sums_.clear();
             current_list_depth_ = 0;
             return;
         }
@@ -584,6 +691,12 @@
         list_indices_.clear();
         list_sizes_.clear();
         dict_key_counts_.clear();
+        dict_estimates_.clear();
+        list_estimates_.clear();
+        list_object_counts_.clear();
+        list_object_key_sums_.clear();
+        list_list_counts_.clear();
+        list_list_size_sums_.clear();
         current_list_depth_ = 0;
     }
 
@@ -647,20 +760,11 @@
          return push_value(PyUnicode_FromStringAndSize(v.data(), v.size()));
      }
 
-     bool on_start_object(size_t size_hint) override {
+    bool on_start_object(size_t size_hint) override {
          // Use _PyDict_NewPresized for better performance when size is known
          // This pre-allocates hash table capacity, reducing rehashing overhead
         PyObject* dict;
-        size_t presize = size_hint;
-
-        // If no hint provided, use adaptive estimation
-        if (presize == 0) {
-            presize = estimator_.estimate_dict_size();
-        }
-
-        if (presize > kMaxDictPresize) {
-            presize = kMaxDictPresize;
-        }
+        size_t presize = compute_dict_presize(size_hint);
 
         // Use object pool if available (amortizes malloc overhead)
         if (pool_ && pool_->is_active()) {
@@ -674,6 +778,7 @@
          stack_.push_back(dict);
          // Track that we're building a dict to count keys later
          dict_key_counts_.push_back(0);
+         dict_estimates_.push_back(presize);
          return true;
      }
 
@@ -713,23 +818,25 @@
          if (!dict_key_counts_.empty()) {
              size_t actual_keys = dict_key_counts_.back();
              dict_key_counts_.pop_back();
-             estimator_.record_dict_size(actual_keys);
+             size_t estimate = dict_estimates_.empty() ? 0 : dict_estimates_.back();
+             if (!dict_estimates_.empty()) {
+                 dict_estimates_.pop_back();
+             }
+             estimator_.record_dict_size(actual_keys, estimate);
+
+             // Update sibling-average statistics when parent is an array
+             if (current_list_depth_ > 0 && current_list_depth_ <= list_object_counts_.size()) {
+                 size_t parent_idx = current_list_depth_ - 1;
+                 list_object_counts_[parent_idx] += 1;
+                 list_object_key_sums_[parent_idx] += actual_keys;
+             }
          }
 
          return push_value(dict);
      }
 
-     bool on_start_array(size_t size_hint) override {
-        size_t presize = size_hint;
-
-        // If no hint provided, use adaptive estimation
-        if (presize == 0) {
-            presize = estimator_.estimate_list_size();
-        }
-
-        if (presize > kMaxListPresize) {
-            presize = kMaxListPresize;
-        }
+    bool on_start_array(size_t size_hint) override {
+        size_t presize = compute_list_presize(size_hint);
 
         // Always pre-allocate with at least the estimated size
         PyObject* list = PyList_New(presize);
@@ -738,6 +845,11 @@
         stack_.push_back(list);
         list_indices_.push_back(0);
         list_sizes_.push_back(presize);
+        list_estimates_.push_back(presize);
+        list_object_counts_.push_back(0);
+        list_object_key_sums_.push_back(0);
+        list_list_counts_.push_back(0);
+        list_list_size_sums_.push_back(0);
         current_list_depth_++;  // O(1) depth tracking
         return true;
     }
@@ -752,10 +864,33 @@
          size_t allocated_size = list_sizes_.back();
          list_indices_.pop_back();
          list_sizes_.pop_back();
+         size_t estimate = list_estimates_.empty() ? 0 : list_estimates_.back();
+         if (!list_estimates_.empty()) {
+             list_estimates_.pop_back();
+         }
+         if (!list_object_counts_.empty()) {
+             list_object_counts_.pop_back();
+         }
+         if (!list_object_key_sums_.empty()) {
+             list_object_key_sums_.pop_back();
+         }
+         if (!list_list_counts_.empty()) {
+             list_list_counts_.pop_back();
+         }
+         if (!list_list_size_sums_.empty()) {
+             list_list_size_sums_.pop_back();
+         }
          current_list_depth_--;  // O(1) depth tracking
 
          // Record actual size for adaptive estimation
-         estimator_.record_list_size(actual_size);
+         estimator_.record_list_size(actual_size, estimate);
+
+         // If parent is a list (array of arrays), track sibling average
+         if (current_list_depth_ > 0 && current_list_depth_ <= list_list_counts_.size()) {
+             size_t parent_idx = current_list_depth_ - 1;
+             list_list_counts_[parent_idx] += 1;
+             list_list_size_sums_[parent_idx] += actual_size;
+         }
 
          // Trim list if we allocated more than we used
          if (allocated_size > 0 && actual_size < allocated_size) {
@@ -774,18 +909,78 @@
          return res;
      }
 
-     // Get the adaptive estimator's current dict size estimate (for pool pre-sizing)
-     size_t estimate_dict_presize() const {
-         return estimator_.estimate_dict_size();
-     }
+    // Get the adaptive estimator's current dict size estimate (for pool pre-sizing)
+    size_t estimate_dict_presize() const {
+        return estimator_.estimate_dict_size();
+    }
 
-     // Get estimator stats for debugging/tuning
-     void get_estimator_stats(size_t& dict_avg, size_t& list_avg, size_t& dict_n, size_t& list_n) const {
-         estimator_.get_stats(dict_avg, list_avg, dict_n, list_n);
-     }
+    // Get estimator stats for debugging/tuning
+    void get_estimator_stats(size_t& dict_avg, size_t& list_avg, size_t& dict_n, size_t& list_n) const {
+        estimator_.get_stats(dict_avg, list_avg, dict_n, list_n);
+    }
 
-   private:
-     bool push_value(PyObject* val) {
+    // Expose accuracy metrics for logging/benchmarking
+    void get_accuracy_stats(size_t& dict_under, size_t& dict_over, size_t& dict_exact,
+                            size_t& list_under, size_t& list_over, size_t& list_exact) const {
+        estimator_.get_accuracy(dict_under, dict_over, dict_exact, list_under, list_over, list_exact);
+    }
+
+  private:
+    size_t compute_dict_presize(size_t size_hint) const {
+        size_t presize = size_hint;
+
+        // Prefer exact/parsed hint when provided
+        if (presize == 0) {
+            size_t sibling_avg = 0;
+            // If parent is a list, use average key count of previous object siblings
+            if (!stack_.empty() && PyList_Check(stack_.back())) {
+                size_t depth = current_list_depth_;
+                if (depth > 0 && depth <= list_object_counts_.size()) {
+                    size_t cnt = list_object_counts_[depth - 1];
+                    if (cnt > 0) {
+                        sibling_avg = list_object_key_sums_[depth - 1] / cnt;
+                    }
+                }
+            }
+            presize = sibling_avg > 0 ? sibling_avg : estimator_.estimate_dict_size();
+        }
+
+        if (presize == 0) {
+            presize = 16; // fallback covers ~80% of objects per profile
+        }
+        if (presize > kMaxDictPresize) {
+            presize = kMaxDictPresize;
+        }
+        return presize;
+    }
+
+    size_t compute_list_presize(size_t size_hint) const {
+        size_t presize = size_hint;
+
+        if (presize == 0) {
+            size_t sibling_avg = 0;
+            if (!stack_.empty() && PyList_Check(stack_.back())) {
+                size_t depth = current_list_depth_;
+                if (depth > 0 && depth <= list_list_counts_.size()) {
+                    size_t cnt = list_list_counts_[depth - 1];
+                    if (cnt > 0) {
+                        sibling_avg = list_list_size_sums_[depth - 1] / cnt;
+                    }
+                }
+            }
+            presize = sibling_avg > 0 ? sibling_avg : estimator_.estimate_list_size();
+        }
+
+        if (presize == 0) {
+            presize = 8;
+        }
+        if (presize > kMaxListPresize) {
+            presize = kMaxListPresize;
+        }
+        return presize;
+    }
+
+    bool push_value(PyObject* val) {
          if (!val)
              return false;
 
@@ -831,7 +1026,7 @@
                  Py_DECREF(val);
                  return true;
              }
-         } else if (PyDict_Check(top)) {
+        } else if (PyDict_Check(top)) {
              if (keys_.empty()) {
                  Py_DECREF(val);
                  return false;
@@ -918,13 +1113,19 @@
    strata::util::Arena* arena_;
    std::vector<PyObject*, StackAllocator> stack_;
    std::vector<PyObject*, StackAllocator> keys_;
-   std::vector<size_t, SizeAllocator> list_indices_;
-   std::vector<size_t, SizeAllocator> list_sizes_;
-   std::vector<size_t, SizeAllocator> dict_key_counts_;  // Track keys per dict for estimation
-   size_t current_list_depth_ = 0;  // O(1) list depth tracking
-   KeyCache& cache_;
-   PythonObjectPool* pool_ = nullptr;  // Optional dict pool (per-parse-session)
-   AdaptiveSizeEstimator estimator_;  // Learn from observed sizes
+  std::vector<size_t, SizeAllocator> list_indices_;
+  std::vector<size_t, SizeAllocator> list_sizes_;
+  std::vector<size_t, SizeAllocator> dict_key_counts_;  // Track keys per dict for estimation
+  std::vector<size_t, SizeAllocator> dict_estimates_;
+  std::vector<size_t, SizeAllocator> list_estimates_;
+  std::vector<size_t, SizeAllocator> list_object_counts_;
+  std::vector<size_t, SizeAllocator> list_object_key_sums_;
+  std::vector<size_t, SizeAllocator> list_list_counts_;
+  std::vector<size_t, SizeAllocator> list_list_size_sums_;
+  size_t current_list_depth_ = 0;  // O(1) list depth tracking
+  KeyCache& cache_;
+  PythonObjectPool* pool_ = nullptr;  // Optional dict pool (per-parse-session)
+  AdaptiveSizeEstimator estimator_;  // Learn from observed sizes
 };
 
  } // namespace bindings

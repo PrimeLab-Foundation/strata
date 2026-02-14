@@ -405,6 +405,28 @@ Add new entries here as optimizations are implemented.
 - [ ] **Target 3:** Dictionary operations from 11.63% to <5%
 - [ ] **Target 4:** Memory allocation from 2.63% to <1%
 
+## 2026-02-14 — Dict/List Presizing Refinement
+
+**Commit:** `479cf62`  
+**Environment:** macOS (universal2 build), Python 3.11.9 in `.venv`, 5–7 repeats, 2 warmups, datasets `benchmarks/data/generated/*`.
+
+### Changes
+- Adaptive presizing now uses:
+  - Exact size hints when available.
+  - Sibling average when inside arrays (objects or arrays).
+  - Global EMA (256-window) with fallback 16 for dicts / 8 for lists.
+- Tracking/logging is opt-in (`STRATA_LOG_PRESIZE` or `STRATA_TRACK_PRESIZE`) to keep hot-path overhead low; logging prints under/over-estimate counts.
+
+### Benchmarks (median, ms)
+
+| Dataset | Baseline (Feb 14) | Post-change | Δ |
+|---------|-------------------|-------------|---|
+| small/users.json | 13.655 | **12.586** | -7.8% |
+| medium/users.json | 50.244 | 51.030 | +1.6% |
+| large/users.json | 344.430 | 350.628 | +1.8% |
+
+*Result:* Small speed-up, medium/large within ±2% (meets Rule 17 regression threshold). No revert required. Accuracy counters available via env flag for future tuning.
+
 ---
 
 ## Glossary
