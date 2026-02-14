@@ -10,6 +10,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -100,6 +101,7 @@
   */
  class KeyCache {
    public:
+    static constexpr size_t kNoMaxCachedKeyLength = std::numeric_limits<size_t>::max();
      // Pre-interned common key indices for fast-path lookup
      enum class CommonKey : uint8_t {
          kId = 0, kName, kType, kValue, kData, kStatus, kError, kMessage,
@@ -113,6 +115,14 @@
     explicit KeyCache(strata::util::Arena* arena, bool /* prewarm */ = true) {
         init_storage(kMinBucketCount);
         reset(arena);
+    }
+
+    void set_max_cached_key_length(size_t max_len) noexcept {
+        max_cached_key_length_ = max_len;
+    }
+
+    size_t max_cached_key_length() const noexcept {
+        return max_cached_key_length_;
     }
 
     void reset(strata::util::Arena* arena) {
@@ -154,6 +164,11 @@
              return common;
          }
 
+         // Skip caching + interning for long or low-reuse keys.
+         if (UNLIKELY(!should_cache_key(key))) {
+             return PyUnicode_FromStringAndSize(key.data(), key.size());
+         }
+
          // Standard path: robin hood hash lookup
          return lookup_or_insert(key);
      }
@@ -161,6 +176,8 @@
     ~KeyCache() { release_cached_keys(); }
 
    private:
+     static constexpr size_t kMaxCacheableKeyLength =
+         static_cast<size_t>(std::numeric_limits<uint16_t>::max());
      // Robin hood hash map entry
      struct Bucket {
          uint64_t hash;         // Cached hash value
@@ -181,6 +198,7 @@
     std::vector<uint8_t> distances_;  // Probe distances for robin hood
     uint32_t generation_ = 0;
     std::vector<uint32_t> bucket_generations_;
+    size_t max_cached_key_length_ = kNoMaxCachedKeyLength;
     // Common keys are now managed by PersistentCommonKeys
 
     static size_t next_pow2(size_t value) {
@@ -268,6 +286,16 @@
                  break;
          }
          return nullptr;
+     }
+
+     bool should_cache_key(std::string_view key) const noexcept {
+         if (!arena_) {
+             return false;
+         }
+         if (key.size() > max_cached_key_length_) {
+             return false;
+         }
+         return key.size() <= kMaxCacheableKeyLength;
      }
 
      // Robin hood hash map lookup with insertion

@@ -265,6 +265,7 @@ size_t count_lines(const char* data, Py_ssize_t len) {
 constexpr size_t kFlatObjectMaxBytes = 1024;
 constexpr size_t kFlatObjectMaxPairs = 8;
 constexpr size_t kKeyCacheLargeInputThreshold = 1 * 1024 * 1024;
+constexpr size_t kKeyCacheMaxCachedKeyLengthLarge = 64;
 constexpr size_t kKeyCacheBytesPerKey = 128;
 constexpr size_t kKeyCacheMinKeys = 256;
 constexpr size_t kKeyCacheMaxKeys = 8192;
@@ -793,7 +794,10 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     const size_t size = static_cast<size_t>(len);
     g_parse_arena.reset();
     g_key_cache.reset(&g_parse_arena);
-    if (size >= kKeyCacheLargeInputThreshold) {
+    const bool large_input = size >= kKeyCacheLargeInputThreshold;
+    g_key_cache.set_max_cached_key_length(
+        large_input ? kKeyCacheMaxCachedKeyLengthLarge : KeyCache::kNoMaxCachedKeyLength);
+    if (large_input) {
         size_t expected_keys = size / kKeyCacheBytesPerKey;
         if (expected_keys < kKeyCacheMinKeys) {
             expected_keys = kKeyCacheMinKeys;
