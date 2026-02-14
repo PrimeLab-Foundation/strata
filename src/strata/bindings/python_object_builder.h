@@ -374,6 +374,118 @@
  };
 
  /**
+  * Per-parse-session object pool for Python dicts.
+  *
+  * Pre-creates a batch of empty Python dicts at parse start to amortize
+  * malloc/free overhead. Instead of calling _PyDict_NewPresized() individually
+  * for each JSON object, we hand out pre-created dicts from the pool.
+  *
+  * Why dicts only (not lists):
+  * - Lists use PyList_New(N) which pre-allocates the item array; pooling empty
+  *   lists then resizing is no better than direct allocation.
+  * - Dicts are the dominant container type (881K dicts vs 87K lists in test data).
+  * - Dict creation via _PyDict_NewPresized involves hash table allocation that
+  *   benefits most from batch pre-allocation.
+  *
+  * Lifecycle:
+  * - fill() at parse start: bulk-creates dicts with a common pre-size
+  * - acquire_dict(): returns pooled dict or falls back to new allocation
+  * - drain() at parse end: decrefs any unused pooled dicts
+  *
+  * All pooled objects have refcount=1 when acquired. The caller owns the reference.
+  * Objects that leave the pool are managed by Python's normal refcount/GC system.
+  *
+  * Thread safety: NOT thread-safe (per-thread via thread_local in python_loads.cpp)
+  */
+ class PythonObjectPool {
+   public:
+     static constexpr size_t kDefaultDictPoolSize = 1024;
+
+     PythonObjectPool() = default;
+
+     ~PythonObjectPool() {
+         drain();
+     }
+
+     PythonObjectPool(const PythonObjectPool&) = delete;
+     PythonObjectPool& operator=(const PythonObjectPool&) = delete;
+
+     /// Set pool capacity.
+     void configure(size_t dict_size) {
+         dict_pool_size_ = dict_size;
+     }
+
+     /// Pre-create pooled dicts. Call at parse start.
+     /// @param dict_presize  Capacity hint for _PyDict_NewPresized (0 = use PyDict_New)
+     void fill(size_t dict_presize = 0) {
+         drain();  // Release any leftovers from previous parse
+
+         dict_presize_ = dict_presize;
+         dict_pool_.reserve(dict_pool_size_);
+         for (size_t i = 0; i < dict_pool_size_; ++i) {
+             PyObject* d = dict_presize > 0
+                 ? _PyDict_NewPresized(static_cast<Py_ssize_t>(dict_presize))
+                 : PyDict_New();
+             if (LIKELY(d != nullptr)) {
+                 dict_pool_.push_back(d);
+             }
+         }
+         dict_pos_ = 0;
+         dicts_from_pool_ = 0;
+         dicts_fallback_ = 0;
+     }
+
+     /// Acquire a dict from the pool.
+     /// If pool is exhausted or presize differs significantly from pooled presize,
+     /// falls back to _PyDict_NewPresized/PyDict_New.
+     /// Caller owns the returned reference (refcount = 1).
+     PyObject* acquire_dict(size_t presize) {
+         // Use pooled dict if available and presize is compatible.
+         // A pooled dict pre-sized for N can hold up to N keys without rehashing.
+         // If requested presize <= pooled presize, the pooled dict works fine.
+         // If requested presize > pooled presize, dict will rehash but still works.
+         if (LIKELY(dict_pos_ < dict_pool_.size())) {
+             dicts_from_pool_++;
+             return dict_pool_[dict_pos_++];
+         }
+         // Pool exhausted — fall back to individual allocation
+         dicts_fallback_++;
+         if (presize > 0) {
+             return _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
+         }
+         return PyDict_New();
+     }
+
+     /// Release all unused pooled dicts. Call at parse end or reset.
+     void drain() {
+         if (!Py_IsInitialized()) {
+             dict_pool_.clear();
+             return;
+         }
+         for (size_t i = dict_pos_; i < dict_pool_.size(); ++i) {
+             Py_DECREF(dict_pool_[i]);
+         }
+         dict_pool_.clear();
+         dict_pos_ = 0;
+     }
+
+     bool is_active() const { return !dict_pool_.empty(); }
+
+     // Stats for tuning
+     size_t dicts_from_pool() const { return dicts_from_pool_; }
+     size_t dicts_fallback() const { return dicts_fallback_; }
+     size_t pool_capacity() const { return dict_pool_size_; }
+
+   private:
+     std::vector<PyObject*> dict_pool_;
+     size_t dict_pos_ = 0;
+     size_t dict_pool_size_ = kDefaultDictPoolSize;
+     size_t dict_presize_ = 0;
+     size_t dicts_from_pool_ = 0;
+     size_t dicts_fallback_ = 0;
+ };
+
+ /**
   * Adaptive size estimator using exponential moving averages.
   * Tracks recent dict/list sizes to improve pre-allocation accuracy.
   */
@@ -431,17 +543,20 @@
     static constexpr size_t kMaxListPresize = 131072;
     static constexpr size_t kMaxDictPresize = 16384;
 
-    PythonObjectBuilder(strata::util::Arena* arena, KeyCache& cache)
+    PythonObjectBuilder(strata::util::Arena* arena, KeyCache& cache,
+                        PythonObjectPool* pool = nullptr)
         : arena_(arena), stack_(StackAllocator(arena)), keys_(StackAllocator(arena)),
           list_indices_(SizeAllocator(arena)), list_sizes_(SizeAllocator(arena)),
           dict_key_counts_(SizeAllocator(arena)),
-          cache_(cache) {
+          cache_(cache), pool_(pool) {
         stack_.reserve(32);
         keys_.reserve(32);
         list_indices_.reserve(32);
         list_sizes_.reserve(32);
         dict_key_counts_.reserve(32);
     }
+
+    void set_pool(PythonObjectPool* pool) { pool_ = pool; }
 
     void reset() {
         if (!Py_IsInitialized()) {
@@ -547,8 +662,13 @@
             presize = kMaxDictPresize;
         }
 
-        // Always pre-size (adaptive estimator starts at 8, learns from data)
-        dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
+        // Use object pool if available (amortizes malloc overhead)
+        if (pool_ && pool_->is_active()) {
+            dict = pool_->acquire_dict(presize);
+        } else {
+            // Direct allocation fallback
+            dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
+        }
         if (!dict)
              return false;
          stack_.push_back(dict);
@@ -652,6 +772,11 @@
          PyObject* res = root_;
          root_ = nullptr;
          return res;
+     }
+
+     // Get the adaptive estimator's current dict size estimate (for pool pre-sizing)
+     size_t estimate_dict_presize() const {
+         return estimator_.estimate_dict_size();
      }
 
      // Get estimator stats for debugging/tuning
@@ -798,6 +923,7 @@
    std::vector<size_t, SizeAllocator> dict_key_counts_;  // Track keys per dict for estimation
    size_t current_list_depth_ = 0;  // O(1) list depth tracking
    KeyCache& cache_;
+   PythonObjectPool* pool_ = nullptr;  // Optional dict pool (per-parse-session)
    AdaptiveSizeEstimator estimator_;  // Learn from observed sizes
 };
 

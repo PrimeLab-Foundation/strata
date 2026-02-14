@@ -302,32 +302,99 @@ The benchmark shows **no improvement** for large files because:
 
 ---
 
-## Future Entries
+## 2026-02-14 - Dict Object Pool (Per-Parse-Session)
 
-Add new entries here as optimizations are implemented. Use the following template:
+**Git Commit:** `(pending)`
+**Description:** Implemented `PythonObjectPool` class for per-parse-session dict pre-allocation. Pool creates a batch of empty Python dicts at parse start to amortize malloc/free overhead, handing them out via `acquire_dict()` instead of individual `_PyDict_NewPresized()` calls.
 
-### YYYY-MM-DD - [Optimization Name]
+#### Implementation Details
 
-**Git Commit:** `<hash>`
-**Description:** Brief description of the change
+**New class: `PythonObjectPool`** (`python_object_builder.h`)
+- Pre-creates dicts in batch via `fill()` at parse start
+- `acquire_dict()` returns pooled dict (O(1)) or falls back to direct allocation
+- `drain()` releases unused pooled dicts at parse end
+- Thread-local instance in `python_loads.cpp`
+- Configurable via `STRATA_OBJECT_POOL_SIZE` env var (default: 1024)
+- Only activates for inputs >= 256KB
+
+**Changes to `PythonObjectBuilder`:**
+- Accepts optional `PythonObjectPool*` in constructor
+- `on_start_object()` uses pool when available
+- Added `estimate_dict_presize()` for pool pre-sizing
+
+**Changes to `python_loads.cpp`:**
+- Thread-local `g_object_pool` instance
+- Pool fill/drain wired into `parse_json_buffer()`
+- Pool size scaled to input size (min(input/200, 1024), floor 64)
 
 #### Performance Impact
 
-| Metric | Before | After | Δ |
-|--------|--------|-------|---|
-| Median (ms) | X | Y | +/-Z% |
-| Throughput (MB/s) | X | Y | +/-Z% |
-| vs orjson | Xx | Xx | +/-Z% |
+| Metric | Before (baseline) | After (pool ON) | Δ |
+|--------|-------------------|-----------------|---|
+| Median (ms) - 44MB | 323.08 | 310.31 | -3.9% |
+| Min (ms) - 44MB | 282.19 | 306.54 | — |
+| Throughput (MB/s) | 136.66 | 141.3 | +3.4% |
+| vs orjson | 2.77x | 2.79x | ~same |
+
+**Pool ON vs Pool OFF (controlled A/B, 30 iterations, separate processes):**
+
+| Dataset | Pool OFF (ms) | Pool ON (ms) | Δ |
+|---------|---------------|--------------|---|
+| small (1MB) | 10.54 | 10.62 | -0.8% (no pool activation) |
+| generated (5MB) | 36.12 | 36.13 | 0.0% |
+| medium (6.5MB) | 44.66 | 44.25 | +0.9% |
+| large (44MB) | 317.31 | 320.38 | -1.0% |
+
+#### Analysis
+
+The dict pool provides **marginal, within-noise improvement** (~0-1% in either direction):
+
+1. **Why limited impact:** The 2.63% allocation overhead is spread across ALL 6.17M Python objects (dicts, lists, strings, ints, floats). Pooling only dicts (881K of 6.17M = 14%) addresses a fraction. Python's `pymalloc` is already a high-performance small-object allocator (~10-20ns per allocation).
+
+2. **Pre-creation ≠ cost reduction:** Pre-creating dicts moves the `_PyObject_Malloc` cost from spread-during-parsing to batched-at-start. Total malloc calls remain the same. This changes *when* allocations happen, not *how many*.
+
+3. **CPython's internal dict freelist** already recycles dict objects (up to 80). For repeated parse calls, CPython's built-in freelist handles the common case.
+
+4. **Larger pool sizes hurt:** Pool sizes > 1024 regress performance due to upfront allocation cost exceeding the per-dict savings.
 
 #### Hotspot Changes
 
-- [List changes in top 10 hotspots]
-- [Include sample count changes if significant]
+No significant changes. Memory allocation remains at ~2.63% of runtime:
+- `_PyObject_Malloc`: ~0.98%
+- `pymalloc_alloc`: ~0.89%
+- `_PyObject_Free`: ~0.76%
+
+The pool moves allocation timing but does not reduce total allocations.
+
+#### Conclusion
+
+**The 2.63% memory allocation overhead is at the floor achievable with Python's object model.** To meaningfully reduce below 1.5%, one would need to:
+- Bypass `pymalloc` entirely (requires custom Python types, high complexity)
+- Use a C-level object recycling scheme (like orjson's Rust-based approach)
+- Reduce the total number of Python objects created (e.g., lazy materialization)
+
+The pool infrastructure is kept as-is for:
+- Correctness: all 680 Python tests + 24 C++ tests pass
+- Memory safety: memory stability tests pass
+- Future use: the pool API enables future optimizations if a recycling scheme is developed
+- Configuration: `STRATA_OBJECT_POOL_SIZE=0` disables pooling entirely
 
 #### Notes
 
-- Any caveats or additional observations
-- Links to related issues/PRs
+- **Tested:** 680 Python tests pass, 24 C++ tests pass, 3 memory stability tests pass
+- **Memory overhead:** Negligible (~8KB for pool metadata)
+- **Thread safety:** Thread-local pool (no contention)
+- **Configurable:** `STRATA_OBJECT_POOL_SIZE=<N>` env var
+- **Next steps:**
+  1. Investigate lazy materialization (don't create Python objects until accessed)
+  2. Batch dict operations (targets 1.51% PyDict_SetDefault overhead)
+  3. Profile orjson's Rust allocator strategy for insights
+
+---
+
+## Future Entries
+
+Add new entries here as optimizations are implemented.
 
 ---
 

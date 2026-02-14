@@ -24,8 +24,10 @@
 thread_local strata::util::Arena g_parse_arena;
 thread_local strata::bindings::KeyCache g_key_cache;
 thread_local strata::util::Arena g_parse_builder_arena(4 * 1024);
+thread_local strata::bindings::PythonObjectPool g_object_pool;
 thread_local strata::bindings::PythonObjectBuilder g_parse_builder(&g_parse_builder_arena,
-                                                                  g_key_cache);
+                                                                  g_key_cache,
+                                                                  &g_object_pool);
 thread_local strata::ParseSaxContext g_parse_context;
 
 namespace {
@@ -359,6 +361,29 @@ bool use_structural_tape_for_python() {
     cached = value;
     return cached;
 }
+
+size_t get_object_pool_size() {
+    static size_t cached = strata::bindings::PythonObjectPool::kDefaultDictPoolSize;
+    static bool initialized = false;
+    if (initialized) {
+        return cached;
+    }
+    initialized = true;
+    const char* env = std::getenv("STRATA_OBJECT_POOL_SIZE");
+    if (env && *env) {
+        char* end = nullptr;
+        unsigned long long parsed = std::strtoull(env, &end, 10);
+        if (end != env && parsed > 0) {
+            cached = static_cast<size_t>(parsed);
+        }
+    }
+    return cached;
+}
+
+// Minimum input size to activate dict pool (avoids overhead for small inputs)
+constexpr size_t kPoolMinInputSize = 256 * 1024;  // 256KB
+// Approximate bytes per JSON object for estimating pool size
+constexpr size_t kPoolBytesPerDict = 200;
 
 inline bool is_ascii_only_swar(const char* data, size_t len) {
     if (!data || len == 0) {
@@ -1373,6 +1398,25 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     constexpr size_t kGcPauseAlwaysSize = 256 * 1024;
     constexpr size_t kGcPauseSampleSize = 64 * 1024;
     constexpr size_t kGcPauseMinValues = 4096;
+
+    // Pre-fill dict pool for inputs large enough to benefit from batch allocation.
+    // For small inputs, the overhead of pre-creating pooled dicts exceeds the savings.
+    const bool use_pool = size >= kPoolMinInputSize;
+    if (use_pool) {
+        size_t pool_size = get_object_pool_size();
+        // Scale pool to input: estimate dicts from input size, cap at configured max
+        size_t estimated_dicts = size / kPoolBytesPerDict;
+        if (estimated_dicts < pool_size) {
+            pool_size = estimated_dicts;
+        }
+        if (pool_size < 64) {
+            pool_size = 64;
+        }
+        g_object_pool.configure(pool_size);
+        // Pre-size pooled dicts with the adaptive estimator's current estimate
+        g_object_pool.fill(g_parse_builder.estimate_dict_presize());
+    }
+
     const bool use_structural_tape = use_structural_tape_for_python();
     bool use_exact_size_hints = should_collect_exact_size_hints(size, use_structural_tape);
     if (use_exact_size_hints) {
@@ -1425,6 +1469,11 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
         status = parse();
     } else {
         status = parse();
+    }
+
+    // Drain unused pooled dicts (acquired dicts are owned by the result tree)
+    if (use_pool) {
+        g_object_pool.drain();
     }
 
     if (status != strata::Status::Ok) {
