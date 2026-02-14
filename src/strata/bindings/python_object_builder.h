@@ -373,6 +373,57 @@
      }
  };
 
+ /**
+  * Adaptive size estimator using exponential moving averages.
+  * Tracks recent dict/list sizes to improve pre-allocation accuracy.
+  */
+ class AdaptiveSizeEstimator {
+   public:
+     AdaptiveSizeEstimator() = default;
+
+     // Update estimator with actual size observed
+     void record_dict_size(size_t actual_size) {
+         dict_count_++;
+         dict_sum_ += actual_size;
+         // Exponential moving average with alpha=0.125 (1/8)
+         // Balances recent observations with historical data
+         dict_ema_ = (dict_ema_ * 7 + actual_size) / 8;
+     }
+
+     void record_list_size(size_t actual_size) {
+         list_count_++;
+         list_sum_ += actual_size;
+         list_ema_ = (list_ema_ * 7 + actual_size) / 8;
+     }
+
+     // Get estimated size for next dict/list
+     size_t estimate_dict_size() const {
+         if (dict_count_ == 0) return 16;  // Better default than 8
+         return dict_ema_ > 0 ? dict_ema_ : 16;
+     }
+
+     size_t estimate_list_size() const {
+         if (list_count_ == 0) return 16;
+         return list_ema_ > 0 ? list_ema_ : 16;
+     }
+
+     // Get accuracy metrics for tuning
+     void get_stats(size_t& dict_avg, size_t& list_avg, size_t& dict_n, size_t& list_n) const {
+         dict_avg = dict_count_ > 0 ? dict_sum_ / dict_count_ : 0;
+         list_avg = list_count_ > 0 ? list_sum_ / list_count_ : 0;
+         dict_n = dict_count_;
+         list_n = list_count_;
+     }
+
+   private:
+     size_t dict_ema_ = 16;      // Exponential moving average for dict sizes
+     size_t list_ema_ = 16;      // Exponential moving average for list sizes
+     size_t dict_count_ = 0;     // Total dicts seen
+     size_t list_count_ = 0;     // Total lists seen
+     size_t dict_sum_ = 0;       // Sum for computing average
+     size_t list_sum_ = 0;       // Sum for computing average
+ };
+
  class PythonObjectBuilder : public JsonSaxHandler {
   public:
     using StackAllocator = strata::util::ArenaAllocator<PyObject*>;
@@ -383,11 +434,13 @@
     PythonObjectBuilder(strata::util::Arena* arena, KeyCache& cache)
         : arena_(arena), stack_(StackAllocator(arena)), keys_(StackAllocator(arena)),
           list_indices_(SizeAllocator(arena)), list_sizes_(SizeAllocator(arena)),
+          dict_key_counts_(SizeAllocator(arena)),
           cache_(cache) {
         stack_.reserve(32);
         keys_.reserve(32);
         list_indices_.reserve(32);
         list_sizes_.reserve(32);
+        dict_key_counts_.reserve(32);
     }
 
     void reset() {
@@ -397,6 +450,7 @@
             keys_.clear();
             list_indices_.clear();
             list_sizes_.clear();
+            dict_key_counts_.clear();
             current_list_depth_ = 0;
             return;
         }
@@ -414,6 +468,7 @@
         keys_.clear();
         list_indices_.clear();
         list_sizes_.clear();
+        dict_key_counts_.clear();
         current_list_depth_ = 0;
     }
 
@@ -482,18 +537,23 @@
          // This pre-allocates hash table capacity, reducing rehashing overhead
         PyObject* dict;
         size_t presize = size_hint;
+
+        // If no hint provided, use adaptive estimation
+        if (presize == 0) {
+            presize = estimator_.estimate_dict_size();
+        }
+
         if (presize > kMaxDictPresize) {
             presize = kMaxDictPresize;
         }
-        if (presize > 0) {
-            // Use internal API for pre-sized dict when hint is reasonable
-            dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
-        } else {
-            dict = PyDict_New();
-        }
+
+        // Always pre-size (even default of 16 is better than PyDict_New's 8)
+        dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
         if (!dict)
              return false;
          stack_.push_back(dict);
+         // Track that we're building a dict to count keys later
+         dict_key_counts_.push_back(0);
          return true;
      }
 
@@ -506,12 +566,20 @@
              if (!key)
                  return false;
              keys_.push_back(key);
+             // Track key count for adaptive estimation
+             if (!dict_key_counts_.empty()) {
+                 dict_key_counts_.back()++;
+             }
              return true;
          }
          PyObject* key = cache_.get(v);
          if (!key)
              return false;
          keys_.push_back(key);
+         // Track key count for adaptive estimation
+         if (!dict_key_counts_.empty()) {
+             dict_key_counts_.back()++;
+         }
          return true;
      }
 
@@ -520,15 +588,31 @@
              return false;
          PyObject* dict = stack_.back();
          stack_.pop_back();
+
+         // Record actual size for adaptive estimation
+         if (!dict_key_counts_.empty()) {
+             size_t actual_keys = dict_key_counts_.back();
+             dict_key_counts_.pop_back();
+             estimator_.record_dict_size(actual_keys);
+         }
+
          return push_value(dict);
      }
 
      bool on_start_array(size_t size_hint) override {
         size_t presize = size_hint;
+
+        // If no hint provided, use adaptive estimation
+        if (presize == 0) {
+            presize = estimator_.estimate_list_size();
+        }
+
         if (presize > kMaxListPresize) {
             presize = kMaxListPresize;
         }
-        PyObject* list = presize > 0 ? PyList_New(presize) : PyList_New(0);
+
+        // Always pre-allocate with at least the estimated size
+        PyObject* list = PyList_New(presize);
         if (!list)
             return false;
         stack_.push_back(list);
@@ -550,6 +634,9 @@
          list_sizes_.pop_back();
          current_list_depth_--;  // O(1) depth tracking
 
+         // Record actual size for adaptive estimation
+         estimator_.record_list_size(actual_size);
+
          // Trim list if we allocated more than we used
          if (allocated_size > 0 && actual_size < allocated_size) {
              if (PyList_SetSlice(list, actual_size, allocated_size, NULL) < 0) {
@@ -565,6 +652,11 @@
          PyObject* res = root_;
          root_ = nullptr;
          return res;
+     }
+
+     // Get estimator stats for debugging/tuning
+     void get_estimator_stats(size_t& dict_avg, size_t& list_avg, size_t& dict_n, size_t& list_n) const {
+         estimator_.get_stats(dict_avg, list_avg, dict_n, list_n);
      }
 
    private:
@@ -703,8 +795,10 @@
    std::vector<PyObject*, StackAllocator> keys_;
    std::vector<size_t, SizeAllocator> list_indices_;
    std::vector<size_t, SizeAllocator> list_sizes_;
+   std::vector<size_t, SizeAllocator> dict_key_counts_;  // Track keys per dict for estimation
    size_t current_list_depth_ = 0;  // O(1) list depth tracking
    KeyCache& cache_;
+   AdaptiveSizeEstimator estimator_;  // Learn from observed sizes
 };
 
  } // namespace bindings

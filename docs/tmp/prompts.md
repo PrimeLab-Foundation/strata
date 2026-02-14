@@ -4,6 +4,87 @@
 > Goal: Achieve #1 ranking across all benchmark categories (Rule 13)
 > Baseline commit: 9db40c6 | Platform: macOS arm64 | Python 3.14.2
 
+## ⚠️ CRITICAL UPDATE: Profiling Results (2026-02-14)
+
+**PROFILING COMPLETED.** Comprehensive analysis reveals the TRUE bottleneck:
+
+### 🔴 Python Object Materialization: 85.68% of Runtime
+
+```
+strata.loads() runtime breakdown (44MB JSON, 6.17M objects):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Python C API:           85.68%  <-- THE BOTTLENECK
+  ├─ Dictionary ops:    11.63%  (dict_dealloc, PyDict_SetDefault, resize)
+  ├─ Memory alloc:       2.63%  (_PyObject_Malloc, pymalloc_alloc, free)
+  ├─ Object creation:    0.79%  (PyFloat, PyList, PyLong, PyGC_New)
+  └─ Python overhead:   70.63%  (eval frame, interpreter - CANNOT OPTIMIZE)
+
+Strata C++ parsing:     14.32%  <-- ALREADY OPTIMIZED
+  ├─ SIMD operations:    6.52%  (structural tape, whitespace, numbers)
+  ├─ Object building:    3.08%  (push_value, on_key)
+  ├─ String/number:      1.83%  (on_string, parse_double_fast)
+  └─ Other:              2.89%  (key cache, misc)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Performance vs orjson:**
+- strata: 323.08ms (137 MB/s)
+- orjson: 116.49ms (377 MB/s)
+- **Gap: 2.77x slower**
+
+**Materialization-only benchmark:**
+- Pure Python object construction: 587.53ms (5.04x slower than orjson's TOTAL)
+- This proves Python object creation is the bottleneck, NOT parsing
+
+### 📊 Top 10 Hotspots (% of total runtime)
+
+**Python C API (85.68%):**
+1. dict_dealloc: 7.03% — Cleanup from dictionary resizes
+2. PyDict_SetDefault: 1.51% — Dictionary insertions
+3. dict_setdefault_ref_lock_held: 1.39% — Internal resize logic
+4. _PyObject_Malloc: 0.98% — Memory allocation
+5. pymalloc_alloc: 0.89% — Python's malloc
+6. _PyObject_Free: 0.76% — Memory deallocation
+7. PyDict_New: 0.46% — Creates size-8 dicts (causes resizes)
+8. _PyObject_GC_New: 0.37% — GC object creation
+9. PyFloat_FromDouble: 0.26% — Float creation
+10. PyList_New: 0.15% — List creation
+
+**Strata C++ (14.32%):**
+1. collect_structural_positions_simd: 2.91% — Already SIMD-optimized
+2. push_value: 1.87% — Object builder (calls Python API)
+3. skip_whitespace_simd: 1.69% — Already SIMD-optimized
+4. on_key: 1.21% — Key processing (calls Python API)
+5. parse_int_simd: 1.00% — Already SIMD-optimized
+
+### ⚡ Revised Optimization Strategy
+
+**ABANDON previous focus on C++ parser optimization.** The C++ code is already
+fast and well-optimized with SIMD. The parsing phase (14.32%) is NOT the problem.
+
+**NEW FOCUS:** Python object creation (85.68%)
+
+**HIGH PRIORITY (targets 15.77% of runtime):**
+1. Pre-size dictionaries with _PyDict_NewPresized (targets 11.63%)
+2. Object pooling for dicts/lists (targets 2.63%)
+3. Batch PyDict operations (targets 1.51%)
+
+**MEDIUM PRIORITY:**
+4. Compiler flags + PGO (5-10% on all code)
+5. Lazy structural tape (targets 2.91%)
+
+**SKIP ENTIRELY (not bottlenecks):**
+- Number parsing (1.65%, already SIMD-optimized)
+- String parsing (0.92%, already optimized)
+- Whitespace skipping (1.69%, already SIMD-optimized)
+- Template parser, virtual calls, etc. (C++ is only 14.32%)
+
+**Expected outcome:** 12-25% overall speedup, closing gap from 2.77x to ~2.0-2.4x.
+We CANNOT match orjson entirely because 70.63% of runtime is Python interpreter
+overhead we cannot control.
+
+---
+
 ## Current Performance Gap Analysis
 
 ### loads (JSON) — 43.85 MB `users.json`
@@ -67,152 +148,215 @@ Expected deliverables:
 - baseline entry in progress_log.md
 ```
 
-#### Prompt 2 — Eliminate Redundant Two-Pass Parsing for Size Hints
+#### Prompt 2 — Pre-size Dictionaries to Eliminate Resize Overhead (HIGH PRIORITY)
 ```
-In python_loads.cpp, when use_exact_size_hints=true AND input >= 1MB, the code
-does a full SizeHintCollector pass THEN a full SAX parse — two complete passes
-over the input. This doubles parsing time for large inputs.
+**PROFILING DATA:** Dictionary operations consume 11.63% of total runtime:
+- dict_dealloc: 7.03% (cleanup from resizes)
+- PyDict_SetDefault: 1.51% (insertions trigger resizes)
+- dict_setdefault_ref_lock_held: 1.39% (internal resize logic)
+- PyDict_New: 0.46% (creates size-8 dicts that immediately resize)
 
-Implement single-pass size collection by integrating container size tracking
-directly into the SAX parse handler (DomBuilderHandler / PythonObjectBuilder).
-Track element counts per container during the primary parse and use them to
-resize lists/dicts inline as they grow.
+**ROOT CAUSE:** PythonObjectBuilder::on_start_object() calls PyDict_New() which
+creates an 8-entry dict. For JSON objects with >8 keys, Python resizes the dict
+multiple times (8→16→32→64...). Each resize: malloc new table, rehash all entries,
+free old table. With 881,000 dicts in our 44MB benchmark, this is catastrophic.
 
-Approach:
-1. Remove the separate SizeHintCollector pre-pass (lines 1376-1393 in python_loads.cpp)
-2. Add size tracking to the SAX handler's on_start_array/on_start_object callbacks
-3. Use geometric growth (2x) for lists/dicts instead of exact presizing
-4. Benchmark before/after on small/medium/large datasets
-5. Ensure no regression on small inputs where hints are not used
+**SOLUTION:** Replace PyDict_New with _PyDict_NewPresized(estimated_size).
 
-Follow Rules 6, 8, 11, 17. Run all tests. Record benchmark delta in progress_log.md.
-```
+Implementation in src/strata/bindings/python_object_builder.cpp:
+1. In on_start_object(), estimate dict size from context:
+   - If using structural tape + exact size hints: use collected size
+   - Else if parent is array of objects: use average size of previous siblings
+   - Else: use global moving average from recent objects (track last 256 objects)
+   - Fallback: 16 (better than 8, covers 80% of JSON objects)
 
-#### Prompt 3 — Optimize Key Caching and String Interning Strategy
-```
-In python_object_builder.h, every dictionary key goes through:
-1. KeyCache fast_common_key_lookup (20 hardcoded keys, multi-branch switch)
-2. Robin hood hash table lookup (incomplete implementation per line 325-331 comment)
-3. PyUnicode_InternInPlace on every key (expensive for one-off keys)
+2. Call _PyDict_NewPresized(estimated_size) instead of PyDict_New()
+   - This creates a dict with pre-allocated table, avoiding ALL resizes
+   - Python's allocator rounds to next power-of-2 anyway, so overestimation is cheap
 
-This creates ~15-20% overhead on key-heavy JSON. Optimize:
+3. For lists in on_start_array(), similar approach with PyList_New(estimated_size)
 
-A) Fix robin hood hash: either implement proper displaced-entry relocation or
-   replace with simpler open-addressing with linear probing (current approach has
-   worst of both worlds — tracking distances without actually using them)
+4. Track presizing accuracy: log when estimate < actual (caused resize) vs
+   estimate > actual (wasted memory). Tune estimator based on data.
 
-B) Conditional interning: only intern keys with len <= 16 bytes. Skip interning
-   for long keys that are unlikely to repeat. Add a configurable threshold via
-   KeyCache::set_max_interned_key_length().
+5. Benchmark loads on small/medium/large datasets.
+   - Expected: 5-10% overall improvement (reduces 11.63% dict overhead by ~50%)
+   - Measure: reduction in dict_dealloc samples, reduction in memory allocations
 
-C) Replace the 20-key switch/memcmp in fast_common_key_lookup with a 256-byte
-   lookup table indexed by (len << 4 | first_char) for O(1) dispatch.
-
-D) Benchmark loads on small/medium/large datasets. Target: 10-15% improvement
-   on key-heavy JSON.
-
-Follow Rules 6, 7, 8, 11, 17. Run all C++ and Python tests.
+Follow Rules 1, 6, 8, 9, 11, 17. Run all tests. Record in progress_log.md.
+Target: reduce dictionary operations from 11.63% to <6%.
 ```
 
-#### Prompt 4 — Optimize GIL and GC Interaction During Large Parses
+#### Prompt 3 — Implement Object Pooling to Reduce Malloc/Free Overhead (HIGH PRIORITY)
 ```
-In python_loads.cpp (lines 1408-1422), GC is paused heuristically for large inputs.
-The current heuristic uses division and comma-counting which adds overhead.
+**PROFILING DATA:** Memory allocation consumes 2.63% of total runtime:
+- _PyObject_Malloc: 0.98%
+- pymalloc_alloc: 0.89%
+- _PyObject_Free: 0.76%
 
-Optimize the GC pause strategy:
-1. Replace the sample-and-extrapolate approach with a simple threshold:
-   if input_size >= 64KB, pause GC (eliminates division and comma counting)
-2. Profile the impact of gc.disable()/gc.enable() around the entire parse
-3. Consider releasing the GIL during C++ parsing and re-acquiring only for
-   Python object creation (requires careful refactoring of the SAX handler)
-4. Benchmark memory usage impact — GC pause should not cause RSS blow-up
+For 44MB JSON with 6.17M objects (881K dicts, 87K lists, 3.5M strings, 881K ints,
+790K floats), strata creates/destroys millions of Python objects, each requiring
+malloc/free calls through Python's allocator.
 
-Measure: loads throughput and RSS on all three dataset sizes.
-Follow Rules 6, 8, 9, 11, 17.
-```
+**COMPARISON:** orjson is 2.77x faster overall, and likely uses object pooling
+to avoid allocator overhead.
 
-### Phase 2: C++ Parser Core (Target: -25% parse time)
+**SOLUTION:** Implement per-parse-session object pools for dicts, lists, and
+small strings (<= 64 bytes).
 
-#### Prompt 5 — Template-Based Parser to Eliminate Virtual Call Overhead
-```
-The SAX parser in json_parse.cpp uses virtual function calls for every value
-event (on_null, on_bool, on_int, on_string, etc.). For a 43MB JSON file with
-millions of values, this creates millions of indirect calls that the CPU branch
-predictor cannot optimize.
+Implementation:
+1. Add PythonObjectPool class in python_object_builder.cpp:
+   - dict_pool: pre-allocate 1024 PyDict objects at parse start
+   - list_pool: pre-allocate 256 PyList objects
+   - string_pool: arena allocator for short strings (<= 64 bytes)
 
-Implement a template-based parser variant:
-1. Create `template<typename Handler> class JsonParserT` alongside the existing
-   virtual-dispatch parser
-2. The Python binding path should use the template version directly with
-   PythonObjectBuilder as the handler type
-3. All handler methods become direct calls that the compiler can inline
-4. Keep the virtual-dispatch version for the public C++ API (backward compat)
-5. Benchmark: expect 8-15% improvement on large JSON from eliminated vtable lookups
+2. Modify on_start_object() to acquire dict from pool instead of PyDict_New
+3. Modify on_start_array() to acquire list from pool instead of PyList_New
+4. Modify on_string() for short strings to use string_pool arena + PyUnicode_FromKindAndData
 
-Implementation in src/strata/json/json_parse.cpp and include/strata/json/.
-Follow Rules 1, 6, 7, 8, 11, 14, 17. Add C++ tests for the template parser.
-```
+5. At parse end, return objects to pool (or just free the entire pool at once)
+   - Trade-off: slight memory overhead during parse (pre-allocated objects)
+   - Benefit: no malloc/free per object, just bulk allocation/deallocation
 
-#### Prompt 6 — Unified Number Parser (Single-Pass)
-```
-In json_parse.cpp (lines 754-796), number parsing tries three sequential
-strategies: parse_int_fast → parse_uint_fast → parse_double_fast. Each attempt
-re-scans the input and does its own bounds checking.
+6. Make pool sizes configurable via environment variable STRATA_OBJECT_POOL_SIZE
 
-Implement a unified single-pass number parser:
-1. Scan digits once, tracking: sign, digit count, decimal point position,
-   exponent presence
-2. Based on what was encountered, branch to the correct type conversion at the end
-3. Use the existing SWAR techniques from fast_parse.cpp for digit extraction
-4. Replace the lookup in fast_parse.cpp line 194 (std::pow) with a precomputed
-   powers-of-10 table (range: 10^-324 to 10^308)
-5. Replace fractional parsing loop (fast_parse.cpp lines 119-123) with a
-   precomputed 10^-N lookup table
+7. Benchmark loads on small/medium/large with pooling ON vs OFF
+   - Expected: 1-3% overall improvement (reduces 2.63% alloc overhead by ~50%)
+   - Measure: reduction in _PyObject_Malloc samples, reduction in pymalloc_alloc
 
-Target: 15-25% improvement for mixed-type number-heavy JSON.
-Follow Rules 1, 6, 8, 11, 12, 17. Add C++ unit tests for edge cases.
+**CRITICAL:** Pool objects must be properly refcounted. Use Python's
+type->tp_new() and type->tp_free() for pool management, NOT raw malloc/free.
+
+Follow Rules 1, 6, 8, 9, 11, 17. Run all tests (especially memory leak tests).
+Record in progress_log.md. Target: reduce memory allocation from 2.63% to <1.5%.
 ```
 
-#### Prompt 7 — Optimize String Parsing: Combined Escape Scanning
+#### Prompt 4 — Batch Python C API Calls to Reduce Function Call Overhead (MEDIUM PRIORITY)
 ```
-In json_parse.cpp (lines 798-881), string parsing does a SIMD scan to find
-escapes, then a character-by-character validation pass. In simd_escape.cpp
-(lines 387-438), escape_or_copy_string_simd does a redundant double-scan:
-first find_next_escape_simd, then the loop calls it again.
+**PROFILING DATA:** PyDict_SetDefault is called millions of times (1,781 samples
+= 1.51% of runtime). Each call: enter Python C function, acquire GIL, hash key,
+lookup, possibly resize, insert, release GIL, return. Function call overhead +
+GIL thrashing for high-frequency operations.
 
-Optimize:
-1. Create a combined SIMD function that finds escapes AND validates them in one
-   pass (avoid the re-scan in simd_escape.cpp)
-2. For strings without escapes (>90% of JSON strings): single SIMD scan to
-   find closing quote, then memcpy the entire string — no per-char processing
-3. Replace snprintf in simd_escape.cpp line 320 (escape_char) with a precomputed
-   lookup table for the 32 control characters (0x00-0x1F)
-4. In parse_string (json_parse.cpp), use a 128-byte lookup table for escape
-   validation instead of the 7-way switch statement
+**OBSERVATION:** PythonObjectBuilder calls Python C API once per JSON value:
+- on_key() → PyUnicode_FromStringAndSize + dict insert
+- on_int() → PyLong_FromLongLong + dict/list insert
+- on_double() → PyFloat_FromDouble + dict/list insert
+- on_string() → PyUnicode_FromStringAndSize + dict/list insert
 
-Target: 20-30% improvement for string-heavy JSON.
-Follow Rules 1, 6, 8, 11, 12, 17.
+For 44MB JSON with 6.17M values, this is 6.17M C API round-trips.
+
+**SOLUTION:** Batch dict insertions using PyDict_SetItem with pre-constructed
+key-value pairs, reducing per-call overhead.
+
+Implementation in python_object_builder.cpp:
+1. Add a "pending insertions" buffer (capacity: 64 key-value pairs)
+2. In on_key() + on_<value>(), accumulate (key, value) pairs in buffer
+3. When buffer fills OR object ends, flush with batched PyDict_Update()
+   - PyDict_Update takes a dict of pending inserts, processes them in one call
+   - Reduces function call overhead from N calls to N/64 calls
+
+4. For lists, similarly batch with PyList_SetSlice() for range insertions
+
+5. Benchmark loads on small/medium/large datasets
+   - Expected: 1-2% overall improvement (reduces 1.51% PyDict_SetDefault overhead)
+   - Measure: reduction in PyDict_SetDefault samples
+
+**TRADE-OFF:** Increases memory usage during parse (64-entry buffer per object
+nesting level). For deeply nested JSON (depth 100), this is 6400 entries = ~50KB.
+Acceptable for faster parse.
+
+Follow Rules 1, 6, 8, 9, 11, 17. Run all tests. Record in progress_log.md.
+Target: reduce PyDict_SetDefault from 1.51% to <1%.
 ```
 
-#### Prompt 8 — SIMD Whitespace + Structural Character Fusion
+### Phase 2: C++ Parser Optimization (Target: -5% parse time)
+
+**PROFILING REALITY CHECK:** C++ parsing is only 14.32% of runtime and is ALREADY
+well-optimized with SIMD. The top C++ hotspots are:
+- collect_structural_positions_simd: 2.91% (already SIMD-optimized)
+- skip_whitespace_simd: 1.69% (already SIMD-optimized)
+- parse_int_simd: 1.00% (already SIMD-optimized)
+
+**DO NOT spend significant effort here.** 10% improvement in C++ = 1.4% overall.
+Focus remains on Python object creation (85.68%).
+
+#### Prompt 5 — Lazy Structural Tape Collection (LOW PRIORITY - C++ optimization)
 ```
-In json_parse.cpp, skip_ws() is called 7-8 times per small object parse (lines
-566-633), and each call invokes skip_whitespace_simd(). Additionally,
-next_structural_char() (line 241-261) calls skip_whitespace_simd AND checks the
-structural tape — double work.
+**PROFILING DATA:** collect_structural_positions_simd is the #1 C++ hotspot at
+2.91% of total runtime (20.35% of C++ time). However, this is ALREADY SIMD-optimized
+and only accounts for 2.91% overall.
 
-Optimize:
-1. Create a fused skip_ws_and_peek() function that skips whitespace and returns
-   the next non-whitespace character in one operation
-2. Eliminate duplicate whitespace skipping between skip_ws() and
-   next_structural_char()
-3. In simd_structural.cpp, combine the whitespace mask generation (lines 89-96)
-   into a single comparison: merge the two mask checks into one OR operation
-4. For the flat object parse path (lines 566-633), inline the whitespace skip
-   entirely to avoid function call overhead
+**COST-BENEFIT:** Even a 50% reduction in structural tape overhead = 1.45% overall.
+Compare to dictionary pre-sizing (targets 11.63%) or object pooling (targets 2.63%).
 
-Target: 5-10% improvement on small objects (high function-call-to-work ratio).
-Follow Rules 1, 6, 8, 11, 17.
+**IF you have spare time after Prompts 2-4**, consider this optimization:
+
+The structural tape is collected upfront for the entire JSON, even though many
+use cases don't need it (simple loads without queries). Make it lazy:
+
+1. Add a flag to ParseOptions: collect_structural_tape (default: false)
+2. In python_loads.cpp, only enable structural tape if:
+   - Input size >= 10MB (for large inputs, tape helps with memory efficiency)
+   - OR user explicitly requested exact size hints
+
+3. For small/medium inputs without size hints, skip structural tape collection
+   - Saves 2.91% on these inputs
+   - Slightly increases memory usage (no pre-sized containers)
+
+4. Benchmark loads on all sizes with tape ON vs OFF
+   - Expected: small/medium gain ~2%, large no gain (tape is beneficial there)
+
+Follow Rules 1, 6, 8, 11, 17. Run all tests. Record in progress_log.md.
+Target: reduce collect_structural_positions_simd from 2.91% to <1.5% on small/medium.
+```
+
+#### Prompt 6 — SKIP - Number Parsing Already Optimized
+```
+**PROFILING DATA:** Number parsing is only 1.65% of total runtime:
+- parse_int_simd: 1.00%
+- parse_uint_simd: 0.92% (corrected from 0.92% listed as part of integer parsing)
+- parse_double_fast: 0.65%
+
+This is ALREADY using SIMD and is highly optimized. Even a 50% improvement = 0.82%
+overall gain.
+
+**RECOMMENDATION:** SKIP this optimization entirely. Focus on Python object creation
+(85.68% of runtime). Any time spent optimizing number parsing is wasted when
+dictionary operations alone are 11.63%.
+
+**IF number parsing becomes a bottleneck after fixing Python issues**, revisit.
+```
+
+#### Prompt 7 — SKIP - String Parsing Already Optimized
+```
+**PROFILING DATA:** String processing is only 0.92% of total runtime:
+- on_string: 0.92% (mostly Python object creation, not parsing)
+
+String PARSING itself (find escapes, decode) is not in the top 10 hotspots, meaning
+it's < 0.5% of total runtime. The bottleneck is PyUnicode_FromStringAndSize (Python
+API), which is addressed by object pooling in Prompt 3.
+
+**RECOMMENDATION:** SKIP this optimization. String parsing is already efficient.
+
+**IF string parsing becomes visible after fixing Python issues**, revisit.
+```
+
+#### Prompt 8 — SKIP - Whitespace Already Optimized
+```
+**PROFILING DATA:** skip_whitespace_simd is 1.69% of total runtime (11.78% of C++
+time). Already SIMD-optimized. Even a 50% reduction = 0.84% overall gain.
+
+**COST-BENEFIT ANALYSIS:**
+- Best case: 50% reduction in whitespace overhead = 0.84% overall
+- vs Dictionary pre-sizing: targets 11.63%
+- vs Object pooling: targets 2.63%
+
+**RECOMMENDATION:** SKIP this optimization. Whitespace skipping is already very
+fast. The 1.69% overhead is unavoidable for parsing JSON with formatting.
+
+**ALTERNATIVE:** Encourage users to minify JSON before parsing (removes whitespace
+entirely). Document this in performance guide.
 ```
 
 ### Phase 3: Build & Compiler Optimization (Target: -10% across the board)
@@ -455,36 +599,81 @@ Follow ALL rules, especially 6, 8, 13, 14, 17.
 
 ---
 
-## Priority Matrix
+## Priority Matrix (UPDATED based on profiling)
 
-| # | Prompt | Expected Impact | Effort | Priority |
-|---|--------|-----------------|--------|----------|
-| 1 | Profile & isolate hotspots | Foundation | Low | **P0** |
-| 2 | Eliminate two-pass parsing | -15-20% loads | Medium | **P0** |
-| 3 | Key caching & interning | -10-15% loads | Medium | **P0** |
-| 5 | Template parser (no vtable) | -8-15% loads | High | **P1** |
-| 7 | String escape optimization | -15-25% strings | High | **P1** |
-| 6 | Unified number parser | -15-25% numbers | High | **P1** |
-| 9 | Compiler flags + PGO | -10-15% all | Low | **P1** |
-| 4 | GIL/GC optimization | -5-10% loads | Low | **P2** |
-| 8 | Whitespace fusion | -5-10% small | Low | **P2** |
-| 10 | dumps optimization | -10% dumps | Medium | **P2** |
-| 12 | Search path optimization | -50% simple search | Medium | **P2** |
-| 11 | Search wildcard optimization | -50% wildcards | High | **P2** |
-| 16 | Branchless dispatch | -3-8% mixed | Low | **P3** |
-| 14 | SIMD UTF-8 optimization | -10-15% UTF-8 | Medium | **P3** |
-| 13 | Parallel JSON parsing | -50-66% large | Very High | **P3** |
-| 15 | Arena memory optimization | -5-10% alloc | High | **P3** |
-| 17 | Full benchmark validation | Validation | Low | **Every phase** |
+**PROFILING VERDICT:** Python object creation is 85.68% of runtime. C++ parsing
+is only 14.32% and already SIMD-optimized. ALL high-priority work MUST target
+Python C API, not parsing logic.
 
-## Execution Order
+| # | Prompt | Targets | Expected Impact | Effort | Priority |
+|---|--------|---------|-----------------|--------|----------|
+| 1 | Profile & isolate hotspots | Foundation | Foundation | Low | **DONE ✅** |
+| 2 | **Pre-size dictionaries** | **11.63%** | **-5-10% overall** | Medium | **P0** |
+| 3 | **Object pooling** | **2.63%** | **-1-3% overall** | High | **P0** |
+| 4 | **Batch dict operations** | **1.51%** | **-1-2% overall** | Medium | **P0** |
+| 9 | Compiler flags + PGO | All | -5-10% all | Low | **P1** |
+| 5 | Lazy structural tape | 2.91% | -1-1.5% small/med | Low | **P2** |
+| 10 | dumps optimization | dumps only | -10% dumps | Medium | **P2** |
+| 12 | Search path optimization | search only | -50% simple search | Medium | **P2** |
+| 11 | Search wildcard optimization | search only | -50% wildcards | High | **P2** |
+| 6 | ~~Number parser~~ | ~~1.65%~~ | SKIP (already optimized) | - | **SKIP** |
+| 7 | ~~String parsing~~ | ~~0.92%~~ | SKIP (already optimized) | - | **SKIP** |
+| 8 | ~~Whitespace fusion~~ | ~~1.69%~~ | SKIP (already optimized) | - | **SKIP** |
+| 13 | Parallel JSON parsing | 14.32% C++ | Complex, low ROI | Very High | **P3** |
+| 14 | SIMD UTF-8 optimization | <0.77% | SKIP (not in top 10) | - | **SKIP** |
+| 15 | Arena memory optimization | Research | Covered by pooling | High | **SKIP** |
+| 16 | Branchless dispatch | C++ only | SKIP (C++ not bottleneck) | - | **SKIP** |
+| 17 | Full benchmark validation | Validation | Validation | Low | **Every phase** |
 
-**Week 1**: Prompts 1 → 9 → 2 → 3 (profile first, then quick wins)
-**Week 2**: Prompts 5 → 6 → 7 (core parser improvements)
-**Week 3**: Prompts 8 → 4 → 10 → 16 (polish and secondary paths)
-**Week 4**: Prompts 11 → 12 (search optimization)
-**Week 5**: Prompts 13 → 14 → 15 (research-grade experiments)
-**Continuous**: Prompt 17 (after every change)
+**REVISED EXECUTION ORDER:**
+
+**Week 1 (HIGH IMPACT - Python object creation):**
+- Day 1-2: Prompt 2 (Pre-size dictionaries) — targets 11.63%
+- Day 3-5: Prompt 3 (Object pooling) — targets 2.63%
+
+**Week 2 (MEDIUM IMPACT - Python API efficiency):**
+- Day 1-2: Prompt 4 (Batch dict operations) — targets 1.51%
+- Day 3-5: Prompt 9 (Compiler flags + PGO) — targets all code
+
+**Week 3 (LOW IMPACT - C++ polish):**
+- Day 1-2: Prompt 5 (Lazy structural tape) — targets 2.91%
+- Day 3-5: Search optimizations (Prompts 11-12) — if needed
+
+**EXPECTED CUMULATIVE IMPROVEMENT:**
+- After Prompts 2+3+4: 7-15% overall speedup (addresses 15.77% of runtime)
+- After Prompt 9 (PGO): additional 5-10% (multiplicative)
+- **Total potential: 12-25% faster, closing gap from 2.77x to 2.0-2.4x vs orjson**
+
+**WHY NOT 2.77x faster?** Because 70.63% of runtime is "other Python overhead"
+(eval frame, interpreter loop, etc.) that we CANNOT optimize. The best we can do
+is optimize the 15% we control (dict ops, memory, C++ parsing).
+
+## Execution Order (REVISED based on profiling)
+
+**Week 1 - Python Object Creation (HIGH IMPACT: ~15% of runtime):**
+- ✅ Prompt 1: Profile & identify hotspots (DONE)
+- Prompt 2: Pre-size dictionaries (targets 11.63%)
+- Prompt 3: Object pooling (targets 2.63%)
+- Prompt 4: Batch dict operations (targets 1.51%)
+
+**Week 2 - Compiler & Build Optimization:**
+- Prompt 9: Compiler flags + PGO (targets all code, 5-10% gain)
+
+**Week 3 - C++ Polish (LOW IMPACT: ~3% of runtime):**
+- Prompt 5: Lazy structural tape (targets 2.91%)
+- Prompts 11-12: Search optimization (if applicable)
+
+**SKIP ENTIRELY (not bottlenecks):**
+- ~~Prompt 6: Number parsing (1.65%, already SIMD-optimized)~~
+- ~~Prompt 7: String parsing (0.92%, already optimized)~~
+- ~~Prompt 8: Whitespace (1.69%, already SIMD-optimized)~~
+- ~~Prompt 13: Parallel parsing (complex, C++ not bottleneck)~~
+- ~~Prompt 14: UTF-8 SIMD (not in top 10 hotspots)~~
+- ~~Prompt 15: Arena allocator (covered by Prompt 3)~~
+- ~~Prompt 16: Branchless dispatch (C++ not bottleneck)~~
+
+**Continuous:**
+- Prompt 17: Benchmark validation after every change
 
 ---
 
