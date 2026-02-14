@@ -1,4 +1,4 @@
-.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-small bench-medium bench-large bench-experimental-suite clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
+.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-medium bench-large bench-experimental-suite clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
 
 # Default target: run all tests (Rule 16: Make is the interface)
 all: test
@@ -163,6 +163,11 @@ $(BENCH_GEN)/large/users.json $(BENCH_GEN)/large/users.ndjson:
 	@mkdir -p $(BENCH_GEN)/large
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.data.generate_bench_data \
 		--out-dir $(BENCH_GEN)/large --num-users 4000 --max-orders 40 --max-items 20
+
+bench-data: $(BENCH_GEN)/small/users.json $(BENCH_GEN)/small/users.ndjson \
+	$(BENCH_GEN)/medium/users.json $(BENCH_GEN)/medium/users.ndjson \
+	$(BENCH_GEN)/large/users.json $(BENCH_GEN)/large/users.ndjson  ## Generate benchmark datasets for all sizes
+	@echo "Benchmark datasets ready in $(BENCH_GEN)"
 
 bench-small: $(BENCH_GEN)/small/users.json  ## Run full benchmark suite (small, ~1 MB)
 	$(BENCH_SUITE) \

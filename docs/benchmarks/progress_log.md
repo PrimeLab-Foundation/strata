@@ -493,3 +493,87 @@ Add new entries here as optimizations are implemented.
 - **Throughput:** MB/s = (file_size_mb / median_time_seconds)
 - **Sample:** A profiler observation of the call stack (macOS `sample` tool)
 - **Hotspot:** A function that appears frequently in profiler samples
+
+---
+
+## 2026-02-14 - Build Flag Audit (setup.py + CMake + PGO)
+
+**Git Commit:** `ce4d80c` (working tree modified for this experiment)
+**Environment:** macOS 26.1 arm64, Python 3.14.2, Apple clang 17.0.0
+**Profiles:** baseline non-PGO -> flags-only non-PGO -> PGO+LTO (`make pgo-release`)
+
+### Flag Changes Evaluated
+
+- `setup.py` (Unix compile flags): added `-funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden`
+- `setup.py` (math flags): attempted `-ffast-math`, failed float tests; replaced with `-fno-math-errno -fassociative-math`
+- `setup.py` (clang LTO): `-flto` -> `-flto=thin`
+- `CMakeLists.txt`: default `CMAKE_BUILD_TYPE=Release` when unset
+- `Makefile`: added missing `bench-data` target to unblock `make pgo-release`
+
+### Float Safety Validation
+
+- Before flags: float-focused suites passed (`ctest -R float_precision_tests`, targeted Python float suites)
+- With `-ffast-math`: **failed** (NaN/Inf serialization semantics)
+- With fallback flags (`-fno-math-errno -fassociative-math`): float-focused suites passed
+- Final gate: `make test` -> Python `680 passed`, C++ `23 passed`
+
+### Commands Used
+
+```bash
+# Baseline / post-change / PGO benchmark captures
+python -m benchmarks.bench_suite --json-data ...small/users.json --ndjson-data ...small/users.ndjson --output docs/benchmarks/flags_audit/bench_small_*.md --json-output docs/benchmarks/flags_audit/bench_small_*.json
+python -m benchmarks.bench_suite --json-data ...medium/users.json --ndjson-data ...medium/users.ndjson --output docs/benchmarks/flags_audit/bench_medium_*.md --json-output docs/benchmarks/flags_audit/bench_medium_*.json
+python -m benchmarks.bench_suite --json-data ...large/users.json --ndjson-data ...large/users.ndjson --output docs/benchmarks/flags_audit/bench_large_*.md --json-output docs/benchmarks/flags_audit/bench_large_*.json
+
+# PGO workflow
+make pgo-release
+
+# Final validation
+make test
+```
+
+### Key Deltas (Strata medians, lower is better)
+
+#### Small
+
+- `loads_json`: `13.333 -> 15.405 -> 11.305 ms` (flags `-15.54%`, PGO vs flags `+26.61%`, PGO vs baseline `+15.21%`)
+- `loads_ndjson`: `8.406 -> 8.117 -> 7.282 ms` (flags `+3.44%`, PGO vs flags `+10.28%`)
+- `dumps_str`: `4.050 -> 4.052 -> 3.754 ms` (flags `-0.05%`, PGO vs flags `+7.37%`)
+- `search_json_avg`: `4.911 -> 4.839 -> 4.496 ms` (flags `+1.46%`, PGO vs flags `+7.10%`)
+- `search_ndjson_avg`: `5.799 -> 5.828 -> 5.679 ms` (flags `-0.51%`, PGO vs flags `+2.55%`)
+
+#### Medium
+
+- `loads_json`: `44.941 -> 44.336 -> 36.611 ms` (flags `+1.35%`, PGO vs flags `+17.42%`)
+- `loads_ndjson`: `52.468 -> 50.728 -> 50.299 ms` (flags `+3.32%`, PGO vs flags `+0.84%`)
+- `dumps_str`: `31.736 -> 31.134 -> 29.778 ms` (flags `+1.90%`, PGO vs flags `+4.36%`)
+- `search_json_avg`: `35.121 -> 34.065 -> 34.230 ms` (flags `+3.01%`, PGO vs flags `-0.48%`)
+- `search_ndjson_avg`: `42.890 -> 42.662 -> 45.362 ms` (flags `+0.53%`, PGO vs flags `-6.33%`)
+
+#### Large
+
+- `loads_json`: `377.082 -> 372.593 -> 295.452 ms` (flags `+1.19%`, PGO vs flags `+20.70%`)
+- `loads_ndjson`: `230.064 -> 229.765 -> 232.157 ms` (flags `+0.13%`, PGO vs flags `-1.04%`)
+- `dumps_str`: `240.671 -> 236.634 -> 229.874 ms` (flags `+1.68%`, PGO vs flags `+2.86%`)
+- `search_json_avg`: `258.601 -> 254.365 -> 253.823 ms` (flags `+1.64%`, PGO vs flags `+0.21%`)
+- `search_ndjson_avg`: `300.862 -> 303.491 -> 315.572 ms` (flags `-0.87%`, PGO vs flags `-3.98%`)
+
+### Conclusion
+
+- Flag-only gains are modest overall with the safer math fallback; they do not reach 5-15% alone.
+- PGO gives strong wins for JSON loads (especially medium/large), with mixed results on NDJSON/search.
+- Notable regression remains in NDJSON search averages on medium/large after PGO; requires follow-up profile/workload tuning.
+
+### Artifacts
+
+- `docs/benchmarks/flags_audit/bench_small_baseline_nonpgo.json`
+- `docs/benchmarks/flags_audit/bench_medium_baseline_nonpgo.json`
+- `docs/benchmarks/flags_audit/bench_large_baseline_nonpgo.json`
+- `docs/benchmarks/flags_audit/bench_small_flags_nonpgo.json`
+- `docs/benchmarks/flags_audit/bench_medium_flags_nonpgo.json`
+- `docs/benchmarks/flags_audit/bench_large_flags_nonpgo.json`
+- `docs/benchmarks/flags_audit/bench_small_pgo.json`
+- `docs/benchmarks/flags_audit/bench_medium_pgo.json`
+- `docs/benchmarks/flags_audit/bench_large_pgo.json`
+- `build/pgo/strata.profdata`
+- `build/pgo/bench_results_pgo.md`

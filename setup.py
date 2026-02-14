@@ -233,11 +233,21 @@ def is_universal_build():
 
 
 def build_compile_flags():
-    flags = ["-std=c++20", "-O3", "-DNDEBUG"]
+    flags = [
+        "-std=c++20",
+        "-O3",
+        "-DNDEBUG",
+        "-fno-math-errno",
+        "-fassociative-math",
+        "-funroll-loops",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-fvisibility=hidden",
+    ]
     if not is_universal_build():
         flags.append("-march=native")
     if enable_lto:
-        flags.append("-flto")
+        flags.append("-flto=thin" if compiler_kind == "clang" else "-flto")
         if compiler_kind == "gcc":
             flags.append("-fno-fat-lto-objects")
     if pgo_mode == "generate":
@@ -256,7 +266,7 @@ def build_compile_flags():
 def build_link_flags():
     flags = ["-O3"]
     if enable_lto:
-        flags.append("-flto")
+        flags.append("-flto=thin" if compiler_kind == "clang" else "-flto")
     if pgo_mode == "generate":
         if compiler_kind == "clang":
             flags.append("-fprofile-instr-generate")

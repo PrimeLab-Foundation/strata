@@ -1,0 +1,1440 @@
+{
+  "metadata": {
+    "format_version": "2.0",
+    "generator": "bench_suite",
+    "label": "large-baseline-nonpgo",
+    "generated": "2026-02-14 21:05:43"
+  },
+  "environment": {
+    "commit": "ce4d80c0cfcd8bbfe70be79dc3e5b1150ad13bb4",
+    "os": "macOS-26.1-arm64-arm-64bit-Mach-O",
+    "cpu": "arm64",
+    "python": "3.14.2",
+    "compiler": "Apple clang version 17.0.0 (clang-1700.6.3.2)"
+  },
+  "config": {
+    "loads": {
+      "repeat": 5,
+      "warmup": 2
+    },
+    "dumps": {
+      "repeat": 5,
+      "warmup": 2
+    },
+    "search": {
+      "repeat": 3,
+      "warmup": 1
+    },
+    "cursor_reuse": {
+      "repeat": 3,
+      "warmup": 1
+    }
+  },
+  "datasets": {
+    "json": {
+      "path": "benchmarks/data/generated/large/users.json",
+      "size_mb": 43.853182792663574,
+      "record_count": 4000,
+      "line_count": null,
+      "average_record_bytes": 11495.84875
+    },
+    "ndjson": {
+      "path": "benchmarks/data/generated/large/users.ndjson",
+      "size_mb": 43.84935760498047,
+      "record_count": 4000,
+      "line_count": 4000,
+      "average_record_bytes": 11494.846
+    }
+  },
+  "results": [
+    {
+      "category": "loads",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "json",
+      "times_ms": [
+        348.1507920078002,
+        381.2670409970451,
+        377.0822079968639,
+        375.57199998991564,
+        378.47158301156014
+      ],
+      "min_ms": 348.1507920078002,
+      "median_ms": 377.0822079968639,
+      "p95_ms": 381.2670409970451,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 1263.453125,
+      "throughput_mbps": 121.94527884058225,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "orjson",
+      "dataset": "users.json",
+      "variant": "json",
+      "times_ms": [
+        210.47179200104438,
+        270.0712500081863,
+        266.7638330021873,
+        269.6584169752896,
+        264.8006250092294
+      ],
+      "min_ms": 210.47179200104438,
+      "median_ms": 266.7638330021873,
+      "p95_ms": 270.0712500081863,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 1402.5,
+      "throughput_mbps": 172.37492235172286,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "msgspec",
+      "dataset": "users.json",
+      "variant": "json",
+      "times_ms": [
+        217.40716698695906,
+        286.2409579975065,
+        277.9423749889247,
+        279.58495798520744,
+        276.90408399212174
+      ],
+      "min_ms": 217.40716698695906,
+      "median_ms": 277.9423749889247,
+      "p95_ms": 286.2409579975065,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 1383.875,
+      "throughput_mbps": 165.44218923736375,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "ujson",
+      "dataset": "users.json",
+      "variant": "json",
+      "times_ms": [
+        271.6851660225075,
+        360.8973330119625,
+        360.1511660090182,
+        358.532791986363,
+        358.52233300101943
+      ],
+      "min_ms": 271.6851660225075,
+      "median_ms": 358.532791986363,
+      "p95_ms": 360.8973330119625,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 1505.421875,
+      "throughput_mbps": 128.25436341607772,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "json (stdlib)",
+      "dataset": "users.json",
+      "variant": "json",
+      "times_ms": [
+        337.1801670000423,
+        401.50633300072514,
+        397.87545800209045,
+        403.9910000283271,
+        392.50724998419173
+      ],
+      "min_ms": 337.1801670000423,
+      "median_ms": 397.87545800209045,
+      "p95_ms": 403.9910000283271,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 1383.9375,
+      "throughput_mbps": 115.57233318914183,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "ndjson",
+      "times_ms": [
+        203.79633299307898,
+        229.27645800518803,
+        231.05162498541176,
+        230.06445899954997,
+        231.6670830186922
+      ],
+      "min_ms": 203.79633299307898,
+      "median_ms": 230.06445899954997,
+      "p95_ms": 231.6670830186922,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 2139.671875,
+      "throughput_mbps": 199.8543547314709,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "orjson",
+      "dataset": "users.ndjson",
+      "variant": "ndjson",
+      "times_ms": [
+        181.8979579838924,
+        247.26637499406934,
+        242.18258299515583,
+        244.93454198818654,
+        241.98249998153187
+      ],
+      "min_ms": 181.8979579838924,
+      "median_ms": 242.18258299515583,
+      "p95_ms": 247.26637499406934,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 2140.734375,
+      "throughput_mbps": 189.85421425173124,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "msgspec",
+      "dataset": "users.ndjson",
+      "variant": "ndjson",
+      "times_ms": [
+        188.8109169958625,
+        255.34262499422766,
+        250.4453330184333,
+        254.0433749963995,
+        252.04941700212657
+      ],
+      "min_ms": 188.8109169958625,
+      "median_ms": 252.04941700212657,
+      "p95_ms": 255.34262499422766,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 2120.046875,
+      "throughput_mbps": 182.42210018526671,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "ujson",
+      "dataset": "users.ndjson",
+      "variant": "ndjson",
+      "times_ms": [
+        242.34083300689235,
+        334.0305419987999,
+        331.542833999265,
+        333.74575001653284,
+        333.0932499957271
+      ],
+      "min_ms": 242.34083300689235,
+      "median_ms": 333.0932499957271,
+      "p95_ms": 334.0305419987999,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 2241.703125,
+      "throughput_mbps": 138.03757356412902,
+      "error": ""
+    },
+    {
+      "category": "loads",
+      "library": "json (stdlib)",
+      "dataset": "users.ndjson",
+      "variant": "ndjson",
+      "times_ms": [
+        312.24204099271446,
+        387.4526250001509,
+        374.6201669855509,
+        378.8074170006439,
+        375.68920900230296
+      ],
+      "min_ms": 312.24204099271446,
+      "median_ms": 375.68920900230296,
+      "p95_ms": 387.4526250001509,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 2122.90625,
+      "throughput_mbps": 122.38675718715719,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "str",
+      "times_ms": [
+        240.5979169998318,
+        240.6711250077933,
+        240.74687500251457,
+        241.32670898688957,
+        240.17274999641813
+      ],
+      "min_ms": 240.17274999641813,
+      "median_ms": 240.6711250077933,
+      "p95_ms": 241.32670898688957,
+      "result_count": 0,
+      "output_size": 47655981,
+      "rss_mb": 2574.0625,
+      "throughput_mbps": 198.01287337006806,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "orjson",
+      "dataset": "users.json",
+      "variant": "str",
+      "times_ms": [
+        47.746417025336996,
+        48.76649999641813,
+        48.2797919830773,
+        48.11695800162852,
+        48.21304199867882
+      ],
+      "min_ms": 47.746417025336996,
+      "median_ms": 48.21304199867882,
+      "p95_ms": 48.76649999641813,
+      "result_count": 0,
+      "output_size": 40779839,
+      "rss_mb": 2885.578125,
+      "throughput_mbps": 845.8258867199769,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "msgspec",
+      "dataset": "users.json",
+      "variant": "str",
+      "times_ms": [
+        59.563458984484896,
+        76.61416698829271,
+        59.658999991370365,
+        59.410582995042205,
+        60.36470900289714
+      ],
+      "min_ms": 59.410582995042205,
+      "median_ms": 59.658999991370365,
+      "p95_ms": 76.61416698829271,
+      "result_count": 0,
+      "output_size": 40779839,
+      "rss_mb": 3198.4375,
+      "throughput_mbps": 683.5488192208849,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "ujson",
+      "dataset": "users.json",
+      "variant": "str",
+      "times_ms": [
+        199.13791699218564,
+        199.78854098008014,
+        199.64991699089296,
+        198.20879100007005,
+        198.24895801139064
+      ],
+      "min_ms": 198.20879100007005,
+      "median_ms": 199.13791699218564,
+      "p95_ms": 199.78854098008014,
+      "result_count": 0,
+      "output_size": 40779839,
+      "rss_mb": 3514.03125,
+      "throughput_mbps": 204.7818899381188,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "json",
+      "dataset": "users.json",
+      "variant": "str",
+      "times_ms": [
+        313.24383401079103,
+        316.8826250184793,
+        318.01820898544975,
+        316.4151670061983,
+        317.10745801683515
+      ],
+      "min_ms": 313.24383401079103,
+      "median_ms": 316.8826250184793,
+      "p95_ms": 318.01820898544975,
+      "result_count": 0,
+      "output_size": 45983395,
+      "rss_mb": 3846.921875,
+      "throughput_mbps": 145.11175864349912,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "bytes",
+      "times_ms": [
+        239.19275001389906,
+        239.3750000046566,
+        239.03450000216253,
+        240.00562500441447,
+        239.3188749847468
+      ],
+      "min_ms": 239.03450000216253,
+      "median_ms": 239.3188749847468,
+      "p95_ms": 240.00562500441447,
+      "result_count": 0,
+      "output_size": 47655981,
+      "rss_mb": 3934.609375,
+      "throughput_mbps": 199.1317275038895,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "orjson",
+      "dataset": "users.json",
+      "variant": "bytes",
+      "times_ms": [
+        50.81950000021607,
+        51.231499994173646,
+        50.03979100729339,
+        49.98899999191053,
+        50.22637499496341
+      ],
+      "min_ms": 49.98899999191053,
+      "median_ms": 50.22637499496341,
+      "p95_ms": 51.231499994173646,
+      "result_count": 0,
+      "output_size": 40779839,
+      "rss_mb": 3907.765625,
+      "throughput_mbps": 811.9208086207558,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "msgspec",
+      "dataset": "users.json",
+      "variant": "bytes",
+      "times_ms": [
+        56.47845900966786,
+        56.65100002079271,
+        56.98525000480004,
+        56.06937501579523,
+        56.26387501251884
+      ],
+      "min_ms": 56.06937501579523,
+      "median_ms": 56.47845900966786,
+      "p95_ms": 56.98525000480004,
+      "result_count": 0,
+      "output_size": 40779839,
+      "rss_mb": 4159.9375,
+      "throughput_mbps": 722.0423452597989,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "ujson",
+      "dataset": "users.json",
+      "variant": "bytes",
+      "times_ms": [
+        199.4284999964293,
+        215.3839170059655,
+        200.49008299247362,
+        204.94737502303906,
+        205.56112501071766
+      ],
+      "min_ms": 199.4284999964293,
+      "median_ms": 204.94737502303906,
+      "p95_ms": 215.3839170059655,
+      "result_count": 0,
+      "output_size": 40779839,
+      "rss_mb": 3482.5625,
+      "throughput_mbps": 198.97712276342037,
+      "error": ""
+    },
+    {
+      "category": "dumps",
+      "library": "json",
+      "dataset": "users.json",
+      "variant": "bytes",
+      "times_ms": [
+        332.4175410089083,
+        331.1831250030082,
+        331.64662498165853,
+        327.55987500422634,
+        325.98945798235945
+      ],
+      "min_ms": 325.98945798235945,
+      "median_ms": 331.1831250030082,
+      "p95_ms": 332.4175410089083,
+      "result_count": 0,
+      "output_size": 45983395,
+      "rss_mb": 3540.6875,
+      "throughput_mbps": 138.84582736388614,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "simple_field",
+      "times_ms": [
+        5.438665975816548,
+        5.776917008915916,
+        5.724499991629273
+      ],
+      "min_ms": 5.438665975816548,
+      "median_ms": 5.724499991629273,
+      "p95_ms": 5.776917008915916,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 8462.375,
+      "throughput_mbps": 8032.735621842928,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.json",
+      "variant": "simple_field",
+      "times_ms": [
+        2.173665998270735,
+        13.483749993611127,
+        2.0256249990779907
+      ],
+      "min_ms": 2.0256249990779907,
+      "median_ms": 2.173665998270735,
+      "p95_ms": 13.483749993611127,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 7562.109375,
+      "throughput_mbps": 21154.765744407003,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.json",
+      "variant": "simple_field",
+      "times_ms": [
+        105.63850001199171,
+        105.43054100708105,
+        104.18266701162793
+      ],
+      "min_ms": 104.18266701162793,
+      "median_ms": 105.43054100708105,
+      "p95_ms": 105.63850001199171,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 7563.984375,
+      "throughput_mbps": 436.148715170793,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "nested_field",
+      "times_ms": [
+        6.466833990998566,
+        6.735250004567206,
+        6.584541988559067
+      ],
+      "min_ms": 6.466833990998566,
+      "median_ms": 6.584541988559067,
+      "p95_ms": 6.735250004567206,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 8843.90625,
+      "throughput_mbps": 6983.537363707024,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.json",
+      "variant": "nested_field",
+      "times_ms": [
+        2.9744589992333204,
+        2.7661669882945716,
+        2.8207919967826456
+      ],
+      "min_ms": 2.7661669882945716,
+      "median_ms": 2.8207919967826456,
+      "p95_ms": 2.9744589992333204,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 8556.5,
+      "throughput_mbps": 16301.590139382128,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.json",
+      "variant": "nested_field",
+      "times_ms": [
+        104.58074999041855,
+        106.89816699596122,
+        107.11945799994282
+      ],
+      "min_ms": 104.58074999041855,
+      "median_ms": 106.89816699596122,
+      "p95_ms": 107.11945799994282,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 8550.828125,
+      "throughput_mbps": 430.16074355828124,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "double_wildcard",
+      "times_ms": [
+        1018.9055410155561,
+        1001.3368749932852,
+        1003.7081660120748
+      ],
+      "min_ms": 1001.3368749932852,
+      "median_ms": 1003.7081660120748,
+      "p95_ms": 1018.9055410155561,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 9093.671875,
+      "throughput_mbps": 45.81351089600163,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.json",
+      "variant": "double_wildcard",
+      "times_ms": [
+        311.31925000227056,
+        309.0691250108648,
+        310.8256670238916
+      ],
+      "min_ms": 309.0691250108648,
+      "median_ms": 310.8256670238916,
+      "p95_ms": 311.31925000227056,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 9111.328125,
+      "throughput_mbps": 147.93950396788014,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.json",
+      "variant": "double_wildcard",
+      "times_ms": [
+        1249.347792007029,
+        1215.199666999979,
+        1263.3220000134315
+      ],
+      "min_ms": 1215.199666999979,
+      "median_ms": 1249.347792007029,
+      "p95_ms": 1263.3220000134315,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 9092.3125,
+      "throughput_mbps": 36.80592009221824,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "deep_path",
+      "times_ms": [
+        0.01795799471437931,
+        0.019166007405146956,
+        0.0201669754460454
+      ],
+      "min_ms": 0.01795799471437931,
+      "median_ms": 0.019166007405146956,
+      "p95_ms": 0.0201669754460454,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 10017.4375,
+      "throughput_mbps": 2399216.1762209977,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.json",
+      "variant": "deep_path",
+      "times_ms": [
+        0.025917019229382277,
+        0.0228749995585531,
+        0.023832981241866946
+      ],
+      "min_ms": 0.0228749995585531,
+      "median_ms": 0.023832981241866946,
+      "p95_ms": 0.025917019229382277,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 9994.4375,
+      "throughput_mbps": 1929401.7199670281,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.json",
+      "variant": "deep_path",
+      "times_ms": [
+        0.02649999805726111,
+        0.024708017008379102,
+        0.03333299537189305
+      ],
+      "min_ms": 0.024708017008379102,
+      "median_ms": 0.02649999805726111,
+      "p95_ms": 0.03333299537189305,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 9889.234375,
+      "throughput_mbps": 1735222.5800409205,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "all_names",
+      "times_ms": [
+        5.443417001515627,
+        5.299167009070516,
+        5.167416005861014
+      ],
+      "min_ms": 5.167416005861014,
+      "median_ms": 5.299167009070516,
+      "p95_ms": 5.443417001515627,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 11594.828125,
+      "throughput_mbps": 8677.476086579421,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.json",
+      "variant": "all_names",
+      "times_ms": [
+        1.604917022632435,
+        1.7244580085389316,
+        1.5579999890178442
+      ],
+      "min_ms": 1.5579999890178442,
+      "median_ms": 1.604917022632435,
+      "p95_ms": 1.7244580085389316,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 11594.875,
+      "throughput_mbps": 28651.571608715694,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.json",
+      "variant": "all_names",
+      "times_ms": [
+        110.13862499385141,
+        103.32774999551475,
+        102.7874999854248
+      ],
+      "min_ms": 102.7874999854248,
+      "median_ms": 103.32774999551475,
+      "p95_ms": 110.13862499385141,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 11431.765625,
+      "throughput_mbps": 445.02464247983767,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "filter_numeric",
+      "times_ms": [
+        4.951291019096971,
+        5.007375002605841,
+        5.277374992147088
+      ],
+      "min_ms": 4.951291019096971,
+      "median_ms": 5.007375002605841,
+      "p95_ms": 5.277374992147088,
+      "result_count": 3212,
+      "output_size": 0,
+      "rss_mb": 12928.609375,
+      "throughput_mbps": 9183.133872751734,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.json",
+      "variant": "filter_numeric",
+      "times_ms": [
+        5.673290987033397,
+        5.5726669961586595,
+        5.848542001331225
+      ],
+      "min_ms": 5.5726669961586595,
+      "median_ms": 5.673290987033397,
+      "p95_ms": 5.848542001331225,
+      "result_count": 3212,
+      "output_size": 0,
+      "rss_mb": 12928.640625,
+      "throughput_mbps": 8105.241755640148,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "recursive_prices",
+      "times_ms": [
+        1042.4423750082497,
+        1049.4709579797927,
+        1035.1180830039084
+      ],
+      "min_ms": 1035.1180830039084,
+      "median_ms": 1042.4423750082497,
+      "p95_ms": 1049.4709579797927,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 14129.03125,
+      "throughput_mbps": 44.11121046344274,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.json",
+      "variant": "recursive_prices",
+      "times_ms": [
+        3852.9737500066403,
+        3846.1304169904906,
+        3936.198208015412
+      ],
+      "min_ms": 3846.1304169904906,
+      "median_ms": 3852.9737500066403,
+      "p95_ms": 3936.198208015412,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 13705.78125,
+      "throughput_mbps": 11.934520706226133,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.json",
+      "variant": "array_slice",
+      "times_ms": [
+        0.03012499655596912,
+        0.02549999044276774,
+        0.025958026526495814
+      ],
+      "min_ms": 0.02549999044276774,
+      "median_ms": 0.025958026526495814,
+      "p95_ms": 0.03012499655596912,
+      "result_count": 10,
+      "output_size": 0,
+      "rss_mb": 14022.09375,
+      "throughput_mbps": 1771451.884181717,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.json",
+      "variant": "array_slice",
+      "times_ms": [
+        0.017624988686293364,
+        0.021917017875239253,
+        0.015375000657513738
+      ],
+      "min_ms": 0.015375000657513738,
+      "median_ms": 0.017624988686293364,
+      "p95_ms": 0.021917017875239253,
+      "result_count": 10,
+      "output_size": 0,
+      "rss_mb": 13999.09375,
+      "throughput_mbps": 2608988.625096847,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.json",
+      "variant": "array_slice",
+      "times_ms": [
+        0.028417009161785245,
+        0.03366597229614854,
+        0.027125002816319466
+      ],
+      "min_ms": 0.027125002816319466,
+      "median_ms": 0.028417009161785245,
+      "p95_ms": 0.03366597229614854,
+      "result_count": 10,
+      "output_size": 0,
+      "rss_mb": 13981.53125,
+      "throughput_mbps": 1618164.4851576344,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "root_field",
+      "times_ms": [
+        0.018708989955484867,
+        0.015500001609325409,
+        0.01329102087765932
+      ],
+      "min_ms": 0.01329102087765932,
+      "median_ms": 0.015500001609325409,
+      "p95_ms": 0.018708989955484867,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 15370.5,
+      "throughput_mbps": 2966411.562972806,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "root_field",
+      "times_ms": [
+        0.013125012628734112,
+        0.018582999473437667,
+        0.01258301199413836
+      ],
+      "min_ms": 0.01258301199413836,
+      "median_ms": 0.013125012628734112,
+      "p95_ms": 0.018582999473437667,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 15285.375,
+      "throughput_mbps": 3503187.791175074,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "root_field",
+      "times_ms": [
+        0.011791998986154795,
+        0.019458006136119366,
+        0.022666004952043295
+      ],
+      "min_ms": 0.011791998986154795,
+      "median_ms": 0.019458006136119366,
+      "p95_ms": 0.022666004952043295,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 15226.296875,
+      "throughput_mbps": 2363005.9358779686,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "simple_field",
+      "times_ms": [
+        96.65125000174157,
+        96.60379201523028,
+        95.66062499652617
+      ],
+      "min_ms": 95.66062499652617,
+      "median_ms": 96.60379201523028,
+      "p95_ms": 96.65125000174157,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 15160.015625,
+      "throughput_mbps": 475.95837638289623,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "simple_field",
+      "times_ms": [
+        2.125541999703273,
+        2.0846250117756426,
+        2.09054202423431
+      ],
+      "min_ms": 2.0846250117756426,
+      "median_ms": 2.09054202423431,
+      "p95_ms": 2.125541999703273,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 15020.5625,
+      "throughput_mbps": 21994.00130061513,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "simple_field",
+      "times_ms": [
+        0.014249992091208696,
+        0.02025000867433846,
+        0.013124983524903655
+      ],
+      "min_ms": 0.013124983524903655,
+      "median_ms": 0.014249992091208696,
+      "p95_ms": 0.02025000867433846,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 14939.484375,
+      "throughput_mbps": 3226625.2293828456,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "nested_field",
+      "times_ms": [
+        96.73195899813436,
+        95.84783398895524,
+        96.12737499992363
+      ],
+      "min_ms": 95.84783398895524,
+      "median_ms": 96.12737499992363,
+      "p95_ms": 96.73195899813436,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 14881.96875,
+      "throughput_mbps": 478.31727434600737,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "nested_field",
+      "times_ms": [
+        3.353249980136752,
+        3.335499990498647,
+        3.216042008716613
+      ],
+      "min_ms": 3.216042008716613,
+      "median_ms": 3.335499990498647,
+      "p95_ms": 3.353249980136752,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 14846.53125,
+      "throughput_mbps": 13784.855083488164,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "nested_field",
+      "times_ms": [
+        0.020917010260745883,
+        0.02112501533702016,
+        0.02012500772252679
+      ],
+      "min_ms": 0.02012500772252679,
+      "median_ms": 0.020917010260745883,
+      "p95_ms": 0.02112501533702016,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 14674.296875,
+      "throughput_mbps": 2198181.4526470676,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "double_wildcard",
+      "times_ms": [
+        1105.0429590104613,
+        1058.0933329765685,
+        1114.7237499826588
+      ],
+      "min_ms": 1058.0933329765685,
+      "median_ms": 1105.0429590104613,
+      "p95_ms": 1114.7237499826588,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 14575.875,
+      "throughput_mbps": 41.608684644417266,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "double_wildcard",
+      "times_ms": [
+        186.26649997895584,
+        187.05383301130496,
+        184.84220799291506
+      ],
+      "min_ms": 184.84220799291506,
+      "median_ms": 186.26649997895584,
+      "p95_ms": 187.05383301130496,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 14556.8125,
+      "throughput_mbps": 246.84730751474203,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "double_wildcard",
+      "times_ms": [
+        0.016250007320195436,
+        0.013208977179601789,
+        0.020875013433396816
+      ],
+      "min_ms": 0.013208977179601789,
+      "median_ms": 0.016250007320195436,
+      "p95_ms": 0.020875013433396816,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 14527.71875,
+      "throughput_mbps": 2829499.2792315255,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "deep_path",
+      "times_ms": [
+        0.01650000922381878,
+        0.023667002096772194,
+        0.01741599407978356
+      ],
+      "min_ms": 0.01650000922381878,
+      "median_ms": 0.01741599407978356,
+      "p95_ms": 0.023667002096772194,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 14537.078125,
+      "throughput_mbps": 2640066.5841620117,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "deep_path",
+      "times_ms": [
+        0.020000006770715117,
+        0.02066700835712254,
+        0.01779201556928456
+      ],
+      "min_ms": 0.01779201556928456,
+      "median_ms": 0.020000006770715117,
+      "p95_ms": 0.02066700835712254,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 14505.21875,
+      "throughput_mbps": 2298968.4217169876,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "deep_path",
+      "times_ms": [
+        0.0400420103687793,
+        0.02204100019298494,
+        0.024375010980293155
+      ],
+      "min_ms": 0.02204100019298494,
+      "median_ms": 0.024375010980293155,
+      "p95_ms": 0.0400420103687793,
+      "result_count": 1,
+      "output_size": 0,
+      "rss_mb": 12935.09375,
+      "throughput_mbps": 1886332.8528210171,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "all_names",
+      "times_ms": [
+        101.37870901962742,
+        103.06941601447761,
+        104.72187501727603
+      ],
+      "min_ms": 101.37870901962742,
+      "median_ms": 103.06941601447761,
+      "p95_ms": 104.72187501727603,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 11882.890625,
+      "throughput_mbps": 446.10114016306756,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "all_names",
+      "times_ms": [
+        2.314417011803016,
+        2.268791984533891,
+        1.9962919759564102
+      ],
+      "min_ms": 1.9962919759564102,
+      "median_ms": 2.268791984533891,
+      "p95_ms": 2.314417011803016,
+      "result_count": 4000,
+      "output_size": 0,
+      "rss_mb": 11596.171875,
+      "throughput_mbps": 20266.020117065153,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "all_names",
+      "times_ms": [
+        0.01791701652109623,
+        0.026875000912696123,
+        0.023250002413988113
+      ],
+      "min_ms": 0.01791701652109623,
+      "median_ms": 0.023250002413988113,
+      "p95_ms": 0.026875000912696123,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 11596.171875,
+      "throughput_mbps": 1977607.7086485375,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "filter_numeric",
+      "times_ms": [
+        105.51241697976366,
+        105.45358300441876,
+        106.22141699423082
+      ],
+      "min_ms": 105.45358300441876,
+      "median_ms": 105.51241697976366,
+      "p95_ms": 106.22141699423082,
+      "result_count": 3212,
+      "output_size": 0,
+      "rss_mb": 11599.484375,
+      "throughput_mbps": 435.77225615842383,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "filter_numeric",
+      "times_ms": [
+        6.088333000661805,
+        6.302583002252504,
+        5.980791989713907
+      ],
+      "min_ms": 5.980791989713907,
+      "median_ms": 6.088333000661805,
+      "p95_ms": 6.302583002252504,
+      "result_count": 3212,
+      "output_size": 0,
+      "rss_mb": 11599.515625,
+      "throughput_mbps": 7552.048154232368,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "recursive_prices",
+      "times_ms": [
+        1173.0894159991294,
+        1232.1562909928616,
+        1201.3307500164956
+      ],
+      "min_ms": 1173.0894159991294,
+      "median_ms": 1201.3307500164956,
+      "p95_ms": 1232.1562909928616,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 11638.453125,
+      "throughput_mbps": 38.27370938383842,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "recursive_prices",
+      "times_ms": [
+        4090.50700001535,
+        4013.002541993046,
+        4028.830541006755
+      ],
+      "min_ms": 4013.002541993046,
+      "median_ms": 4028.830541006755,
+      "p95_ms": 4090.50700001535,
+      "result_count": 789913,
+      "output_size": 0,
+      "rss_mb": 10240.09375,
+      "throughput_mbps": 11.412588226783626,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "strata",
+      "dataset": "users.ndjson",
+      "variant": "array_slice",
+      "times_ms": [
+        0.04137499490752816,
+        0.04212500061839819,
+        0.04020897904410958
+      ],
+      "min_ms": 0.04020897904410958,
+      "median_ms": 0.04137499490752816,
+      "p95_ms": 0.04212500061839819,
+      "result_count": 10,
+      "output_size": 0,
+      "rss_mb": 10247.96875,
+      "throughput_mbps": 1111284.3422159327,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jmespath",
+      "dataset": "users.ndjson",
+      "variant": "array_slice",
+      "times_ms": [
+        0.02408298314549029,
+        0.02400000812485814,
+        0.028291979106143117
+      ],
+      "min_ms": 0.02400000812485814,
+      "median_ms": 0.02408298314549029,
+      "p95_ms": 0.028291979106143117,
+      "result_count": 10,
+      "output_size": 0,
+      "rss_mb": 10219.96875,
+      "throughput_mbps": 1909206.335536965,
+      "error": ""
+    },
+    {
+      "category": "search",
+      "library": "jsonpath-ng",
+      "dataset": "users.ndjson",
+      "variant": "array_slice",
+      "times_ms": [
+        0.032249983632937074,
+        0.03541700425557792,
+        0.03379202098585665
+      ],
+      "min_ms": 0.032249983632937074,
+      "median_ms": 0.03379202098585665,
+      "p95_ms": 0.03541700425557792,
+      "result_count": 10,
+      "output_size": 0,
+      "rss_mb": 10219.96875,
+      "throughput_mbps": 1360658.0091567847,
+      "error": ""
+    },
+    {
+      "category": "cursor_reuse",
+      "library": "strata_cursor_reuse",
+      "dataset": "users.json",
+      "variant": "json",
+      "times_ms": [
+        3284.706375008682,
+        2767.9553750203922,
+        2800.352458987618
+      ],
+      "min_ms": 2767.9553750203922,
+      "median_ms": 2800.352458987618,
+      "p95_ms": 3284.706375008682,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 14564.34375,
+      "throughput_mbps": 131.36459263166864,
+      "error": ""
+    },
+    {
+      "category": "cursor_reuse",
+      "library": "strata_cursor_reparse",
+      "dataset": "users.json",
+      "variant": "json",
+      "times_ms": [
+        10074.272333004046,
+        11250.203333998797,
+        11898.423042002833
+      ],
+      "min_ms": 10074.272333004046,
+      "median_ms": 11250.203333998797,
+      "p95_ms": 11898.423042002833,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 14795.59375,
+      "throughput_mbps": 32.698712110232094,
+      "error": ""
+    },
+    {
+      "category": "cursor_reuse",
+      "library": "strata_cursor_reuse",
+      "dataset": "users.ndjson",
+      "variant": "ndjson",
+      "times_ms": [
+        2782.707083999412,
+        2772.9430420149583,
+        2788.4742919995915
+      ],
+      "min_ms": 2772.9430420149583,
+      "median_ms": 2782.707083999412,
+      "p95_ms": 2788.4742919995915,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 10117.921875,
+      "throughput_mbps": 148.70931201470555,
+      "error": ""
+    },
+    {
+      "category": "cursor_reuse",
+      "library": "strata_cursor_reparse",
+      "dataset": "users.ndjson",
+      "variant": "ndjson",
+      "times_ms": [
+        6168.6101669911295,
+        6232.151292002527,
+        6228.403707995312
+      ],
+      "min_ms": 6168.6101669911295,
+      "median_ms": 6228.403707995312,
+      "p95_ms": 6232.151292002527,
+      "result_count": 0,
+      "output_size": 0,
+      "rss_mb": 10017.34375,
+      "throughput_mbps": 66.43988980174684,
+      "error": ""
+    }
+  ]
+}
