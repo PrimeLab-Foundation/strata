@@ -1,0 +1,153 @@
+STRATA LOADS FLAMEGRAPH (Text Representation)
+Dataset: large/users.json (43.85 MB, 6.17M objects)
+Total Runtime: ~323ms
+=============================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ strata.loads() [100%]                                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │ Python C API Calls [85.68%]                                        │    │
+│  ├────────────────────────────────────────────────────────────────────┤    │
+│  │                                                                    │    │
+│  │  ┌──────────────────────────────────────────┐                     │    │
+│  │  │ Dictionary Operations [11.63%]           │                     │    │
+│  │  ├──────────────────────────────────────────┤                     │    │
+│  │  │  • dict_dealloc [7.03%]                  │                     │    │
+│  │  │  • PyDict_SetDefault [1.51%]             │                     │    │
+│  │  │  • dict_setdefault_ref_lock_held [1.39%] │                     │    │
+│  │  │  • PyDict_New [0.46%]                    │                     │    │
+│  │  └──────────────────────────────────────────┘                     │    │
+│  │                                                                    │    │
+│  │  ┌────────────────────────────┐                                   │    │
+│  │  │ Memory Allocation [2.63%]  │                                   │    │
+│  │  ├────────────────────────────┤                                   │    │
+│  │  │  • _PyObject_Malloc [0.98%]│                                   │    │
+│  │  │  • pymalloc_alloc [0.89%]  │                                   │    │
+│  │  │  • _PyObject_Free [0.76%]  │                                   │    │
+│  │  └────────────────────────────┘                                   │    │
+│  │                                                                    │    │
+│  │  ┌─────────────────────────┐                                      │    │
+│  │  │ Object Creation [0.79%] │                                      │    │
+│  │  ├─────────────────────────┤                                      │    │
+│  │  │  • PyFloat_FromDouble    │                                      │    │
+│  │  │  • PyList_New            │                                      │    │
+│  │  │  • _PyObject_GC_New      │                                      │    │
+│  │  └─────────────────────────┘                                      │    │
+│  │                                                                    │    │
+│  │  ┌───────────────────────────────────────────────────────────┐   │    │
+│  │  │ Python Overhead [70.63%]                                  │   │    │
+│  │  │ (PyEval_EvalFrame, run_mod, etc.)                         │   │    │
+│  │  └───────────────────────────────────────────────────────────┘   │    │
+│  │                                                                    │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+│  ┌─────────────────────────────────┐                                       │
+│  │ Strata C++ Parsing [14.32%]     │                                       │
+│  ├─────────────────────────────────┤                                       │
+│  │                                 │                                       │
+│  │  ┌───────────────────────────┐  │                                       │
+│  │  │ SIMD Operations [6.52%]   │  │                                       │
+│  │  ├───────────────────────────┤  │                                       │
+│  │  │  • collect_structural_    │  │                                       │
+│  │  │    positions_simd [2.91%] │  │                                       │
+│  │  │  • skip_whitespace_simd   │  │                                       │
+│  │  │    [1.69%]                │  │                                       │
+│  │  │  • parse_int_simd [1.00%] │  │                                       │
+│  │  │  • parse_uint_simd [0.92%]│  │                                       │
+│  │  └───────────────────────────┘  │                                       │
+│  │                                 │                                       │
+│  │  ┌─────────────────────────┐    │                                       │
+│  │  │ Object Building [3.08%] │    │                                       │
+│  │  ├─────────────────────────┤    │                                       │
+│  │  │  • push_value [1.87%]   │    │                                       │
+│  │  │  • on_key [1.21%]       │    │                                       │
+│  │  └─────────────────────────┘    │                                       │
+│  │                                 │                                       │
+│  │  ┌───────────────────────────┐  │                                       │
+│  │  │ String/Number [1.83%]     │  │                                       │
+│  │  ├───────────────────────────┤  │                                       │
+│  │  │  • on_string [0.92%]      │  │                                       │
+│  │  │  • parse_double_fast[0.65%]│ │                                       │
+│  │  │  • on_double [0.23%]      │  │                                       │
+│  │  └───────────────────────────┘  │                                       │
+│  │                                 │                                       │
+│  │  ┌──────────────────┐           │                                       │
+│  │  │ Key Cache [1.12%]│           │                                       │
+│  │  └──────────────────┘           │                                       │
+│  │                                 │                                       │
+│  │  ┌───────────────┐              │                                       │
+│  │  │ Other [1.77%] │              │                                       │
+│  │  └───────────────┘              │                                       │
+│  │                                 │                                       │
+│  └─────────────────────────────────┘                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+LEGEND:
+┌─────┐
+│ Box │ = Function or category
+└─────┘
+[X.XX%] = Percentage of total runtime
+
+KEY OBSERVATIONS:
+
+1. PYTHON API DOMINATES (85.68%)
+   ════════════════════════════════════════════════════════════════════════════
+   The vast majority of time is spent in Python C API calls, particularly:
+   - Dictionary operations (creating, inserting, destroying)
+   - Memory allocation/deallocation
+   - Object creation (floats, lists, integers)
+
+2. DICTIONARY OPERATIONS ARE EXPENSIVE (11.63%)
+   ════════════════════════════════════════════════════════════════════════════
+   Creating and managing Python dictionaries is the #1 hotspot:
+   - dict_dealloc: 7.03% (cleanup)
+   - PyDict_SetDefault: 1.51% (insertion)
+   - dict_setdefault_ref_lock_held: 1.39%
+
+   Optimization opportunity: Pre-size dictionaries, batch operations
+
+3. C++ PARSING IS EFFICIENT (14.32%)
+   ════════════════════════════════════════════════════════════════════════════
+   Strata's C++ code is well-optimized with SIMD:
+   - Structural tape collection: 2.91%
+   - Whitespace skipping: 1.69%
+   - Number parsing: 1.92% combined
+
+   These are already using SIMD and are relatively fast
+
+4. MEMORY ALLOCATION OVERHEAD (2.63%)
+   ════════════════════════════════════════════════════════════════════════════
+   malloc/free calls show up prominently
+
+   Optimization opportunity: Object pooling, arena allocators
+
+COMPARISON WITH ORJSON:
+┌────────────────────┬──────────┬────────┬────────────┐
+│ Library            │ Time(ms) │ vs min │ Throughput │
+├────────────────────┼──────────┼────────┼────────────┤
+│ orjson (fastest)   │  116.49  │  1.00x │ 377 MB/s   │
+│ strata             │  323.08  │  2.77x │ 137 MB/s   │
+│ Materialization-   │  587.53  │  5.04x │  75 MB/s   │
+│ only (benchmark)   │          │        │            │
+└────────────────────┴──────────┴────────┴────────────┘
+
+BOTTLENECK SUMMARY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The primary bottleneck is PYTHON OBJECT MATERIALIZATION, not parsing logic.
+
+To match orjson's performance (2.77x improvement needed):
+  1. Optimize dictionary operations (-50% = 5.8% overall improvement)
+  2. Implement object pooling (-50% = 1.3% overall improvement)
+  3. Pre-size data structures (-30% = 3.5% overall improvement)
+  4. Optimize structural tape (-20% = 0.6% overall improvement)
+
+  Estimated total improvement: ~11.2% (gets us to ~2.45x slower)
+
+  Additional gains needed from more aggressive optimizations:
+  - Custom dict implementation for JSON
+  - String interning/caching improvements
+  - Reduce Python API overhead
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
