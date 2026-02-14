@@ -36,9 +36,25 @@ def loads(source):
     return _native.loads(source)
 
 
+def loads_parallel_json_experiment(source, *, num_threads=0, min_chunk_size=0):
+    """Experimental: parallel JSON parse using structural tape chunking."""
+    return _native.loads_parallel_json_experiment(
+        source, num_threads=num_threads, min_chunk_size=min_chunk_size
+    )
+
+
 def dumps(obj, **kwargs):
     """Serialize a Python object to JSON text."""
     return _native.dumps(obj, **kwargs)
 
-
-__all__ = ["compile_path", "search", "query", "load", "dump", "loads", "dumps", "__version__"]
+__all__ = [
+    "compile_path",
+    "search",
+    "query",
+    "load",
+    "dump",
+    "loads",
+    "loads_parallel_json_experiment",
+    "dumps",
+    "__version__",
+]

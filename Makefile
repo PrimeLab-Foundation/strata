@@ -193,6 +193,14 @@ bench-ndjson: $(BENCH_MEDIUM_NDJSON)
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson \
 		--data $(BENCH_MEDIUM_NDJSON)
 
+# Parallel JSON experiment on large dataset
+bench-json-parallel: $(BENCH_LARGE_JSON)
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  Benchmarks: JSON Parallel Experiment (LARGE)"
+	@echo "════════════════════════════════════════════════════════════════"
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_parallel_json \
+		--data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1 --num-threads 10 --min-chunk-size 10
+
 # Run full benchmark suite (bench_main) on small data
 bench-small: $(BENCH_SMALL_JSON) $(BENCH_SMALL_NDJSON)
 	@echo "════════════════════════════════════════════════════════════════"

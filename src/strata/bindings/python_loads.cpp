@@ -6,6 +6,8 @@
 #include "strata/json/parallel_ndjson.hpp"
 #include "strata/json/json_parse.hpp"
 #include "strata/util/fast_parse.hpp"
+#include "strata/util/simd_string.hpp"
+#include "strata/util/thread_pool.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -13,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <thread>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -695,6 +698,549 @@ PyObject* parse_ndjson_text(const char* data, Py_ssize_t len, bool skip_errors,
     emit_duplicate_key_warnings();
     return json_value_list_to_python(results);
 }
+
+struct JsonSpan {
+    size_t start = 0;
+    size_t end = 0; // exclusive
+};
+
+struct JsonMemberSpan {
+    std::string key;
+    size_t value_start = 0;
+    size_t value_end = 0; // exclusive
+};
+
+struct ChunkRange {
+    size_t start = 0;
+    size_t end = 0; // exclusive
+};
+
+inline size_t trim_ws_end(const char* data, size_t start, size_t end) {
+    while (end > start && is_json_whitespace(static_cast<unsigned char>(data[end - 1]))) {
+        --end;
+    }
+    return end;
+}
+
+inline bool is_escaped_quote(const char* data, size_t pos) {
+    size_t backslashes = 0;
+    while (pos > 0 && data[pos - 1] == '\\') {
+        ++backslashes;
+        --pos;
+    }
+    return (backslashes % 2) == 1;
+}
+
+size_t compute_chunk_target(size_t total_bytes, size_t threads, size_t min_chunk_size) {
+    constexpr size_t kMinChunkBytes = 256 * 1024;
+    constexpr size_t kMaxChunkBytes = 8 * 1024 * 1024;
+    if (min_chunk_size > 0) {
+        return min_chunk_size;
+    }
+    if (threads == 0) {
+        threads = 1;
+    }
+    size_t target = total_bytes / (threads * 2);
+    if (target < kMinChunkBytes) {
+        target = kMinChunkBytes;
+    }
+    if (target > kMaxChunkBytes) {
+        target = kMaxChunkBytes;
+    }
+    if (target == 0) {
+        target = total_bytes;
+    }
+    return target;
+}
+
+std::vector<ChunkRange> build_chunk_ranges(const std::vector<JsonSpan>& spans,
+                                           size_t target_bytes) {
+    std::vector<ChunkRange> chunks;
+    if (spans.empty()) {
+        return chunks;
+    }
+    size_t chunk_start = 0;
+    for (size_t i = 0; i < spans.size(); ++i) {
+        size_t span_len = spans[i].end - spans[chunk_start].start;
+        if (span_len >= target_bytes && i + 1 < spans.size()) {
+            chunks.push_back({chunk_start, i + 1});
+            chunk_start = i + 1;
+        }
+    }
+    if (chunk_start < spans.size()) {
+        chunks.push_back({chunk_start, spans.size()});
+    }
+    return chunks;
+}
+
+std::vector<ChunkRange> build_member_chunk_ranges(const std::vector<JsonMemberSpan>& members,
+                                                  size_t target_bytes) {
+    std::vector<ChunkRange> chunks;
+    if (members.empty()) {
+        return chunks;
+    }
+    size_t chunk_start = 0;
+    for (size_t i = 0; i < members.size(); ++i) {
+        size_t span_len = members[i].value_end - members[chunk_start].value_start;
+        if (span_len >= target_bytes && i + 1 < members.size()) {
+            chunks.push_back({chunk_start, i + 1});
+            chunk_start = i + 1;
+        }
+    }
+    if (chunk_start < members.size()) {
+        chunks.push_back({chunk_start, members.size()});
+    }
+    return chunks;
+}
+
+bool collect_top_level_array_spans(const char* data, size_t len, size_t root_pos,
+                                   const std::vector<size_t>& structural,
+                                   std::vector<JsonSpan>& spans,
+                                   std::string& error) {
+    spans.clear();
+    size_t pos = skip_ws_fast(data, len, root_pos + 1);
+    if (pos >= len) {
+        error = "Unterminated array";
+        return false;
+    }
+    if (data[pos] == ']') {
+        return true;
+    }
+
+    size_t current_start = pos;
+    bool in_string = false;
+    bool root_seen = false;
+    size_t depth = 0;
+
+    for (size_t idx = 0; idx < structural.size(); ++idx) {
+        size_t p = structural[idx];
+        if (p < root_pos) {
+            continue;
+        }
+        char c = data[p];
+        if (c == '"') {
+            if (!is_escaped_quote(data, p)) {
+                in_string = !in_string;
+            }
+            continue;
+        }
+        if (in_string) {
+            continue;
+        }
+        if (!root_seen) {
+            if (p == root_pos && c == '[') {
+                root_seen = true;
+                depth = 1;
+            }
+            continue;
+        }
+
+        size_t depth_before = depth;
+        if (c == '{' || c == '[') {
+            ++depth;
+        }
+
+        if (depth_before == 1 && (c == ',' || c == ']')) {
+            size_t end = trim_ws_end(data, current_start, p);
+            if (end < current_start) {
+                error = "Invalid array element span";
+                return false;
+            }
+            spans.push_back({current_start, end});
+            if (c == ',') {
+                current_start = skip_ws_fast(data, len, p + 1);
+                if (current_start >= len) {
+                    error = "Unterminated array element";
+                    return false;
+                }
+                if (data[current_start] == ']') {
+                    error = "Trailing comma in array";
+                    return false;
+                }
+            }
+        }
+
+        if (c == '}' || c == ']') {
+            if (depth == 0) {
+                error = "Invalid array nesting";
+                return false;
+            }
+            --depth;
+            if (root_seen && depth == 0) {
+                break;
+            }
+        }
+    }
+
+    if (!root_seen || depth != 0) {
+        error = "Unterminated array";
+        return false;
+    }
+    return true;
+}
+
+bool collect_top_level_object_members(const char* data, size_t len, size_t root_pos,
+                                      const std::vector<size_t>& structural,
+                                      std::vector<JsonMemberSpan>& members,
+                                      std::string& error) {
+    members.clear();
+    size_t pos = skip_ws_fast(data, len, root_pos + 1);
+    if (pos >= len) {
+        error = "Unterminated object";
+        return false;
+    }
+    if (data[pos] == '}') {
+        return true;
+    }
+
+    enum class ObjState { ExpectKeyOrEnd, ExpectColon, ExpectValue };
+    ObjState state = ObjState::ExpectKeyOrEnd;
+    bool in_string = false;
+    bool parsing_key = false;
+    size_t key_start = 0;
+    std::string current_key;
+    size_t value_start = 0;
+    bool have_value_start = false;
+    bool root_seen = false;
+    size_t depth = 0;
+
+    for (size_t idx = 0; idx < structural.size(); ++idx) {
+        size_t p = structural[idx];
+        if (p < root_pos) {
+            continue;
+        }
+        char c = data[p];
+        if (c == '"') {
+            if (!is_escaped_quote(data, p)) {
+                in_string = !in_string;
+                if (in_string) {
+                    if (state == ObjState::ExpectKeyOrEnd && depth == 1) {
+                        parsing_key = true;
+                        key_start = p + 1;
+                    }
+                } else if (parsing_key) {
+                    size_t key_end = p;
+                    std::string_view raw(data + key_start, key_end - key_start);
+                    bool has_escapes = raw.find('\\') != std::string_view::npos;
+                    if (has_escapes) {
+                        strata::LazyString lazy(raw, true);
+                        current_key = lazy.value();
+                    } else {
+                        current_key.assign(raw.data(), raw.size());
+                    }
+                    parsing_key = false;
+                    state = ObjState::ExpectColon;
+                }
+            }
+            continue;
+        }
+        if (in_string) {
+            continue;
+        }
+        if (!root_seen) {
+            if (p == root_pos && c == '{') {
+                root_seen = true;
+                depth = 1;
+            }
+            continue;
+        }
+
+        size_t depth_before = depth;
+        if (c == '{' || c == '[') {
+            ++depth;
+        }
+
+        if (depth_before == 1) {
+            if (state == ObjState::ExpectColon && c == ':') {
+                value_start = skip_ws_fast(data, len, p + 1);
+                have_value_start = true;
+                state = ObjState::ExpectValue;
+                if (value_start >= len) {
+                    error = "Unterminated object value";
+                    return false;
+                }
+                if (data[value_start] == ',' || data[value_start] == '}') {
+                    error = "Missing object value";
+                    return false;
+                }
+            } else if (state == ObjState::ExpectValue && (c == ',' || c == '}')) {
+                if (!have_value_start) {
+                    error = "Missing object value span";
+                    return false;
+                }
+                size_t end = trim_ws_end(data, value_start, p);
+                if (end < value_start) {
+                    error = "Invalid object value span";
+                    return false;
+                }
+                members.push_back({current_key, value_start, end});
+                current_key.clear();
+                have_value_start = false;
+                state = ObjState::ExpectKeyOrEnd;
+            } else if (state == ObjState::ExpectKeyOrEnd && c == '}') {
+                // End of object (e.g., after last member)
+            }
+        }
+
+        if (c == '}' || c == ']') {
+            if (depth == 0) {
+                error = "Invalid object nesting";
+                return false;
+            }
+            --depth;
+            if (root_seen && depth == 0) {
+                break;
+            }
+        }
+    }
+
+    if (!root_seen || depth != 0) {
+        error = "Unterminated object";
+        return false;
+    }
+    if (state == ObjState::ExpectValue) {
+        error = "Unterminated object value";
+        return false;
+    }
+    return true;
+}
+
+bool parse_array_parallel(std::string_view text, const std::vector<JsonSpan>& spans,
+                          size_t num_threads, size_t min_chunk_size,
+                          strata::JsonValue& out, std::string& error) {
+    if (spans.empty()) {
+        out = strata::JsonValue(strata::JsonValue::Array{});
+        return true;
+    }
+
+    size_t threads = num_threads > 0 ? num_threads : std::thread::hardware_concurrency();
+    if (threads == 0) {
+        threads = 1;
+    }
+    size_t target = compute_chunk_target(text.size(), threads, min_chunk_size);
+    std::vector<ChunkRange> chunks = build_chunk_ranges(spans, target);
+
+    struct ChunkResult {
+        size_t start_index = 0;
+        std::vector<strata::JsonValue> values;
+        strata::Status status = strata::Status::Ok;
+        size_t error_index = 0;
+    };
+
+    auto parse_chunk = [&](size_t start_idx, size_t end_idx) -> ChunkResult {
+        ChunkResult result;
+        result.start_index = start_idx;
+        result.values.reserve(end_idx - start_idx);
+        for (size_t i = start_idx; i < end_idx; ++i) {
+            const auto& span = spans[i];
+            std::string_view slice(text.data() + span.start, span.end - span.start);
+            auto parsed = strata::parse_json(slice);
+            if (!parsed.ok()) {
+                result.status = parsed.status;
+                result.error_index = i;
+                return result;
+            }
+            result.values.push_back(std::move(parsed.value));
+        }
+        return result;
+    };
+
+    std::vector<ChunkResult> results;
+    results.reserve(chunks.size());
+
+    if (chunks.size() <= 1 || threads == 1) {
+        ChunkResult result = parse_chunk(0, spans.size());
+        if (result.status != strata::Status::Ok) {
+            error = "Failed to parse array element";
+            return false;
+        }
+        strata::JsonValue::Array arr = std::move(result.values);
+        out = strata::JsonValue(std::move(arr));
+        return true;
+    }
+
+    strata::util::ThreadPool pool(threads);
+    std::vector<std::future<ChunkResult>> futures;
+    futures.reserve(chunks.size());
+    for (const auto& chunk : chunks) {
+        futures.push_back(pool.submit(parse_chunk, chunk.start, chunk.end));
+    }
+
+    results.resize(chunks.size());
+    for (size_t i = 0; i < futures.size(); ++i) {
+        results[i] = futures[i].get();
+        if (results[i].status != strata::Status::Ok) {
+            error = "Failed to parse array element";
+            return false;
+        }
+    }
+
+    strata::JsonValue::Array arr;
+    arr.resize(spans.size());
+    for (const auto& result : results) {
+        for (size_t i = 0; i < result.values.size(); ++i) {
+            arr[result.start_index + i] = std::move(result.values[i]);
+        }
+    }
+    out = strata::JsonValue(std::move(arr));
+    return true;
+}
+
+bool parse_object_parallel(std::string_view text, const std::vector<JsonMemberSpan>& members,
+                           size_t num_threads, size_t min_chunk_size,
+                           strata::JsonValue& out, std::string& error) {
+    if (members.empty()) {
+        out = strata::JsonValue(strata::JsonValue::Object{});
+        return true;
+    }
+
+    size_t threads = num_threads > 0 ? num_threads : std::thread::hardware_concurrency();
+    if (threads == 0) {
+        threads = 1;
+    }
+    size_t target = compute_chunk_target(text.size(), threads, min_chunk_size);
+    std::vector<ChunkRange> chunks = build_member_chunk_ranges(members, target);
+
+    struct ChunkResult {
+        size_t start_index = 0;
+        std::vector<strata::JsonValue> values;
+        strata::Status status = strata::Status::Ok;
+        size_t error_index = 0;
+    };
+
+    auto parse_chunk = [&](size_t start_idx, size_t end_idx) -> ChunkResult {
+        ChunkResult result;
+        result.start_index = start_idx;
+        result.values.reserve(end_idx - start_idx);
+        for (size_t i = start_idx; i < end_idx; ++i) {
+            const auto& member = members[i];
+            std::string_view slice(text.data() + member.value_start,
+                                   member.value_end - member.value_start);
+            auto parsed = strata::parse_json(slice);
+            if (!parsed.ok()) {
+                result.status = parsed.status;
+                result.error_index = i;
+                return result;
+            }
+            result.values.push_back(std::move(parsed.value));
+        }
+        return result;
+    };
+
+    std::vector<ChunkResult> results;
+    results.reserve(chunks.size());
+
+    if (chunks.size() <= 1 || threads == 1) {
+        ChunkResult result = parse_chunk(0, members.size());
+        if (result.status != strata::Status::Ok) {
+            error = "Failed to parse object value";
+            return false;
+        }
+        results.push_back(std::move(result));
+    } else {
+        strata::util::ThreadPool pool(threads);
+        std::vector<std::future<ChunkResult>> futures;
+        futures.reserve(chunks.size());
+        for (const auto& chunk : chunks) {
+            futures.push_back(pool.submit(parse_chunk, chunk.start, chunk.end));
+        }
+        results.resize(chunks.size());
+        for (size_t i = 0; i < futures.size(); ++i) {
+            results[i] = futures[i].get();
+            if (results[i].status != strata::Status::Ok) {
+                error = "Failed to parse object value";
+                return false;
+            }
+        }
+    }
+
+    strata::JsonValue::Object obj;
+    obj.reserve(members.size());
+    strata::DuplicateKeyPolicy policy = strata::get_duplicate_key_policy();
+    for (const auto& result : results) {
+        for (size_t i = 0; i < result.values.size(); ++i) {
+            const auto& key = members[result.start_index + i].key;
+            auto it = obj.find(key);
+            if (it != obj.end()) {
+                if (policy == strata::DuplicateKeyPolicy::Error) {
+                    error = "Duplicate key encountered in object";
+                    return false;
+                }
+                if (policy == strata::DuplicateKeyPolicy::LastWins) {
+                    it->second = std::move(result.values[i]);
+                }
+                continue;
+            }
+            obj.emplace(key, std::move(result.values[i]));
+        }
+    }
+    out = strata::JsonValue(std::move(obj));
+    return true;
+}
+
+bool parse_json_parallel_experiment(std::string_view text, size_t num_threads,
+                                    size_t min_chunk_size, strata::JsonValue& out,
+                                    std::string& error) {
+    const char* data = text.data();
+    size_t len = text.size();
+    size_t root_pos = skip_ws_fast(data, len, 0);
+    if (root_pos >= len) {
+        error = "Empty JSON input";
+        return false;
+    }
+
+    char root = data[root_pos];
+    if (root != '[' && root != '{') {
+        auto parsed = strata::parse_json(text);
+        if (!parsed.ok()) {
+            error = "Invalid JSON";
+            return false;
+        }
+        out = std::move(parsed.value);
+        return true;
+    }
+
+    std::vector<size_t> structural;
+    strata::util::collect_structural_positions_simd(data, len, structural);
+
+    if (root == '[') {
+        std::vector<JsonSpan> spans;
+        if (!collect_top_level_array_spans(data, len, root_pos, structural, spans, error)) {
+            return false;
+        }
+        return parse_array_parallel(text, spans, num_threads, min_chunk_size, out, error);
+    }
+
+    std::vector<JsonMemberSpan> members;
+    if (!collect_top_level_object_members(data, len, root_pos, structural, members, error)) {
+        return false;
+    }
+
+    if (members.size() == 1) {
+        const auto& member = members[0];
+        size_t value_pos = skip_ws_fast(data, len, member.value_start);
+        if (value_pos < len && data[value_pos] == '[' &&
+            (member.value_end - member.value_start) >= kParallelMinSize) {
+            std::string_view subview(data + member.value_start,
+                                     member.value_end - member.value_start);
+            strata::JsonValue array_value;
+            std::string array_error;
+            if (!parse_json_parallel_experiment(subview, num_threads, min_chunk_size, array_value,
+                                                array_error)) {
+                error = array_error;
+                return false;
+            }
+            strata::JsonValue::Object obj;
+            obj.reserve(1);
+            obj.emplace(member.key, std::move(array_value));
+            out = strata::JsonValue(std::move(obj));
+            return true;
+        }
+    }
+
+    return parse_object_parallel(text, members, num_threads, min_chunk_size, out, error);
+}
+
 } // namespace
 
 static PyObject* json_value_to_python_internal(const strata::JsonValue& val, KeyCache& cache) {
@@ -932,6 +1478,101 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* source) {
 
     PyErr_SetString(PyExc_TypeError, "loads() expects str, bytes, bytearray, or memoryview");
     return NULL;
+
+    STRATA_CPP_CATCH
+}
+
+// Experimental: parallel JSON parse using structural tape chunking.
+PyObject* strata_loads_parallel_json_experiment(PyObject* /*self*/, PyObject* args,
+                                                PyObject* kwargs) {
+    PyObject* source = nullptr;
+    int num_threads = 0;
+    Py_ssize_t min_chunk_size = 0;
+
+    static const char* kwlist[] = {"source", "num_threads", "min_chunk_size", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|in", const_cast<char**>(kwlist), &source,
+                                     &num_threads, &min_chunk_size)) {
+        return NULL;
+    }
+
+    if (num_threads < 0) {
+        PyErr_SetString(PyExc_ValueError, "num_threads must be non-negative");
+        return NULL;
+    }
+    if (min_chunk_size < 0) {
+        PyErr_SetString(PyExc_ValueError, "min_chunk_size must be non-negative");
+        return NULL;
+    }
+
+    const char* data = nullptr;
+    Py_ssize_t len = 0;
+    PyObject* bytes_owner = nullptr;
+
+    if (PyUnicode_Check(source)) {
+        data = PyUnicode_AsUTF8AndSize(source, &len);
+        if (!data) {
+            return NULL;
+        }
+    } else if (PyBytes_Check(source)) {
+        char* buf = nullptr;
+        if (PyBytes_AsStringAndSize(source, &buf, &len) < 0) {
+            return NULL;
+        }
+        data = buf;
+    } else if (PyByteArray_Check(source) || PyMemoryView_Check(source)) {
+        bytes_owner = PyBytes_FromObject(source);
+        if (!bytes_owner) {
+            return NULL;
+        }
+        char* buf = nullptr;
+        if (PyBytes_AsStringAndSize(bytes_owner, &buf, &len) < 0) {
+            Py_DECREF(bytes_owner);
+            return NULL;
+        }
+        data = buf;
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+                        "loads_parallel_json_experiment() expects str, bytes, bytearray, or "
+                        "memoryview");
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    strata::JsonValue parsed;
+    std::string error;
+    bool ok = false;
+    Py_BEGIN_ALLOW_THREADS
+    try {
+        ok = parse_json_parallel_experiment(
+            std::string_view(data, static_cast<size_t>(len)),
+            static_cast<size_t>(num_threads),
+            static_cast<size_t>(min_chunk_size),
+            parsed,
+            error);
+    } catch (const std::exception& ex) {
+        error = ex.what();
+        ok = false;
+    } catch (...) {
+        error = "Unexpected error during parallel JSON parse";
+        ok = false;
+    }
+    Py_END_ALLOW_THREADS
+
+    if (!ok) {
+        Py_XDECREF(bytes_owner);
+        if (!error.empty()) {
+            PyErr_SetString(PyExc_ValueError, error.c_str());
+        } else {
+            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+        }
+        return NULL;
+    }
+
+    PyObject* result = json_value_to_python(parsed);
+    emit_duplicate_key_warnings();
+    Py_XDECREF(bytes_owner);
+    return result;
 
     STRATA_CPP_CATCH
 }

@@ -7,6 +7,8 @@
 extern PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
 extern PyObject* strata_loads(PyObject* self, PyObject* source);
+extern PyObject* strata_loads_parallel_json_experiment(PyObject* self, PyObject* args,
+                                                       PyObject* kwargs);
 extern PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_dump(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_loads_tape(PyObject* self, PyObject* args);
@@ -52,6 +54,12 @@ static PyObject* strata_set_duplicate_key_policy(PyObject* self, PyObject* args)
 static PyMethodDef strata_methods[] = {
     {"loads", (PyCFunction)strata_loads, METH_O,
      "loads(source) -> object\n\nParse JSON string to Python object."},
+    {"loads_parallel_json_experiment",
+     (PyCFunction)strata_loads_parallel_json_experiment,
+     METH_VARARGS | METH_KEYWORDS,
+     "loads_parallel_json_experiment(source, *, num_threads=0, min_chunk_size=0) -> object\n\n"
+     "Experimental: parse JSON by chunking top-level arrays/objects using structural tape and\n"
+     "parsing chunks in parallel."},
     {"dumps", (PyCFunction)strata_dumps, METH_VARARGS | METH_KEYWORDS,
      "dumps(obj, *, return_type='str') -> str|bytes|bytearray\n\n"
      "Serialize Python object to JSON."},
