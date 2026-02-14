@@ -233,7 +233,7 @@ def is_universal_build():
 
 
 def build_compile_flags():
-    flags = ["-std=c++20", "-O3"]
+    flags = ["-std=c++20", "-O3", "-DNDEBUG"]
     if not is_universal_build():
         flags.append("-march=native")
     if enable_lto:
@@ -318,6 +318,7 @@ ext_modules = [
             else [
                 "/std:c++20",
                 "/O2",
+                "/DNDEBUG",
             ]
             + (["/arch:AVX2"] if (platform.machine() in ("AMD64", "x86_64")) else [])
             + (["/GL"] if enable_lto else [])
