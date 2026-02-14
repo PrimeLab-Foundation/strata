@@ -422,7 +422,17 @@ void test_parse_sax_allow_abort() {
 void test_parse_structural_tape_large_array() {
     std::string json = build_large_array_json(3000);
 
+    // Default path keeps structural tape disabled.
+    ParseSaxOptions lazy_options;
+    ParseSaxContext lazy_context;
+    auto lazy_result = parse_json(json, lazy_options, &lazy_context);
+    assert(lazy_result.ok());
+    assert(lazy_result.value.is_array());
+    assert(lazy_result.value.as_array().size() == 3000);
+    assert(lazy_context.structural_tape.empty());
+
     ParseSaxOptions options;
+    options.collect_structural_tape = true;
     ParseSaxContext context;
     auto result = parse_json(json, options, &context);
     assert(result.ok());
@@ -431,7 +441,7 @@ void test_parse_structural_tape_large_array() {
     assert(!context.structural_tape.empty());
 
     // Also exercise the thread-local structural tape path (no context provided).
-    auto result_thread_local = parse_json(json);
+    auto result_thread_local = parse_json(json, options, nullptr);
     assert(result_thread_local.ok());
     assert(result_thread_local.value.is_array());
 

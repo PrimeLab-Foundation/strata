@@ -45,6 +45,9 @@ struct ParseSaxOptions {
     bool validate_utf8 = true;
     bool allow_abort = false;
     bool use_structural_tape = true;
+    // Collect and use a precomputed structural tape for this parse.
+    // Disabled by default to avoid upfront scan cost for small/medium payloads.
+    bool collect_structural_tape = false;
     // Use exact container sizes (precomputed) instead of approximate hints.
     bool use_exact_size_hints = false;
     // Size hints can improve small-container performance but add extra scanning.

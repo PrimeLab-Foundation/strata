@@ -946,8 +946,10 @@ Status parse_sax_impl(std::string_view text, JsonSaxHandler& handler,
     } else {
         p.stack_.reserve(16);
     }
-    const bool use_structural_tape = options.use_structural_tape && size >= kStructuralTapeMinSize;
-    if (use_structural_tape) {
+    const bool collect_structural_tape =
+        options.use_structural_tape && options.collect_structural_tape &&
+        size >= kStructuralTapeMinSize;
+    if (collect_structural_tape) {
         size_t reserve_hint = size / kStructuralTapeReserveDiv;
         if (reserve_hint > kStructuralTapeReserveMax) {
             reserve_hint = kStructuralTapeReserveMax;

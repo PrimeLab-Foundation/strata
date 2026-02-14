@@ -325,7 +325,7 @@ ExactSizeHintMode get_exact_size_hint_mode() {
     return cached;
 }
 
-bool should_collect_exact_size_hints(size_t size, bool use_structural_tape) {
+bool should_collect_exact_size_hints(size_t size) {
     ExactSizeHintMode mode = get_exact_size_hint_mode();
     if (mode == ExactSizeHintMode::Disabled) {
         return false;
@@ -333,10 +333,11 @@ bool should_collect_exact_size_hints(size_t size, bool use_structural_tape) {
     if (mode == ExactSizeHintMode::Enabled) {
         return true;
     }
-    if (!use_structural_tape) {
-        return false;
-    }
     return size >= get_size_hint_cutoff_bytes();
+}
+
+bool has_explicit_exact_size_hints_request() {
+    return get_exact_size_hint_mode() == ExactSizeHintMode::Enabled;
 }
 
 bool use_structural_tape_for_python() {
@@ -1418,12 +1419,18 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
                            g_parse_builder.estimate_list_presize());
     }
 
-    const bool use_structural_tape = use_structural_tape_for_python();
-    bool use_exact_size_hints = should_collect_exact_size_hints(size, use_structural_tape);
+    constexpr size_t kPythonStructuralTapeMinInputSize = 10 * 1024 * 1024;
+    const bool structural_tape_enabled = use_structural_tape_for_python();
+    bool use_exact_size_hints = should_collect_exact_size_hints(size);
+    const bool explicit_exact_size_hints = has_explicit_exact_size_hints_request();
+    const bool collect_structural_tape =
+        structural_tape_enabled &&
+        (size >= kPythonStructuralTapeMinInputSize || explicit_exact_size_hints);
     if (use_exact_size_hints) {
         SizeHintCollector collector(&g_parse_context.size_hints);
         strata::ParseSaxOptions hint_options;
-        hint_options.use_structural_tape = use_structural_tape;
+        hint_options.use_structural_tape = structural_tape_enabled;
+        hint_options.collect_structural_tape = collect_structural_tape;
         hint_options.use_size_hints = false;
         hint_options.use_array_size_hints = false;
         hint_options.use_object_size_hints = false;
@@ -1438,7 +1445,8 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     }
     auto parse = [&]() {
         strata::ParseSaxOptions options;
-        options.use_structural_tape = use_structural_tape;
+        options.use_structural_tape = structural_tape_enabled;
+        options.collect_structural_tape = collect_structural_tape;
         options.use_exact_size_hints = use_exact_size_hints;
         // Size-hint scanning adds extra passes and can over-allocate large dicts.
         // Keep array hints, but disable object hints for large inputs.

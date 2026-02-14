@@ -414,6 +414,41 @@ The pool infrastructure is kept as-is for:
 
 ---
 
+## 2026-02-14 — Lazy Structural Tape (10MB / Explicit Hints)
+
+**Commit:** working tree  
+**Environment:** macOS arm64, Python 3.14.2 (`.venv`), rebuilt editable extension (`pip install -e .`), Make benchmarks (3 reps, 1 warmup), datasets `benchmarks/data/generated/{small,medium,large}`.
+
+### Changes
+- Added `ParseSaxOptions.collect_structural_tape` (default `false`) and gated tape collection in `parse_sax_impl()` on `use_structural_tape && collect_structural_tape`.
+- Updated Python loads path to set `collect_structural_tape=true` only when:
+  - input size is `>= 10MB`, or
+  - exact size hints are explicitly forced (`STRATA_PYTHON_EXACT_SIZE_HINTS=1`).
+- Kept auto exact-size hints, but no longer treat auto mode as an explicit request for structural tape.
+- Updated structural-tape parser test to verify default no-tape path and explicit-tape path.
+
+### Benchmarks (median ms, strata “extract all user IDs”)
+
+| Dataset | Prior (ce2c30a) | Post-change | Δ |
+|---------|------------------|-------------|---|
+| small/users.json | 1.33 | 1.42 | +6.8% |
+| medium/users.json | 2.74 | 2.87 | +4.7% |
+| large/users.json | 5.61 | 5.30 | -5.5% |
+
+### Hotspot Check
+
+- Ran fresh 30s macOS `sample` profiles on `small/users.json` and `medium/users.json` after rebuild.
+- `collect_structural_positions_simd` did not appear in the sampled stacks for either dataset (no symbol matches in the final sample outputs).
+- Outcome: structural tape hotspot is effectively removed for small/medium in this configuration (well below the `<1.5%` target threshold).
+
+### Validation
+
+- Python tests: `680 passed`
+- C++ tests: `23/23` passed
+- Benchmarks: `make bench-small`, `make bench-medium`, `make bench-large` completed
+
+---
+
 ## Future Entries
 
 Add new entries here as optimizations are implemented.
