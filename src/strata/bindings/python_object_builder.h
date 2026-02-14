@@ -398,13 +398,13 @@
 
      // Get estimated size for next dict/list
      size_t estimate_dict_size() const {
-         if (dict_count_ == 0) return 16;  // Better default than 8
-         return dict_ema_ > 0 ? dict_ema_ : 16;
+         if (dict_count_ == 0) return 8;  // Conservative default, learns quickly
+         return dict_ema_ > 0 ? dict_ema_ : 8;
      }
 
      size_t estimate_list_size() const {
-         if (list_count_ == 0) return 16;
-         return list_ema_ > 0 ? list_ema_ : 16;
+         if (dict_count_ == 0) return 8;
+         return list_ema_ > 0 ? list_ema_ : 8;
      }
 
      // Get accuracy metrics for tuning
@@ -416,8 +416,8 @@
      }
 
    private:
-     size_t dict_ema_ = 16;      // Exponential moving average for dict sizes
-     size_t list_ema_ = 16;      // Exponential moving average for list sizes
+     size_t dict_ema_ = 8;       // Exponential moving average for dict sizes
+     size_t list_ema_ = 8;       // Exponential moving average for list sizes
      size_t dict_count_ = 0;     // Total dicts seen
      size_t list_count_ = 0;     // Total lists seen
      size_t dict_sum_ = 0;       // Sum for computing average
@@ -547,7 +547,7 @@
             presize = kMaxDictPresize;
         }
 
-        // Always pre-size (even default of 16 is better than PyDict_New's 8)
+        // Always pre-size (adaptive estimator starts at 8, learns from data)
         dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(presize));
         if (!dict)
              return false;
