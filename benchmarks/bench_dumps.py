@@ -8,7 +8,6 @@ Uses shared harness for timing and RSS.
 
 from __future__ import annotations
 
-import argparse
 import json
 import statistics
 from dataclasses import dataclass
@@ -200,30 +199,10 @@ def print_summary(results: list[DumpsResult]) -> None:
             print(f"  -> {pct:.1f}% behind #{1} ({first.library})")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Benchmark JSON dumps performance")
-    parser.add_argument(
-        "--data",
-        type=Path,
-        default=Path("benchmarks/data/generated/users.json"),
-        help="Path to JSON file",
-    )
-    parser.add_argument("--repeat", type=int, default=50, help="Iterations per benchmark")
-    parser.add_argument("--warmup", type=int, default=3, help="Warmup iterations")
-    parser.add_argument("--bytes", action="store_true", help="Benchmark bytes output (dumps_bytes)")
-    args = parser.parse_args()
-
-    if not args.data.exists():
-        print(f"Error: Data file not found: {args.data}")
-        print("Generate with: python -m benchmarks.data.generate_bench_data")
-        return 1
-
-    results = run_benchmarks(
-        args.data, repeat=args.repeat, warmup=args.warmup, bytes_mode=args.bytes
-    )
-    print_summary(results)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+__all__ = [
+    "DumpsResult",
+    "run_benchmarks",
+    "print_summary",
+    "_get_dumps_runners",
+    "_output_size_bytes",
+]

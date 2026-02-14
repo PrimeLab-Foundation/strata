@@ -1,4 +1,4 @@
-.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-all bench-ndjson clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
+.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-small bench-medium bench-large bench-experimental-suite clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
 
 # Default target: run all tests (Rule 16: Make is the interface)
 all: test
@@ -137,151 +137,58 @@ clean-venv:
 
 
 # ============================================================================
-# Benchmarks: data (generated once) + small / medium / large runs
+# Benchmarks (Rule 8, 13, 16)
 # ============================================================================
-# Data lives in benchmarks/data/generated/{small,medium,large}/ (users.json + users.ndjson).
-# Run "make bench-data" once to generate all three; then bench-small/medium/large use it.
+# Three sizes: small (~1 MB), medium (~6 MB), large (~44 MB)
+# Each target: generates data if missing, runs full suite, writes report.
+# Output: docs/benchmarks/bench_results_{size}.md
 # ============================================================================
 
 BENCH_GEN := benchmarks/data/generated
-BENCH_SMALL_JSON := $(BENCH_GEN)/small/users.json
-BENCH_SMALL_NDJSON := $(BENCH_GEN)/small/users.ndjson
-BENCH_MEDIUM_JSON := $(BENCH_GEN)/medium/users.json
-BENCH_MEDIUM_NDJSON := $(BENCH_GEN)/medium/users.ndjson
-BENCH_LARGE_JSON := $(BENCH_GEN)/large/users.json
-BENCH_LARGE_NDJSON := $(BENCH_GEN)/large/users.ndjson
+BENCH_SUITE := PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_suite
+BENCH_EXPERIMENTAL := PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_experimental
 
-# Generate small dataset (1k users, few orders/items)
-$(BENCH_SMALL_JSON) $(BENCH_SMALL_NDJSON):
+# Data generation targets (internal, not user-facing)
+$(BENCH_GEN)/small/users.json $(BENCH_GEN)/small/users.ndjson:
 	@mkdir -p $(BENCH_GEN)/small
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.data.generate_bench_data \
-		--out-dir $(BENCH_GEN)/small \
-		--num-users 1000 \
-		--max-orders 10 \
-		--max-items 5
-	@touch $(BENCH_SMALL_JSON) $(BENCH_SMALL_NDJSON)
+		--out-dir $(BENCH_GEN)/small --num-users 1000 --max-orders 10 --max-items 5
 
-# Generate medium dataset (2k users, more orders/items)
-$(BENCH_MEDIUM_JSON) $(BENCH_MEDIUM_NDJSON):
+$(BENCH_GEN)/medium/users.json $(BENCH_GEN)/medium/users.ndjson:
 	@mkdir -p $(BENCH_GEN)/medium
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.data.generate_bench_data \
-		--out-dir $(BENCH_GEN)/medium \
-		--num-users 2000 \
-		--max-orders 20 \
-		--max-items 10
-	@touch $(BENCH_MEDIUM_JSON) $(BENCH_MEDIUM_NDJSON)
+		--out-dir $(BENCH_GEN)/medium --num-users 2000 --max-orders 20 --max-items 10
 
-# Generate large dataset (5k users, max variation for PGO)
-$(BENCH_LARGE_JSON) $(BENCH_LARGE_NDJSON):
+$(BENCH_GEN)/large/users.json $(BENCH_GEN)/large/users.ndjson:
 	@mkdir -p $(BENCH_GEN)/large
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.data.generate_bench_data \
-		--out-dir $(BENCH_GEN)/large \
-		--num-users 4000 \
-		--max-orders 40 \
-		--max-items 20
-	@touch $(BENCH_LARGE_JSON) $(BENCH_LARGE_NDJSON)
+		--out-dir $(BENCH_GEN)/large --num-users 4000 --max-orders 40 --max-items 20
 
-# Generate all benchmark data once (small + medium + large)
-bench-data: $(BENCH_SMALL_JSON) $(BENCH_MEDIUM_JSON) $(BENCH_LARGE_JSON)
-	@echo "Benchmark data ready: small, medium, large"
+bench-small: $(BENCH_GEN)/small/users.json  ## Run full benchmark suite (small, ~1 MB)
+	$(BENCH_SUITE) \
+		--json-data $(BENCH_GEN)/small/users.json \
+		--ndjson-data $(BENCH_GEN)/small/users.ndjson \
+		--output docs/benchmarks/bench_results_small.md
 
-# Run NDJSON-specific benchmark on the medium dataset
-bench-ndjson: $(BENCH_MEDIUM_NDJSON)
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: NDJSON (MEDIUM)"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson \
-		--data $(BENCH_MEDIUM_NDJSON)
+bench-medium: $(BENCH_GEN)/medium/users.json  ## Run full benchmark suite (medium, ~6 MB)
+	$(BENCH_SUITE) \
+		--json-data $(BENCH_GEN)/medium/users.json \
+		--ndjson-data $(BENCH_GEN)/medium/users.ndjson \
+		--output docs/benchmarks/bench_results_medium.md
 
-# Parallel JSON experiment on large dataset
-bench-json-parallel: $(BENCH_LARGE_JSON)
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: JSON Parallel Experiment (LARGE)"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_parallel_json \
-		--data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1 --num-threads 10 --min-chunk-size 10
+bench-large: $(BENCH_GEN)/large/users.json  ## Run full benchmark suite (large, ~44 MB)
+	$(BENCH_SUITE) \
+		--json-data $(BENCH_GEN)/large/users.json \
+		--ndjson-data $(BENCH_GEN)/large/users.ndjson \
+		--output docs/benchmarks/bench_results_large.md
 
-# Run full benchmark suite (bench_main) on small data
-bench-small: $(BENCH_SMALL_JSON) $(BENCH_SMALL_NDJSON)
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: SMALL"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_main \
-		--dataset $(BENCH_SMALL_JSON) \
-		--dataset $(BENCH_SMALL_NDJSON) \
-		--repeat 3 --warmup 1 --output docs/benchmarks/bench_results_small.md
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_SMALL_JSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_SMALL_NDJSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_dumps --data $(BENCH_SMALL_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson --data $(BENCH_SMALL_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_SMALL_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_SMALL_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_small.md --append
+bench-experimental: $(BENCH_GEN)/medium/users.json  ## Run experimental benchmarks (materialization, pool, parallel JSON)
+	$(BENCH_EXPERIMENTAL) \
+		--json-data $(BENCH_GEN)/medium/users.json \
+		--output docs/benchmarks/bench_experimental.md \
+		--json-output docs/benchmarks/bench_experimental.json
 
-# Run full benchmark suite on medium data
-bench-medium: $(BENCH_MEDIUM_JSON) $(BENCH_MEDIUM_NDJSON)
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: MEDIUM"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_main \
-		--dataset $(BENCH_MEDIUM_JSON) \
-		--dataset $(BENCH_MEDIUM_NDJSON) \
-		--repeat 3 --warmup 1 --output docs/benchmarks/bench_results_medium.md
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_MEDIUM_JSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_MEDIUM_NDJSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_dumps --data $(BENCH_MEDIUM_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson --data $(BENCH_MEDIUM_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_MEDIUM_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_MEDIUM_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_medium.md --append
-
-# Run full benchmark suite on large data
-bench-large: $(BENCH_LARGE_JSON) $(BENCH_LARGE_NDJSON)
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: LARGE"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_main \
-		--dataset $(BENCH_LARGE_JSON) \
-		--dataset $(BENCH_LARGE_NDJSON) \
-		--repeat 3 --warmup 1 --output docs/benchmarks/bench_results_large.md
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_loads --data $(BENCH_LARGE_NDJSON) --repeat 3 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_dumps --data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson --data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_LARGE_JSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_search --data $(BENCH_LARGE_NDJSON) --repeat 2 --warmup 1 --output docs/benchmarks/bench_results_large.md --append
-
-# Generate all data once, then run small + medium + large
-bench-all: bench-data bench-small bench-medium bench-large
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  ✅ All benchmarks (small, medium, large) complete"
-	@echo "════════════════════════════════════════════════════════════════"
-
-# ============================================================================
-# Unified Benchmark Suite (randomized data, multi-library comparison)
-# ============================================================================
-bench-unified:  ## Run unified benchmark suite with randomized data
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Unified Benchmark Suite (randomized data)"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified
-
-bench-unified-quick:  ## Run quick unified benchmarks (small dataset, fewer iterations)
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Unified Benchmark Suite (quick mode)"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified --quick
-
-bench-unified-comprehensive:  ## Run comprehensive unified benchmarks (all features, all sizes)
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Unified Benchmark Suite (comprehensive mode)"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified --comprehensive
-
-bench-unified-save:  ## Run unified benchmarks and append to progress log
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Unified Benchmark Suite (saving to progress log)"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_unified --append-progress-log
-
+bench-all: bench-small bench-medium bench-large
 # ============================================================================
 # C++ Tests
 # ============================================================================

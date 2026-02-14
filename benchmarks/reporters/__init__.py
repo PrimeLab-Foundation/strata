@@ -2,8 +2,6 @@
 Benchmark reporters for generating output in various formats.
 """
 
-from .csv_reporter import CSVReporter
-from .json_reporter import JSONReporter
-from .markdown_reporter import MarkdownReporter
+from . import csv_reporter, json_reporter, markdown_reporter
 
-__all__ = ["MarkdownReporter", "JSONReporter", "CSVReporter"]
+__all__ = ["markdown_reporter", "json_reporter", "csv_reporter"]

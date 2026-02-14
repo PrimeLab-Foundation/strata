@@ -16,7 +16,6 @@ parsing per call for all libraries.
 
 from __future__ import annotations
 
-import argparse
 import gc
 import json
 import os
@@ -901,71 +900,11 @@ def _append_markdown_section(
     output_path.write_text(header + body, encoding="utf-8")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Run search query benchmarks")
-    parser.add_argument(
-        "--data",
-        type=Path,
-        default=Path("benchmarks/data/generated/users.json"),
-        help="JSON or NDJSON file",
-    )
-    parser.add_argument("--repeat", type=int, default=5, help="Iterations")
-    parser.add_argument("--warmup", type=int, default=1, help="Warmup iterations")
-    parser.add_argument(
-        "--strata-mode",
-        choices=["dict", "string", "cursor"],
-        default="cursor",
-        help="Strata input: cursor=parse_json_file (JSON) or NdjsonCursor.from_file (NDJSON) then search(cursor,path) [query only, default]; dict=search(loads(text),path); string=search(text,path). Use --strata-mode dict for loads()+search() comparison.",
-    )
-    parser.add_argument(
-        "--ndjson-parallel",
-        choices=["auto", "true", "false"],
-        default="auto",
-        help="For NDJSON string benchmarks, pass parallel flag to strata.search (auto, true, false).",
-    )
-    parser.add_argument(
-        "--no-cursor-reuse",
-        action="store_true",
-        help="Disable cursor reuse benchmark (parse once vs reparse per query).",
-    )
-    parser.add_argument("--output", type=Path, help="Write Markdown results to file")
-    parser.add_argument("--append", action="store_true", help="Append to --output if set")
-    args = parser.parse_args()
-
-    if not args.data.exists():
-        print(f"Error: Data file not found: {args.data}")
-        return 1
-
-    results, cursor_reuse_results = run_all(
-        args.data,
-        repeat=args.repeat,
-        warmup=args.warmup,
-        strata_mode=args.strata_mode,
-        ndjson_parallel=args.ndjson_parallel,
-        cursor_reuse=not args.no_cursor_reuse,
-    )
-    print_summary(results, cursor_reuse_results)
-    if args.output:
-        _json_text, _json_data, _size_bytes, size_mb, record_count, is_ndjson = _load_json_data(
-            args.data
-        )
-        strata_mode_label = args.strata_mode
-        if is_ndjson and args.strata_mode == "cursor":
-            strata_mode_label = "ndjson_cursor"
-        body = _format_markdown(
-            results,
-            cursor_reuse_results,
-            args.data,
-            size_mb,
-            record_count,
-            is_ndjson,
-            args.repeat,
-            args.warmup,
-            strata_mode_label,
-        )
-        _append_markdown_section(args.output, "Search Benchmarks", body, args.append)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+__all__ = [
+    "QueryBenchResult",
+    "CursorReuseResult",
+    "run_all",
+    "QUERIES",
+    "NDJSON_QUERIES",
+    "_run_cursor_reuse_benchmarks",
+]

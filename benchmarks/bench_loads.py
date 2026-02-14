@@ -8,7 +8,6 @@ Uses shared harness for timing and RSS. Pair with bench_dumps.py (serialize).
 
 from __future__ import annotations
 
-import argparse
 import json
 import statistics
 from dataclasses import dataclass
@@ -304,32 +303,10 @@ def _append_markdown_section(
     output_path.write_text(header + body, encoding="utf-8")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Benchmark JSON/NDJSON parsing (loads)")
-    parser.add_argument(
-        "--data",
-        type=Path,
-        default=Path("benchmarks/data/generated/users.json"),
-        help="Path to JSON or NDJSON file",
-    )
-    parser.add_argument("--repeat", type=int, default=10, help="Iterations per benchmark")
-    parser.add_argument("--warmup", type=int, default=2, help="Warmup iterations")
-    parser.add_argument("--output", type=Path, help="Write Markdown results to file")
-    parser.add_argument("--append", action="store_true", help="Append to --output if set")
-    args = parser.parse_args()
-
-    if not args.data.exists():
-        print(f"Error: Data file not found: {args.data}")
-        print("Generate with: python -m benchmarks.data.generate_bench_data")
-        return 1
-
-    results, info = run_benchmarks(args.data, repeat=args.repeat, warmup=args.warmup)
-    print_summary(results)
-    if args.output:
-        body = _format_markdown(results, info, args.repeat, args.warmup)
-        _append_markdown_section(args.output, "Loads Benchmarks", body, args.append)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+__all__ = [
+    "LoadsResult",
+    "BenchInfo",
+    "run_benchmarks",
+    "print_summary",
+    "_get_loads_runners",
+]

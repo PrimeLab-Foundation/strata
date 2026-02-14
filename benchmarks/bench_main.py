@@ -574,6 +574,10 @@ class BenchmarkRunner:
 
 
 def main() -> None:
+    print(
+        "DEPRECATION: bench_main is superseded by benchmarks.bench_suite; use make bench-small/medium/large.",
+        file=sys.stderr,
+    )
     parser = argparse.ArgumentParser(description="Strata benchmark orchestrator")
     parser.add_argument(
         "--dataset", action="append", dest="datasets", help="Dataset path (repeatable)"

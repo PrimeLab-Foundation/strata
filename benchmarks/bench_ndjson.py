@@ -8,7 +8,6 @@ Uses shared harness for timing and RSS.
 
 from __future__ import annotations
 
-import argparse
 import json
 import statistics
 from dataclasses import dataclass
@@ -213,27 +212,9 @@ def print_summary(results: list[NdjsonResult]) -> None:
             print(f"  -> {pct:.1f}% behind #{1} ({first.library})")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Benchmark NDJSON parsing")
-    parser.add_argument(
-        "--data",
-        type=Path,
-        default=Path("benchmarks/data/generated/users.json"),
-        help="JSON or NDJSON file",
-    )
-    parser.add_argument("--repeat", type=int, default=30, help="Iterations")
-    parser.add_argument("--warmup", type=int, default=2, help="Warmup iterations")
-    args = parser.parse_args()
-
-    if not args.data.exists():
-        print(f"Error: Data file not found: {args.data}")
-        print("Generate with: python -m benchmarks.data.generate_bench_data")
-        return 1
-
-    results = run_benchmarks(args.data, repeat=args.repeat, warmup=args.warmup)
-    print_summary(results)
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+__all__ = [
+    "NdjsonResult",
+    "run_benchmarks",
+    "print_summary",
+    "_get_ndjson_runners",
+]
