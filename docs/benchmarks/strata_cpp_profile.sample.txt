@@ -1,0 +1,1129 @@
+Analysis of sampling Python (pid 782) every 1 millisecond
+Process:         Python [782]
+Path:            /opt/homebrew/*/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python
+Load Address:    0x1001a4000
+Identifier:      org.python.python
+Version:         3.14.2 (3.14.2)
+Code Type:       ARM64
+Platform:        macOS
+Parent Process:  Python [781]
+Target Type:     live task
+
+Date/Time:       2026-02-14 14:12:12.877 +0200
+Launch Time:     2026-02-14 14:12:12.334 +0200
+OS Version:      macOS 26.1 (25B78)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         780.8M
+Physical footprint (peak):  819.8M
+Idle exit:                  untracked
+----
+
+Call graph:
+    25300 Thread_3141375   DispatchQueue_1: com.apple.main-thread  (serial)
+      25300 start  (in dyld) + 7184  [0x18cb05d54]
+        25300 Py_BytesMain  (in Python) + 40  [0x100d9f384]
+          25300 pymain_main  (in Python) + 232  [0x100d9f2e8]
+            25300 Py_RunMain  (in Python) + 852  [0x100d9ee50]
+              25300 pymain_run_file  (in Python) + 72  [0x100d9f898]
+                25300 pymain_run_file_obj  (in Python) + 164  [0x100d9fb50]
+                  25300 _PyRun_AnyFileObject  (in Python) + 80  [0x100d70b90]
+                    25300 _PyRun_SimpleFileObject  (in Python) + 256  [0x100d70f2c]
+                      25300 pyrun_file  (in Python) + 164  [0x100d719a8]
+                        25300 run_mod  (in Python) + 172  [0x100d73134]
+                          25300 PyEval_EvalCode  (in Python) + 248  [0x100cfa6ac]
+                            22786 _PyEval_EvalFrameDefault  (in Python) + 24180  [0x100d00a1c]
+                            + 22786 strata_loads(_object*, _object*)  (in _strata.cpython-314-darwin.so) + 236  [0x1055c2840]
+                            +   14735 parse_json_buffer(char const*, long)  (in _strata.cpython-314-darwin.so) + 4592  [0x1055c3b5c]
+                            +   ! 14735 parse_json_buffer(char const*, long)::$_0::operator()() const  (in _strata.cpython-314-darwin.so) + 324  [0x1055cc010]
+                            +   !   6161 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1100  [0x1055e624c]
+                            +   !   : 2304 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 580  [0x1055e9b3c]
+                            +   !   : | 1244 strata::bindings::PythonObjectBuilder::on_string(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 80  [0x1055c9b5c]
+                            +   !   : | + 464 unicode_decode_utf8  (in Python) + 116  [0x100c84a58]
+                            +   !   : | + ! 464 find_first_nonascii  (in Python) + 84,204,...  [0x100c9d30c,0x100c9d384,...]
+                            +   !   : | + 233 unicode_decode_utf8  (in Python) + 260  [0x100c84ae8]
+                            +   !   : | + ! 219 _platform_memmove  (in libsystem_platform.dylib) + 452,444,...  [0x18ced7524,0x18ced751c,...]
+                            +   !   : | + ! 14 DYLD-STUB$$memcpy  (in Python) + 4  [0x100e23d88]
+                            +   !   : | + 229 unicode_decode_utf8  (in Python) + 140  [0x100c84a70]
+                            +   !   : | + ! 156 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : 156 pymalloc_alloc  (in Python) + 592,0,...  [0x100c44e60,0x100c44c10,...]
+                            +   !   : | + ! 31 _PyObject_Malloc  (in Python) + 24,52  [0x100c44bac,0x100c44bc8]
+                            +   !   : | + ! 21 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + ! : 21 _tlv_get_addr  (in libdyld.dylib) + 20,12  [0x18cacf30c,0x18cacf304]
+                            +   !   : | + ! 21 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + 182 unicode_decode_utf8  (in Python) + 340,260,...  [0x100c84b38,0x100c84ae8,...]
+                            +   !   : | + 42 unicode_decode_utf8  (in Python) + 416  [0x100c84b84]
+                            +   !   : | + ! 26 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : 26 pymalloc_alloc  (in Python) + 592,48,...  [0x100c44e60,0x100c44c40,...]
+                            +   !   : | + ! 6 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + ! : 6 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +   !   : | + ! 6 _PyObject_Malloc  (in Python) + 24,52  [0x100c44bac,0x100c44bc8]
+                            +   !   : | + ! 4 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + 40 DYLD-STUB$$PyUnicode_FromStringAndSize  (in _strata.cpython-314-darwin.so) + 4,0  [0x1056087b4,0x1056087b0]
+                            +   !   : | + 34 unicode_decode_utf8  (in Python) + 384  [0x100c84b64]
+                            +   !   : | + ! 34 find_first_nonascii  (in Python) + 212,116,...  [0x100c9d38c,0x100c9d32c,...]
+                            +   !   : | + 17 PyUnicode_FromStringAndSize  (in Python) + 0  [0x100c7e394]
+                            +   !   : | + 3 _PyObject_Malloc  (in Python) + 60  [0x100c44bd0]
+                            +   !   : | 877 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 420  [0x1055ca6cc]
+                            +   !   : | + 820 PyDict_SetDefault  (in Python) + 24  [0x100c1e50c]
+                            +   !   : | + ! 670 dict_setdefault_ref_lock_held  (in Python) + 324  [0x100c1e294]
+                            +   !   : | + ! : 388 insert_to_emptydict  (in Python) + 92  [0x100c1b358]
+                            +   !   : | + ! : | 306 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : | + 304 pymalloc_alloc  (in Python) + 592,0,...  [0x100c44e60,0x100c44c10,...]
+                            +   !   : | + ! : | + 2 pymalloc_alloc  (in Python) + 408  [0x100c44da8]
+                            +   !   : | + ! : | +   2 _PyMem_ArenaAlloc  (in Python) + 32  [0x100c4366c]
+                            +   !   : | + ! : | +     2 mmap  (in libsystem_kernel.dylib) + 80  [0x18ce8b9a8]
+                            +   !   : | + ! : | +       2 __mmap  (in libsystem_kernel.dylib) + 8  [0x18ce8ba04]
+                            +   !   : | + ! : | 38 _PyObject_Malloc  (in Python) + 52,24  [0x100c44bc8,0x100c44bac]
+                            +   !   : | + ! : | 26 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + ! : | 18 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + ! : |   18 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +   !   : | + ! : 217 insert_to_emptydict  (in Python) + 168,44,...  [0x100c1b3a4,0x100c1b328,...]
+                            +   !   : | + ! : 43 insert_to_emptydict  (in Python) + 168  [0x100c1b3a4]
+                            +   !   : | + ! : | 23 __bzero  (in libsystem_platform.dylib) + 0,24  [0x18ced7030,0x18ced7048]
+                            +   !   : | + ! : | 12 _platform_memset  (in libsystem_platform.dylib) + 160  [0x18ced7130]
+                            +   !   : | + ! : | 8 DYLD-STUB$$bzero  (in Python) + 4  [0x100e23800]
+                            +   !   : | + ! : 22 insert_to_emptydict  (in Python) + 308  [0x100c1b430]
+                            +   !   : | + ! :   22 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +   !   : | + ! 93 dict_setdefault_ref_lock_held  (in Python) + 256,32,...  [0x100c1e250,0x100c1e170,...]
+                            +   !   : | + ! 21 dict_setdefault_ref_lock_held  (in Python) + 168  [0x100c1e1f8]
+                            +   !   : | + ! : 9 _Py_dict_lookup  (in Python) + 72,24,...  [0x100c197e0,0x100c197b0,...]
+                            +   !   : | + ! : 8 _Py_dict_lookup  (in Python) + 284  [0x100c198b4]
+                            +   !   : | + ! : | 8 unicodekeys_lookup_unicode  (in Python) + 76,56,...  [0x100c194e8,0x100c194d4,...]
+                            +   !   : | + ! : 4 unicodekeys_lookup_unicode  (in Python) + 276  [0x100c195b0]
+                            +   !   : | + ! 21 insert_to_emptydict  (in Python) + 284  [0x100c1b418]
+                            +   !   : | + ! 12 dict_setdefault_ref_lock_held  (in Python) + 764  [0x100c1e44c]
+                            +   !   : | + ! : 12 insert_combined_dict  (in Python) + 36,108,...  [0x100c23c80,0x100c23cc8,...]
+                            +   !   : | + ! 3 insert_combined_dict  (in Python) + 308  [0x100c23d90]
+                            +   !   : | + 22 PyDict_SetDefault  (in Python) + 28,24  [0x100c1e510,0x100c1e50c]
+                            +   !   : | + 20 DYLD-STUB$$PyDict_SetDefault  (in _strata.cpython-314-darwin.so) + 4,0  [0x10560855c,0x105608558]
+                            +   !   : | + 15 dict_setdefault_ref_lock_held  (in Python) + 244  [0x100c1e244]
+                            +   !   : | 81 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 16,52,...  [0x1055ca538,0x1055ca55c,...]
+                            +   !   : | 52 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 88  [0x1055ca580]
+                            +   !   : | + 29 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 28,16  [0x1055e6b4c,0x1055e6b40]
+                            +   !   : | + 23 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 24  [0x1055e6b48]
+                            +   !   : | +   23 _tlv_get_addr  (in libdyld.dylib) + 20,12  [0x18cacf30c,0x18cacf304]
+                            +   !   : | 27 unicode_decode_utf8  (in Python) + 288  [0x100c84b04]
+                            +   !   : | 18 strata::bindings::PythonObjectBuilder::on_string(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 12  [0x1055c9b18]
+                            +   !   : | 5 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 32  [0x1055e6b50]
+                            +   !   : 890 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 828  [0x1055e9358]
+                            +   !   : | 437 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 420  [0x1055ca6cc]
+                            +   !   : | + 366 PyDict_SetDefault  (in Python) + 24  [0x100c1e50c]
+                            +   !   : | + ! 128 dict_setdefault_ref_lock_held  (in Python) + 168  [0x100c1e1f8]
+                            +   !   : | + ! : 53 _Py_dict_lookup  (in Python) + 284  [0x100c198b4]
+                            +   !   : | + ! : | 53 unicodekeys_lookup_unicode  (in Python) + 84,56,...  [0x100c194f0,0x100c194d4,...]
+                            +   !   : | + ! : 51 _Py_dict_lookup  (in Python) + 72,24,...  [0x100c197e0,0x100c197b0,...]
+                            +   !   : | + ! : 24 unicodekeys_lookup_unicode  (in Python) + 276  [0x100c195b0]
+                            +   !   : | + ! 102 dict_setdefault_ref_lock_held  (in Python) + 36,80,...  [0x100c1e174,0x100c1e1a0,...]
+                            +   !   : | + ! 89 dict_setdefault_ref_lock_held  (in Python) + 764  [0x100c1e44c]
+                            +   !   : | + ! : 89 insert_combined_dict  (in Python) + 36,248,...  [0x100c23c80,0x100c23d54,...]
+                            +   !   : | + ! 36 _Py_dict_lookup  (in Python) + 328,324  [0x100c198e0,0x100c198dc]
+                            +   !   : | + ! 11 insert_combined_dict  (in Python) + 308  [0x100c23d90]
+                            +   !   : | + 40 DYLD-STUB$$PyDict_SetDefault  (in _strata.cpython-314-darwin.so) + 4  [0x10560855c]
+                            +   !   : | + 17 PyDict_SetDefault  (in Python) + 28,24  [0x100c1e510,0x100c1e50c]
+                            +   !   : | + 14 dict_setdefault_ref_lock_held  (in Python) + 244,236,...  [0x100c1e244,0x100c1e23c,...]
+                            +   !   : | 315 strata::bindings::PythonObjectBuilder::on_double(double)  (in _strata.cpython-314-darwin.so) + 20  [0x1055c9af8]
+                            +   !   : | + 212 PyFloat_FromDouble  (in Python) + 140  [0x100beed48]
+                            +   !   : | + ! 127 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : 127 pymalloc_alloc  (in Python) + 592,0,...  [0x100c44e60,0x100c44c10,...]
+                            +   !   : | + ! 38 _PyObject_Malloc  (in Python) + 52,24  [0x100c44bc8,0x100c44bac]
+                            +   !   : | + ! 29 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + ! 18 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + !   18 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +   !   : | + 66 PyFloat_FromDouble  (in Python) + 140,92,...  [0x100beed48,0x100beed18,...]
+                            +   !   : | + 22 PyFloat_FromDouble  (in Python) + 40  [0x100beece4]
+                            +   !   : | + ! 22 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +   !   : | + 14 DYLD-STUB$$PyFloat_FromDouble  (in _strata.cpython-314-darwin.so) + 4  [0x1056085f8]
+                            +   !   : | + 1 _PyObject_Malloc  (in Python) + 60  [0x100c44bd0]
+                            +   !   : | 81 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 124,344,...  [0x1055ca5a4,0x1055ca680,...]
+                            +   !   : | 44 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 88  [0x1055ca580]
+                            +   !   : | + 25 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 16,28  [0x1055e6b40,0x1055e6b4c]
+                            +   !   : | + 19 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 24  [0x1055e6b48]
+                            +   !   : | +   19 _tlv_get_addr  (in libdyld.dylib) + 28,20  [0x18cacf314,0x18cacf30c]
+                            +   !   : | 13 PyFloat_FromDouble  (in Python) + 112  [0x100beed2c]
+                            +   !   : 798 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 292  [0x1055e9140]
+                            +   !   : | 553 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 420  [0x1055ca6cc]
+                            +   !   : | + 474 PyDict_SetDefault  (in Python) + 24  [0x100c1e50c]
+                            +   !   : | + ! 129 dict_setdefault_ref_lock_held  (in Python) + 168  [0x100c1e1f8]
+                            +   !   : | + ! : 56 _Py_dict_lookup  (in Python) + 284  [0x100c198b4]
+                            +   !   : | + ! : | 56 unicodekeys_lookup_unicode  (in Python) + 84,56,...  [0x100c194f0,0x100c194d4,...]
+                            +   !   : | + ! : 43 _Py_dict_lookup  (in Python) + 72,80,...  [0x100c197e0,0x100c197e8,...]
+                            +   !   : | + ! : 30 unicodekeys_lookup_unicode  (in Python) + 276  [0x100c195b0]
+                            +   !   : | + ! 120 dict_setdefault_ref_lock_held  (in Python) + 36,80,...  [0x100c1e174,0x100c1e1a0,...]
+                            +   !   : | + ! 104 dict_setdefault_ref_lock_held  (in Python) + 764  [0x100c1e44c]
+                            +   !   : | + ! : 104 insert_combined_dict  (in Python) + 36,248,...  [0x100c23c80,0x100c23d54,...]
+                            +   !   : | + ! 67 dict_setdefault_ref_lock_held  (in Python) + 324  [0x100c1e294]
+                            +   !   : | + ! : 37 insert_to_emptydict  (in Python) + 92  [0x100c1b358]
+                            +   !   : | + ! : | 25 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : | + 25 pymalloc_alloc  (in Python) + 592,0,...  [0x100c44e60,0x100c44c10,...]
+                            +   !   : | + ! : | 5 _PyObject_Malloc  (in Python) + 24,52  [0x100c44bac,0x100c44bc8]
+                            +   !   : | + ! : | 5 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + ! : | 2 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + ! : |   2 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +   !   : | + ! : 23 insert_to_emptydict  (in Python) + 44,168,...  [0x100c1b328,0x100c1b3a4,...]
+                            +   !   : | + ! : 5 insert_to_emptydict  (in Python) + 168  [0x100c1b3a4]
+                            +   !   : | + ! : | 3 DYLD-STUB$$bzero  (in Python) + 4  [0x100e23800]
+                            +   !   : | + ! : | 2 __bzero  (in libsystem_platform.dylib) + 0  [0x18ced7030]
+                            +   !   : | + ! : 2 insert_to_emptydict  (in Python) + 308  [0x100c1b430]
+                            +   !   : | + ! :   2 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +   !   : | + ! 26 _Py_dict_lookup  (in Python) + 328  [0x100c198e0]
+                            +   !   : | + ! 24 insert_combined_dict  (in Python) + 308  [0x100c23d90]
+                            +   !   : | + ! 4 insert_to_emptydict  (in Python) + 284  [0x100c1b418]
+                            +   !   : | + 38 DYLD-STUB$$PyDict_SetDefault  (in _strata.cpython-314-darwin.so) + 4  [0x10560855c]
+                            +   !   : | + 22 dict_setdefault_ref_lock_held  (in Python) + 244,236  [0x100c1e244,0x100c1e23c]
+                            +   !   : | + 19 PyDict_SetDefault  (in Python) + 28,0  [0x100c1e510,0x100c1e4f4]
+                            +   !   : | 106 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 16,32,...  [0x1055ca538,0x1055ca548,...]
+                            +   !   : | 91 strata::bindings::PythonObjectBuilder::on_int(long long)  (in _strata.cpython-314-darwin.so) + 24  [0x1055c9a88]
+                            +   !   : | + 35 PyLong_FromLong  (in Python) + 0,12,...  [0x100c07130,0x100c0713c,...]
+                            +   !   : | + 27 PyLong_FromLong  (in Python) + 228  [0x100c07214]
+                            +   !   : | + ! 15 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : 15 pymalloc_alloc  (in Python) + 592,0,...  [0x100c44e60,0x100c44c10,...]
+                            +   !   : | + ! 5 PyLong_FromLong  (in Python) + 148,228,...  [0x100c071c4,0x100c07214,...]
+                            +   !   : | + ! 4 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + ! 2 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! 1 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + !   1 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +   !   : | + 17 DYLD-STUB$$PyLong_FromLong  (in _strata.cpython-314-darwin.so) + 4,0  [0x10560867c,0x105608678]
+                            +   !   : | + 7 PyLong_FromLong  (in Python) + 96  [0x100c07190]
+                            +   !   : | + ! 5 _tlv_get_addr  (in libdyld.dylib) + 20,0,...  [0x18cacf30c,0x18cacf2f8,...]
+                            +   !   : | + ! 2 PyLong_FromLong  (in Python) + 216  [0x100c07208]
+                            +   !   : | + 4 strata::bindings::PythonObjectBuilder::on_int(long long)  (in _strata.cpython-314-darwin.so) + 24  [0x1055c9a88]
+                            +   !   : | + ! 4 PyLong_FromLong  (in Python) + 76  [0x100c0717c]
+                            +   !   : | + 1 _PyObject_Malloc  (in Python) + 60  [0x100c44bd0]
+                            +   !   : | 44 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 88  [0x1055ca580]
+                            +   !   : | + 26 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 16,28  [0x1055e6b40,0x1055e6b4c]
+                            +   !   : | + 18 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 24  [0x1055e6b48]
+                            +   !   : | +   18 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +   !   : | 2 PyDict_SetDefault  (in Python) + 32  [0x100c1e514]
+                            +   !   : | 2 strata::bindings::PythonObjectBuilder::on_int(long long)  (in _strata.cpython-314-darwin.so) + 24  [0x1055c9a88]
+                            +   !   : 627 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 196  [0x1055e90e0]
+                            +   !   : | 504 strata::util::parse_int_simd(char const*, unsigned long, long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 68  [0x105605d40]
+                            +   !   : | + 504 strata::util::parse_uint_simd(char const*, unsigned long, unsigned long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 340,448,...  [0x10560592c,0x105605998,...]
+                            +   !   : | 123 strata::util::parse_int_simd(char const*, unsigned long, long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 0,136,...  [0x105605cfc,0x105605d84,...]
+                            +   !   : 430 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 792  [0x1055e9334]
+                            +   !   : | 165 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 572  [0x105602f28]
+                            +   !   : | + 120 strata::util::parse_frac_part_for_double(char const*, unsigned long, unsigned long&)  (in _strata.cpython-314-darwin.so) + 40  [0x105603104]
+                            +   !   : | + ! 120 strata::util::count_digits_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 364,0,...  [0x1056057cc,0x105605660,...]
+                            +   !   : | + 45 strata::util::parse_frac_part_for_double(char const*, unsigned long, unsigned long&)  (in _strata.cpython-314-darwin.so) + 104,40,...  [0x105603144,0x105603104,...]
+                            +   !   : | 162 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 0,604,...  [0x105602cec,0x105602f48,...]
+                            +   !   : | 87 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 200  [0x105602db4]
+                            +   !   : | + 87 strata::util::count_digits_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 0,364,...  [0x105605660,0x1056057cc,...]
+                            +   !   : | 16 strata::util::parse_frac_part_for_double(char const*, unsigned long, unsigned long&)  (in _strata.cpython-314-darwin.so) + 132,136  [0x105603160,0x105603164]
+                            +   !   : 294 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 144,44,...  [0x1055e90ac,0x1055e9048,...]
+                            +   !   : 211 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 40  [0x1055e9044]
+                            +   !   : | 211 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,0,...  [0x105604ed0,0x105604e38,...]
+                            +   !   : 147 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 88  [0x1055e9950]
+                            +   !   : | 90 strata::util::find_next_escape_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 60,0,...  [0x105603a4c,0x105603a10,...]
+                            +   !   : | 57 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 568,92,...  [0x1055e9b30,0x1055e9954,...]
+                            +   !   : 135 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 588  [0x1055e9268]
+                            +   !   : | 135 strata::util::parse_uint_simd(char const*, unsigned long, unsigned long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 716,0,...  [0x105605aa4,0x1056057d8,...]
+                            +   !   : 107 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 4,556,...  [0x1055e98fc,0x1055e9b24,...]
+                            +   !   : 89 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 216,224  [0x1055ca600,0x1055ca608]
+                            +   !   : 66 strata::util::parse_int_simd(char const*, unsigned long, long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 196  [0x105605dc0]
+                            +   !   : 38 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 100,96  [0x105602d50,0x105602d4c]
+                            +   !   : 25 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1100  [0x1055e624c]
+                            +   !   :   25 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 56,60  [0x1055e9930,0x1055e9934]
+                            +   !   2424 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 800  [0x1055e6120]
+                            +   !   : 1695 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 168  [0x1055e99a0]
+                            +   !   : | 868 strata::bindings::PythonObjectBuilder::on_key(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 836  [0x1055ca118]
+                            +   !   : | + 438 strata::bindings::KeyCache::lookup_or_insert(std::basic_string_view<char>)  (in _strata.cpython-314-darwin.so) + 80,144,...  [0x1055cb304,0x1055cb344,...]
+                            +   !   : | + 429 strata::bindings::KeyCache::lookup_or_insert(std::basic_string_view<char>)  (in _strata.cpython-314-darwin.so) + 184  [0x1055cb36c]
+                            +   !   : | + ! 371 _platform_memcmp  (in libsystem_platform.dylib) + 260,272,...  [0x18ced4fd4,0x18ced4fe0,...]
+                            +   !   : | + ! 58 DYLD-STUB$$memcmp  (in _strata.cpython-314-darwin.so) + 4  [0x105608c7c]
+                            +   !   : | + 1 strata::bindings::KeyCache::insert_at(unsigned long, unsigned long long, std::basic_string_view<char>, unsigned char)  (in _strata.cpython-314-darwin.so) + 80  [0x1055cb7d4]
+                            +   !   : | +   1 PyUnicode_InternInPlace  (in Python) + 52  [0x100c9b008]
+                            +   !   : | +     1 intern_common  (in Python) + 176  [0x100c9aa9c]
+                            +   !   : | +       1 _Py_hashtable_get_entry_generic  (in Python) + 36  [0x100d474ec]
+                            +   !   : | +         1 hashtable_unicode_hash  (in Python) + 84  [0x100cac01c]
+                            +   !   : | +           1 siphash13  (in Python) + 580  [0x100d68e48]
+                            +   !   : | 495 strata::bindings::PythonObjectBuilder::on_key(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 92  [0x1055c9e30]
+                            +   !   : | + 369 strata::bindings::KeyCache::fast_common_key_lookup(std::basic_string_view<char>) const  (in _strata.cpython-314-darwin.so) + 8,64,...  [0x1055cabc8,0x1055cac00,...]
+                            +   !   : | + 78 strata::bindings::KeyCache::fast_common_key_lookup(std::basic_string_view<char>) const  (in _strata.cpython-314-darwin.so) + 72  [0x1055cac08]
+                            +   !   : | + ! 78 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +   !   : | + 48 strata::bindings::KeyCache::fast_common_key_lookup(std::basic_string_view<char>) const  (in _strata.cpython-314-darwin.so) + 96  [0x1055cac20]
+                            +   !   : | +   48 _tlv_get_addr  (in libdyld.dylib) + 12,20,...  [0x18cacf304,0x18cacf30c,...]
+                            +   !   : | 144 strata::bindings::PythonObjectBuilder::on_key(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 120,792,...  [0x1055c9e4c,0x1055ca0ec,...]
+                            +   !   : | 94 strata::bindings::KeyCache::lookup_or_insert(std::basic_string_view<char>)  (in _strata.cpython-314-darwin.so) + 276,272  [0x1055cb3c8,0x1055cb3c4]
+                            +   !   : | 92 strata::bindings::KeyCache::fast_common_key_lookup(std::basic_string_view<char>) const  (in _strata.cpython-314-darwin.so) + 44,1720,...  [0x1055cabec,0x1055cb278,...]
+                            +   !   : | 2 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 540,584  [0x1055e9b14,0x1055e9b40]
+                            +   !   : 286 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 88  [0x1055e9950]
+                            +   !   : | 152 strata::util::find_next_escape_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 0,52,...  [0x105603a10,0x105603a44,...]
+                            +   !   : | 134 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 120,156,...  [0x1055e9970,0x1055e9994,...]
+                            +   !   : 230 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 556,4  [0x1055e9b24,0x1055e98fc]
+                            +   !   : 167 strata::bindings::PythonObjectBuilder::on_key(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 780  [0x1055ca0e0]
+                            +   !   : 46 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 800  [0x1055e6120]
+                            +   !   :   46 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 60,72,...  [0x1055e9934,0x1055e9940,...]
+                            +   !   2013 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 268  [0x1055e5f0c]
+                            +   !   : 2013 strata::util::collect_structural_positions_simd(char const*, unsigned long, std::vector<unsigned long>&)  (in _strata.cpython-314-darwin.so) + 1384,1188,...  [0x105606c20,0x105606b5c,...]
+                            +   !   1833 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 536,1048,...  [0x1055e6018,0x1055e6218,...]
+                            +   !   846 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1796  [0x1055e6504]
+                            +   !   : 610 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 148  [0x1055e8e64]
+                            +   !   : | 565 strata::bindings::PythonObjectBuilder::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so) + 44  [0x1055c9d00]
+                            +   !   : | + 389 PyDict_New  (in Python) + 248  [0x100c19230]
+                            +   !   : | + ! 266 _PyObject_GC_New  (in Python) + 108  [0x100d3cfd4]
+                            +   !   : | + ! : 192 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : | 190 pymalloc_alloc  (in Python) + 592,48,...  [0x100c44e60,0x100c44c40,...]
+                            +   !   : | + ! : | 2 pymalloc_alloc  (in Python) + 408  [0x100c44da8]
+                            +   !   : | + ! : |   2 _PyMem_ArenaAlloc  (in Python) + 32  [0x100c4366c]
+                            +   !   : | + ! : |     2 mmap  (in libsystem_kernel.dylib) + 80  [0x18ce8b9a8]
+                            +   !   : | + ! : |       2 __mmap  (in libsystem_kernel.dylib) + 8  [0x18ce8ba04]
+                            +   !   : | + ! : 34 _PyObject_Malloc  (in Python) + 52,24  [0x100c44bc8,0x100c44bac]
+                            +   !   : | + ! : 20 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + ! : | 20 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +   !   : | + ! : 20 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + ! 103 _PyObject_GC_New  (in Python) + 40,108,...  [0x100d3cf90,0x100d3cfd4,...]
+                            +   !   : | + ! 19 _PyObject_GC_New  (in Python) + 64  [0x100d3cfa8]
+                            +   !   : | + ! : 19 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +   !   : | + ! 1 _PyObject_Malloc  (in Python) + 60  [0x100c44bd0]
+                            +   !   : | + 124 PyDict_New  (in Python) + 208,272,...  [0x100c19208,0x100c19248,...]
+                            +   !   : | + 14 DYLD-STUB$$_PyDict_NewPresized  (in _strata.cpython-314-darwin.so) + 4  [0x105608820]
+                            +   !   : | + 14 dict_new_presized  (in Python) + 0  [0x100c1a0e8]
+                            +   !   : | + 13 PyDict_New  (in Python) + 32  [0x100c19158]
+                            +   !   : | + ! 13 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +   !   : | + 11 _PyObject_GC_New  (in Python) + 184  [0x100d3d020]
+                            +   !   : | 35 strata::bindings::PythonObjectBuilder::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so) + 68,12,...  [0x1055c9d18,0x1055c9ce0,...]
+                            +   !   : | 10 PyDict_New  (in Python) + 224  [0x100c19218]
+                            +   !   : 132 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 396,304,...  [0x1055e8f5c,0x1055e8f00,...]
+                            +   !   : 72 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 300  [0x1055e8efc]
+                            +   !   : | 72 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 0,152,...  [0x105604e38,0x105604ed0,...]
+                            +   !   : 32 strata::bindings::PythonObjectBuilder::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so) + 244  [0x1055c9dc8]
+                            +   !   208 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 976  [0x1055e61d0]
+                            +   !   : 183 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 148  [0x1055e8c20]
+                            +   !   : | 177 strata::bindings::PythonObjectBuilder::on_start_array(unsigned long)  (in _strata.cpython-314-darwin.so) + 44  [0x1055ca214]
+                            +   !   : | + 111 PyList_New  (in Python) + 284  [0x100bfda38]
+                            +   !   : | + ! 50 _PyObject_Calloc  (in Python) + 88  [0x100c45054]
+                            +   !   : | + ! : 47 _platform_memset  (in libsystem_platform.dylib) + 160,180,...  [0x18ced7130,0x18ced7144,...]
+                            +   !   : | + ! : 2 DYLD-STUB$$bzero  (in Python) + 4  [0x100e23800]
+                            +   !   : | + ! : 1 __bzero  (in libsystem_platform.dylib) + 0  [0x18ced7030]
+                            +   !   : | + ! 47 _PyObject_Calloc  (in Python) + 72  [0x100c45044]
+                            +   !   : | + ! : 47 pymalloc_alloc  (in Python) + 280,592,...  [0x100c44d28,0x100c44e60,...]
+                            +   !   : | + ! 8 _PyObject_Calloc  (in Python) + 40,44,...  [0x100c45024,0x100c45028,...]
+                            +   !   : | + ! 4 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + ! 1 _PyObject_Calloc  (in Python) + 48  [0x100c4502c]
+                            +   !   : | + ! : 1 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +   !   : | + ! 1 _PyObject_Calloc  (in Python) + 160  [0x100c4509c]
+                            +   !   : | + !   1 __bzero  (in libsystem_platform.dylib) + 68  [0x18ced7074]
+                            +   !   : | + 35 PyList_New  (in Python) + 352  [0x100bfda7c]
+                            +   !   : | + ! 26 _PyObject_GC_New  (in Python) + 108  [0x100d3cfd4]
+                            +   !   : | + ! : 21 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : | + ! : | 21 pymalloc_alloc  (in Python) + 592,280,...  [0x100c44e60,0x100c44d28,...]
+                            +   !   : | + ! : 3 _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+                            +   !   : | + ! : | 3 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +   !   : | + ! : 2 pymalloc_alloc  (in Python) + 96  [0x100c44c70]
+                            +   !   : | + ! 7 _PyObject_GC_New  (in Python) + 40,136,...  [0x100d3cf90,0x100d3cff0,...]
+                            +   !   : | + ! 1 _PyObject_GC_New  (in Python) + 64  [0x100d3cfa8]
+                            +   !   : | + ! : 1 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +   !   : | + ! 1 _PyObject_Malloc  (in Python) + 60  [0x100c44bd0]
+                            +   !   : | + 24 PyList_New  (in Python) + 220,256,...  [0x100bfd9f8,0x100bfda1c,...]
+                            +   !   : | + 3 _PyObject_Calloc  (in Python) + 104  [0x100c45064]
+                            +   !   : | + 2 PyList_New  (in Python) + 40  [0x100bfd944]
+                            +   !   : | + ! 2 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +   !   : | + 1 DYLD-STUB$$PyList_New  (in _strata.cpython-314-darwin.so) + 4  [0x10560864c]
+                            +   !   : | + 1 _PyObject_GC_New  (in Python) + 184  [0x100d3d020]
+                            +   !   : | 3 PyList_New  (in Python) + 244  [0x100bfda10]
+                            +   !   : | 3 strata::bindings::PythonObjectBuilder::on_start_array(unsigned long)  (in _strata.cpython-314-darwin.so) + 76,40  [0x1055ca234,0x1055ca210]
+                            +   !   : 12 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 20,104,...  [0x1055e8ba0,0x1055e8bf4,...]
+                            +   !   : 8 strata::bindings::PythonObjectBuilder::on_start_array(unsigned long)  (in _strata.cpython-314-darwin.so) + 576,572,...  [0x1055ca428,0x1055ca424,...]
+                            +   !   : 3 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 300  [0x1055e8cb8]
+                            +   !   : | 3 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420  [0x105604ed0,0x105604fdc]
+                            +   !   : 2 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 356  [0x1055e8cf0]
+                            +   !   :   2 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 420  [0x1055ca6cc]
+                            +   !   :     2 PyDict_SetDefault  (in Python) + 24  [0x100c1e50c]
+                            +   !   :       1 dict_setdefault_ref_lock_held  (in Python) + 168  [0x100c1e1f8]
+                            +   !   :       + 1 _Py_dict_lookup  (in Python) + 72  [0x100c197e0]
+                            +   !   :       1 dict_setdefault_ref_lock_held  (in Python) + 36  [0x100c1e174]
+                            +   !   204 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1000  [0x1055e61e8]
+                            +   !   : 204 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +   !   183 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 600  [0x1055e6058]
+                            +   !   : 183 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +   !   173 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 784  [0x1055e6110]
+                            +   !   : 173 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +   !   169 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 924  [0x1055e619c]
+                            +   !   : 169 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +   !   102 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1684  [0x1055e6494]
+                            +   !   : 90 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 32,228,...  [0x1055ca548,0x1055ca60c,...]
+                            +   !   : 9 strata::bindings::PythonObjectBuilder::on_end_object()  (in _strata.cpython-314-darwin.so) + 0  [0x1055ca1c8]
+                            +   !   : 3 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 420  [0x1055ca6cc]
+                            +   !   :   3 PyDict_SetDefault  (in Python) + 24  [0x100c1e50c]
+                            +   !   :     1 _Py_dict_lookup  (in Python) + 328  [0x100c198e0]
+                            +   !   :     1 dict_setdefault_ref_lock_held  (in Python) + 168  [0x100c1e1f8]
+                            +   !   :     + 1 _Py_dict_lookup  (in Python) + 284  [0x100c198b4]
+                            +   !   :     +   1 unicodekeys_lookup_unicode  (in Python) + 84  [0x100c194f0]
+                            +   !   :     1 dict_setdefault_ref_lock_held  (in Python) + 720  [0x100c1e420]
+                            +   !   76 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1868  [0x1055e654c]
+                            +   !   : 76 strata::util::validate_utf8_lazy(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 8,40,...  [0x10560712c,0x10560714c,...]
+                            +   !   71 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 700  [0x1055e60bc]
+                            +   !   : 71 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,0,...  [0x105604ed0,0x105604e38,...]
+                            +   !   67 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1324  [0x1055e632c]
+                            +   !   : 49 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 420  [0x1055ca6cc]
+                            +   !   : | 43 PyDict_SetDefault  (in Python) + 24  [0x100c1e50c]
+                            +   !   : | + 21 dict_setdefault_ref_lock_held  (in Python) + 40,720,...  [0x100c1e178,0x100c1e420,...]
+                            +   !   : | + 11 dict_setdefault_ref_lock_held  (in Python) + 168  [0x100c1e1f8]
+                            +   !   : | + ! 6 _Py_dict_lookup  (in Python) + 284  [0x100c198b4]
+                            +   !   : | + ! : 5 unicodekeys_lookup_unicode  (in Python) + 72,40,...  [0x100c194e4,0x100c194c4,...]
+                            +   !   : | + ! : 1 unicodekeys_lookup_unicode  (in Python) + 188  [0x100c19558]
+                            +   !   : | + ! :   1 compare_unicode_unicode  (in Python) + 16  [0x100c23920]
+                            +   !   : | + ! 3 _Py_dict_lookup  (in Python) + 72,20  [0x100c197e0,0x100c197ac]
+                            +   !   : | + ! 2 unicodekeys_lookup_unicode  (in Python) + 276  [0x100c195b0]
+                            +   !   : | + 7 dict_setdefault_ref_lock_held  (in Python) + 764  [0x100c1e44c]
+                            +   !   : | + ! 7 insert_combined_dict  (in Python) + 36,216,...  [0x100c23c80,0x100c23d34,...]
+                            +   !   : | + 3 insert_combined_dict  (in Python) + 308  [0x100c23d90]
+                            +   !   : | + 1 _Py_dict_lookup  (in Python) + 328  [0x100c198e0]
+                            +   !   : | 4 DYLD-STUB$$PyDict_SetDefault  (in _strata.cpython-314-darwin.so) + 4  [0x10560855c]
+                            +   !   : | 2 PyDict_SetDefault  (in Python) + 28  [0x100c1e510]
+                            +   !   : 9 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 64,32,...  [0x1055ca568,0x1055ca548,...]
+                            +   !   : 6 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 88  [0x1055ca580]
+                            +   !   : | 4 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 24  [0x1055e6b48]
+                            +   !   : | + 4 _tlv_get_addr  (in libdyld.dylib) + 20,12  [0x18cacf30c,0x18cacf304]
+                            +   !   : | 2 strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 16  [0x1055e6b40]
+                            +   !   : 3 strata::bindings::PythonObjectBuilder::on_end_array()  (in _strata.cpython-314-darwin.so) + 12,64  [0x1055ca444,0x1055ca478]
+                            +   !   61 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 832  [0x1055e6140]
+                            +   !   : 61 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,0,...  [0x105604ed0,0x105604e38,...]
+                            +   !   47 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 572  [0x1055e900c]
+                            +   !   44 strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 216,224  [0x1055ca600,0x1055ca608]
+                            +   !   33 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 848  [0x1055e936c]
+                            +   !   8 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1088  [0x1055e6240]
+                            +   !   : 5 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 580  [0x1055e9b3c]
+                            +   !   : | 5 strata::bindings::PythonObjectBuilder::on_string(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 80  [0x1055c9b5c]
+                            +   !   : |   1 DYLD-STUB$$PyUnicode_FromStringAndSize  (in _strata.cpython-314-darwin.so) + 4  [0x1056087b4]
+                            +   !   : |   1 _PyObject_Malloc  (in Python) + 60  [0x100c44bd0]
+                            +   !   : |   1 unicode_decode_utf8  (in Python) + 116  [0x100c84a58]
+                            +   !   : |   + 1 find_first_nonascii  (in Python) + 84  [0x100c9d30c]
+                            +   !   : |   1 unicode_decode_utf8  (in Python) + 140  [0x100c84a70]
+                            +   !   : |   + 1 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   : |   +   1 pymalloc_alloc  (in Python) + 592  [0x100c44e60]
+                            +   !   : |   1 unicode_decode_utf8  (in Python) + 188  [0x100c84aa0]
+                            +   !   : 2 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 4,556  [0x1055e98fc,0x1055e9b24]
+                            +   !   : 1 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 40  [0x1055e9044]
+                            +   !   :   1 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 420  [0x105604fdc]
+                            +   !   6 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1812  [0x1055e6514]
+                            +   !   : 6 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 148  [0x1055e8e64]
+                            +   !   :   6 strata::bindings::PythonObjectBuilder::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so) + 44  [0x1055c9d00]
+                            +   !   :     4 PyDict_New  (in Python) + 248  [0x100c19230]
+                            +   !   :     | 3 _PyObject_GC_New  (in Python) + 108  [0x100d3cfd4]
+                            +   !   :     | + 3 _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+                            +   !   :     | +   3 pymalloc_alloc  (in Python) + 592  [0x100c44e60]
+                            +   !   :     | 1 _PyObject_GC_New  (in Python) + 40  [0x100d3cf90]
+                            +   !   :     2 dict_new_presized  (in Python) + 0  [0x100c1a0e8]
+                            +   !   5 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 564  [0x1055e8dc0]
+                            +   !   1 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 500  [0x1055e5ff4]
+                            +   !     1 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 0  [0x1055e8dd0]
+                            +   8051 parse_json_buffer(char const*, long)  (in _strata.cpython-314-darwin.so) + 4444  [0x1055c3ac8]
+                            +     2165 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1100  [0x1055e624c]
+                            +     : 633 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 196  [0x1055e90e0]
+                            +     : | 485 strata::util::parse_int_simd(char const*, unsigned long, long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 68  [0x105605d40]
+                            +     : | + 485 strata::util::parse_uint_simd(char const*, unsigned long, unsigned long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 340,448,...  [0x10560592c,0x105605998,...]
+                            +     : | 148 strata::util::parse_int_simd(char const*, unsigned long, long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 0,24,...  [0x105605cfc,0x105605d14,...]
+                            +     : 438 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 792  [0x1055e9334]
+                            +     : | 168 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 572  [0x105602f28]
+                            +     : | + 107 strata::util::parse_frac_part_for_double(char const*, unsigned long, unsigned long&)  (in _strata.cpython-314-darwin.so) + 40  [0x105603104]
+                            +     : | + ! 107 strata::util::count_digits_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 364,0,...  [0x1056057cc,0x105605660,...]
+                            +     : | + 61 strata::util::parse_frac_part_for_double(char const*, unsigned long, unsigned long&)  (in _strata.cpython-314-darwin.so) + 104,40,...  [0x105603144,0x105603104,...]
+                            +     : | 168 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 36,0,...  [0x105602d10,0x105602cec,...]
+                            +     : | 89 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 200  [0x105602db4]
+                            +     : | + 89 strata::util::count_digits_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 0,364,...  [0x105605660,0x1056057cc,...]
+                            +     : | 13 strata::util::parse_frac_part_for_double(char const*, unsigned long, unsigned long&)  (in _strata.cpython-314-darwin.so) + 132,136  [0x105603160,0x105603164]
+                            +     : 321 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 144,44,...  [0x1055e90ac,0x1055e9048,...]
+                            +     : 234 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 40  [0x1055e9044]
+                            +     : | 234 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,0,...  [0x105604ed0,0x105604e38,...]
+                            +     : 139 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 588  [0x1055e9268]
+                            +     : | 139 strata::util::parse_uint_simd(char const*, unsigned long, unsigned long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 180,716,...  [0x10560588c,0x105605aa4,...]
+                            +     : 129 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 88  [0x1055e9950]
+                            +     : | 82 strata::util::find_next_escape_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 60,52,...  [0x105603a4c,0x105603a44,...]
+                            +     : | 47 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 120,92,...  [0x1055e9970,0x1055e9954,...]
+                            +     : 91 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 556,4,...  [0x1055e9b24,0x1055e98fc,...]
+                            +     : 60 strata::util::parse_int_simd(char const*, unsigned long, long long&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 196  [0x105605dc0]
+                            +     : 34 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 580  [0x1055e9b3c]
+                            +     : | 20 (anonymous namespace)::SizeHintCollector::on_string(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 0,20  [0x1055cc3d8,0x1055cc3ec]
+                            +     : | 14 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 580  [0x1055e9b3c]
+                            +     : 26 strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so) + 100,96  [0x105602d50,0x105602d4c]
+                            +     : 21 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1100  [0x1055e624c]
+                            +     : | 21 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 56,60  [0x1055e9930,0x1055e9934]
+                            +     : 20 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 292  [0x1055e9140]
+                            +     : | 20 (anonymous namespace)::SizeHintCollector::on_int(long long)  (in _strata.cpython-314-darwin.so) + 20,0  [0x1055cc350,0x1055cc33c]
+                            +     : 19 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 828  [0x1055e9358]
+                            +     :   19 (anonymous namespace)::SizeHintCollector::on_double(double)  (in _strata.cpython-314-darwin.so) + 12,20  [0x1055cc3b0,0x1055cc3b8]
+                            +     2010 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 268  [0x1055e5f0c]
+                            +     : 2010 strata::util::collect_structural_positions_simd(char const*, unsigned long, std::vector<unsigned long>&)  (in _strata.cpython-314-darwin.so) + 1384,1188,...  [0x105606c20,0x105606b5c,...]
+                            +     1823 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 536,1048,...  [0x1055e6018,0x1055e6218,...]
+                            +     622 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 800  [0x1055e6120]
+                            +     : 284 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 88  [0x1055e9950]
+                            +     : | 150 strata::util::find_next_escape_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 52,0,...  [0x105603a44,0x105603a10,...]
+                            +     : | 134 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 120,164,...  [0x1055e9970,0x1055e999c,...]
+                            +     : 214 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 556,4,...  [0x1055e9b24,0x1055e98fc,...]
+                            +     : 64 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 800  [0x1055e6120]
+                            +     : | 64 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 60  [0x1055e9934]
+                            +     : 60 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 168  [0x1055e99a0]
+                            +     :   60 (anonymous namespace)::SizeHintCollector::on_key(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so) + 36,12,...  [0x1055cc464,0x1055cc44c,...]
+                            +     361 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1796  [0x1055e6504]
+                            +     : 141 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 156,284,...  [0x1055e8e6c,0x1055e8eec,...]
+                            +     : 123 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 284  [0x1055e8eec]
+                            +     : | 104 (anonymous namespace)::SizeHintCollector::start_container((anonymous namespace)::SizeHintContainer)  (in _strata.cpython-314-darwin.so) + 232,552,...  [0x1055cc624,0x1055cc764,...]
+                            +     : | 19 (anonymous namespace)::SizeHintCollector::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so) + 0  [0x1055cc40c]
+                            +     : 69 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 300  [0x1055e8efc]
+                            +     : | 69 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +     : 28 (anonymous namespace)::SizeHintCollector::start_container((anonymous namespace)::SizeHintContainer)  (in _strata.cpython-314-darwin.so) + 740  [0x1055cc820]
+                            +     195 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 784  [0x1055e6110]
+                            +     : 195 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +     188 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 600  [0x1055e6058]
+                            +     : 188 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +     176 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1000  [0x1055e61e8]
+                            +     : 176 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +     162 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 924  [0x1055e619c]
+                            +     : 162 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +     76 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1868  [0x1055e654c]
+                            +     : 76 strata::util::validate_utf8_lazy(char const*, unsigned long)  (in _strata.cpython-314-darwin.so) + 40,8,...  [0x10560714c,0x10560712c,...]
+                            +     70 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 832  [0x1055e6140]
+                            +     : 70 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,0,...  [0x105604ed0,0x105604e38,...]
+                            +     55 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 700  [0x1055e60bc]
+                            +     : 55 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420,...  [0x105604ed0,0x105604fdc,...]
+                            +     38 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 572,576  [0x1055e900c,0x1055e9010]
+                            +     38 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 976  [0x1055e61d0]
+                            +     : 19 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 20,0,...  [0x1055e8ba0,0x1055e8b8c,...]
+                            +     : 9 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 284  [0x1055e8ca8]
+                            +     : | 7 (anonymous namespace)::SizeHintCollector::start_container((anonymous namespace)::SizeHintContainer)  (in _strata.cpython-314-darwin.so) + 240,552,...  [0x1055cc62c,0x1055cc764,...]
+                            +     : | 2 (anonymous namespace)::SizeHintCollector::on_start_array(unsigned long)  (in _strata.cpython-314-darwin.so) + 0  [0x1055cc4bc]
+                            +     : 8 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 300  [0x1055e8cb8]
+                            +     : | 8 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,0  [0x105604ed0,0x105604e38]
+                            +     : 2 (anonymous namespace)::SizeHintCollector::start_container((anonymous namespace)::SizeHintContainer)  (in _strata.cpython-314-darwin.so) + 740  [0x1055cc820]
+                            +     36 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 848  [0x1055e936c]
+                            +     18 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1684  [0x1055e6494]
+                            +     : 18 (anonymous namespace)::SizeHintCollector::on_end_object()  (in _strata.cpython-314-darwin.so) + 0,44,...  [0x1055cc470,0x1055cc49c,...]
+                            +     8 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1812  [0x1055e6514]
+                            +     : 5 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 284  [0x1055e8eec]
+                            +     : | 3 (anonymous namespace)::SizeHintCollector::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so) + 12  [0x1055cc418]
+                            +     : | 2 (anonymous namespace)::SizeHintCollector::start_container((anonymous namespace)::SizeHintContainer)  (in _strata.cpython-314-darwin.so) + 0,240  [0x1055cc53c,0x1055cc62c]
+                            +     : 2 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 300  [0x1055e8efc]
+                            +     : | 2 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 152,420  [0x105604ed0,0x105604fdc]
+                            +     : 1 strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 20  [0x1055e8de4]
+                            +     6 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1324  [0x1055e632c]
+                            +     : 6 (anonymous namespace)::SizeHintCollector::on_end_array()  (in _strata.cpython-314-darwin.so) + 56,0,...  [0x1055cc528,0x1055cc4f0,...]
+                            +     3 strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so) + 1088  [0x1055e6240]
+                            +     : 1 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 40  [0x1055e9044]
+                            +     : | 1 strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 0  [0x105604e38]
+                            +     : 1 strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 144  [0x1055e90ac]
+                            +     : 1 strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 556  [0x1055e9b24]
+                            +     1 strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so) + 564  [0x1055e8dc0]
+                            2479 _PyEval_EvalFrameDefault  (in Python) + 29836  [0x100d02034]
+                            + 2479 _Py_Dealloc  (in Python) + 100  [0x100c3c998]
+                            +   2479 dict_dealloc  (in Python) + 204  [0x100c1e9e0]
+                            +     2479 dictkeys_decref  (in Python) + 356  [0x100c23238]
+                            +       2402 list_dealloc  (in Python) + 292  [0x100c00de8]
+                            +       ! 2400 dict_dealloc  (in Python) + 204  [0x100c1e9e0]
+                            +       ! : 2237 dictkeys_decref  (in Python) + 356  [0x100c23238]
+                            +       ! : | 2063 list_dealloc  (in Python) + 292  [0x100c00de8]
+                            +       ! : | + 2023 dict_dealloc  (in Python) + 204  [0x100c1e9e0]
+                            +       ! : | + ! 1866 dictkeys_decref  (in Python) + 356  [0x100c23238]
+                            +       ! : | + ! : 1465 list_dealloc  (in Python) + 292  [0x100c00de8]
+                            +       ! : | + ! : | 1060 dict_dealloc  (in Python) + 204  [0x100c1e9e0]
+                            +       ! : | + ! : | + 451 dictkeys_decref  (in Python) + 356  [0x100c23238]
+                            +       ! : | + ! : | + ! 188 unicode_dealloc  (in Python) + 72  [0x100c993b0]
+                            +       ! : | + ! : | + ! : 115 _PyObject_Free  (in Python) + 24,136,...  [0x100c450d0,0x100c45140,...]
+                            +       ! : | + ! : | + ! : 34 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! : | + ! : | 34 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + ! : | + ! : 20 PyObject_Free  (in Python) + 16  [0x100c44770]
+                            +       ! : | + ! : | + ! : 19 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! : | + ! :   19 _tlv_get_addr  (in libdyld.dylib) + 20,28,...  [0x18cacf30c,0x18cacf314,...]
+                            +       ! : | + ! : | + ! 106 _PyObject_Free  (in Python) + 24,80,...  [0x100c450d0,0x100c45108,...]
+                            +       ! : | + ! : | + ! 62 float_dealloc  (in Python) + 40,112,...  [0x100bef9b8,0x100befa00,...]
+                            +       ! : | + ! : | + ! 32 unicode_dealloc  (in Python) + 28,36,...  [0x100c99384,0x100c9938c,...]
+                            +       ! : | + ! : | + ! 30 float_dealloc  (in Python) + 48  [0x100bef9c0]
+                            +       ! : | + ! : | + ! : 30 _tlv_get_addr  (in libdyld.dylib) + 20,12,...  [0x18cacf30c,0x18cacf304,...]
+                            +       ! : | + ! : | + ! 17 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! : | + ! : 17 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +       ! : | + ! : | + ! 16 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! : | + !   16 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + ! : | + 337 dictkeys_decref  (in Python) + 196,168,...  [0x100c23198,0x100c2317c,...]
+                            +       ! : | + ! : | + 134 _PyObject_Free  (in Python) + 24,136,...  [0x100c450d0,0x100c45140,...]
+                            +       ! : | + ! : | + 57 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! : | + ! 57 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + ! : | + 28 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! : | + ! 28 _tlv_get_addr  (in libdyld.dylib) + 12,20,...  [0x18cacf304,0x18cacf30c,...]
+                            +       ! : | + ! : | + 20 dictkeys_decref  (in Python) + 680  [0x100c2337c]
+                            +       ! : | + ! : | + ! 20 _tlv_get_addr  (in libdyld.dylib) + 12,20,...  [0x18cacf304,0x18cacf30c,...]
+                            +       ! : | + ! : | + 19 dictkeys_decref  (in Python) + 148  [0x100c23168]
+                            +       ! : | + ! : | + ! 19 _tlv_get_addr  (in libdyld.dylib) + 20,12,...  [0x18cacf30c,0x18cacf304,...]
+                            +       ! : | + ! : | + 12 unicode_dealloc  (in Python) + 76  [0x100c993b4]
+                            +       ! : | + ! : | + 2 float_dealloc  (in Python) + 116  [0x100befa04]
+                            +       ! : | + ! : | 196 dict_dealloc  (in Python) + 160,72,...  [0x100c1e9b4,0x100c1e95c,...]
+                            +       ! : | + ! : | 65 _PyObject_Free  (in Python) + 136,152,...  [0x100c45140,0x100c45150,...]
+                            +       ! : | + ! : | 44 dictkeys_decref  (in Python) + 756,748,...  [0x100c233c8,0x100c233c0,...]
+                            +       ! : | + ! : | 31 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! : | + 31 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + ! : | 25 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! : | + 25 _tlv_get_addr  (in libdyld.dylib) + 20,12,...  [0x18cacf30c,0x18cacf304,...]
+                            +       ! : | + ! : | 24 PyObject_GC_Del  (in Python) + 52,12  [0x100d3d3e8,0x100d3d3c0]
+                            +       ! : | + ! : | 20 dict_dealloc  (in Python) + 52  [0x100c1e948]
+                            +       ! : | + ! : |   20 _tlv_get_addr  (in libdyld.dylib) + 12,20,...  [0x18cacf304,0x18cacf30c,...]
+                            +       ! : | + ! : 161 list_dealloc  (in Python) + 152,236,...  [0x100c00d5c,0x100c00db0,...]
+                            +       ! : | + ! : 73 unicode_dealloc  (in Python) + 72  [0x100c993b0]
+                            +       ! : | + ! : | 68 _PyObject_Free  (in Python) + 96,112,...  [0x100c45118,0x100c45128,...]
+                            +       ! : | + ! : | 3 PyObject_Free  (in Python) + 16  [0x100c44770]
+                            +       ! : | + ! : | 2 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! : |   2 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +       ! : | + ! : 39 _PyObject_Free  (in Python) + 152,112,...  [0x100c45150,0x100c45128,...]
+                            +       ! : | + ! : 34 dict_dealloc  (in Python) + 328,316,...  [0x100c1ea5c,0x100c1ea50,...]
+                            +       ! : | + ! : 29 long_dealloc  (in Python) + 140,20,...  [0x100c0f46c,0x100c0f3f4,...]
+                            +       ! : | + ! : 28 list_dealloc  (in Python) + 340  [0x100c00e18]
+                            +       ! : | + ! : | 20 _PyObject_Free  (in Python) + 96,80,...  [0x100c45118,0x100c45108,...]
+                            +       ! : | + ! : | 5 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! : | + 5 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + ! : | 3 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! : |   3 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +       ! : | + ! : 12 list_dealloc  (in Python) + 184  [0x100c00d7c]
+                            +       ! : | + ! : | 12 _tlv_get_addr  (in libdyld.dylib) + 12,24,...  [0x18cacf304,0x18cacf310,...]
+                            +       ! : | + ! : 8 list_dealloc  (in Python) + 108  [0x100c00d30]
+                            +       ! : | + ! : | 8 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +       ! : | + ! : 6 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! : | 6 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +       ! : | + ! : 5 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! : | 5 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + ! : 3 list_dealloc  (in Python) + 376  [0x100c00e3c]
+                            +       ! : | + ! : | 3 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +       ! : | + ! : 2 long_dealloc  (in Python) + 60  [0x100c0f41c]
+                            +       ! : | + ! : | 2 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +       ! : | + ! : 1 unicode_dealloc  (in Python) + 36  [0x100c9938c]
+                            +       ! : | + ! 135 dictkeys_decref  (in Python) + 32,320,...  [0x100c230f4,0x100c23214,...]
+                            +       ! : | + ! 6 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! : 6 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + ! 6 _PyObject_Free  (in Python) + 152,24,...  [0x100c45150,0x100c450d0,...]
+                            +       ! : | + ! 4 dictkeys_decref  (in Python) + 148  [0x100c23168]
+                            +       ! : | + ! : 4 _tlv_get_addr  (in libdyld.dylib) + 20,28  [0x18cacf30c,0x18cacf314]
+                            +       ! : | + ! 4 list_dealloc  (in Python) + 512  [0x100c00ec4]
+                            +       ! : | + ! 1 dictkeys_decref  (in Python) + 680  [0x100c2337c]
+                            +       ! : | + ! : 1 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +       ! : | + ! 1 unicode_dealloc  (in Python) + 76  [0x100c993b4]
+                            +       ! : | + 17 dict_dealloc  (in Python) + 116,72,...  [0x100c1e988,0x100c1e95c,...]
+                            +       ! : | + 11 _PyObject_Free  (in Python) + 80,152,...  [0x100c45108,0x100c45150,...]
+                            +       ! : | + 4 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! 4 _tlv_get_addr  (in libdyld.dylib) + 20,12  [0x18cacf30c,0x18cacf304]
+                            +       ! : | + 3 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + ! 3 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | + 2 PyObject_GC_Del  (in Python) + 52  [0x100d3d3e8]
+                            +       ! : | + 2 dictkeys_decref  (in Python) + 748,760  [0x100c233c0,0x100c233cc]
+                            +       ! : | + 1 dict_dealloc  (in Python) + 52  [0x100c1e948]
+                            +       ! : | +   1 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +       ! : | 79 list_dealloc  (in Python) + 204,244,...  [0x100c00d90,0x100c00db8,...]
+                            +       ! : | 52 dict_dealloc  (in Python) + 204  [0x100c1e9e0]
+                            +       ! : | + 45 dictkeys_decref  (in Python) + 356  [0x100c23238]
+                            +       ! : | + ! 23 list_dealloc  (in Python) + 240,344,...  [0x100c00db4,0x100c00e1c,...]
+                            +       ! : | + ! 7 list_dealloc  (in Python) + 292  [0x100c00de8]
+                            +       ! : | + ! : 5 unicode_dealloc  (in Python) + 0  [0x100c99368]
+                            +       ! : | + ! : 2 unicode_dealloc  (in Python) + 72  [0x100c993b0]
+                            +       ! : | + ! :   2 _PyObject_Free  (in Python) + 112,132  [0x100c45128,0x100c4513c]
+                            +       ! : | + ! 6 dict_dealloc  (in Python) + 204  [0x100c1e9e0]
+                            +       ! : | + ! : 5 dictkeys_decref  (in Python) + 32,148,...  [0x100c230f4,0x100c23168,...]
+                            +       ! : | + ! : 1 _PyObject_Free  (in Python) + 196  [0x100c4517c]
+                            +       ! : | + ! 3 dict_dealloc  (in Python) + 160,0  [0x100c1e9b4,0x100c1e914]
+                            +       ! : | + ! 3 list_dealloc  (in Python) + 340  [0x100c00e18]
+                            +       ! : | + ! : 2 _PyObject_Free  (in Python) + 80,196  [0x100c45108,0x100c4517c]
+                            +       ! : | + ! : 1 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + ! :   1 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +       ! : | + ! 2 _PyObject_Free  (in Python) + 24,80  [0x100c450d0,0x100c45108]
+                            +       ! : | + ! 1 PyObject_GC_Del  (in Python) + 48  [0x100d3d3e4]
+                            +       ! : | + 5 dictkeys_decref  (in Python) + 104,160,...  [0x100c2313c,0x100c23174,...]
+                            +       ! : | + 2 dictkeys_decref  (in Python) + 680  [0x100c2337c]
+                            +       ! : | +   2 _tlv_get_addr  (in libdyld.dylib) + 12,20  [0x18cacf304,0x18cacf30c]
+                            +       ! : | 20 _PyObject_Free  (in Python) + 196,112,...  [0x100c4517c,0x100c45128,...]
+                            +       ! : | 9 dict_dealloc  (in Python) + 44,316,...  [0x100c1e940,0x100c1ea50,...]
+                            +       ! : | 7 unicode_dealloc  (in Python) + 72  [0x100c993b0]
+                            +       ! : | + 6 _PyObject_Free  (in Python) + 144,0,...  [0x100c45148,0x100c450b8,...]
+                            +       ! : | + 1 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | +   1 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +       ! : | 1 PyObject_GC_Del  (in Python) + 52  [0x100d3d3e8]
+                            +       ! : | 1 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : | + 1 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +       ! : | 1 _PyObject_Free  (in Python) + 548  [0x100c452dc]
+                            +       ! : | + 1 __munmap  (in libsystem_kernel.dylib) + 8  [0x18ce8e714]
+                            +       ! : | 1 dict_dealloc  (in Python) + 52  [0x100c1e948]
+                            +       ! : | + 1 _tlv_get_addr  (in libdyld.dylib) + 20  [0x18cacf30c]
+                            +       ! : | 1 list_dealloc  (in Python) + 340  [0x100c00e18]
+                            +       ! : | + 1 _PyObject_Free  (in Python) + 112  [0x100c45128]
+                            +       ! : | 1 long_dealloc  (in Python) + 140  [0x100c0f46c]
+                            +       ! : | 1 unicode_dealloc  (in Python) + 60  [0x100c993a4]
+                            +       ! : 163 dictkeys_decref  (in Python) + 32,196,...  [0x100c230f4,0x100c23198,...]
+                            +       ! 1 _PyObject_Free  (in Python) + 32  [0x100c450d8]
+                            +       ! : 1 _tlv_get_addr  (in libdyld.dylib) + 12  [0x18cacf304]
+                            +       ! 1 dict_dealloc  (in Python) + 116  [0x100c1e988]
+                            +       76 list_dealloc  (in Python) + 204  [0x100c00d90]
+                            +       1 dict_dealloc  (in Python) + 316  [0x100c1ea50]
+                            35 _PyEval_EvalFrameDefault  (in Python) + 7492  [0x100cfc8ec]
+                              35 builtin_print  (in Python) + 360  [0x100cf7364]
+                                35 PyFile_WriteObject  (in Python) + 120  [0x100beda74]
+                                  35 PyObject_Str  (in Python) + 24  [0x100c37c74]
+                                    35 PyErr_CheckSignals  (in Python) + 224  [0x100db75ac]
+                                      27 _PyGC_Collect  (in Python) + 1140  [0x100d3c250]
+                                      ! 27 mark_stacks  (in Python) + 416  [0x100d3e6a4]
+                                      !   18 mark_all_reachable  (in Python) + 172  [0x100d3e948]
+                                      !   : 8 list_traverse  (in Python) + 64  [0x100c014f8]
+                                      !   : | 8 visit_add_to_container  (in Python) + 0,4,...  [0x100d3e974,0x100d3e978,...]
+                                      !   : 3 dict_traverse  (in Python) + 100  [0x100c1f4d0]
+                                      !   : | 3 visit_add_to_container  (in Python) + 0,8,...  [0x100d3e974,0x100d3e97c,...]
+                                      !   : 3 dict_traverse  (in Python) + 92,36  [0x100c1f4c8,0x100c1f490]
+                                      !   : 3 visit_add_to_container  (in Python) + 56  [0x100d3e9ac]
+                                      !   : 1 list_traverse  (in Python) + 68  [0x100c014fc]
+                                      !   6 mark_all_reachable  (in Python) + 172,152,...  [0x100d3e948,0x100d3e934,...]
+                                      !   3 dict_traverse  (in Python) + 132  [0x100c1f4f0]
+                                      8 _PyGC_Collect  (in Python) + 768  [0x100d3c0dc]
+                                        8 untrack_tuples  (in Python) + 76,72  [0x100d3d6d8,0x100d3d6d4]
+
+Total number in stack (recursive counted multiple, when >=5):
+        48       _tlv_get_addr  (in libdyld.dylib) + 0  [0x18cacf2f8]
+        21       strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so) + 0  [0x105604e38]
+        20       pymalloc_alloc  (in Python) + 0  [0x100c44c10]
+        16       _PyObject_Free  (in Python) + 0  [0x100c450b8]
+        16       strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so) + 0  [0x1055e98f8]
+        13       _PyObject_Malloc  (in Python) + 0  [0x100c44b94]
+        12       _PyObject_Free  (in Python) + 32  [0x100c450d8]
+        10       _PyObject_Malloc  (in Python) + 52  [0x100c44bc8]
+        9       _PyObject_Free  (in Python) + 548  [0x100c452dc]
+        9       _Py_dict_lookup  (in Python) + 0  [0x100c19798]
+        9       __munmap  (in libsystem_kernel.dylib) + 0  [0x18ce8e70c]
+        9       dict_setdefault_ref_lock_held  (in Python) + 0  [0x100c1e150]
+        9       unicodekeys_lookup_unicode  (in Python) + 0  [0x100c1949c]
+        8       _PyObject_Malloc  (in Python) + 32  [0x100c44bb4]
+        8       insert_combined_dict  (in Python) + 0  [0x100c23c5c]
+        7       dict_dealloc  (in Python) + 0  [0x100c1e914]
+        7       dictkeys_decref  (in Python) + 0  [0x100c230d4]
+        7       strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 0  [0x1055ca528]
+        6       PyDict_SetDefault  (in Python) + 24  [0x100c1e50c]
+        6       dict_dealloc  (in Python) + 204  [0x100c1e9e0]
+        6       dict_setdefault_ref_lock_held  (in Python) + 168  [0x100c1e1f8]
+        6       strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so) + 0  [0x1055e8dd0]
+        6       strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so) + 420  [0x1055ca6cc]
+        6       unicode_dealloc  (in Python) + 0  [0x100c99368]
+        5       (anonymous namespace)::SizeHintCollector::start_container((anonymous namespace)::SizeHintContainer)  (in _strata.cpython-314-darwin.so) + 0  [0x1055cc53c]
+        5       PyDict_SetDefault  (in Python) + 0  [0x100c1e4f4]
+        5       _PyObject_GC_New  (in Python) + 0  [0x100d3cf68]
+        5       _Py_dict_lookup  (in Python) + 284  [0x100c198b4]
+        5       dictkeys_decref  (in Python) + 356  [0x100c23238]
+        5       list_dealloc  (in Python) + 0  [0x100c00cc4]
+        5       strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so) + 0  [0x1055e901c]
+        5       strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so) + 0  [0x1055e6b30]
+
+Sort by top of stack, same collapsed (when >= 5):
+        strata::util::collect_structural_positions_simd(char const*, unsigned long, std::vector<unsigned long>&)  (in _strata.cpython-314-darwin.so)        4023
+        strata::(anonymous namespace)::parse_sax_impl(std::basic_string_view<char>, strata::JsonSaxHandler&, strata::ParseSaxOptions const&, strata::ParseSaxContext*)  (in _strata.cpython-314-darwin.so)        3656
+        strata::util::skip_whitespace_simd(char const*, unsigned long, unsigned long)  (in _strata.cpython-314-darwin.so)        2308
+        strata::util::parse_uint_simd(char const*, unsigned long, unsigned long long&, unsigned long&)  (in _strata.cpython-314-darwin.so)        1263
+        strata::(anonymous namespace)::Parser::parse_string(bool)  (in _strata.cpython-314-darwin.so)        1189
+        pymalloc_alloc  (in Python)        1030
+        dictkeys_decref  (in Python)        691
+        strata::(anonymous namespace)::Parser::parse_primitive()  (in _strata.cpython-314-darwin.so)        685
+        _PyObject_Free  (in Python)        598
+        _tlv_get_addr  (in libdyld.dylib)        597
+        strata::bindings::KeyCache::lookup_or_insert(std::basic_string_view<char>)  (in _strata.cpython-314-darwin.so)        532
+        strata::bindings::PythonObjectBuilder::push_value(_object*)  (in _strata.cpython-314-darwin.so)        500
+        find_first_nonascii  (in Python)        499
+        strata::util::find_next_escape_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so)        474
+        strata::bindings::KeyCache::fast_common_key_lookup(std::basic_string_view<char>) const  (in _strata.cpython-314-darwin.so)        461
+        strata::util::count_digits_simd(char const*, unsigned long)  (in _strata.cpython-314-darwin.so)        403
+        strata::util::parse_int_simd(char const*, unsigned long, long long&, unsigned long&)  (in _strata.cpython-314-darwin.so)        397
+        strata::util::parse_double_fast(char const*, unsigned long, double&, unsigned long&)  (in _strata.cpython-314-darwin.so)        394
+        dict_setdefault_ref_lock_held  (in Python)        389
+        _platform_memcmp  (in libsystem_platform.dylib)        371
+        strata::(anonymous namespace)::Parser::start_object()  (in _strata.cpython-314-darwin.so)        360
+        list_dealloc  (in Python)        343
+        strata::bindings::PythonObjectBuilder::on_key(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so)        311
+        insert_to_emptydict  (in Python)        265
+        dict_dealloc  (in Python)        261
+        insert_combined_dict  (in Python)        253
+        _platform_memmove  (in libsystem_platform.dylib)        219
+        unicode_decode_utf8  (in Python)        210
+        unicodekeys_lookup_unicode  (in Python)        183
+        _Py_dict_lookup  (in Python)        171
+        _PyObject_Malloc  (in Python)        162
+        __munmap  (in libsystem_kernel.dylib)        158
+        strata::util::validate_utf8_lazy(char const*, unsigned long)  (in _strata.cpython-314-darwin.so)        152
+        (anonymous namespace)::SizeHintCollector::start_container((anonymous namespace)::SizeHintContainer)  (in _strata.cpython-314-darwin.so)        143
+        strata::util::parse_frac_part_for_double(char const*, unsigned long, unsigned long&)  (in _strata.cpython-314-darwin.so)        135
+        PyDict_New  (in Python)        134
+        _PyObject_GC_New  (in Python)        123
+        DYLD-STUB$$PyDict_SetDefault  (in _strata.cpython-314-darwin.so)        102
+        strata::get_duplicate_key_policy()  (in _strata.cpython-314-darwin.so)        87
+        PyFloat_FromDouble  (in Python)        79
+        strata::bindings::PythonObjectBuilder::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so)        67
+        float_dealloc  (in Python)        64
+        PyDict_SetDefault  (in Python)        62
+        (anonymous namespace)::SizeHintCollector::on_key(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so)        60
+        _platform_memset  (in libsystem_platform.dylib)        59
+        DYLD-STUB$$memcmp  (in _strata.cpython-314-darwin.so)        58
+        unicode_dealloc  (in Python)        52
+        PyLong_FromLong  (in Python)        46
+        DYLD-STUB$$PyUnicode_FromStringAndSize  (in _strata.cpython-314-darwin.so)        41
+        strata::(anonymous namespace)::Parser::start_array()  (in _strata.cpython-314-darwin.so)        37
+        long_dealloc  (in Python)        30
+        PyObject_GC_Del  (in Python)        28
+        PyList_New  (in Python)        27
+        __bzero  (in libsystem_platform.dylib)        27
+        PyObject_Free  (in Python)        23
+        (anonymous namespace)::SizeHintCollector::on_start_object(unsigned long)  (in _strata.cpython-314-darwin.so)        22
+        (anonymous namespace)::SizeHintCollector::on_int(long long)  (in _strata.cpython-314-darwin.so)        20
+        (anonymous namespace)::SizeHintCollector::on_string(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so)        20
+        (anonymous namespace)::SizeHintCollector::on_double(double)  (in _strata.cpython-314-darwin.so)        19
+        (anonymous namespace)::SizeHintCollector::on_end_object()  (in _strata.cpython-314-darwin.so)        18
+        strata::bindings::PythonObjectBuilder::on_string(std::basic_string_view<char>, bool)  (in _strata.cpython-314-darwin.so)        18
+        DYLD-STUB$$PyLong_FromLong  (in _strata.cpython-314-darwin.so)        17
+        PyUnicode_FromStringAndSize  (in Python)        17
+        dict_new_presized  (in Python)        16
+        DYLD-STUB$$PyFloat_FromDouble  (in _strata.cpython-314-darwin.so)        14
+        DYLD-STUB$$_PyDict_NewPresized  (in _strata.cpython-314-darwin.so)        14
+        DYLD-STUB$$memcpy  (in Python)        14
+        visit_add_to_container  (in Python)        14
+        DYLD-STUB$$bzero  (in Python)        13
+        _PyObject_Calloc  (in Python)        11
+        strata::bindings::PythonObjectBuilder::on_start_array(unsigned long)  (in _strata.cpython-314-darwin.so)        11
+        strata::bindings::PythonObjectBuilder::on_end_object()  (in _strata.cpython-314-darwin.so)        9
+        untrack_tuples  (in Python)        8
+        (anonymous namespace)::SizeHintCollector::on_end_array()  (in _strata.cpython-314-darwin.so)        6
+        dict_traverse  (in Python)        6
+        mark_all_reachable  (in Python)        6
+
+Binary Images:
+       0x1001a4000 -        0x1001a515f +org.python.python (3.14.2 - 3.14.2) <B584CF3E-9748-3446-8865-992A59AA354C> /opt/homebrew/*/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python
+       0x10091c000 -        0x10091ef5b +fcntl.cpython-314-darwin.so (0) <F3ED7172-1333-3659-9A9E-DBBDB6C1FFC9> /opt/homebrew/*/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/fcntl.cpython-314-darwin.so
+       0x100a88000 -        0x100a8aa73 +_posixsubprocess.cpython-314-darwin.so (0) <65F11955-6880-3B27-AB48-E61960E6227F> /opt/homebrew/*/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/_posixsubprocess.cpython-314-darwin.so
+       0x100a9c000 -        0x100a9daf3 +grp.cpython-314-darwin.so (0) <95359E1B-DA22-359E-98FB-7192D73C62E4> /opt/homebrew/*/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/grp.cpython-314-darwin.so
+       0x100ab4000 -        0x100ab8bd3 +select.cpython-314-darwin.so (0) <9EACB24C-B9DC-3173-B682-F8886BBD7137> /opt/homebrew/*/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/select.cpython-314-darwin.so
+       0x100ae8000 -        0x100af2467 +math.cpython-314-darwin.so (0) <B56EBE9B-04B0-3DCA-9362-CCB358D24113> /opt/homebrew/*/Python.framework/Versions/3.14/lib/python3.14/lib-dynload/math.cpython-314-darwin.so
+       0x100b60000 -        0x100f27507 +org.python.python (3.14.2, [c] 2001-2024 Python Software Foundation. - 3.14.2) <19D18560-17A0-3D50-B1B4-0D35CEC00876> /opt/homebrew/*/Python.framework/Versions/3.14/Python
+       0x1055b8000 -        0x105614837 +_strata.cpython-314-darwin.so (0) <AAB6FE96-AE66-3B45-9E3E-00FCDA5D3FC5> /Users/*/_strata.cpython-314-darwin.so
+       0x18ca78000 -        0x18cacb48b  libobjc.A.dylib (951.1) <5A0AAB4E-0C1A-3680-82C9-43DC4007A6E7> /usr/lib/libobjc.A.dylib
+       0x18cacc000 -        0x18cafcbcb  libdyld.dylib (1330) <A64128D9-375B-36AE-8FEB-69D80F987D3C> /usr/lib/system/libdyld.dylib
+       0x18cafd000 -        0x18cb9bf63  dyld (1.0.0 - 1330) <B50F5A1A-BE81-3068-92E1-3554F2BE478A> /usr/lib/dyld
+       0x18cb9c000 -        0x18cb9f1d0  libsystem_blocks.dylib (96) <F17000B3-F871-3590-B604-7C4A13EAE01C> /usr/lib/system/libsystem_blocks.dylib
+       0x18cba0000 -        0x18cbf4f7f  libxpc.dylib (3089.41.2) <8346BE50-DE08-3606-9FB6-9A352975661D> /usr/lib/system/libxpc.dylib
+       0x18cbf5000 -        0x18cc1581f  libsystem_trace.dylib (1815.40.20) <4D6C380B-736B-312F-B8E3-47E6C10DF033> /usr/lib/system/libsystem_trace.dylib
+       0x18cc16000 -        0x18ccc254f  libcorecrypto.dylib (1922.40.14) <9E80591D-F3C9-3DAA-95BB-10BB4C313A84> /usr/lib/system/libcorecrypto.dylib
+       0x18ccc3000 -        0x18cd0ebef  libsystem_malloc.dylib (792.41.1) <8A4825B5-E480-3A53-B35B-B90DCB34EE46> /usr/lib/system/libsystem_malloc.dylib
+       0x18cd0f000 -        0x18cd55e9f  libdispatch.dylib (1542.0.4) <8FB392AE-401F-399A-96AE-41531CF91162> /usr/lib/system/libdispatch.dylib
+       0x18cd56000 -        0x18cd58feb  libsystem_featureflags.dylib (101) <37F5A64F-CD19-3146-AA3D-7EED47C7B4DE> /usr/lib/system/libsystem_featureflags.dylib
+       0x18cd59000 -        0x18cddb047  libsystem_c.dylib (1725.40.4) <9F5BD98B-9367-3594-933B-16F392C2A5F8> /usr/lib/system/libsystem_c.dylib
+       0x18cddc000 -        0x18ce6ee53  libc++.1.dylib (2000.63) <B29F2164-26B0-3016-A871-82DE5A4637FF> /usr/lib/libc++.1.dylib
+       0x18ce6f000 -        0x18ce8992f  libc++abi.dylib (2000.63) <94052F7C-7016-32FF-9FEF-EEFAE55A2ADB> /usr/lib/libc++abi.dylib
+       0x18ce8a000 -        0x18cec649f  libsystem_kernel.dylib (12377.41.6) <9FE7C84D-0C2B-363F-BEE5-6FD76D67A227> /usr/lib/system/libsystem_kernel.dylib
+       0x18cec7000 -        0x18ced3abb  libsystem_pthread.dylib (539) <E95973B8-824C-361E-ADF4-390747C40897> /usr/lib/system/libsystem_pthread.dylib
+       0x18ced4000 -        0x18cedc3bf  libsystem_platform.dylib (359.40.3) <530FC11D-A495-375D-B2B9-81AE3E701781> /usr/lib/system/libsystem_platform.dylib
+       0x18cedd000 -        0x18cf0ce23  libsystem_info.dylib (600) <62637EA2-0B6F-3695-9009-7E08AD4FC2F3> /usr/lib/system/libsystem_info.dylib
+       0x18cf0d000 -        0x18d453abf  com.apple.CoreFoundation (6.9 - 4109.1.401) <3C4A3ADD-9E48-33DA-82EE-80520E6CBE3B> /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation
+       0x18d454000 -        0x18d76c67f  com.apple.LaunchServices (1141.1 - 1141.1) <DA6825F5-2792-3F79-93E4-6669C93302AA> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/LaunchServices
+       0x18d76d000 -        0x18d9506ff  com.apple.gpusw.MetalTools (1.0 - 1) <9ADCBE66-F469-3957-A1EB-8AA1FC44E0A2> /System/Library/PrivateFrameworks/MetalTools.framework/Versions/A/MetalTools
+       0x18d951000 -        0x18e12fe3f  libBLAS.dylib (1545.40.4) <E91FBDDE-6F72-3DD4-9798-97911569990A> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+       0x18e130000 -        0x18e24359f  com.apple.Lexicon-framework (1.0 - 195.1.1) <EBC14C78-2B66-3BAD-958C-94DA7580951B> /System/Library/PrivateFrameworks/Lexicon.framework/Versions/A/Lexicon
+       0x18e244000 -        0x18e3b6177  libSparse.dylib (184) <40AB6EFF-76CA-3C7E-8137-FB73E6A7EF62> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libSparse.dylib
+       0x18e3b7000 -        0x18e44a6fb  com.apple.SystemConfiguration (1.21 - 1.21) <47D1F65C-BD82-3EBC-9DD8-F063603AEBD1> /System/Library/Frameworks/SystemConfiguration.framework/Versions/A/SystemConfiguration
+       0x18e44b000 -        0x18e47ff7b  libCRFSuite.dylib (55) <1968E1F0-A71D-37F0-A406-868C3F35B3A7> /usr/lib/libCRFSuite.dylib
+       0x18e757000 -        0x18f6fa25f  com.apple.Foundation (6.9 - 4109.1.401) <00467F1F-216A-36FE-8587-C820C7E0437D> /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation
+       0x18f8b9000 -        0x18f9dc59f  com.apple.CoreDisplay (291 - 291) <01AAE03E-E6B2-3C15-AA63-8C3418313808> /System/Library/Frameworks/CoreDisplay.framework/Versions/A/CoreDisplay
+       0x18f9dd000 -        0x18fda683f  com.apple.audio.AudioToolboxCore (1.0 - 1556.224) <6D9DE1B9-DA4D-322F-92D2-653168AEAA72> /System/Library/PrivateFrameworks/AudioToolboxCore.framework/Versions/A/AudioToolboxCore
+       0x18fda7000 -        0x18ffd365f  com.apple.CoreText (877.1.0.5 - 877.1.0.5) <DB7E0880-8F10-3512-B6EF-3C35511CE208> /System/Library/Frameworks/CoreText.framework/Versions/A/CoreText
+       0x18ffd4000 -        0x1907800ff  com.apple.audio.CoreAudio (5.0 - 5.0) <7D9DBF1D-2CFE-3601-BD04-2578B26D373B> /System/Library/Frameworks/CoreAudio.framework/Versions/A/CoreAudio
+       0x190781000 -        0x190ba451f  com.apple.security (7.0 - 61901.40.77) <6B3D6DE3-E844-32F5-A83C-7A899A789479> /System/Library/Frameworks/Security.framework/Versions/A/Security
+       0x190ba5000 -        0x190e76819  libicucore.A.dylib (76142.2) <EC990BC7-956F-300A-8870-118269CB7E73> /usr/lib/libicucore.A.dylib
+       0x190e77000 -        0x190e81397  libsystem_darwin.dylib (1725.40.4) <786F353E-9012-3409-A7DF-08FB7E8C21CC> /usr/lib/system/libsystem_darwin.dylib
+       0x190e82000 -        0x19117b49f  com.apple.CoreServices.CarbonCore (1333 - 1333) <A490636C-2118-34F5-A59B-6A92EBB0E21F> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CarbonCore.framework/Versions/A/CarbonCore
+       0x19117c000 -        0x1911bc2eb  com.apple.CoreServicesInternal (505 - 505) <7F80DF91-B2EA-3548-A811-93B7C24AD314> /System/Library/PrivateFrameworks/CoreServicesInternal.framework/Versions/A/CoreServicesInternal
+       0x1911bd000 -        0x1911fcbdf  com.apple.CSStore (1141.1 - 1141.1) <B2078EBC-EC46-3FE7-8C9A-45913C2BCE00> /System/Library/PrivateFrameworks/CoreServicesStore.framework/Versions/A/CoreServicesStore
+       0x1911fd000 -        0x1912e749f  com.apple.framework.IOKit (2.0.2 - 100222.40.4) <8CAFF3D2-2986-3BFE-8AFC-F32453D63405> /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit
+       0x1912e8000 -        0x1912f9ff3  libsystem_notify.dylib (344.0.1) <24C492E0-C65F-3432-9337-90ED0C1EB2CD> /usr/lib/system/libsystem_notify.dylib
+       0x192c3e000 -        0x192c541df  com.apple.UniformTypeIdentifiers (709 - 709) <C724627F-CCF6-3451-B8B9-603942419507> /System/Library/Frameworks/UniformTypeIdentifiers.framework/Versions/A/UniformTypeIdentifiers
+       0x193130000 -        0x1932037bf  libboringssl.dylib (532.40.3) <6D01FE0C-FD6E-3CCA-B625-FEC25021FC88> /usr/lib/libboringssl.dylib
+       0x193204000 -        0x1935be1ff  com.apple.CFNetwork (1.0 - 3860.200.71) <4E62D7E8-E33E-3586-866A-5B6657B8E190> /System/Library/Frameworks/CFNetwork.framework/Versions/A/CFNetwork
+       0x1935bf000 -        0x1935d9fdb  libsystem_networkextension.dylib (2205.41.2) <6110390E-A0DB-38B4-AF8E-D6DC1F92C355> /usr/lib/system/libsystem_networkextension.dylib
+       0x1935da000 -        0x1935db067  libenergytrace.dylib (23) <C249DDA1-C624-3434-B3A3-DAD718ABF82D> /usr/lib/libenergytrace.dylib
+       0x1935dc000 -        0x19365c13f  libMobileGestalt.dylib (1462.40.2) <BB531449-19F3-37F7-BA1A-7F184C264F91> /usr/lib/libMobileGestalt.dylib
+       0x19365d000 -        0x193674ff3  libsystem_asl.dylib (404) <4B1F55B9-88E1-3B61-8A2B-B9D471D1E964> /usr/lib/system/libsystem_asl.dylib
+       0x193675000 -        0x193699be3  com.apple.TCC (1.0 - 1) <BF63FEC0-56E5-37BA-B7D4-629EA4C8114A> /System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC
+       0x19369a000 -        0x193c30adf  com.apple.SkyLight (1.600.0 - 918.21) <69392B9B-E6B1-3DC6-B47F-9E74B496ED4A> /System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight
+       0x193c31000 -        0x194385e1f  com.apple.CoreGraphics (2.0 - 1965.1.4) <A5317723-CC87-3367-B3AE-FD7B0EA01333> /System/Library/Frameworks/CoreGraphics.framework/Versions/A/CoreGraphics
+       0x194386000 -        0x194531423  com.apple.ColorSync (4.13.0 - 3813.1.2) <9FAC491A-F4D3-388B-A532-E30840D07204> /System/Library/Frameworks/ColorSync.framework/Versions/A/ColorSync
+       0x194990000 -        0x194d7acff  com.apple.CoreData (120 - 1522.1) <3D2191A3-25E2-3105-84B9-840BC6F195A0> /System/Library/Frameworks/CoreData.framework/Versions/A/CoreData
+       0x194d7b000 -        0x194d96c1f  com.apple.ProtocolBuffer (1 - 310.20.5.29.1) <AF71FAA9-C036-3B93-92BE-DD739ED9BE3A> /System/Library/PrivateFrameworks/ProtocolBuffer.framework/Versions/A/ProtocolBuffer
+       0x194d97000 -        0x194f7e3a3  libsqlite3.dylib (377) <7F64632B-A8E9-3972-A420-48FA1E13E58F> /usr/lib/libsqlite3.dylib
+       0x195020000 -        0x195110f7f  com.apple.BaseBoard (732.1.1 - 732.1.1) <5657DA44-559E-3C14-968B-68823FBBD09E> /System/Library/PrivateFrameworks/BaseBoard.framework/Versions/A/BaseBoard
+       0x195111000 -        0x19517c0ff  com.apple.RunningBoardServices (1.0 - 1008.41.1) <29C88625-CA2E-3361-BB1F-027A64B3EE5D> /System/Library/PrivateFrameworks/RunningBoardServices.framework/Versions/A/RunningBoardServices
+       0x19517d000 -        0x1951f0f7f  com.apple.AE (944 - 944) <38C70510-FC1E-386F-88EA-E24279861E9E> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/AE.framework/Versions/A/AE
+       0x1951f1000 -        0x195202507  libdns_services.dylib (2881.40.18) <441BDB38-BC28-3CE3-B820-CD1CFF317709> /usr/lib/libdns_services.dylib
+       0x195203000 -        0x19520b3a7  libsystem_symptoms.dylib (2158.40.9) <7F3D95B2-C8F6-3604-A6A4-54C8056FA9B7> /usr/lib/system/libsystem_symptoms.dylib
+       0x19520c000 -        0x1966ab95f  com.apple.Network (1.0 - 5569.41.1) <080C14DB-F00B-3DE1-8169-EA5FAF2D3DCC> /System/Library/Frameworks/Network.framework/Versions/A/Network
+       0x1966ac000 -        0x1966dbcff  com.apple.analyticsd (1.0 - 1) <BBECAAD2-812D-31E1-B4B4-2B7287FA107B> /System/Library/PrivateFrameworks/CoreAnalytics.framework/Versions/A/CoreAnalytics
+       0x1966dc000 -        0x1966dd8d3  libDiagnosticMessagesClient.dylib (113) <A684EDCB-F496-34ED-A6E3-C4567B2522C6> /usr/lib/libDiagnosticMessagesClient.dylib
+       0x1966de000 -        0x19674385f  com.apple.spotlight.metadata.utilities (1.0 - 2400.14.402) <29011FBE-C4E0-3ED1-BA86-DAA8BD1A0689> /System/Library/PrivateFrameworks/MetadataUtilities.framework/Versions/A/MetadataUtilities
+       0x196744000 -        0x1967cf9df  com.apple.Metadata (26.1 - 2400.14.402) <FD0EDE48-4C7F-3E50-BF58-4176BC9FA090> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata
+       0x1967d0000 -        0x1967d921b  com.apple.DiskArbitration (2.7 - 2.7) <A9595C0B-0F39-33C2-9D5E-CA8399BF9209> /System/Library/Frameworks/DiskArbitration.framework/Versions/A/DiskArbitration
+       0x1967da000 -        0x196c10277  com.apple.vImage (8.1 - 630) <90793C47-D770-3EAD-A12A-B1696A2B16B8> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vImage.framework/Versions/A/vImage
+       0x196c11000 -        0x19702083f  com.apple.QuartzCore (1193.39.8 - 1193.39.8) <FF6807CF-B56D-3381-9DA6-9ED9322DC720> /System/Library/Frameworks/QuartzCore.framework/Versions/A/QuartzCore
+       0x197021000 -        0x19707303f  libFontRegistry.dylib (408) <F3A65832-484D-3032-B4C8-F568F3B26FC8> /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/Resources/libFontRegistry.dylib
+       0x197340000 -        0x19734daff  com.apple.OpenDirectory (26.1 - 646) <2B800CB0-8F72-37F7-9E41-E13C0E04503E> /System/Library/Frameworks/OpenDirectory.framework/Versions/A/OpenDirectory
+       0x19734e000 -        0x19736c137  com.apple.CFOpenDirectory (26.1 - 646) <B1BB5FDF-BC86-3742-A93C-5B996403C3C7> /System/Library/Frameworks/OpenDirectory.framework/Versions/A/Frameworks/CFOpenDirectory.framework/Versions/A/CFOpenDirectory
+       0x19736d000 -        0x19737a92b  com.apple.CoreServices.FSEvents (1407.40.4 - 1407.40.4) <503B2D97-42ED-3C7F-88A7-288FB0AC14AB> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/FSEvents
+       0x19737b000 -        0x1973a40ff  com.apple.coreservices.SharedFileList (225 - 225) <6D5BB828-7586-354C-9F82-45BDC07C9E45> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/SharedFileList.framework/Versions/A/SharedFileList
+       0x1973a5000 -        0x1973a80af  libapp_launch_measurement.dylib (17) <79485CDD-25E0-33EA-B8F0-8B4FDD7B7299> /usr/lib/libapp_launch_measurement.dylib
+       0x1973a9000 -        0x1973f269f  com.apple.CoreAutoLayout (1.0 - 34) <B9F78DC7-EAE1-3751-8179-1CB287D7D5FE> /System/Library/PrivateFrameworks/CoreAutoLayout.framework/Versions/A/CoreAutoLayout
+       0x1973f3000 -        0x1974d9a8b  libxml2.2.dylib (39.8) <58752F18-46F2-3C45-97EA-039394A4A1D5> /usr/lib/libxml2.2.dylib
+       0x1974da000 -        0x19755dfff  com.apple.CoreVideo (1.8 - 726.2) <D8605842-8C6C-36D7-820D-2132D91E0C06> /System/Library/Frameworks/CoreVideo.framework/Versions/A/CoreVideo
+       0x19755e000 -        0x197560f5f  com.apple.loginsupport (3.0 - 264.1.2) <DA03718C-214A-368C-83E8-443452C6DD0E> /System/Library/PrivateFrameworks/login.framework/Versions/A/Frameworks/loginsupport.framework/Versions/A/loginsupport
+       0x19759f000 -        0x1975cb47f  com.apple.UserManagement (1.0 - 1) <4120A4DB-095C-3BA8-B4D9-14963943550A> /System/Library/PrivateFrameworks/UserManagement.framework/Versions/A/UserManagement
+       0x19916b000 -        0x1991a32bb  libsystem_containermanager.dylib (725.40.12) <4AA81635-2296-3F01-93AE-0089169C0344> /usr/lib/system/libsystem_containermanager.dylib
+       0x1991a4000 -        0x1991c03ff  com.apple.IOSurface (393.2.9 - 393.2.9) <F9206018-8E08-3F72-82BF-DFB45474B6F9> /System/Library/Frameworks/IOSurface.framework/Versions/A/IOSurface
+       0x1991c1000 -        0x1991cb01f  com.apple.IOAccelerator (486.1 - 486.1) <C72F3622-77DE-3C57-A5D8-4086DD05485F> /System/Library/PrivateFrameworks/IOAccelerator.framework/Versions/A/IOAccelerator
+       0x1991cc000 -        0x1994af67f  com.apple.Metal (370.63.7 - 370.63.7) <965CE830-CB1D-324E-B9F2-BCAFDDCA8F8A> /System/Library/Frameworks/Metal.framework/Versions/A/Metal
+       0x1994b0000 -        0x1994d8d7f  com.apple.audio.caulk (1.0 - 214) <9C791AEC-E0D3-3ACE-AC9E-E7A4D59B7762> /System/Library/PrivateFrameworks/caulk.framework/Versions/A/caulk
+       0x1994d9000 -        0x199694edf  com.apple.CoreMedia (1.0 - 3285.11.5.5) <AC29FB5D-34E8-31EE-9A2D-6F83B0B7742F> /System/Library/Frameworks/CoreMedia.framework/Versions/A/CoreMedia
+       0x199695000 -        0x199966a7f  libFontParser.dylib (435.1.0.5) <BE241BEE-F200-3C60-8057-C4662B08C476> /System/Library/PrivateFrameworks/FontServices.framework/libFontParser.dylib
+       0x199cc3000 -        0x19a00939f  com.apple.ImageIO (3.3.0 - 2784.1.2) <C982696A-C2F5-3BFF-BAEC-1B4A455CC168> /System/Library/Frameworks/ImageIO.framework/Versions/A/ImageIO
+       0x19a00a000 -        0x19a5017bf  com.apple.CoreImage (19.0.0 - 1592.40.6) <06E9CCEF-CFCC-3D51-A918-277BB2B17010> /System/Library/Frameworks/CoreImage.framework/Versions/A/CoreImage
+       0x19a502000 -        0x19a5b417f  com.apple.MetalPerformanceShaders.MPSCore (1.0 - 1) <F0D23008-7B19-3E0D-A995-E4CE7A1E6B8D> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSCore.framework/Versions/A/MPSCore
+       0x19a5b5000 -        0x19a5b966f  libsystem_configuration.dylib (1385.40.9) <ED3639AF-44FD-37EE-8B7F-1A840E23D5AD> /usr/lib/system/libsystem_configuration.dylib
+       0x19a5ba000 -        0x19a5c06a7  libsystem_sandbox.dylib (2680.41.1) <D3C3FE0A-BFEE-34D2-B3F6-3C7B6A4407CE> /usr/lib/system/libsystem_sandbox.dylib
+       0x19a5c1000 -        0x19a5c217f  com.apple.AggregateDictionary (1.0 - 1) <94DCA867-3A96-3992-AD99-39F166963A61> /System/Library/PrivateFrameworks/AggregateDictionary.framework/Versions/A/AggregateDictionary
+       0x19a5c3000 -        0x19a5c727f  com.apple.AppleSystemInfo (3.1.5 - 3.1.5) <335D8692-2D33-3D9F-909A-A9F22780C3EE> /System/Library/PrivateFrameworks/AppleSystemInfo.framework/Versions/A/AppleSystemInfo
+       0x19a5c8000 -        0x19a5c944f  liblangid.dylib (140) <82D42015-F60D-301D-9161-9A46BABBA72A> /usr/lib/liblangid.dylib
+       0x19a5ca000 -        0x19a6eb93f  com.apple.CoreNLP (1.0 - 313) <24A5B145-296A-3981-A8FA-5F4D986E1DA8> /System/Library/PrivateFrameworks/CoreNLP.framework/Versions/A/CoreNLP
+       0x19a6ec000 -        0x19a6f29df  com.apple.LinguisticData (1.0 - 483.10) <2CD2570F-0165-3F24-9A94-921FF26A0983> /System/Library/PrivateFrameworks/LinguisticData.framework/Versions/A/LinguisticData
+       0x19a6f3000 -        0x19b6da1eb  libBNNS.dylib (1860.40.2) <07F54FCE-FE04-3C70-95BD-CEDB0CA0EC00> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBNNS.dylib
+       0x19b6db000 -        0x19b7f5e57  libvDSP.dylib (1123.40.1) <EF7E5365-C436-3EF1-A6E9-0577CE4BC5B3> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvDSP.dylib
+       0x19b82c000 -        0x19b83d41b  com.apple.IOMobileFramebuffer (343.0.0 - 343.0.0) <53C87EEA-ECCE-3470-AB1E-6DCC3B8FE7C3> /System/Library/PrivateFrameworks/IOMobileFramebuffer.framework/Versions/A/IOMobileFramebuffer
+       0x19ba3d000 -        0x19ba5489f  com.apple.MobileKeyBag (2.0 - 1.0) <BA0A2FC6-F4AB-3F48-817D-85F1DF800D6E> /System/Library/PrivateFrameworks/MobileKeyBag.framework/Versions/A/MobileKeyBag
+       0x19ba55000 -        0x19ba6319f  com.apple.AssertionServices (1.0 - 1008.41.1) <88A3DF00-8BBB-3623-A4D4-71402193977C> /System/Library/PrivateFrameworks/AssertionServices.framework/Versions/A/AssertionServices
+       0x19ba64000 -        0x19baf6ebf  com.apple.securityfoundation (6.0 - 55293) <EE7A1B0A-DB27-3978-90A1-C39A51089014> /System/Library/Frameworks/SecurityFoundation.framework/Versions/A/SecurityFoundation
+       0x19baf7000 -        0x19bb28bff  com.apple.coreservices.BackgroundTaskManagement (1.0 - 104) <73364944-8355-331D-AA6B-6D476FA50063> /System/Library/PrivateFrameworks/BackgroundTaskManagement.framework/Versions/A/BackgroundTaskManagement
+       0x19bb34000 -        0x19bb371fb  libquarantine.dylib (196.40.3) <76BD9E76-E9B4-3D8F-9675-51A86391C86F> /usr/lib/system/libquarantine.dylib
+       0x19bb38000 -        0x19bb43323  libCheckFix.dylib (33) <54AB9095-4444-37A5-80BF-0046B4D80646> /usr/lib/libCheckFix.dylib
+       0x19bb44000 -        0x19bb5b50f  libcoretls.dylib (186) <8960A647-48D8-3EF1-B2D8-E8005AF3A993> /usr/lib/libcoretls.dylib
+       0x19bb5c000 -        0x19bb6d2eb  libbsm.0.dylib (90) <1B563B2B-BEEF-3505-962F-1CE50F6E8A9F> /usr/lib/libbsm.0.dylib
+       0x19bb6e000 -        0x19bbcee7b  libmecab.dylib (1121) <F21E95C1-4399-32AE-91F0-1B9A5076486F> /usr/lib/libmecab.dylib
+       0x19bbcf000 -        0x19bbd143b  libgermantok.dylib (31) <127A70BD-CE43-36A5-8028-E049F7537BA6> /usr/lib/libgermantok.dylib
+       0x19bbd2000 -        0x19bbe647f  libLinearAlgebra.dylib (1545.40.4) <51DF16E2-E13B-344C-BF81-824E147F3B86> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLinearAlgebra.dylib
+       0x19bbe7000 -        0x19be33adf  com.apple.MetalPerformanceShaders.MPSNeuralNetwork (1.0 - 1) <9ACEA1FF-22E9-3C15-8D35-A1856BFFD05C> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSNeuralNetwork.framework/Versions/A/MPSNeuralNetwork
+       0x19be34000 -        0x19be8867f  com.apple.MetalPerformanceShaders.MPSRayIntersector (1.0 - 1) <A0A4B94B-426C-3C59-87D8-C78674EA2B73> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSRayIntersector.framework/Versions/A/MPSRayIntersector
+       0x19c01f000 -        0x19c05041f  com.apple.MetalPerformanceShaders.MPSMatrix (1.0 - 1) <6D5B7A57-6226-36EE-A381-AC7ED74FC692> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSMatrix.framework/Versions/A/MPSMatrix
+       0x19c051000 -        0x19c20835f  com.apple.MetalPerformanceShaders.MPSNDArray (1.0 - 1) <3166E394-54D7-3253-AF81-8673A7A35E44> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSNDArray.framework/Versions/A/MPSNDArray
+       0x19c209000 -        0x19c29d79f  com.apple.MetalPerformanceShaders.MPSImage (1.0 - 1) <51EDCC2C-CE81-3750-A798-51E95FCE60FC> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSImage.framework/Versions/A/MPSImage
+       0x19c29e000 -        0x19c2a9343  com.apple.AppleFSCompression (174 - 1.0) <D36E0223-91AF-34A4-96F7-5747AD20248D> /System/Library/PrivateFrameworks/AppleFSCompression.framework/Versions/A/AppleFSCompression
+       0x19c2aa000 -        0x19c2b6983  libbz2.1.0.dylib (47) <F4AEA484-E7FC-339C-9A2F-5FCFD5FDE820> /usr/lib/libbz2.1.0.dylib
+       0x19c2b7000 -        0x19c2bdf4f  libsystem_coreservices.dylib (191.1.2.200) <1617C3D3-68FD-3970-BCFF-A623344E510E> /usr/lib/system/libsystem_coreservices.dylib
+       0x19c2be000 -        0x19c2f02bf  com.apple.CoreServices.OSServices (1141.1 - 1141.1) <661C2914-38BC-356E-8B46-D024E45144EE> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/OSServices
+       0x19c7e8000 -        0x19c7f718f  libz.1.dylib (100) <96D76EC3-6D14-340D-BDAD-2FEDF76D8728> /usr/lib/libz.1.dylib
+       0x19c7f8000 -        0x19c8358b7  libsystem_m.dylib (3309) <219BCAAB-9FBB-3DAD-8B02-EF30D40BF21A> /usr/lib/system/libsystem_m.dylib
+       0x19c836000 -        0x19c836c9b  libcharset.1.dylib (113) <E33651B7-3FB5-3755-A21F-4D32986EA00D> /usr/lib/libcharset.1.dylib
+       0x19c837000 -        0x19c83a537  libmacho.dylib (1030.6.3) <02B180AE-8EB8-3D0A-A088-8B7751BD6B5D> /usr/lib/system/libmacho.dylib
+       0x19c83b000 -        0x19c853dfb  libkxld.dylib (12377.41.6) <51F58EEA-449A-3BFC-B019-7194BC7C2206> /usr/lib/system/libkxld.dylib
+       0x19c854000 -        0x19c86162f  libcommonCrypto.dylib (600035) <1C618B53-3317-3D31-A19D-94E2142BC0BA> /usr/lib/system/libcommonCrypto.dylib
+       0x19c862000 -        0x19c86bb0b  libunwind.dylib (1900.125) <4A2DAFEF-0FC7-3CBD-9A8D-A6D2ED8EF115> /usr/lib/system/libunwind.dylib
+       0x19c86c000 -        0x19c873319  liboah.dylib (365.3) <033B4378-3705-3580-8FB1-8DB5688DE702> /usr/lib/liboah.dylib
+       0x19c874000 -        0x19c87e6ff  libcopyfile.dylib (230.0.1.0.1) <6490C0C2-9700-3F37-A413-58B5E1FF285E> /usr/lib/system/libcopyfile.dylib
+       0x19c87f000 -        0x19c88295f  libcompiler_rt.dylib (103.3) <3BA72D71-990F-3911-87B3-50F0EA714198> /usr/lib/system/libcompiler_rt.dylib
+       0x19c883000 -        0x19c887a1b  libsystem_collections.dylib (1725.40.4) <669A1A2D-8694-3E02-B154-D970AFC2CE31> /usr/lib/system/libsystem_collections.dylib
+       0x19c888000 -        0x19c88b4bf  libsystem_secinit.dylib (168.40.2) <EB462CEE-C06C-3E1D-8817-ACC597C4C995> /usr/lib/system/libsystem_secinit.dylib
+       0x19c88c000 -        0x19c88eb57  libremovefile.dylib (84) <6F90FCF4-6046-33C5-A583-19620A6E226E> /usr/lib/system/libremovefile.dylib
+       0x19c88f000 -        0x19c88ff27  libkeymgr.dylib (31) <413ACA7C-28E4-3BF2-8535-2A3F3F9BCBAC> /usr/lib/system/libkeymgr.dylib
+       0x19c890000 -        0x19c898f87  libsystem_dnssd.dylib (2881.40.18) <C034FE5E-54C1-3D7C-BF3F-86F87908763F> /usr/lib/system/libsystem_dnssd.dylib
+       0x19c899000 -        0x19c89e0b3  libcache.dylib (95) <5A47A904-437B-3455-8117-E7C5D72F08F2> /usr/lib/system/libcache.dylib
+       0x19c89f000 -        0x19c8a0cf3  libSystem.B.dylib (1356) <AE3A4D1A-7CE2-360E-920A-4B1223336609> /usr/lib/libSystem.B.dylib
+       0x19c8a1000 -        0x19c8a303f  libfakelink.dylib (5) <7FA2724C-8F1E-3E4B-BE09-7EA0A430CD1E> /usr/lib/libfakelink.dylib
+       0x19c8a4000 -        0x19c8a4a63  com.apple.SoftLinking (1.0 - 67) <53542FED-19DB-309F-A9A5-4552CDBA6EEC> /System/Library/PrivateFrameworks/SoftLinking.framework/Versions/A/SoftLinking
+       0x19c8da000 -        0x19c8e11bb  libiconv.2.dylib (113) <7541D544-E3F4-3B3D-8195-B2BEA6C91A25> /usr/lib/libiconv.2.dylib
+       0x19c8f5000 -        0x19c9ec89f  libarchive.2.dylib (160) <D699E770-81CC-3ABD-81B3-177B91824E00> /usr/lib/libarchive.2.dylib
+       0x19c9ed000 -        0x19ca547cf  com.apple.SearchKit (1.4.2 - 1.4.2) <434C643E-BECF-3F1C-BDF4-359E093BF372> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/SearchKit.framework/Versions/A/SearchKit
+       0x19ca55000 -        0x19ca5d0ff  libThaiTokenizer.dylib (28) <180291E8-1020-318B-8573-EACE3F498839> /usr/lib/libThaiTokenizer.dylib
+       0x19ca5e000 -        0x19ca81a87  com.apple.applesauce (1.0 - 17.1) <E0012BDE-7E3F-3D53-AF5C-67EE3DA235A7> /System/Library/PrivateFrameworks/AppleSauce.framework/Versions/A/AppleSauce
+       0x19ca82000 -        0x19ca9a22b  libapple_nghttp2.dylib (35) <3AF96423-A065-3515-A31F-A879DDA2A38C> /usr/lib/libapple_nghttp2.dylib
+       0x19ca9b000 -        0x19cac1abf  libSparseBLAS.dylib (1545.40.4) <6AB0764D-8123-3DCB-82FC-8CAFE3B02B19> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libSparseBLAS.dylib
+       0x19cac2000 -        0x19cac359f  com.apple.MetalPerformanceShaders.MetalPerformanceShaders (1.0 - 1) <1B9506BB-737F-373C-A3C1-2FCBD1939C97> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/MetalPerformanceShaders
+       0x19cac4000 -        0x19caca02f  libpam.2.dylib (35) <38E4EB6B-D057-3027-B79C-6F3A2237928D> /usr/lib/libpam.2.dylib
+       0x19cacb000 -        0x19cb9c14f  libcompression.dylib (190.40.2) <087A4268-B3AD-3E61-A00A-611FAFCC11DC> /usr/lib/libcompression.dylib
+       0x19cb9d000 -        0x19cba11f7  libQuadrature.dylib (8) <DEEBF5DB-B59D-3562-896D-55070747D0C3> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libQuadrature.dylib
+       0x19cba2000 -        0x19de0d29f  libLAPACK.dylib (1545.40.4) <29529E90-3B1A-3C98-A830-40918714E27E> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libLAPACK.dylib
+       0x19de0e000 -        0x19de6575f  com.apple.DictionaryServices (1.2 - 373) <F8088116-CA85-32A4-A89E-7816FADC02DF> /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/DictionaryServices.framework/Versions/A/DictionaryServices
+       0x19de66000 -        0x19de8488f  liblzma.5.dylib (21) <A66E4146-CAB1-30AB-B09A-C90B882ECE8C> /usr/lib/liblzma.5.dylib
+       0x19de85000 -        0x19de86867  libcoretls_cfhelpers.dylib (186) <D6F77E8C-5F41-3614-975D-844A2E82B8E2> /usr/lib/libcoretls_cfhelpers.dylib
+       0x19de87000 -        0x19def6d23  com.apple.APFS (2632.40.15 - 2632.40.15) <B5F5BD14-A3E7-399C-9D67-373619376A62> /System/Library/PrivateFrameworks/APFS.framework/Versions/A/APFS
+       0x19def7000 -        0x19df0565b  libxar.1.dylib (501) <59F38F47-1D3E-3AE0-AD48-C417C173E31D> /usr/lib/libxar.1.dylib
+       0x19df06000 -        0x19df098bb  libutil.dylib (73) <9F06C7EB-3218-3C72-9720-90CA8BEC8AB3> /usr/lib/libutil.dylib
+       0x19df0a000 -        0x19df34e37  libxslt.1.dylib (21.13) <DB037E59-6D27-3DF9-8381-FAF112A7A63F> /usr/lib/libxslt.1.dylib
+       0x19df3d000 -        0x19dfb70e7  libvMisc.dylib (1123.40.1) <20F41F1B-D479-3601-8079-AB2377CA6A26> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libvMisc.dylib
+       0x19dfb8000 -        0x19e0484ff  libate.dylib (3.0.9) <EECA7EC0-E2E9-3D91-BD8C-3846EF28B76F> /usr/lib/libate.dylib
+       0x19e052000 -        0x19e06549f  com.apple.CrashReporterSupport (10.13 - 15138) <5095D1A9-4507-306B-8798-9C9E37ADB12A> /System/Library/PrivateFrameworks/CrashReporterSupport.framework/Versions/A/CrashReporterSupport
+       0x19e1a9000 -        0x19e1ea81f  com.apple.pluginkit.framework (1.0 - 1) <8AD1DB45-4267-3F98-9B48-74EC63DF17D3> /System/Library/PrivateFrameworks/PlugInKit.framework/Versions/A/PlugInKit
+       0x19e261000 -        0x19e2a9ee7  com.apple.AppleVAFramework (6.2.10 - 6.2.10) <BEE48D72-690C-3E1C-B958-659E7FEEA5FE> /System/Library/PrivateFrameworks/AppleVA.framework/Versions/A/AppleVA
+       0x19e2aa000 -        0x19e2c4277  libexpat.1.dylib (43) <850FB22F-BB06-316B-B5F4-FCD1C0385184> /usr/lib/libexpat.1.dylib
+       0x19e2c5000 -        0x19e2cebab  libheimdal-asn1.dylib (710.0.1) <2254AF89-397E-3A32-B432-5CC648F9AA82> /usr/lib/libheimdal-asn1.dylib
+       0x19e3ec000 -        0x19e4ae5df  com.apple.MediaExperience (1.0 - 1) <9D344825-1ED8-36D0-88ED-DAF41EB49E45> /System/Library/PrivateFrameworks/MediaExperience.framework/Versions/A/MediaExperience
+       0x19e4db000 -        0x19e4ea7bf  com.apple.GraphVisualizer (1.0 - 307) <425BA5C2-843B-3D9A-AB5A-A5B35FAF9E93> /System/Library/PrivateFrameworks/GraphVisualizer.framework/Versions/A/GraphVisualizer
+       0x19e4eb000 -        0x19e52b4bf  com.apple.OTSVG (1.0 - 877.1.0.5) <F218F532-1A5F-3502-91B4-46FC986B4A99> /System/Library/PrivateFrameworks/OTSVG.framework/Versions/A/OTSVG
+       0x19e52c000 -        0x19e538c5f  com.apple.xpc.AppServerSupport (1.0 - 3089.41.2) <50CF5270-1B74-322F-992D-791755E886B7> /System/Library/PrivateFrameworks/AppServerSupport.framework/Versions/A/AppServerSupport
+       0x19e539000 -        0x19e53fbdf  libspindump.dylib (411) <8477F020-2FE1-3692-BE13-AB175D110009> /usr/lib/libspindump.dylib
+       0x19e540000 -        0x19e600f3f  com.apple.Heimdal (4.0 - 2.0) <5C9570C8-B3E9-3D9D-822F-F170F5E5833E> /System/Library/PrivateFrameworks/Heimdal.framework/Versions/A/Heimdal
+       0x19e8b9000 -        0x19e8fdda7  com.apple.AppleJPEG (1.0 - 1) <8D15A903-5D42-3F1C-987C-25DEED811C68> /System/Library/PrivateFrameworks/AppleJPEG.framework/Versions/A/AppleJPEG
+       0x19e8fe000 -        0x19e9ee597  libJP2.dylib (2784.1.2) <F79D716F-87AA-3134-86D4-661F1187BED1> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libJP2.dylib
+       0x19e9ef000 -        0x19e9f0e37  com.apple.WatchdogClient.framework (1.0 - 322.0.6) <ED764086-5BD9-37B6-9610-66A722C6450D> /System/Library/PrivateFrameworks/WatchdogClient.framework/Versions/A/WatchdogClient
+       0x19e9f1000 -        0x19ea36c5f  com.apple.MultitouchSupport.framework (9410.2 - 9410.2) <81026C7C-A025-329D-9524-DF7763BC32EC> /System/Library/PrivateFrameworks/MultitouchSupport.framework/Versions/A/MultitouchSupport
+       0x19ea37000 -        0x19efac59f  com.apple.VideoToolbox (1.0 - 3285.11.5.5) <A928E36D-60FB-3FCA-873F-C6E41E62D149> /System/Library/Frameworks/VideoToolbox.framework/Versions/A/VideoToolbox
+       0x19efad000 -        0x19efd26b7  libAudioToolboxUtility.dylib (1556.224) <61A9EA71-B517-3E24-81FA-F2D3BC41A273> /usr/lib/libAudioToolboxUtility.dylib
+       0x19efd3000 -        0x19effe077  libPng.dylib (2784.1.2) <0EAC3272-2F27-3160-A274-1C9FDD88C213> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libPng.dylib
+       0x19efff000 -        0x19f060c67  libTIFF.dylib (2784.1.2) <0EC34ADE-6CF6-33D4-8F67-19B71A52D532> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libTIFF.dylib
+       0x19f061000 -        0x19f080d2b  com.apple.IOPresentment (67 - 67) <3E038AAD-291A-3008-BDBF-B12AF9B962A3> /System/Library/PrivateFrameworks/IOPresentment.framework/Versions/A/IOPresentment
+       0x19f081000 -        0x19f0857fb  com.apple.GPUWrangler (8.1.11 - 8.1.11) <CAAA7B77-0B26-3821-B625-337A2F39A399> /System/Library/PrivateFrameworks/GPUWrangler.framework/Versions/A/GPUWrangler
+       0x19f086000 -        0x19f08894b  libRadiance.dylib (2784.1.2) <C053ED4B-281B-335D-A122-914261BD4897> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libRadiance.dylib
+       0x19f089000 -        0x19f08e653  com.apple.DSExternalDisplay (3.1 - 380) <0428C2BB-AF50-34ED-B99F-38F359D24B09> /System/Library/PrivateFrameworks/DSExternalDisplay.framework/Versions/A/DSExternalDisplay
+       0x19f08f000 -        0x19f0ba0ff  libJPEG.dylib (2784.1.2) <A83A5FA2-61DD-3B48-B044-D109EE69B0F9> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libJPEG.dylib
+       0x19f0e9000 -        0x19f0eea5b  libGIF.dylib (2784.1.2) <BBE93996-59B8-3D42-A31B-45BBAE0F16DD> /System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libGIF.dylib
+       0x19f0ef000 -        0x19f0ff19f  com.apple.CMCaptureCore (1.0 - 664.40.19) <979CEBDF-2545-3F1F-9F37-AFD7587D4658> /System/Library/PrivateFrameworks/CMCaptureCore.framework/Versions/A/CMCaptureCore
+       0x1a009f000 -        0x1a010e04f  libusrtcp.dylib (5569.41.1) <A5ACF1F5-B80D-399E-9EA3-3E6A214C1548> /usr/lib/libusrtcp.dylib
+       0x1a010f000 -        0x1a069d15f  libswiftCore.dylib (6.2.1 - 6.2.1.4.7) <9391DC96-6ABF-38C1-B3BB-0B5D2EC1AD84> /usr/lib/swift/libswiftCore.dylib
+       0x1a0750000 -        0x1a07a6dbf  libSessionUtility.dylib (398.209) <A6A1EF37-BCAD-3901-916E-5CAB75B63C16> /System/Library/PrivateFrameworks/AudioSession.framework/libSessionUtility.dylib
+       0x1a07a7000 -        0x1a0980d5f  com.apple.audio.toolbox.AudioToolbox (1.14 - 1.14) <DD1E66D4-9C23-33C9-A5CA-87E623627D83> /System/Library/Frameworks/AudioToolbox.framework/Versions/A/AudioToolbox
+       0x1a0981000 -        0x1a09ff09f  com.apple.audio.AudioSession (1.0 - 398.209) <2C69BF32-2BBE-3E1C-A2FF-C83E3EB9B7FB> /System/Library/PrivateFrameworks/AudioSession.framework/Versions/A/AudioSession
+       0x1a0a00000 -        0x1a0a18b1f  libAudioStatistics.dylib (262.202) <A0637A15-A631-3AF9-BDFE-F581E2D4E8E2> /usr/lib/libAudioStatistics.dylib
+       0x1a0a8f000 -        0x1a0aab0a3  libresolv.9.dylib (93) <1F97F470-B515-37B8-A207-B5E7C06A5F21> /usr/lib/libresolv.9.dylib
+       0x1a0aac000 -        0x1a0abe7d7  libsasl2.2.dylib (215) <3FAC6541-BC71-3FEB-BD2F-283BB85290B8> /usr/lib/libsasl2.2.dylib
+       0x1a0cb6000 -        0x1a0d96a0f  libSMC.dylib (38) <C2FDE484-481B-30B8-AECF-221AEA986081> /usr/lib/libSMC.dylib
+       0x1a0df6000 -        0x1a0e02a17  com.apple.NetAuth (6.2 - 6.2) <3DCEC773-D297-39C4-A744-1945F96E7324> /System/Library/PrivateFrameworks/NetAuth.framework/Versions/A/NetAuth
+       0x1a0e11000 -        0x1a0e1e47f  com.apple.perfdata (1.0 - 122) <526AB2FB-96E5-379F-A026-E4AE58AD4F28> /System/Library/PrivateFrameworks/perfdata.framework/Versions/A/perfdata
+       0x1a0e1f000 -        0x1a0e2cd9f  libperfcheck.dylib (46) <2D81DB5B-F2EF-3F4E-9E64-64FB59C65EA6> /usr/lib/libperfcheck.dylib
+       0x1a0e2d000 -        0x1a0e3e1c7  com.apple.Kerberos (3.0 - 1) <9C8BB33A-6A75-3274-84D9-A63F69CE64DF> /System/Library/Frameworks/Kerberos.framework/Versions/A/Kerberos
+       0x1a0e3f000 -        0x1a0e90aaf  com.apple.GSS (4.0 - 2.0) <DE365C71-97CA-33A1-A2FA-2FC9782E5F8E> /System/Library/Frameworks/GSS.framework/Versions/A/GSS
+       0x1a0e91000 -        0x1a0ea1da7  com.apple.CommonAuth (4.0 - 2.0) <25C88FBA-DCC0-3E64-B131-CD91B2CED8E5> /System/Library/PrivateFrameworks/CommonAuth.framework/Versions/A/CommonAuth
+       0x1a0ea2000 -        0x1a0f7d01f  com.apple.MobileAssets (1.0 - 1837.41.1) <A0E445DB-E0C0-3D87-8A2D-1E77CCFBAF1D> /System/Library/PrivateFrameworks/MobileAsset.framework/Versions/A/MobileAsset
+       0x1a100f000 -        0x1a101e090  com.apple.CorePhoneNumbers (1.0 - 1) <6FF080C2-76C2-341F-87AA-C44F0B3F4A01> /System/Library/PrivateFrameworks/CorePhoneNumbers.framework/Versions/A/CorePhoneNumbers
+       0x1a2937000 -        0x1a2a2d02f  com.apple.combine (1.0 - 3023) <5DEEE230-E4EE-3B90-BEE1-5BD9EA84D746> /System/Library/Frameworks/Combine.framework/Versions/A/Combine
+       0x1a4c07000 -        0x1a4c0786f  com.apple.Accelerate.vecLib (3.11 - vecLib 3.11) <5EE4ABB0-2CB0-332F-AB27-26708CE5DB01> /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/vecLib
+       0x1a4c2d000 -        0x1a4c2d98f  com.apple.CoreServices (1226 - 1226) <0989E498-5602-3197-AB05-CFD4B393DD9E> /System/Library/Frameworks/CoreServices.framework/Versions/A/CoreServices
+       0x1a4ea4000 -        0x1a4ea4417  com.apple.Accelerate (1.11 - Accelerate 1.11) <9E24B034-8982-3D22-8A16-57483C19A00A> /System/Library/Frameworks/Accelerate.framework/Versions/A/Accelerate
+       0x1a5d3a000 -        0x1a5d4983f  com.apple.SymptomDiagnosticReporter (1.0 - 411.40.4) <16FD9351-E17C-3BFC-ABEF-CE04EA15DDD0> /System/Library/PrivateFrameworks/SymptomDiagnosticReporter.framework/Versions/A/SymptomDiagnosticReporter
+       0x1a5d4a000 -        0x1a5d79e1f  com.apple.PowerLog (1.0 - 1) <E46C25BD-38C7-3FEE-ADCE-A9747E561EEE> /System/Library/PrivateFrameworks/PowerLog.framework/Versions/A/PowerLog
+       0x1a5d87000 -        0x1a5e3b39f  com.apple.DiscRecording (9.0.3 - 9030.4.5) <0FF1EC0A-F357-3D4D-8291-10A48E7C0D1F> /System/Library/Frameworks/DiscRecording.framework/Versions/A/DiscRecording
+       0x1a5e3c000 -        0x1a5e6d28f  com.apple.MediaKit (16 - 938) <51759D62-0C7C-35D0-9C43-9ED9C0D8D53F> /System/Library/PrivateFrameworks/MediaKit.framework/Versions/A/MediaKit
+       0x1a6929000 -        0x1a693ff70  libswiftDispatch.dylib (56) <B64A7A28-7DDD-3CD1-8AFD-170BE0E0BCB8> /usr/lib/swift/libswiftDispatch.dylib
+       0x1a6c8c000 -        0x1a6d18cdf  com.apple.BoardServices (1.0 - 732.1.1) <4D0B6D04-27A2-3601-B090-FA53A58B3054> /System/Library/PrivateFrameworks/BoardServices.framework/Versions/A/BoardServices
+       0x1a6d59000 -        0x1a6d6651f  com.apple.GraphicsServices (1.0 - 1.0) <CC423E1C-5CBE-3839-A314-BF1F04C5BF6A> /System/Library/PrivateFrameworks/GraphicsServices.framework/Versions/A/GraphicsServices
+       0x1a706e000 -        0x1a7090781  com.apple.DebugSymbols (216 - 217) <C17B2D61-19A5-3A2A-91A3-4328F215FE19> /System/Library/PrivateFrameworks/DebugSymbols.framework/Versions/A/DebugSymbols
+       0x1a7091000 -        0x1a71a7b13  com.apple.CoreSymbolication (16.0 - 64572.108.2) <533A1720-608A-32C5-868D-E3BA6BD4D762> /System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/A/CoreSymbolication
+       0x1a71a8000 -        0x1a71b22ff  com.apple.CoreTime (334.0.16 - 334.0.16) <4902968D-E23B-3A1A-AF4A-64AFFBF77DFC> /System/Library/PrivateFrameworks/CoreTime.framework/Versions/A/CoreTime
+       0x1a8a45000 -        0x1a8ab61df  com.apple.BackBoardServices (1.0 - 1.0) <BADFDAE0-F0C1-3B38-98C0-81814F70EED0> /System/Library/PrivateFrameworks/BackBoardServices.framework/Versions/A/BackBoardServices
+       0x1a8ab7000 -        0x1a8af2a7f  com.apple.LDAPFramework (2.4.28 - 194.5) <CCAC71B5-3D29-3FF6-94C5-3E36E7580494> /System/Library/Frameworks/LDAP.framework/Versions/A/LDAP
+       0x1a8af3000 -        0x1a8af47a7  com.apple.TrustEvaluationAgent (2.0 - 38) <6936827E-C4F8-311B-8392-2DCC66F69EE1> /System/Library/PrivateFrameworks/TrustEvaluationAgent.framework/Versions/A/TrustEvaluationAgent
+       0x1a8c21000 -        0x1a8cdebff  com.apple.DiskImagesFramework (680 - 680) <31B6E20E-92A5-3284-BA50-C4136E772655> /System/Library/PrivateFrameworks/DiskImages.framework/Versions/A/DiskImages
+       0x1a8d1f000 -        0x1a8d35e3f  com.apple.RemoteServiceDiscovery (1.0 - 202.40.12) <3D7DAE11-4705-320D-B9DA-740D6ED35813> /System/Library/PrivateFrameworks/RemoteServiceDiscovery.framework/Versions/A/RemoteServiceDiscovery
+       0x1a8d36000 -        0x1a8d4cc7f  com.apple.xpc.RemoteXPC (1.0 - 3089.41.2) <F4C54FC2-C814-3CC3-AB43-AD64B06C3F61> /System/Library/PrivateFrameworks/RemoteXPC.framework/Versions/A/RemoteXPC
+       0x1a8de1000 -        0x1a8e6225f  libcurl.4.dylib (160) <9ABAD9DB-103B-3B3C-948A-2D93641187A4> /usr/lib/libcurl.4.dylib
+       0x1a8e69000 -        0x1a8eac3bf  com.apple.AppSupport (1.0.0 - 29) <A08653B8-1BEA-3E29-8735-7F649804DADD> /System/Library/PrivateFrameworks/AppSupport.framework/Versions/A/AppSupport
+       0x1a9180000 -        0x1a9182f3f  com.apple.InternationalTextSearch (1.0 - 1) <C4D00D32-87D8-3711-88B2-4CDB118624D1> /System/Library/PrivateFrameworks/InternationalTextSearch.framework/Versions/A/InternationalTextSearch
+       0x1a9730000 -        0x1a97303f7  libHeimdalProxy.dylib (88) <4A480EDB-587C-3051-B29D-25C138C87BE0> /System/Library/Frameworks/Kerberos.framework/Versions/A/Libraries/libHeimdalProxy.dylib
+       0x1a975b000 -        0x1a9779c3f  com.apple.StreamingZip (1.0 - 1) <7343F2FC-D040-320D-AF42-7E42AFB707FA> /System/Library/PrivateFrameworks/StreamingZip.framework/Versions/A/StreamingZip
+       0x1a97cd000 -        0x1a97d05fd  libswiftObjectiveC.dylib (951.1) <9855E747-5AA2-353A-B20D-C75EBED7D6C6> /usr/lib/swift/libswiftObjectiveC.dylib
+       0x1a97d1000 -        0x1a97ee29f  libswiftos.dylib (1076.40.2) <15E2EAD7-82D8-36DE-80FF-5415A86E7CC1> /usr/lib/swift/libswiftos.dylib
+       0x1aa77f000 -        0x1aa80de3f  com.apple.proactive.support.ProactiveSupport (1.0 - 415.1) <C6705C04-A120-3B4E-A77C-50AADF61FF79> /System/Library/PrivateFrameworks/ProactiveSupport.framework/Versions/A/ProactiveSupport
+       0x1aa90b000 -        0x1aa945cbf  com.apple.ASEProcessing (1.50.3 - 1.50.3) <D28FA9B4-CC52-3DC1-9A76-9370A29C8893> /System/Library/PrivateFrameworks/ASEProcessing.framework/Versions/A/ASEProcessing
+       0x1abb2a000 -        0x1abbf725f  com.apple.audio.midi.CoreMIDI (2.0 - 88) <A1C1B28F-B788-34A7-B4B7-F83480E1D373> /System/Library/Frameworks/CoreMIDI.framework/Versions/A/CoreMIDI
+       0x1ac78a000 -        0x1ac78e4e7  com.apple.IOSurfaceAccelerator (1.0.0 - 1.0.0) <03A7FB8A-1045-315A-B83A-105BE8BD15C4> /System/Library/PrivateFrameworks/IOSurfaceAccelerator.framework/Versions/A/IOSurfaceAccelerator
+       0x1b1591000 -        0x1b15a3e5f  com.apple.HID (1.0 - 1) <CF9685AD-69A4-3C57-8E97-CB29D83310B4> /System/Library/PrivateFrameworks/HID.framework/Versions/A/HID
+       0x1b5d65000 -        0x1b5d7471f  com.apple.NetFS (6.0 - 4.0) <84A16DE7-CEA9-30F1-8517-6A8CCE39E5FD> /System/Library/Frameworks/NetFS.framework/Versions/A/NetFS
+       0x1b62a2000 -        0x1b62a4a9f  libswiftDarwin.dylib (347.40.2) <2488FC97-1CC0-3005-AA6C-AA4D75C5BD2E> /usr/lib/swift/libswiftDarwin.dylib
+       0x1b81cf000 -        0x1b82c1b9f  libquic.dylib (5569.41.1) <F281D44E-467B-347D-BC20-A1A4C197D34B> /usr/lib/libquic.dylib
+       0x1b82cd000 -        0x1b82f565f  com.apple.private.SystemPolicy (1.0 - 1) <57F744F0-78CE-347F-9191-0A70BFF42C34> /System/Library/PrivateFrameworks/SystemPolicy.framework/Versions/A/SystemPolicy
+       0x1b91c5000 -        0x1b9251bff  com.apple.LoggingSupport (1.0 - 1815.40.20) <2CEDB51B-862A-3C9C-8FD0-530CDDEFC4F5> /System/Library/PrivateFrameworks/LoggingSupport.framework/Versions/A/LoggingSupport
+       0x1b9252000 -        0x1b925ea4b  com.apple.MallocStackLogging (1.0 - 64572.149.1) <181A2257-78A0-3BA7-AFF7-CA7313C2E732> /System/Library/PrivateFrameworks/MallocStackLogging.framework/Versions/A/MallocStackLogging
+       0x1b9284000 -        0x1b92daedf  libmis.dylib (463.0.8) <BBCEE8DE-A4EB-3AE1-9F48-D840A0FD2562> /usr/lib/libmis.dylib
+       0x1b92db000 -        0x1b92dec7f  com.apple.gpusw.GPURawCounter (34 - 34) <56293A3A-542B-3069-902F-42C984F23CA8> /System/Library/PrivateFrameworks/GPURawCounter.framework/Versions/A/GPURawCounter
+       0x1b92df000 -        0x1b92feb33  libswiftCoreAudio.dylib (411.207.10) <57822BB6-63B1-3170-92AD-0BE16007216B> /usr/lib/swift/libswiftCoreAudio.dylib
+       0x1b92ff000 -        0x1b9305377  libswiftCoreFoundation.dylib (2401) <8B19EC26-A358-3766-9AFE-2F4FBF207387> /usr/lib/swift/libswiftCoreFoundation.dylib
+       0x1b9311000 -        0x1b9357722  libswiftXPC.dylib (105.0.14) <D561452A-2C48-36FA-873A-C8B4EC994146> /usr/lib/swift/libswiftXPC.dylib
+       0x1b9359000 -        0x1b93598a3  libswiftIOKit.dylib (1) <8691C45E-09EF-37E3-BF7F-E203A2FF2E3F> /usr/lib/swift/libswiftIOKit.dylib
+       0x1bb2e8000 -        0x1bb32d143  libbootpolicy.dylib (289.0.1) <42897AA0-316C-3C50-B712-B38617F86501> /usr/lib/libbootpolicy.dylib
+       0x1bcd3b000 -        0x1bcd529a3  libswiftsimd.dylib (23) <CAC9B309-9630-3624-B5C2-98A002BA6A8A> /usr/lib/swift/libswiftsimd.dylib
+       0x1be3cc000 -        0x1be3d537f  com.apple.IOAccelMemoryInfo (1.0 - 1) <B88FAB5F-609C-3F83-ABDF-4BD6151489F5> /System/Library/PrivateFrameworks/IOAccelMemoryInfo.framework/Versions/A/IOAccelMemoryInfo
+       0x1bf9a3000 -        0x1bf9ac1d7  libswiftCoreMIDI.dylib (6) <FA901031-4F71-3DB3-81CA-D9D3244CB63E> /usr/lib/swift/libswiftCoreMIDI.dylib
+       0x1c0136000 -        0x1c013cb5f  com.apple.MSUDataAccessor (1.0 - 1) <68F9EC0E-F562-390D-B306-57B2CF34D0D1> /System/Library/PrivateFrameworks/MSUDataAccessor.framework/Versions/A/MSUDataAccessor
+       0x1c053a000 -        0x1c059afff  com.apple.SoftwareUpdateCoreSupport (1.0 - 1) <A2526093-FCF3-318E-BA39-A9F208FCAEE6> /System/Library/PrivateFrameworks/SoftwareUpdateCoreSupport.framework/Versions/A/SoftwareUpdateCoreSupport
+       0x1c3ff3000 -        0x1c4049a9f  com.apple.biome.BiomeFoundation (1.0 - 200.5) <9F6895DC-6DC7-3FCC-A1A8-186123DA5CF2> /System/Library/PrivateFrameworks/BiomeFoundation.framework/Versions/A/BiomeFoundation
+       0x1c6dd0000 -        0x1c6ddc552  libswiftMetal.dylib (370.63.7) <6E65C7F6-614D-33C7-BB84-16A5069BE875> /usr/lib/swift/libswiftMetal.dylib
+       0x1c7c2c000 -        0x1c7cd821f  libFDR.dylib (1499.40.4) <141A4B4D-AE20-3B74-AA5B-ECE7C83298A1> /usr/lib/libFDR.dylib
+       0x1c7d60000 -        0x1c8313dff  com.apple.biome.BiomeStreams (1.0 - 200.5) <135C452C-6211-32C1-829F-22606CCF3785> /System/Library/PrivateFrameworks/BiomeStreams.framework/Versions/A/BiomeStreams
+       0x1c87cb000 -        0x1c87dfb7f  com.apple.SoftwareUpdateCoreConnect (1.0 - 1) <78D56BA7-D01F-325A-945C-F345C26A283C> /System/Library/PrivateFrameworks/SoftwareUpdateCoreConnect.framework/Versions/A/SoftwareUpdateCoreConnect
+       0x1cac76000 -        0x1cacdc8ff  com.apple.osanalytics.OSAnalytics (1.0 - 1) <2C1C1A80-239F-371F-BE09-A2FD6B6199F9> /System/Library/PrivateFrameworks/OSAnalytics.framework/Versions/A/OSAnalytics
+       0x1cc013000 -        0x1cc014f73  libswiftQuartzCore.dylib (5) <2C4A7525-402C-3747-B3C1-EB75C08C19F4> /usr/lib/swift/libswiftQuartzCore.dylib
+       0x1cc408000 -        0x1cc40d9a7  com.apple.kperf (1.0 - 1) <505EDA4B-3446-378E-8AF2-60B711BE0941> /System/Library/PrivateFrameworks/kperf.framework/Versions/A/kperf
+       0x1cc50f000 -        0x1cc51445f  com.apple.MobileSystemServices (1.0 - 1) <F16D1114-318A-3CBA-BE60-603AE5F25FC1> /System/Library/PrivateFrameworks/MobileSystemServices.framework/Versions/A/MobileSystemServices
+       0x1cd9ee000 -        0x1cda1063f  libamsupport.dylib (434.40.3) <2A287215-F4D5-3E77-A8E8-4E7A32F4C83D> /usr/lib/libamsupport.dylib
+       0x1cddcc000 -        0x1cde29e1f  com.apple.biome.BiomePubSub (1.0 - 200.5) <7D7C6896-6E38-3431-92D8-FB968CB5A5CB> /System/Library/PrivateFrameworks/BiomePubSub.framework/Versions/A/BiomePubSub
+       0x1cde2a000 -        0x1cde6d63f  com.apple.biome.BiomeStorage (1.0 - 200.5) <6BDF6809-574D-3C8B-8F3A-BF0E2C4402D0> /System/Library/PrivateFrameworks/BiomeStorage.framework/Versions/A/BiomeStorage
+       0x1d085c000 -        0x1d086a64c  libswiftUniformTypeIdentifiers.dylib (877.1.7) <28E3244C-27EC-36C1-8B87-A1573BA2BBCF> /usr/lib/swift/libswiftUniformTypeIdentifiers.dylib
+       0x1d086b000 -        0x1d092a7c3  libswiftAccelerate.dylib (77) <BD9324A8-DDD0-39E6-8328-7FAC2DE9FD19> /usr/lib/swift/libswiftAccelerate.dylib
+       0x1d0a6f000 -        0x1d0a7f9df  libpartition2_dynamic.dylib (3476.40.39) <4B8D9BA7-DF8F-333F-9F0B-677A4C109C85> /usr/lib/libpartition2_dynamic.dylib
+       0x1d5f5a000 -        0x1d5f5ba9b  libswiftOSLog.dylib (8) <A0588FAC-98A5-37BC-824D-B18E05376C80> /usr/lib/swift/libswiftOSLog.dylib
+       0x1d9d3e000 -        0x1d9e4087f  com.apple.Symbolication (16.0 - 64572.149.1) <BFBEE880-FB72-39D1-A7BC-9F4997945173> /System/Library/PrivateFrameworks/Symbolication.framework/Versions/A/Symbolication
+       0x1de120000 -        0x1de13029f  com.apple.OSLog (1.0 - 1815.40.20) <1CCCF857-2EC9-3943-B7FC-1CF263F2FF1A> /System/Library/Frameworks/OSLog.framework/Versions/A/OSLog
+       0x1de410000 -        0x1de50c674  com.apple.InternalSwiftProtobuf (1.0 - 1.26.0) <C3994790-FECD-3773-B9BC-B66C0CAEA5A4> /System/Library/PrivateFrameworks/InternalSwiftProtobuf.framework/Versions/A/InternalSwiftProtobuf
+       0x1de5d1000 -        0x1de5dc2ff  com.apple.HIDDisplay (1.0 - 1) <D365635B-BA81-34DC-A152-B537545FFA36> /System/Library/PrivateFrameworks/HIDDisplay.framework/Versions/A/HIDDisplay
+       0x1e60c7000 -        0x1e60c7b03  com.apple.FeatureFlags (1.0 - 101) <A18D09AE-B8A2-3AFD-BFAF-1B5706CA5E12> /System/Library/PrivateFrameworks/FeatureFlags.framework/Versions/A/FeatureFlags
+       0x1ef238000 -        0x1ef23a65f  com.apple.ConfigProfileHelper (18.0 - 1800) <B179094F-FC40-3C6B-9F11-65F79F93A275> /System/Library/PrivateFrameworks/ConfigProfileHelper.framework/Versions/A/ConfigProfileHelper
+       0x1f24a3000 -        0x1f24aa367  libCoreFSCache.dylib (351) <5F641628-C6FC-3292-9538-E168545A562A> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libCoreFSCache.dylib
+       0x1f24ab000 -        0x1f24b094f  libCoreVMClient.dylib (351) <C7D67FAE-9E56-3633-BE9D-0A5DE4A2F055> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libCoreVMClient.dylib
+       0x1f24b1000 -        0x1f24c1397  com.apple.opengl (23.0.2 - 23.0.2) <EB5D0711-382F-3FA0-8001-8694363207C0> /System/Library/Frameworks/OpenGL.framework/Versions/A/OpenGL
+       0x1f24c2000 -        0x1f24c47af  libCVMSPluginSupport.dylib (23.0.2) <A8DBDBC6-B7F8-32AB-B467-08E6134015CF> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libCVMSPluginSupport.dylib
+       0x1f24c5000 -        0x1f24cd757  libGFXShared.dylib (23.0.2) <031BD1D8-A576-3D7D-AB84-C7D19B0B6E20> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGFXShared.dylib
+       0x1f24ce000 -        0x1f25013c3  libGLImage.dylib (23.0.2) <7296785B-3DE6-3A25-9D5E-734E213E7686> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLImage.dylib
+       0x1f2502000 -        0x1f253c2ff  libGLU.dylib (23.0.2) <E91CA47D-59C2-35C5-A08A-5736C774C3F3> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGLU.dylib
+       0x1f2691000 -        0x1f269abcf  libGL.dylib (23.0.2) <E3E3A741-3E50-350F-A95C-5441EB8A4B9B> /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib
+       0x2321fa000 -        0x23232201f  com.apple.ExtensionFoundation (97 - 97) <F9ABA36B-C9C7-34C3-A873-729E538E396A> /System/Library/Frameworks/ExtensionFoundation.framework/Versions/A/ExtensionFoundation
+       0x234398000 -        0x2343b617f  com.apple.MPSBenchmarkLoop (1.0 - 1) <155F89E5-4A8B-363B-A9D5-C0080F765153> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSBenchmarkLoop.framework/Versions/A/MPSBenchmarkLoop
+       0x2343b7000 -        0x2343cb15f  com.apple.MPSFunctions (1.0 - 1) <59287992-DA66-3C31-BD16-237B82F3CF26> /System/Library/Frameworks/MetalPerformanceShaders.framework/Versions/A/Frameworks/MPSFunctions.framework/Versions/A/MPSFunctions
+       0x2373d2000 -        0x237532943  com.apple.SwiftData (1.0 - 129) <95045363-A171-3EAB-AD1E-54F4D627342C> /System/Library/Frameworks/SwiftData.framework/Versions/A/SwiftData
+       0x23d786000 -        0x23d79aa5f  com.apple.AppleDeviceQuerySupport (1.0 - 396.40.5) <D8DAA7C0-5D75-3A49-B0E5-B45D137BF046> /System/Library/PrivateFrameworks/AppleDeviceQuerySupport.framework/Versions/A/AppleDeviceQuerySupport
+       0x23de2c000 -        0x23dea3bc7  com.apple.AppleKeyStore (1.0 - 1.0) <298EB688-A598-399B-B567-96F976D96B36> /System/Library/PrivateFrameworks/AppleKeyStore.framework/Versions/A/AppleKeyStore
+       0x23e6e7000 -        0x23e6fff9f  com.apple.private.AppleMobileFileIntegrity-fmk (1.0 - 1) <906CFBCE-0B1C-3732-ADE7-592595B9F5AC> /System/Library/PrivateFrameworks/AppleMobileFileIntegrity.framework/Versions/A/AppleMobileFileIntegrity
+       0x23ebb0000 -        0x23ebc295f  com.apple.AtomicsInternal (1.1.0 - 112) <1B37C1EB-BA26-3AE8-85EB-BCC3F839A19E> /System/Library/PrivateFrameworks/AtomicsInternal.framework/Versions/A/AtomicsInternal
+       0x23ec70000 -        0x23ec9c4bf  com.apple.imgaudio.AudioAnalytics (1.0 - 1) <FD12F578-9C10-352B-9649-D85D4C22D3AE> /System/Library/PrivateFrameworks/AudioAnalytics.framework/Versions/A/AudioAnalytics
+       0x23f251000 -        0x23f29905f  com.apple.BackBoardHIDEventFoundation (1.0 - 1) <3D175460-744D-3FFB-B3E8-64A65BF4F74F> /System/Library/PrivateFrameworks/BackBoardHIDEventFoundation.framework/Versions/A/BackBoardHIDEventFoundation
+       0x23f31c000 -        0x23f335d1f  com.apple.biome.BiomeDSL (1.0 - 200.5) <93C0F32F-7D3D-3F3A-ADAD-AF7CD6D12745> /System/Library/PrivateFrameworks/BiomeDSL.framework/Versions/A/BiomeDSL
+       0x23f336000 -        0x23fb785ff  com.apple.BiomeLibrary (246.20) <21276C4C-7CDD-3ECC-9B49-03FC7A212C62> /System/Library/PrivateFrameworks/BiomeLibrary.framework/Versions/A/BiomeLibrary
+       0x23fb79000 -        0x23fb7eb1f  com.apple.biome.BiomeSync (1.0 - 200.5) <6EFA5DD6-B4B6-3015-A535-10FD9FCFB963> /System/Library/PrivateFrameworks/BiomeSync.framework/Versions/A/BiomeSync
+       0x24117e000 -        0x24120245f  com.apple.biome.CascadeSets (1.0 - 200.5) <DCE4F91D-D87B-3F36-94F8-2E086719E889> /System/Library/PrivateFrameworks/CascadeSets.framework/Versions/A/CascadeSets
+       0x2424f0000 -        0x24262cb7f  com.apple.CollectionsInternal (1.2.0 - 112) <2FC73F0B-8B39-3896-BDD2-54D775AA4552> /System/Library/PrivateFrameworks/CollectionsInternal.framework/Versions/A/CollectionsInternal
+       0x248a43000 -        0x248a582df  com.apple.DeviceRecovery (1.0 - 1) <8A964613-AF3B-3ACD-99E9-8B8E480C6E2A> /System/Library/PrivateFrameworks/DeviceRecovery.framework/Versions/A/DeviceRecovery
+       0x24aac5000 -        0x24aac829f  com.apple.FontServices (1.0 - 1) <DB6C1689-0B84-30C8-8F06-B6511456FDDF> /System/Library/PrivateFrameworks/FontServices.framework/Versions/A/FontServices
+       0x24aac9000 -        0x24abb8def  libXTFontStaticRegistryData.dylib (335) <387ADBCB-DDDF-348B-B16D-B492ABB1A533> /System/Library/PrivateFrameworks/FontServices.framework/libXTFontStaticRegistryData.dylib
+       0x24abba000 -        0x24abc613f  com.apple.FramePacing (1.0 - 1) <049A9D71-EFD9-359E-A66D-DE1EC7CFE099> /System/Library/PrivateFrameworks/FramePacing.framework/Versions/A/FramePacing
+       0x24bcfb000 -        0x24bd00f8f  libGPUCompilerUtils.dylib (32023.850.8) <46D1B72F-2751-3585-9796-5D2EA2722ED6> /System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/libGPUCompilerUtils.dylib
+       0x2502ae000 -        0x2502eec4b  libllvm-flatbuffers.dylib (32023.850.8) <4BC3E6C7-3D52-3671-8B44-36CAB216FC95> /System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/32023/Libraries/libllvm-flatbuffers.dylib
+       0x25727d000 -        0x25737631f  com.apple.InstalledContentLibrary (1.0 - 1.0) <1A3002FC-F502-3FBF-80DA-1FE0E6DA9D48> /System/Library/PrivateFrameworks/InstalledContentLibrary.framework/Versions/A/InstalledContentLibrary
+       0x259973000 -        0x259feec1f  com.apple.IntelligencePlatformLibrary (246.20) <AFD2CEF6-7752-3386-86D6-497D3539DFBD> /System/Library/PrivateFrameworks/IntelligencePlatformLibrary.framework/Versions/A/IntelligencePlatformLibrary
+       0x25b9b5000 -        0x25c07f0e3  com.apple.MIL (3505.3 - 3505.3.2) <419C31D4-2BFC-3532-A455-838E2D69857B> /System/Library/PrivateFrameworks/MIL.framework/Versions/A/MIL
+       0x25ece9000 -        0x25ed3eabf  com.apple.MessageSecurity (1.0 - 195.40.8) <9CB6F898-154C-34C5-956A-388AF8A415E7> /System/Library/PrivateFrameworks/MessageSecurity.framework/Versions/A/MessageSecurity
+       0x263c41000 -        0x263d5a207  com.apple.ParsingInternal (0.0.1 - 112) <9CBC410C-9F02-3BD8-89CD-6BF998386CA2> /System/Library/PrivateFrameworks/ParsingInternal.framework/Versions/A/ParsingInternal
+       0x266dc2000 -        0x266de253f  com.apple.accessibility.PhotosensitivityProcessing (1.0 - 1) <B1BB8B04-6812-3E5B-871F-7E84441A8256> /System/Library/PrivateFrameworks/PhotosensitivityProcessing.framework/Versions/A/PhotosensitivityProcessing
+       0x2671a0000 -        0x2671d0dff  com.apple.PoirotSQLite (1.0 - 1) <9CF12E76-CD91-3F79-A4D0-18EA0A6B56D2> /System/Library/PrivateFrameworks/PoirotSQLite.framework/Versions/A/PoirotSQLite
+       0x2671d1000 -        0x26723ad01  com.apple.PoirotSchematizer (1.0 - 1) <6C7BACB4-4CED-3E94-A1E2-3DE052C003B2> /System/Library/PrivateFrameworks/PoirotSchematizer.framework/Versions/A/PoirotSchematizer
+       0x26723b000 -        0x267267100  com.apple.PoirotUDFs (1.0 - 1) <2CFBAD1F-FCFF-300F-9E21-E434846ACABC> /System/Library/PrivateFrameworks/PoirotUDFs.framework/Versions/A/PoirotUDFs
+       0x267e9c000 -        0x267f7d47f  com.apple.ProDisplayLibrary (10.0.24 - 10.0.24) <DF0713A6-751A-3323-B15B-4464C96AF6B7> /System/Library/PrivateFrameworks/ProDisplayLibrary.framework/Versions/A/ProDisplayLibrary
+       0x268d6a000 -        0x268d724ef  com.apple.ReflectionInternal (1.0.0 - 112) <D04857D4-A974-33EA-97CE-C8AFC2003F6F> /System/Library/PrivateFrameworks/ReflectionInternal.framework/Versions/A/ReflectionInternal
+       0x269bf3000 -        0x269c06c57  com.apple.RuntimeInternal (1.0.0 - 112) <38F9049F-B301-3CD6-A8CD-FF68154DCB75> /System/Library/PrivateFrameworks/RuntimeInternal.framework/Versions/A/RuntimeInternal
+       0x2744de000 -        0x27450ad67  com.apple.security.SwiftASN1Internal (1.0 - 1) <89404C74-3F26-3E46-8517-129E9860B73C> /System/Library/PrivateFrameworks/SwiftASN1Internal.framework/Versions/A/SwiftASN1Internal
+       0x27bb4f000 -        0x27bb50257  com.apple.VideoToolboxParavirtualizationSupport (63.2.3 - 63.2.3) <91419794-6678-3A24-A34D-F2B32C2D1A23> /System/Library/PrivateFrameworks/VideoToolboxParavirtualizationSupport.framework/Versions/A/VideoToolboxParavirtualizationSupport
+       0x285ab8000 -        0x285b5206f  libAppleArchive.dylib (443.0.1) <2C1D0A5C-BCD3-328B-852C-6A57365B67C8> /usr/lib/libAppleArchive.dylib
+       0x285c17000 -        0x285c210df  libCoreEntitlements.dylib (80.0.1) <7C8E9658-2C93-3E53-9BA8-A978913B6EF2> /usr/lib/libCoreEntitlements.dylib
+       0x285f2b000 -        0x285f3289f  libReverseProxyDevice.dylib (104.40.3) <B3092DD0-130C-3D4D-A69C-3662445E2E52> /usr/lib/libReverseProxyDevice.dylib
+       0x285f33000 -        0x285f3a319  libRosetta.dylib (365.3) <033B4378-3705-3580-8FB1-8DB5688DE702> /usr/lib/libRosetta.dylib
+       0x285fbc000 -        0x285fc545f  libTLE.dylib (80.0.1) <732A9652-7BF1-35DA-9D53-4413FAB92FE0> /usr/lib/libTLE.dylib
+       0x2861f5000 -        0x2863056e7  libcrypto.46.dylib (109) <7748598C-9C44-3CDE-8F72-BE853FAA9EC3> /usr/lib/libcrypto.46.dylib
+       0x2864cb000 -        0x2864e6457  libhvf.dylib (9) <84DC3B94-5352-3938-B66C-90097377E54B> /usr/lib/libhvf.dylib
+       0x286e96000 -        0x286ece29f  libssl.48.dylib (109) <89926B98-265F-3890-A9F9-23A336E9E4AB> /usr/lib/libssl.48.dylib
+       0x286f09000 -        0x286f33bbf  libswiftPrespecialized.dylib (0) <E96C393E-D5E4-3D56-B783-5CFE0B69EE93> /usr/lib/libswiftPrespecialized.dylib
+       0x287160000 -        0x2871724df  libswiftDistributed.dylib (6.2.1 - 6.2.1.4.7) <96BD9459-8DCC-390E-99B3-43B402219FE7> /usr/lib/swift/libswiftDistributed.dylib
+       0x287189000 -        0x28719a097  libswiftObservation.dylib (6.2.1 - 6.2.1.4.7) <071050F6-6C47-3393-B18C-45A96C66567A> /usr/lib/swift/libswiftObservation.dylib
+       0x2872c8000 -        0x2872cf81f  libswiftSynchronization.dylib (6.2.1 - 6.2.1.4.7) <05F97E09-7D5A-3722-8F21-7D2DE230A0BB> /usr/lib/swift/libswiftSynchronization.dylib
+       0x2872d0000 -        0x2872e8f47  libswiftSystem.dylib (72.2) <EC680538-912F-325B-8652-65E4C93F5545> /usr/lib/swift/libswiftSystem.dylib
+       0x287302000 -        0x287304517  libswift_Builtin_float.dylib (6.2.1 - 6.2.1.4.7) <B3AF45A1-F709-3C15-80E4-544167D41560> /usr/lib/swift/libswift_Builtin_float.dylib
+       0x287305000 -        0x28738ebdf  libswift_Concurrency.dylib (6.2.1 - 6.2.1.4.7) <1A4607F2-13D0-3C00-8CCE-F3298DA11E60> /usr/lib/swift/libswift_Concurrency.dylib
+       0x28738f000 -        0x287392623  libswift_DarwinFoundation1.dylib (347.40.2) <F3C76124-2321-3F78-84B7-B21C90D6C72B> /usr/lib/swift/libswift_DarwinFoundation1.dylib
+       0x287393000 -        0x287393e1b  libswift_DarwinFoundation2.dylib (347.40.2) <EE300298-5BD7-31BD-BDC6-0071793CCE59> /usr/lib/swift/libswift_DarwinFoundation2.dylib
+       0x287394000 -        0x2873947a7  libswift_DarwinFoundation3.dylib (347.40.2) <ABA0356F-42D8-31B9-982E-BB2E36F00FFD> /usr/lib/swift/libswift_DarwinFoundation3.dylib
+       0x2873d0000 -        0x28746fde7  libswift_RegexParser.dylib (6.2.1 - 6.2.1.4.7) <E51A20EA-8D41-379F-ABD0-E4DD24AC8EE6> /usr/lib/swift/libswift_RegexParser.dylib
+       0x287470000 -        0x2874fced7  libswift_StringProcessing.dylib (6.2.1 - 6.2.1.4.7) <23BD0F2F-0798-300D-A492-EDC9BC2D9300> /usr/lib/swift/libswift_StringProcessing.dylib
+       0x287658000 -        0x28765bdeb  libsystem_darwindirectory.dylib (122) <9B373C44-0144-3CCD-86B5-D6EBD4E7D7E8> /usr/lib/system/libsystem_darwindirectory.dylib
+       0x28765c000 -        0x28766339b  libsystem_eligibility.dylib (286.40.9.0.1) <9008D680-86FF-3811-923A-77087AE9FC8B> /usr/lib/system/libsystem_eligibility.dylib
+       0x287664000 -        0x28766b873  libsystem_sanitizers.dylib (25) <EEA7F32D-849B-315B-8017-2F3313F13E32> /usr/lib/system/libsystem_sanitizers.dylib
+       0x28766c000 -        0x28766cbb7  libsystem_trial.dylib (474.3) <40FCA195-78F6-3415-957E-23BAC002B9C8> /usr/lib/system/libsystem_trial.dylib
