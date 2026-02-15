@@ -109,8 +109,14 @@ std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledP
 std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path);
 
 // Evaluate with early termination after finding 'limit' results
-// Useful for queries like "$..price" with limit=1 for finding first match
 std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path, size_t limit);
 std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path, size_t limit);
+
+// Optimized evaluation that returns cursors (pointers) instead of materialized values.
+// This avoids deep copies in C++ and is preferred for Python bindings.
+std::vector<JsonCursor> eval_search_path_cursors(const JsonDocument& doc, const CompiledPath& path);
+std::vector<JsonCursor> eval_search_path_cursors(const JsonCursor& cursor, const CompiledPath& path);
+std::vector<JsonCursor> eval_search_path_cursors(const JsonDocument& doc, const CompiledPath& path, size_t limit);
+std::vector<JsonCursor> eval_search_path_cursors(const JsonCursor& cursor, const CompiledPath& path, size_t limit);
 
 } // namespace strata

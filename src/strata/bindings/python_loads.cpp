@@ -1361,6 +1361,56 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
     return json_value_to_python_internal(val, cache);
 }
 
+PyObject* json_value_list_to_python(const std::vector<strata::JsonValue>& values) {
+    PyGcPause gc_pause;
+    PyObject* list = PyList_New(values.size());
+    if (!list)
+        return NULL;
+
+    // Reuse thread-local key cache for all items in the list
+    g_parse_arena.reset();
+    g_key_cache.reset(&g_parse_arena);
+
+    for (size_t i = 0; i < values.size(); ++i) {
+        PyObject* item = json_value_to_python_internal(values[i], g_key_cache);
+        if (!item) {
+            Py_DECREF(list);
+            return NULL;
+        }
+        PyList_SET_ITEM(list, i, item);
+    }
+    return list;
+}
+
+static PyObject* json_cursor_to_python_internal(const strata::JsonCursor& cursor, KeyCache& cache) {
+    const strata::JsonValue* val = cursor.raw();
+    if (!val) {
+        Py_RETURN_NONE;
+    }
+    return json_value_to_python_internal(*val, cache);
+}
+
+PyObject* json_cursor_list_to_python(const std::vector<strata::JsonCursor>& cursors) {
+    PyGcPause gc_pause;
+    PyObject* list = PyList_New(cursors.size());
+    if (!list)
+        return NULL;
+
+    // Reuse thread-local key cache
+    g_parse_arena.reset();
+    g_key_cache.reset(&g_parse_arena);
+
+    for (size_t i = 0; i < cursors.size(); ++i) {
+        PyObject* item = json_cursor_to_python_internal(cursors[i], g_key_cache);
+        if (!item) {
+            Py_DECREF(list);
+            return NULL;
+        }
+        PyList_SET_ITEM(list, i, item);
+    }
+    return list;
+}
+
 static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     // Reset thread-local arena for reuse
     const size_t size = static_cast<size_t>(len);

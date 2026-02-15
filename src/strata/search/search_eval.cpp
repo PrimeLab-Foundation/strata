@@ -85,9 +85,13 @@ static JsonValue materialize(const JsonCursor& cursor) {
     return JsonValue();
 }
 
-// Helper to collect all values from a cursor
-static void collect_all_values(const JsonCursor& cursor, std::vector<JsonValue>& results) {
+// Collector helpers
+static void collect_result(const JsonCursor& cursor, std::vector<JsonValue>& results) {
     results.push_back(materialize(cursor));
+}
+
+static void collect_result(const JsonCursor& cursor, std::vector<JsonCursor>& results) {
+    results.push_back(cursor);
 }
 
 // Helper to evaluate a filter predicate on a cursor
@@ -172,82 +176,66 @@ static bool eval_filter(const JsonCursor& cursor, const FilterPredicate& filter)
             return false;
         }
     }
-    case FilterValueType::Unspecified:
     default:
         return false;
     }
 }
 
 // Helper for recursive descent - finds all matching cursors
-// Uses iterative BFS for better cache locality
-// Returns true if limit was reached, false otherwise
 static bool collect_recursive_cursors_bfs(const JsonCursor& cursor, const std::string& field_name,
                                           std::vector<JsonCursor>& cursors,
                                           size_t limit = std::numeric_limits<size_t>::max()) {
-    // Use a queue for BFS traversal - better cache locality than DFS
     std::deque<JsonCursor> queue;
     queue.push_back(cursor);
 
     while (!queue.empty()) {
-        // Check if we've reached the limit
         if (cursors.size() >= limit) {
-            return true; // Early termination
+            return true;
         }
 
         JsonCursor current = queue.front();
         queue.pop_front();
 
         if (current.is_object()) {
-            // Check if current node has the target field
             JsonCursor child(nullptr);
             if (try_get_field_simd(current, field_name, child)) {
                 cursors.push_back(child);
-                // Check limit after adding
                 if (cursors.size() >= limit) {
-                    return true; // Early termination
+                    return true;
                 }
             }
 
-            // Add all object values to queue for further processing
             auto keys = current.object_keys();
             for (const auto& key : keys) {
                 try {
                     JsonCursor child = current.field(key);
                     queue.push_back(child);
-                } catch (...) {
-                    // Skip on error
-                }
+                } catch (...) {}
             }
         } else if (current.is_array()) {
-            // Add all array elements to queue
             size_t len = current.array_size();
             for (size_t i = 0; i < len; ++i) {
                 try {
                     JsonCursor child = current.at(i);
                     queue.push_back(child);
-                } catch (...) {
-                    // Skip on error
-                }
+                } catch (...) {}
             }
         }
     }
 
-    return false; // Did not reach limit
+    return false;
 }
 
-// Evaluation helper with limit support
-// Returns true if limit was reached (early termination)
-static bool eval_step_with_limit(const JsonCursor& cursor, const std::vector<PathStep>& steps,
-                                 size_t step_idx, std::vector<JsonValue>& results, size_t limit) {
-
-    // Check limit before processing
+// Evaluation helper template
+template <typename T>
+static bool eval_step_with_limit_impl(const JsonCursor& cursor, const std::vector<PathStep>& steps,
+                                      size_t step_idx, std::vector<T>& results, size_t limit) {
     if (results.size() >= limit) {
         return true;
     }
 
     if (step_idx >= steps.size()) {
-        // End of path - collect this value
-        collect_all_values(cursor, results);
+        collect_result(cursor, results);
         return results.size() >= limit;
     }
 
@@ -255,14 +243,13 @@ static bool eval_step_with_limit(const JsonCursor& cursor, const std::vector<Pat
 
     switch (step.op) {
     case PathOp::Root:
-        // Just move to next step
-        return eval_step_with_limit(cursor, steps, step_idx + 1, results, limit);
+        return eval_step_with_limit_impl(cursor, steps, step_idx + 1, results, limit);
 
     case PathOp::Field:
         if (cursor.is_object()) {
             JsonCursor child(nullptr);
             if (try_get_field_simd(cursor, step.field, child)) {
-                return eval_step_with_limit(child, steps, step_idx + 1, results, limit);
+                return eval_step_with_limit_impl(child, steps, step_idx + 1, results, limit);
             }
         }
         break;
@@ -272,79 +259,65 @@ static bool eval_step_with_limit(const JsonCursor& cursor, const std::vector<Pat
             try {
                 size_t len = cursor.array_size();
                 int64_t idx = step.index;
-
-                // Handle negative indices
-                if (idx < 0) {
-                    idx = static_cast<int64_t>(len) + idx;
-                }
-
+                if (idx < 0) idx = static_cast<int64_t>(len) + idx;
                 if (idx >= 0 && idx < static_cast<int64_t>(len)) {
                     JsonCursor child = cursor.at(static_cast<size_t>(idx));
-                    return eval_step_with_limit(child, steps, step_idx + 1, results, limit);
+                    return eval_step_with_limit_impl(child, steps, step_idx + 1, results, limit);
                 }
-            } catch (...) {
-                // Index out of bounds - no results
-            }
+            } catch (...) {}
         }
         break;
 
     case PathOp::Wildcard:
         if (cursor.is_array()) {
-            // Iterate all array elements
             size_t len = cursor.array_size();
-            for (size_t i = 0; i < len; ++i) {
-                if (results.size() >= limit) {
-                    return true;
+
+            // Fused Wildcard + Field optimization
+            if (step_idx + 1 < steps.size() && steps[step_idx + 1].op == PathOp::Field) {
+                const std::string& field = steps[step_idx + 1].field;
+                for (size_t i = 0; i < len; ++i) {
+                    if (results.size() >= limit) return true;
+                    JsonCursor item = cursor.at(i);
+                    if (item.is_object()) {
+                        JsonCursor child(nullptr);
+                        if (try_get_field_simd(item, field, child)) {
+                            if (eval_step_with_limit_impl(child, steps, step_idx + 2, results, limit)) {
+                                return true;
+                            }
+                        }
+                    }
                 }
+                return results.size() >= limit;
+            }
+
+            for (size_t i = 0; i < len; ++i) {
+                if (results.size() >= limit) return true;
                 try {
                     JsonCursor child = cursor.at(i);
-                    if (eval_step_with_limit(child, steps, step_idx + 1, results, limit)) {
-                        return true;
-                    }
-                } catch (...) {
-                    // Skip on error
-                }
+                    if (eval_step_with_limit_impl(child, steps, step_idx + 1, results, limit)) return true;
+                } catch (...) {}
             }
         } else if (cursor.is_object()) {
-            // Iterate all object values
             auto keys = cursor.object_keys();
             for (const auto& key : keys) {
-                if (results.size() >= limit) {
-                    return true;
-                }
+                if (results.size() >= limit) return true;
                 try {
                     JsonCursor child = cursor.field(key);
-                    if (eval_step_with_limit(child, steps, step_idx + 1, results, limit)) {
-                        return true;
-                    }
-                } catch (...) {
-                    // Skip on error
-                }
+                    if (eval_step_with_limit_impl(child, steps, step_idx + 1, results, limit)) return true;
+                } catch (...) {}
             }
         }
         break;
 
     case PathOp::RecursiveDescent: {
-        // Use BFS with limit for recursive descent
         std::vector<JsonCursor> found_cursors;
-
-        // Calculate remaining limit for collection phase
-        // If there are more steps after this, we need all matches
-        // If this is the last step (before End or end of path), we can limit collection
-        bool is_terminal = (step_idx + 1 >= steps.size()) ||
-                           (step_idx + 1 < steps.size() && steps[step_idx + 1].op == PathOp::End);
-
+        bool is_terminal = (step_idx + 1 >= steps.size()) || (steps[step_idx + 1].op == PathOp::End);
         size_t collection_limit = is_terminal ? (limit - results.size()) : std::numeric_limits<size_t>::max();
         collect_recursive_cursors_bfs(cursor, step.field, found_cursors, collection_limit);
 
-        // Continue evaluation with remaining steps for each found cursor
         for (const auto& found : found_cursors) {
-            if (results.size() >= limit) {
-                return true;
-            }
-            if (eval_step_with_limit(found, steps, step_idx + 1, results, limit)) {
-                return true;
-            }
+            if (results.size() >= limit) return true;
+            if (eval_step_with_limit_impl(found, steps, step_idx + 1, results, limit)) return true;
         }
         break;
     }
@@ -355,32 +328,18 @@ static bool eval_step_with_limit(const JsonCursor& cursor, const std::vector<Pat
             int64_t start = step.slice_start;
             int64_t end = step.slice_end;
             int64_t step_size = step.slice_step;
-
-            // Handle negative indices
-            if (start < 0) {
-                start = static_cast<int64_t>(len) + start;
-            }
-            if (end < 0) {
-                end = static_cast<int64_t>(len) + end;
-            }
-
-            // Clamp to valid range
+            if (start < 0) start = static_cast<int64_t>(len) + start;
+            if (end < 0) end = static_cast<int64_t>(len) + end;
             start = std::max(int64_t(0), std::min(start, static_cast<int64_t>(len)));
             end = std::max(int64_t(0), std::min(end, static_cast<int64_t>(len)));
 
             if (step_size > 0) {
                 for (int64_t i = start; i < end; i += step_size) {
-                    if (results.size() >= limit) {
-                        return true;
-                    }
+                    if (results.size() >= limit) return true;
                     try {
                         JsonCursor child = cursor.at(static_cast<size_t>(i));
-                        if (eval_step_with_limit(child, steps, step_idx + 1, results, limit)) {
-                            return true;
-                        }
-                    } catch (...) {
-                        // Skip on error
-                    }
+                        if (eval_step_with_limit_impl(child, steps, step_idx + 1, results, limit)) return true;
+                    } catch (...) {}
                 }
             }
         }
@@ -388,42 +347,25 @@ static bool eval_step_with_limit(const JsonCursor& cursor, const std::vector<Pat
 
     case PathOp::Filter:
         if (cursor.is_array()) {
-            // Filter array elements based on predicate
             size_t len = cursor.array_size();
             for (size_t i = 0; i < len; ++i) {
-                if (results.size() >= limit) {
-                    return true;
-                }
+                if (results.size() >= limit) return true;
                 try {
                     JsonCursor child = cursor.at(i);
                     if (eval_filter(child, step.filter)) {
-                        if (eval_step_with_limit(child, steps, step_idx + 1, results, limit)) {
-                            return true;
-                        }
+                        if (eval_step_with_limit_impl(child, steps, step_idx + 1, results, limit)) return true;
                     }
-                } catch (...) {
-                    // Skip on error
-                }
+                } catch (...) {}
             }
         }
         break;
 
     case PathOp::End:
-        collect_all_values(cursor, results);
+        collect_result(cursor, results);
         return results.size() >= limit;
     }
 
     return results.size() >= limit;
-}
-
-// Legacy evaluation helper (no limit)
-static void eval_step(const JsonCursor& cursor, const std::vector<PathStep>& steps, size_t step_idx,
-                      std::vector<JsonValue>& results) {
-    eval_step_with_limit(cursor, steps, step_idx, results, std::numeric_limits<size_t>::max());
-}
-
-std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path) {
-    return eval_search_path(doc.root(), path);
 }
 
 // Helper to check if path has early-exit potential (starts with $.field)
@@ -437,28 +379,16 @@ static bool has_root_field_access(const std::vector<PathStep>& steps, std::strin
     return false;
 }
 
+// ----------------------------------------------------------------------------
+// Public API Implementations (JsonValue results)
+// ----------------------------------------------------------------------------
+
+std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path) {
+    return eval_search_path(doc.root(), path);
+}
+
 std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path) {
-    std::vector<JsonValue> results;
-
-    if (path.empty()) {
-        return results;
-    }
-
-    // Early-exit optimization: check if root-level field exists before full evaluation
-    std::string root_field;
-    if (has_root_field_access(path.steps(), root_field)) {
-        if (!cursor.is_object()) {
-            return results;  // Not an object, field access will fail
-        }
-        // Use non-throwing get_field to check if field exists
-        auto field_result = cursor.get_field(root_field);
-        if (!field_result.ok()) {
-            return results;  // Root field doesn't exist, no results
-        }
-    }
-
-    eval_step(cursor, path.steps(), 0, results);
-    return results;
+    return eval_search_path(cursor, path, std::numeric_limits<size_t>::max());
 }
 
 std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledPath& path, size_t limit) {
@@ -467,26 +397,49 @@ std::vector<JsonValue> eval_search_path(const JsonDocument& doc, const CompiledP
 
 std::vector<JsonValue> eval_search_path(const JsonCursor& cursor, const CompiledPath& path, size_t limit) {
     std::vector<JsonValue> results;
+    if (path.empty() || limit == 0) return results;
 
-    if (path.empty() || limit == 0) {
-        return results;
-    }
-
-    // Early-exit optimization: check if root-level field exists before full evaluation
     std::string root_field;
     if (has_root_field_access(path.steps(), root_field)) {
-        if (!cursor.is_object()) {
-            return results;  // Not an object, field access will fail
-        }
-        // Use non-throwing get_field to check if field exists
+        if (!cursor.is_object()) return results;
         auto field_result = cursor.get_field(root_field);
-        if (!field_result.ok()) {
-            return results;  // Root field doesn't exist, no results
-        }
+        if (!field_result.ok()) return results;
     }
 
-    results.reserve(std::min(limit, size_t(64))); // Pre-allocate reasonable size
-    eval_step_with_limit(cursor, path.steps(), 0, results, limit);
+    results.reserve(std::min(limit, size_t(64)));
+    eval_step_with_limit_impl(cursor, path.steps(), 0, results, limit);
+    return results;
+}
+
+// ----------------------------------------------------------------------------
+// Public API Implementations (JsonCursor results)
+// ----------------------------------------------------------------------------
+
+std::vector<JsonCursor> eval_search_path_cursors(const JsonDocument& doc, const CompiledPath& path) {
+    return eval_search_path_cursors(doc.root(), path, std::numeric_limits<size_t>::max());
+}
+
+std::vector<JsonCursor> eval_search_path_cursors(const JsonCursor& cursor, const CompiledPath& path) {
+    return eval_search_path_cursors(cursor, path, std::numeric_limits<size_t>::max());
+}
+
+std::vector<JsonCursor> eval_search_path_cursors(const JsonDocument& doc, const CompiledPath& path, size_t limit) {
+    return eval_search_path_cursors(doc.root(), path, limit);
+}
+
+std::vector<JsonCursor> eval_search_path_cursors(const JsonCursor& cursor, const CompiledPath& path, size_t limit) {
+    std::vector<JsonCursor> results;
+    if (path.empty() || limit == 0) return results;
+
+    std::string root_field;
+    if (has_root_field_access(path.steps(), root_field)) {
+        if (!cursor.is_object()) return results;
+        auto field_result = cursor.get_field(root_field);
+        if (!field_result.ok()) return results;
+    }
+
+    results.reserve(std::min(limit, size_t(64)));
+    eval_step_with_limit_impl(cursor, path.steps(), 0, results, limit);
     return results;
 }
 

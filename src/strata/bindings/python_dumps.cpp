@@ -22,12 +22,8 @@ thread_local size_t g_last_dumps_size = 0;
 enum class CyclePolicy { Warn, Error, Ignore, NoCheck };
 static CyclePolicy g_cycle_policy = CyclePolicy::Warn;
 
-enum class DumpsTypeOrder { StringsFirst, IntsFirst };
-#if defined(STRATA_DUMPS_INTS_FIRST)
-static DumpsTypeOrder g_dumps_type_order = DumpsTypeOrder::IntsFirst;
-#else
-static DumpsTypeOrder g_dumps_type_order = DumpsTypeOrder::StringsFirst;
-#endif
+enum class TypeOrder { StringsFirst, IntsFirst };
+static TypeOrder g_type_order = TypeOrder::StringsFirst;
 
 PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
 
@@ -177,23 +173,6 @@ bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     return false;
 }
 
-bool set_dumps_type_order_from_string(const char* order, std::string& error) {
-    if (order == nullptr) {
-        error = "dumps type order must be a string";
-        return false;
-    }
-    if (strcmp(order, "strings_first") == 0) {
-        g_dumps_type_order = DumpsTypeOrder::StringsFirst;
-        return true;
-    }
-    if (strcmp(order, "ints_first") == 0) {
-        g_dumps_type_order = DumpsTypeOrder::IntsFirst;
-        return true;
-    }
-    error = "unknown dumps type order (expected strings_first|ints_first)";
-    return false;
-}
-
 int strata_get_cycle_policy() { return static_cast<int>(g_cycle_policy); }
 
 static inline bool is_unicode_type(PyTypeObject* type, unsigned long flags) {
@@ -247,6 +226,18 @@ static inline void append_literal(Buffer& out, const char* data, size_t len) {
     out.append(data, len);
 }
 
+struct DivMod100 {
+    uint64_t quotient;
+    uint32_t remainder;
+};
+
+// Extract quotient and remainder for 100.
+static inline DivMod100 divmod_u64_100(uint64_t value) {
+    uint64_t quotient = value / 100;
+    uint32_t remainder = static_cast<uint32_t>(value % 100);
+    return {quotient, remainder};
+}
+
 template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t value) {
     static constexpr char kDigitPairs[] = "00010203040506070809"
                                           "10111213141516171819"
@@ -275,8 +266,9 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
             return true;
         }
 
-        uint32_t high = v / 100;
-        uint32_t low = v - high * 100;
+        DivMod100 qr = divmod_u64_100(v);
+        uint32_t high = static_cast<uint32_t>(qr.quotient);
+        uint32_t low = qr.remainder;
         if (high < 10) {
             out.push_back(static_cast<char>('0' + high));
         } else {
@@ -296,10 +288,10 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
     }
 
     while (v >= 100) {
-        uint32_t idx = static_cast<uint32_t>(v % 100);
-        v /= 100;
+        DivMod100 qr = divmod_u64_100(v);
+        v = qr.quotient;
         ptr -= 2;
-        std::memcpy(ptr, kDigitPairs + idx * 2, 2);
+        std::memcpy(ptr, kDigitPairs + qr.remainder * 2, 2);
     }
 
     if (v < 10) {
@@ -402,7 +394,29 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
 enum class PrimitiveResult { Handled, IsContainer, Error };
 
 template <typename Buffer>
-static inline PrimitiveResult serialize_primitive(PyObject* obj, Buffer& out, bool ints_first) {
+static inline PrimitiveResult serialize_primitive(PyObject* obj, Buffer& out) {
+    PyTypeObject* type = Py_TYPE(obj);
+    unsigned long flags = type->tp_flags;
+
+    if (g_type_order == TypeOrder::StringsFirst) {
+        if (LIKELY(type == &PyUnicode_Type)) {
+            return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
+        }
+        if (LIKELY(type == &PyLong_Type)) {
+            return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
+        }
+    } else {
+        if (LIKELY(type == &PyLong_Type)) {
+            return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
+        }
+        if (LIKELY(type == &PyUnicode_Type)) {
+            return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
+        }
+    }
+    if (LIKELY(type == &PyFloat_Type)) {
+        return append_double(out, PyFloat_AS_DOUBLE(obj)) ? PrimitiveResult::Handled
+                                                          : PrimitiveResult::Error;
+    }
     if (obj == Py_None) {
         append_literal(out, "null", 4);
         return PrimitiveResult::Handled;
@@ -415,26 +429,8 @@ static inline PrimitiveResult serialize_primitive(PyObject* obj, Buffer& out, bo
         append_literal(out, "false", 5);
         return PrimitiveResult::Handled;
     }
-    PyTypeObject* type = Py_TYPE(obj);
-    unsigned long flags = type->tp_flags;
-    if (ints_first) {
-        if (type == &PyLong_Type) {
-            return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
-        }
-        if (is_unicode_type(type, flags)) {
-            return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
-        }
-    } else {
-        if (is_unicode_type(type, flags)) {
-            return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
-        }
-        if (type == &PyLong_Type) {
-            return append_py_long(out, obj) ? PrimitiveResult::Handled : PrimitiveResult::Error;
-        }
-    }
-    if (type == &PyFloat_Type) {
-        return append_double(out, PyFloat_AS_DOUBLE(obj)) ? PrimitiveResult::Handled
-                                                          : PrimitiveResult::Error;
+    if (UNLIKELY(flags & Py_TPFLAGS_UNICODE_SUBCLASS)) {
+        return append_string(obj, out) ? PrimitiveResult::Handled : PrimitiveResult::Error;
     }
 
     if (is_container_fast(type, flags)) {
@@ -498,8 +494,26 @@ static inline size_t clamp_mul(size_t a, size_t b, size_t cap) {
     return a * b;
 }
 
-static inline size_t apply_growth_factor(size_t estimate) {
-    return clamp_add(estimate, estimate / 2, kMaxEstimate);
+static inline size_t estimate_with_history(size_t heuristic_estimate) {
+#if defined(__SIZEOF_INT128__)
+    __uint128_t weighted = static_cast<__uint128_t>(g_last_dumps_size) * 7 +
+                           static_cast<__uint128_t>(heuristic_estimate) * 3;
+    __uint128_t cap = static_cast<__uint128_t>(kMaxEstimate) * 10;
+    if (weighted >= cap) {
+        return kMaxEstimate;
+    }
+    return static_cast<size_t>(weighted / 10);
+#else
+    const double estimate =
+        0.7 * static_cast<double>(g_last_dumps_size) + 0.3 * static_cast<double>(heuristic_estimate);
+    if (estimate <= 0.0) {
+        return 0;
+    }
+    if (estimate >= static_cast<double>(kMaxEstimate)) {
+        return kMaxEstimate;
+    }
+    return static_cast<size_t>(estimate);
+#endif
 }
 
 struct EstimateCache {
@@ -653,20 +667,18 @@ static inline size_t estimate_value_size(PyObject* obj, int depth, EstimateCache
 // Depth-limited size estimate with one-element sampling.
 static inline size_t estimate_size(PyObject* obj) {
     EstimateCache cache;
-    size_t estimate = estimate_value_size(obj, 0, cache);
-    if (g_last_dumps_size > estimate) {
-        estimate = g_last_dumps_size;
-    }
+    size_t heuristic_estimate = estimate_value_size(obj, 0, cache);
+    size_t estimate = estimate_with_history(heuristic_estimate);
     if (estimate < kMinEstimate) {
         estimate = kMinEstimate;
     }
     if (estimate > kMaxEstimate) {
         estimate = kMaxEstimate;
     }
-    return apply_growth_factor(estimate);
+    return estimate;
 }
 
-static constexpr size_t kStackBufferCap = 4 * 1024;
+static constexpr size_t kStackBufferCap = 1024;
 
 // Direct serialization into a PyUnicode compact-ASCII object.
 // Avoids the OutputBuffer → PyUnicode_FromStringAndSize copy+decode path.
@@ -824,7 +836,6 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     const bool check_cycles = (g_cycle_policy != CyclePolicy::NoCheck);
     constexpr size_t kCycleCheckDepth = 1;
     size_t nesting_depth = 0;
-    const bool ints_first = (g_dumps_type_order == DumpsTypeOrder::IntsFirst);
 
     PyObject* current = root;
     bool current_is_container = false;
@@ -843,54 +854,27 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             PyTypeObject* type = Py_TYPE(current);
             unsigned long flags = type->tp_flags;
             if (!current_is_container) {
-                // Fast path for primitives first (avoid is_container check for most common types)
-                // String vs int order can be configured to match workload profiles.
-                if (ints_first) {
-                    if (LIKELY(type == &PyLong_Type)) {
-                        if (!append_py_long(out, current)) {
-                            return false;
-                        }
-                        current = nullptr;
-                        continue;
+                if (LIKELY(type == &PyUnicode_Type)) {
+                    if (!append_string(current, out)) {
+                        return false;
                     }
-                    if (LIKELY(type == &PyUnicode_Type)) {
-                        if (!append_string(current, out)) {
-                            return false;
-                        }
-                        current = nullptr;
-                        continue;
-                    }
-                    if (UNLIKELY(flags & Py_TPFLAGS_UNICODE_SUBCLASS)) {
-                        if (!append_string(current, out)) {
-                            return false;
-                        }
-                        current = nullptr;
-                        continue;
-                    }
-                } else {
-                    if (LIKELY(type == &PyUnicode_Type)) {
-                        if (!append_string(current, out)) {
-                            return false;
-                        }
-                        current = nullptr;
-                        continue;
-                    }
-                    if (UNLIKELY(flags & Py_TPFLAGS_UNICODE_SUBCLASS)) {
-                        if (!append_string(current, out)) {
-                            return false;
-                        }
-                        current = nullptr;
-                        continue;
-                    }
-                    if (LIKELY(type == &PyLong_Type)) {
-                        if (!append_py_long(out, current)) {
-                            return false;
-                        }
-                        current = nullptr;
-                        continue;
-                    }
+                    current = nullptr;
+                    continue;
                 }
-
+                if (UNLIKELY(flags & Py_TPFLAGS_UNICODE_SUBCLASS)) {
+                    if (!append_string(current, out)) {
+                        return false;
+                    }
+                    current = nullptr;
+                    continue;
+                }
+                if (LIKELY(type == &PyLong_Type)) {
+                    if (!append_py_long(out, current)) {
+                        return false;
+                    }
+                    current = nullptr;
+                    continue;
+                }
                 if (LIKELY(type == &PyFloat_Type)) {
                     double val = PyFloat_AS_DOUBLE(current);
                     if (!append_double(out, val)) {
@@ -899,19 +883,16 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                     current = nullptr;
                     continue;
                 }
-
                 if (current == Py_None) {
                     append_literal(out, "null", 4);
                     current = nullptr;
                     continue;
                 }
-
                 if (current == Py_True) {
                     append_literal(out, "true", 4);
                     current = nullptr;
                     continue;
                 }
-
                 if (current == Py_False) {
                     append_literal(out, "false", 5);
                     current = nullptr;
@@ -1028,7 +1009,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                     return false;
                 }
                 out.push_back_unchecked(':');
-                PrimitiveResult result = serialize_primitive(value, out, ints_first);
+                PrimitiveResult result = serialize_primitive(value, out);
                 if (result == PrimitiveResult::Handled) {
                     continue;
                 }
@@ -1055,7 +1036,7 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                                  ? PyList_GET_ITEM(frame.obj, frame.index)
                                  : PyTuple_GET_ITEM(frame.obj, frame.index);
             frame.index += 1;
-            PrimitiveResult result = serialize_primitive(item, out, ints_first);
+            PrimitiveResult result = serialize_primitive(item, out);
             if (result == PrimitiveResult::Handled) {
                 continue;
             }
@@ -1078,7 +1059,6 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
 static PyObject* dumps_str_impl(PyObject* obj) {
     STRATA_CPP_TRY
 
-    g_serialize_arena.reset();
     size_t estimate = estimate_size(obj);
 
     if (estimate <= kStackBufferCap) {
@@ -1088,7 +1068,6 @@ static PyObject* dumps_str_impl(PyObject* obj) {
         if (PyErr_Occurred()) {
             return NULL;
         }
-        g_serialize_arena.reset();
     }
 
     // Fast path: serialize directly into a PyUnicode compact-ASCII buffer.
@@ -1102,7 +1081,6 @@ static PyObject* dumps_str_impl(PyObject* obj) {
     }
 
     // Fallback: estimate was too small (overflow) — use the dynamic buffer.
-    g_serialize_arena.reset();
     g_serialize_buffer.reset_with_arena(&g_serialize_arena);
     g_serialize_buffer.reserve(estimate);
 
@@ -1136,6 +1114,9 @@ static PyObject* dumps_str_impl(PyObject* obj) {
 }
 
 // Python dumps() function
+static PyObject* dumps_str_impl(PyObject* obj);
+static PyObject* dumps_bytes_impl(PyObject* obj);
+
 PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* obj = nullptr;
     PyObject* return_type_obj = Py_None;
@@ -1148,6 +1129,7 @@ PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
 
     STRATA_CPP_TRY
 
+    g_serialize_arena.reset();
     ReturnType return_type = ReturnType::Str;
     if (!parse_return_type(return_type_obj, &return_type, ReturnType::Str)) {
         return NULL;
@@ -1156,18 +1138,15 @@ PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
     if (return_type == ReturnType::Str) {
         return dumps_str_impl(obj);
     }
-    if (return_type == ReturnType::Bytes) {
-        return strata_dumps_bytes(self, obj);
-    }
-    PyObject* bytes_obj = strata_dumps_bytes(self, obj);
-    if (!bytes_obj) {
-        return NULL;
+    PyObject* bytes_obj = dumps_bytes_impl(obj);
+    if (return_type == ReturnType::Bytes || !bytes_obj) {
+        return bytes_obj;
     }
     char* data = nullptr;
     Py_ssize_t len = 0;
     if (PyBytes_AsStringAndSize(bytes_obj, &data, &len) < 0) {
         Py_DECREF(bytes_obj);
-        return NULL;
+        return nullptr;
     }
     PyObject* bytearray_obj = PyByteArray_FromStringAndSize(data, len);
     Py_DECREF(bytes_obj);
@@ -1176,11 +1155,10 @@ PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_CATCH
 }
 
-// Python dumps_bytes() function
-PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
+// Internal implementation for bytes serialization
+static PyObject* dumps_bytes_impl(PyObject* obj) {
     STRATA_CPP_TRY
 
-    g_serialize_arena.reset();
     size_t estimate = estimate_size(obj);
 
     if (estimate <= kStackBufferCap) {
@@ -1190,7 +1168,6 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
         if (PyErr_Occurred()) {
             return NULL;
         }
-        g_serialize_arena.reset();
     }
     if (PyObject* direct = dumps_bytes_direct(obj, estimate)) {
         return direct;
@@ -1199,7 +1176,6 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
         return NULL;
     }
 
-    g_serialize_arena.reset();
     g_serialize_buffer.reset_with_arena(&g_serialize_arena);
     g_serialize_buffer.reserve(estimate);
 
@@ -1216,23 +1192,27 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     STRATA_CPP_CATCH
 }
 
+// Python dumps_bytes() function
+PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
+    g_serialize_arena.reset();
+    return dumps_bytes_impl(obj);
+}
+
 namespace {
 PyObject* serialize_record(PyObject* value, ReturnType return_type) {
+    g_serialize_arena.reset();
     if (return_type == ReturnType::Str) {
         return dumps_str_impl(value);
     }
-    if (return_type == ReturnType::Bytes) {
-        return strata_dumps_bytes(nullptr, value);
-    }
-    PyObject* bytes_obj = strata_dumps_bytes(nullptr, value);
-    if (!bytes_obj) {
-        return NULL;
+    PyObject* bytes_obj = dumps_bytes_impl(value);
+    if (return_type == ReturnType::Bytes || !bytes_obj) {
+        return bytes_obj;
     }
     char* data = nullptr;
     Py_ssize_t len = 0;
     if (PyBytes_AsStringAndSize(bytes_obj, &data, &len) < 0) {
         Py_DECREF(bytes_obj);
-        return NULL;
+        return nullptr;
     }
     PyObject* bytearray_obj = PyByteArray_FromStringAndSize(data, len);
     Py_DECREF(bytes_obj);
@@ -1592,20 +1572,6 @@ PyObject* strata_dump(PyObject* self, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_CATCH
 }
 
-PyObject* strata_set_dumps_type_order(PyObject* self, PyObject* args) {
-    const char* order = nullptr;
-    if (!PyArg_ParseTuple(args, "s", &order)) {
-        return NULL;
-    }
-
-    std::string error;
-    if (!set_dumps_type_order_from_string(order, error)) {
-        PyErr_SetString(PyExc_ValueError, error.c_str());
-        return NULL;
-    }
-
-    Py_RETURN_NONE;
-}
 
 PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args) {
     const char* policy = nullptr;
@@ -1616,6 +1582,24 @@ PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args) {
     std::string error;
     if (!set_cycle_policy_from_string(policy, error)) {
         PyErr_SetString(PyExc_ValueError, error.c_str());
+        return NULL;
+    }
+
+    Py_RETURN_NONE;
+}
+
+PyObject* strata_set_dumps_type_order(PyObject* self, PyObject* args) {
+    const char* policy = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &policy)) {
+        return NULL;
+    }
+
+    if (strcmp(policy, "strings_first") == 0) {
+        g_type_order = TypeOrder::StringsFirst;
+    } else if (strcmp(policy, "ints_first") == 0) {
+        g_type_order = TypeOrder::IntsFirst;
+    } else {
+        PyErr_SetString(PyExc_ValueError, "Invalid type order policy");
         return NULL;
     }
 

@@ -7,6 +7,8 @@
 #include "strata/json/parallel_ndjson.hpp"
 #include "strata/search/search.hpp"
 #include "strata/search/search_ndjson_fused.hpp"
+#include "strata/search/simple_field_extractor.hpp"
+#include "python_object_builder.h"
 #include "strata/util/simd_string.hpp"
 
 #include <algorithm>
@@ -386,7 +388,7 @@ static NdjsonRootFilterSpec build_ndjson_root_filter(const strata::CompiledPath&
     return spec;
 }
 
-static std::vector<strata::JsonValue> eval_search_path_ndjson(
+static std::vector<strata::JsonCursor> eval_search_path_ndjson(
     const strata::JsonCursor& cursor,
     const strata::CompiledPath& path,
     const NdjsonRootFilterSpec* root_filter,
@@ -397,14 +399,14 @@ static std::vector<strata::JsonValue> eval_search_path_ndjson(
             return {};
         }
         if (has_limit) {
-            return strata::eval_search_path(cursor, root_filter->subpath, remaining);
+            return strata::eval_search_path_cursors(cursor, root_filter->subpath, remaining);
         }
-        return strata::eval_search_path(cursor, root_filter->subpath);
+        return strata::eval_search_path_cursors(cursor, root_filter->subpath);
     }
     if (has_limit) {
-        return strata::eval_search_path(cursor, path, remaining);
+        return strata::eval_search_path_cursors(cursor, path, remaining);
     }
-    return strata::eval_search_path(cursor, path);
+    return strata::eval_search_path_cursors(cursor, path);
 }
 
 NdjsonErrorMode to_search_error_mode(strata::bindings::NdjsonCursorErrorMode mode) {
@@ -492,8 +494,83 @@ bool detect_ndjson_name_attr(PyObject* obj) {
     return result;
 }
 
-bool append_ndjson_match(PyObject* results, size_t line_no,
-                         const std::vector<strata::JsonValue>& matches) {
+static strata::Status extract_simple_field_matches_python(
+    std::string_view text, std::string_view field, strata::SimpleFieldMode mode,
+    std::vector<PyObject*>& matches, const strata::ParseSaxOptions& options,
+    strata::ParseSaxContext* context) {
+
+    // We need a KeyCache and Arena for PythonObjectBuilder
+    strata::util::Arena arena(4096);
+    strata::bindings::KeyCache cache(&arena);
+    strata::util::Arena builder_arena(4096);
+    strata::bindings::PythonObjectPool pool;
+    strata::bindings::PythonObjectBuilder builder(&builder_arena, cache, &pool);
+
+    using PythonSimpleFieldExtractor = strata::internal::SimpleFieldExtractorBase<
+        strata::bindings::PythonObjectBuilder, PyObject*>;
+
+    PythonSimpleFieldExtractor handler(field, mode, matches, builder);
+    strata::ParseSaxOptions tuned = options;
+    if (mode == strata::SimpleFieldMode::RootField) {
+        tuned.allow_abort = true;
+        tuned.use_structural_tape = false;
+    }
+    return strata::parse_sax(text, handler, tuned, context);
+}
+
+static PyObject* batch_to_list(std::vector<PyObject*>& batch) {
+    PyObject* list = PyList_New(batch.size());
+    if (!list) {
+        for (auto* obj : batch) Py_DECREF(obj);
+        return NULL;
+    }
+    for (size_t i = 0; i < batch.size(); ++i) {
+        PyList_SET_ITEM(list, i, batch[i]);
+    }
+    return list;
+}
+
+static bool append_ndjson_match_batch(std::vector<PyObject*>& results, size_t line_no,
+                                       const std::vector<strata::JsonCursor>& matches) {
+    if (matches.empty()) {
+        return true;
+    }
+
+    PyObject* matches_list = json_cursor_list_to_python(matches);
+    if (!matches_list) {
+        return false;
+    }
+    PyObject* entry = PyDict_New();
+    if (!entry) {
+        Py_DECREF(matches_list);
+        return false;
+    }
+    PyObject* line_obj = PyLong_FromSize_t(line_no);
+    if (!line_obj) {
+        Py_DECREF(matches_list);
+        Py_DECREF(entry);
+        return false;
+    }
+    if (PyDict_SetItemString(entry, "line", line_obj) < 0 ||
+        PyDict_SetItemString(entry, "matches", matches_list) < 0) {
+        Py_DECREF(line_obj);
+        Py_DECREF(matches_list);
+        Py_DECREF(entry);
+        return false;
+    }
+    Py_DECREF(line_obj);
+    Py_DECREF(matches_list);
+
+    results.push_back(entry);
+    return true;
+}
+
+static bool append_ndjson_match_batch_legacy(std::vector<PyObject*>& results, size_t line_no,
+                                              const std::vector<strata::JsonValue>& matches) {
+    if (matches.empty()) {
+        return true;
+    }
+
     PyObject* matches_list = json_value_list_to_python(matches);
     if (!matches_list) {
         return false;
@@ -518,11 +595,8 @@ bool append_ndjson_match(PyObject* results, size_t line_no,
     }
     Py_DECREF(line_obj);
     Py_DECREF(matches_list);
-    if (PyList_Append(results, entry) < 0) {
-        Py_DECREF(entry);
-        return false;
-    }
-    Py_DECREF(entry);
+
+    results.push_back(entry);
     return true;
 }
 
@@ -537,9 +611,9 @@ PyObject* search_from_json_buffer(const char* data, Py_ssize_t len,
     emit_duplicate_key_warnings();
 
     strata::JsonCursor cursor(&parse_result.value);
-    auto result_values = limit > 0 ? strata::eval_search_path(cursor, compiled_path, limit)
-                                   : strata::eval_search_path(cursor, compiled_path);
-    return json_value_list_to_python(result_values);
+    auto result_cursors = limit > 0 ? strata::eval_search_path_cursors(cursor, compiled_path, limit)
+                                    : strata::eval_search_path_cursors(cursor, compiled_path);
+    return json_cursor_list_to_python(result_cursors);
 }
 
 PyObject* search_dict_mode(PyObject* data_obj, const strata::CompiledPath& compiled_path,
@@ -626,10 +700,10 @@ PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& com
         }
 
         strata::JsonCursor cursor(doc->root());
-        auto result_values = limit > 0 ? strata::eval_search_path(cursor, compiled_path, limit)
-                                       : strata::eval_search_path(cursor, compiled_path);
+        auto result_cursors = limit > 0 ? strata::eval_search_path_cursors(cursor, compiled_path, limit)
+                                        : strata::eval_search_path_cursors(cursor, compiled_path);
         Py_XDECREF(borrowed);
-        return json_value_list_to_python(result_values);
+        return json_cursor_list_to_python(result_cursors);
     }
 
     if (is_py_json_cursor(cursor_obj)) {
@@ -640,10 +714,10 @@ PyObject* search_cursor_mode(PyObject* data_obj, const strata::CompiledPath& com
             return NULL;
         }
 
-        auto result_values = limit > 0 ? strata::eval_search_path(*cursor_ptr, compiled_path, limit)
-                                       : strata::eval_search_path(*cursor_ptr, compiled_path);
+        auto result_cursors = limit > 0 ? strata::eval_search_path_cursors(*cursor_ptr, compiled_path, limit)
+                                        : strata::eval_search_path_cursors(*cursor_ptr, compiled_path);
         Py_XDECREF(borrowed);
-        return json_value_list_to_python(result_values);
+        return json_cursor_list_to_python(result_cursors);
     }
 
     if (is_py_ndjson_cursor(data_obj)) {
@@ -687,16 +761,16 @@ PyObject* search_file_pathlike(PyObject* pathlike,
     emit_duplicate_key_warnings();
 
     strata::JsonCursor cursor(result.value.root());
-    auto result_values = limit > 0 ? strata::eval_search_path(cursor, compiled_path, limit)
-                                   : strata::eval_search_path(cursor, compiled_path);
-    return json_value_list_to_python(result_values);
+    auto result_cursors = limit > 0 ? strata::eval_search_path_cursors(cursor, compiled_path, limit)
+                                    : strata::eval_search_path_cursors(cursor, compiled_path);
+    return json_cursor_list_to_python(result_cursors);
 }
 
 bool process_ndjson_line(std::string_view line, size_t line_no,
                          const strata::CompiledPath& compiled_path,
                          const NdjsonRootFilterSpec* root_filter,
                          const SimpleFieldExtractionSpec* simple_spec, NdjsonErrorMode mode,
-                         PyObject* results, strata::ParseSaxOptions& options,
+                         std::vector<PyObject*>& batch_results, strata::ParseSaxOptions& options,
                          strata::ParseSaxContext& parse_context,
                          std::vector<strata::JsonValue>& fused_matches,
                          size_t* total_matches, size_t limit) {
@@ -708,10 +782,10 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
     }
 
     if (simple_spec && simple_spec->enabled) {
-        fused_matches.clear();
-        auto status = strata::extract_simple_field_matches(line, simple_spec->field,
-                                                           simple_spec->mode, fused_matches,
-                                                           options, &parse_context);
+        std::vector<PyObject*> matches;
+        auto status = extract_simple_field_matches_python(line, simple_spec->field,
+                                                          simple_spec->mode, matches,
+                                                          options, &parse_context);
         if (status != strata::Status::Ok) {
             if (mode == NdjsonErrorMode::Skip) {
                 return true;
@@ -719,31 +793,60 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
             std::string message = "Invalid JSON on line " + std::to_string(line_no);
             if (mode == NdjsonErrorMode::Warn) {
                 if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
+                    for (auto* m : matches) Py_DECREF(m);
                     return false;
                 }
+                for (auto* m : matches) Py_DECREF(m);
                 return true;
             }
+            for (auto* m : matches) Py_DECREF(m);
             PyErr_SetString(PyExc_ValueError, message.c_str());
             return false;
         }
 
-        if (fused_matches.empty()) {
+        if (matches.empty()) {
             return true;
         }
         if (limit > 0 && total_matches) {
             size_t remaining = limit > *total_matches ? (limit - *total_matches) : 0;
             if (remaining == 0) {
+                for (auto* m : matches) Py_DECREF(m);
                 return true;
             }
-            if (fused_matches.size() > remaining) {
-                fused_matches.resize(remaining);
+            if (matches.size() > remaining) {
+                for (size_t i = remaining; i < matches.size(); ++i) Py_DECREF(matches[i]);
+                matches.resize(remaining);
             }
         }
-        if (!append_ndjson_match(results, line_no, fused_matches)) {
+
+        PyObject* matches_list = PyList_New(matches.size());
+        if (!matches_list) {
+            for (auto* m : matches) Py_DECREF(m);
             return false;
         }
+        for (size_t i = 0; i < matches.size(); ++i) {
+            PyList_SET_ITEM(matches_list, i, matches[i]);
+        }
+
+        PyObject* entry = PyDict_New();
+        if (!entry) {
+            Py_DECREF(matches_list);
+            return false;
+        }
+        PyObject* line_obj = PyLong_FromSize_t(line_no);
+        if (PyDict_SetItemString(entry, "line", line_obj) < 0 ||
+            PyDict_SetItemString(entry, "matches", matches_list) < 0) {
+            Py_XDECREF(line_obj);
+            Py_DECREF(matches_list);
+            Py_DECREF(entry);
+            return false;
+        }
+        Py_XDECREF(line_obj);
+        Py_DECREF(matches_list);
+        batch_results.push_back(entry);
+
         if (total_matches) {
-            *total_matches += fused_matches.size();
+            *total_matches += matches.size();
         }
         return true;
     }
@@ -767,7 +870,7 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
     emit_duplicate_key_warnings();
 
     strata::JsonCursor cursor(&parse_result.value);
-    std::vector<strata::JsonValue> matches;
+    std::vector<strata::JsonCursor> matches;
     if (limit > 0 && total_matches) {
         size_t remaining = limit > *total_matches ? (limit - *total_matches) : 0;
         if (remaining == 0) {
@@ -780,7 +883,7 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
     if (matches.empty()) {
         return true;
     }
-    if (!append_ndjson_match(results, line_no, matches)) {
+    if (!append_ndjson_match_batch(batch_results, line_no, matches)) {
         return false;
     }
     if (total_matches) {
@@ -792,7 +895,7 @@ bool process_ndjson_line(std::string_view line, size_t line_no,
 bool process_ndjson_text(const char* data, Py_ssize_t len, const strata::CompiledPath& compiled_path,
                          const NdjsonRootFilterSpec* root_filter,
                          const SimpleFieldExtractionSpec* simple_spec, NdjsonErrorMode mode,
-                         PyObject* results, strata::ParseSaxOptions& options,
+                         std::vector<PyObject*>& results, strata::ParseSaxOptions& options,
                          strata::ParseSaxContext& parse_context,
                          std::vector<strata::JsonValue>& fused_matches,
                          size_t* total_matches, size_t limit) {
@@ -827,7 +930,7 @@ bool process_ndjson_text(const char* data, Py_ssize_t len, const strata::Compile
 bool process_ndjson_iterable(PyObject* data_obj, const strata::CompiledPath& compiled_path,
                              const NdjsonRootFilterSpec* root_filter,
                              const SimpleFieldExtractionSpec* simple_spec, NdjsonErrorMode mode,
-                             PyObject* results, strata::ParseSaxOptions& options,
+                             std::vector<PyObject*>& results, strata::ParseSaxOptions& options,
                              strata::ParseSaxContext& parse_context,
                              std::vector<strata::JsonValue>& fused_matches,
                              size_t* total_matches, size_t limit) {
@@ -884,12 +987,12 @@ bool process_ndjson_iterable(PyObject* data_obj, const strata::CompiledPath& com
     return true;
 }
 
-static bool append_ndjson_cursor_matches(PyObject* results, size_t line_no,
-                                         const std::vector<strata::JsonValue>& matches) {
+static bool append_ndjson_cursor_matches_batch(std::vector<PyObject*>& results, size_t line_no,
+                                               const std::vector<strata::JsonCursor>& matches) {
     if (matches.empty()) {
         return true;
     }
-    return append_ndjson_match(results, line_no, matches);
+    return append_ndjson_match_batch(results, line_no, matches);
 }
 
 static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* cursor_data,
@@ -900,11 +1003,7 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
         return NULL;
     }
 
-    PyObject* results = PyList_New(0);
-    if (!results) {
-        return NULL;
-    }
-
+    std::vector<PyObject*> batch_results;
     LineSelectionSpec selection;
     bool has_selection = parse_line_selection_spec(compiled_path, &selection);
     NdjsonRootFilterSpec root_filter = build_ndjson_root_filter(compiled_path);
@@ -914,7 +1013,6 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
         const auto& values = cursor_data->values;
         const auto& line_numbers = cursor_data->line_numbers;
         if (values.size() != line_numbers.size()) {
-            Py_DECREF(results);
             PyErr_SetString(PyExc_RuntimeError, "NdjsonCursor data is inconsistent");
             return NULL;
         }
@@ -941,7 +1039,7 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
                     cursor, subpath, sub_filter_ptr, remaining, limit > 0);
                 if (!matches.empty()) {
                     total_matches += matches.size();
-                    if (!append_ndjson_cursor_matches(results, line_numbers[pos], matches)) {
+                    if (!append_ndjson_cursor_matches_batch(batch_results, line_numbers[pos], matches)) {
                         return false;
                     }
                 }
@@ -969,19 +1067,19 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
                             break;
                         }
                         if (!handle_index(idx)) {
-                            Py_DECREF(results);
+                            for (auto* obj : batch_results) Py_DECREF(obj);
                             return NULL;
                         }
                     }
                 }
             } else {
                 if (!handle_index(selection.index)) {
-                    Py_DECREF(results);
+                    for (auto* obj : batch_results) Py_DECREF(obj);
                     return NULL;
                 }
             }
 
-            return results;
+            return batch_to_list(batch_results);
         }
 
         size_t total_matches = 0;
@@ -997,12 +1095,12 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
                 continue;
             }
             total_matches += matches.size();
-            if (!append_ndjson_cursor_matches(results, line_numbers[i], matches)) {
-                Py_DECREF(results);
+            if (!append_ndjson_cursor_matches_batch(batch_results, line_numbers[i], matches)) {
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
         }
-        return results;
+        return batch_to_list(batch_results);
     }
 
     // Lazy cursor path
@@ -1062,7 +1160,8 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
                 cursor, subpath, sub_filter_ptr, remaining, limit > 0);
             if (!matches.empty()) {
                 total_matches += matches.size();
-                if (!append_ndjson_cursor_matches(results, line_no, matches)) {
+                if (!append_ndjson_cursor_matches_batch(batch_results, line_no, matches)) {
+                    for (auto* obj : batch_results) Py_DECREF(obj);
                     return false;
                 }
             }
@@ -1102,19 +1201,19 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
                         break;
                     }
                     if (!handle_index(idx)) {
-                        Py_DECREF(results);
+                        for (auto* obj : batch_results) Py_DECREF(obj);
                         return NULL;
                     }
                 }
             }
         } else {
             if (!handle_index(selection.index)) {
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
         }
 
-        return results;
+        return batch_to_list(batch_results);
     }
 
     SimpleFieldExtractionSpec simple_spec;
@@ -1148,25 +1247,22 @@ static PyObject* search_ndjson_cursor_data(strata::bindings::NdjsonCursorData* c
         std::string_view line(data_view.data() + start, end - start);
         line = trim_line_endings(line);
         cursor_data->parsed_lines += 1;
-        if (!process_ndjson_line(line, line_no, compiled_path, root_filter_ptr, simple_spec_ptr,
-                                 mode, results, options, parse_context, fused_matches,
+            if (!process_ndjson_line(line, line_no, compiled_path, root_filter_ptr, simple_spec_ptr,
+                                 mode, batch_results, options, parse_context, fused_matches,
                                  &total_matches, limit)) {
-            Py_DECREF(results);
-            return NULL;
+                for (auto* obj : batch_results) Py_DECREF(obj);
+                return NULL;
+            }
         }
-    }
 
-    return results;
+        return batch_to_list(batch_results);
 }
 
 PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& compiled_path,
                              NdjsonErrorMode mode, bool treat_string_as_text,
                              bool parallel_set, bool parallel, int num_threads, size_t limit,
                              bool lazy) {
-    PyObject* results = PyList_New(0);
-    if (!results) {
-        return NULL;
-    }
+    std::vector<PyObject*> batch_results;
 
     strata::ParseSaxOptions options;
     strata::ParseSaxContext parse_context;
@@ -1187,7 +1283,6 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
     if (treat_string_as_text) {
         if (lazy) {
             PyErr_SetString(PyExc_TypeError, "lazy NDJSON requires a file path");
-            Py_DECREF(results);
             return NULL;
         }
         if (PyUnicode_Check(data_obj) || PyBytes_Check(data_obj) || PyByteArray_Check(data_obj) ||
@@ -1199,21 +1294,18 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
             if (PyUnicode_Check(data_obj)) {
                 data = PyUnicode_AsUTF8AndSize(data_obj, &len);
                 if (!data) {
-                    Py_DECREF(results);
                     return NULL;
                 }
             } else {
                 if (!PyBytes_Check(data_obj)) {
                     temp_bytes = PyBytes_FromObject(data_obj);
                     if (!temp_bytes) {
-                        Py_DECREF(results);
                         return NULL;
                     }
                     bytes_obj = temp_bytes;
                 }
                 if (PyBytes_AsStringAndSize(bytes_obj, const_cast<char**>(&data), &len) < 0) {
                     Py_XDECREF(temp_bytes);
-                    Py_DECREF(results);
                     return NULL;
                 }
             }
@@ -1249,7 +1341,6 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                 if (num_threads < 0) {
                     PyErr_SetString(PyExc_ValueError, "num_threads must be non-negative");
                     Py_XDECREF(temp_bytes);
-                    Py_DECREF(results);
                     return NULL;
                 }
                 strata::ParallelNdjsonConfig config;
@@ -1268,7 +1359,6 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                             "Invalid JSON on line " + std::to_string(search_result.errors[0].first);
                         PyErr_SetString(PyExc_ValueError, message.c_str());
                         Py_XDECREF(temp_bytes);
-                        Py_DECREF(results);
                         return NULL;
                     }
                     if (mode == NdjsonErrorMode::Warn) {
@@ -1277,42 +1367,42 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                                 "Invalid JSON on line " + std::to_string(err.first);
                             if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
                                 Py_XDECREF(temp_bytes);
-                                Py_DECREF(results);
+                                for (auto* obj : batch_results) Py_DECREF(obj);
                                 return NULL;
                             }
                         }
                     }
                     for (const auto& entry : search_result.matches) {
-                        if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                        if (!append_ndjson_match_batch_legacy(batch_results, entry.line, entry.matches)) {
                             Py_XDECREF(temp_bytes);
-                            Py_DECREF(results);
+                            for (auto* obj : batch_results) Py_DECREF(obj);
                             return NULL;
                         }
                     }
                 } else {
                     auto matches = stream.search_all_parallel(compiled_path, limit);
                     for (const auto& entry : matches) {
-                        if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                        if (!append_ndjson_match_batch_legacy(batch_results, entry.line, entry.matches)) {
                             Py_XDECREF(temp_bytes);
-                            Py_DECREF(results);
+                            for (auto* obj : batch_results) Py_DECREF(obj);
                             return NULL;
                         }
                     }
                 }
                 Py_XDECREF(temp_bytes);
-                return results;
+                return batch_to_list(batch_results);
             }
 
             size_t total_matches = 0;
             bool ok = process_ndjson_text(data, len, compiled_path, root_filter_ptr,
-                                          simple_spec_ptr, mode, results, options, parse_context,
+                                          simple_spec_ptr, mode, batch_results, options, parse_context,
                                           fused_matches, &total_matches, limit);
             Py_XDECREF(temp_bytes);
             if (!ok) {
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
-            return results;
+            return batch_to_list(batch_results);
         }
     }
 
@@ -1325,13 +1415,12 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
             filepath = PyBytes_AsString(pathlike);
         } else {
             Py_DECREF(pathlike);
-            Py_DECREF(results);
+            for (auto* obj : batch_results) Py_DECREF(obj);
             PyErr_SetString(PyExc_TypeError, "path must be str or bytes");
             return NULL;
         }
         if (!filepath) {
             Py_DECREF(pathlike);
-            Py_DECREF(results);
             return NULL;
         }
 
@@ -1353,10 +1442,8 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                 } else {
                     PyErr_SetString(PyExc_OSError, error_message.c_str());
                 }
-                Py_DECREF(results);
                 return NULL;
             }
-            Py_DECREF(results);
             PyObject* search_result =
                 search_ndjson_cursor_data(cursor_data, compiled_path, limit);
             delete cursor_data;
@@ -1370,7 +1457,7 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
             std::ifstream size_file(filepath, std::ios::binary | std::ios::ate);
             if (!size_file) {
                 Py_DECREF(pathlike);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
                 return NULL;
             }
@@ -1383,21 +1470,21 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
         if (use_parallel) {
             if (num_threads < 0) {
                 Py_DECREF(pathlike);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 PyErr_SetString(PyExc_ValueError, "num_threads must be non-negative");
                 return NULL;
             }
             std::ifstream file(filepath, std::ios::binary | std::ios::ate);
             if (!file) {
                 Py_DECREF(pathlike);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
                 return NULL;
             }
             std::streamsize size = file.tellg();
             if (size < 0) {
                 Py_DECREF(pathlike);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 PyErr_SetString(PyExc_OSError, "Failed to read NDJSON file size");
                 return NULL;
             }
@@ -1405,7 +1492,7 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
             std::string data(static_cast<size_t>(size), '\0');
             if (!file.read(&data[0], size)) {
                 Py_DECREF(pathlike);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 PyErr_SetString(PyExc_OSError, "Failed to read NDJSON file");
                 return NULL;
             }
@@ -1443,7 +1530,7 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                         "Invalid JSON on line " + std::to_string(search_result.errors[0].first);
                     PyErr_SetString(PyExc_ValueError, message.c_str());
                     Py_DECREF(pathlike);
-                    Py_DECREF(results);
+                    for (auto* obj : batch_results) Py_DECREF(obj);
                     return NULL;
                 }
                 if (mode == NdjsonErrorMode::Warn) {
@@ -1452,36 +1539,35 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
                             "Invalid JSON on line " + std::to_string(err.first);
                         if (PyErr_WarnEx(PyExc_RuntimeWarning, message.c_str(), 1) < 0) {
                             Py_DECREF(pathlike);
-                            Py_DECREF(results);
+                            for (auto* obj : batch_results) Py_DECREF(obj);
                             return NULL;
                         }
                     }
                 }
                 for (const auto& entry : search_result.matches) {
-                    if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                    if (!append_ndjson_match_batch_legacy(batch_results, entry.line, entry.matches)) {
                         Py_DECREF(pathlike);
-                        Py_DECREF(results);
+                        for (auto* obj : batch_results) Py_DECREF(obj);
                         return NULL;
                     }
                 }
             } else {
                 auto matches = stream.search_all_parallel(compiled_path, limit);
                 for (const auto& entry : matches) {
-                    if (!append_ndjson_match(results, entry.line, entry.matches)) {
+                    if (!append_ndjson_match_batch_legacy(batch_results, entry.line, entry.matches)) {
                         Py_DECREF(pathlike);
-                        Py_DECREF(results);
+                        for (auto* obj : batch_results) Py_DECREF(obj);
                         return NULL;
                     }
                 }
             }
             Py_DECREF(pathlike);
-            return results;
+            return batch_to_list(batch_results);
         }
 
         std::ifstream file(filepath, std::ios::binary);
         if (!file) {
             Py_DECREF(pathlike);
-            Py_DECREF(results);
             PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
             return NULL;
         }
@@ -1496,10 +1582,10 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
             }
             std::string_view view(line);
             if (!process_ndjson_line(view, line_no, compiled_path, root_filter_ptr,
-                                     simple_spec_ptr, mode, results, options, parse_context,
+                                     simple_spec_ptr, mode, batch_results, options, parse_context,
                                      fused_matches, &total_matches, limit)) {
                 Py_DECREF(pathlike);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
             if (limit > 0 && total_matches >= limit) {
@@ -1508,29 +1594,28 @@ PyObject* search_ndjson_data(PyObject* data_obj, const strata::CompiledPath& com
         }
         if (file.bad()) {
             Py_DECREF(pathlike);
-            Py_DECREF(results);
+            for (auto* obj : batch_results) Py_DECREF(obj);
             PyErr_SetString(PyExc_OSError, "Error reading NDJSON file");
             return NULL;
         }
         Py_DECREF(pathlike);
-        return results;
+        return batch_to_list(batch_results);
     }
     PyErr_Clear();
 
     if (lazy) {
         PyErr_SetString(PyExc_TypeError, "lazy NDJSON requires a file path");
-        Py_DECREF(results);
         return NULL;
     }
 
     size_t total_matches = 0;
     if (!process_ndjson_iterable(data_obj, compiled_path, root_filter_ptr, simple_spec_ptr, mode,
-                                 results, options, parse_context, fused_matches, &total_matches,
+                                 batch_results, options, parse_context, fused_matches, &total_matches,
                                  limit)) {
-        Py_DECREF(results);
+        for (auto* obj : batch_results) Py_DECREF(obj);
         return NULL;
     }
-    return results;
+    return batch_to_list(batch_results);
 }
 
 } // namespace
@@ -2007,10 +2092,7 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    PyObject* results = PyList_New(0);
-    if (!results) {
-        return NULL;
-    }
+    std::vector<PyObject*> batch_results;
 
     strata::ParseSaxOptions options;
     strata::ParseSaxContext parse_context;
@@ -2040,13 +2122,11 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
         }
         Py_DECREF(pathlike);
         if (!filepath) {
-            Py_DECREF(results);
             return NULL;
         }
 
         std::ifstream file(filepath, std::ios::binary);
         if (!file) {
-            Py_DECREF(results);
             PyErr_SetString(PyExc_OSError, "Failed to open NDJSON file");
             return NULL;
         }
@@ -2060,18 +2140,18 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
             }
             std::string_view view(line);
             if (!process_ndjson_line(view, line_no, compiled_path, root_filter_ptr,
-                                     simple_spec_ptr, mode, results, options, parse_context,
+                                     simple_spec_ptr, mode, batch_results, options, parse_context,
                                      fused_matches, nullptr, 0)) {
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
         }
         if (file.bad()) {
-            Py_DECREF(results);
+            for (auto* obj : batch_results) Py_DECREF(obj);
             PyErr_SetString(PyExc_OSError, "Error reading NDJSON file");
             return NULL;
         }
-        return results;
+        return batch_to_list(batch_results);
     }
     PyErr_Clear();
 
@@ -2088,7 +2168,7 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
                 if (PyBytes_AsStringAndSize(line_obj, &data, &len) < 0) {
                     Py_DECREF(line_obj);
                     Py_DECREF(iter);
-                    Py_DECREF(results);
+                    for (auto* obj : batch_results) Py_DECREF(obj);
                     return NULL;
                 }
                 view = std::string_view(data, static_cast<size_t>(len));
@@ -2098,39 +2178,38 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
                 if (!data) {
                     Py_DECREF(line_obj);
                     Py_DECREF(iter);
-                    Py_DECREF(results);
+                    for (auto* obj : batch_results) Py_DECREF(obj);
                     return NULL;
                 }
                 view = std::string_view(data, static_cast<size_t>(len));
             } else {
                 Py_DECREF(line_obj);
                 Py_DECREF(iter);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 PyErr_SetString(PyExc_TypeError, "NDJSON lines must be str or bytes");
                 return NULL;
             }
             view = trim_line_endings(view);
             bool ok = process_ndjson_line(view, line_no, compiled_path, root_filter_ptr,
-                                          simple_spec_ptr, mode, results, options, parse_context,
+                                          simple_spec_ptr, mode, batch_results, options, parse_context,
                                           fused_matches, nullptr, 0);
             Py_DECREF(line_obj);
             if (!ok) {
                 Py_DECREF(iter);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
         }
         Py_DECREF(iter);
         if (PyErr_Occurred()) {
-            Py_DECREF(results);
+            for (auto* obj : batch_results) Py_DECREF(obj);
             return NULL;
         }
-        return results;
+        return batch_to_list(batch_results);
     }
     PyErr_Clear();
 
     if (!PyObject_HasAttrString(data_obj, "readline")) {
-        Py_DECREF(results);
         PyErr_SetString(PyExc_TypeError, "search_ndjson expects a path or file-like object");
         return NULL;
     }
@@ -2139,7 +2218,7 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
     while (true) {
         PyObject* line_obj = PyObject_CallMethod(data_obj, "readline", NULL);
         if (!line_obj) {
-            Py_DECREF(results);
+            for (auto* obj : batch_results) Py_DECREF(obj);
             return NULL;
         }
 
@@ -2150,7 +2229,7 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
             Py_ssize_t len = 0;
             if (PyBytes_AsStringAndSize(line_obj, &data, &len) < 0) {
                 Py_DECREF(line_obj);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
             if (len == 0) {
@@ -2163,7 +2242,7 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
             const char* data = PyUnicode_AsUTF8AndSize(line_obj, &len);
             if (!data) {
                 Py_DECREF(line_obj);
-                Py_DECREF(results);
+                for (auto* obj : batch_results) Py_DECREF(obj);
                 return NULL;
             }
             if (len == 0) {
@@ -2173,7 +2252,7 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
             }
         } else {
             Py_DECREF(line_obj);
-            Py_DECREF(results);
+            for (auto* obj : batch_results) Py_DECREF(obj);
             PyErr_SetString(PyExc_TypeError, "NDJSON lines must be str or bytes");
             return NULL;
         }
@@ -2186,16 +2265,16 @@ PyObject* strata_search_ndjson(PyObject* self, PyObject* args, PyObject* kwargs)
         line_no++;
         view = trim_line_endings(view);
         bool ok = process_ndjson_line(view, line_no, compiled_path, root_filter_ptr,
-                                      simple_spec_ptr, mode, results, options, parse_context,
+                                      simple_spec_ptr, mode, batch_results, options, parse_context,
                                       fused_matches, nullptr, 0);
         Py_DECREF(line_obj);
         if (!ok) {
-            Py_DECREF(results);
+            for (auto* obj : batch_results) Py_DECREF(obj);
             return NULL;
         }
     }
 
-    return results;
+    return batch_to_list(batch_results);
 
     STRATA_CPP_CATCH
 }

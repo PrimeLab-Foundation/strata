@@ -812,6 +812,14 @@ class PythonObjectBuilder : public JsonSaxHandler {
 
     void set_pool(PythonObjectPool* pool) { pool_ = pool; }
 
+    bool has_root() const { return root_ != nullptr; }
+
+    PyObject* take_root() {
+        PyObject* res = root_;
+        root_ = nullptr;
+        return res;
+    }
+
     void reset() {
         if (!Py_IsInitialized()) {
             root_ = nullptr;
@@ -1066,12 +1074,6 @@ class PythonObjectBuilder : public JsonSaxHandler {
 
         return push_value(list);
     }
-
-     PyObject* take_root() {
-         PyObject* res = root_;
-         root_ = nullptr;
-         return res;
-     }
 
     // Get the adaptive estimator's current dict size estimate (for pool pre-sizing)
     size_t estimate_dict_presize() const {

@@ -4,29 +4,23 @@
 #define PY_SSIZE_T_CLEAN
 #include "python_types.h"
 #include "strata/json/json_core.hpp"
+#include "strata/json/json_cursor.hpp"
 
 #include <Python.h>
+#include <vector>
 
 /** Convert JsonValue to PyObject (defined in python_loads.cpp; used by document, search, ndjson).
  */
 PyObject* json_value_to_python(const strata::JsonValue& val);
 
-/** Convert vector of JsonValue to Python list. Inline so callers (search, ndjson, loads) get
- * inlining without LTO. */
-inline PyObject* json_value_list_to_python(const std::vector<strata::JsonValue>& values) {
-    PyGcPause gc_pause;
-    PyObject* list = PyList_New(values.size());
-    if (!list)
-        return NULL;
-    for (size_t i = 0; i < values.size(); ++i) {
-        PyObject* item = json_value_to_python(values[i]);
-        if (!item) {
-            Py_DECREF(list);
-            return NULL;
-        }
-        PyList_SET_ITEM(list, i, item);
-    }
-    return list;
-}
+/** Optimized list conversion (defined in python_loads.cpp).
+ * Reuses KeyCache and Arena across all items for significantly better performance.
+ */
+PyObject* json_value_list_to_python(const std::vector<strata::JsonValue>& values);
+
+/** Convert vector of JsonCursor to Python list.
+ * Avoids double materialization and reuses KeyCache.
+ */
+PyObject* json_cursor_list_to_python(const std::vector<strata::JsonCursor>& cursors);
 
 #endif // STRATA_PYTHON_CONVERT_H

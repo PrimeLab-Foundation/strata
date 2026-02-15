@@ -577,3 +577,60 @@ make test
 - `docs/benchmarks/flags_audit/bench_large_pgo.json`
 - `build/pgo/strata.profdata`
 - `build/pgo/bench_results_pgo.md`
+
+## 2026-02-14 - dumps hot-path tuning (python_dumps.cpp)
+
+**Git Commit:** `e67973e` (working tree modified)  
+**Environment:** Darwin arm64, Python 3.14.2, Apple clang 17.0.0  
+**Bench config:** `benchmarks.bench_dumps` on `small|medium|large users.json`, `repeat=20`, `warmup=3`
+
+### Commands Used
+
+```bash
+# Baseline (pre-change)
+PYTHONPATH=. .venv/bin/python - <<'PY'
+from pathlib import Path
+from benchmarks.bench_dumps import run_benchmarks
+# writes docs/benchmarks/dumps_baseline_pre_change.json
+PY
+
+# Apply changes in src/strata/bindings/python_dumps.cpp
+
+# Build + tests
+PYTHONPATH=. .venv/bin/python -m pip install --force-reinstall --no-deps -e .
+make test
+
+# Post-change benchmark
+PYTHONPATH=. .venv/bin/python - <<'PY'
+from pathlib import Path
+from benchmarks.bench_dumps import run_benchmarks
+# writes docs/benchmarks/dumps_post_change.json
+PY
+```
+
+### Strata Results (dumps, lower is better)
+
+| Dataset | Baseline Median (ms) | Post Median (ms) | Delta | Baseline P95 (ms) | Post P95 (ms) | Delta | Baseline RSS (MB) | Post RSS (MB) | Delta |
+|---------|-----------------------|------------------|-------|-------------------|---------------|-------|-------------------|---------------|-------|
+| small   | 3.75                  | 3.66             | -2.62% | 3.91              | 3.67          | -6.20% | 37.7              | 35.7          | -5.30% |
+| medium  | 29.76                 | 28.29            | -4.94% | 30.62             | 28.70         | -6.29% | 254.6             | 126.2         | -50.43% |
+| large   | 226.78                | 212.90           | -6.12% | 229.40            | 218.74        | -4.65% | 1857.6            | 1101.2        | -40.72% |
+
+### Conclusion
+
+- Outcome: **improved** across all three dataset sizes for median and p95.
+- Rule 17 check: no >2% slowdown in touched category; change is **kept** (no revert).
+
+### Artifacts
+
+- `docs/benchmarks/dumps_baseline_pre_change.json`
+- `docs/benchmarks/dumps_post_change.json`
+
+### 2026-02-15 00:28:18 — dumps-optimized
+
+- loads json: msgspec (5.26 ms)
+- loads ndjson: msgspec (4.73 ms)
+- dumps str: orjson (0.73 ms)
+- dumps bytes: orjson (0.72 ms)
+- search: jsonpath-ng (0.01 ms)
+- cursor reuse: strata_cursor_reuse (41.62 ms)

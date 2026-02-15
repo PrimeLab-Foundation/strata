@@ -1,0 +1,149 @@
+{
+  "timestamp": "2026-02-14 22:32:53",
+  "repeat": 20,
+  "warmup": 3,
+  "mode": "dumps",
+  "sizes": {
+    "small": [
+      {
+        "library": "strata",
+        "min_ms": 3.601749980589375,
+        "median_ms": 3.75410400738474,
+        "p95_ms": 3.9100518042687327,
+        "rss_mb": 37.71875,
+        "throughput_mbps": 266.41590058042823,
+        "output_size": 1000153
+      },
+      {
+        "library": "orjson",
+        "min_ms": 0.8594160026405007,
+        "median_ms": 0.887125002918765,
+        "p95_ms": 0.9628080035327002,
+        "rss_mb": 38.84375,
+        "throughput_mbps": 1008.9468756433662,
+        "output_size": 895062
+      },
+      {
+        "library": "msgspec",
+        "min_ms": 1.0557909845374525,
+        "median_ms": 1.0863540082937106,
+        "p95_ms": 1.1703090072842315,
+        "rss_mb": 39.71875,
+        "throughput_mbps": 823.9137455808124,
+        "output_size": 895062
+      },
+      {
+        "library": "ujson",
+        "min_ms": 3.998667001724243,
+        "median_ms": 4.156957991654053,
+        "p95_ms": 4.3963291580439545,
+        "rss_mb": 42.0,
+        "throughput_mbps": 215.31658530036162,
+        "output_size": 895062
+      },
+      {
+        "library": "json",
+        "min_ms": 6.116249976912513,
+        "median_ms": 6.199146504513919,
+        "p95_ms": 6.612596167542506,
+        "rss_mb": 42.265625,
+        "throughput_mbps": 162.63496906644792,
+        "output_size": 1008198
+      }
+    ],
+    "medium": [
+      {
+        "library": "strata",
+        "min_ms": 28.60395799507387,
+        "median_ms": 29.76281200244557,
+        "p95_ms": 30.620399714098312,
+        "rss_mb": 254.640625,
+        "throughput_mbps": 224.81057903568419,
+        "output_size": 6690995
+      },
+      {
+        "library": "orjson",
+        "min_ms": 6.312083976808935,
+        "median_ms": 6.680708494968712,
+        "p95_ms": 6.95836039230926,
+        "rss_mb": 388.515625,
+        "throughput_mbps": 869.8216670247359,
+        "output_size": 5811025
+      },
+      {
+        "library": "msgspec",
+        "min_ms": 7.7281670237425715,
+        "median_ms": 8.21102102054283,
+        "p95_ms": 8.76280981610762,
+        "rss_mb": 471.15625,
+        "throughput_mbps": 707.7104035492816,
+        "output_size": 5811025
+      },
+      {
+        "library": "ujson",
+        "min_ms": 26.840666017960757,
+        "median_ms": 27.477750001708046,
+        "p95_ms": 28.178571446915157,
+        "rss_mb": 464.78125,
+        "throughput_mbps": 211.4811074283295,
+        "output_size": 5811025
+      },
+      {
+        "library": "json",
+        "min_ms": 42.47729099006392,
+        "median_ms": 43.64606298622675,
+        "p95_ms": 44.879916655190755,
+        "rss_mb": 475.28125,
+        "throughput_mbps": 150.10893427128784,
+        "output_size": 6551664
+      }
+    ],
+    "large": [
+      {
+        "library": "strata",
+        "min_ms": 223.66074999445118,
+        "median_ms": 226.7760209942935,
+        "p95_ms": 229.39804615889443,
+        "rss_mb": 1857.625,
+        "throughput_mbps": 210.1455911919329,
+        "output_size": 47655981
+      },
+      {
+        "library": "orjson",
+        "min_ms": 51.340292004169896,
+        "median_ms": 53.02812499576248,
+        "p95_ms": 55.00438060116721,
+        "rss_mb": 1915.40625,
+        "throughput_mbps": 769.0228346421592,
+        "output_size": 40779839
+      },
+      {
+        "library": "msgspec",
+        "min_ms": 60.61937499907799,
+        "median_ms": 62.34916650282685,
+        "p95_ms": 63.981362141203135,
+        "rss_mb": 1937.890625,
+        "throughput_mbps": 654.0558805730159,
+        "output_size": 40779839
+      },
+      {
+        "library": "ujson",
+        "min_ms": 189.3513749819249,
+        "median_ms": 198.09129199711606,
+        "p95_ms": 204.3693788422388,
+        "rss_mb": 1621.28125,
+        "throughput_mbps": 205.86386503347,
+        "output_size": 40779839
+      },
+      {
+        "library": "json",
+        "min_ms": 311.35924998670816,
+        "median_ms": 316.8182289955439,
+        "p95_ms": 500.87401663477067,
+        "rss_mb": 1151.546875,
+        "throughput_mbps": 145.14125385331528,
+        "output_size": 45983395
+      }
+    ]
+  }
+}
