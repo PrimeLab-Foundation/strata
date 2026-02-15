@@ -10,554 +10,213 @@ Obtaining file:///Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation
   Getting requirements to build editable ... done
   Preparing editable metadata (pyproject.toml) ... done
 Building wheels for collected packages: strata
-  Building editable for strata (pyproject.toml) ... error
-  error: subprocess-exited-with-error
-
-  × Building editable for strata (pyproject.toml) did not run successfully.
-  │ exit code: 1
-  ╰─> [535 lines of output]
-      /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
-      !!
-
-              ********************************************************************************
-              Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
-
-              By 2027-Feb-18, you need to update your project and remove deprecated calls
-              or your builds will no longer be supported.
-
-              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
-              ********************************************************************************
-
-      !!
-        corresp(dist, value, root_dir)
-      /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/config/_apply_pyprojecttoml.py:61: SetuptoolsDeprecationWarning: License classifiers are deprecated.
-      !!
-
-              ********************************************************************************
-              Please consider removing the following classifiers in favor of a SPDX license expression:
-
-              License :: OSI Approved :: MIT License
-
-              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
-              ********************************************************************************
-
-      !!
-        dist._finalize_license_expression()
-      /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
-      !!
-
-              ********************************************************************************
-              Please consider removing the following classifiers in favor of a SPDX license expression:
-
-              License :: OSI Approved :: MIT License
-
-              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
-              ********************************************************************************
-
-      !!
-        self._finalize_license_expression()
-      running editable_wheel
-      creating /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info
-      writing /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info/PKG-INFO
-      writing dependency_links to /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info/dependency_links.txt
-      writing requirements to /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info/requires.txt
-      writing top-level names to /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info/top_level.txt
-      writing manifest file '/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info/SOURCES.txt'
-      reading manifest file '/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info/SOURCES.txt'
-      reading manifest template 'MANIFEST.in'
-      warning: no files found matching '*.h' under directory 'include'
-      warning: no files found matching '*.c' under directory 'src'
-      warning: no files found matching '*.cc' under directory 'src'
-      warning: no files found matching '*.cxx' under directory 'src'
-      warning: no files found matching '*.hpp' under directory 'src'
-      warning: no files found matching '*.h' under directory 'tests'
-      warning: no files found matching '*.hpp' under directory 'tests'
-      warning: no files found matching '*.txt' under directory 'benchmarks'
-      warning: no files found matching '*.md' under directory 'benchmarks'
-      warning: no files found matching '*.h' under directory 'bench'
-      warning: no files found matching '*.hpp' under directory 'bench'
-      adding license file 'LICENSE'
-      writing manifest file '/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata.egg-info/SOURCES.txt'
-      creating '/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata-0.2.0.dist-info'
-      creating /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-1j5t5rkf/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1/tmp82ylk9oy/.tmp-qppx8vel/strata-0.2.0.dist-info/WHEEL
-      running build_py
-      running build_ext
-
-      ======================================================================
-      PHASE 1: Running C++ tests (pre-build gate)
-      Per Rule 15: C++ tests are DEFAULT and MANDATORY
-      ======================================================================
-      Configuring C++ tests with CMake...
-      Building C++ tests...
-      Running C++ tests...
-      Test project /Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/build
-            Start  1: json_parse_tests
-       1/24 Test  #1: json_parse_tests .................   Passed    0.17 sec
-            Start  2: json_cursor_tests
-       2/24 Test  #2: json_cursor_tests ................   Passed    0.14 sec
-            Start  3: json_document_tests
-       3/24 Test  #3: json_document_tests ..............   Passed    0.14 sec
-            Start  4: json_mmap_tests
-       4/24 Test  #4: json_mmap_tests ..................   Passed    0.15 sec
-            Start  5: json_serialize_tests
-       5/24 Test  #5: json_serialize_tests .............   Passed    0.14 sec
-            Start  6: search_tests
-       6/24 Test  #6: search_tests .....................   Passed    0.14 sec
-            Start  7: ndjson_tests
-       7/24 Test  #7: ndjson_tests .....................   Passed    0.26 sec
-            Start  8: parallel_ndjson_tests
-       8/24 Test  #8: parallel_ndjson_tests ............   Passed    0.22 sec
-            Start  9: thread_pool_tests
-       9/24 Test  #9: thread_pool_tests ................   Passed    0.22 sec
-            Start 10: float_precision_tests
-      10/24 Test #10: float_precision_tests ............   Passed    0.16 sec
-            Start 11: output_buffer_tests
-      11/24 Test #11: output_buffer_tests ..............   Passed    0.15 sec
-            Start 12: stress_large_tests
-      12/24 Test #12: stress_large_tests ...............   Passed    1.76 sec
-            Start 13: stress_deep_tests
-      13/24 Test #13: stress_deep_tests ................   Passed    0.20 sec
-            Start 14: fast_parse_tests
-      14/24 Test #14: fast_parse_tests .................   Passed    0.14 sec
-            Start 15: lazy_string_tests
-      15/24 Test #15: lazy_string_tests ................   Passed    0.12 sec
-            Start 16: json_tape_tests
-      16/24 Test #16: json_tape_tests ..................   Passed    0.14 sec
-            Start 17: lazy_cursor_tests
-      17/24 Test #17: lazy_cursor_tests ................   Passed    0.14 sec
-            Start 18: unicode_escapes_tests
-      18/24 Test #18: unicode_escapes_tests ............   Passed    0.14 sec
-            Start 19: parsing_errors_tests
-      19/24 Test #19: parsing_errors_tests .............   Passed    0.15 sec
-            Start 20: integer_optimization_tests
-      20/24 Test #20: integer_optimization_tests .......   Passed    0.14 sec
-            Start 21: search_advanced_tests
-      21/24 Test #21: search_advanced_tests ............   Passed    0.14 sec
-            Start 22: simd_escape_tests
-      22/24 Test #22: simd_escape_tests ................   Passed    0.14 sec
-            Start 23: simd_newline_tests
-      23/24 Test #23: simd_newline_tests ...............   Passed    0.15 sec
-            Start 24: simd_structural_tests
-      24/24 Test #24: simd_structural_tests ............   Passed    0.14 sec
-
-      100% tests passed, 0 tests failed out of 24
-
-      Total Test time (real) =   5.40 sec
-
-      ✅ All C++ tests passed
-
-      ======================================================================
-      PHASE 2: Building C++ extension
-      ======================================================================
-      building 'strata._strata' extension
-      creating /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings
-      creating /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json
-      creating /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/search
-      creating /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_document.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_document.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_dumps.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_dumps.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_lazy_cursor.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_lazy_cursor.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      src/strata/bindings/python_lazy_cursor.cpp:62:5: warning: implicit conversion of NULL constant to 'int' [-Wnull-conversion]
-         62 |     STRATA_CPP_CATCH
-            |     ^~~~~~~~~~~~~~~~
-      src/strata/bindings/python_types.h:78:16: note: expanded from macro 'STRATA_CPP_CATCH'
-         78 |         return NULL;                                                                               \
-            |         ~~~~~~ ^
-      src/strata/bindings/python_lazy_cursor.cpp:62:5: warning: implicit conversion of NULL constant to 'int' [-Wnull-conversion]
-         62 |     STRATA_CPP_CATCH
-            |     ^~~~~~~~~~~~~~~~
-      src/strata/bindings/python_types.h:84:16: note: expanded from macro 'STRATA_CPP_CATCH'
-         84 |         return NULL;                                                                               \
-            |         ~~~~~~ ^
-      2 warnings generated.
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_loads.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_loads.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_mmap.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_mmap.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_module.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_module.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_ndjson.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_ndjson.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_search.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_search.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/bindings/python_tape.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_tape.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/json_cursor.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_cursor.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/json_document.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_document.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/json_lazy_cursor.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_lazy_cursor.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/json_mmap.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_mmap.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/json_parse.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_parse.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/json_tape.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_tape.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/ndjson_stream.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/ndjson_stream.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/json/parallel_ndjson.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/parallel_ndjson.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/search/search_compile.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/search/search_compile.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/search/search_eval.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/search/search_eval.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/search/search_ndjson_fused.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/search/search_ndjson_fused.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/dragonbox.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/dragonbox.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/fast_parse.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/fast_parse.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/ryu_dtoa.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/ryu_dtoa.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/simd_escape.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_escape.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/simd_newline.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_newline.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/simd_numbers.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_numbers.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/simd_string_eq.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_string_eq.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/simd_structural.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_structural.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/simd_utf8.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_utf8.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -Iinclude -I/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/include/python3.14 -I/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/include -I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14 -c src/strata/util/thread_pool.cpp -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/thread_pool.o -std=c++20 -O3 -DNDEBUG -fno-math-errno -fassociative-math -funroll-loops -ffunction-sections -fdata-sections -fvisibility=hidden -march=native
-      creating /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata
-      clang++ -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -bundle -undefined dynamic_lookup /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_document.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_dumps.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_lazy_cursor.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_loads.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_mmap.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_module.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_ndjson.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_search.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/bindings/python_tape.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_cursor.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_document.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_lazy_cursor.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_mmap.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_parse.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/json_tape.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/ndjson_stream.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/json/parallel_ndjson.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/search/search_compile.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/search/search_eval.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/search/search_ndjson_fused.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/dragonbox.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/fast_parse.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/ryu_dtoa.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_escape.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_newline.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_numbers.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_string_eq.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_structural.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/simd_utf8.o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpbty9p3aj.build-temp/src/strata/util/thread_pool.o -o /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so -O3
-      copying /var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so -> python/strata
-
-      ======================================================================
-      PHASE 3: Running Python tests (post-build gate)
-      Per Rule 14: Python tests gate the build
-      ======================================================================
-      Running Python test suite...
-      ============================= test session starts ==============================
-      platform darwin -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0 -- /Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/bin/python3.14
-      cachedir: .pytest_cache
-      rootdir: /Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata
-      configfile: pyproject.toml
-      collecting ... collected 677 items / 1 skipped
-
-      tests/py/test_bench_main_ndjson.py::test_bench_main_ndjson_parses PASSED [  0%]
-      tests/py/test_bench_search_runner.py::test_bench_search_runner_no_errors PASSED [  0%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[0] PASSED [  0%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[1] PASSED [  0%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[2] PASSED [  0%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[3] PASSED [  0%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[4] PASSED [  1%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[5] PASSED [  1%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[6] PASSED [  1%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[7] PASSED [  1%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[8] PASSED [  1%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_single_digit[9] PASSED [  1%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[10] PASSED [  1%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[11] PASSED [  2%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[19] PASSED [  2%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[20] PASSED [  2%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[42] PASSED [  2%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[50] PASSED [  2%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[73] PASSED [  2%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_two_digit[99] PASSED [  2%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_three_digit[100] PASSED [  3%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_three_digit[123] PASSED [  3%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_three_digit[256] PASSED [  3%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_three_digit[500] PASSED [  3%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_three_digit[789] PASSED [  3%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_three_digit[999] PASSED [  3%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_four_digit[1000] PASSED [  3%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_four_digit[1234] PASSED [  4%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_four_digit[2048] PASSED [  4%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_four_digit[4096] PASSED [  4%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_four_digit[5678] PASSED [  4%]
-      tests/py/test_fast_parse.py::TestSmallIntegerParsing::test_four_digit[9999] PASSED [  4%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[12345] PASSED [  4%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[123456] PASSED [  5%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[1234567] PASSED [  5%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[12345678] PASSED [  5%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[11111111] PASSED [  5%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[99999999] PASSED [  5%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[50000000] PASSED [  5%]
-      tests/py/test_fast_parse.py::TestMediumIntegerParsing::test_medium_integers[19851231] PASSED [  5%]
-      tests/py/test_fast_parse.py::TestLargeIntegerParsing::test_large_integers[123456789] PASSED [  6%]
-      tests/py/test_fast_parse.py::TestLargeIntegerParsing::test_large_integers[1234567890] PASSED [  6%]
-      tests/py/test_fast_parse.py::TestLargeIntegerParsing::test_large_integers[12345678901] PASSED [  6%]
-      tests/py/test_fast_parse.py::TestLargeIntegerParsing::test_large_integers[2147483647] PASSED [  6%]
-      tests/py/test_fast_parse.py::TestLargeIntegerParsing::test_large_integers[4294967295] PASSED [  6%]
-      tests/py/test_fast_parse.py::TestLargeIntegerParsing::test_large_integers[9007199254740991] PASSED [  6%]
-      tests/py/test_fast_parse.py::TestLargeIntegerParsing::test_large_integers[9223372036854775807] PASSED [  6%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-1] PASSED [  7%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-9] PASSED [  7%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-10] PASSED [  7%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-99] PASSED [  7%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-100] PASSED [  7%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-999] PASSED [  7%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-1000] PASSED [  7%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-9999] PASSED [  8%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-12345] PASSED [  8%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-123456] PASSED [  8%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-1234567] PASSED [  8%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-12345678] PASSED [  8%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-123456789] PASSED [  8%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-2147483648] PASSED [  9%]
-      tests/py/test_fast_parse.py::TestNegativeIntegerParsing::test_negative_integers[-9223372036854775808] PASSED [  9%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[0.0] PASSED [  9%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[1.0] PASSED [  9%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[-1.0] PASSED [  9%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[3.14] PASSED [  9%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[2.71828] PASSED [  9%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[123.456] PASSED [ 10%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[0.123456789] PASSED [ 10%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_common_floats[-987.654321] PASSED [ 10%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_scientific_notation[15000000000.0] PASSED [ 10%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_scientific_notation[-15000000000.0] PASSED [ 10%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_scientific_notation[1.23e-05] PASSED [ 10%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_scientific_notation[-1.23e-05] PASSED [ 10%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_scientific_notation[1e+100] PASSED [ 11%]
-      tests/py/test_fast_parse.py::TestFloatParsing::test_scientific_notation[1e-100] PASSED [ 11%]
-      tests/py/test_fast_parse.py::TestEdgeCases::test_leading_zeros_rejected PASSED [ 11%]
-      tests/py/test_fast_parse.py::TestEdgeCases::test_zero_variants PASSED    [ 11%]
-      tests/py/test_fast_parse.py::TestEdgeCases::test_plus_sign_rejected PASSED [ 11%]
-      tests/py/test_fast_parse.py::TestEdgeCases::test_decimal_point_must_have_fraction PASSED [ 11%]
-      tests/py/test_fast_parse.py::TestEdgeCases::test_exponent_must_have_digits PASSED [ 11%]
-      tests/py/test_fast_parse.py::TestEdgeCases::test_number_followed_by_non_delimiter PASSED [ 12%]
-      tests/py/test_fast_parse.py::TestIntegerArrayParsing::test_small_integer_array PASSED [ 12%]
-      tests/py/test_fast_parse.py::TestIntegerArrayParsing::test_large_integer_array PASSED [ 12%]
-      tests/py/test_fast_parse.py::TestIntegerArrayParsing::test_negative_integer_array PASSED [ 12%]
-      tests/py/test_fast_parse.py::TestMixedNumberParsing::test_mixed_int_float_array PASSED [ 12%]
-      tests/py/test_fast_parse.py::TestMixedNumberParsing::test_object_with_numbers PASSED [ 12%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[0] PASSED [ 12%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[1] PASSED [ 13%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[-1] PASSED [ 13%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[42] PASSED [ 13%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[-42] PASSED [ 13%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[1234567890] PASSED [ 13%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[-1234567890] PASSED [ 13%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[3.14] PASSED [ 14%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[-3.14] PASSED [ 14%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[0.123456789] PASSED [ 14%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[10000000000.0] PASSED [ 14%]
-      tests/py/test_fast_parse.py::TestRoundTrip::test_number_roundtrip[-1e-05] PASSED [ 14%]
-      tests/py/test_fast_parse.py::TestWhitespaceHandling::test_number_with_leading_whitespace PASSED [ 14%]
-      tests/py/test_fast_parse.py::TestWhitespaceHandling::test_number_with_trailing_whitespace PASSED [ 14%]
-      tests/py/test_fast_parse.py::TestWhitespaceHandling::test_number_with_surrounding_whitespace PASSED [ 15%]
-      tests/py/test_fast_parse.py::TestBoundaryValues::test_int32_boundaries PASSED [ 15%]
-      tests/py/test_fast_parse.py::TestBoundaryValues::test_uint32_boundary PASSED [ 15%]
-      tests/py/test_fast_parse.py::TestBoundaryValues::test_int64_boundaries PASSED [ 15%]
-      tests/py/test_fast_parse.py::TestBoundaryValues::test_max_safe_integer PASSED [ 15%]
-      tests/py/test_float_precision.py::TestSpecialValues::test_nan_serializes_to_null PASSED [ 15%]
-      tests/py/test_float_precision.py::TestSpecialValues::test_inf_serializes_to_null PASSED [ 15%]
-      tests/py/test_float_precision.py::TestSpecialValues::test_neg_inf_serializes_to_null PASSED [ 16%]
-      tests/py/test_float_precision.py::TestSpecialValues::test_zero PASSED    [ 16%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[35.31] PASSED [ 16%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[99.99] PASSED [ 16%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[19.99] PASSED [ 16%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[29.99] PASSED [ 16%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[39.99] PASSED [ 16%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[0.01] PASSED [ 17%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[0.001] PASSED [ 17%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[126.59] PASSED [ 17%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_roundtrip[123.456789] PASSED [ 17%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_values_not_too_long[35.31] PASSED [ 17%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_values_not_too_long[99.99] PASSED [ 17%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_values_not_too_long[19.99] PASSED [ 18%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_values_not_too_long[29.99] PASSED [ 18%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_values_not_too_long[39.99] PASSED [ 18%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_values_not_too_long[0.01] PASSED [ 18%]
-      tests/py/test_float_precision.py::TestCommonValues::test_common_values_not_too_long[123.456789] PASSED [ 18%]
-      tests/py/test_float_precision.py::TestPrecisionLimits::test_precision_limits[0.123456789] PASSED [ 18%]
-      tests/py/test_float_precision.py::TestPrecisionLimits::test_precision_limits[0.1] PASSED [ 18%]
-      tests/py/test_float_precision.py::TestPrecisionLimits::test_precision_limits[0.01] PASSED [ 19%]
-      tests/py/test_float_precision.py::TestPrecisionLimits::test_precision_limits[0.001] PASSED [ 19%]
-      tests/py/test_float_precision.py::TestPrecisionLimits::test_precision_limits[0.0001] PASSED [ 19%]
-      tests/py/test_float_precision.py::TestPrecisionLimits::test_precision_limits[1e-05] PASSED [ 19%]
-      tests/py/test_float_precision.py::TestPrecisionLimits::test_precision_limits[1e-06] PASSED [ 19%]
-      tests/py/test_float_precision.py::TestIntegerFloats::test_integer_floats[1.0] PASSED [ 19%]
-      tests/py/test_float_precision.py::TestIntegerFloats::test_integer_floats[42.0] PASSED [ 19%]
-      tests/py/test_float_precision.py::TestIntegerFloats::test_integer_floats[100.0] PASSED [ 20%]
-      tests/py/test_float_precision.py::TestIntegerFloats::test_integer_floats[-5.0] PASSED [ 20%]
-      tests/py/test_float_precision.py::TestIntegerFloats::test_integer_floats[0.0] PASSED [ 20%]
-      tests/py/test_float_precision.py::TestIntegerFloats::test_integer_floats[1000.0] PASSED [ 20%]
-      tests/py/test_float_precision.py::TestNegativeValues::test_negative_roundtrip[-3.14] PASSED [ 20%]
-      tests/py/test_float_precision.py::TestNegativeValues::test_negative_roundtrip[-99.99] PASSED [ 20%]
-      tests/py/test_float_precision.py::TestNegativeValues::test_negative_roundtrip[-0.01] PASSED [ 20%]
-      tests/py/test_float_precision.py::TestNegativeValues::test_negative_roundtrip[-123.456789] PASSED [ 21%]
-      tests/py/test_float_precision.py::TestNegativeValues::test_negative_roundtrip[-0.0] PASSED [ 21%]
-      tests/py/test_float_precision.py::TestVerySmallValues::test_very_small_roundtrip[1e-06_0] PASSED [ 21%]
-      tests/py/test_float_precision.py::TestVerySmallValues::test_very_small_roundtrip[1e-07] PASSED [ 21%]
-      tests/py/test_float_precision.py::TestVerySmallValues::test_very_small_roundtrip[1e-05_0] PASSED [ 21%]
-      tests/py/test_float_precision.py::TestVerySmallValues::test_very_small_roundtrip[1e-06_1] PASSED [ 21%]
-      tests/py/test_float_precision.py::TestVerySmallValues::test_very_small_roundtrip[1e-05_1] PASSED [ 22%]
-      tests/py/test_float_precision.py::TestLargeValues::test_large_roundtrip[100000000000000.0] PASSED [ 22%]
-      tests/py/test_float_precision.py::TestLargeValues::test_large_roundtrip[999999999999900.0] PASSED [ 22%]
-      tests/py/test_float_precision.py::TestLargeValues::test_large_roundtrip[10000000000000.0] PASSED [ 22%]
-      tests/py/test_float_precision.py::TestLargeValues::test_large_roundtrip[1000000000000.0] PASSED [ 22%]
-      tests/py/test_float_precision.py::TestScientificNotation::test_scientific_roundtrip[1e+20] PASSED [ 22%]
-      tests/py/test_float_precision.py::TestScientificNotation::test_scientific_roundtrip[1e-10] PASSED [ 22%]
-      tests/py/test_float_precision.py::TestScientificNotation::test_scientific_roundtrip[1230000000000000.0] PASSED [ 23%]
-      tests/py/test_float_precision.py::TestScientificNotation::test_scientific_roundtrip[-1e+20] PASSED [ 23%]
-      tests/py/test_float_precision.py::TestScientificNotation::test_scientific_roundtrip[-1e-10] PASSED [ 23%]
-      tests/py/test_float_precision.py::TestTrailingZeros::test_trailing_zeros_removed[1.5-1.5] PASSED [ 23%]
-      tests/py/test_float_precision.py::TestTrailingZeros::test_trailing_zeros_removed[2.25-2.25] PASSED [ 23%]
-      tests/py/test_float_precision.py::TestTrailingZeros::test_trailing_zeros_removed[3.125-3.125] PASSED [ 23%]
-      tests/py/test_float_precision.py::TestFloatArrays::test_float_array_mixed PASSED [ 23%]
-      tests/py/test_float_precision.py::TestFloatNestedStructures::test_nested_floats PASSED [ 24%]
-      tests/py/test_float_precision.py::TestStdlibCompatibility::test_stdlib_compatibility[3.14] PASSED [ 24%]
-      tests/py/test_float_precision.py::TestStdlibCompatibility::test_stdlib_compatibility[99.99] PASSED [ 24%]
-      tests/py/test_float_precision.py::TestStdlibCompatibility::test_stdlib_compatibility[123.45] PASSED [ 24%]
-      tests/py/test_float_precision.py::TestStdlibCompatibility::test_stdlib_compatibility[0.01] PASSED [ 24%]
-      tests/py/test_float_precision.py::TestStdlibCompatibility::test_stdlib_compatibility[-19.99] PASSED [ 24%]
-      tests/py/test_float_precision.py::TestRoundingEdgeCases::test_rounding_edge_cases[0.999999999] PASSED [ 24%]
-      tests/py/test_float_precision.py::TestRoundingEdgeCases::test_rounding_edge_cases[1.999999999] PASSED [ 25%]
-      tests/py/test_float_precision.py::TestRoundingEdgeCases::test_rounding_edge_cases[123.123456789] PASSED [ 25%]
-      tests/py/test_integer_optimization.py::TestSmallIntegerParsing::test_zero PASSED [ 25%]
-      tests/py/test_integer_optimization.py::TestSmallIntegerParsing::test_small_positive_integers PASSED [ 25%]
-      tests/py/test_integer_optimization.py::TestSmallIntegerParsing::test_small_negative_integers PASSED [ 25%]
-      tests/py/test_integer_optimization.py::TestSmallIntegerParsing::test_cache_boundary_values PASSED [ 25%]
-      tests/py/test_integer_optimization.py::TestIntegerBoundaries::test_int64_max PASSED [ 25%]
-      tests/py/test_integer_optimization.py::TestIntegerBoundaries::test_int64_min PASSED [ 26%]
-      tests/py/test_integer_optimization.py::TestIntegerBoundaries::test_uint64_max PASSED [ 26%]
-      tests/py/test_integer_optimization.py::TestIntegerBoundaries::test_int32_boundaries PASSED [ 26%]
-      tests/py/test_integer_optimization.py::TestIntegerBoundaries::test_long_boundaries PASSED [ 26%]
-      tests/py/test_integer_optimization.py::TestIntegerArraysAndObjects::test_array_of_small_integers PASSED [ 26%]
-      tests/py/test_integer_optimization.py::TestIntegerArraysAndObjects::test_array_of_negative_integers PASSED [ 26%]
-      tests/py/test_integer_optimization.py::TestIntegerArraysAndObjects::test_array_of_mixed_integers PASSED [ 27%]
-      tests/py/test_integer_optimization.py::TestIntegerArraysAndObjects::test_object_with_integer_values PASSED [ 27%]
-      tests/py/test_integer_optimization.py::TestIntegerTypePreservation::test_small_integer_is_int PASSED [ 27%]
-      tests/py/test_integer_optimization.py::TestIntegerTypePreservation::test_large_integer_is_int PASSED [ 27%]
-      tests/py/test_integer_optimization.py::TestIntegerTypePreservation::test_negative_integer_is_int PASSED [ 27%]
-      tests/py/test_integer_optimization.py::TestIntegerTypePreservation::test_zero_is_int PASSED [ 27%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[0] PASSED [ 27%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[1] PASSED [ 28%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[-1] PASSED [ 28%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[-5] PASSED [ 28%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[256] PASSED [ 28%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[257] PASSED [ 28%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[-6] PASSED [ 28%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[127] PASSED [ 28%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[-128] PASSED [ 29%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[2147483647] PASSED [ 29%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[-2147483648] PASSED [ 29%]
-      tests/py/test_integer_optimization.py::TestIntegerRoundTrip::test_integer_roundtrip[9223372036854775807]
-      Python tests failed:
-      Fatal Python error: Segmentation fault
-
-      Current thread 0x00000001f989a080 (most recent call first):
-        File "/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/__init__.py", line 48 in dumps
-        File "/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/tests/py/test_integer_optimization.py", line 164 in test_integer_roundtrip
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/python.py", line 166 in pytest_pyfunc_call
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_callers.py", line 121 in _multicall
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_manager.py", line 120 in _hookexec
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_hooks.py", line 512 in __call__
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/python.py", line 1720 in runtest
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/runner.py", line 179 in pytest_runtest_call
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_callers.py", line 121 in _multicall
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_manager.py", line 120 in _hookexec
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_hooks.py", line 512 in __call__
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/runner.py", line 245 in <lambda>
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/runner.py", line 353 in from_call
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/runner.py", line 244 in call_and_report
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/runner.py", line 137 in runtestprotocol
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/runner.py", line 118 in pytest_runtest_protocol
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_callers.py", line 121 in _multicall
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_manager.py", line 120 in _hookexec
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_hooks.py", line 512 in __call__
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/main.py", line 396 in pytest_runtestloop
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_callers.py", line 121 in _multicall
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_manager.py", line 120 in _hookexec
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_hooks.py", line 512 in __call__
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/main.py", line 372 in _main
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/main.py", line 318 in wrap_session
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/main.py", line 365 in pytest_cmdline_main
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_callers.py", line 121 in _multicall
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_manager.py", line 120 in _hookexec
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/pluggy/_hooks.py", line 512 in __call__
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/_pytest/config/__init__.py", line 199 in main
-        File "<string>", line 1 in <module>
-
-      Current thread's C stack trace (most recent call first):
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _Py_DumpStack+0x44 [0x10184c1fc]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at faulthandler_dump_c_stack+0x58 [0x10185ec9c]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at faulthandler_fatal_error+0x160 [0x10185eb60]
-        Binary file "/usr/lib/system/libsystem_platform.dylib", at _sigtramp+0x38 [0x18ced7744]
-        Binary file "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so", at _ZL12append_int64IN6strata4util17FixedOutputBufferEEbRT_x+0x1f0 [0x106e93638]
-        Binary file "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so", at _ZL12append_int64IN6strata4util17FixedOutputBufferEEbRT_x+0x1f0 [0x106e93638]
-        Binary file "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so", at _ZL14append_py_longIN6strata4util17FixedOutputBufferEEbRT_P7_object+0x78 [0x106e92c9c]
-        Binary file "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so", at _ZL19serialize_iterativeIN6strata4util17FixedOutputBufferEEbP7_objectRT_+0x5bc [0x106e92618]
-        Binary file "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so", at _ZL14dumps_str_implP7_object+0x68 [0x106e8ecd8]
-        Binary file "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/tmpsd6fmidv.build-lib/strata/_strata.cpython-314-darwin.so", at _Z12strata_dumpsP7_objectS0_S0_+0x10c [0x106e8e904]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at cfunction_call+0x48 [0x1016ee758]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyObject_Call+0x74 [0x101686044]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_EvalFrameDefault+0x61e4 [0x1017bcd8c]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_Vector+0x10c [0x1017b68a4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at method_vectorcall+0x1c8 [0x101688df4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyVectorcall_Call+0x98 [0x101685ddc]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_EvalFrameDefault+0x61e4 [0x1017bcd8c]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_Vector+0x10c [0x1017b68a4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyObject_VectorcallDictTstate+0xc8 [0x1016852a4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at call_method+0xcc [0x10172848c]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyObject_MakeTpCall+0x78 [0x101685400]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_EvalFrameDefault+0x2db0 [0x1017b9958]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_Vector+0x10c [0x1017b68a4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyObject_VectorcallDictTstate+0xc8 [0x1016852a4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at call_method+0xcc [0x10172848c]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyObject_Call+0x74 [0x101686044]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_EvalFrameDefault+0x61e4 [0x1017bcd8c]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_Vector+0x10c [0x1017b68a4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyObject_VectorcallDictTstate+0xc8 [0x1016852a4]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at call_method+0xcc [0x10172848c]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyObject_MakeTpCall+0x78 [0x101685400]
-        Binary file "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/Python", at _PyEval_EvalFrameDefault+0x2db0 [0x1017b9958]
-        <truncated rest of calls>
-
-      Extension modules: strata._strata (total: 1)
-
-      Traceback (most recent call last):
-        File "/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/lib/python3.14/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 389, in <module>
-          main()
-          ~~~~^^
-        File "/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/lib/python3.14/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 373, in main
-          json_out["return_val"] = hook(**hook_input["kwargs"])
-                                   ~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-        File "/Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/.venv/lib/python3.14/site-packages/pip/_vendor/pyproject_hooks/_in_process/_in_process.py", line 303, in build_editable
-          return hook(wheel_directory, config_settings, metadata_directory)
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/build_meta.py", line 474, in build_editable
-          return self._build_with_temp_dir(
-                 ~~~~~~~~~~~~~~~~~~~~~~~~~^
-              cmd, ".whl", wheel_directory, config_settings
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-          )
-          ^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/build_meta.py", line 410, in _build_with_temp_dir
-          self.run_setup()
-          ~~~~~~~~~~~~~~^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/build_meta.py", line 317, in run_setup
-          exec(code, locals())
-          ~~~~^^^^^^^^^^^^^^^^
-        File "<string>", line 349, in <module>
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/__init__.py", line 117, in setup
-          return distutils.core.setup(**attrs)  # type: ignore[return-value]
-                 ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/_distutils/core.py", line 186, in setup
-          return run_commands(dist)
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/_distutils/core.py", line 202, in run_commands
-          dist.run_commands()
-          ~~~~~~~~~~~~~~~~~^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/_distutils/dist.py", line 1000, in run_commands
-          self.run_command(cmd)
-          ~~~~~~~~~~~~~~~~^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/dist.py", line 1107, in run_command
-          super().run_command(command)
-          ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/_distutils/dist.py", line 1019, in run_command
-          cmd_obj.run()
-          ~~~~~~~~~~~^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/command/editable_wheel.py", line 140, in run
-          self._create_wheel_file(bdist_wheel)
-          ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/command/editable_wheel.py", line 350, in _create_wheel_file
-          files, mapping = self._run_build_commands(dist_name, unpacked, lib, tmp)
-                           ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/command/editable_wheel.py", line 273, in _run_build_commands
-          self._run_build_subcommands()
-          ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/command/editable_wheel.py", line 300, in _run_build_subcommands
-          self.run_command(name)
-          ~~~~~~~~~~~~~~~~^^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/_distutils/cmd.py", line 341, in run_command
-          self.distribution.run_command(command)
-          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/dist.py", line 1107, in run_command
-          super().run_command(command)
-          ~~~~~~~~~~~~~~~~~~~^^^^^^^^^
-        File "/private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-build-env-yf4r9vml/overlay/lib/python3.14/site-packages/setuptools/_distutils/dist.py", line 1019, in run_command
-          cmd_obj.run()
-          ~~~~~~~~~~~^^
-        File "<string>", line 59, in run
-      RuntimeError: Python tests failed - rolling back build (Rule 14 gate)
-      An error occurred when building editable wheel for strata.
-      See debugging tips in: https://setuptools.pypa.io/en/latest/userguide/development_mode.html#debugging-tips
-      [end of output]
-
-  note: This error originates from a subprocess, and is likely not a problem with pip.
-  ERROR: Failed building editable for strata
-Failed to build strata
-error: failed-wheel-build-for-install
-× Failed to build installable wheels for some pyproject.toml based projects
-╰─> strata
-❌ GATE FAILED: Build or tests failed
-make: *** [gate] Error 1
+  Building editable for strata (pyproject.toml) ... done
+  Created wheel for strata: filename=strata-0.2.0-0.editable-cp314-cp314-macosx_26_0_arm64.whl size=4339 sha256=f8ef9c40960a9063074df43fac2869bffb91079c6763704b8e39ef843ae70d89
+  Stored in directory: /private/var/folders/m9/93ps7hws2dl1wfgvdy_8s1zr0000gn/T/pip-ephem-wheel-cache-kl5s9x1x/wheels/0e/ae/e4/fa0503f091dd1ef3d40fec631412b7cfa9ce1937d3633129a1
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 0.2.0
+    Uninstalling strata-0.2.0:
+      Successfully uninstalled strata-0.2.0
+Successfully installed strata-0.2.0
+Step 2/3: Collecting C++ coverage...
+Collecting C++ coverage...
+-- Coverage instrumentation enabled
+-- Configuring done (0.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/build_coverage
+Building C++ tests with coverage flags (parallel=14)...
+[  2%] Built target lazy_string_tests
+[  4%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/json/json_parse.cpp.o
+[  5%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/json/json_lazy_cursor.cpp.o
+[  6%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/json/parallel_ndjson.cpp.o
+[  8%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/json/ndjson_stream.cpp.o
+[  9%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/util/simd_structural.cpp.o
+[ 11%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/util/simd_utf8.cpp.o
+[ 12%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/util/simd_string_eq.cpp.o
+[ 13%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/json/json_serialize.cpp.o
+[ 15%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/search/search_eval.cpp.o
+[ 16%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/util/simd_newline.cpp.o
+[ 18%] Building CXX object CMakeFiles/strata_core_objects.dir/src/strata/util/simd_escape.cpp.o
+[ 33%] Built target strata_core_objects
+[ 34%] Building CXX object CMakeFiles/output_buffer_tests.dir/tests/cpp/test_output_buffer.cpp.o
+[ 36%] Linking CXX executable json_parse_tests
+[ 37%] Linking CXX executable json_document_tests
+[ 38%] Linking CXX executable search_tests
+[ 40%] Linking CXX executable fast_parse_tests
+[ 41%] Linking CXX executable json_mmap_tests
+[ 43%] Linking CXX executable parallel_ndjson_tests
+[ 44%] Linking CXX executable ndjson_tests
+[ 45%] Linking CXX executable stress_large_tests
+[ 47%] Linking CXX executable float_precision_tests
+[ 48%] Linking CXX executable json_cursor_tests
+[ 50%] Linking CXX executable json_serialize_tests
+[ 51%] Linking CXX executable thread_pool_tests
+[ 52%] Built target json_parse_tests
+[ 54%] Built target json_document_tests
+[ 55%] Linking CXX executable stress_deep_tests
+[ 56%] Built target search_tests
+[ 58%] Built target fast_parse_tests
+[ 59%] Built target json_mmap_tests
+[ 61%] Built target parallel_ndjson_tests
+[ 62%] Built target ndjson_tests
+[ 63%] Built target stress_large_tests
+[ 65%] Built target float_precision_tests
+[ 66%] Built target json_cursor_tests
+[ 68%] Linking CXX executable json_tape_tests
+[ 69%] Built target json_serialize_tests
+[ 70%] Linking CXX executable lazy_cursor_tests
+[ 72%] Built target thread_pool_tests
+[ 73%] Built target stress_deep_tests
+[ 75%] Linking CXX executable parsing_errors_tests
+[ 76%] Building CXX object CMakeFiles/unicode_escapes_tests.dir/tests/cpp/test_unicode_and_escapes.cpp.o
+[ 77%] Linking CXX executable search_advanced_tests
+[ 79%] Linking CXX executable integer_optimization_tests
+[ 80%] Building CXX object CMakeFiles/simd_structural_tests.dir/tests/cpp/test_simd_structural.cpp.o
+[ 81%] Building CXX object CMakeFiles/simd_escape_tests.dir/tests/cpp/test_simd_escape.cpp.o
+[ 83%] Building CXX object CMakeFiles/simd_newline_tests.dir/tests/cpp/test_simd_newline.cpp.o
+[ 84%] Built target json_tape_tests
+[ 86%] Built target lazy_cursor_tests
+[ 87%] Linking CXX executable parallel_ndjson_bench
+[ 88%] Built target parsing_errors_tests
+[ 90%] Built target search_advanced_tests
+[ 91%] Built target integer_optimization_tests
+[ 93%] Built target parallel_ndjson_bench
+[ 94%] Linking CXX executable output_buffer_tests
+[ 94%] Built target output_buffer_tests
+[ 95%] Linking CXX executable simd_structural_tests
+[ 97%] Linking CXX executable simd_escape_tests
+[ 98%] Linking CXX executable simd_newline_tests
+[ 98%] Built target simd_structural_tests
+[ 98%] Built target simd_escape_tests
+[100%] Linking CXX executable unicode_escapes_tests
+[100%] Built target simd_newline_tests
+[100%] Built target unicode_escapes_tests
+Running C++ tests with coverage (ctest, parallel=14)...
+Test project /Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata/build_coverage
+      Start 12: stress_large_tests
+      Start 14: fast_parse_tests
+      Start 13: stress_deep_tests
+      Start 15: lazy_string_tests
+      Start 19: parsing_errors_tests
+      Start 20: integer_optimization_tests
+      Start 16: json_tape_tests
+      Start 17: lazy_cursor_tests
+      Start 18: unicode_escapes_tests
+      Start 24: simd_structural_tests
+      Start 23: simd_newline_tests
+      Start 22: simd_escape_tests
+      Start  7: ndjson_tests
+      Start 11: output_buffer_tests
+ 1/24 Test #15: lazy_string_tests ................   Passed    0.00 sec
+      Start 21: search_advanced_tests
+ 2/24 Test #14: fast_parse_tests .................   Passed    0.90 sec
+      Start 10: float_precision_tests
+ 3/24 Test #13: stress_deep_tests ................   Passed    1.13 sec
+      Start  9: thread_pool_tests
+ 4/24 Test #19: parsing_errors_tests .............   Passed    1.35 sec
+      Start  8: parallel_ndjson_tests
+ 5/24 Test #20: integer_optimization_tests .......   Passed    1.59 sec
+      Start  6: search_tests
+ 6/24 Test #16: json_tape_tests ..................   Passed    1.84 sec
+      Start  5: json_serialize_tests
+ 7/24 Test #17: lazy_cursor_tests ................   Passed    2.09 sec
+      Start  4: json_mmap_tests
+ 8/24 Test #18: unicode_escapes_tests ............   Passed    2.34 sec
+      Start  3: json_document_tests
+ 9/24 Test #24: simd_structural_tests ............   Passed    2.66 sec
+      Start  2: json_cursor_tests
+10/24 Test #12: stress_large_tests ...............   Passed    2.70 sec
+      Start  1: json_parse_tests
+11/24 Test #23: simd_newline_tests ...............   Passed    2.86 sec
+12/24 Test #22: simd_escape_tests ................   Passed    3.18 sec
+13/24 Test #11: output_buffer_tests ..............   Passed    3.65 sec
+14/24 Test #21: search_advanced_tests ............   Passed    4.02 sec
+15/24 Test #10: float_precision_tests ............   Passed    3.39 sec
+16/24 Test  #7: ndjson_tests .....................   Passed    4.44 sec
+17/24 Test  #9: thread_pool_tests ................   Passed    3.53 sec
+18/24 Test  #8: parallel_ndjson_tests ............   Passed    3.76 sec
+19/24 Test  #6: search_tests .....................   Passed    3.70 sec
+20/24 Test  #5: json_serialize_tests .............   Passed    3.51 sec
+21/24 Test  #4: json_mmap_tests ..................   Passed    3.47 sec
+22/24 Test  #3: json_document_tests ..............   Passed    3.49 sec
+23/24 Test  #2: json_cursor_tests ................   Passed    3.54 sec
+24/24 Test  #1: json_parse_tests .................   Passed    3.69 sec
+100% tests passed, 0 tests failed out of 24
+Total Test time (real) =   6.39 sec
+Merging coverage data...
+Generating coverage report...
+warning: 40 functions have mismatched data
+Filename                           Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+util/ryu_dtoa.cpp                       27                 0   100.00%           3                 0   100.00%          42                 0   100.00%          20                 1    95.00%
+util/simd_newline.cpp                  123                 1    99.19%          12                 1    91.67%         145                 7    95.17%          78                 4    94.87%
+util/simd_numbers.cpp                  111                 1    99.10%           6                 0   100.00%         162                 2    98.77%          74                 1    98.65%
+util/dragonbox.cpp                      19                 0   100.00%           2                 0   100.00%          32                 0   100.00%          14                 2    85.71%
+util/simd_escape.cpp                   163                 0   100.00%          15                 0   100.00%         308                 0   100.00%         140                10    92.86%
+util/simd_string_eq.cpp                 16                 0   100.00%           1                 0   100.00%          22                 0   100.00%          10                 0   100.00%
+util/fast_parse.cpp                     96                 5    94.79%           3                 0   100.00%         119                 9    92.44%          76                10    86.84%
+util/thread_pool.cpp                    34                 2    94.12%           5                 0   100.00%          61                 4    93.44%          28                 3    89.29%
+util/simd_structural.cpp               126                 1    99.21%           5                 1    80.00%         201                 7    96.52%          86                 1    98.84%
+util/simd_utf8.cpp                     132                 7    94.70%           6                 0   100.00%         131                 6    95.42%         108                12    88.89%
+search/search_ndjson_fused.cpp          50                 5    90.00%          17                 0   100.00%         103                 9    91.26%          24                 7    70.83%
+search/search_eval.cpp                 288                37    87.15%          16                 5    68.75%         364                36    90.11%         240                29    87.92%
+search/search_compile.cpp              286                 3    98.95%          14                 0   100.00%         338                 4    98.82%         216                17    92.13%
+json/json_lazy_cursor.cpp              419                 3    99.28%          40                 0   100.00%         487                 0   100.00%         318                48    84.91%
+json/json_mmap.cpp                      46                 4    91.30%          10                 3    70.00%          78                22    71.79%          20                 2    90.00%
+json/json_cursor.cpp                   132                 1    99.24%          25                 0   100.00%         144                 1    99.31%          90                 4    95.56%
+json/json_parse.cpp                    689                44    93.61%          57                 1    98.25%         820                66    91.95%         534                77    85.58%
+json/parallel_ndjson.cpp               483               128    73.50%          31                 4    87.10%         897               203    77.37%         434               166    61.75%
+json/json_serialize.cpp                 47                 4    91.49%           7                 0   100.00%          80                 7    91.25%          32                 4    87.50%
+json/ndjson_stream.cpp                 114                 4    96.49%          13                 0   100.00%         168                 4    97.62%          86                14    83.72%
+json/json_document.cpp                  27                 1    96.30%           5                 0   100.00%          25                 1    96.00%          14                 1    92.86%
+json/json_tape.cpp                      57                 0   100.00%           6                 0   100.00%         105                 1    99.05%          50                 2    96.00%
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                                 3485               251    92.80%         299                15    94.98%        4832               389    91.95%        2692               415    84.58%
+❌ C++ line coverage 91.95% is below 95.00%
+make[1]: *** [coverage-cpp] Error 1
+⚠️  C++ coverage not available (install llvm)
+Step 3/3: Collecting Python coverage...
+Collecting Python coverage...
+.venv/bin/pytest tests/unit/ --cov=python/strata --cov-report=term --cov-report=html:build_coverage/htmlcov
+============================= test session starts ==============================
+platform darwin -- Python 3.14.2, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/borysbardysh/PycharmProjects/personal/PrimeLabFoundation/strata
+configfile: pyproject.toml
+plugins: cov-7.0.0
+collected 315 items
+tests/unit/test_json_cursor_interface.py ....                            [  1%]
+tests/unit/test_mmap.py ............                                     [  5%]
+tests/unit/test_ndjson.py ............................                   [ 13%]
+tests/unit/test_ndjson_cursor.py ......                                  [ 15%]
+tests/unit/test_parsing_correctness.py ................................. [ 26%]
+...                                                                      [ 27%]
+tests/unit/test_parsing_errors.py ...................................... [ 39%]
+...........                                                              [ 42%]
+tests/unit/test_search.py ...........................                    [ 51%]
+tests/unit/test_search_advanced.py ..................................... [ 63%]
+.......                                                                  [ 65%]
+tests/unit/test_search_modes.py ........                                 [ 67%]
+tests/unit/test_serialize.py ........................................... [ 81%]
+.................                                                        [ 86%]
+tests/unit/test_unicode_and_escapes.py ................................. [ 97%]
+........                                                                 [100%]
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.14.2-final-0 _______________
+Name                           Stmts   Miss  Cover
+--------------------------------------------------
+python/strata/__init__.py         21      4    81%
+python/strata/json_cursor.py       7      0   100%
+python/strata/mmap_io.py           9      9     0%
+python/strata/ndjson.py           16      2    88%
+python/strata/serialize.py        17      2    88%
+--------------------------------------------------
+TOTAL                             70     17    76%
+Coverage HTML written to dir build_coverage/htmlcov
+============================= 315 passed in 0.34s ==============================
+✅ Python coverage collected (see build_coverage/htmlcov/)
+════════════════════════════════════════════════════════════════
+✅ GATE PASSED: All tests passed, coverage collected
+Build is compliant with Rules 14+15
+════════════════════════════════════════════════════════════════

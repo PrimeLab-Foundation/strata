@@ -16,6 +16,17 @@ python_include = get_paths()['include']
 class TestGatedBuildExt(build_ext):
     """Custom build_ext that runs C++ tests before build and Python tests after."""
 
+    def finalize_options(self):
+        super().finalize_options()
+        # Speed up build by using parallel compilation if not specified
+        if self.parallel is None:
+            try:
+                # Use number of CPUs, but leave 1 for the system
+                import multiprocessing
+                self.parallel = max(1, multiprocessing.cpu_count() - 1)
+            except ImportError:
+                self.parallel = 1
+
     def run(self):
         """Override run to add test gates.
 

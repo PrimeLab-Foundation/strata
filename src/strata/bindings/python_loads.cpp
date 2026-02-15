@@ -1429,6 +1429,7 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
         }
         g_key_cache.reserve(expected_keys);
     }
+    g_parse_builder_arena.reset();
     g_parse_builder.reset();
     BuilderResetGuard builder_guard(g_parse_builder);
 

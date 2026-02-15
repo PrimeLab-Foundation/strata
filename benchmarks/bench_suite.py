@@ -12,6 +12,7 @@ import json
 import platform
 import statistics
 import subprocess
+import sys
 import sysconfig
 import time
 from dataclasses import dataclass, field
@@ -20,7 +21,13 @@ from typing import Any
 
 from .bench_dumps import _get_dumps_runners, _output_size_bytes
 from .bench_loads import _get_loads_runners
-from .bench_search import NDJSON_QUERIES, QUERIES, run_all as run_query_suite
+from .bench_search import (
+    NDJSON_QUERIES,
+    QUERIES,
+    _load_json_data as _load_search_data,
+    _run_cursor_reuse_benchmarks,
+    run_single_query,
+)
 from .harness import TimingResult, p95, run_single_benchmark
 from .reporters import csv_reporter, json_reporter, markdown_reporter
 
@@ -71,6 +78,21 @@ class BenchmarkResult:
             "throughput_mbps": self.throughput_mbps,
             "error": self.error,
         }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "BenchmarkResult":
+        return cls(
+            category=d["category"],
+            library=d["library"],
+            dataset=d["dataset"],
+            variant=d["variant"],
+            times_ms=d.get("times_ms", []),
+            result_count=d.get("result_count", 0),
+            output_size=d.get("output_size", 0),
+            rss_mb=d.get("rss_mb", 0.0),
+            throughput_mbps=d.get("throughput_mbps", 0.0),
+            error=d.get("error", ""),
+        )
 
 
 @dataclass
@@ -278,82 +300,129 @@ class BenchSuite:
                 )
         return results
 
-    # -------------------- search + cursor reuse --------------------
-    def run_search(self, data_file: Path, *, is_ndjson: bool) -> tuple[list[BenchmarkResult], list[BenchmarkResult]]:
-        query_results, cursor_reuse_results = run_query_suite(
-            data_file,
-            repeat=self.search_repeat,
-            warmup=self.search_warmup,
-            strata_mode="cursor",
-            ndjson_parallel="auto",
-            cursor_reuse=True,
-        )
-
-        allowed_libs = {"strata", "jmespath", "jsonpath-ng"}
-        results: list[BenchmarkResult] = []
-        queries = NDJSON_QUERIES if is_ndjson else QUERIES
-        for r in query_results:
-            if r.library not in allowed_libs:
-                continue
-            desc = queries.get(r.query_name, {}).get("description", r.query_name)
-            results.append(
-                BenchmarkResult(
-                    category="search",
-                    library=r.library,
-                    dataset=data_file.name,
-                    variant=r.query_name,
-                    times_ms=r.times_ms,
-                    result_count=r.result_count,
-                    rss_mb=r.rss_mb,
-                    throughput_mbps=r.throughput_mbps,
-                    error=r.error,
-                )
-            )
-
-        cursor_results: list[BenchmarkResult] = []
-        for r in cursor_reuse_results:
-            cursor_results.append(
-                BenchmarkResult(
-                    category="cursor_reuse",
-                    library=r.label,
-                    dataset=data_file.name,
-                    variant="ndjson" if is_ndjson else "json",
-                    times_ms=r.times_ms,
-                    rss_mb=r.rss_mb,
-                    throughput_mbps=r.throughput_mbps,
-                    error=r.error,
-                )
-            )
-        return results, cursor_results
-
     # -------------------- orchestrator --------------------
     def run_all(self, json_path: Path, ndjson_path: Path) -> tuple[list[BenchmarkResult], dict[str, DatasetInfo]]:
+        # Read dataset metadata in parent (reporters need it)
         json_info = _read_json_dataset(json_path)
         ndjson_info = _read_ndjson_dataset(ndjson_path)
 
         results: list[BenchmarkResult] = []
 
-        # loads
-        results.extend(self.run_loads(json_info, is_ndjson=False))
-        results.extend(self.run_loads(ndjson_info, is_ndjson=True))
+        # Each category runs in its own subprocess for accurate RSS
+        categories: list[tuple[str, int, int]] = [
+            ("loads_json", self.loads_repeat, self.loads_warmup),
+            ("loads_ndjson", self.loads_repeat, self.loads_warmup),
+            ("dumps_str", self.dumps_repeat, self.dumps_warmup),
+            ("dumps_bytes", self.dumps_repeat, self.dumps_warmup),
+        ]
+        # Per-query search subprocesses: JSON
+        for qname in QUERIES:
+            categories.append((f"search_query:json:{qname}", self.search_repeat, self.search_warmup))
+        categories.append(("cursor_reuse:json", self.cursor_repeat, self.cursor_warmup))
+        # Per-query search subprocesses: NDJSON
+        for qname in NDJSON_QUERIES:
+            categories.append((f"search_query:ndjson:{qname}", self.search_repeat, self.search_warmup))
+        categories.append(("cursor_reuse:ndjson", self.cursor_repeat, self.cursor_warmup))
 
-        # dumps
-        results.extend(self.run_dumps(json_info, bytes_mode=False))
-        results.extend(self.run_dumps(json_info, bytes_mode=True))
-
-        # search + cursor reuse
-        search_json, cursor_json = self.run_search(json_path, is_ndjson=False)
-        search_ndjson, cursor_ndjson = self.run_search(ndjson_path, is_ndjson=True)
-        results.extend(search_json)
-        results.extend(search_ndjson)
-        results.extend(cursor_json)
-        results.extend(cursor_ndjson)
+        for category, repeat, warmup in categories:
+            cat_results = _run_category_in_subprocess(
+                category=category,
+                json_path=json_path,
+                ndjson_path=ndjson_path,
+                repeat=repeat,
+                warmup=warmup,
+            )
+            results.extend(cat_results)
 
         datasets = {
             "json": json_info,
             "ndjson": ndjson_info,
         }
         return results, datasets
+
+
+# ---------------------------------------------------------------------------
+# Subprocess isolation
+# ---------------------------------------------------------------------------
+
+
+def _run_category_in_subprocess(
+    *,
+    category: str,
+    json_path: Path,
+    ndjson_path: Path,
+    repeat: int,
+    warmup: int,
+    timeout: int = 600,
+) -> list[BenchmarkResult]:
+    """Run a single benchmark category in an isolated subprocess for accurate RSS."""
+    cmd = [
+        sys.executable,
+        "-m",
+        "benchmarks.bench_suite",
+        "--_run-category",
+        category,
+        "--json-data",
+        str(json_path),
+        "--ndjson-data",
+        str(ndjson_path),
+        "--repeat",
+        str(repeat),
+        "--warmup",
+        str(warmup),
+    ]
+    repo_root = str(Path(__file__).resolve().parents[1])
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=repo_root,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"  [TIMEOUT] Category '{category}' exceeded {timeout}s")
+        return [
+            BenchmarkResult(
+                category=category,
+                library="ALL",
+                dataset="",
+                variant="",
+                error=f"Subprocess timeout after {timeout}s",
+            )
+        ]
+
+    # Relay benchmark progress output to parent's stderr
+    if proc.stderr:
+        sys.stderr.write(proc.stderr)
+        sys.stderr.flush()
+
+    if proc.returncode != 0:
+        print(f"  [ERROR] Category '{category}' exited with code {proc.returncode}")
+        return [
+            BenchmarkResult(
+                category=category,
+                library="ALL",
+                dataset="",
+                variant="",
+                error=f"Subprocess exited with code {proc.returncode}",
+            )
+        ]
+
+    try:
+        raw = json.loads(proc.stdout)
+        return [BenchmarkResult.from_dict(r) for r in raw]
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        print(f"  [ERROR] Failed to parse results for '{category}': {exc}")
+        return [
+            BenchmarkResult(
+                category=category,
+                library="ALL",
+                dataset="",
+                variant="",
+                error=f"JSON parse error: {exc}",
+            )
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +470,125 @@ def _build_report_context(
 
 
 # ---------------------------------------------------------------------------
+# Subprocess worker
+# ---------------------------------------------------------------------------
+
+
+def _run_category_worker(args: argparse.Namespace) -> int:
+    """Subprocess worker: run one category, emit JSON results to stdout."""
+    import builtins
+
+    _original_print = builtins.print
+    builtins.print = lambda *a, **kw: _original_print(*a, **{**kw, "file": sys.stderr})
+
+    category = args._run_category
+    suite = BenchSuite(repeat=args.repeat, warmup=args.warmup)
+    results: list[BenchmarkResult] = []
+
+    try:
+        if category == "loads_json":
+            info = _read_json_dataset(args.json_data)
+            results = suite.run_loads(info, is_ndjson=False)
+
+        elif category == "loads_ndjson":
+            info = _read_ndjson_dataset(args.ndjson_data)
+            results = suite.run_loads(info, is_ndjson=True)
+
+        elif category == "dumps_str":
+            info = _read_json_dataset(args.json_data)
+            results = suite.run_dumps(info, bytes_mode=False)
+
+        elif category == "dumps_bytes":
+            info = _read_json_dataset(args.json_data)
+            results = suite.run_dumps(info, bytes_mode=True)
+
+        elif category.startswith("search_query:"):
+            _, fmt, query_name = category.split(":", 2)
+            is_ndjson = fmt == "ndjson"
+            data_file = args.ndjson_data if is_ndjson else args.json_data
+            queries = NDJSON_QUERIES if is_ndjson else QUERIES
+            query_def = queries[query_name]
+
+            qresults = run_single_query(
+                data_file,
+                query_name,
+                query_def,
+                warmup=suite.search_warmup,
+                repeat=suite.search_repeat,
+                strata_mode="cursor",
+                ndjson_parallel="auto",
+            )
+
+            allowed_libs = {"strata", "jmespath", "jsonpath-ng"}
+            for r in qresults:
+                if r.library not in allowed_libs:
+                    continue
+                results.append(
+                    BenchmarkResult(
+                        category="search",
+                        library=r.library,
+                        dataset=data_file.name,
+                        variant=r.query_name,
+                        times_ms=r.times_ms,
+                        result_count=r.result_count,
+                        rss_mb=r.rss_mb,
+                        throughput_mbps=r.throughput_mbps,
+                        error=r.error,
+                    )
+                )
+
+        elif category.startswith("cursor_reuse:"):
+            _, fmt = category.split(":", 1)
+            is_ndjson = fmt == "ndjson"
+            data_file = args.ndjson_data if is_ndjson else args.json_data
+            queries = NDJSON_QUERIES if is_ndjson else QUERIES
+            size_bytes = data_file.stat().st_size
+
+            cursor_reuse_results = _run_cursor_reuse_benchmarks(
+                data_file,
+                queries,
+                repeat=suite.cursor_repeat,
+                warmup=suite.cursor_warmup,
+                is_ndjson=is_ndjson,
+                data_size_bytes=size_bytes,
+            )
+
+            for r in cursor_reuse_results:
+                results.append(
+                    BenchmarkResult(
+                        category="cursor_reuse",
+                        library=r.label,
+                        dataset=data_file.name,
+                        variant="ndjson" if is_ndjson else "json",
+                        times_ms=r.times_ms,
+                        rss_mb=r.rss_mb,
+                        throughput_mbps=r.throughput_mbps,
+                        error=r.error,
+                    )
+                )
+
+        else:
+            _original_print(f"Unknown category: {category}", file=sys.stderr)
+            return 1
+
+    except Exception as exc:
+        _original_print(f"Category '{category}' failed: {exc}", file=sys.stderr)
+        results = [
+            BenchmarkResult(
+                category=category,
+                library="ALL",
+                dataset="",
+                variant="",
+                error=str(exc),
+            )
+        ]
+
+    payload = [r.to_dict() for r in results]
+    _original_print(json.dumps(payload), file=sys.stdout)
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -411,7 +599,7 @@ def main() -> int:
     parser.add_argument("--ndjson-data", type=Path, required=True, help="Path to NDJSON dataset")
     parser.add_argument("--repeat", type=int, default=None, help="Override repeat for all categories")
     parser.add_argument("--warmup", type=int, default=None, help="Override warmup for all categories")
-    parser.add_argument("--output", type=Path, required=True, help="Markdown output path")
+    parser.add_argument("--output", type=Path, default=None, help="Markdown output path")
     parser.add_argument("--json-output", type=Path, help="Optional JSON output path")
     parser.add_argument("--csv-output", type=Path, help="Optional CSV output path")
     parser.add_argument(
@@ -424,7 +612,17 @@ def main() -> int:
         action="store_true",
         help="Append condensed entry to docs/benchmarks/progress_log.md",
     )
+    # Hidden: subprocess worker mode (internal use only)
+    parser.add_argument("--_run-category", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    # Subprocess worker mode: run one category, emit JSON, exit
+    if args._run_category is not None:
+        return _run_category_worker(args)
+
+    # Orchestrator mode requires --output
+    if args.output is None:
+        parser.error("--output is required")
 
     if not args.json_data.exists() or not args.ndjson_data.exists():
         missing = [str(p) for p in (args.json_data, args.ndjson_data) if not p.exists()]

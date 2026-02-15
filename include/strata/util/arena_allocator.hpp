@@ -48,8 +48,17 @@ class Arena {
 
     // Reset arena (keep memory for reuse)
     void reset() {
+        if (blocks_.empty()) return;
+
+        // Keep only the first block to prevent unbounded memory growth.
+        // The first block is typically small (64KB) or the initial size.
+        if (blocks_.size() > 1) {
+            blocks_.resize(1);
+        }
+
+        current_block_ = blocks_[0].data.get();
+        current_size_ = blocks_[0].size;
         current_pos_ = 0;
-        // Keep all blocks for reuse
     }
 
     // Get total allocated memory

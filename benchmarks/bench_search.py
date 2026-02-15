@@ -396,6 +396,249 @@ def _run_cursor_reuse_benchmarks(
     return results
 
 
+def run_single_query(
+    data_file: Path,
+    query_name: str,
+    query_def: dict[str, Any],
+    *,
+    warmup: int = 1,
+    repeat: int = 3,
+    strata_mode: str = "cursor",
+    ndjson_parallel: str = "auto",
+) -> list[QueryBenchResult]:
+    """Run one search query for all libraries. Returns one result per library."""
+    data_file = Path(data_file)
+    json_text, json_data, size_bytes, size_mb, record_count, is_ndjson = _load_json_data(
+        data_file
+    )
+    ndjson_text = data_file.read_text(encoding="utf-8") if is_ndjson else ""
+
+    effective_strata_mode = strata_mode
+    if is_ndjson and strata_mode == "cursor":
+        effective_strata_mode = "ndjson_cursor"
+
+    parallel_kwargs: dict[str, Any] = {}
+    if is_ndjson and ndjson_parallel != "auto":
+        parallel_kwargs["parallel"] = ndjson_parallel == "true"
+
+    parse_each_run = effective_strata_mode in ("string", "dict")
+    description = query_def["description"]
+    results: list[QueryBenchResult] = []
+
+    print(f"\n--- Query: {description} ---")
+
+    # Strata
+    print("  strata:       ", end="", flush=True)
+    compiled_ok = False
+    try:
+        path = _native.compile_path(query_def["strata"])
+        compiled_ok = True
+
+        if effective_strata_mode == "dict":
+            parsed_strata = strata.loads(json_text)
+
+            def run_strata():
+                return strata.query(parsed_strata, path)
+
+        elif effective_strata_mode == "string":
+
+            def run_strata():
+                return _native.search(json_text, path)
+
+        elif effective_strata_mode == "ndjson_cursor":
+            cursor = _native.NdjsonCursor.from_file(str(data_file))
+
+            def run_strata():
+                return _native.search(cursor, path)
+
+        else:  # cursor: parse once per query, time query only
+            _document, cursor = _native.parse_json_file(str(data_file))
+
+            def run_strata():
+                return _native.search(cursor, path)
+
+        times_ms, rss_mb, result_list = _run_query_benchmark(run_strata, warmup, repeat)
+        n = _count_results(result_list, is_ndjson=is_ndjson)
+        results.append(
+            QueryBenchResult(
+                library="strata",
+                query_name=query_name,
+                times_ms=times_ms,
+                result_count=n,
+                rss_mb=rss_mb,
+                throughput_mbps=_throughput_mbps(size_bytes, times_ms),
+            )
+        )
+        r = results[-1]
+        print(
+            f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+            f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+        )
+    except Exception as e:
+        print(f"ERROR: {e}")
+        results.append(QueryBenchResult(library="strata", query_name=query_name, error=str(e)))
+
+    # Fused NDJSON path vs full parse path for simple field extraction
+    if compiled_ok and is_ndjson and _is_simple_field_query(query_def["strata"]):
+        print("  strata_ndjson_full: ", end="", flush=True)
+        try:
+            os.environ["STRATA_DISABLE_FUSED_NDJSON"] = "1"
+
+            def run_full():
+                return _native.search(ndjson_text, path, ndjson=True, **parallel_kwargs)
+
+            times_ms, rss_mb, result_list = _run_query_benchmark(run_full, warmup, repeat)
+            n = _count_results(result_list, is_ndjson=is_ndjson)
+            results.append(
+                QueryBenchResult(
+                    library="strata_ndjson_full",
+                    query_name=query_name,
+                    times_ms=times_ms,
+                    result_count=n,
+                    rss_mb=rss_mb,
+                    throughput_mbps=_throughput_mbps(size_bytes, times_ms),
+                )
+            )
+            r = results[-1]
+            print(
+                f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+            )
+        except Exception as e:
+            print(f"ERROR: {e}")
+            results.append(
+                QueryBenchResult(
+                    library="strata_ndjson_full", query_name=query_name, error=str(e)
+                )
+            )
+        finally:
+            os.environ.pop("STRATA_DISABLE_FUSED_NDJSON", None)
+
+        print("  strata_ndjson_fused:", end="", flush=True)
+        try:
+
+            def run_fused():
+                return _native.search(ndjson_text, path, ndjson=True, **parallel_kwargs)
+
+            times_ms, rss_mb, result_list = _run_query_benchmark(run_fused, warmup, repeat)
+            n = _count_results(result_list, is_ndjson=is_ndjson)
+            results.append(
+                QueryBenchResult(
+                    library="strata_ndjson_fused",
+                    query_name=query_name,
+                    times_ms=times_ms,
+                    result_count=n,
+                    rss_mb=rss_mb,
+                    throughput_mbps=_throughput_mbps(size_bytes, times_ms),
+                )
+            )
+            r = results[-1]
+            print(
+                f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+            )
+        except Exception as e:
+            print(f"ERROR: {e}")
+            results.append(
+                QueryBenchResult(
+                    library="strata_ndjson_fused", query_name=query_name, error=str(e)
+                )
+            )
+
+    # jmespath
+    jmes_expr = query_def.get("jmespath")
+    if jmespath and jmes_expr:
+        print("  jmespath:     ", end="", flush=True)
+        try:
+            compiled = jmespath.compile(jmes_expr)
+
+            if parse_each_run:
+
+                def run_jmespath():
+                    return compiled.search(json.loads(json_text))
+
+            else:
+
+                def run_jmespath():
+                    return compiled.search(json_data)
+
+            times_ms, rss_mb, res = _run_query_benchmark(run_jmespath, warmup, repeat)
+            n = _count_results(res, is_ndjson=is_ndjson)
+            results.append(
+                QueryBenchResult(
+                    library="jmespath",
+                    query_name=query_name,
+                    times_ms=times_ms,
+                    result_count=n,
+                    rss_mb=rss_mb,
+                    throughput_mbps=_throughput_mbps(size_bytes, times_ms),
+                )
+            )
+            r = results[-1]
+            print(
+                f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+            )
+        except Exception as e:
+            print(f"ERROR: {e}")
+            results.append(
+                QueryBenchResult(library="jmespath", query_name=query_name, error=str(e))
+            )
+    else:
+        if jmespath:
+            print("  jmespath:     SKIPPED (unsupported query)")
+        else:
+            print("  jmespath:     NOT INSTALLED")
+
+    # jsonpath-ng
+    if jsonpath_parse:
+        print("  jsonpath-ng:  ", end="", flush=True)
+        expr_str = query_def.get("strata")
+        if expr_str:
+            try:
+                compiled = jsonpath_parse(expr_str)
+            except Exception:
+                print("SKIPPED (unsupported query)")
+                return results
+            try:
+
+                def run_jp():
+                    if parse_each_run:
+                        data = json.loads(json_text)
+                    else:
+                        data = json_data
+                    return [m.value for m in compiled.find(data)]
+
+                times_ms, rss_mb, res = _run_query_benchmark(run_jp, warmup, repeat)
+                n = _count_results(res, is_ndjson=is_ndjson)
+                results.append(
+                    QueryBenchResult(
+                        library="jsonpath-ng",
+                        query_name=query_name,
+                        times_ms=times_ms,
+                        result_count=n,
+                        rss_mb=rss_mb,
+                        throughput_mbps=_throughput_mbps(size_bytes, times_ms),
+                    )
+                )
+                r = results[-1]
+                print(
+                    f"min={r.min_ms:.2f}ms, median={r.median_ms:.2f}ms, "
+                    f"mbps={r.throughput_mbps:.2f}, results={r.result_count}, rss={r.rss_mb:.1f} MB"
+                )
+            except Exception as e:
+                print(f"ERROR: {e}")
+                results.append(
+                    QueryBenchResult(library="jsonpath-ng", query_name=query_name, error=str(e))
+                )
+        else:
+            print("  jsonpath-ng:  SKIPPED")
+    else:
+        print("  jsonpath-ng:  NOT INSTALLED")
+
+    return results
+
+
 def run_all(
     data_file: Path,
     *,
@@ -904,7 +1147,9 @@ __all__ = [
     "QueryBenchResult",
     "CursorReuseResult",
     "run_all",
+    "run_single_query",
     "QUERIES",
     "NDJSON_QUERIES",
     "_run_cursor_reuse_benchmarks",
+    "_load_json_data",
 ]

@@ -132,12 +132,11 @@
         if (buckets_.empty()) {
             init_storage(kMinBucketCount);
         }
-        // Generation-based occupancy avoids clearing buckets/distances per reset.
-        if (++generation_ == 0) {
-            release_cached_keys();
-            std::fill(bucket_generations_.begin(), bucket_generations_.end(), 0);
-            generation_ = 1;
-        }
+        // Always release cached keys and clear occupancy on reset to avoid
+        // leaking references and using stale arena pointers.
+        release_cached_keys();
+        std::fill(bucket_generations_.begin(), bucket_generations_.end(), 0);
+        generation_ = 1;
     }
 
     void reserve(size_t expected_entries) {
@@ -151,11 +150,12 @@
         if (desired > kMaxBucketCount) {
             desired = kMaxBucketCount;
         }
-        if (desired <= bucket_count_) {
-            return;
+
+        // If the current capacity is much larger than desired, or if we need to grow
+        if (desired > bucket_count_ || bucket_count_ > desired * 2) {
+            release_cached_keys();
+            init_storage(desired);
         }
-        release_cached_keys();
-        init_storage(desired);
     }
 
      PyObject* get(std::string_view key) {
@@ -222,6 +222,14 @@
     void init_storage(size_t bucket_count) {
         bucket_count_ = bucket_count;
         bucket_mask_ = bucket_count_ - 1;
+
+        // Use swap to truly release memory if shrinking significantly
+        if (bucket_count < buckets_.size() / 2) {
+            std::vector<Bucket>().swap(buckets_);
+            std::vector<uint8_t>().swap(distances_);
+            std::vector<uint32_t>().swap(bucket_generations_);
+        }
+
         buckets_.assign(bucket_count_, {});
         distances_.assign(bucket_count_, 0);
         bucket_generations_.assign(bucket_count_, 0);
@@ -234,11 +242,10 @@
         }
         // Common keys are managed by PersistentCommonKeys - don't release them
         // Only release cached keys in hash map
-        for (size_t i = 0; i < bucket_count_; ++i) {
-            if (i < bucket_generations_.size() && bucket_generations_[i] != 0 &&
-                buckets_[i].py_key) {
-                Py_DECREF(buckets_[i].py_key);
-                buckets_[i].py_key = nullptr;
+        for (auto& b : buckets_) {
+            if (b.py_key) {
+                Py_DECREF(b.py_key);
+                b.py_key = nullptr;
             }
         }
     }
@@ -361,7 +368,7 @@
 
          // Store in bucket
          Bucket& bucket = buckets_[idx];
-         if (bucket_generations_[idx] != 0 && bucket.py_key) {
+         if (bucket.py_key) {
              Py_DECREF(bucket.py_key);
          }
          bucket.hash = hash;
@@ -481,8 +488,20 @@ class PythonObjectPool {
         for (size_t i = list_pos_; i < list_pool_.size(); ++i) {
             Py_DECREF(list_pool_[i]);
         }
-        dict_pool_.clear();
-        list_pool_.clear();
+
+        // Release capacity if it has grown significantly to avoid high RSS plateau
+        if (dict_pool_.capacity() > kDefaultDictPoolSize * 2) {
+            std::vector<PyObject*>().swap(dict_pool_);
+        } else {
+            dict_pool_.clear();
+        }
+
+        if (list_pool_.capacity() > kDefaultListPoolSize * 2) {
+            std::vector<PyObject*>().swap(list_pool_);
+        } else {
+            list_pool_.clear();
+        }
+
         dict_pos_ = 0;
         list_pos_ = 0;
         string_pool_.release();
@@ -515,52 +534,59 @@ class PythonObjectPool {
             if (buckets_.empty()) {
                 init(kMinBuckets);
             }
-            if (++generation_ == 0) {
-                release();
-                std::fill(bucket_generations_.begin(), bucket_generations_.end(), 0);
-                generation_ = 1;
-            }
+            // Always release cached objects and clear occupancy on reset.
+            release();
+            init(kMinBuckets); // Re-initialize after release
+            arena_ = arena;    // Restore arena
         }
 
         PyObject* get(std::string_view sv, bool has_escapes) {
             if (!arena_) return nullptr;
-            std::string_view owned = sv;
             if (has_escapes) {
                 LazyString lazy(sv, true);
                 const std::string& unescaped = lazy.value();
                 if (unescaped.size() > kMaxPooledStringLength) {
                     return PyUnicode_FromStringAndSize(unescaped.data(), unescaped.size());
                 }
-                owned = copy(unescaped);
-            } else {
-                owned = copy(sv);
+                return lookup_or_insert(unescaped);
             }
+            return lookup_or_insert(sv);
+        }
 
-            const uint64_t h = fnv1a_hash(owned);
+        PyObject* lookup_or_insert(std::string_view sv) {
+            const uint64_t h = fnv1a_hash(sv);
             size_t idx = h & bucket_mask_;
             uint8_t dist = 0;
             while (dist < kMaxProbeDistance) {
                 if (bucket_generations_[idx] != generation_) {
-                    return insert(idx, h, owned, dist);
+                    return insert(idx, h, copy(sv), dist);
                 }
                 Bucket& b = buckets_[idx];
-                if (b.hash == h && b.len == owned.size() &&
-                    std::memcmp(b.data, owned.data(), owned.size()) == 0) {
+                if (b.hash == h && b.len == sv.size() &&
+                    std::memcmp(b.data, sv.data(), sv.size()) == 0) {
                     Py_INCREF(b.py);
                     return b.py;
                 }
                 if (dist > distances_[idx]) {
-                    return insert(idx, h, owned, dist);
+                    return insert(idx, h, copy(sv), dist);
                 }
                 idx = (idx + 1) & bucket_mask_;
                 ++dist;
             }
-            return PyUnicode_FromStringAndSize(owned.data(), owned.size());
+            return PyUnicode_FromStringAndSize(sv.data(), sv.size());
         }
 
         bool is_active() const { return arena_ != nullptr; }
 
         void release() {
+            if (Py_IsInitialized()) {
+                for (auto& b : buckets_) {
+                    if (b.py) {
+                        Py_DECREF(b.py);
+                        b.py = nullptr;
+                    }
+                }
+            }
             buckets_.clear();
             bucket_generations_.clear();
             distances_.clear();
@@ -605,13 +631,14 @@ class PythonObjectPool {
                 return nullptr;
             }
             Bucket& b = buckets_[idx];
-            if (bucket_generations_[idx] == generation_ && b.py) {
+            if (b.py) {
                 Py_DECREF(b.py);
             }
             b.hash = hash;
             b.data = sv.data();
             b.len = static_cast<uint16_t>(sv.size());
             b.py = py;
+            Py_INCREF(py); // Keep one for the cache
             bucket_generations_[idx] = generation_;
             distances_[idx] = dist;
             return py;
@@ -823,18 +850,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
     void reset() {
         if (!Py_IsInitialized()) {
             root_ = nullptr;
-            stack_.clear();
-            keys_.clear();
-            list_indices_.clear();
-            list_sizes_.clear();
-            dict_key_counts_.clear();
-            dict_estimates_.clear();
-            list_estimates_.clear();
-            list_object_counts_.clear();
-            list_object_key_sums_.clear();
-            list_list_counts_.clear();
-            list_list_size_sums_.clear();
-            dict_batches_.clear();
+            clear_vectors();
             current_list_depth_ = 0;
             return;
         }
@@ -844,22 +860,12 @@ class PythonObjectBuilder : public JsonSaxHandler {
             root_ = nullptr;
         }
         for (auto obj : stack_) {
-            Py_DECREF(obj);
+            if (obj) Py_DECREF(obj);
         }
-        stack_.clear();
         for (auto key : keys_) {
-            Py_DECREF(key);
+            if (key) Py_DECREF(key);
         }
-        keys_.clear();
-        list_indices_.clear();
-        list_sizes_.clear();
-        dict_key_counts_.clear();
-        dict_estimates_.clear();
-        list_estimates_.clear();
-        list_object_counts_.clear();
-        list_object_key_sums_.clear();
-        list_list_counts_.clear();
-        list_list_size_sums_.clear();
+        clear_vectors();
         current_list_depth_ = 0;
     }
 
@@ -1154,6 +1160,31 @@ class PythonObjectBuilder : public JsonSaxHandler {
             presize = kMaxListPresize;
         }
         return presize;
+    }
+
+    void clear_vectors() {
+        // Using swap with a fresh vector to truly clear capacity and avoid
+        // using stale pointers when the arena is reset.
+        std::vector<PyObject*, StackAllocator>(StackAllocator(arena_)).swap(stack_);
+        std::vector<PyObject*, StackAllocator>(StackAllocator(arena_)).swap(keys_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_indices_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_sizes_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(dict_key_counts_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(dict_estimates_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_estimates_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_object_counts_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_object_key_sums_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_list_counts_);
+        std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_list_size_sums_);
+        dict_batches_.clear();
+
+        stack_.reserve(32);
+        keys_.reserve(32);
+        list_indices_.reserve(32);
+        list_sizes_.reserve(32);
+        dict_key_counts_.reserve(32);
+        dict_estimates_.reserve(32);
+        list_estimates_.reserve(32);
     }
 
     void clear_pending_batches() {

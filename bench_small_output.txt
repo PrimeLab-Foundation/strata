@@ -1,0 +1,127 @@
+PYTHONPATH=. .venv/bin/python3.14 -m benchmarks.bench_suite \
+		--json-data benchmarks/data/generated/small/users.json \
+		--ndjson-data benchmarks/data/generated/small/users.ndjson \
+		--output docs/benchmarks/bench_results_small.md
+
+======================================================================
+Search Query Benchmarks
+======================================================================
+Data file: benchmarks/data/generated/small/users.json
+Size: 0.96 MB
+Records: 1000
+Repeat: 3, Warmup: 1, Strata mode: cursor
+
+
+--- Query: Extract all user IDs ---
+  strata:       min=0.05ms, median=0.06ms, mbps=18261.81, results=1000, rss=404.7 MB
+  jmespath:     min=0.20ms, median=0.20ms, mbps=4994.17, results=1000, rss=404.8 MB
+  jsonpath-ng:  min=2.55ms, median=2.59ms, mbps=388.97, results=1000, rss=404.9 MB
+
+--- Query: Extract nested timestamp field ---
+  strata:       min=0.13ms, median=0.14ms, mbps=6995.30, results=1000, rss=465.4 MB
+  jmespath:     min=0.54ms, median=0.55ms, mbps=1847.65, results=1000, rss=465.4 MB
+  jsonpath-ng:  min=3.14ms, median=3.59ms, mbps=280.57, results=1000, rss=465.4 MB
+
+--- Query: Extract order item prices (double wildcard) ---
+  strata:       min=0.63ms, median=0.66ms, mbps=1516.28, results=12046, rss=486.7 MB
+  jmespath:     min=6.33ms, median=6.46ms, mbps=156.04, results=1000, rss=486.7 MB
+  jsonpath-ng:  min=17.82ms, median=18.30ms, mbps=55.10, results=12046, rss=486.9 MB
+
+--- Query: Deep path navigation ---
+  strata:       min=0.00ms, median=0.00ms, mbps=265873.22, results=1, rss=517.3 MB
+  jmespath:     min=0.01ms, median=0.01ms, mbps=94515.44, results=1, rss=517.3 MB
+  jsonpath-ng:  min=0.01ms, median=0.01ms, mbps=110487.67, results=1, rss=517.3 MB
+
+--- Query: Extract all user names ---
+  strata:       min=0.10ms, median=0.11ms, mbps=9429.73, results=1000, rss=534.8 MB
+  jmespath:     min=0.20ms, median=0.20ms, mbps=5014.86, results=1000, rss=534.8 MB
+  jsonpath-ng:  min=2.52ms, median=2.57ms, mbps=392.75, results=1000, rss=534.8 MB
+
+--- Query: Filter users by age (numeric predicate) ---
+  strata:       min=0.10ms, median=0.14ms, mbps=7244.52, results=794, rss=560.4 MB
+  jmespath:     min=1.06ms, median=1.07ms, mbps=943.71, results=794, rss=560.4 MB
+  jsonpath-ng:  SKIPPED (unsupported query)
+
+--- Query: Recursively find all prices ---
+  strata:       min=1.88ms, median=2.02ms, mbps=499.69, results=12046, rss=576.5 MB
+  jmespath:     SKIPPED (unsupported query)
+  jsonpath-ng:  min=69.39ms, median=70.99ms, mbps=14.20, results=12046, rss=576.6 MB
+
+--- Query: Slice first 10 users, extract IDs ---
+  strata:       min=0.00ms, median=0.01ms, mbps=201639.24, results=10, rss=597.8 MB
+  jmespath:     min=0.01ms, median=0.01ms, mbps=106125.95, results=10, rss=597.8 MB
+  jsonpath-ng:  min=0.01ms, median=0.02ms, mbps=65573.85, results=10, rss=597.8 MB
+
+--- Cursor Reuse Benchmark (compiled paths, all queries) ---
+  strata_cursor_reuse: min=9.74ms, median=10.02ms, p95=10.18ms, mbps=804.81, rss=612.3 MB
+  strata_cursor_reparse: min=70.66ms, median=71.01ms, p95=73.70ms, mbps=113.59, rss=994.0 MB
+  speedup (reuse vs reparse): 7.09x
+
+======================================================================
+Search Query Benchmarks
+======================================================================
+Data file: benchmarks/data/generated/small/users.ndjson
+Size: 0.96 MB
+Records: 1000
+Repeat: 3, Warmup: 1, Strata mode: ndjson_cursor
+
+
+--- Query: NDJSON first record id ---
+  strata:       min=0.00ms, median=0.01ms, mbps=164438.22, results=1, rss=995.7 MB
+  jmespath:     min=0.01ms, median=0.01ms, mbps=114012.54, results=1, rss=995.7 MB
+  jsonpath-ng:  min=0.01ms, median=0.01ms, mbps=175163.40, results=1, rss=995.7 MB
+
+--- Query: Extract all user IDs ---
+  strata:       min=2.28ms, median=2.59ms, mbps=388.98, results=1000, rss=997.0 MB
+  strata_ndjson_full: min=8.92ms, median=9.08ms, mbps=110.91, results=1000, rss=997.0 MB
+  strata_ndjson_fused:min=4.63ms, median=4.79ms, mbps=210.33, results=1000, rss=997.0 MB
+  jmespath:     min=0.27ms, median=0.28ms, mbps=3641.54, results=1000, rss=997.0 MB
+  jsonpath-ng:  min=0.01ms, median=0.01ms, mbps=70679.83, results=0, rss=997.0 MB
+
+--- Query: Extract nested timestamp field ---
+  strata:       min=2.32ms, median=2.53ms, mbps=398.74, results=1000, rss=997.0 MB
+  jmespath:     min=0.62ms, median=0.65ms, mbps=1546.74, results=1000, rss=997.0 MB
+  jsonpath-ng:  min=0.01ms, median=0.01ms, mbps=191844.75, results=0, rss=997.0 MB
+
+--- Query: Extract order item prices (double wildcard) ---
+  strata:       min=0.81ms, median=0.83ms, mbps=1212.93, results=12046, rss=997.0 MB
+  jmespath:     min=3.52ms, median=3.53ms, mbps=285.03, results=12046, rss=997.2 MB
+  jsonpath-ng:  min=0.00ms, median=0.01ms, mbps=152998.28, results=0, rss=997.2 MB
+
+--- Query: Deep path navigation ---
+  strata:       min=0.01ms, median=0.01ms, mbps=147400.47, results=1, rss=997.2 MB
+  jmespath:     min=0.01ms, median=0.01ms, mbps=105564.18, results=1, rss=997.2 MB
+  jsonpath-ng:  min=0.01ms, median=0.01ms, mbps=102429.06, results=1, rss=997.2 MB
+
+--- Query: Extract all user names ---
+  strata:       min=2.31ms, median=2.43ms, mbps=414.67, results=1000, rss=997.2 MB
+  strata_ndjson_full: min=9.20ms, median=9.35ms, mbps=107.71, results=1000, rss=997.2 MB
+  strata_ndjson_fused:min=4.57ms, median=4.60ms, mbps=219.18, results=1000, rss=997.3 MB
+  jmespath:     min=0.26ms, median=0.27ms, mbps=3764.59, results=1000, rss=997.3 MB
+  jsonpath-ng:  min=0.01ms, median=0.01ms, mbps=172640.65, results=0, rss=997.3 MB
+
+--- Query: Filter users by age (numeric predicate) ---
+  strata:       min=0.35ms, median=0.37ms, mbps=2723.97, results=794, rss=997.3 MB
+  jmespath:     min=1.16ms, median=1.18ms, mbps=855.06, results=794, rss=997.3 MB
+  jsonpath-ng:  SKIPPED (unsupported query)
+
+--- Query: Recursively find all prices ---
+  strata:       min=2.02ms, median=2.03ms, mbps=495.56, results=12046, rss=997.3 MB
+  jmespath:     SKIPPED (unsupported query)
+  jsonpath-ng:  min=71.06ms, median=71.06ms, mbps=14.17, results=12046, rss=997.3 MB
+
+--- Query: Slice first 10 users, extract IDs ---
+  strata:       min=0.01ms, median=0.02ms, mbps=45266.84, results=10, rss=997.3 MB
+  jmespath:     min=0.01ms, median=0.01ms, mbps=116775.60, results=10, rss=997.3 MB
+  jsonpath-ng:  min=0.02ms, median=0.02ms, mbps=54196.41, results=10, rss=997.3 MB
+
+--- NDJSON Limit Benchmark (strata.search) ---
+  query=$.id, limit=10
+  full:  median=4.83ms, mbps=208.64, matches=1000, rss=997.3 MB
+  limit: median=0.04ms, mbps=24124.24, matches=10, rss=997.3 MB
+  speedup (full vs limit): 115.63x
+
+--- Cursor Reuse Benchmark (compiled paths, all queries) ---
+  strata_cursor_reuse: min=15.65ms, median=16.06ms, p95=16.67ms, mbps=564.43, rss=997.4 MB
+  strata_cursor_reparse: min=84.90ms, median=85.39ms, p95=86.10ms, mbps=106.16, rss=999.1 MB
+  speedup (reuse vs reparse): 5.32x
