@@ -175,6 +175,26 @@
          return lookup_or_insert(key);
      }
 
+     /**
+      * Get a cached key together with its Python hash (for _PyDict_SetItem_KnownHash).
+      * The hash is cached on the interned PyUnicode object; reading it is essentially free.
+      * Returns the key (new reference) and writes the Python hash to *out_hash.
+      * On failure returns nullptr.
+      */
+     PyObject* get_with_hash(std::string_view key, Py_hash_t* out_hash) {
+         PyObject* py_key = get(key);
+         if (LIKELY(py_key != nullptr)) {
+             // PyObject_Hash on an interned/cached unicode string is a single
+             // field read from PyASCIIObject->hash (computed and cached on first call).
+             *out_hash = PyObject_Hash(py_key);
+             if (UNLIKELY(*out_hash == -1 && PyErr_Occurred())) {
+                 Py_DECREF(py_key);
+                 return nullptr;
+             }
+         }
+         return py_key;
+     }
+
     ~KeyCache() { release_cached_keys(); }
 
    private:
@@ -808,9 +828,12 @@ class PythonObjectBuilder : public JsonSaxHandler {
     static constexpr size_t kMaxDictPresize = 16384;
     static constexpr size_t kBatchSize = 64;
 
+    using HashAllocator = strata::util::ArenaAllocator<Py_hash_t>;
+
     PythonObjectBuilder(strata::util::Arena* arena, KeyCache& cache,
                         PythonObjectPool* pool = nullptr)
         : arena_(arena), stack_(StackAllocator(arena)), keys_(StackAllocator(arena)),
+          key_hashes_(HashAllocator(arena)),
           list_indices_(SizeAllocator(arena)), list_sizes_(SizeAllocator(arena)),
           dict_key_counts_(SizeAllocator(arena)), dict_estimates_(SizeAllocator(arena)),
           list_estimates_(SizeAllocator(arena)),
@@ -819,6 +842,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
           cache_(cache), pool_(pool) {
         stack_.reserve(32);
         keys_.reserve(32);
+        key_hashes_.reserve(32);
         list_indices_.reserve(32);
         list_sizes_.reserve(32);
         dict_key_counts_.reserve(32);
@@ -950,24 +974,27 @@ class PythonObjectBuilder : public JsonSaxHandler {
      }
 
      bool on_key(std::string_view v, bool has_escapes = false) override {
+         Py_hash_t hash;
          if (has_escapes) {
              // Use LazyString to unescape the key before caching
              LazyString lazy(v, true);
              const std::string& unescaped = lazy.value();
-             PyObject* key = cache_.get(std::string_view(unescaped));
+             PyObject* key = cache_.get_with_hash(std::string_view(unescaped), &hash);
              if (!key)
                  return false;
              keys_.push_back(key);
+             key_hashes_.push_back(hash);
              // Track key count for adaptive estimation
              if (!dict_key_counts_.empty()) {
                  dict_key_counts_.back()++;
              }
              return true;
          }
-         PyObject* key = cache_.get(v);
+         PyObject* key = cache_.get_with_hash(v, &hash);
          if (!key)
              return false;
          keys_.push_back(key);
+         key_hashes_.push_back(hash);
          // Track key count for adaptive estimation
          if (!dict_key_counts_.empty()) {
              dict_key_counts_.back()++;
@@ -1105,6 +1132,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
     struct DictBatch {
         std::array<PyObject*, kBatchSize> keys{};
         std::array<PyObject*, kBatchSize> values{};
+        std::array<Py_hash_t, kBatchSize> hashes{};
         size_t size = 0;
     };
 
@@ -1167,6 +1195,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
         // using stale pointers when the arena is reset.
         std::vector<PyObject*, StackAllocator>(StackAllocator(arena_)).swap(stack_);
         std::vector<PyObject*, StackAllocator>(StackAllocator(arena_)).swap(keys_);
+        std::vector<Py_hash_t, HashAllocator>(HashAllocator(arena_)).swap(key_hashes_);
         std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_indices_);
         std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(list_sizes_);
         std::vector<size_t, SizeAllocator>(SizeAllocator(arena_)).swap(dict_key_counts_);
@@ -1180,6 +1209,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
 
         stack_.reserve(32);
         keys_.reserve(32);
+        key_hashes_.reserve(32);
         list_indices_.reserve(32);
         list_sizes_.reserve(32);
         dict_key_counts_.reserve(32);
@@ -1209,7 +1239,10 @@ class PythonObjectBuilder : public JsonSaxHandler {
         for (size_t i = 0; i < batch.size; ++i) {
             PyObject* key = batch.keys[i];
             PyObject* val = batch.values[i];
-            if (PyDict_SetItem(dict, key, val) < 0) {
+            // Use _PyDict_SetItem_KnownHash to skip redundant hash computation.
+            // The hash was pre-computed when the key was cached/interned and stored
+            // in batch.hashes[i].
+            if (_PyDict_SetItem_KnownHash(dict, key, val, batch.hashes[i]) < 0) {
                 for (size_t j = i; j < batch.size; ++j) {
                     Py_DECREF(batch.keys[j]);
                     Py_DECREF(batch.values[j]);
@@ -1277,11 +1310,27 @@ class PythonObjectBuilder : public JsonSaxHandler {
              }
              PyObject* key = keys_.back();
              keys_.pop_back();
+             Py_hash_t hash = key_hashes_.back();
+             key_hashes_.pop_back();
 
              const auto policy = strata::get_duplicate_key_policy();
              if (policy != strata::DuplicateKeyPolicy::LastWins || dict_batches_.empty()) {
                  if (policy == strata::DuplicateKeyPolicy::FirstWins) {
-                     if (!PyDict_SetDefault(top, key, val)) {
+                     // Use known-hash lookup to check for existing key first
+                     PyObject* existing = _PyDict_GetItem_KnownHash(top, key, hash);
+                     if (existing) {
+                         // Key already present — FirstWins means keep existing
+                         Py_DECREF(key);
+                         Py_DECREF(val);
+                         return true;
+                     }
+                     if (PyErr_Occurred()) {
+                         Py_DECREF(key);
+                         Py_DECREF(val);
+                         return false;
+                     }
+                     // Key not present — insert with known hash
+                     if (_PyDict_SetItem_KnownHash(top, key, val, hash) < 0) {
                          Py_DECREF(key);
                          Py_DECREF(val);
                          return false;
@@ -1291,13 +1340,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
                      return true;
                  }
 
-                 Py_hash_t hash = PyObject_Hash(key);
-                 if (hash == -1 && PyErr_Occurred()) {
-                     Py_DECREF(key);
-                     Py_DECREF(val);
-                     return false;
-                 }
-
+                 // For LastWins (unbatched), Warn, Error: check for duplicates
                  PyObject* existing = _PyDict_GetItem_KnownHash(top, key, hash);
                  if (!existing && PyErr_Occurred()) {
                      Py_DECREF(key);
@@ -1330,7 +1373,8 @@ class PythonObjectBuilder : public JsonSaxHandler {
                      }
                  }
 
-                 if (PyDict_SetItem(top, key, val) < 0) {
+                 // Insert with known hash — eliminates redundant hash computation
+                 if (_PyDict_SetItem_KnownHash(top, key, val, hash) < 0) {
                      Py_DECREF(key);
                      Py_DECREF(val);
                      return false;
@@ -1340,9 +1384,11 @@ class PythonObjectBuilder : public JsonSaxHandler {
                  return true;
              }
 
+             // Batched LastWins: store key, value, and pre-computed hash
              DictBatch& batch = dict_batches_.back();
              batch.keys[batch.size] = key;
              batch.values[batch.size] = val;
+             batch.hashes[batch.size] = hash;
              batch.size++;
              if (batch.size >= kBatchSize) {
                  if (!flush_current_dict_batch(top)) {
@@ -1359,6 +1405,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
    strata::util::Arena* arena_;
    std::vector<PyObject*, StackAllocator> stack_;
    std::vector<PyObject*, StackAllocator> keys_;
+   std::vector<Py_hash_t, HashAllocator> key_hashes_;
   std::vector<size_t, SizeAllocator> list_indices_;
   std::vector<size_t, SizeAllocator> list_sizes_;
   std::vector<size_t, SizeAllocator> dict_key_counts_;  // Track keys per dict for estimation

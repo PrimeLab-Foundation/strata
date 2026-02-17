@@ -53,6 +53,18 @@ struct PyGcPause {
 #define UNLIKELY(x) __builtin_expect(!!(x), 0)
 #endif
 
+// ---- Fast dict insertion API --------------------------------------------------
+// _PyDict_SetItem_KnownHash is exported (PyAPI_FUNC) in all CPython 3.11-3.14
+// but its header location changed:
+//   3.11-3.12: cpython/dictobject.h (auto-included by Python.h)
+//   3.13+:     internal/pycore_dict.h (requires Py_BUILD_CORE to include)
+// We forward-declare it here so the symbol links correctly without internal headers.
+#if PY_VERSION_HEX >= 0x030D0000  // 3.13+
+PyAPI_FUNC(int) _PyDict_SetItem_KnownHash(PyObject *mp, PyObject *key,
+                                           PyObject *value, Py_hash_t hash);
+#endif
+// On 3.11-3.12 the declaration comes from cpython/dictobject.h automatically.
+
 // Error handling macros
 #define STRATA_RETURN_IF_NULL(expr)                                                                \
     do {                                                                                           \
