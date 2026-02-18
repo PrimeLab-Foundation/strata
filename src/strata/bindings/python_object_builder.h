@@ -16,6 +16,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <bit>
+#include <list>
+#include <unordered_map>
 
  namespace strata {
  namespace bindings {
@@ -78,7 +81,9 @@
      PyObject* keys_[20] = {nullptr};
  };
 
- // FNV-1a hash for fast string hashing - better distribution for short strings
+
+
+  // FNV-1a hash for fast string hashing - better distribution for short strings
  inline uint64_t fnv1a_hash(std::string_view sv) noexcept {
      constexpr uint64_t kFnvOffsetBasis = 14695981039346656037ULL;
      constexpr uint64_t kFnvPrime = 1099511628211ULL;
@@ -920,14 +925,12 @@ class PythonObjectBuilder : public JsonSaxHandler {
      }
 
      bool on_int(int64_t v) override {
-         // Optimization: PyLong_FromLong is more efficient than PyLong_FromLongLong
-         // for values that fit in a C long. Python's small integer cache (range [-5, 256])
-         // is automatically used by PyLong_FromLong, avoiding memory allocation.
-         // Most JSON integers fit in long range, so use LIKELY for branch prediction.
-         if (LIKELY(v >= LONG_MIN && v <= LONG_MAX)) {
-             return push_value(PyLong_FromLong(static_cast<long>(v)));
+         PyObject* obj = PyLong_FromLongLong(v);
+         if (!obj) {
+             PyErr_SetString(PyExc_MemoryError, "Failed to create PyLong");
+             return false;
          }
-         return push_value(PyLong_FromLongLong(v));
+         return push_value(obj);
      }
 
      bool on_uint(uint64_t v) override {
@@ -939,7 +942,14 @@ class PythonObjectBuilder : public JsonSaxHandler {
          return push_value(PyLong_FromUnsignedLongLong(v));
      }
 
-     bool on_double(double v) override { return push_value(PyFloat_FromDouble(v)); }
+     bool on_double(double v) override {
+         PyObject* obj = PyFloat_FromDouble(v);
+         if (!obj) {
+             PyErr_SetString(PyExc_MemoryError, "Failed to create PyFloat");
+             return false;
+         }
+         return push_value(obj);
+     }
 
      bool on_string(std::string_view v, bool has_escapes = false) override {
          if (has_escapes) {
