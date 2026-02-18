@@ -8,6 +8,8 @@
 #include "strata/util/fast_parse.hpp"
 #include "strata/util/simd_string.hpp"
 #include "strata/util/thread_pool.hpp"
+// Static-dispatch parser: eliminates virtual calls for PythonObjectBuilder
+#include "strata/detail/json_parse_impl.hpp"
 
 #include <algorithm>
 #include <climits>
@@ -1536,8 +1538,12 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
         if (size >= cutoff && !use_exact_size_hints) {
             options.use_object_size_hints = false;
         }
-        return strata::parse_sax(std::string_view(data, size), g_parse_builder, options,
-                                 &g_parse_context);
+        // Use static-dispatch parser (Approach A: CRTP/template) — eliminates
+        // virtual dispatch for all PythonObjectBuilder::on_*() calls, enabling
+        // the compiler to inline on_key, on_string, on_int, etc. directly into
+        // the parse loop.  ~13% of C++ time was spent in virtual dispatch.
+        return strata::detail::parse_sax_impl_t(std::string_view(data, size), g_parse_builder,
+                                                options, &g_parse_context);
     };
     strata::Status status = strata::Status::ParseError;
     bool pause_gc = false;
