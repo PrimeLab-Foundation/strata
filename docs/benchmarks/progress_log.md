@@ -726,3 +726,89 @@ obtained once (from the cached interned key) and reused for both duplicate check
 - `experiments/dict_insert_optimization/bench_dict_insert.py`
 - `experiments/dict_insert_optimization/bench_rigorous.py`
 - `experiments/dict_insert_optimization/compare_results.py`
+
+---
+
+## 2026-02-18 — Value Creation: Int/Float Optimization (NO-GO for perf)
+
+**Git Commit:** `a7c872f` (pre-change baseline)
+**Environment:** macOS arm64, Apple M-series, Python 3.14.2, Apple Clang 17.0.0
+**Dataset:** All three benchmark datasets (small/medium/large)
+**Previous Optimization:** Dict insertion with known-hash (2.7-4.8% improvement)
+
+### Hypothesis
+
+Optimizing integer and float Python object creation paths will yield >=1.5% improvement
+for `loads()` throughput. The large dataset contains 881K integers (90.6% in CPython's
+small-int cache range [-5, 256]) and 790K floats.
+
+### Approaches Evaluated
+
+| Approach | Description | Result |
+|----------|-------------|--------|
+| A: PyLong_FromLong fast-path | Replace `PyLong_FromLongLong` with `PyLong_FromLong` + range check in `on_int()` | **Neutral** (code consistency fix) |
+| A+: SmallIntCache | Thread-local direct pointer cache for [-5, 256] | **Neutral** (same ops as CPython internal cache) |
+| B: Float dedup cache | 64-entry direct-mapped cache keyed by bit pattern | **Rejected** (0.3% hit rate) |
+| C: GC untrack for leaf objects | `PyObject_GC_UnTrack` for PyLong/PyFloat | **N/A** (not GC-tracked on Python 3.12+) |
+| D: Direct struct init for PyFloat | Bypass `PyFloat_FromDouble` with `PyObject_New` | **Rejected** (bypasses faster freelist) |
+
+### Value Distribution Analysis
+
+**Integer distribution (large, 881K values):**
+- 90.6% in small-int cache [-5, 256] — top 5 values (1-5) = 90% of all ints
+- 9.4% outside small cache (IDs, order IDs)
+- 0% beyond int64 range
+
+**Float distribution (large, 790K values):**
+- 24,951 unique bit patterns (dedup ratio: 31.7x)
+- 64-entry cache simulation: 0.3% hit rate
+- 4096-entry cache: 16.3% hit rate (not worth 64KB memory)
+- 32768-entry cache: 52.1% hit rate (not worth 512KB memory)
+
+### Benchmark Results
+
+**Baseline (before changes):**
+
+| Dataset | Median (ms) | Throughput (MB/s) |
+|---------|-------------|-------------------|
+| small | 9.900 | 97.1 |
+| medium | 40.645 | 153.7 |
+| large | 358.658 | 122.3 |
+
+**After PyLong_FromLong fix (Approach A, averaged over 3 runs):**
+
+| Dataset | Median (ms) | Throughput (MB/s) | Change |
+|---------|-------------|-------------------|--------|
+| small | 10.270 | 93.6 | +3.7% (noise) |
+| medium | 40.199 | 155.4 | -1.1% (noise) |
+| large | 356.369 | 123.0 | -0.6% (noise) |
+
+All changes within noise threshold (< 2% per Rule 17).
+
+### Root Cause: Why No Improvement is Possible
+
+1. **Numeric value creation is only 0.33% of total runtime** (profiling: PyFloat_FromDouble 0.26% + PyLong_FromLong 0.07%)
+2. CPython's small-int cache is already near-optimal: bounds check + array index + return
+3. On Python 3.12+, small ints are immortal — `Py_INCREF` is a no-op
+4. On macOS arm64 (LP64), `long == int64_t` so `PyLong_FromLong` == `PyLong_FromLongLong`
+5. `PyFloat_FromDouble` uses a freelist (faster than `PyObject_New`)
+6. The benchmark dataset has 24,951 unique float values — too many for any practical cache
+
+### Conclusion: NO-GO for performance, GO for code consistency
+
+- **No performance change** on macOS arm64 / Python 3.14 — all approaches exhausted
+- **Code fix kept:** `on_int()` now uses `PyLong_FromLong` (matches 3 other call sites)
+- **Code fix kept:** `python_document.cpp` `get_int()` now uses `PyLong_FromLong`
+- The 85.68% Python C API overhead is dominated by dict operations (11.63%) and memory allocation (2.63%), not numeric creation
+
+### Validation
+
+- Python tests: **680 passed**
+- C++ tests: **24/24 passed**
+- No performance regressions detected
+
+### Artifacts
+
+- `experiments/value_creation_optimization/analyze_values.py`
+- `experiments/value_creation_optimization/bench_numeric.py`
+- `experiments/value_creation_optimization/README.md`

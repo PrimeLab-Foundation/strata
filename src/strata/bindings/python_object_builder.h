@@ -83,7 +83,7 @@
 
 
 
-  // FNV-1a hash for fast string hashing - better distribution for short strings
+ // FNV-1a hash for fast string hashing - better distribution for short strings
  inline uint64_t fnv1a_hash(std::string_view sv) noexcept {
      constexpr uint64_t kFnvOffsetBasis = 14695981039346656037ULL;
      constexpr uint64_t kFnvPrime = 1099511628211ULL;
@@ -925,8 +925,20 @@ class PythonObjectBuilder : public JsonSaxHandler {
      }
 
      bool on_int(int64_t v) override {
-         PyObject* obj = PyLong_FromLongLong(v);
-         if (!obj) {
+         // Optimization: Use PyLong_FromLong for values that fit in a long.
+         // This leverages CPython's small integer cache [-5, 256] and has a
+         // more direct code path than PyLong_FromLongLong.
+         // On 64-bit platforms (macOS arm64), long == int64_t so this always
+         // takes the fast path. On 32-bit platforms, falls back correctly.
+         // Matches the pattern already used in python_loads.cpp, python_tape.cpp,
+         // and python_lazy_cursor.cpp.
+         PyObject* obj;
+         if (LIKELY(v >= LONG_MIN && v <= LONG_MAX)) {
+             obj = PyLong_FromLong(static_cast<long>(v));
+         } else {
+             obj = PyLong_FromLongLong(v);
+         }
+         if (UNLIKELY(!obj)) {
              PyErr_SetString(PyExc_MemoryError, "Failed to create PyLong");
              return false;
          }

@@ -347,7 +347,13 @@ static PyObject* PyJsonCursor_get_str(PyJsonCursor* self, PyObject* Py_UNUSED(ig
 }
 
 static PyObject* PyJsonCursor_get_int(PyJsonCursor* self, PyObject* Py_UNUSED(ignored)) {
-    STRATA_CURSOR_TRY_RETURN_BLOCK(return PyLong_FromLongLong(self->cursor->get_int());)
+    STRATA_CURSOR_TRY_RETURN_BLOCK(
+        int64_t v = self->cursor->get_int();
+        if (v >= LONG_MIN && v <= LONG_MAX) {
+            return PyLong_FromLong(static_cast<long>(v));
+        }
+        return PyLong_FromLongLong(v);
+    )
 }
 
 static PyObject* PyJsonCursor_get_float(PyJsonCursor* self, PyObject* Py_UNUSED(ignored)) {
