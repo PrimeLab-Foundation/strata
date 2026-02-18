@@ -83,6 +83,24 @@
 
 
 
+ // SWAR (SIMD Within A Register) ASCII check: tests 8 bytes at a time.
+ // Returns true if all bytes in [data, data+len) are ASCII (bit 7 == 0).
+ inline bool is_ascii_only_swar(const char* data, size_t len) noexcept {
+     if (!data || len == 0) return true;
+     size_t i = 0;
+     uint64_t mask = 0;
+     for (; i + sizeof(uint64_t) <= len; i += sizeof(uint64_t)) {
+         uint64_t chunk = 0;
+         std::memcpy(&chunk, data + i, sizeof(uint64_t));
+         mask |= chunk;
+     }
+     if (mask & 0x8080808080808080ULL) return false;
+     for (; i < len; ++i) {
+         if (static_cast<unsigned char>(data[i]) & 0x80) return false;
+     }
+     return true;
+ }
+
  // FNV-1a hash for fast string hashing - better distribution for short strings
  inline uint64_t fnv1a_hash(std::string_view sv) noexcept {
      constexpr uint64_t kFnvOffsetBasis = 14695981039346656037ULL;
@@ -651,7 +669,15 @@ class PythonObjectPool {
         }
 
         PyObject* insert(size_t idx, uint64_t hash, std::string_view sv, uint8_t dist) {
-            PyObject* py = PyUnicode_DecodeUTF8(sv.data(), sv.size(), nullptr);
+            // Use direct ASCII allocation when possible — avoids UTF-8 validation overhead.
+            PyObject* py;
+            if (sv.size() > 0 && is_ascii_only_swar(sv.data(), sv.size())) {
+                py = PyUnicode_New(static_cast<Py_ssize_t>(sv.size()), 127);
+                if (UNLIKELY(!py)) return nullptr;
+                std::memcpy(PyUnicode_1BYTE_DATA(py), sv.data(), sv.size());
+            } else {
+                py = PyUnicode_FromStringAndSize(sv.data(), sv.size());
+            }
             if (!py) {
                 return nullptr;
             }
@@ -967,7 +993,28 @@ class PythonObjectBuilder : public JsonSaxHandler {
          if (has_escapes) {
              LazyString lazy(v, true);
              const std::string& unescaped = lazy.value();
+             // Approach A: use ShortStringPool for short escaped strings
+             if (pool_ && pool_->string_pool_active() &&
+                 unescaped.size() <= PythonObjectPool::kMaxPooledStringLength) {
+                 PyObject* cached = pool_->acquire_string(unescaped, false);
+                 if (cached) return push_value(cached);
+             }
              return push_value(PyUnicode_FromStringAndSize(unescaped.data(), unescaped.size()));
+         }
+         // Approach A: use ShortStringPool for short repeated string values
+         if (pool_ && pool_->string_pool_active() &&
+             v.size() <= PythonObjectPool::kMaxPooledStringLength) {
+             PyObject* cached = pool_->acquire_string(v, false);
+             if (cached) return push_value(cached);
+         }
+         // Approach B: direct ASCII allocation bypasses CPython encoding detection
+         // is_ascii_only_swar is a branchless 8-byte SWAR check — cheaper than
+         // PyUnicode_FromStringAndSize's internal UTF-8 validation loop for ASCII strings.
+         if (v.size() > 0 && is_ascii_only_swar(v.data(), v.size())) {
+             PyObject* s = PyUnicode_New(static_cast<Py_ssize_t>(v.size()), 127);
+             if (UNLIKELY(!s)) return false;
+             std::memcpy(PyUnicode_1BYTE_DATA(s), v.data(), v.size());
+             return push_value(s);
          }
          return push_value(PyUnicode_FromStringAndSize(v.data(), v.size()));
      }
