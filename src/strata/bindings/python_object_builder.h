@@ -894,6 +894,15 @@ class PythonObjectBuilder : public JsonSaxHandler {
 
     void set_pool(PythonObjectPool* pool) { pool_ = pool; }
 
+    // Approach A: Delayed GC tracking.
+    // When enabled, dicts and lists are untracked immediately after creation
+    // and re-tracked just before being handed to their parent container.
+    // This eliminates the gen0 linked-list insertion cost (~43 cycles/object)
+    // during the construction phase while preserving full GC safety at the
+    // point where the object becomes visible to other containers.
+    void set_deferred_gc_track(bool on) { deferred_gc_track_ = on; }
+    bool deferred_gc_track() const { return deferred_gc_track_; }
+
     bool has_root() const { return root_ != nullptr; }
 
     PyObject* take_root() {
@@ -1034,6 +1043,17 @@ class PythonObjectBuilder : public JsonSaxHandler {
         }
         if (!dict)
              return false;
+
+        // Approach A: Delayed GC tracking.
+        // PyDict_New/_PyDict_NewPresized immediately inserts the dict into gen0's
+        // doubly-linked list (~43 cycles: 5 pointer stores + an atomic counter
+        // increment).  We have exclusive ownership during construction so GC
+        // cannot observe the object.  Untrack now; re-track in on_end_object()
+        // before the dict is handed to its parent container.
+        if (deferred_gc_track_) {
+            PyObject_GC_UnTrack(dict);
+        }
+
          stack_.push_back(dict);
          // Track that we're building a dict to count keys later
          dict_key_counts_.push_back(0);
@@ -1103,6 +1123,13 @@ class PythonObjectBuilder : public JsonSaxHandler {
             dict_batches_.pop_back();
         }
 
+        // Approach A: Re-enable GC tracking before the dict is handed to its
+        // parent.  The dict is now fully constructed with correct refcounts;
+        // GC can safely traverse it from this point forward.
+        if (deferred_gc_track_) {
+            PyObject_GC_Track(dict);
+        }
+
         return push_value(dict);
     }
 
@@ -1117,6 +1144,12 @@ class PythonObjectBuilder : public JsonSaxHandler {
         }
         if (!list)
             return false;
+
+        // Approach A: Delayed GC tracking for lists (same rationale as dicts).
+        if (deferred_gc_track_) {
+            PyObject_GC_UnTrack(list);
+        }
+
         stack_.push_back(list);
         list_indices_.push_back(0);
         list_sizes_.push_back(presize);
@@ -1173,6 +1206,11 @@ class PythonObjectBuilder : public JsonSaxHandler {
              list_list_counts_[parent_idx] += 1;
              list_list_size_sums_[parent_idx] += actual_size;
          }
+
+        // Approach A: Re-enable GC tracking before the list is handed to its parent.
+        if (deferred_gc_track_) {
+            PyObject_GC_Track(list);
+        }
 
         return push_value(list);
     }
@@ -1489,6 +1527,7 @@ class PythonObjectBuilder : public JsonSaxHandler {
   KeyCache& cache_;
   PythonObjectPool* pool_ = nullptr;  // Optional dict pool (per-parse-session)
   AdaptiveSizeEstimator estimator_;  // Learn from observed sizes
+  bool deferred_gc_track_ = false;   // Approach A: untrack on create, retrack on end
 };
 
  } // namespace bindings

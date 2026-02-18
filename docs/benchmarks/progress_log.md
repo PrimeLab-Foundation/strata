@@ -4,6 +4,67 @@ This log tracks performance improvements and regressions over time.
 
 ---
 
+## GC Optimization: Deferred GC Tracking (Approach A) — 2026-02-19
+
+**Branch:** `main-v2-0.1`
+**Experiment:** `experiments/gc_optimization/`
+**Status:** **IMPLEMENTED** — Deployed as default behaviour
+
+### Problem
+
+Every `PyDict_New()` / `PyList_New()` call inserts the object into CPython's gen0
+doubly-linked GC list (~5 pointer stores + 1 atomic counter increment ≈ 43 cycles/object).
+Even with `PyGcPause` (which disables GC scans), `_PyObject_GC_TRACK` still fires on every
+allocation.  For the large dataset this creates 968K gen0 insertions during parse.
+
+### Approaches Evaluated
+
+| Approach | Hypothesis | Result |
+|----------|-----------|--------|
+| **A: Deferred GC tracking** | Untrack on create, retrack on complete | ✅ **+2.7% median on medium** |
+| B: GC threshold manipulation | `gc.set_threshold(0,0,0)` to suppress collections | ❌ NO-GO — still inserts to gen0; Python 3.14 incremental GC makes gen0 sweeps free |
+| C: `_PyDict_SetItem_Take2` | Steal refs, skip KnownHash | ❌ NO-GO — common keys are immortal on 3.14 (INCREF/DECREF = no-ops); marginal net gain |
+| D: Refcount audit | Eliminate unnecessary INCREF/DECREF | ❌ NO-GO — hot path already optimal with KnownHash + immortal common keys |
+
+### Implementation (Approach A)
+
+**Files changed:**
+- `src/strata/bindings/python_object_builder.h` — added `deferred_gc_track_` flag; `on_start_object/array` calls `PyObject_GC_UnTrack`; `on_end_object/array` calls `PyObject_GC_Track` before `push_value`
+- `src/strata/bindings/python_loads.cpp` — added `get_deferred_gc_track_enabled()`, `kDeferredGcTrackMinSize = 256KB`, wires into `parse_json_buffer`
+
+**Control:** `STRATA_DEFERRED_GC_TRACK=0` disables; default is enabled (=1).
+
+### Performance Results
+
+Benchmarked with 50 iterations (30 for large), separate processes.
+
+| Dataset | Baseline med (ms) | Optimized med (ms) | Δ |
+|---------|------------------|--------------------|---|
+| small (1.0 MB) | 10.9 | 10.1 | **+7.3%** |
+| medium (6.25 MB) | 40.6 | 39.5 | **+2.7%** |
+| large (43.85 MB) | 350.4 | 349.6 | +0.2% (noise floor) |
+
+**Why asymmetry?** For the large dataset, SIMD parsing dominates (14% of runtime is C++);
+the GC tracking saving (~14ns/object × 968K objects = 13.5ms) is only ~4% of 350ms.
+For medium, parse is faster so GC overhead is proportionally larger.
+
+### Testing
+
+- ✅ 680 Python tests pass
+- ✅ 24 C++ tests pass
+- ✅ `gc.DEBUG_LEAK`: 0 leaks detected
+- ✅ Result objects fully GC-tracked before return to Python
+- ✅ `PyObject_GC_UnTrack` / `PyObject_GC_Track` are public, stable `PyAPI_FUNC` APIs
+
+### Key Insight
+
+`gc.disable()` / `PyGC_Disable()` does NOT prevent gen0 list insertion.  Only
+`PyObject_GC_UnTrack()` removes an object from gen0 after it was inserted.  The net effect
+of Approach A is shorter gen0 list traversal during any GC scan, and better cache locality
+for the gen0 list head pointer during bulk parsing.
+
+---
+
 ## Dict Optimization Research - 2026-02-18
 
 **Branch:** `main-v2-0.1`

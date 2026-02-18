@@ -386,6 +386,29 @@ constexpr size_t kPoolMinInputSize = 256 * 1024;  // 256KB
 // Approximate bytes per JSON object for estimating pool size
 constexpr size_t kPoolBytesPerDict = 200;
 
+// Minimum input size to activate Approach A: deferred GC tracking.
+// For small inputs the overhead of GC tracking is negligible; only activate
+// where the total object count is large enough to make untrack/retrack worthwhile.
+constexpr size_t kDeferredGcTrackMinSize = 256 * 1024;  // 256KB
+
+bool get_deferred_gc_track_enabled() {
+    static int cached = -1;
+    if (cached >= 0) {
+        return cached != 0;
+    }
+    const char* env = std::getenv("STRATA_DEFERRED_GC_TRACK");
+    if (env && *env) {
+        std::string setting(env);
+        std::transform(setting.begin(), setting.end(), setting.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        cached = (setting == "0" || setting == "false" || setting == "no" || setting == "off") ? 0 : 1;
+    } else {
+        // Default: enabled (Approach A is on by default)
+        cached = 1;
+    }
+    return cached != 0;
+}
+
 inline bool is_ascii_only_swar(const char* data, size_t len) {
     if (!data || len == 0) {
         return true;
@@ -1432,6 +1455,14 @@ static PyObject* parse_json_buffer(const char* data, Py_ssize_t len) {
     g_parse_builder_arena.reset();
     g_parse_builder.reset();
     BuilderResetGuard builder_guard(g_parse_builder);
+
+    // Approach A: Deferred GC tracking.
+    // Set before the flat-object fast path so even small objects go through the
+    // same flag.  For inputs below kDeferredGcTrackMinSize the flag is false and
+    // the hot path is unchanged.
+    const bool use_deferred_gc_track =
+        size >= kDeferredGcTrackMinSize && get_deferred_gc_track_enabled();
+    g_parse_builder.set_deferred_gc_track(use_deferred_gc_track);
 
     if (len > 0 && static_cast<size_t>(len) <= kFlatObjectMaxBytes) {
         PyObject* fast_result = nullptr;
