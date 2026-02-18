@@ -4,6 +4,67 @@ This log tracks performance improvements and regressions over time.
 
 ---
 
+## Dict Optimization Research - 2026-02-18
+
+**Branch:** `main-v2-0.1`
+**Status:** **RESEARCH PHASE** — Analyzed, documented, not implemented
+
+### Summary
+
+Evaluated 4 research-grade approaches to reduce dict overhead (11.63% of runtime):
+
+1. **Compact Dict Builder** (batch finalization) — 3-5% potential, medium risk
+2. **Lazy Dict Materialization** (defer creation) — 5-7% potential, high complexity
+3. **Custom Hash Table with SIMD** (open addressing) — 1-3% potential, very high risk
+4. **Zero-Copy Dict Views** (tape references) — 5-8% potential, very high risk
+
+### Key Finding: CPython Dict is Already Well-Optimized
+
+Strata already leverages:
+- `_PyDict_NewPresized()` — pre-allocation avoids rehashing
+- `_PyDict_SetItem_KnownHash()` — eliminates hash computation
+- Batch insertion — 64-item batches for `LastWins` policy
+- Key interning — FNV-1a cached hashes
+
+Further improvements face diminishing returns:
+- dict_dealloc (7.03%) is unavoidable work: 881K objects must be cleaned up
+- Custom implementations (Options 3-4) risk correctness/complexity for 1-3% gain
+- Global dict pooling (Option 4.1) only helps batch parsing, not single large parse
+
+### Root Cause Analysis
+
+The 11.63% dict overhead is a **symptom, not a root cause**:
+- 85.68% of runtime is Python C API (unavoidable overhead)
+- Creating/destroying 881K objects necessarily requires cleanup time
+- Dict operations are well-optimized; further gains require architectural changes
+
+### Conclusion: Research Discipline (Rule 12)
+
+**Decision: Document and archive findings rather than implement**
+
+Reasons:
+1. **Diminishing returns**: Proposed optimizations yield 0.1-0.5% absolute improvement
+2. **High risk**: Options 3-4 require custom Python types or SIMD logic
+3. **Low probability**: Even Compact Dict Builder (best option) requires significant refactoring
+4. **Better targets exist**: 85.68% Python C API overhead is the real leverage point
+
+### Better Directions for Future Work
+
+- Lazy materialization (return JSON cursors instead of materialized dicts)
+- Zero-copy NDJSON streaming
+- Vectorized value creation (batch int/float allocation)
+- Custom Python types (dict/list views for read-only semantics)
+
+### Experiment Files
+
+- `experiments/dict_optimization/README.md` — Overview and Approach #1
+- `experiments/dict_optimization/ANALYSIS.md` — Detailed research findings
+- `experiments/dict_optimization/profile_dict_ops.py` — Profiling script (reference)
+
+This exemplifies **responsible research** (Rule 12): we investigated thoroughly, documented why approaches don't justify implementation, and directed effort toward higher-leverage optimization targets.
+
+---
+
 ## String Optimization Experiment (Approaches A+B) - 2026-02-18
 
 **Branch:** `main-v2-0.1`
