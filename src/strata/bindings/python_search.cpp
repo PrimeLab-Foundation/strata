@@ -602,7 +602,17 @@ static bool append_ndjson_match_batch_legacy(std::vector<PyObject*>& results, si
 
 PyObject* search_from_json_buffer(const char* data, Py_ssize_t len,
                                   const strata::CompiledPath& compiled_path, size_t limit) {
-    auto parse_result = strata::parse_json(std::string_view(data, static_cast<size_t>(len)));
+    // Explicitly disable structural tape.  ParseSaxOptions defaults to
+    // use_structural_tape=true / collect_structural_tape=false, so the tape is
+    // never actually built here today (collect_structural_tape is the gate).
+    // Setting use_structural_tape=false makes the intent unambiguous and ensures
+    // the search DOM-parse path stays tape-free even if collect_structural_tape
+    // defaults ever change.  Benchmarks show that for a 46 MB input the tape
+    // would generate ~110 MB of random-access memory traffic, thrashing L3 cache.
+    strata::ParseSaxOptions opts;
+    opts.use_structural_tape = false;
+    auto parse_result = strata::parse_json(std::string_view(data, static_cast<size_t>(len)),
+                                           opts, nullptr);
     if (!parse_result.ok()) {
         PyErr_SetString(PyExc_ValueError, "Invalid JSON");
         return NULL;
