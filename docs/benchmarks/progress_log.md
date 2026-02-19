@@ -4,6 +4,33 @@ This log tracks performance improvements and regressions over time.
 
 ---
 
+## PGO + LTO — 2026-02-20
+
+**Branch:** `main-v2-0.1`
+**Build:** `PGO_MODE=use STRATA_ENABLE_LTO=1 STRATA_PGO_PROFILE=build/pgo/strata.profdata`
+**Status:** **IMPLEMENTED** (profile stored at `build/pgo/strata.profdata`)
+
+Profile-guided optimization using `bash scripts/pgo_build.sh` (large dataset, 30 profiling iters).
+PGO teaches the compiler real branch frequencies and hot call sites → better inlining, layout,
+and branch prediction.  Combined with LTO for cross-TU effect.
+
+| Dataset      | LTO-only | PGO+LTO  | Δ |
+|--------------|----------|----------|---|
+| small  (1 MB)  | 10.54 ms | 10.14 ms | **+3.8%** |
+| medium (6.6 MB)| 43.18 ms | 36.75 ms | **+14.9%** |
+| large  (46 MB) | 311.64 ms| 265.65 ms| **+14.8%** |
+
+The medium/large gains reflect better inlining of the hot `push_value` → `_PyDict_SetItem_KnownHash`
+→ `PyUnicode_New` chain guided by actual profiles, reducing branch mispredictions in the
+SAX dispatcher.
+
+To rebuild with PGO:
+```bash
+PGO_DATASET_SIZE=large bash scripts/pgo_build.sh
+```
+
+---
+
 ## LTO Default + Dict Batch Flush — 2026-02-19
 
 **Branch:** `main-v2-0.1`
