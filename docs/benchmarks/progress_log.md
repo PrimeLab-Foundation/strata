@@ -4,6 +4,45 @@ This log tracks performance improvements and regressions over time.
 
 ---
 
+## LTO Default + Dict Batch Flush — 2026-02-19
+
+**Branch:** `main-v2-0.1`
+**Commits:** `d3e6e38` (LTO), `ca4127a` (batch flush)
+**Status:** **IMPLEMENTED**
+
+### LTO (Clang thin LTO) — +5-6% all datasets
+
+Enabled `-flto=thin` by default in `setup.py` (`STRATA_ENABLE_LTO=0` to disable).
+Cross-TU inlining: `PyUnicode_New`, `PyList_SET_ITEM`, `_PyDict_SetItem_KnownHash` stubs
+inline across `python_object_builder.h` → C API boundary; dead-code elimination of
+cold error paths.
+
+| Dataset | no-LTO | LTO | Δ |
+|---------|--------|-----|---|
+| small  (1 MB)  | 10.8 ms | 10.6 ms | **+1.9%** |
+| medium (6.6 MB)| 43.0 ms | 41.1 ms | **+4.4%** |
+| large  (46 MB) | 303.6 ms| 288.5 ms| **+5.2%** |
+
+### Dict Batch Flush for FirstWins — locality improvement
+
+Previously `push_value()` called `GetItem+SetItem` per key for `FirstWins` (default),
+interleaved with SAX callbacks.  Now both `FirstWins` and `LastWins` use the same
+`DictBatch` accumulator and flush in a tight sequential loop at `on_end_object()`.
+Same total GetItem count, but sequential memory access pattern in flush loop improves
+L1/L2 cache utilisation.
+
+- `FirstWins` (default): GetItem+SetItem per key, but now in sequential flush loop
+- `LastWins`: pure SetItem batch, no GetItem — ~5% faster than FirstWins
+- `Warn`/`Error`: unchanged unbatched inline path
+- 680 Python ✅  10 C++ ✅
+
+### Testing
+- ✅ 680 Python tests pass
+- ✅ 10 C++ tests pass
+- ✅ All duplicate key policy tests (first/last/warn/error) verified
+
+---
+
 ## Dispatch Optimization: Structural Tape Default-Off — 2026-02-19
 
 **Branch:** `main-v2-0.1`
