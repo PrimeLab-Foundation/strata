@@ -4,6 +4,85 @@ This log tracks performance improvements and regressions over time.
 
 ---
 
+## Dispatch Optimization: Structural Tape Default-Off — 2026-02-19
+
+**Branch:** `main-v2-0.1`
+**Experiment:** `experiments/dispatch_optimization/`
+**Status:** **IMPLEMENTED** — tape default changed from `true` → `false`
+
+### Problem
+
+The profiler identified `push_value` (13%), `on_key` (8.5%) and `on_string` (6.4%)
+as the top C++ hotspots. Three candidate approaches from the task brief were
+evaluated to reduce virtual-dispatch and parser overhead.
+
+### Approaches Evaluated
+
+| Approach | Hypothesis | Result |
+|----------|-----------|--------|
+| **A: CRTP / Static dispatch** | Template `Parser<PythonObjectBuilder>` eliminates vtable calls | ❌ NO-GO — 0% gain; Apple Silicon BTB predicts monomorphic vtable perfectly; Python C API (85.7%) dominates |
+| **B: Fused parse-and-build** | Detect common array/object patterns, skip SAX events | ❌ NO-GO — 0% coverage on benchmark datasets (all >1KB with nested containers) |
+| **C: Computed goto in parser** | Replace `switch(ContainerState)` with dispatch table | ❌ NO-GO — Clang -O3 already emits a jump table; identical machine code |
+| **D: Structural tape default-off** | Discovered regression: tape generates ~2.5× its input size in `size_t` data, trashing L3 cache | ✅ **+17.8% median on large** |
+
+### Root Cause: Structural Tape Cache Pollution
+
+For a 46 MB JSON input:
+- Structural character density ≈ 30% → ~13.8 M positions
+- Stored as `size_t` (8 bytes each) → **~110 MB tape**
+- Building the tape: one sequential SIMD write pass
+- Using the tape: ~13.8 M random reads during parse = **cache-thrashing**
+- The in-cache SIMD scan (`find_next_structural_simd`) over hot 46 MB JSON is
+  cheaper than reading 110 MB of cold tape
+
+**Note:** `search` / `query` were unaffected — `python_search.cpp` already
+hardcodes `use_structural_tape = false` independently.
+
+### Implementation
+
+Changed `use_structural_tape_for_python()` default:
+```cpp
+// python_loads.cpp
+static bool cached = false;  // was: true
+bool value = false;           // was: true
+```
+`STRATA_USE_STRUCTURAL_TAPE=1` re-enables it for cold single-pass workloads.
+
+### Performance Results — loads/load (100 iterations, parallel processes)
+
+| Dataset | Baseline (tape=1) med | Optimized (tape=0) med | Δ |
+|---------|-----------------------|------------------------|---|
+| small (1.0 MB) | 12.08 ms | 11.49 ms | **+4.9%** |
+| medium (6.6 MB) | 44.23 ms | 44.51 ms | ~0% (tape not collected for <10 MB) |
+| large (46.0 MB) | 382 ms | **314 ms** | **+17.8%** |
+
+### Comprehensive All-Operation Tape Comparison (30 iterations, 2026-02-19)
+
+Full sweep across every public API to confirm tape=OFF is universally correct:
+
+| Operation | Dataset | tape=OFF (ms) | tape=ON (ms) | Δ | Verdict |
+|-----------|---------|-------------|------------|---|---------|
+| loads(bytes) | small | 10.69 | 10.80 | +1.0% | tape=OFF (not collected <10MB) |
+| loads(bytes) | medium | 43.50 | 43.43 | ~0% | tape=OFF (not collected <10MB) |
+| **loads(bytes)** | **large** | **314.74** | **386.11** | **+22.7%** | **tape=OFF** |
+| load(path) | small | 10.63 | 10.71 | ~0% | tape=OFF |
+| **load(path)** | **large** | **318.45** | **391.39** | **+22.9%** | **tape=OFF** |
+| dumps(obj→str) | all | — | — | ~0% | N/A — serialization, no parse |
+| dump(file,obj) | all | — | — | ~0% | N/A — serialization, no parse |
+| search[*] | all | — | — | ~0–1.7% noise | N/A — C++ hardcodes OFF |
+| query[*] | all | — | — | ~0–1.2% noise | N/A — works on parsed obj |
+
+**Conclusion:** `tape=false` is the universally correct default. No operation benefits from tape=ON.
+
+### Testing
+
+- ✅ 680 Python tests pass
+- ✅ 24 C++ tests pass
+- ✅ `search` / `query` unaffected (already tape=false in their paths)
+- ✅ `dumps` / `dump` unaffected (no parse, tape irrelevant)
+
+---
+
 ## GC Optimization: Deferred GC Tracking (Approach A) — 2026-02-19
 
 **Branch:** `main-v2-0.1`

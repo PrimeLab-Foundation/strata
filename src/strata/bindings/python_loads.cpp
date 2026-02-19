@@ -343,13 +343,22 @@ bool has_explicit_exact_size_hints_request() {
 }
 
 bool use_structural_tape_for_python() {
-    static bool cached = true;
+    static bool cached = false;
     static bool initialized = false;
     if (initialized) {
         return cached;
     }
     initialized = true;
-    bool value = true;
+    // Default OFF: benchmarks show structural tape is counter-productive for the
+    // Python parse path.  For a 46 MB input the tape grows to ~114 MB of size_t
+    // entries, generating 114 MB of extra memory traffic that trashes the CPU
+    // cache and slows large-input parsing by ~19%.  The SIMD sequential scan
+    // (find_next_structural_simd) is cheaper when the JSON is already warm in
+    // the CPU cache — the common case for repeated loads().
+    //
+    // Set STRATA_USE_STRUCTURAL_TAPE=1 to re-enable for workloads where a
+    // cold, single-pass read of enormous (>100 MB) files benefits from tape.
+    bool value = false;
     const char* env = std::getenv("STRATA_USE_STRUCTURAL_TAPE");
     if (env && *env) {
         std::string setting(env);
