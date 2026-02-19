@@ -213,7 +213,10 @@ class TestGatedBuildExt(build_ext):
 # PGO_MODE=generate python -m pip install -e .  (generate profile)
 # PGO_MODE=use python -m pip install -e .       (use profile)
 pgo_mode = os.environ.get('PGO_MODE', '').lower()  # 'generate', 'use', or ''
-enable_lto = os.environ.get('STRATA_ENABLE_LTO', '0') == '1'
+# LTO is ON by default: benchmarks show +5-6% across all datasets (Clang thin LTO,
+# negligible link-time overhead).  Set STRATA_ENABLE_LTO=0 to disable (e.g. for
+# faster iteration during development or when using a non-Clang toolchain).
+enable_lto = os.environ.get('STRATA_ENABLE_LTO', '1') == '1'
 pgo_profile = os.environ.get('STRATA_PGO_PROFILE', 'build/pgo/strata.profdata')
 
 
