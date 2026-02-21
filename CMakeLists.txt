@@ -365,6 +365,76 @@ target_compile_options(simd_structural_tests PRIVATE -Wall -Wextra)
 strata_apply_lto(simd_structural_tests)
 add_test(NAME simd_structural_tests COMMAND simd_structural_tests)
 # ---------------------------------------------------------------------------
+# 21) Arena Allocator Tests (Arena, ArenaAllocator, ArenaStringBuilder)
+# ---------------------------------------------------------------------------
+add_executable(arena_allocator_tests
+    tests/cpp/test_arena_allocator.cpp
+)
+target_include_directories(arena_allocator_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(arena_allocator_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(arena_allocator_tests)
+add_test(NAME arena_allocator_tests COMMAND arena_allocator_tests)
+
+# ---------------------------------------------------------------------------
+# 22) Output Buffer Extended Tests (arena ctor, FixedOutputBuffer, unchecked writes)
+# ---------------------------------------------------------------------------
+add_executable(output_buffer_extended_tests
+    tests/cpp/test_output_buffer_extended.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(output_buffer_extended_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(output_buffer_extended_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(output_buffer_extended_tests)
+add_test(NAME output_buffer_extended_tests COMMAND output_buffer_extended_tests)
+
+# ---------------------------------------------------------------------------
+# 23) LazyString Extended Tests (assignment ops, comparators, all escape paths)
+# ---------------------------------------------------------------------------
+add_executable(lazy_string_extended_tests
+    tests/cpp/test_lazy_string_extended.cpp
+)
+target_include_directories(lazy_string_extended_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(lazy_string_extended_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(lazy_string_extended_tests)
+add_test(NAME lazy_string_extended_tests COMMAND lazy_string_extended_tests)
+
+# ---------------------------------------------------------------------------
+# 24) Parallel NDJSON Filter Tests (filter predicates via search_all_parallel)
+# ---------------------------------------------------------------------------
+add_executable(parallel_ndjson_filter_tests
+    tests/cpp/test_parallel_ndjson_filter.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(parallel_ndjson_filter_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(parallel_ndjson_filter_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(parallel_ndjson_filter_tests)
+add_test(NAME parallel_ndjson_filter_tests COMMAND parallel_ndjson_filter_tests)
+
+# ---------------------------------------------------------------------------
+# 25) Coverage Gap Tests Batch 2 (scan_string_fast, tape iterator, grow_heap, etc.)
+# ---------------------------------------------------------------------------
+add_executable(coverage_gaps2_tests
+    tests/cpp/test_coverage_gaps2.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(coverage_gaps2_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(coverage_gaps2_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(coverage_gaps2_tests)
+add_test(NAME coverage_gaps2_tests COMMAND coverage_gaps2_tests)
+
+# ---------------------------------------------------------------------------
+# 26) Coverage Gap Tests Batch 3 (mmap move, parallel limits, search_eval)
+# ---------------------------------------------------------------------------
+add_executable(coverage_gaps3_tests
+    tests/cpp/test_coverage_gaps3.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(coverage_gaps3_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(coverage_gaps3_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(coverage_gaps3_tests)
+add_test(NAME coverage_gaps3_tests COMMAND coverage_gaps3_tests)
+
+# ---------------------------------------------------------------------------
 # Benchmarks
 # ---------------------------------------------------------------------------
 add_executable(parallel_ndjson_bench
