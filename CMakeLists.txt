@@ -411,28 +411,112 @@ strata_apply_lto(parallel_ndjson_filter_tests)
 add_test(NAME parallel_ndjson_filter_tests COMMAND parallel_ndjson_filter_tests)
 
 # ---------------------------------------------------------------------------
-# 25) Coverage Gap Tests Batch 2 (scan_string_fast, tape iterator, grow_heap, etc.)
+# 25) Tape iterator, scan_string_fast, skip_whitespace, grow_heap edge cases
 # ---------------------------------------------------------------------------
-add_executable(coverage_gaps2_tests
-    tests/cpp/test_coverage_gaps2.cpp
+add_executable(tape_and_fast_parse_edges_tests
+    tests/cpp/test_tape_and_fast_parse_edges.cpp
     ${STRATA_CORE_LINK}
 )
-target_include_directories(coverage_gaps2_tests PRIVATE ${STRATA_INCLUDE_DIRS})
-target_compile_options(coverage_gaps2_tests PRIVATE -Wall -Wextra)
-strata_apply_lto(coverage_gaps2_tests)
-add_test(NAME coverage_gaps2_tests COMMAND coverage_gaps2_tests)
+target_include_directories(tape_and_fast_parse_edges_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(tape_and_fast_parse_edges_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(tape_and_fast_parse_edges_tests)
+add_test(NAME tape_and_fast_parse_edges_tests COMMAND tape_and_fast_parse_edges_tests)
 
 # ---------------------------------------------------------------------------
-# 26) Coverage Gap Tests Batch 3 (mmap move, parallel limits, search_eval)
+# 26) Mmap lifecycle, parallel ndjson limits, uint parsing, search_eval SIMD
 # ---------------------------------------------------------------------------
-add_executable(coverage_gaps3_tests
-    tests/cpp/test_coverage_gaps3.cpp
+add_executable(mmap_and_parallel_edges_tests
+    tests/cpp/test_mmap_and_parallel_edges.cpp
     ${STRATA_CORE_LINK}
 )
-target_include_directories(coverage_gaps3_tests PRIVATE ${STRATA_INCLUDE_DIRS})
-target_compile_options(coverage_gaps3_tests PRIVATE -Wall -Wextra)
-strata_apply_lto(coverage_gaps3_tests)
-add_test(NAME coverage_gaps3_tests COMMAND coverage_gaps3_tests)
+target_include_directories(mmap_and_parallel_edges_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(mmap_and_parallel_edges_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(mmap_and_parallel_edges_tests)
+add_test(NAME mmap_and_parallel_edges_tests COMMAND mmap_and_parallel_edges_tests)
+
+# ---------------------------------------------------------------------------
+# 27) Parallel ndjson filters, parse size_hints, output_buffer edge cases
+# ---------------------------------------------------------------------------
+add_executable(parallel_filters_and_parse_hints_tests
+    tests/cpp/test_parallel_filters_and_parse_hints.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(parallel_filters_and_parse_hints_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(parallel_filters_and_parse_hints_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(parallel_filters_and_parse_hints_tests)
+add_test(NAME parallel_filters_and_parse_hints_tests COMMAND parallel_filters_and_parse_hints_tests)
+
+# ---------------------------------------------------------------------------
+# 28) SAX handler error returns, NaN/Inf serialization, ndjson stream edges
+# ---------------------------------------------------------------------------
+add_executable(sax_error_paths_tests
+    tests/cpp/test_sax_error_paths.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(sax_error_paths_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(sax_error_paths_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(sax_error_paths_tests)
+add_test(NAME sax_error_paths_tests COMMAND sax_error_paths_tests)
+
+# ---------------------------------------------------------------------------
+# 29) Core types (root_type_debug, FlatMap ops, lazy_string comparisons)
+# ---------------------------------------------------------------------------
+add_executable(core_types_and_flatmap_tests
+    tests/cpp/test_core_types_and_flatmap.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(core_types_and_flatmap_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(core_types_and_flatmap_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(core_types_and_flatmap_tests)
+add_test(NAME core_types_and_flatmap_tests COMMAND core_types_and_flatmap_tests)
+
+# ---------------------------------------------------------------------------
+# 30) Thread pool submit, fast_parse digit edges, simple field extractor
+# ---------------------------------------------------------------------------
+add_executable(thread_pool_and_field_extractor_tests
+    tests/cpp/test_thread_pool_and_field_extractor.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(thread_pool_and_field_extractor_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(thread_pool_and_field_extractor_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(thread_pool_and_field_extractor_tests)
+add_test(NAME thread_pool_and_field_extractor_tests COMMAND thread_pool_and_field_extractor_tests)
+
+# ---------------------------------------------------------------------------
+# 31) SIMD UTF-8 validation, fast_parse 9/10 digit, large doc UTF-8 paths
+# ---------------------------------------------------------------------------
+add_executable(simd_utf8_validation_tests
+    tests/cpp/test_simd_utf8_validation.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(simd_utf8_validation_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(simd_utf8_validation_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(simd_utf8_validation_tests)
+add_test(NAME simd_utf8_validation_tests COMMAND simd_utf8_validation_tests)
+
+# ---------------------------------------------------------------------------
+# 32) Parallel merge results, submit_bulk, mmap cursor, structural tape
+# ---------------------------------------------------------------------------
+add_executable(merge_results_and_mmap_cursor_tests
+    tests/cpp/test_merge_results_and_mmap_cursor.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(merge_results_and_mmap_cursor_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(merge_results_and_mmap_cursor_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(merge_results_and_mmap_cursor_tests)
+add_test(NAME merge_results_and_mmap_cursor_tests COMMAND merge_results_and_mmap_cursor_tests)
+
+# ---------------------------------------------------------------------------
+# 33) Lazy string ctors/escapes/surrogate, search compile errors, document debug
+# ---------------------------------------------------------------------------
+add_executable(lazy_string_and_search_compile_tests
+    tests/cpp/test_lazy_string_and_search_compile.cpp
+    ${STRATA_CORE_LINK}
+)
+target_include_directories(lazy_string_and_search_compile_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(lazy_string_and_search_compile_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(lazy_string_and_search_compile_tests)
+add_test(NAME lazy_string_and_search_compile_tests COMMAND lazy_string_and_search_compile_tests)
 
 # ---------------------------------------------------------------------------
 # Benchmarks
