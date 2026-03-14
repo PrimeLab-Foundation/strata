@@ -15,7 +15,7 @@
 thread_local strata::util::OutputBuffer g_serialize_buffer;
 
 enum class CyclePolicy { Warn, Error, Ignore };
-static CyclePolicy g_cycle_policy = CyclePolicy::Warn;
+static CyclePolicy g_cycle_policy = CyclePolicy::Ignore;
 
 bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     if (policy == nullptr) {
@@ -57,40 +57,64 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
                                       "80818283848586878889"
                                       "90919293949596979899";
 
-    if (LIKELY(value >= -9999 && value <= 9999)) {
-        uint32_t v = static_cast<uint32_t>(value);
+    // Reserve 8 bytes for the fast path (max 7 chars: -999999).
+    // Large ints reserve separately.
+    out.reserve(out.size() + 8);
+
+    if (LIKELY(value >= -999999 && value <= 999999)) {
+        uint32_t v;
         if (value < 0) {
-            out.push_back('-');
+            out.unsafe_push_back('-');
             v = static_cast<uint32_t>(-value);
+        } else {
+            v = static_cast<uint32_t>(value);
         }
 
         if (v < 10) {
-            out.push_back(static_cast<char>('0' + v));
+            out.unsafe_push_back(static_cast<char>('0' + v));
             return true;
         }
         if (v < 100) {
-            out.append(kDigitPairs + v * 2, 2);
+            out.unsafe_append(kDigitPairs + v * 2, 2);
             return true;
         }
 
-        uint32_t high = v / 100;
-        uint32_t low = v - high * 100;
-        if (high < 10) {
-            out.push_back(static_cast<char>('0' + high));
+        // 3-6 digit numbers: decompose into pairs
+        if (v < 10000) {
+            uint32_t high = v / 100;
+            uint32_t low = v - high * 100;
+            if (high < 10) {
+                out.unsafe_push_back(static_cast<char>('0' + high));
+            } else {
+                out.unsafe_append(kDigitPairs + high * 2, 2);
+            }
+            out.unsafe_append(kDigitPairs + low * 2, 2);
         } else {
-            out.append(kDigitPairs + high * 2, 2);
+            // 5-6 digit numbers
+            uint32_t top = v / 10000;
+            uint32_t rem = v - top * 10000;
+            uint32_t mid = rem / 100;
+            uint32_t low = rem - mid * 100;
+            if (top < 10) {
+                out.unsafe_push_back(static_cast<char>('0' + top));
+            } else {
+                out.unsafe_append(kDigitPairs + top * 2, 2);
+            }
+            out.unsafe_append(kDigitPairs + mid * 2, 2);
+            out.unsafe_append(kDigitPairs + low * 2, 2);
         }
-        out.append(kDigitPairs + low * 2, 2);
         return true;
     }
 
-    char buf[32];
-    auto result = std::to_chars(buf, buf + sizeof(buf), value);
-    if (result.ec != std::errc()) {
+    // Large ints: need up to 21 bytes (sign + 20 digits)
+    out.reserve(out.size() + 21);
+    char* start = out.data() + out.size();
+    auto result = std::to_chars(start, start + 21, value);
+    if (UNLIKELY(result.ec != std::errc())) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to format integer");
         return false;
     }
-    out.append(buf, static_cast<size_t>(result.ptr - buf));
+    out.unsafe_advance(static_cast<size_t>(result.ptr - start));
     return true;
 }
 
@@ -129,9 +153,22 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
         return true;
     }
 
-    char buf[32];
-    int len = strata::util::dragonbox_d2s(value, buf);
-    out.append(buf, static_cast<size_t>(len));
+    // Fast path: integer-valued doubles (very common in JSON data).
+    // Avoid std::to_chars entirely — reuse the fast integer formatter.
+    // Exclude -0.0 (signbit set, but ival==0 would lose the sign).
+    if (value >= -999999999999999.0 && value <= 999999999999999.0) {
+        int64_t ival = static_cast<int64_t>(value);
+        if (static_cast<double>(ival) == value && LIKELY(ival != 0 || !std::signbit(value))) {
+            append_int64(out, ival);
+            out.append(".0", 2);
+            return true;
+        }
+    }
+
+    // Write directly into output buffer to avoid extra memcpy
+    out.reserve(out.size() + 32);
+    int len = strata::util::dragonbox_d2s(value, out.data() + out.size());
+    out.unsafe_advance(static_cast<size_t>(len));
     return true;
 }
 
@@ -155,21 +192,20 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
     return true;
 }
 
-static constexpr int kMaxSerializeDepth = 8192;
+// Cached per-dumps() call to avoid repeated TLS lookup of Py_GetRecursionLimit().
+static thread_local int g_max_depth = 1000;
 
-// Cycle detection: thread-local stack of container object pointers.
+static inline int get_max_serialize_depth() { return g_max_depth; }
+
+// Cycle detection: thread-local vector of container object pointers.
 // Only used when cycle_policy != Ignore.
 thread_local std::vector<PyObject*> g_seen_stack;
 
-// Check for cycle + push if not found. Returns:
-//   0 = no cycle, pushed to seen stack (caller must pop)
-//   1 = cycle detected, handled (wrote null or set error), caller should return result
-// The return value of handle_cycle is stored in *ok.
+// Check for cycle + push if not found. Returns true if cycle detected.
 template <typename Buffer>
 static inline bool check_and_push_cycle(PyObject* obj, Buffer& out, bool& handled_ok) {
     for (auto* seen : g_seen_stack) {
         if (seen == obj) {
-            // Cycle detected — handle according to policy
             switch (g_cycle_policy) {
             case CyclePolicy::Warn:
                 PyErr_WarnEx(PyExc_RuntimeWarning,
@@ -190,10 +226,36 @@ static inline bool check_and_push_cycle(PyObject* obj, Buffer& out, bool& handle
         }
     }
     g_seen_stack.push_back(obj);
-    return false; // no cycle
+    return false;
 }
 
 static inline void pop_seen() { g_seen_stack.pop_back(); }
+
+// Estimate per-item size by sampling the first element of a list/dict value.
+static inline size_t estimate_item_size(PyObject* item) {
+    if (PyDict_CheckExact(item)) {
+        Py_ssize_t dsz = PyDict_GET_SIZE(item);
+        size_t est = static_cast<size_t>(dsz) * 48 + 2;
+        // Peek one level deeper for nested lists
+        if (dsz <= 8) {
+            Py_ssize_t pos = 0;
+            PyObject* k = nullptr;
+            PyObject* v = nullptr;
+            while (PyDict_Next(item, &pos, &k, &v)) {
+                if (PyList_CheckExact(v)) {
+                    est += static_cast<size_t>(PyList_GET_SIZE(v)) * 64;
+                } else if (PyDict_CheckExact(v)) {
+                    est += static_cast<size_t>(PyDict_GET_SIZE(v)) * 48;
+                }
+            }
+        }
+        return est;
+    }
+    if (PyList_CheckExact(item)) {
+        return static_cast<size_t>(PyList_GET_SIZE(item)) * 64 + 2;
+    }
+    return 48;
+}
 
 static inline size_t estimate_size(PyObject* obj) {
     if (PyDict_CheckExact(obj)) {
@@ -207,7 +269,15 @@ static inline size_t estimate_size(PyObject* obj) {
             PyObject* v = nullptr;
             while (PyDict_Next(obj, &pos, &k, &v)) {
                 if (PyList_CheckExact(v)) {
-                    est += static_cast<size_t>(PyList_GET_SIZE(v)) * 128;
+                    Py_ssize_t list_sz = PyList_GET_SIZE(v);
+                    // Sample first element for per-item estimate
+                    size_t per_item = 128;
+                    if (list_sz > 0) {
+                        per_item = estimate_item_size(PyList_GET_ITEM(v, 0));
+                        if (per_item < 128)
+                            per_item = 128;
+                    }
+                    est += static_cast<size_t>(list_sz) * per_item;
                 } else if (PyDict_CheckExact(v)) {
                     est += static_cast<size_t>(PyDict_GET_SIZE(v)) * 48;
                 }
@@ -216,7 +286,14 @@ static inline size_t estimate_size(PyObject* obj) {
         return est;
     }
     if (PyList_CheckExact(obj)) {
-        return static_cast<size_t>(PyList_GET_SIZE(obj)) * 128 + 2;
+        Py_ssize_t sz = PyList_GET_SIZE(obj);
+        size_t per_item = 128;
+        if (sz > 0) {
+            per_item = estimate_item_size(PyList_GET_ITEM(obj, 0));
+            if (per_item < 128)
+                per_item = 128;
+        }
+        return static_cast<size_t>(sz) * per_item + 2;
     }
     if (PyTuple_Check(obj)) {
         return static_cast<size_t>(PyTuple_GET_SIZE(obj)) * 128 + 2;
@@ -233,7 +310,7 @@ static inline size_t estimate_size(PyObject* obj) {
 
 // Recursive serializer: uses the hardware call stack instead of an explicit frame stack.
 // This reduces per-element overhead (no vector push/pop, no frame type dispatch) at the
-// cost of ~128 bytes of stack per nesting level (bounded by kMaxSerializeDepth).
+// cost of ~128 bytes of stack per nesting level (bounded by sys.getrecursionlimit()).
 template <typename Buffer>
 static inline bool serialize_value(PyObject* val, Buffer& out, int depth);
 
@@ -285,7 +362,8 @@ static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
 
 template <typename Buffer>
 static inline bool serialize_dict(PyObject* dict, Buffer& out, int depth) {
-    {
+    bool tracking = UNLIKELY(g_cycle_policy != CyclePolicy::Ignore);
+    if (tracking) {
         bool ok;
         if (check_and_push_cycle(dict, out, ok))
             return ok;
@@ -293,7 +371,8 @@ static inline bool serialize_dict(PyObject* dict, Buffer& out, int depth) {
     Py_ssize_t sz = PyDict_GET_SIZE(dict);
     if (sz == 0) {
         out.append("{}", 2);
-        pop_seen();
+        if (tracking)
+            pop_seen();
         return true;
     }
     out.push_back('{');
@@ -301,46 +380,50 @@ static inline bool serialize_dict(PyObject* dict, Buffer& out, int depth) {
     PyObject* key = nullptr;
     PyObject* value = nullptr;
     bool first = true;
-    bool ok = true;
     while (PyDict_Next(dict, &pos, &key, &value)) {
         if (!write_dict_key(key, out, first)) {
-            ok = false;
-            break;
+            if (tracking)
+                pop_seen();
+            return false;
         }
         first = false;
-        // Inline common value types to avoid serialize_value function call overhead.
         PyTypeObject* vt = Py_TYPE(value);
         if (LIKELY(vt == &PyUnicode_Type)) {
             if (!append_string(value, out)) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         } else if (LIKELY(vt == &PyLong_Type)) {
             if (!append_py_long(out, value)) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         } else if (vt == &PyFloat_Type) {
             if (!append_double(out, PyFloat_AS_DOUBLE(value))) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         } else {
             if (!serialize_value(value, out, depth)) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         }
     }
-    if (ok)
-        out.push_back('}');
-    pop_seen();
-    return ok;
+    out.push_back('}');
+    if (tracking)
+        pop_seen();
+    return true;
 }
 
 template <typename Buffer>
 static inline bool serialize_list(PyObject* list, Buffer& out, int depth) {
-    {
+    bool tracking = UNLIKELY(g_cycle_policy != CyclePolicy::Ignore);
+    if (tracking) {
         bool ok;
         if (check_and_push_cycle(list, out, ok))
             return ok;
@@ -348,58 +431,106 @@ static inline bool serialize_list(PyObject* list, Buffer& out, int depth) {
     Py_ssize_t sz = PyList_GET_SIZE(list);
     if (sz == 0) {
         out.append("[]", 2);
-        pop_seen();
+        if (tracking)
+            pop_seen();
         return true;
     }
     out.push_back('[');
-    bool ok = true;
-    for (Py_ssize_t i = 0; i < sz; ++i) {
-        if (i > 0) {
-            out.push_back(',');
+    // First item (no comma)
+    {
+        PyObject* item = PyList_GET_ITEM(list, 0);
+        PyTypeObject* vt = Py_TYPE(item);
+        if (LIKELY(vt == &PyUnicode_Type)) {
+            if (!append_string(item, out)) {
+                if (tracking)
+                    pop_seen();
+                return false;
+            }
+        } else if (LIKELY(vt == &PyLong_Type)) {
+            if (!append_py_long(out, item)) {
+                if (tracking)
+                    pop_seen();
+                return false;
+            }
+        } else if (vt == &PyFloat_Type) {
+            if (!append_double(out, PyFloat_AS_DOUBLE(item))) {
+                if (tracking)
+                    pop_seen();
+                return false;
+            }
+        } else if (vt == &PyDict_Type) {
+            if (UNLIKELY(depth >= get_max_serialize_depth())) {
+                PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+                if (tracking)
+                    pop_seen();
+                return false;
+            }
+            if (!serialize_dict(item, out, depth + 1)) {
+                if (tracking)
+                    pop_seen();
+                return false;
+            }
+        } else {
+            if (!serialize_value(item, out, depth)) {
+                if (tracking)
+                    pop_seen();
+                return false;
+            }
         }
+    }
+    // Remaining items (with comma prefix)
+    for (Py_ssize_t i = 1; i < sz; ++i) {
+        out.push_back(',');
         PyObject* item = PyList_GET_ITEM(list, i);
         PyTypeObject* vt = Py_TYPE(item);
         if (LIKELY(vt == &PyUnicode_Type)) {
             if (!append_string(item, out)) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         } else if (LIKELY(vt == &PyLong_Type)) {
             if (!append_py_long(out, item)) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         } else if (vt == &PyFloat_Type) {
             if (!append_double(out, PyFloat_AS_DOUBLE(item))) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         } else if (vt == &PyDict_Type) {
-            if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+            if (UNLIKELY(depth >= get_max_serialize_depth())) {
                 PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
             if (!serialize_dict(item, out, depth + 1)) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         } else {
             if (!serialize_value(item, out, depth)) {
-                ok = false;
-                break;
+                if (tracking)
+                    pop_seen();
+                return false;
             }
         }
     }
-    if (ok)
-        out.push_back(']');
-    pop_seen();
-    return ok;
+    out.push_back(']');
+    if (tracking)
+        pop_seen();
+    return true;
 }
 
 template <typename Buffer>
 static inline bool serialize_tuple(PyObject* tup, Buffer& out, int depth) {
-    {
+    bool tracking = UNLIKELY(g_cycle_policy != CyclePolicy::Ignore);
+    if (tracking) {
         bool ok;
         if (check_and_push_cycle(tup, out, ok))
             return ok;
@@ -407,24 +538,25 @@ static inline bool serialize_tuple(PyObject* tup, Buffer& out, int depth) {
     Py_ssize_t sz = PyTuple_GET_SIZE(tup);
     if (sz == 0) {
         out.append("[]", 2);
-        pop_seen();
+        if (tracking)
+            pop_seen();
         return true;
     }
     out.push_back('[');
-    bool ok = true;
     for (Py_ssize_t i = 0; i < sz; ++i) {
         if (i > 0) {
             out.push_back(',');
         }
         if (!serialize_value(PyTuple_GET_ITEM(tup, i), out, depth)) {
-            ok = false;
-            break;
+            if (tracking)
+                pop_seen();
+            return false;
         }
     }
-    if (ok)
-        out.push_back(']');
-    pop_seen();
-    return ok;
+    out.push_back(']');
+    if (tracking)
+        pop_seen();
+    return true;
 }
 
 template <typename Buffer>
@@ -437,14 +569,14 @@ static inline bool serialize_value(PyObject* val, Buffer& out, int depth) {
         return append_py_long(out, val);
     }
     if (vt == &PyDict_Type) {
-        if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+        if (UNLIKELY(depth >= get_max_serialize_depth())) {
             PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
             return false;
         }
         return serialize_dict(val, out, depth + 1);
     }
     if (vt == &PyList_Type) {
-        if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+        if (UNLIKELY(depth >= get_max_serialize_depth())) {
             PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
             return false;
         }
@@ -462,7 +594,7 @@ static inline bool serialize_value(PyObject* val, Buffer& out, int depth) {
         return true;
     }
     if (PyTuple_Check(val)) {
-        if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+        if (UNLIKELY(depth >= get_max_serialize_depth())) {
             PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
             return false;
         }
@@ -480,6 +612,7 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
     PyGcPause gc_pause;
+    g_max_depth = Py_GetRecursionLimit();
     g_seen_stack.clear();
     g_serialize_buffer.clear();
     g_serialize_buffer.reserve(estimate_size(obj));
@@ -501,6 +634,7 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
     PyGcPause gc_pause;
+    g_max_depth = Py_GetRecursionLimit();
     g_seen_stack.clear();
     g_serialize_buffer.clear();
     g_serialize_buffer.reserve(estimate_size(obj));

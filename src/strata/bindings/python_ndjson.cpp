@@ -117,7 +117,7 @@ static PyObject* PyNdjsonStream_next_line(PyNdjsonStream* self, PyObject* Py_UNU
 // parse_all() reuses a single PythonObjectBuilder (and its KeyCache) across all lines
 // to avoid per-line allocations and Python key re-creation.
 static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) {
-    int skip_errors = 1; // Default: skip errors
+    int skip_errors = 0;
 
     if (!PyArg_ParseTuple(args, "|p", &skip_errors)) {
         return NULL;
@@ -134,7 +134,7 @@ static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) 
 // in the batch to avoid per-line allocations and Python key re-creation.
 static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args) {
     Py_ssize_t batch_size = 100;
-    int skip_errors = 1;
+    int skip_errors = 0;
 
     if (!PyArg_ParseTuple(args, "|np", &batch_size, &skip_errors)) {
         return NULL;

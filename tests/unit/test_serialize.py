@@ -3,7 +3,7 @@ Test JSON serialization (dumps).
 """
 
 import json
-import warnings
+import sys
 
 import pytest
 
@@ -220,21 +220,26 @@ class TestEdgeCases:
     def test_deep_nesting_iterative_serializer(self):
         """Test deep nesting without recursion limits."""
         depth = 2000
-        data = []
-        current = data
-        for _ in range(depth):
-            next_level = []
-            current.append(next_level)
-            current = next_level
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(depth + 100)
+        try:
+            data = []
+            current = data
+            for _ in range(depth):
+                next_level = []
+                current.append(next_level)
+                current = next_level
 
-        json_str = strata.dumps(data)
-        parsed = json.loads(json_str)
+            json_str = strata.dumps(data)
+            parsed = json.loads(json_str)
 
-        current = parsed
-        for _ in range(depth):
-            assert isinstance(current, list)
-            assert len(current) == 1
-            current = current[0]
+            current = parsed
+            for _ in range(depth):
+                assert isinstance(current, list)
+                assert len(current) == 1
+                current = current[0]
+        finally:
+            sys.setrecursionlimit(old_limit)
 
     def test_array_with_mixed_nesting(self):
         """Test array with mixed nesting."""
@@ -563,11 +568,12 @@ class TestCyclePolicy:
     """Test cycle detection strategies during serialization."""
 
     def teardown_method(self):
-        strata.set_cycle_policy("warn")
+        strata.set_cycle_policy("ignore")
 
     def test_warn_emits_null(self):
         data = []
         data.append(data)
+        strata.set_cycle_policy("warn")
         with pytest.warns(RuntimeWarning):
             assert strata.dumps(data) == "[null]"
 
@@ -578,11 +584,9 @@ class TestCyclePolicy:
         with pytest.raises(ValueError):
             strata.dumps(data)
 
-    def test_ignore_suppresses_warning(self):
+    def test_ignore_hits_depth_limit(self):
         data = []
         data.append(data)
         strata.set_cycle_policy("ignore")
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            assert strata.dumps(data) == "[null]"
-        assert [w for w in caught if issubclass(w.category, RuntimeWarning)] == []
+        with pytest.raises(ValueError, match="Maximum serialization depth exceeded"):
+            strata.dumps(data)

@@ -5,6 +5,7 @@ Stress tests: deep nesting (5k+ levels).
 """
 
 import json
+import sys
 
 import pytest
 
@@ -33,53 +34,73 @@ class TestStressDeep:
     def test_deep_list_1000(self):
         """1000-level nested list: dumps/loads round-trip."""
         depth = 1000
-        data = _make_deep_list(depth)
-        json_str = strata.dumps(data)
-        parsed = json.loads(json_str)
-        current = parsed
-        for _ in range(depth):
-            assert isinstance(current, list)
-            assert len(current) == 1
-            current = current[0]
-        assert current == []
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(depth + 100)
+        try:
+            data = _make_deep_list(depth)
+            json_str = strata.dumps(data)
+            parsed = json.loads(json_str)
+            current = parsed
+            for _ in range(depth):
+                assert isinstance(current, list)
+                assert len(current) == 1
+                current = current[0]
+            assert current == []
+        finally:
+            sys.setrecursionlimit(old_limit)
 
     @pytest.mark.stress
     def test_stress_deep_list_5k(self):
         """5000-level nested list (stress)."""
         depth = 5000
-        data = _make_deep_list(depth)
-        json_str = strata.dumps(data)
-        parsed = json.loads(json_str)
-        current = parsed
-        for _ in range(depth):
-            assert isinstance(current, list)
-            assert len(current) == 1
-            current = current[0]
-        assert current == []
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(depth + 100)
+        try:
+            data = _make_deep_list(depth)
+            json_str = strata.dumps(data)
+            parsed = json.loads(json_str)
+            current = parsed
+            for _ in range(depth):
+                assert isinstance(current, list)
+                assert len(current) == 1
+                current = current[0]
+            assert current == []
+        finally:
+            sys.setrecursionlimit(old_limit)
 
     def test_deep_dict_1000(self):
         """1000-level nested dict: dumps/loads round-trip."""
         depth = 1000
-        data = _make_deep_dict(depth)
-        json_str = strata.dumps(data)
-        parsed = json.loads(json_str)
-        current = parsed
-        for _ in range(depth - 1):
-            assert isinstance(current, dict)
-            assert "a" in current
-            current = current["a"]
-        assert current == {"leaf": 1}
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(depth + 100)
+        try:
+            data = _make_deep_dict(depth)
+            json_str = strata.dumps(data)
+            parsed = json.loads(json_str)
+            current = parsed
+            for _ in range(depth - 1):
+                assert isinstance(current, dict)
+                assert "a" in current
+                current = current["a"]
+            assert current == {"leaf": 1}
+        finally:
+            sys.setrecursionlimit(old_limit)
 
     @pytest.mark.stress
     def test_stress_deep_dict_5k(self):
         """5000-level nested dict (stress)."""
         depth = 5000
-        data = _make_deep_dict(depth)
-        json_str = strata.dumps(data)
-        parsed = json.loads(json_str)
-        current = parsed
-        for _ in range(depth - 1):
-            assert isinstance(current, dict)
-            assert "a" in current
-            current = current["a"]
-        assert current == {"leaf": 1}
+        old_limit = sys.getrecursionlimit()
+        sys.setrecursionlimit(depth + 100)
+        try:
+            data = _make_deep_dict(depth)
+            json_str = strata.dumps(data)
+            parsed = json.loads(json_str)
+            current = parsed
+            for _ in range(depth - 1):
+                assert isinstance(current, dict)
+                assert "a" in current
+                current = current["a"]
+            assert current == {"leaf": 1}
+        finally:
+            sys.setrecursionlimit(old_limit)

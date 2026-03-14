@@ -5,6 +5,13 @@
 #include <cstring>
 #include <stdexcept>
 
+#ifndef LIKELY
+#define LIKELY(x) __builtin_expect(!!(x), 1)
+#endif
+#ifndef UNLIKELY
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)
+#endif
+
 namespace strata {
 namespace util {
 
@@ -31,16 +38,21 @@ class OutputBuffer {
     }
 
     void append(const char* src, size_t len) {
-        if (len == 0) {
+        if (UNLIKELY(len == 0)) {
             return;
         }
-        ensure(size_ + len);
+        size_t new_size = size_ + len;
+        if (UNLIKELY(new_size > capacity_)) {
+            grow(new_size);
+        }
         std::memcpy(data_ + size_, src, len);
-        size_ += len;
+        size_ = new_size;
     }
 
     void push_back(char c) {
-        ensure(size_ + 1);
+        if (UNLIKELY(size_ == capacity_)) {
+            grow(size_ + 1);
+        }
         data_[size_++] = c;
     }
 
@@ -50,6 +62,7 @@ class OutputBuffer {
         std::memcpy(data_ + size_, src, len);
         size_ += len;
     }
+    void unsafe_advance(size_t n) noexcept { size_ += n; }
 
   private:
     void ensure(size_t needed) {
@@ -58,7 +71,7 @@ class OutputBuffer {
         }
     }
 
-    void grow(size_t needed) {
+    __attribute__((noinline)) void grow(size_t needed) {
         size_t new_capacity = capacity_ == 0 ? 1024 : capacity_;
         while (new_capacity < needed) {
             new_capacity = new_capacity + (new_capacity / 2);
@@ -120,6 +133,12 @@ class FixedOutputBuffer {
     // For FixedOutputBuffer, unsafe variants still check bounds (no dynamic growth possible).
     void unsafe_push_back(char c) { push_back(c); }
     void unsafe_append(const char* src, size_t len) { append(src, len); }
+    void unsafe_advance(size_t n) {
+        if (size_ + n <= capacity_)
+            size_ += n;
+        else
+            overflowed_ = true;
+    }
 
   private:
     char* data_ = nullptr;

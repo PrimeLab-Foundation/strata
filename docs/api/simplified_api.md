@@ -47,7 +47,7 @@ ______________________________________________________________________
 strata.set_duplicate_key_policy("first")  # first (default), last, error, warn
 
 # Cycles during serialization
-strata.set_cycle_policy("warn")  # warn (default), error, ignore
+strata.set_cycle_policy("ignore")  # ignore (default), warn, error
 ```
 
 **Notes**:
