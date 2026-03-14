@@ -294,6 +294,18 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                 continue;
             }
 
+            // Fast identity checks for boolean singletons (before type dispatch)
+            if (UNLIKELY(current == Py_True)) {
+                append_literal(out, "true", 4);
+                current = nullptr;
+                continue;
+            }
+            if (UNLIKELY(current == Py_False)) {
+                append_literal(out, "false", 5);
+                current = nullptr;
+                continue;
+            }
+
             bool container = is_container(current);
             if (container) {
                 bool cycle = false;
@@ -416,19 +428,42 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
             PyObject* key = nullptr;
             PyObject* value = nullptr;
             if (PyDict_Next(frame.obj, &frame.pos, &key, &value)) {
-                if (!frame.first) {
-                    out.push_back(',');
+                // Fast path for compact ASCII keys (interned dict keys are almost always ASCII).
+                if (LIKELY(PyUnicode_IS_COMPACT_ASCII(key))) {
+                    const Py_ssize_t klen = PyUnicode_GET_LENGTH(key);
+                    const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
+                    // Reserve for: [,]"key": = klen + 3 or 4 bytes
+                    const size_t need = static_cast<size_t>(klen) + (frame.first ? 3 : 4);
+                    out.reserve(out.size() + need);
+                    if (!frame.first) {
+                        out.unsafe_push_back(',');
+                    }
+                    frame.first = false;
+                    // Check for escapes; fall back if needed (rare for interned keys)
+                    if (LIKELY(
+                            !strata::util::string_needs_escape(kdata, static_cast<size_t>(klen)))) {
+                        out.unsafe_push_back('"');
+                        out.unsafe_append(kdata, static_cast<size_t>(klen));
+                        out.unsafe_push_back('"');
+                    } else {
+                        strata::util::escape_json_string_simd(kdata, static_cast<size_t>(klen),
+                                                              out);
+                    }
+                    out.push_back(':');
+                } else {
+                    if (!frame.first) {
+                        out.push_back(',');
+                    }
+                    frame.first = false;
+                    if (!PyUnicode_Check(key)) {
+                        PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
+                        return false;
+                    }
+                    if (!append_string(key, out)) {
+                        return false;
+                    }
+                    out.push_back(':');
                 }
-                frame.first = false;
-
-                if (!PyUnicode_Check(key)) {
-                    PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
-                    return false;
-                }
-                if (!append_string(key, out)) {
-                    return false;
-                }
-                out.push_back(':');
                 bool handled = false;
                 if (!serialize_primitive(value, out, handled)) {
                     return false;
@@ -497,17 +532,8 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
     g_serialize_arena.reset();
-    size_t estimate = estimate_size(obj);
-    if (PyObject* direct = dumps_bytes_direct(obj, estimate)) {
-        return direct;
-    }
-    if (PyErr_Occurred()) {
-        return NULL;
-    }
-
-    g_serialize_arena.reset();
     g_serialize_buffer.clear();
-    g_serialize_buffer.reserve(estimate);
+    g_serialize_buffer.reserve(estimate_size(obj));
 
     if (!serialize_iterative(obj, g_serialize_buffer)) {
         return NULL;

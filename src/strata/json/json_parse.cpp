@@ -16,9 +16,105 @@ namespace {
 thread_local DuplicateKeyPolicy g_duplicate_policy = DuplicateKeyPolicy::FirstWins;
 thread_local std::vector<std::string> g_parse_warnings;
 
+class DomBuilderHandler : public JsonSaxHandler {
+  public:
+    DomBuilderHandler() = default;
+
+    bool on_null() override { return push_value(JsonValue()); }
+    bool on_bool(bool v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
+    bool on_int(int64_t v) override {
+        return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
+    }
+    bool on_uint(uint64_t v) override {
+        return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
+    }
+    bool on_double(double v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
+    bool on_string(std::string_view v) override {
+        return push_value(JsonValue(JsonValue::Variant(std::string(v))));
+    }
+
+    bool on_start_object(size_t) override {
+        stack_.emplace_back(JsonValue::Variant(JsonValue::Object()));
+        return true;
+    }
+
+    bool on_key(std::string_view v) override {
+        keys_.emplace_back(std::string(v));
+        return true;
+    }
+
+    bool on_end_object() override {
+        if (stack_.empty())
+            return false;
+        auto obj = std::move(stack_.back());
+        stack_.pop_back();
+        return push_value(std::move(obj));
+    }
+
+    bool on_start_array(size_t) override {
+        stack_.emplace_back(JsonValue::Variant(JsonValue::Array()));
+        return true;
+    }
+
+    bool on_end_array() override {
+        if (stack_.empty())
+            return false;
+        auto arr = std::move(stack_.back());
+        stack_.pop_back();
+        return push_value(std::move(arr));
+    }
+
+    JsonValue&& take_root() { return std::move(root_); }
+
+  private:
+    bool push_value(JsonValue&& val) {
+        if (stack_.empty()) {
+            root_ = std::move(val);
+            return true;
+        }
+
+        auto& top = stack_.back();
+        if (std::holds_alternative<JsonValue::Array>(top.data)) {
+            std::get<JsonValue::Array>(top.data).push_back(std::move(val));
+            return true;
+        } else if (std::holds_alternative<JsonValue::Object>(top.data)) {
+            if (keys_.empty())
+                return false;
+            auto& obj = std::get<JsonValue::Object>(top.data);
+            std::string key = std::move(keys_.back());
+            keys_.pop_back();
+
+            auto existing = obj.find(key);
+            if (existing != obj.end()) {
+                switch (g_duplicate_policy) {
+                case DuplicateKeyPolicy::FirstWins:
+                    break;
+                case DuplicateKeyPolicy::Warn:
+                    g_parse_warnings.push_back("Duplicate key encountered: " + key);
+                    break;
+                case DuplicateKeyPolicy::LastWins:
+                    existing->second = std::move(val);
+                    break;
+                case DuplicateKeyPolicy::Error:
+                    return false;
+                }
+            } else {
+                obj.emplace(std::move(key), std::move(val));
+            }
+            return true;
+        }
+        return false;
+    }
+
+    JsonValue root_;
+    std::vector<JsonValue> stack_;
+    std::vector<std::string> keys_;
+};
+
 struct Parser {
     const char* data;
     size_t len;
+    JsonSaxHandler& handler;
     size_t i = 0;
 
     bool eof() const { return i >= len; }
@@ -87,10 +183,10 @@ struct Parser {
         return false;
     }
 
-    Result<JsonValue> parse_value() {
+    bool parse_value() {
         skip_ws();
         if (eof())
-            return {Status::ParseError, JsonValue{}};
+            return false;
         char c = peek();
         if (c == 'n')
             return parse_null();
@@ -104,33 +200,33 @@ struct Parser {
             return parse_object();
         if (c == '-' || std::isdigit(static_cast<unsigned char>(c)))
             return parse_number();
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_null() {
+    bool parse_null() {
         if (i + 4 <= len && data[i] == 'n' && data[i + 1] == 'u' && data[i + 2] == 'l' &&
             data[i + 3] == 'l') {
             i += 4;
-            return {Status::Ok, JsonValue{}};
+            return handler.on_null();
         }
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_bool() {
+    bool parse_bool() {
         if (i + 4 <= len && data[i] == 't' && data[i + 1] == 'r' && data[i + 2] == 'u' &&
             data[i + 3] == 'e') {
             i += 4;
-            return {Status::Ok, JsonValue(JsonValue::Variant(true))};
+            return handler.on_bool(true);
         }
         if (i + 5 <= len && data[i] == 'f' && data[i + 1] == 'a' && data[i + 2] == 'l' &&
             data[i + 3] == 's' && data[i + 4] == 'e') {
             i += 5;
-            return {Status::Ok, JsonValue(JsonValue::Variant(false))};
+            return handler.on_bool(false);
         }
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_number() {
+    bool parse_number() {
         size_t start = i;
 
         // Try fast integer parse first
@@ -143,7 +239,7 @@ struct Parser {
                 // Fall through to double parsing
             } else {
                 i += consumed;
-                return {Status::Ok, JsonValue(JsonValue::Variant(static_cast<double>(int_val)))};
+                return handler.on_int(int_val);
             }
         }
 
@@ -151,24 +247,24 @@ struct Parser {
         double double_val;
         if (util::parse_double_fast(data + start, len - start, double_val, consumed)) {
             i = start + consumed;
-            return {Status::Ok, JsonValue(JsonValue::Variant(double_val))};
+            return handler.on_double(double_val);
         }
 
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_string() {
+    bool parse_string(bool is_key = false) {
         if (get() != '"')
-            return {Status::ParseError, JsonValue{}};
+            return false;
 
         // Fast scan for end quote or escape using SIMD
         size_t scan_pos = util::find_next_escape_simd(data + i, len - i);
 
         // Fast path: no escapes, just copy
         if (scan_pos < len - i && data[i + scan_pos] == '"') {
-            std::string result(data + i, scan_pos);
+            std::string_view result(data + i, scan_pos);
             i += scan_pos + 1; // +1 for closing quote
-            return {Status::Ok, JsonValue(JsonValue::Variant(std::move(result)))};
+            return is_key ? handler.on_key(result) : handler.on_string(result);
         }
 
         // Slow path: has escapes or control chars
@@ -178,11 +274,11 @@ struct Parser {
         while (!eof()) {
             char c = get();
             if (c == '"') {
-                return {Status::Ok, JsonValue(JsonValue::Variant(std::move(out)))};
+                return is_key ? handler.on_key(out) : handler.on_string(out);
             }
             if (c == '\\') {
                 if (eof())
-                    return {Status::ParseError, JsonValue{}};
+                    return false;
                 char esc = get();
                 switch (esc) {
                 case '"':
@@ -212,97 +308,77 @@ struct Parser {
                 case 'u': {
                     uint32_t codepoint = 0;
                     if (!read_hex4(codepoint))
-                        return {Status::ParseError, JsonValue{}};
+                        return false;
                     if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
                         if (eof() || get() != '\\')
-                            return {Status::ParseError, JsonValue{}};
+                            return false;
                         if (eof() || get() != 'u')
-                            return {Status::ParseError, JsonValue{}};
+                            return false;
                         uint32_t low = 0;
                         if (!read_hex4(low))
-                            return {Status::ParseError, JsonValue{}};
+                            return false;
                         if (low < 0xDC00 || low > 0xDFFF)
-                            return {Status::ParseError, JsonValue{}};
+                            return false;
                         codepoint = 0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00);
                     } else if (codepoint >= 0xDC00 && codepoint <= 0xDFFF) {
-                        return {Status::ParseError, JsonValue{}};
+                        return false;
                     }
                     if (!append_utf8(out, codepoint))
-                        return {Status::ParseError, JsonValue{}};
+                        return false;
                     break;
                 }
                 default:
-                    return {Status::ParseError, JsonValue{}};
+                    return false;
                 }
             } else {
                 if (static_cast<unsigned char>(c) < 0x20) {
-                    return {Status::ParseError, JsonValue{}};
+                    return false;
                 }
                 out.push_back(c);
             }
         }
-        return {Status::ParseError, JsonValue{}};
+        return false;
     }
 
-    Result<JsonValue> parse_array() {
+    bool parse_array() {
         if (!consume('['))
-            return {Status::ParseError, JsonValue{}};
-        JsonValue::Array arr;
+            return false;
+        if (!handler.on_start_array())
+            return false;
         if (consume(']'))
-            return {Status::Ok, JsonValue(JsonValue::Variant(std::move(arr)))};
+            return handler.on_end_array();
         while (true) {
-            auto elem = parse_value();
-            if (!elem.ok())
-                return elem;
-            arr.push_back(std::move(elem.value));
+            if (!parse_value())
+                return false;
             if (consume(']'))
                 break;
             if (!consume(','))
-                return {Status::ParseError, JsonValue{}};
+                return false;
         }
-        return {Status::Ok, JsonValue(JsonValue::Variant(std::move(arr)))};
+        return handler.on_end_array();
     }
 
-    Result<JsonValue> parse_object() {
+    bool parse_object() {
         if (!consume('{'))
-            return {Status::ParseError, JsonValue{}};
-        JsonValue::Object obj;
+            return false;
+        if (!handler.on_start_object())
+            return false;
         if (consume('}'))
-            return {Status::Ok, JsonValue(JsonValue::Variant(std::move(obj)))};
+            return handler.on_end_object();
         while (true) {
             skip_ws();
-            auto key_res = parse_string();
-            if (!key_res.ok() || !key_res.value.is_string())
-                return {Status::ParseError, JsonValue{}};
-            std::string key = std::move(key_res.value.as_string());
+            if (!parse_string(true))
+                return false;
             if (!consume(':'))
-                return {Status::ParseError, JsonValue{}};
-            auto val_res = parse_value();
-            if (!val_res.ok())
-                return val_res;
-            auto existing = obj.find(key);
-            if (existing != obj.end()) {
-                switch (g_duplicate_policy) {
-                case DuplicateKeyPolicy::FirstWins:
-                    break;
-                case DuplicateKeyPolicy::Warn:
-                    g_parse_warnings.push_back("Duplicate key encountered: " + key);
-                    break;
-                case DuplicateKeyPolicy::LastWins:
-                    existing->second = std::move(val_res.value);
-                    break;
-                case DuplicateKeyPolicy::Error:
-                    return {Status::ParseError, JsonValue{}};
-                }
-            } else {
-                obj.emplace(std::move(key), std::move(val_res.value));
-            }
+                return false;
+            if (!parse_value())
+                return false;
             if (consume('}'))
                 break;
             if (!consume(','))
-                return {Status::ParseError, JsonValue{}};
+                return false;
         }
-        return {Status::Ok, JsonValue(JsonValue::Variant(std::move(obj)))};
+        return handler.on_end_object();
     }
 };
 
@@ -310,17 +386,25 @@ struct Parser {
 
 Result<JsonValue> parse_json(std::string_view text) {
     g_parse_warnings.clear();
-    if (!text.empty() && !util::validate_utf8_simd(text.data(), text.size())) {
-        return {Status::ParseError, JsonValue{}};
+    DomBuilderHandler handler;
+    Status status = parse_sax(text, handler);
+    if (status != Status::Ok) {
+        return {status, JsonValue{}};
     }
-    Parser p{text.data(), text.size(), 0};
-    auto res = p.parse_value();
-    if (!res.ok())
-        return res;
+    return {Status::Ok, handler.take_root()};
+}
+
+Status parse_sax(std::string_view text, JsonSaxHandler& handler, bool validate_utf8) {
+    if (validate_utf8 && !text.empty() && !util::validate_utf8_simd(text.data(), text.size())) {
+        return Status::ParseError;
+    }
+    Parser p{text.data(), text.size(), handler, 0};
+    if (!p.parse_value())
+        return Status::ParseError;
     p.skip_ws();
     if (!p.eof())
-        return {Status::ParseError, JsonValue{}};
-    return res;
+        return Status::ParseError;
+    return Status::Ok;
 }
 
 void set_duplicate_key_policy(DuplicateKeyPolicy policy) { g_duplicate_policy = policy; }

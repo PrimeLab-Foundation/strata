@@ -60,6 +60,18 @@ std::string_view NdjsonStream::next_line() {
     return std::string_view(start, line_len);
 }
 
+std::string_view NdjsonStream::read_raw_line() {
+    while (pos_ < data_.size()) {
+        std::string_view line = next_line();
+        if (is_whitespace_only_line(line)) {
+            continue;
+        }
+        lines_processed_++;
+        return line;
+    }
+    return std::string_view{};
+}
+
 bool NdjsonStream::parse_batch_chunked(size_t max_results, bool skip_errors,
                                        std::vector<JsonValue>& results) {
     if (pos_ >= data_.size() || max_results == 0) {

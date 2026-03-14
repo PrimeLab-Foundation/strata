@@ -102,6 +102,22 @@ class NdjsonStream {
      */
     size_t error_count() const { return error_count_; }
 
+    /**
+     * Increment the error counter (used by Python bindings that call read_raw_line()
+     * directly and detect parse failures outside of NdjsonStream).
+     */
+    void record_error() { error_count_++; }
+
+    /**
+     * Extract and return the next raw line (std::string_view into internal data).
+     * Returns an empty string_view when there is no more data.
+     * Skips blank and whitespace-only lines internally.
+     * Increments lines_processed_ on each non-blank line returned.
+     *
+     * Used by the Python binding to call parse_sax directly (no intermediate C++ DOM).
+     */
+    std::string_view read_raw_line();
+
   private:
     std::string_view data_;
     size_t pos_;

@@ -44,6 +44,13 @@ class OutputBuffer {
         data_[size_++] = c;
     }
 
+    // Unsafe variants: skip capacity check. Call only after reserve(size + n).
+    void unsafe_push_back(char c) noexcept { data_[size_++] = c; }
+    void unsafe_append(const char* src, size_t len) noexcept {
+        std::memcpy(data_ + size_, src, len);
+        size_ += len;
+    }
+
   private:
     void ensure(size_t needed) {
         if (needed > capacity_) {

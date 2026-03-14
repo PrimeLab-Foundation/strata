@@ -1,7 +1,27 @@
-# Benchmark Analysis Plan (Phase 0/1)
+# Benchmark Analysis Plan (Hybrid Architecture)
 
-- **Commands to run (baseline/iteration)**: `make bench-small` (runs `bench_main`, `bench_loads`, `bench_dumps`, `bench_ndjson`, `bench_jsonpath` with warmup + repeats), plus targeted reruns of individual benches if a change affects only one area (e.g., `benchmarks.bench_dumps` after serialization tweaks).
-- **Datasets**: canonical generated small set in `benchmarks/data/generated/small/users.json` and `users.ndjson` (≈1 MB); reuse existing generated data from `make bench-data`.
-- **Metrics tracked**: min/median/p95 latency per benchmark plus RSS when reported; rank relative to competitors. A “win” means ≥5% improvement in median and/or p95 without regressions elsewhere or correctness changes.
-- **Raw data location**: `docs/benchmarks/raw/<date>_<machine>/<run_label>/` (append-only), with `bench_results_small.md` updated by `make bench-small`.
-- **Baseline label**: `baseline` for today’s run; subsequent themes get their own subfolders (e.g., `parsing_arena`, `dumps_numbers`) with matching entries in `progress_log.md`.
+## Objective
+
+Measure the performance impact of transitioning from DOM-based parsing to a SAX-based hybrid architecture with a direct-to-Python builder.
+
+## Commands to run
+
+- **Full suite**: `make bench-small` (runs `bench_main`, `bench_loads`, `bench_dumps`, `bench_ndjson`, `bench_jsonpath` with warmup + repeats).
+- **Targeted parsing bench**: `PYTHONPATH=. .venv/bin/python3.14 -m benchmarks.bench_loads --data benchmarks/data/generated/small/users.json --repeat 5 --warmup 2`
+
+## Datasets
+
+- **Small**: `benchmarks/data/generated/small/users.json` (≈1 MB, 1000 users).
+- **Medium**: `benchmarks/data/generated/medium/users.json` (≈5 MB, 2000 users).
+- **Large**: `benchmarks/data/generated/large/users.json` (≈20 MB, 4000 users).
+
+## Metrics tracked
+
+- **Latency**: Min/Median/P95 (primary metric for `loads`).
+- **Memory**: Peak RSS during `loads`.
+- **Throughput**: MB/s derived from latency and dataset size.
+
+## Baseline
+
+A baseline run will be performed before any changes to the parser. Results will be recorded in `docs/benchmarks/progress_log.md`.
+A "win" for Phase 4 (Direct-to-Python) is expected to be >20% improvement in `loads` latency due to avoided double-materialization and reduced C++ allocations.

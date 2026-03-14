@@ -10,13 +10,12 @@ namespace strata {
 namespace util {
 
 int dragonbox_d2s(double value, char* buffer) {
-#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
     char* p = buffer;
     if (value < 0) {
         *p++ = '-';
         value = -value;
     }
-    auto res = std::to_chars(p, buffer + 24, value, std::chars_format::general);
+    auto res = std::to_chars(p, buffer + 32, value, std::chars_format::general);
     if (res.ec == std::errc()) {
         const size_t len = static_cast<size_t>(res.ptr - p);
         bool has_dot = false;
@@ -34,7 +33,6 @@ int dragonbox_d2s(double value, char* buffer) {
         }
         return static_cast<int>(res.ptr - buffer);
     }
-#endif
     return ryu_d2s(value, buffer);
 }
 

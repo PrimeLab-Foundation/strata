@@ -90,27 +90,31 @@ static PyObject* PyNdjsonStream_has_next(PyNdjsonStream* self, PyObject* Py_UNUS
     STRATA_NDJSON_TRY_RETURN_BLOCK(return PyBool_FromLong(self->stream->has_next() ? 1 : 0);)
 }
 
+// next_line() uses the SAX path: parse directly to Python objects without C++ DOM.
 static PyObject* PyNdjsonStream_next_line(PyNdjsonStream* self, PyObject* Py_UNUSED(ignored)) {
     STRATA_CPP_TRY
 
-    auto result = self->stream->next();
-
-    if (!result.ok()) {
-        if (result.status == strata::Status::KeyNotFound) {
-            PyErr_SetNone(PyExc_StopIteration);
-        } else if (result.status == strata::Status::ParseError) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON in NDJSON line");
-        } else {
-            PyErr_SetString(PyExc_RuntimeError, "NDJSON parsing error");
-        }
+    std::string_view line = self->stream->read_raw_line();
+    if (line.empty()) {
+        // end of stream (read_raw_line returns empty only when no data remains)
+        PyErr_SetNone(PyExc_StopIteration);
         return NULL;
     }
 
-    return json_value_to_python(result.value);
+    // Parse directly to Python via SAX – no intermediate C++ DOM
+    PyObject* result = parse_json_to_python(line, /*validate_utf8=*/false);
+    if (!result) {
+        if (!PyErr_Occurred()) {
+            PyErr_SetString(PyExc_ValueError, "Invalid JSON in NDJSON line");
+        }
+        return NULL;
+    }
+    return result;
 
     STRATA_CPP_CATCH
 }
 
+// parse_all() uses the SAX path for each line: eliminates the C++ DOM entirely.
 static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) {
     int skip_errors = 1; // Default: skip errors
 
@@ -120,12 +124,47 @@ static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) 
 
     STRATA_CPP_TRY
 
-    auto results = self->stream->parse_all_fast(skip_errors != 0);
-    return json_value_list_to_python(results);
+    PyObject* result_list = PyList_New(0);
+    if (!result_list)
+        return NULL;
+
+    // Suspend GC during bulk object creation to avoid collection pauses mid-parse
+    PyGcPause gc_pause;
+
+    while (self->stream->has_next()) {
+        std::string_view line = self->stream->read_raw_line();
+        if (line.empty()) {
+            break; // end of stream
+        }
+
+        PyObject* item = parse_json_to_python(line, /*validate_utf8=*/false);
+        if (!item) {
+            // Always clear any Python error from the parse attempt
+            if (PyErr_Occurred())
+                PyErr_Clear();
+            self->stream->record_error(); // keep error_count() consistent
+            if (skip_errors) {
+                continue; // skip bad line and keep going
+            }
+            // skip_errors=False: stop at first error and return what we have so far
+            // (matches original behaviour: no exception, partial results)
+            break;
+        }
+
+        if (PyList_Append(result_list, item) < 0) {
+            Py_DECREF(item);
+            Py_DECREF(result_list);
+            return NULL;
+        }
+        Py_DECREF(item);
+    }
+
+    return result_list;
 
     STRATA_CPP_CATCH
 }
 
+// next_batch() uses the SAX path for each line.
 static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args) {
     Py_ssize_t batch_size = 100;
     int skip_errors = 1;
@@ -136,8 +175,40 @@ static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args)
 
     STRATA_CPP_TRY
 
-    auto results = self->stream->next_batch(batch_size, skip_errors != 0);
-    return json_value_list_to_python(results);
+    PyObject* result_list = PyList_New(0);
+    if (!result_list)
+        return NULL;
+
+    PyGcPause gc_pause;
+
+    Py_ssize_t count = 0;
+    while (count < batch_size && self->stream->has_next()) {
+        std::string_view line = self->stream->read_raw_line();
+        if (line.empty()) {
+            break;
+        }
+
+        PyObject* item = parse_json_to_python(line, /*validate_utf8=*/false);
+        if (!item) {
+            if (PyErr_Occurred())
+                PyErr_Clear();
+            self->stream->record_error(); // keep error_count() consistent
+            if (skip_errors) {
+                continue;
+            }
+            break; // stop at first error, return partial results
+        }
+
+        if (PyList_Append(result_list, item) < 0) {
+            Py_DECREF(item);
+            Py_DECREF(result_list);
+            return NULL;
+        }
+        Py_DECREF(item);
+        count++;
+    }
+
+    return result_list;
 
     STRATA_CPP_CATCH
 }

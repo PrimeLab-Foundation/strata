@@ -11,6 +11,15 @@
  */
 PyObject* json_value_to_python(const strata::JsonValue& val);
 
+#ifdef __cplusplus
+#include <string_view>
+/** Parse JSON text directly to a Python object via SAX (no intermediate C++ DOM).
+ *  Defined in python_loads.cpp. validate_utf8=false skips the SIMD pre-scan; safe
+ *  when PyUnicode creation will validate string content anyway.
+ */
+PyObject* parse_json_to_python(std::string_view text, bool validate_utf8 = true);
+#endif
+
 /** Convert vector of JsonValue to Python list. Inline so callers (jsonpath, ndjson, loads) get
  * inlining without LTO. */
 inline PyObject* json_value_list_to_python(const std::vector<strata::JsonValue>& values) {

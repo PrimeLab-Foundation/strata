@@ -4,10 +4,240 @@
 #include "strata/search/jsonpath.hpp"
 #include "strata/util/fast_parse.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <limits>
 #include <string>
 #include <vector>
+
+//=============================================================================
+// PyObject-native JSONPath evaluation
+// Evaluates a compiled path directly on Python dicts/lists without building
+// an intermediate C++ JsonValue tree. Results are borrowed refs from the
+// input; the caller must Py_INCREF when placing them in an output list.
+//=============================================================================
+
+static bool eval_filter_pyobj(PyObject* val, const strata::FilterPredicate& filter) {
+    if (filter.is_numeric) {
+        double v;
+        if (val == Py_True) {
+            v = 1.0;
+        } else if (val == Py_False) {
+            v = 0.0;
+        } else if (PyFloat_Check(val)) {
+            v = PyFloat_AS_DOUBLE(val);
+        } else if (PyLong_Check(val)) {
+            v = PyLong_AsDouble(val);
+            if (v == -1.0 && PyErr_Occurred()) {
+                PyErr_Clear();
+                return false;
+            }
+        } else {
+            return false;
+        }
+        switch (filter.op) {
+        case strata::FilterOp::Equal:
+            return v == filter.numeric_value;
+        case strata::FilterOp::NotEqual:
+            return v != filter.numeric_value;
+        case strata::FilterOp::GreaterThan:
+            return v > filter.numeric_value;
+        case strata::FilterOp::GreaterEqual:
+            return v >= filter.numeric_value;
+        case strata::FilterOp::LessThan:
+            return v < filter.numeric_value;
+        case strata::FilterOp::LessEqual:
+            return v <= filter.numeric_value;
+        default:
+            return false;
+        }
+    } else {
+        if (!PyUnicode_Check(val))
+            return false;
+        const char* s = PyUnicode_AsUTF8(val);
+        if (!s) {
+            PyErr_Clear();
+            return false;
+        }
+        switch (filter.op) {
+        case strata::FilterOp::Equal:
+            return filter.string_value == s;
+        case strata::FilterOp::NotEqual:
+            return filter.string_value != s;
+        default:
+            return false;
+        }
+    }
+}
+
+// Collect all occurrences of field_name at any nesting level (mirrors C++ recursive descent).
+static void collect_recursive_pyobj(PyObject* obj, const std::string& field_name,
+                                    std::vector<PyObject*>& collected) {
+    if (PyDict_Check(obj)) {
+        // Check this node for the target field
+        PyObject* found = PyDict_GetItemString(obj, field_name.c_str()); // borrowed
+        if (found) {
+            collected.push_back(found);
+        }
+        // Recurse into all values (including found, to detect nested matches)
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(obj, &pos, &key, &value)) {
+            collect_recursive_pyobj(value, field_name, collected);
+        }
+    } else if (PyList_Check(obj)) {
+        Py_ssize_t size = PyList_GET_SIZE(obj);
+        for (Py_ssize_t i = 0; i < size; i++) {
+            collect_recursive_pyobj(PyList_GET_ITEM(obj, i), field_name, collected);
+        }
+    } else if (PyTuple_Check(obj)) {
+        Py_ssize_t size = PyTuple_GET_SIZE(obj);
+        for (Py_ssize_t i = 0; i < size; i++) {
+            collect_recursive_pyobj(PyTuple_GET_ITEM(obj, i), field_name, collected);
+        }
+    }
+}
+
+// Recursive JSONPath step evaluator on raw Python objects.
+// All refs in `results` are borrowed from `obj` (or its descendants).
+static void eval_step_pyobj(PyObject* obj, const std::vector<strata::PathStep>& steps,
+                            size_t step_idx, std::vector<PyObject*>& results) {
+    if (step_idx >= steps.size()) {
+        results.push_back(obj);
+        return;
+    }
+
+    const strata::PathStep& step = steps[step_idx];
+
+    switch (step.op) {
+    case strata::PathOp::Root:
+        eval_step_pyobj(obj, steps, step_idx + 1, results);
+        break;
+
+    case strata::PathOp::Field:
+        if (PyDict_Check(obj)) {
+            PyObject* val = PyDict_GetItemString(obj, step.field.c_str()); // borrowed
+            if (val) {
+                eval_step_pyobj(val, steps, step_idx + 1, results);
+            }
+        }
+        break;
+
+    case strata::PathOp::Index:
+        if (PyList_Check(obj)) {
+            Py_ssize_t size = PyList_GET_SIZE(obj);
+            int64_t idx = step.index;
+            if (idx < 0)
+                idx = (int64_t)size + idx;
+            if (idx >= 0 && idx < (int64_t)size) {
+                eval_step_pyobj(PyList_GET_ITEM(obj, (Py_ssize_t)idx), steps, step_idx + 1,
+                                results);
+            }
+        } else if (PyTuple_Check(obj)) {
+            Py_ssize_t size = PyTuple_GET_SIZE(obj);
+            int64_t idx = step.index;
+            if (idx < 0)
+                idx = (int64_t)size + idx;
+            if (idx >= 0 && idx < (int64_t)size) {
+                eval_step_pyobj(PyTuple_GET_ITEM(obj, (Py_ssize_t)idx), steps, step_idx + 1,
+                                results);
+            }
+        }
+        break;
+
+    case strata::PathOp::Wildcard:
+        if (PyList_Check(obj)) {
+            Py_ssize_t size = PyList_GET_SIZE(obj);
+            for (Py_ssize_t i = 0; i < size; i++) {
+                eval_step_pyobj(PyList_GET_ITEM(obj, i), steps, step_idx + 1, results);
+            }
+        } else if (PyTuple_Check(obj)) {
+            Py_ssize_t size = PyTuple_GET_SIZE(obj);
+            for (Py_ssize_t i = 0; i < size; i++) {
+                eval_step_pyobj(PyTuple_GET_ITEM(obj, i), steps, step_idx + 1, results);
+            }
+        } else if (PyDict_Check(obj)) {
+            PyObject *key, *value;
+            Py_ssize_t pos = 0;
+            while (PyDict_Next(obj, &pos, &key, &value)) {
+                eval_step_pyobj(value, steps, step_idx + 1, results);
+            }
+        }
+        break;
+
+    case strata::PathOp::RecursiveDescent: {
+        std::vector<PyObject*> collected;
+        collect_recursive_pyobj(obj, step.field, collected);
+        for (PyObject* item : collected) {
+            eval_step_pyobj(item, steps, step_idx + 1, results);
+        }
+        break;
+    }
+
+    case strata::PathOp::Slice:
+        if (PyList_Check(obj)) {
+            Py_ssize_t size = PyList_GET_SIZE(obj);
+            int64_t start = step.slice_start;
+            int64_t end = step.slice_end;
+            int64_t stp = step.slice_step;
+            if (start < 0)
+                start = (int64_t)size + start;
+            if (end < 0)
+                end = (int64_t)size + end;
+            start = std::max(int64_t(0), std::min(start, (int64_t)size));
+            end = std::max(int64_t(0), std::min(end, (int64_t)size));
+            if (stp > 0) {
+                for (int64_t i = start; i < end; i += stp) {
+                    eval_step_pyobj(PyList_GET_ITEM(obj, (Py_ssize_t)i), steps, step_idx + 1,
+                                    results);
+                }
+            }
+        }
+        break;
+
+    case strata::PathOp::Filter:
+        if (PyList_Check(obj)) {
+            Py_ssize_t size = PyList_GET_SIZE(obj);
+            for (Py_ssize_t i = 0; i < size; i++) {
+                PyObject* item = PyList_GET_ITEM(obj, i);
+                if (!PyDict_Check(item))
+                    continue;
+                PyObject* fval = PyDict_GetItemString(item, step.filter.field.c_str());
+                if (fval && eval_filter_pyobj(fval, step.filter)) {
+                    eval_step_pyobj(item, steps, step_idx + 1, results);
+                }
+            }
+        } else if (PyTuple_Check(obj)) {
+            Py_ssize_t size = PyTuple_GET_SIZE(obj);
+            for (Py_ssize_t i = 0; i < size; i++) {
+                PyObject* item = PyTuple_GET_ITEM(obj, i);
+                if (!PyDict_Check(item))
+                    continue;
+                PyObject* fval = PyDict_GetItemString(item, step.filter.field.c_str());
+                if (fval && eval_filter_pyobj(fval, step.filter)) {
+                    eval_step_pyobj(item, steps, step_idx + 1, results);
+                }
+            }
+        }
+        break;
+
+    case strata::PathOp::End:
+        results.push_back(obj);
+        break;
+    }
+}
+
+// Build a Python list from a vector of borrowed PyObject refs (incref each).
+static PyObject* pyobj_results_to_list(const std::vector<PyObject*>& results) {
+    PyObject* list = PyList_New((Py_ssize_t)results.size());
+    if (!list)
+        return nullptr;
+    for (size_t i = 0; i < results.size(); i++) {
+        Py_INCREF(results[i]);
+        PyList_SET_ITEM(list, (Py_ssize_t)i, results[i]);
+    }
+    return list;
+}
 
 static void emit_duplicate_key_warnings() {
     auto warnings = strata::consume_parse_warnings();
@@ -450,21 +680,15 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         return json_value_list_to_python(result_values);
     }
 
-    // Handle Python object (dict/list/scalar) - convert directly
-    PyObject* memo = make_cycle_memo();
-    if (!memo) {
+    // Handle Python object (dict/list/scalar) – evaluate natively without C++ tree copy.
+    // This eliminates the pyobject_to_json_value conversion for the common dict/list case,
+    // saving a full O(n) tree walk and all associated allocations.
+    std::vector<PyObject*> py_results;
+    eval_step_pyobj(data_obj, compiled_path.steps(), 0, py_results);
+    if (PyErr_Occurred()) {
         return NULL;
     }
-    bool ok = true;
-    strata::JsonValue root = pyobject_to_json_value(data_obj, memo, ok);
-    Py_DECREF(memo);
-    if (!ok || PyErr_Occurred()) {
-        return NULL;
-    }
-
-    strata::JsonCursor cursor(&root);
-    auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-    return json_value_list_to_python(result_values);
+    return pyobj_results_to_list(py_results);
 
     STRATA_CPP_CATCH
 }

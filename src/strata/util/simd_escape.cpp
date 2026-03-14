@@ -453,10 +453,11 @@ bool try_copy_clean_string(const char* str, size_t len, OutputBuffer& out) {
         return false;
     }
 
+    // Single reserve, then unsafe writes to skip redundant capacity checks.
     out.reserve(out.size() + len + 2);
-    out.push_back('"');
-    out.append(str, len);
-    out.push_back('"');
+    out.unsafe_push_back('"');
+    out.unsafe_append(str, len);
+    out.unsafe_push_back('"');
     return true;
 }
 

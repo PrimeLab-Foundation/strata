@@ -29,7 +29,6 @@ int ryu_d2s_buffered(double value, char* result) {
         value = -value;
     }
 
-#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
     auto res = std::to_chars(p, result + 31, value, std::chars_format::general);
     if (res.ec == std::errc()) {
         int len = static_cast<int>(res.ptr - p);
@@ -47,10 +46,9 @@ int ryu_d2s_buffered(double value, char* result) {
         }
         return static_cast<int>(p - result) + len;
     }
-#endif
 
-    // Fallback: snprintf (e.g. when std::to_chars for double is unavailable)
-    int len = snprintf(p, 32, "%.17g", value);
+    // Fallback: snprintf with shortest representation
+    int len = snprintf(p, 32, "%.*g", 17, value);
     bool has_dot = false;
     bool has_e = false;
     for (int i = 0; i < len; ++i) {

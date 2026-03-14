@@ -1,13 +1,13 @@
 # Strata Benchmark Results
 
-Generated: 2026-02-01 02:59:20
+Generated: 2026-03-14 01:38:36
 
 ## Environment
 
-- Commit: 0dd6fec82903a7473ecc5709b020843b28cff0e7
-- OS: macOS-26.1-arm64-arm-64bit-Mach-O
+- Commit: b41fcb56074becce8657c76f62cdb3c4367522ec
+- OS: macOS-26.3-arm64-arm-64bit-Mach-O
 - CPU: arm64
-- Python: 3.14.2
+- Python: 3.14.3
 
 ## Configuration
 
@@ -19,29 +19,29 @@ Generated: 2026-02-01 02:59:20
 
 | Library       | Dataset      | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |
 | ------------- | ------------ | -------- | ----------- | -------- | -------- |
-| orjson        | users.json   | 19.716   | 26.465      | 28.372   | 133.7    |
-| msgspec       | users.json   | 19.540   | 28.564      | 28.813   | 132.5    |
-| ujson         | users.json   | 27.363   | 42.556      | 43.832   | 151.1    |
-| json (stdlib) | users.json   | 35.124   | 44.126      | 45.297   | 138.8    |
-| strata        | users.json   | 44.560   | 54.917      | 58.647   | 134.9    |
-| orjson        | users.ndjson | 21.546   | 22.993      | 23.953   | 156.5    |
-| msgspec       | users.ndjson | 23.594   | 25.240      | 25.393   | 155.3    |
-| ujson         | users.ndjson | 30.453   | 34.884      | 35.460   | 174.0    |
-| json (stdlib) | users.ndjson | 38.096   | 40.453      | 42.161   | 157.7    |
-| strata        | users.ndjson | 38.615   | 50.393      | 51.725   | 171.6    |
+| orjson        | users.json   | 25.801   | 36.302      | 37.274   | 93.1     |
+| msgspec       | users.json   | 26.839   | 38.752      | 39.599   | 91.9     |
+| strata        | users.json   | 40.642   | 51.923      | 52.487   | 71.9     |
+| ujson         | users.json   | 36.958   | 53.094      | 53.487   | 110.5    |
+| json (stdlib) | users.json   | 53.533   | 64.155      | 65.408   | 98.2     |
+| orjson        | users.ndjson | 32.205   | 34.791      | 38.172   | 106.4    |
+| msgspec       | users.ndjson | 34.434   | 36.410      | 38.223   | 105.3    |
+| ujson         | users.ndjson | 44.672   | 50.414      | 52.108   | 123.0    |
+| json (stdlib) | users.ndjson | 61.661   | 62.731      | 65.469   | 107.8    |
+| strata        | users.ndjson | 60.497   | 72.270      | 73.998   | 128.9    |
 
 ## Query Benchmarks
 
 | Query                                      | Library               | Min (ms) | Results |
 | ------------------------------------------ | --------------------- | -------- | ------- |
-| $.users\[\*\].id                           | eval_query (baseline) | 0.130    | 2000    |
-|                                            | jmespath              | 0.441    | 2000    |
-|                                            | jsonpath-ng           | 5.992    | 2000    |
-| $.users\[*\].orders\[*\].items\[\*\].price | eval_query (baseline) | 3.602    | 100999  |
-|                                            | jmespath              | 31.820   | 2000    |
-|                                            | jsonpath-ng           | 132.693  | 100999  |
-| $..price                                   | jmespath              | 33.405   | 2000    |
-|                                            | eval_query (baseline) | 37.742   | 100999  |
-|                                            | jsonpath-ng           | 500.486  | 100999  |
-| $.users\[?(@.age>30)\]                     | eval_query (baseline) | 0.156    | 1606    |
-| $..orders\[?(@.status=="shipped")\]        | eval_query (baseline) | 39.786   | 13300   |
+| $.users\[\*\].id                           | eval_query (baseline) | 0.248    | 2000    |
+|                                            | jmespath              | 0.820    | 2000    |
+|                                            | jsonpath-ng           | 8.347    | 2000    |
+| $.users\[*\].orders\[*\].items\[\*\].price | eval_query (baseline) | 7.397    | 100999  |
+|                                            | jmespath              | 52.520   | 2000    |
+|                                            | jsonpath-ng           | 210.480  | 100999  |
+| $..price                                   | jmespath              | 53.721   | 2000    |
+|                                            | eval_query (baseline) | 65.823   | 100999  |
+|                                            | jsonpath-ng           | 791.354  | 100999  |
+| $.users\[?(@.age>30)\]                     | eval_query (baseline) | 0.236    | 1606    |
+| $..orders\[?(@.status=="shipped")\]        | eval_query (baseline) | 68.258   | 13300   |
