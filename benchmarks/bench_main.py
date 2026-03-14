@@ -125,8 +125,10 @@ def _get_parse_json_runners(strict_missing: bool) -> list[tuple[str, Callable[[b
     return runners
 
 
-def _get_load_json_runners(strict_missing: bool) -> list[tuple[str, Callable[[str], Any]]]:
-    """Return [(library_name, load_func)] for file-based JSON loading. load_func(filepath) -> parsed."""
+def _get_load_json_runners(
+    strict_missing: bool, is_ndjson: bool = False
+) -> list[tuple[str, Callable[[str], Any]]]:
+    """Return [(library_name, load_func)] for file-based loading. load_func(filepath) -> parsed."""
     runners: list[tuple[str, Callable[[str], Any]]] = []
 
     try:
@@ -137,28 +139,71 @@ def _get_load_json_runners(strict_missing: bool) -> list[tuple[str, Callable[[st
         if strict_missing:
             print("Warning: strata not installed, skipping load benchmarks")
 
-    try:
-        import orjson
+    if is_ndjson:
+        # NDJSON: competitors read file + parse per-line
+        try:
+            import orjson
 
-        runners.append(("orjson", lambda p: orjson.loads(Path(p).read_bytes())))
-    except ImportError:
-        pass
+            def orjson_load_ndjson(p):
+                data = Path(p).read_bytes()
+                return [orjson.loads(line) for line in data.split(b"\n") if line.strip()]
 
-    try:
-        import ujson
+            runners.append(("orjson", orjson_load_ndjson))
+        except ImportError:
+            pass
 
-        runners.append(("ujson", lambda p: ujson.loads(Path(p).read_text(encoding="utf-8"))))
-    except ImportError:
-        pass
+        try:
+            import ujson
 
-    try:
-        import msgspec
+            def ujson_load_ndjson(p):
+                text = Path(p).read_text(encoding="utf-8")
+                return [ujson.loads(line) for line in text.splitlines() if line.strip()]
 
-        runners.append(("msgspec", lambda p: msgspec.json.decode(Path(p).read_bytes())))
-    except ImportError:
-        pass
+            runners.append(("ujson", ujson_load_ndjson))
+        except ImportError:
+            pass
 
-    runners.append(("json (stdlib)", lambda p: json.load(open(p, encoding="utf-8"))))
+        try:
+            import msgspec
+
+            def msgspec_load_ndjson(p):
+                data = Path(p).read_bytes()
+                return [msgspec.json.decode(line) for line in data.split(b"\n") if line.strip()]
+
+            runners.append(("msgspec", msgspec_load_ndjson))
+        except ImportError:
+            pass
+
+        def stdlib_load_ndjson(p):
+            with open(p, encoding="utf-8") as f:
+                return [json.loads(line) for line in f if line.strip()]
+
+        runners.append(("json (stdlib)", stdlib_load_ndjson))
+    else:
+        # JSON: competitors read file + parse
+        try:
+            import orjson
+
+            runners.append(("orjson", lambda p: orjson.loads(Path(p).read_bytes())))
+        except ImportError:
+            pass
+
+        try:
+            import ujson
+
+            runners.append(("ujson", lambda p: ujson.loads(Path(p).read_text(encoding="utf-8"))))
+        except ImportError:
+            pass
+
+        try:
+            import msgspec
+
+            runners.append(("msgspec", lambda p: msgspec.json.decode(Path(p).read_bytes())))
+        except ImportError:
+            pass
+
+        runners.append(("json (stdlib)", lambda p: json.load(open(p, encoding="utf-8"))))
+
     return runners
 
 
@@ -538,13 +583,14 @@ class BenchmarkRunner:
                     print(f"    jsonpath-ng: ERROR: {e}")
 
     def bench_load_json(self, dataset_path: str) -> None:
-        """Benchmark file-based JSON loading (strata.load vs open+parse)."""
+        """Benchmark file-based loading (strata.load vs open+parse)."""
         path = Path(dataset_path)
         size = path.stat().st_size
         dataset_name = path.name
+        is_ndjson = path.suffix in (".ndjson", ".jsonl")
         print(f"\n=== Load (file): {dataset_name} ({size} bytes) ===")
 
-        runners = _get_load_json_runners(self.strict_missing)
+        runners = _get_load_json_runners(self.strict_missing, is_ndjson=is_ndjson)
         for library_name, load_func in runners:
             try:
                 tr = run_single_benchmark(
@@ -697,6 +743,9 @@ class BenchmarkRunner:
             except Exception as e:
                 print(f"    strata (search mem_eff):  ERROR: {e}")
 
+            # Competitor benchmarks: run once, store results for BOTH search sections
+            # (mem_eff and non-mem_eff share the same competitor baselines)
+
             # Competitor: orjson (open+parse) + jmespath (end-to-end)
             if jmes_expr:
                 try:
@@ -719,9 +768,22 @@ class BenchmarkRunner:
                         )
                         res = run_orjson_jmes()
                         n = len(res) if isinstance(res, (list, tuple)) else 1
+                        # Store for non-mem_eff section
                         self.results.append(
                             BenchResult(
                                 library="orjson+jmespath",
+                                operation="search",
+                                dataset=dataset_name,
+                                query=desc,
+                                times_ms=tr.times_ms,
+                                result_count=n,
+                                rss_mb=tr.rss_mb,
+                            )
+                        )
+                        # Store for mem_eff section (same competitor baseline)
+                        self.results.append(
+                            BenchResult(
+                                library="orjson+jmespath (mem_eff)",
                                 operation="search",
                                 dataset=dataset_name,
                                 query=desc,
@@ -758,9 +820,22 @@ class BenchmarkRunner:
                         )
                         res = run_orjson_jpng()
                         n = len(res) if isinstance(res, list) else 1
+                        # Store for non-mem_eff section
                         self.results.append(
                             BenchResult(
                                 library="orjson+jsonpath-ng",
+                                operation="search",
+                                dataset=dataset_name,
+                                query=desc,
+                                times_ms=tr.times_ms,
+                                result_count=n,
+                                rss_mb=tr.rss_mb,
+                            )
+                        )
+                        # Store for mem_eff section (same competitor baseline)
+                        self.results.append(
+                            BenchResult(
+                                library="orjson+jsonpath-ng (mem_eff)",
                                 operation="search",
                                 dataset=dataset_name,
                                 query=desc,
@@ -800,8 +875,11 @@ class BenchmarkRunner:
             if not path.exists():
                 print(f"Warning: Dataset not found: {dataset}")
                 continue
-            if path.suffix == ".ndjson":
+            if path.suffix in (".ndjson", ".jsonl"):
+                # 1. loads (per-line in-memory parsing)
                 self.bench_parse_ndjson(str(path))
+                # 2. load (native file-based NDJSON)
+                self.bench_load_json(str(path))
             else:
                 # 1. loads (parse in-memory)
                 self.bench_parse_json(str(path))
@@ -1064,7 +1142,8 @@ class BenchmarkRunner:
         categories = [
             ("Parsing (JSON)", "parse", ".json"),
             ("Parsing (NDJSON)", "parse", ".ndjson"),
-            ("Load (file)", "load", ".json"),
+            ("Load JSON (file)", "load", ".json"),
+            ("Load NDJSON (file)", "load", ".ndjson"),
             ("Serialization (dumps)", "dumps", ".json"),
             ("Dump (file)", "dump", ".json"),
         ]

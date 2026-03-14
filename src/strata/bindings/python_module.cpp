@@ -3,16 +3,25 @@
 #include "strata/json/json_mmap.hpp"
 #include "strata/json/json_parse.hpp"
 #include "strata/json/ndjson_stream.hpp"
+#include "strata/util/output_buffer.hpp"
 
+#include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <string>
 #include <unordered_map>
+
+// POSIX I/O for fast file read/write (avoids iostream overhead)
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 // Forward declarations
 extern PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_dumps_internal(PyObject* obj);
 extern bool strata_serialize_to_buffer(PyObject* obj, const char** out_data, size_t* out_size);
+// Thread-local serialize buffer from python_dumps.cpp — used by dump() to append newline
+extern thread_local strata::util::OutputBuffer g_serialize_buffer;
 extern PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
@@ -212,19 +221,43 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
             return create_ndjson_file_iterator(filepath);
         }
 
-        // Read file contents
-        std::ifstream file(filepath, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) {
+        // Read file via POSIX read (avoids ifstream and mmap overhead)
+        int fd = open(filepath, O_RDONLY);
+        if (fd < 0) {
             PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", filepath);
             return NULL;
         }
-        auto size = file.tellg();
-        file.seekg(0);
-        std::string content(static_cast<size_t>(size), '\0');
-        file.read(content.data(), size);
-        file.close();
+        struct stat sb;
+        if (fstat(fd, &sb) < 0) {
+            close(fd);
+            PyErr_Format(PyExc_IOError, "Cannot stat file: %s", filepath);
+            return NULL;
+        }
+        size_t file_size = static_cast<size_t>(sb.st_size);
+        if (file_size == 0) {
+            close(fd);
+            return PyList_New(0);
+        }
 
-        strata::NdjsonStream stream(content);
+        static thread_local char* ndjson_buf = nullptr;
+        static thread_local size_t ndjson_buf_cap = 0;
+        if (ndjson_buf_cap < file_size) {
+            char* new_buf = static_cast<char*>(std::realloc(ndjson_buf, file_size));
+            if (!new_buf) {
+                close(fd);
+                return PyErr_NoMemory();
+            }
+            ndjson_buf = new_buf;
+            ndjson_buf_cap = file_size;
+        }
+        ssize_t bytes_read = read(fd, ndjson_buf, file_size);
+        close(fd);
+        if (bytes_read < 0 || static_cast<size_t>(bytes_read) != file_size) {
+            PyErr_Format(PyExc_IOError, "Failed to read file: %s", filepath);
+            return NULL;
+        }
+
+        strata::NdjsonStream stream(std::string_view(ndjson_buf, file_size));
         return parse_ndjson_all_to_python(stream, 0);
     }
 
@@ -234,21 +267,52 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
         return strata_parse_json_file(self, args);
     }
 
-    // JSON dict: read file and use fast SAX-based parse (single pass, no C++ DOM)
+    // JSON dict: POSIX read + fast SAX-based parse (single pass, no C++ DOM)
     {
-        std::ifstream file(filepath, std::ios::binary | std::ios::ate);
-        if (!file.is_open()) {
+        int fd = open(filepath, O_RDONLY);
+        if (fd < 0) {
             PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", filepath);
             return NULL;
         }
-        auto size = file.tellg();
-        file.seekg(0);
-        std::string content(static_cast<size_t>(size), '\0');
-        file.read(content.data(), size);
-        file.close();
+        struct stat sb;
+        if (fstat(fd, &sb) < 0) {
+            close(fd);
+            PyErr_Format(PyExc_IOError, "Cannot stat file: %s", filepath);
+            return NULL;
+        }
+        size_t file_size = static_cast<size_t>(sb.st_size);
+        if (file_size == 0) {
+            close(fd);
+            PyErr_SetString(PyExc_ValueError, "Empty file");
+            return NULL;
+        }
 
-        PyObject* py_result = parse_json_to_python(std::string_view(content.data(), content.size()),
-                                                   /*validate_utf8=*/false);
+        // Thread-local raw buffer avoids per-call alloc and zero-initialization
+        static thread_local char* file_buf = nullptr;
+        static thread_local size_t file_buf_cap = 0;
+        if (file_buf_cap < file_size) {
+            char* new_buf = static_cast<char*>(std::realloc(file_buf, file_size));
+            if (!new_buf) {
+                close(fd);
+                return PyErr_NoMemory();
+            }
+            file_buf = new_buf;
+            file_buf_cap = file_size;
+        }
+        ssize_t bytes_read = read(fd, file_buf, file_size);
+        close(fd);
+        if (bytes_read < 0 || static_cast<size_t>(bytes_read) != file_size) {
+            PyErr_Format(PyExc_IOError, "Failed to read file: %s", filepath);
+            return NULL;
+        }
+
+        PyObject* py_result;
+        {
+            PyGcPause gc_pause;
+            py_result = parse_json_to_python(std::string_view(file_buf, file_size),
+                                             /*validate_utf8=*/false);
+        }
+
         if (!py_result)
             return NULL;
 
@@ -284,15 +348,30 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
     if (!strata_serialize_to_buffer(obj, &data, &len))
         return NULL;
 
-    // Write buffer to file
-    std::ofstream file(filepath, std::ios::binary);
-    if (!file.is_open()) {
+    // Write buffer to file using POSIX I/O (avoids iostream overhead)
+    int fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
         PyErr_Format(PyExc_IOError, "Cannot open file for writing: %s", filepath);
         return NULL;
     }
-    file.write(data, len);
-    file.write("\n", 1);
-    file.close();
+
+    // Single write call for data + newline by appending newline to buffer
+    // (buffer is thread-local and will be cleared on next use anyway)
+    g_serialize_buffer.push_back('\n');
+
+    const char* buf = g_serialize_buffer.data();
+    size_t total = g_serialize_buffer.size();
+    while (total > 0) {
+        ssize_t written = write(fd, buf, total);
+        if (written < 0) {
+            close(fd);
+            PyErr_Format(PyExc_IOError, "Failed to write to file: %s", filepath);
+            return NULL;
+        }
+        buf += written;
+        total -= static_cast<size_t>(written);
+    }
+    close(fd);
 
     Py_RETURN_NONE;
 
