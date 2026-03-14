@@ -42,10 +42,6 @@ bool set_cycle_policy_from_string(const char* policy, std::string& error) {
 
 int strata_get_cycle_policy() { return static_cast<int>(g_cycle_policy); }
 
-static inline bool is_container(PyObject* obj) {
-    return PyDict_CheckExact(obj) || PyList_CheckExact(obj) || PyTuple_Check(obj);
-}
-
 template <typename Buffer>
 static inline void append_literal(Buffer& out, const char* data, size_t len) {
     out.append(data, len);
@@ -91,21 +87,12 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
     }
 
     char buf[32];
-#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
     auto result = std::to_chars(buf, buf + sizeof(buf), value);
     if (result.ec != std::errc()) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to format integer");
         return false;
     }
     out.append(buf, static_cast<size_t>(result.ptr - buf));
-#else
-    int n = std::snprintf(buf, sizeof(buf), "%" PRId64, value);
-    if (n < 0 || static_cast<size_t>(n) >= sizeof(buf)) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to format integer");
-        return false;
-    }
-    out.append(buf, static_cast<size_t>(n));
-#endif
     return true;
 }
 
@@ -171,43 +158,6 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
     return true;
 }
 
-template <typename Buffer>
-static inline bool serialize_primitive(PyObject* obj, Buffer& out, bool& handled) {
-    // Order by frequency: str ~35%, int ~33%, float ~30%, then rare types.
-    if (PyUnicode_CheckExact(obj)) {
-        handled = true;
-        return append_string(obj, out);
-    }
-    PyTypeObject* type = Py_TYPE(obj);
-    if (type == &PyLong_Type) {
-        handled = true;
-        return append_py_long(out, obj);
-    }
-    if (type == &PyFloat_Type) {
-        handled = true;
-        return append_double(out, PyFloat_AS_DOUBLE(obj));
-    }
-    if (obj == Py_None) {
-        append_literal(out, "null", 4);
-        handled = true;
-        return true;
-    }
-    if (type == &PyBool_Type) {
-        // Py_True/Py_False: bool is a subtype of int, but &PyLong_Type won't match it.
-        append_literal(out, obj == Py_True ? "true" : "false", obj == Py_True ? 4 : 5);
-        handled = true;
-        return true;
-    }
-    // Non-ASCII unicode subtype (e.g. str subclasses): fall through to append_string
-    if (PyUnicode_Check(obj)) {
-        handled = true;
-        return append_string(obj, out);
-    }
-
-    handled = false;
-    return true;
-}
-
 struct Frame {
     enum class Type { Dict, List, Tuple };
     Type type;
@@ -217,9 +167,6 @@ struct Frame {
     Py_ssize_t pos;
     bool first;
 };
-
-template <typename Buffer>
-static bool serialize_iterative_with_memo(PyObject* root, Buffer& out, PyObject* memo);
 
 template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out);
 
@@ -243,204 +190,111 @@ static inline size_t estimate_size(PyObject* obj) {
     return 256;
 }
 
-static PyObject* dumps_bytes_direct(PyObject* obj, size_t estimate) {
-    if (estimate == 0 || estimate > static_cast<size_t>(PY_SSIZE_T_MAX)) {
-        return nullptr;
-    }
-
-    PyObject* bytes = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(estimate));
-    if (!bytes) {
-        return nullptr;
-    }
-
-    char* buffer = PyBytes_AS_STRING(bytes);
-    strata::util::FixedOutputBuffer direct_buffer(buffer, estimate);
-    direct_buffer.clear();
-
-    if (!serialize_iterative(obj, direct_buffer) || PyErr_Occurred()) {
-        Py_DECREF(bytes);
-        return nullptr;
-    }
-
-    if (direct_buffer.overflowed()) {
-        Py_DECREF(bytes);
-        return nullptr;
-    }
-
-    Py_ssize_t actual = static_cast<Py_ssize_t>(direct_buffer.size());
-    if (actual < 0) {
-        Py_DECREF(bytes);
-        return nullptr;
-    }
-    if (actual != static_cast<Py_ssize_t>(estimate)) {
-        if (_PyBytes_Resize(&bytes, actual) < 0) {
-            Py_DECREF(bytes);
-            return nullptr;
-        }
-    }
-    return bytes;
-}
-
 template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out) {
     using FrameAllocator = strata::util::ArenaAllocator<Frame>;
     std::vector<Frame, FrameAllocator> stack{FrameAllocator(&g_serialize_arena)};
     stack.reserve(64);
-    PyObject* current = root;
 
-    while (true) {
-        if (current) {
-            if (current == Py_None) {
-                append_literal(out, "null", 4);
-                current = nullptr;
-                continue;
-            }
-
-            // Fast identity checks for boolean singletons (before type dispatch)
-            if (UNLIKELY(current == Py_True)) {
-                append_literal(out, "true", 4);
-                current = nullptr;
-                continue;
-            }
-            if (UNLIKELY(current == Py_False)) {
-                append_literal(out, "false", 5);
-                current = nullptr;
-                continue;
-            }
-
-            bool container = is_container(current);
-            if (container) {
-                bool cycle = false;
-                for (const auto& f : stack) {
-                    if (f.obj == current) {
-                        cycle = true;
-                        break;
-                    }
-                }
-                if (cycle) {
-                    switch (g_cycle_policy) {
-                    case CyclePolicy::Warn:
-                        PyErr_WarnEx(PyExc_RuntimeWarning,
-                                     "Cycle detected during JSON serialization", 1);
-                        append_literal(out, "null", 4);
-                        current = nullptr;
-                        continue;
-                    case CyclePolicy::Ignore:
-                        append_literal(out, "null", 4);
-                        current = nullptr;
-                        continue;
-                    case CyclePolicy::Error:
-                        PyErr_SetString(PyExc_ValueError,
-                                        "Cycle detected during JSON serialization");
-                        return false;
-                    }
+    // Push a container (dict/list/tuple) onto the frame stack with cycle detection.
+    // Non-container, non-string types set a TypeError. Returns false only on error.
+    auto push_container = [&](PyObject* val) -> bool {
+        for (const auto& f : stack) {
+            if (UNLIKELY(f.obj == val)) {
+                switch (g_cycle_policy) {
+                case CyclePolicy::Warn:
+                    PyErr_WarnEx(PyExc_RuntimeWarning, "Cycle detected during JSON serialization",
+                                 1);
+                    [[fallthrough]];
+                case CyclePolicy::Ignore:
+                    out.append("null", 4);
+                    return true;
+                case CyclePolicy::Error:
+                    PyErr_SetString(PyExc_ValueError, "Cycle detected during JSON serialization");
+                    return false;
                 }
             }
-
-            if (LIKELY(PyDict_CheckExact(current))) {
-                Py_ssize_t size = PyDict_GET_SIZE(current);
-                if (size == 0) {
-                    append_literal(out, "{}", 2);
-                    current = nullptr;
-                    continue;
-                }
-
+        }
+        if (LIKELY(PyDict_CheckExact(val))) {
+            Py_ssize_t sz = PyDict_GET_SIZE(val);
+            if (sz == 0) {
+                out.append("{}", 2);
+            } else {
                 out.push_back('{');
-                stack.push_back(Frame{Frame::Type::Dict, current, 0, size, 0, true});
-                current = nullptr;
-                continue;
+                stack.push_back({Frame::Type::Dict, val, 0, sz, 0, true});
             }
-
-            if (LIKELY(PyList_CheckExact(current))) {
-                Py_ssize_t size = PyList_GET_SIZE(current);
-                if (size == 0) {
-                    append_literal(out, "[]", 2);
-                    current = nullptr;
-                    continue;
-                }
-
+        } else if (LIKELY(PyList_CheckExact(val))) {
+            Py_ssize_t sz = PyList_GET_SIZE(val);
+            if (sz == 0) {
+                out.append("[]", 2);
+            } else {
                 out.push_back('[');
-                stack.push_back(Frame{Frame::Type::List, current, 0, size, 0, true});
-                current = nullptr;
-                continue;
+                stack.push_back({Frame::Type::List, val, 0, sz, 0, true});
             }
-
-            if (PyTuple_Check(current)) {
-                Py_ssize_t size = PyTuple_GET_SIZE(current);
-                if (size == 0) {
-                    append_literal(out, "[]", 2);
-                    current = nullptr;
-                    continue;
-                }
-
+        } else if (PyTuple_Check(val)) {
+            Py_ssize_t sz = PyTuple_GET_SIZE(val);
+            if (sz == 0) {
+                out.append("[]", 2);
+            } else {
                 out.push_back('[');
-                stack.push_back(Frame{Frame::Type::Tuple, current, 0, size, 0, true});
-                current = nullptr;
-                continue;
+                stack.push_back({Frame::Type::Tuple, val, 0, sz, 0, true});
             }
-
-            if (LIKELY(PyUnicode_Check(current))) {
-                if (!append_string(current, out)) {
-                    return false;
-                }
-                current = nullptr;
-                continue;
-            }
-
-            PyTypeObject* type = Py_TYPE(current);
-
-            if (LIKELY(type == &PyLong_Type)) {
-                if (!append_py_long(out, current)) {
-                    return false;
-                }
-                current = nullptr;
-                continue;
-            }
-
-            if (LIKELY(type == &PyFloat_Type)) {
-                double val = PyFloat_AS_DOUBLE(current);
-                if (!append_double(out, val)) {
-                    return false;
-                }
-                current = nullptr;
-                continue;
-            }
-
-            if (UNLIKELY(type == &PyBool_Type)) {
-                if (current == Py_True) {
-                    append_literal(out, "true", 4);
-                } else {
-                    append_literal(out, "false", 5);
-                }
-                current = nullptr;
-                continue;
-            }
-
+        } else if (PyUnicode_Check(val)) {
+            return append_string(val, out);
+        } else {
             PyErr_SetString(PyExc_TypeError,
                             "Object of unsupported type cannot be serialized to JSON");
             return false;
         }
+        return true;
+    };
 
-        if (stack.empty()) {
-            break;
+    // Write a single value to out. Primitives are written inline; containers push a frame.
+    // Type-check order matches data frequency: str > int > float >> None/bool/container.
+    auto write_value = [&](PyObject* val) -> bool {
+        if (LIKELY(PyUnicode_CheckExact(val))) {
+            return append_string(val, out);
         }
+        PyTypeObject* vt = Py_TYPE(val);
+        if (LIKELY(vt == &PyLong_Type)) {
+            return append_py_long(out, val);
+        }
+        if (LIKELY(vt == &PyFloat_Type)) {
+            append_double(out, PyFloat_AS_DOUBLE(val));
+            return true;
+        }
+        if (val == Py_None) {
+            out.append("null", 4);
+            return true;
+        }
+        if (vt == &PyBool_Type) {
+            out.append(val == Py_True ? "true" : "false", val == Py_True ? 4 : 5);
+            return true;
+        }
+        return push_container(val); // dict/list/tuple/str-subclass/unsupported
+    };
 
+    // Serialize root (which may itself be a primitive).
+    if (!write_value(root)) {
+        return false;
+    }
+
+    while (!stack.empty()) {
         Frame& frame = stack.back();
+
         if (frame.type == Frame::Type::Dict) {
             PyObject* key = nullptr;
             PyObject* value = nullptr;
             if (PyDict_Next(frame.obj, &frame.pos, &key, &value)) {
-                // Fast path for compact ASCII keys (interned dict keys are almost always ASCII).
+                // Fast path for compact ASCII keys (interned keys are almost always ASCII).
                 if (LIKELY(PyUnicode_IS_COMPACT_ASCII(key))) {
                     const Py_ssize_t klen = PyUnicode_GET_LENGTH(key);
                     const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
-                    // Reserve for: [,]"key": = klen + 3 or 4 bytes
                     const size_t need = static_cast<size_t>(klen) + (frame.first ? 3 : 4);
                     out.reserve(out.size() + need);
                     if (!frame.first) {
                         out.unsafe_push_back(',');
                     }
                     frame.first = false;
-                    // Check for escapes; fall back if needed (rare for interned keys)
                     if (LIKELY(
                             !strata::util::string_needs_escape(kdata, static_cast<size_t>(klen)))) {
                         out.unsafe_push_back('"');
@@ -466,44 +320,32 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                     }
                     out.push_back(':');
                 }
-                bool handled = false;
-                if (!serialize_primitive(value, out, handled)) {
+                if (!write_value(value)) {
                     return false;
                 }
-                if (handled) {
-                    continue;
-                }
-                current = value;
             } else {
                 out.push_back('}');
                 stack.pop_back();
             }
-            continue;
+        } else {
+            // List or Tuple
+            if (frame.index < frame.size) {
+                if (!frame.first) {
+                    out.push_back(',');
+                }
+                frame.first = false;
+                PyObject* item = (frame.type == Frame::Type::List)
+                                     ? PyList_GET_ITEM(frame.obj, frame.index)
+                                     : PyTuple_GET_ITEM(frame.obj, frame.index);
+                frame.index += 1;
+                if (!write_value(item)) {
+                    return false;
+                }
+            } else {
+                out.push_back(']');
+                stack.pop_back();
+            }
         }
-
-        if (frame.index < frame.size) {
-            if (!frame.first) {
-                out.push_back(',');
-            }
-            frame.first = false;
-
-            PyObject* item = (frame.type == Frame::Type::List)
-                                 ? PyList_GET_ITEM(frame.obj, frame.index)
-                                 : PyTuple_GET_ITEM(frame.obj, frame.index);
-            frame.index += 1;
-            bool handled = false;
-            if (!serialize_primitive(item, out, handled)) {
-                return false;
-            }
-            if (handled) {
-                continue;
-            }
-            current = item;
-            continue;
-        }
-
-        out.push_back(']');
-        stack.pop_back();
     }
 
     return true;
