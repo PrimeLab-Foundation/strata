@@ -1,113 +1,23 @@
 """
 JSON serialization and parsing.
 
-Thin Python wrappers around the C++ engine for loads, dumps, and dumps_bytes.
+Thin Python wrappers around the C++ engine.
 """
 
 from __future__ import annotations
 
 from . import _strata as _native
-
-# -----------------------------------------------------------------------------
-# Parsing (JSON text → Python object)
-# -----------------------------------------------------------------------------
+from .json_cursor import JsonCursor
 
 
-def loads(source: str | bytes) -> dict | list | str | int | float | bool | None:
-    """
-    Parse JSON text into a Python object.
-
-    Args:
-        source: JSON as a string (UTF-8) or raw bytes. Use bytes when testing
-            invalid UTF-8 handling, since Python strings are always valid Unicode.
-
-    Returns:
-        Parsed value: dict, list, str, int, float, bool, or None.
-
-    Raises:
-        ValueError: If the JSON is invalid or contains invalid UTF-8.
-
-    Example:
-        >>> loads('{"name": "Alice", "age": 30}')
-        {'name': 'Alice', 'age': 30}
-    """
-    return _native.loads(source)
+def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = False):
+    """Parse JSON text into a Python object, cursor, or iterator."""
+    result = _native.loads(source, return_type=return_type, iterator=iterator)
+    if return_type == "cursor" and not iterator:
+        return JsonCursor(result[1], result[0])
+    return result
 
 
-# -----------------------------------------------------------------------------
-# Serialization (Python object → JSON text)
-# -----------------------------------------------------------------------------
-
-
-def dumps(obj: dict | list | str | int | float | bool | None) -> str:
-    """
-    Serialize a Python object to a JSON string.
-
-    Args:
-        obj: A JSON-serializable value (dict, list, str, int, float, bool, None).
-
-    Returns:
-        JSON string representation.
-
-    Raises:
-        ValueError: If the object cannot be serialized.
-        TypeError: If the object type is not supported.
-
-    Example:
-        >>> dumps({"name": "Alice", "age": 30})
-        '{"name":"Alice","age":30}'
-    """
-    return _native.dumps(obj)
-
-
-def dumps_bytes(obj: dict | list | str | int | float | bool | None) -> bytes:
-    """
-    Serialize a Python object to JSON bytes (UTF-8).
-
-    Faster than dumps() when you need bytes, since it avoids string encoding.
-
-    Args:
-        obj: A JSON-serializable value.
-
-    Returns:
-        JSON as UTF-8 encoded bytes.
-
-    Example:
-        >>> dumps_bytes({"key": "value"})
-        b'{"key":"value"}'
-    """
-    return _native.dumps_bytes(obj)
-
-
-def set_duplicate_key_policy(policy: str) -> None:
-    """
-    Configure how duplicate object keys are handled when parsing.
-
-    Allowed values:
-        - "first": keep the first value (default)
-        - "last": keep the last value
-        - "error": raise ValueError
-        - "warn": emit RuntimeWarning, keep first
-    """
-    _native.set_duplicate_key_policy(policy)
-
-
-def set_cycle_policy(policy: str) -> None:
-    """
-    Configure how cycles are handled during serialization.
-
-    Allowed values:
-        - "warn": emit RuntimeWarning and write null (default)
-        - "error": raise ValueError
-        - "ignore": write null silently
-    """
-    _native.set_cycle_policy(policy)
-
-
-__all__ = [
-    "loads",
-    "dumps",
-    "dumps_bytes",
-    "set_duplicate_key_policy",
-    "set_cycle_policy",
-]
+def dumps(obj, *, return_type: str = "str") -> str | bytes:
+    """Serialize a Python object to JSON string or bytes."""
+    return _native.dumps(obj, return_type=return_type)

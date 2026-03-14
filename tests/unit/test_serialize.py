@@ -254,13 +254,13 @@ class TestDumpsBytes:
 
     def test_dumps_bytes_basic(self):
         """Test dumps_bytes returns bytes."""
-        result = strata.dumps_bytes({"key": "value"})
+        result = strata.dumps({"key": "value"}, return_type="bytes")
         assert isinstance(result, bytes)
         assert json.loads(result) == {"key": "value"}
 
     def test_dumps_bytes_unicode(self):
         """Test dumps_bytes with Unicode."""
-        result = strata.dumps_bytes({"emoji": "👋"})
+        result = strata.dumps({"emoji": "👋"}, return_type="bytes")
         assert isinstance(result, bytes)
         parsed = json.loads(result.decode('utf-8'))
         assert parsed["emoji"] == "👋"
@@ -545,20 +545,20 @@ class TestDuplicateKeyPolicy:
     """Test configurable duplicate key handling."""
 
     def teardown_method(self):
-        strata.set_duplicate_key_policy("first")
+        strata.config.set("duplicate_key_policy", "first")
 
     def test_last_wins(self):
-        strata.set_duplicate_key_policy("last")
+        strata.config.set("duplicate_key_policy", "last")
         result = strata.loads('{"a": 1, "a": 2}')
         assert result["a"] == 2
 
     def test_error_wins(self):
-        strata.set_duplicate_key_policy("error")
+        strata.config.set("duplicate_key_policy", "error")
         with pytest.raises(ValueError):
             strata.loads('{"a": 1, "a": 2}')
 
     def test_warn_keeps_first(self):
-        strata.set_duplicate_key_policy("warn")
+        strata.config.set("duplicate_key_policy", "warn")
         with pytest.warns(RuntimeWarning):
             result = strata.loads('{"a": 1, "a": 2}')
         assert result["a"] == 1
@@ -568,25 +568,25 @@ class TestCyclePolicy:
     """Test cycle detection strategies during serialization."""
 
     def teardown_method(self):
-        strata.set_cycle_policy("ignore")
+        strata.config.set("cycle_policy", "ignore")
 
     def test_warn_emits_null(self):
         data = []
         data.append(data)
-        strata.set_cycle_policy("warn")
+        strata.config.set("cycle_policy", "warn")
         with pytest.warns(RuntimeWarning):
             assert strata.dumps(data) == "[null]"
 
     def test_error_raises(self):
         data = []
         data.append(data)
-        strata.set_cycle_policy("error")
+        strata.config.set("cycle_policy", "error")
         with pytest.raises(ValueError):
             strata.dumps(data)
 
     def test_ignore_hits_depth_limit(self):
         data = []
         data.append(data)
-        strata.set_cycle_policy("ignore")
+        strata.config.set("cycle_policy", "ignore")
         with pytest.raises(ValueError, match="Maximum serialization depth exceeded"):
             strata.dumps(data)

@@ -5,14 +5,21 @@ High-performance parsing, serialization, and querying powered by C++.
 """
 
 from . import _strata as _native
-from . import config, mmap_io
+from . import config
 from .json_cursor import JsonCursor, parse_json
-from .jsonpath import compile_path, search
-from .mmap_io import parse_json_file
-from .ndjson import iter_ndjson, parse_ndjson
-from .serialize import dumps, dumps_bytes, loads, set_cycle_policy, set_duplicate_key_policy
+from .jsonpath import compile_path, query, search
+from .serialize import dumps, loads
 
-load = _native.load
+
+def load(filepath, *, return_type: str = "dict", iterator: bool = False):
+    """Load JSON/NDJSON/JSONL file."""
+    filepath = str(filepath)
+    result = _native.load(filepath, return_type=return_type, iterator=iterator)
+    if return_type == "cursor" and not iterator:
+        return JsonCursor(result[1], result[0])
+    return result
+
+
 dump = _native.dump
 
 __version__ = "0.2.0"
@@ -21,26 +28,17 @@ __all__ = [
     # Parse / serialize
     "loads",
     "dumps",
-    "dumps_bytes",
     # File I/O
     "load",
     "dump",
-    # NDJSON
-    "iter_ndjson",
-    "parse_ndjson",
     # JSONPath
     "search",
+    "query",
     "compile_path",
-    # File I/O (advanced)
-    "parse_json_file",
-    "mmap_io",
-    # Cursor API (advanced)
-    "JsonCursor",
+    # Cursor
     "parse_json",
     # Config
     "config",
-    "set_duplicate_key_policy",
-    "set_cycle_policy",
     # Version
     "__version__",
 ]

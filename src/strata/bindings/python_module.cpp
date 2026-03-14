@@ -10,18 +10,18 @@
 #include <unordered_map>
 
 // Forward declarations
-extern PyObject* strata_dumps(PyObject* self, PyObject* obj);
-extern PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
-extern PyObject* strata_loads(PyObject* self, PyObject* args);
-extern PyObject* strata_parse_ndjson(PyObject* self, PyObject* args);
+extern PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs);
+extern PyObject* strata_dumps_internal(PyObject* obj);
+extern PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs);
-extern PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args);
+extern PyObject* strata_query(PyObject* self, PyObject* args, PyObject* kwargs);
 extern bool set_cycle_policy_from_string(const char* policy, std::string& error);
 extern int register_document_types(PyObject* module);
 extern int register_ndjson_types(PyObject* module);
 extern int register_jsonpath_types(PyObject* module);
+extern int register_iterator_type(PyObject* module);
 
 //=============================================================================
 // Config Registry
@@ -162,50 +162,22 @@ static PyObject* strata_config_list(PyObject* self, PyObject* args) {
 }
 
 //=============================================================================
-// Legacy policy setters (delegate to config)
-//=============================================================================
-
-static PyObject* strata_set_duplicate_key_policy(PyObject* self, PyObject* args) {
-    const char* policy = nullptr;
-    if (!PyArg_ParseTuple(args, "s", &policy)) {
-        return NULL;
-    }
-
-    std::string p(policy ? policy : "");
-    if (p == "first") {
-        strata::set_duplicate_key_policy(strata::DuplicateKeyPolicy::FirstWins);
-    } else if (p == "last") {
-        strata::set_duplicate_key_policy(strata::DuplicateKeyPolicy::LastWins);
-    } else if (p == "error") {
-        strata::set_duplicate_key_policy(strata::DuplicateKeyPolicy::Error);
-    } else if (p == "warn") {
-        strata::set_duplicate_key_policy(strata::DuplicateKeyPolicy::Warn);
-    } else {
-        PyErr_SetString(PyExc_ValueError,
-                        "unknown duplicate key policy (expected first|last|error|warn)");
-        return NULL;
-    }
-
-    // Sync config map
-    PyObject* val = PyUnicode_FromString(policy);
-    if (val) {
-        auto& map = get_config_map();
-        auto it = map.find("duplicate_key_policy");
-        if (it != map.end())
-            Py_DECREF(it->second.value);
-        map["duplicate_key_policy"] = {val};
-    }
-
-    Py_RETURN_NONE;
-}
-
-//=============================================================================
 // load() and dump() — file-based I/O
 //=============================================================================
 
-static PyObject* strata_load(PyObject* self, PyObject* args) {
+// Forward declarations for iterator support
+extern PyObject* create_list_iterator(PyObject* list);
+extern PyObject* create_dict_iterator(PyObject* dict);
+extern PyObject* create_ndjson_file_iterator(const char* filepath);
+
+static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
     const char* filepath;
-    if (!PyArg_ParseTuple(args, "s", &filepath))
+    const char* return_type = "dict";
+    int iterator = 0;
+
+    static const char* kwlist[] = {"filepath", "return_type", "iterator", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|sp", const_cast<char**>(kwlist), &filepath,
+                                     &return_type, &iterator))
         return NULL;
 
     STRATA_CPP_TRY
@@ -216,7 +188,29 @@ static PyObject* strata_load(PyObject* self, PyObject* args) {
     bool is_ndjson = (len > 7 && strcmp(filepath + len - 7, ".ndjson") == 0) ||
                      (len > 6 && strcmp(filepath + len - 6, ".jsonl") == 0);
 
+    // Validate return_type
+    bool as_cursor = false;
+    if (strcmp(return_type, "dict") == 0) {
+        as_cursor = false;
+    } else if (strcmp(return_type, "cursor") == 0) {
+        as_cursor = true;
+    } else {
+        PyErr_Format(PyExc_ValueError, "return_type must be 'dict' or 'cursor', got '%s'",
+                     return_type);
+        return NULL;
+    }
+
     if (is_ndjson) {
+        if (as_cursor) {
+            PyErr_SetString(PyExc_ValueError,
+                            "return_type='cursor' not supported for NDJSON files");
+            return NULL;
+        }
+
+        if (iterator) {
+            return create_ndjson_file_iterator(filepath);
+        }
+
         // Read file contents
         std::ifstream file(filepath, std::ios::binary | std::ios::ate);
         if (!file.is_open()) {
@@ -233,7 +227,13 @@ static PyObject* strata_load(PyObject* self, PyObject* args) {
         return parse_ndjson_all_to_python(stream, 0);
     }
 
-    // JSON: use mmap
+    // JSON file
+    if (as_cursor) {
+        // return_type='cursor': use mmap, return (doc, cursor) tuple
+        return strata_parse_json_file(self, args);
+    }
+
+    // JSON: use mmap + convert to Python
     auto result = strata::parse_json_file(filepath);
     if (!result.ok()) {
         PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
@@ -245,12 +245,26 @@ static PyObject* strata_load(PyObject* self, PyObject* args) {
         PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
     }
 
-    return json_value_to_python(result.value.root_value());
+    PyObject* py_result = json_value_to_python(result.value.root_value());
+    if (!py_result)
+        return NULL;
+
+    if (iterator) {
+        if (PyDict_Check(py_result)) {
+            PyObject* it = create_dict_iterator(py_result);
+            Py_DECREF(py_result);
+            return it;
+        } else if (PyList_Check(py_result)) {
+            PyObject* it = create_list_iterator(py_result);
+            Py_DECREF(py_result);
+            return it;
+        }
+    }
+
+    return py_result;
 
     STRATA_CPP_CATCH
 }
-
-extern PyObject* strata_dumps(PyObject* self, PyObject* obj);
 
 static PyObject* strata_dump(PyObject* self, PyObject* args) {
     PyObject* obj;
@@ -260,8 +274,8 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
 
     STRATA_CPP_TRY
 
-    // Serialize to string
-    PyObject* json_str = strata_dumps(self, obj);
+    // Serialize to string using internal helper
+    PyObject* json_str = strata_dumps_internal(obj);
     if (!json_str)
         return NULL;
 
@@ -291,32 +305,25 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
 
 // Method definitions
 static PyMethodDef strata_methods[] = {
-    {"dumps", (PyCFunction)strata_dumps, METH_O,
-     "dumps(obj) -> str\n\nSerialize Python object to JSON string."},
-    {"dumps_bytes", (PyCFunction)strata_dumps_bytes, METH_O,
-     "dumps_bytes(obj) -> bytes\n\nSerialize Python object to JSON bytes."},
-    {"loads", strata_loads, METH_VARARGS,
-     "loads(s) -> object\n\nParse JSON string to Python object."},
-    {"load", strata_load, METH_VARARGS,
-     "load(filepath) -> object\n\nLoad JSON/NDJSON/JSONL file to Python object."},
+    {"dumps", (PyCFunction)strata_dumps, METH_VARARGS | METH_KEYWORDS,
+     "dumps(obj, *, return_type='str') -> str|bytes\n\n"
+     "Serialize Python object to JSON string or bytes."},
+    {"loads", (PyCFunction)strata_loads, METH_VARARGS | METH_KEYWORDS,
+     "loads(source, *, return_type='dict', iterator=False) -> object\n\n"
+     "Parse JSON string to Python object."},
+    {"load", (PyCFunction)strata_load, METH_VARARGS | METH_KEYWORDS,
+     "load(filepath, *, return_type='dict', iterator=False) -> object\n\n"
+     "Load JSON/NDJSON/JSONL file."},
     {"dump", strata_dump, METH_VARARGS,
      "dump(obj, filepath)\n\nSerialize Python object to JSON file."},
-    {"parse_ndjson", strata_parse_ndjson, METH_VARARGS,
-     "parse_ndjson(s, skip_errors=False) -> list\n\n"
-     "Parse all NDJSON lines into a list."},
-    {"parse_json_file", strata_parse_json_file, METH_VARARGS,
-     "parse_json_file(filepath) -> (JsonDocument, JsonCursor)\n\n"
-     "Parse JSON file using memory-mapped I/O."},
     {"compile_path", strata_compile_path, METH_VARARGS,
      "compile_path(path) -> CompiledPath\n\nCompile a JSONPath expression."},
     {"search", (PyCFunction)strata_search, METH_VARARGS | METH_KEYWORDS,
-     "search(data, path, *, mem_eff=None) -> list\n\nSearch JSON data using JSONPath."},
-    {"set_duplicate_key_policy", strata_set_duplicate_key_policy, METH_VARARGS,
-     "set_duplicate_key_policy(policy)\n\n"
-     "Policy: first (default), last, error, warn."},
-    {"set_cycle_policy", strata_set_cycle_policy, METH_VARARGS,
-     "set_cycle_policy(policy)\n\n"
-     "Policy: warn (default), error, ignore."},
+     "search(filepath, path, *, mem_eff=None, iterator=False) -> list\n\n"
+     "Search JSON file using JSONPath."},
+    {"query", (PyCFunction)strata_query, METH_VARARGS | METH_KEYWORDS,
+     "query(data, path, *, iterator=False) -> list\n\n"
+     "Query dict/list using JSONPath."},
     {"config_set", strata_config_set, METH_VARARGS,
      "config_set(key, value)\n\nSet a config value."},
     {"config_get", strata_config_get, METH_VARARGS,
@@ -356,6 +363,12 @@ PyMODINIT_FUNC PyInit__strata(void) {
 
     // Register JSONPath types (CompiledPath)
     if (register_jsonpath_types(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
+
+    // Register iterator type
+    if (register_iterator_type(module) < 0) {
         Py_DECREF(module);
         return NULL;
     }

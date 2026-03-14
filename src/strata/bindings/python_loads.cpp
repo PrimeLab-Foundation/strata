@@ -1,10 +1,13 @@
 #include "python_convert.h"
+#include "python_document.h"
 #include "python_types.h"
+#include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
 #include "strata/json/json_parser_inline.hpp"
 #include "strata/json/json_sax_handler.hpp"
 #include "strata/json/ndjson_stream.hpp"
 
+#include <cstring>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -484,25 +487,75 @@ PyObject* strata_parse_ndjson(PyObject* self, PyObject* args) {
     STRATA_CPP_CATCH
 }
 
-// Python loads() function
-PyObject* strata_loads(PyObject* self, PyObject* args) {
+// Forward declarations for iterator support
+extern PyObject* create_list_iterator(PyObject* list);
+extern PyObject* create_dict_iterator(PyObject* dict);
+
+// Forward declaration for cursor creation
+extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
+
+// Python loads() function with return_type and iterator kwargs
+PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
     const char* data;
     Py_ssize_t len;
+    const char* return_type = "dict";
+    int iterator = 0;
 
-    // Parse arguments
-    if (!PyArg_ParseTuple(args, "s#", &data, &len)) {
+    static const char* kwlist[] = {"source", "return_type", "iterator", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|sp", const_cast<char**>(kwlist), &data, &len,
+                                     &return_type, &iterator)) {
         return NULL;
     }
 
     STRATA_CPP_TRY
 
-    // Suspend GC during bulk object creation: avoids collection pauses while building
-    // the Python object tree from JSON.
+    // Validate return_type
+    bool as_cursor = false;
+    if (strcmp(return_type, "dict") == 0) {
+        as_cursor = false;
+    } else if (strcmp(return_type, "cursor") == 0) {
+        as_cursor = true;
+    } else {
+        PyErr_Format(PyExc_ValueError, "return_type must be 'dict' or 'cursor', got '%s'",
+                     return_type);
+        return NULL;
+    }
+
+    if (as_cursor) {
+        // Parse to C++ document and return (doc, cursor) tuple
+        auto doc_result = strata::JsonDocument::from_string(std::string_view(data, len));
+        if (!doc_result.ok()) {
+            if (!PyErr_Occurred()) {
+                PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+            }
+            return NULL;
+        }
+
+        strata::JsonDocument doc = std::move(doc_result.value);
+        auto cursor = doc.root();
+        PyObject* py_doc = create_py_json_document(std::move(doc));
+        if (!py_doc)
+            return NULL;
+        PyObject* py_cursor = create_py_json_cursor(std::move(cursor), py_doc);
+        if (!py_cursor) {
+            Py_DECREF(py_doc);
+            return NULL;
+        }
+
+        PyObject* result = PyTuple_New(2);
+        if (!result) {
+            Py_DECREF(py_cursor);
+            Py_DECREF(py_doc);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(result, 0, py_doc);
+        PyTuple_SET_ITEM(result, 1, py_cursor);
+        return result;
+    }
+
+    // Standard SAX parse path
     PyGcPause gc_pause;
 
-    // Skip upfront UTF-8 validation: PyUnicode_FromStringAndSize (called inside
-    // PythonObjectBuilder::on_string) validates UTF-8 inline. Non-string JSON bytes
-    // are ASCII and are inherently valid UTF-8.
     PyObject* result = parse_json_to_python(std::string_view(data, len), /*validate_utf8=*/false);
 
     if (!result) {
@@ -510,6 +563,18 @@ PyObject* strata_loads(PyObject* self, PyObject* args) {
             PyErr_SetString(PyExc_ValueError, "Invalid JSON");
         }
         return NULL;
+    }
+
+    if (iterator) {
+        if (PyDict_Check(result)) {
+            PyObject* it = create_dict_iterator(result);
+            Py_DECREF(result);
+            return it;
+        } else if (PyList_Check(result)) {
+            PyObject* it = create_list_iterator(result);
+            Py_DECREF(result);
+            return it;
+        }
     }
 
     return result;

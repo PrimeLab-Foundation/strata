@@ -2,13 +2,13 @@
 """
 JSONPath query benchmarks.
 
-Compares Strata search/compile_path against jmespath and jsonpath-ng.
+Compares Strata query/search against jmespath and jsonpath-ng.
 Uses shared harness for timing and RSS. Public API only (no _strata).
 
-Note: Strata search(data, path) with a Python dict (e.g. from loads()) triggers
-serialize→parse→query per call; jmespath/jsonpath-ng walk the dict in place.
-For fair repeated-query comparison use parse_json_file() + search(cursor, path), or
-see docs/benchmarks/strata_performance_analysis.md.
+Modes:
+  - dict: loads() once, then query(dict, path) [in-memory, fair comparison]
+  - file: search(filepath, path) [file-based, includes I/O]
+  - file_mem_eff: search(filepath, path, mem_eff=True) [file-based, memory-efficient]
 """
 
 from __future__ import annotations
@@ -136,9 +136,9 @@ def run_all(
 ) -> list[QueryBenchResult]:
     """Run all query benchmarks; return list of QueryBenchResult.
 
-    strata_mode: "dict" (default) = loads() once, then search(dict, path) [query only, fair comparison];
-                 "cursor" = parse_json_file once, then search(cursor, path) [query only];
-                 "string" = search(text, path) [parse+query per call, no dumps].
+    strata_mode: "dict" (default) = loads() once, then query(dict, path) [in-memory, fair comparison];
+                 "file" = search(filepath, path) [file-based];
+                 "file_mem_eff" = search(filepath, path, mem_eff=True) [file-based, memory-efficient].
     """
     data_file = Path(data_file)
     json_bytes = data_file.read_bytes()
@@ -160,27 +160,27 @@ def run_all(
         description = query_def["description"]
         print(f"\n--- Query: {description} ---")
 
-        # Strata (public API; mode controls input to search() for fair comparison)
+        # Strata (public API)
         print("  strata:       ", end="", flush=True)
         try:
             path = strata.compile_path(query_def["strata"])
+            filepath = str(data_file)
 
             if strata_mode == "dict":
                 parsed_strata = strata.loads(json_text)
 
                 def run_strata():
-                    return strata.search(parsed_strata, path)
+                    return strata.query(parsed_strata, path)
 
-            elif strata_mode == "string":
-
-                def run_strata():
-                    return strata.search(json_text, path)
-
-            else:  # cursor: parse once per query, time query only
-                cursor = strata.parse_json_file(str(data_file))
+            elif strata_mode == "file_mem_eff":
 
                 def run_strata():
-                    return strata.search(cursor, path)
+                    return strata.search(filepath, path, mem_eff=True)
+
+            else:  # file: search(filepath, path)
+
+                def run_strata():
+                    return strata.search(filepath, path)
 
             times_ms, rss_mb = _run_query_benchmark(run_strata, warmup, repeat)
             result_list = run_strata()
@@ -326,9 +326,9 @@ def main() -> int:
     parser.add_argument("--warmup", type=int, default=1, help="Warmup iterations")
     parser.add_argument(
         "--strata-mode",
-        choices=["dict", "string", "cursor"],
+        choices=["dict", "file", "file_mem_eff"],
         default="dict",
-        help="Strata input: dict=loads() then search(dict,path) [query only, default, fair comparison]; cursor=parse_json_file then search(cursor,path); string=search(text,path).",
+        help="Strata input: dict=query(dict,path) [in-memory, default]; file=search(filepath,path); file_mem_eff=search(filepath,path,mem_eff=True).",
     )
     args = parser.parse_args()
 

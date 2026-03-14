@@ -223,13 +223,13 @@ class TestDumpsBytes:
 
     def test_dumps_bytes_basic(self):
         """Test dumps_bytes returns bytes."""
-        result = strata.dumps_bytes({"key": "value"})
+        result = strata.dumps({"key": "value"}, return_type="bytes")
         assert isinstance(result, bytes)
         assert json.loads(result) == {"key": "value"}
 
     def test_dumps_bytes_unicode(self):
         """Test dumps_bytes with Unicode."""
-        result = strata.dumps_bytes({"emoji": "👋"})
+        result = strata.dumps({"emoji": "👋"}, return_type="bytes")
         assert isinstance(result, bytes)
         parsed = json.loads(result.decode('utf-8'))
         assert parsed["emoji"] == "👋"

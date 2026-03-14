@@ -10,7 +10,7 @@ import strata
 
 
 class TestParseJsonFile:
-    """Test parse_json_file functionality."""
+    """Test load(path, return_type='cursor') functionality."""
 
     def test_basic_file_parsing(self, tmp_path):
         """Test basic file parsing with mmap."""
@@ -19,7 +19,7 @@ class TestParseJsonFile:
 
         test_file.write_text(json.dumps(test_data))
 
-        doc = strata.parse_json_file(str(test_file))
+        doc = strata.load(str(test_file), return_type="cursor")
         assert doc.field("name").get_str() == "Alice"
         assert doc.field("age").get_int() == 30
 
@@ -30,7 +30,7 @@ class TestParseJsonFile:
 
         test_file.write_text(json.dumps(test_data))
 
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
         assert doc.field("value").get_int() == 42
 
     def test_large_file(self, tmp_path):
@@ -41,7 +41,7 @@ class TestParseJsonFile:
         data = {"users": [{"id": i, "name": f"User{i}"} for i in range(1000)]}
         test_file.write_text(json.dumps(data))
 
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
         users = doc.field("users")
 
         # Check first and last
@@ -55,7 +55,7 @@ class TestParseJsonFile:
 
         test_file.write_text(json.dumps(test_data))
 
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
         name = doc.field("user").field("profile").field("name").get_str()
         assert name == "Bob"
 
@@ -69,7 +69,7 @@ class TestParseJsonFile:
 
         test_file.write_text(json.dumps(test_data))
 
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
         assert doc.at(0).get_int() == 1
         assert doc.at(4).get_int() == 5
 
@@ -80,7 +80,7 @@ class TestParseJsonFile:
 
         test_file.write_text(json.dumps(test_data, ensure_ascii=False), encoding='utf-8')
 
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
         assert "世界" in doc.field("message").get_str()
         assert doc.field("emoji").get_str() == "👋"
 
@@ -89,13 +89,13 @@ class TestParseJsonFile:
         test_file = tmp_path / "empty.json"
         test_file.write_text("{}")
 
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
         assert doc.is_object()
 
     def test_nonexistent_file(self):
         """Test error handling for nonexistent file."""
         with pytest.raises(ValueError):
-            strata.parse_json_file("/nonexistent/file.json")
+            strata.load("/nonexistent/file.json", return_type="cursor")
 
     def test_invalid_json_file(self, tmp_path):
         """Test error handling for invalid JSON."""
@@ -103,7 +103,7 @@ class TestParseJsonFile:
         test_file.write_text("{invalid json}")
 
         with pytest.raises(ValueError):
-            strata.parse_json_file(str(test_file))
+            strata.load(str(test_file), return_type="cursor")
 
     def test_comparison_with_parse_json(self, tmp_path):
         """Test that mmap gives same results as parse_json."""
@@ -121,7 +121,7 @@ class TestParseJsonFile:
         test_file.write_text(json_str)
 
         # Parse via mmap
-        doc_mmap = strata.parse_json_file(test_file)
+        doc_mmap = strata.load(test_file, return_type="cursor")
 
         # Parse from string
         doc_str = strata.parse_json(json_str)
@@ -144,7 +144,7 @@ class TestMmapPerformance:
         test_file.write_text(json.dumps(data))
 
         # Parse with mmap
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
 
         # Access only first record (should be fast)
         first_id = doc.field("records").at(0).field("id").get_int()
@@ -165,7 +165,7 @@ class TestMmapPerformance:
 
         test_file.write_text(json.dumps(data))
 
-        doc = strata.parse_json_file(test_file)
+        doc = strata.load(test_file, return_type="cursor")
 
         # Query structure
         version = doc.field("metadata").field("version").get_str()

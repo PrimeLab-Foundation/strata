@@ -282,6 +282,7 @@ ext_modules = [
             "src/strata/bindings/python_ndjson.cpp",
             "src/strata/bindings/python_mmap.cpp",
             "src/strata/bindings/python_jsonpath.cpp",
+            "src/strata/bindings/python_iterator.cpp",
             # C++ core (KEEP)
             "src/strata/json/json_document.cpp",
             "src/strata/json/json_cursor.cpp",

@@ -607,10 +607,53 @@ static inline bool serialize_value(PyObject* val, Buffer& out, int depth) {
     return false;
 }
 
-// Python dumps() function
-PyObject* strata_dumps(PyObject* self, PyObject* obj) {
+// Unified dumps() with return_type kwarg: "str" (default) or "bytes"
+PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PyObject* obj;
+    const char* return_type = "str";
+
+    static const char* kwlist[] = {"obj", "return_type", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|s", const_cast<char**>(kwlist), &obj,
+                                     &return_type)) {
+        return NULL;
+    }
+
+    bool as_bytes;
+    if (strcmp(return_type, "str") == 0) {
+        as_bytes = false;
+    } else if (strcmp(return_type, "bytes") == 0) {
+        as_bytes = true;
+    } else {
+        PyErr_Format(PyExc_ValueError, "return_type must be 'str' or 'bytes', got '%s'",
+                     return_type);
+        return NULL;
+    }
+
     STRATA_CPP_TRY
 
+    PyGcPause gc_pause;
+    g_max_depth = Py_GetRecursionLimit();
+    g_seen_stack.clear();
+    g_serialize_buffer.clear();
+    g_serialize_buffer.reserve(estimate_size(obj));
+
+    if (!serialize_value(obj, g_serialize_buffer, 0)) {
+        return NULL;
+    }
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    if (as_bytes) {
+        return PyBytes_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
+    }
+    return PyUnicode_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
+
+    STRATA_CPP_CATCH
+}
+
+// Internal: serialize to string (used by dump())
+PyObject* strata_dumps_internal(PyObject* obj) {
     PyGcPause gc_pause;
     g_max_depth = Py_GetRecursionLimit();
     g_seen_stack.clear();
@@ -625,30 +668,6 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
     }
 
     return PyUnicode_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
-
-    STRATA_CPP_CATCH
-}
-
-// Python dumps_bytes() function
-PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
-    STRATA_CPP_TRY
-
-    PyGcPause gc_pause;
-    g_max_depth = Py_GetRecursionLimit();
-    g_seen_stack.clear();
-    g_serialize_buffer.clear();
-    g_serialize_buffer.reserve(estimate_size(obj));
-
-    if (!serialize_value(obj, g_serialize_buffer, 0)) {
-        return NULL;
-    }
-    if (PyErr_Occurred()) {
-        return NULL;
-    }
-
-    return PyBytes_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
-
-    STRATA_CPP_CATCH
 }
 
 PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args) {

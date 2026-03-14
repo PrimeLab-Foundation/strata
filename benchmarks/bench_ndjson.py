@@ -2,7 +2,7 @@
 """
 NDJSON parsing benchmarks.
 
-Compares Strata iter_ndjson against orjson, msgspec, ujson, and stdlib json.
+Compares Strata loads (per-line) against orjson, msgspec, ujson, and stdlib json.
 Uses shared harness for timing and RSS.
 """
 
@@ -59,7 +59,7 @@ def _get_ndjson_runners() -> list[tuple[str, Callable[[str], list[Any]]]]:
     """Return [(library_name, parse_func)] where parse_func(ndjson_str) -> list of objects."""
 
     def strata_run(text: str) -> list:
-        return strata.parse_ndjson(text)
+        return [strata.loads(line) for line in text.splitlines() if line.strip()]
 
     def orjson_run(text: str) -> list:
         return [orjson.loads(line) for line in _lines(text)]

@@ -2,7 +2,7 @@
 """
 JSON serialization (dumps) benchmarks.
 
-Compares Strata dumps/dumps_bytes against orjson, msgspec, ujson, and stdlib json.
+Compares Strata dumps against orjson, msgspec, ujson, and stdlib json.
 Uses shared harness for timing and RSS.
 """
 
@@ -55,7 +55,7 @@ def _get_dumps_runners(bytes_mode: bool) -> list[tuple[str, Callable[[Any], Any]
     """Return [(library_name, func)] where func(data) returns serialized (str or bytes)."""
 
     def strata_run(data):
-        return strata.dumps_bytes(data) if bytes_mode else strata.dumps(data)
+        return strata.dumps(data, return_type="bytes") if bytes_mode else strata.dumps(data)
 
     def orjson_run(data):
         out = orjson.dumps(data)

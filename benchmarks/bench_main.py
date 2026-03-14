@@ -131,7 +131,9 @@ def _get_parse_ndjson_runners(strict_missing: bool) -> list[tuple[str, Callable[
     try:
         import strata
 
-        runners.append(("strata", lambda t: strata.parse_ndjson(t)))
+        runners.append(
+            ("strata", lambda t: [strata.loads(line) for line in t.splitlines() if line.strip()])
+        )
     except ImportError:
         if strict_missing:
             print("Warning: strata not installed")
@@ -351,7 +353,7 @@ class BenchmarkRunner:
                 compiled_path = strata.compile_path(q["strata"])
 
                 def run_strata(cp=compiled_path):
-                    return strata.search(strata_data, cp)
+                    return strata.query(strata_data, cp)
 
                 tr = run_single_benchmark(
                     run_strata,
@@ -359,7 +361,7 @@ class BenchmarkRunner:
                     repeat=self.repeat,
                     capture_rss=True,
                 )
-                result = strata.search(strata_data, compiled_path)
+                result = strata.query(strata_data, compiled_path)
                 n = len(result) if isinstance(result, list) else 1
                 self.results.append(
                     BenchResult(

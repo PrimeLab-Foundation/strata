@@ -1,4 +1,4 @@
-.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-all clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
+.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-all bench-random clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
 
 # Default target: run all tests (Rule 16: Make is the interface)
 all: test
@@ -224,6 +224,13 @@ bench-large: $(BENCH_LARGE_JSON)
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_dumps --data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_ndjson --data $(BENCH_LARGE_JSON) --repeat 3 --warmup 1
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_jsonpath --data $(BENCH_LARGE_JSON) --repeat 2 --warmup 1
+
+# Run random-schema benchmarks (no data files needed)
+bench-random:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "  Benchmarks: RANDOM SCHEMAS"
+	@echo "════════════════════════════════════════════════════════════════"
+	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_random --repeat 3 --warmup 1
 
 # Generate all data once, then run small + medium + large
 bench-all: bench-data bench-small bench-medium bench-large

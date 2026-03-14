@@ -9,62 +9,59 @@ import pytest
 import strata
 
 
+def _query(json_text, path):
+    """Helper: parse JSON text and query with JSONPath."""
+    return strata.query(strata.loads(json_text), path)
+
+
 class TestBasicSelectors:
     """Test basic JSONPath selectors."""
 
     def test_root_only(self):
-        """Test $ selector returns the whole document."""
         json_text = '{"key": "value"}'
-        results = strata.search(json_text, "$")
+        results = _query(json_text, "$")
         assert len(results) == 1
         assert results[0] == {"key": "value"}
 
     def test_simple_field(self):
-        """Test $.field selector."""
         json_text = '{"name": "Alice", "age": 30}'
-        results = strata.search(json_text, "$.name")
+        results = _query(json_text, "$.name")
         assert results == ["Alice"]
 
     def test_nested_field(self):
-        """Test $.a.b nested selector."""
         json_text = '{"user": {"name": "Alice", "age": 30}}'
-        results = strata.search(json_text, "$.user.name")
+        results = _query(json_text, "$.user.name")
         assert results == ["Alice"]
 
     def test_deep_nesting(self):
-        """Test deeply nested paths."""
         json_text = '{"a": {"b": {"c": {"d": 42}}}}'
-        results = strata.search(json_text, "$.a.b.c.d")
+        results = _query(json_text, "$.a.b.c.d")
         assert results == [42]
 
     def test_missing_field(self):
-        """Test accessing missing field returns empty."""
         json_text = '{"name": "Alice"}'
-        results = strata.search(json_text, "$.missing")
+        results = _query(json_text, "$.missing")
         assert results == []
 
     def test_array_index(self):
-        """Test $[n] array index selector."""
         json_text = '["a", "b", "c"]'
-        results = strata.search(json_text, "$[0]")
+        results = _query(json_text, "$[0]")
         assert results == ["a"]
 
-        results = strata.search(json_text, "$[2]")
+        results = _query(json_text, "$[2]")
         assert results == ["c"]
 
     def test_array_index_out_of_bounds(self):
-        """Test out of bounds array access returns empty."""
         json_text = '["a", "b"]'
-        results = strata.search(json_text, "$[10]")
+        results = _query(json_text, "$[10]")
         assert results == []
 
     def test_mixed_navigation(self):
-        """Test mixed field and array navigation."""
         json_text = '{"users": [{"name": "Alice"}, {"name": "Bob"}]}'
-        results = strata.search(json_text, "$.users[0].name")
+        results = _query(json_text, "$.users[0].name")
         assert results == ["Alice"]
 
-        results = strata.search(json_text, "$.users[1].name")
+        results = _query(json_text, "$.users[1].name")
         assert results == ["Bob"]
 
 
@@ -72,19 +69,16 @@ class TestWildcards:
     """Test wildcard selectors."""
 
     def test_array_wildcard(self):
-        """Test $[*] to get all array elements."""
         json_text = '[1, 2, 3, 4]'
-        results = strata.search(json_text, "$[*]")
+        results = _query(json_text, "$[*]")
         assert results == [1, 2, 3, 4]
 
     def test_object_wildcard(self):
-        """Test $.* to get all object values."""
         json_text = '{"a": 1, "b": 2, "c": 3}'
-        results = strata.search(json_text, "$.*")
-        assert set(results) == {1, 2, 3}  # Order may vary
+        results = _query(json_text, "$.*")
+        assert set(results) == {1, 2, 3}
 
     def test_nested_wildcard(self):
-        """Test $.users[*].name to extract all names."""
         json_text = '''
         {
             "users": [
@@ -94,11 +88,10 @@ class TestWildcards:
             ]
         }
         '''
-        results = strata.search(json_text, "$.users[*].name")
+        results = _query(json_text, "$.users[*].name")
         assert results == ["Alice", "Bob", "Charlie"]
 
     def test_deep_wildcard(self):
-        """Test wildcards at multiple levels."""
         json_text = '''
         {
             "departments": [
@@ -118,7 +111,7 @@ class TestWildcards:
             ]
         }
         '''
-        results = strata.search(json_text, "$.departments[*].employees[*].name")
+        results = _query(json_text, "$.departments[*].employees[*].name")
         assert results == ["Alice", "Bob", "Charlie"]
 
 
@@ -126,7 +119,6 @@ class TestComplexQueries:
     """Test more complex JSONPath queries."""
 
     def test_user_ids(self):
-        """Test extracting all user IDs."""
         json_text = '''
         {
             "users": [
@@ -136,34 +128,30 @@ class TestComplexQueries:
             ]
         }
         '''
-        results = strata.search(json_text, "$.users[*].id")
+        results = _query(json_text, "$.users[*].id")
         assert results == [1, 2, 3]
 
     def test_mixed_types_in_array(self):
-        """Test wildcard on array with mixed types."""
         json_text = '[1, "two", true, null, 3.14]'
-        results = strata.search(json_text, "$[*]")
+        results = _query(json_text, "$[*]")
         assert results == [1, "two", True, None, 3.14]
 
     def test_nested_arrays(self):
-        """Test navigation through nested arrays."""
         json_text = '[[[1, 2]], [[3, 4]]]'
-        results = strata.search(json_text, "$[0][0]")
+        results = _query(json_text, "$[0][0]")
         assert results == [[1, 2]]
 
-        results = strata.search(json_text, "$[0][0][1]")
+        results = _query(json_text, "$[0][0][1]")
         assert results == [2]
 
     def test_bracket_notation_field(self):
-        """Test $["field"] bracket notation for fields."""
         json_text = '{"special-key": "value", "normal": 123}'
-        results = strata.search(json_text, '$["special-key"]')
+        results = _query(json_text, '$["special-key"]')
         assert results == ["value"]
 
     def test_recursive_descent_nested_same_field(self):
-        """Ensure $..field walks into the matched field itself."""
         json_text = '{"a": {"a": {"value": 1}, "value": 2}}'
-        results = strata.search(json_text, "$..a")
+        results = _query(json_text, "$..a")
         assert results == [{"a": {"value": 1}, "value": 2}, {"value": 1}]
 
 
@@ -171,42 +159,37 @@ class TestCompileAndReuse:
     """Test compiling paths and reusing them."""
 
     def test_compile_once_use_many(self):
-        """Test compiling a path once and using it on multiple documents."""
         path = strata.compile_path("$.users[*].id")
 
-        json1 = '{"users": [{"id": 1}, {"id": 2}]}'
-        json2 = '{"users": [{"id": 3}, {"id": 4}, {"id": 5}]}'
+        data1 = strata.loads('{"users": [{"id": 1}, {"id": 2}]}')
+        data2 = strata.loads('{"users": [{"id": 3}, {"id": 4}, {"id": 5}]}')
 
-        results1 = strata.search(json1, path)
-        results2 = strata.search(json2, path)
+        results1 = strata.query(data1, path)
+        results2 = strata.query(data2, path)
 
         assert results1 == [1, 2]
         assert results2 == [3, 4, 5]
 
     def test_compile_complex_path(self):
-        """Test compiling and reusing complex paths."""
         path = strata.compile_path("$.departments[*].employees[*].name")
 
-        json_text = '''
+        data = strata.loads('''
         {
             "departments": [
                 {"employees": [{"name": "Alice"}, {"name": "Bob"}]},
                 {"employees": [{"name": "Charlie"}]}
             ]
         }
-        '''
+        ''')
 
-        results = strata.search(json_text, path)
+        results = strata.query(data, path)
         assert results == ["Alice", "Bob", "Charlie"]
 
-    def test_search_with_cursor(self):
-        """Test search using a pre-parsed JsonCursor."""
+    def test_query_with_dict(self):
+        """Test query using a pre-parsed dict."""
         path = strata.compile_path("$.users[*].id")
-        json_text = '{"users": [{"id": 1}, {"id": 2}, {"id": 3}]}'
-
-        cursor = strata.parse_json(json_text)
-        results = strata.search(cursor, path)
-
+        data = {"users": [{"id": 1}, {"id": 2}, {"id": 3}]}
+        results = strata.query(data, path)
         assert results == [1, 2, 3]
 
 
@@ -214,57 +197,51 @@ class TestErrorHandling:
     """Test error handling."""
 
     def test_invalid_path_syntax(self):
-        """Test that invalid JSONPath raises ValueError."""
         with pytest.raises(ValueError):
             strata.compile_path("invalid")
 
         with pytest.raises(ValueError):
-            strata.compile_path(".field")  # Must start with $
+            strata.compile_path(".field")
 
-    def test_invalid_json(self):
-        """Test that invalid JSON raises error."""
-        with pytest.raises(ValueError):
-            strata.search("{invalid json}", "$.field")
+    def test_query_with_string_raises(self):
+        """Test that query with string raises TypeError."""
+        with pytest.raises(TypeError):
+            strata.query("{invalid json}", "$.field")
+
+    def test_search_with_dict_raises(self):
+        """Test that search with dict raises TypeError."""
+        with pytest.raises(TypeError):
+            strata.search({"a": 1}, "$.a")
 
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
 
     def test_empty_object(self):
-        """Test wildcard on empty object."""
-        json_text = '{}'
-        results = strata.search(json_text, "$.*")
+        results = _query('{}', "$.*")
         assert results == []
 
     def test_empty_array(self):
-        """Test wildcard on empty array."""
-        json_text = '[]'
-        results = strata.search(json_text, "$[*]")
+        results = _query('[]', "$[*]")
         assert results == []
 
     def test_null_value(self):
-        """Test accessing null values."""
-        json_text = '{"value": null}'
-        results = strata.search(json_text, "$.value")
+        results = _query('{"value": null}', "$.value")
         assert results == [None]
 
     def test_boolean_values(self):
-        """Test accessing boolean values."""
-        json_text = '{"active": true, "deleted": false}'
-        results = strata.search(json_text, "$.active")
+        results = _query('{"active": true, "deleted": false}', "$.active")
         assert results == [True]
 
-        results = strata.search(json_text, "$.deleted")
+        results = _query('{"active": true, "deleted": false}', "$.deleted")
         assert results == [False]
 
     def test_numeric_types(self):
-        """Test accessing different numeric types."""
-        json_text = '{"int": 42, "float": 3.14, "sci": 1e10}'
-        results = strata.search(json_text, "$.int")
+        results = _query('{"int": 42, "float": 3.14, "sci": 1e10}', "$.int")
         assert results == [42]
 
-        results = strata.search(json_text, "$.float")
+        results = _query('{"int": 42, "float": 3.14, "sci": 1e10}', "$.float")
         assert results == [3.14]
 
-        results = strata.search(json_text, "$.sci")
+        results = _query('{"int": 42, "float": 3.14, "sci": 1e10}', "$.sci")
         assert results == [1e10]

@@ -889,20 +889,67 @@ static bool is_ndjson_path(const char* str, size_t len) {
     return false;
 }
 
+// Forward declaration for iterator support
+extern PyObject* create_list_iterator(PyObject* list);
+
+// Helper: compile path from string or CompiledPath object
+static bool compile_path_from_arg(PyObject* path_obj, strata::CompiledPath& out) {
+    if (PyUnicode_Check(path_obj)) {
+        const char* path_str = PyUnicode_AsUTF8(path_obj);
+        if (!path_str)
+            return false;
+        auto compile_result = strata::compile_jsonpath(path_str);
+        if (!compile_result.ok()) {
+            PyErr_SetString(PyExc_ValueError, "Invalid JSONPath expression");
+            return false;
+        }
+        out = std::move(compile_result.value);
+        return true;
+    }
+    if (Py_TYPE(path_obj) == &PyCompiledPathType) {
+        PyCompiledPath* compiled_obj = (PyCompiledPath*)path_obj;
+        out = *compiled_obj->path;
+        return true;
+    }
+    PyErr_SetString(PyExc_TypeError, "path must be a string or CompiledPath");
+    return false;
+}
+
+// search(): file paths only (.json/.ndjson/.jsonl)
 PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
-    PyObject* data_obj;
+    PyObject* filepath_obj;
     PyObject* path_obj;
     PyObject* mem_eff_obj = nullptr;
+    int iterator = 0;
 
-    static const char* kwlist[] = {"data", "path", "mem_eff", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|O", const_cast<char**>(kwlist), &data_obj,
-                                     &path_obj, &mem_eff_obj)) {
+    static const char* kwlist[] = {"filepath", "path", "mem_eff", "iterator", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Op", const_cast<char**>(kwlist),
+                                     &filepath_obj, &path_obj, &mem_eff_obj, &iterator)) {
         return NULL;
     }
 
     STRATA_CPP_TRY
 
-    // Resolve mem_eff: per-call kwarg > global config
+    // Validate filepath is a string
+    if (!PyUnicode_Check(filepath_obj)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "search() requires a file path (str). Use query() for dict/list.");
+        return NULL;
+    }
+
+    Py_ssize_t fp_len;
+    const char* filepath = PyUnicode_AsUTF8AndSize(filepath_obj, &fp_len);
+    if (!filepath)
+        return NULL;
+
+    // Validate file extension
+    if (!is_file_path(filepath, static_cast<size_t>(fp_len))) {
+        PyErr_SetString(PyExc_TypeError,
+                        "search() requires a file path ending in .json, .ndjson, or .jsonl");
+        return NULL;
+    }
+
+    // Resolve mem_eff
     bool mem_eff;
     if (mem_eff_obj && mem_eff_obj != Py_None) {
         mem_eff = PyObject_IsTrue(mem_eff_obj);
@@ -910,174 +957,131 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         mem_eff = strata_config_mem_eff();
     }
 
-    // Compile the path (if it's a string)
+    // Compile path
     strata::CompiledPath compiled_path;
+    if (!compile_path_from_arg(path_obj, compiled_path))
+        return NULL;
 
-    if (PyUnicode_Check(path_obj)) {
-        const char* path_str = PyUnicode_AsUTF8(path_obj);
-        if (!path_str)
-            return NULL;
+    PyObject* result_list = nullptr;
 
-        auto compile_result = strata::compile_jsonpath(path_str);
-        if (!compile_result.ok()) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSONPath expression");
+    if (is_ndjson_path(filepath, static_cast<size_t>(fp_len))) {
+        // NDJSON/JSONL file: search each line, flatten results
+        std::ifstream file(std::string(filepath, fp_len), std::ios::binary | std::ios::ate);
+        if (!file.is_open()) {
+            PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", filepath);
             return NULL;
         }
-        compiled_path = std::move(compile_result.value);
-    } else if (Py_TYPE(path_obj) == &PyCompiledPathType) {
-        PyCompiledPath* compiled_obj = (PyCompiledPath*)path_obj;
-        compiled_path = *compiled_obj->path;
+        auto size = file.tellg();
+        file.seekg(0);
+        std::string content(static_cast<size_t>(size), '\0');
+        file.read(content.data(), size);
+        file.close();
+
+        strata::NdjsonStream stream(content);
+        PyObject* outer_list = PyList_New(0);
+        if (!outer_list)
+            return NULL;
+
+        while (stream.has_next()) {
+            auto line_result = stream.next();
+            if (!line_result.ok())
+                continue;
+
+            PyObject* line_results;
+            if (mem_eff) {
+                line_results = search_jsonvalue(&line_result.value, compiled_path, true);
+            } else {
+                PyObject* py_line = json_value_to_python(line_result.value);
+                if (!py_line) {
+                    Py_DECREF(outer_list);
+                    return NULL;
+                }
+                line_results = search_pyobj(py_line, compiled_path);
+                Py_DECREF(py_line);
+            }
+
+            if (!line_results) {
+                Py_DECREF(outer_list);
+                return NULL;
+            }
+
+            Py_ssize_t n = PyList_GET_SIZE(line_results);
+            for (Py_ssize_t i = 0; i < n; i++) {
+                PyObject* item = PyList_GET_ITEM(line_results, i);
+                Py_INCREF(item);
+                if (PyList_Append(outer_list, item) < 0) {
+                    Py_DECREF(item);
+                    Py_DECREF(line_results);
+                    Py_DECREF(outer_list);
+                    return NULL;
+                }
+                Py_DECREF(item);
+            }
+            Py_DECREF(line_results);
+        }
+        result_list = outer_list;
     } else {
-        PyErr_SetString(PyExc_TypeError, "path must be a string or CompiledPath");
+        // JSON file: mmap + parse
+        auto result = strata::parse_json_file(filepath);
+        if (!result.ok()) {
+            PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
+            return NULL;
+        }
+        emit_duplicate_key_warnings();
+        result_list = search_jsonvalue(&result.value.root_value(), compiled_path, mem_eff);
+    }
+
+    if (!result_list)
+        return NULL;
+
+    if (iterator) {
+        PyObject* it = create_list_iterator(result_list);
+        Py_DECREF(result_list);
+        return it;
+    }
+
+    return result_list;
+
+    STRATA_CPP_CATCH
+}
+
+// query(): dict/list only, no file paths, no mem_eff
+PyObject* strata_query(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PyObject* data_obj;
+    PyObject* path_obj;
+    int iterator = 0;
+
+    static const char* kwlist[] = {"data", "path", "iterator", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist), &data_obj,
+                                     &path_obj, &iterator)) {
         return NULL;
     }
 
-    // Handle JsonDocument inputs
-    if (is_py_json_document(data_obj)) {
-        auto* doc = get_py_json_document(data_obj);
-        if (!doc) {
-            PyErr_SetString(PyExc_TypeError, "Invalid JsonDocument");
-            return NULL;
-        }
-        return search_jsonvalue(&doc->root_value(), compiled_path, mem_eff);
+    STRATA_CPP_TRY
+
+    // Validate input is dict/list/tuple
+    if (!PyDict_Check(data_obj) && !PyList_Check(data_obj) && !PyTuple_Check(data_obj)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "query() requires a dict or list. Use search() for file paths.");
+        return NULL;
     }
 
-    // Handle JsonCursor inputs
-    if (is_py_json_cursor(data_obj)) {
-        auto* cursor_ptr = get_py_json_cursor(data_obj);
-        if (!cursor_ptr) {
-            PyErr_SetString(PyExc_TypeError, "Invalid JsonCursor");
-            return NULL;
-        }
-        const strata::JsonValue* raw = cursor_ptr->raw();
-        return search_jsonvalue(raw, compiled_path, mem_eff);
+    // Compile path
+    strata::CompiledPath compiled_path;
+    if (!compile_path_from_arg(path_obj, compiled_path))
+        return NULL;
+
+    PyObject* result_list = search_pyobj(data_obj, compiled_path);
+    if (!result_list)
+        return NULL;
+
+    if (iterator) {
+        PyObject* it = create_list_iterator(result_list);
+        Py_DECREF(result_list);
+        return it;
     }
 
-    // Handle string input — could be file path or JSON text
-    if (PyUnicode_Check(data_obj)) {
-        Py_ssize_t json_len;
-        const char* json_data = PyUnicode_AsUTF8AndSize(data_obj, &json_len);
-        if (!json_data)
-            return NULL;
-
-        // Check if it's a file path
-        if (is_file_path(json_data, static_cast<size_t>(json_len))) {
-            if (is_ndjson_path(json_data, static_cast<size_t>(json_len))) {
-                // NDJSON/JSONL file: search each line, return list of result lists
-                std::ifstream file(std::string(json_data, json_len),
-                                   std::ios::binary | std::ios::ate);
-                if (!file.is_open()) {
-                    PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", json_data);
-                    return NULL;
-                }
-                auto size = file.tellg();
-                file.seekg(0);
-                std::string content(static_cast<size_t>(size), '\0');
-                file.read(content.data(), size);
-                file.close();
-
-                strata::NdjsonStream stream(content);
-                PyObject* outer_list = PyList_New(0);
-                if (!outer_list)
-                    return NULL;
-
-                while (stream.has_next()) {
-                    auto line_result = stream.next();
-                    if (!line_result.ok())
-                        continue;
-
-                    PyObject* line_results;
-                    if (mem_eff) {
-                        // Search directly on C++ JsonValue
-                        line_results = search_jsonvalue(&line_result.value, compiled_path, true);
-                    } else {
-                        // Convert line to Python, search on Python objects
-                        PyObject* py_line = json_value_to_python(line_result.value);
-                        if (!py_line) {
-                            Py_DECREF(outer_list);
-                            return NULL;
-                        }
-                        line_results = search_pyobj(py_line, compiled_path);
-                        Py_DECREF(py_line);
-                    }
-
-                    if (!line_results) {
-                        Py_DECREF(outer_list);
-                        return NULL;
-                    }
-
-                    // Flatten: extend outer list with line results
-                    Py_ssize_t n = PyList_GET_SIZE(line_results);
-                    for (Py_ssize_t i = 0; i < n; i++) {
-                        PyObject* item = PyList_GET_ITEM(line_results, i);
-                        Py_INCREF(item);
-                        if (PyList_Append(outer_list, item) < 0) {
-                            Py_DECREF(item);
-                            Py_DECREF(line_results);
-                            Py_DECREF(outer_list);
-                            return NULL;
-                        }
-                        Py_DECREF(item);
-                    }
-                    Py_DECREF(line_results);
-                }
-                return outer_list;
-            }
-
-            // JSON file: mmap + parse
-            if (mem_eff) {
-                // Parse to C++ tree, search on C++ tree
-                auto result = strata::parse_json_file(json_data);
-                if (!result.ok()) {
-                    PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", json_data);
-                    return NULL;
-                }
-                emit_duplicate_key_warnings();
-                return search_jsonvalue(&result.value.root_value(), compiled_path, true);
-            } else {
-                // Read file and parse to Python via SAX
-                auto result = strata::parse_json_file(json_data);
-                if (!result.ok()) {
-                    PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", json_data);
-                    return NULL;
-                }
-                emit_duplicate_key_warnings();
-                return search_jsonvalue(&result.value.root_value(), compiled_path, false);
-            }
-        }
-
-        // Regular JSON text
-        PyObject* py_data = parse_json_to_python(std::string_view(json_data, json_len));
-        if (!py_data) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
-            return NULL;
-        }
-        emit_duplicate_key_warnings();
-        PyObject* result = search_pyobj(py_data, compiled_path);
-        Py_DECREF(py_data);
-        return result;
-    }
-
-    if (PyBytes_Check(data_obj)) {
-        char* json_data = nullptr;
-        Py_ssize_t json_len = 0;
-        if (PyBytes_AsStringAndSize(data_obj, &json_data, &json_len) < 0) {
-            return NULL;
-        }
-
-        PyObject* py_data = parse_json_to_python(std::string_view(json_data, json_len));
-        if (!py_data) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
-            return NULL;
-        }
-        emit_duplicate_key_warnings();
-        PyObject* result = search_pyobj(py_data, compiled_path);
-        Py_DECREF(py_data);
-        return result;
-    }
-
-    // Handle Python object (dict/list/scalar)
-    return search_pyobj(data_obj, compiled_path);
+    return result_list;
 
     STRATA_CPP_CATCH
 }

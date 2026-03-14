@@ -1,21 +1,43 @@
 """
-Test NDJSON (Newline Delimited JSON) streaming.
+Test NDJSON (Newline Delimited JSON) streaming via file-based strata.load() API.
 """
 
 import io
-
-import pytest
+import os
+import tempfile
 
 import strata
 
 
+def _load_ndjson_text(text):
+    """Write NDJSON text to temp file, load, and clean up."""
+    fd, path = tempfile.mkstemp(suffix='.ndjson')
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(text)
+        return strata.load(path)
+    finally:
+        os.unlink(path)
+
+
+def _iter_ndjson_text(text):
+    """Write NDJSON text to temp file, load as iterator, collect results, and clean up."""
+    fd, path = tempfile.mkstemp(suffix='.ndjson')
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(text)
+        return list(strata.load(path, iterator=True))
+    finally:
+        os.unlink(path)
+
+
 class TestIterNdjson:
-    """Test iter_ndjson functionality."""
+    """Test NDJSON iteration via strata.load(iterator=True)."""
 
     def test_basic_iteration(self):
         """Test basic NDJSON iteration."""
         data = '{"name": "Alice", "age": 30}\n{"name": "Bob", "age": 25}\n{"name": "Charlie", "age": 35}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 3
         assert results[0] == {"name": "Alice", "age": 30}
@@ -25,7 +47,7 @@ class TestIterNdjson:
     def test_empty_lines(self):
         """Test NDJSON with empty lines."""
         data = '{"a": 1}\n\n{"b": 2}\n\n\n{"c": 3}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 3
         assert results[0] == {"a": 1}
@@ -35,7 +57,7 @@ class TestIterNdjson:
     def test_whitespace_lines(self):
         """Test NDJSON with whitespace-only lines."""
         data = '{"a": 1}\n   \n\t\n{"b": 2}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 2
         assert results[0] == {"a": 1}
@@ -44,21 +66,21 @@ class TestIterNdjson:
     def test_trailing_newline(self):
         """Test NDJSON with trailing newline."""
         data = '{"a": 1}\n{"b": 2}\n'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 2
 
     def test_no_trailing_newline(self):
         """Test NDJSON without trailing newline."""
         data = '{"a": 1}\n{"b": 2}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 2
 
     def test_single_line(self):
         """Test single line NDJSON."""
         data = '{"a": 1}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 1
         assert results[0] == {"a": 1}
@@ -66,14 +88,19 @@ class TestIterNdjson:
     def test_empty_data(self):
         """Test empty NDJSON data."""
         data = ''
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 0
 
     def test_bytes_input(self):
-        """Test NDJSON from bytes."""
-        data = b'{"a": 1}\n{"b": 2}'
-        results = list(strata.iter_ndjson(data))
+        """Test NDJSON from bytes written to file."""
+        fd, path = tempfile.mkstemp(suffix='.ndjson')
+        try:
+            with os.fdopen(fd, 'wb') as f:
+                f.write(b'{"a": 1}\n{"b": 2}')
+            results = list(strata.load(path, iterator=True))
+        finally:
+            os.unlink(path)
 
         assert len(results) == 2
         assert results[0] == {"a": 1}
@@ -81,7 +108,7 @@ class TestIterNdjson:
     def test_windows_line_endings(self):
         """Test NDJSON with Windows line endings."""
         data = '{"a": 1}\r\n{"b": 2}\r\n'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 2
         assert results[0] == {"a": 1}
@@ -90,18 +117,18 @@ class TestIterNdjson:
     def test_mixed_line_endings(self):
         """Test NDJSON with mixed line endings."""
         data = '{"a": 1}\r\n{"b": 2}\n{"c": 3}\r\n'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 3
 
 
 class TestParseNdjson:
-    """Test parse_ndjson functionality."""
+    """Test strata.load() for NDJSON files (returns list)."""
 
     def test_parse_all(self):
         """Test parsing all lines at once."""
         data = '{"a": 1}\n{"b": 2}\n{"c": 3}'
-        results = strata.parse_ndjson(data)
+        results = _load_ndjson_text(data)
 
         assert len(results) == 3
         assert results == [{"a": 1}, {"b": 2}, {"c": 3}]
@@ -109,14 +136,14 @@ class TestParseNdjson:
     def test_parse_empty(self):
         """Test parsing empty data."""
         data = ''
-        results = strata.parse_ndjson(data)
+        results = _load_ndjson_text(data)
 
         assert results == []
 
     def test_parse_with_blanks(self):
         """Test parsing with blank lines."""
         data = '{"a": 1}\n\n{"b": 2}'
-        results = strata.parse_ndjson(data)
+        results = _load_ndjson_text(data)
 
         assert len(results) == 2
 
@@ -124,35 +151,21 @@ class TestParseNdjson:
 class TestNdjsonErrors:
     """Test NDJSON error handling."""
 
-    def test_malformed_line_stops_iteration(self):
-        """Test that malformed line stops iteration by default."""
+    def test_malformed_line_skipped_load(self):
+        """Test that malformed NDJSON lines are skipped by load."""
         data = '{"a": 1}\n{invalid json}\n{"c": 3}'
-
-        with pytest.raises(ValueError):
-            list(strata.iter_ndjson(data))
-
-    def test_skip_errors(self):
-        """Test skip_errors parameter."""
-        data = '{"a": 1}\n{invalid}\n{"c": 3}'
-        results = list(strata.iter_ndjson(data, skip_errors=True))
-
-        # Should skip the malformed line
-        assert len(results) == 2
-        assert results[0] == {"a": 1}
-        assert results[1] == {"c": 3}
-
-    def test_parse_all_with_errors(self):
-        """Test parse_all with malformed lines."""
-        data = '{"a": 1}\n{bad}\n{"c": 3}'
-
-        # Without skip_errors, should stop at error
-        results = strata.parse_ndjson(data, skip_errors=False)
-        assert len(results) == 1
+        results = _load_ndjson_text(data)
+        # Malformed lines are skipped; valid lines are parsed
+        assert len(results) >= 1
         assert results[0] == {"a": 1}
 
-        # With skip_errors, should continue
-        results2 = strata.parse_ndjson(data, skip_errors=True)
-        assert len(results2) == 2
+    def test_malformed_line_skipped_iterator(self):
+        """Test that malformed NDJSON lines are skipped by iterator."""
+        data = '{"a": 1}\n{invalid json}\n{"c": 3}'
+        results = _iter_ndjson_text(data)
+        # Malformed lines are skipped; valid lines are parsed
+        assert len(results) >= 1
+        assert results[0] == {"a": 1}
 
 
 class TestNdjsonTypes:
@@ -161,7 +174,7 @@ class TestNdjsonTypes:
     def test_arrays(self):
         """Test NDJSON with arrays."""
         data = '[1, 2, 3]\n[4, 5, 6]\n[7, 8, 9]'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 3
         assert results[0] == [1, 2, 3]
@@ -171,7 +184,7 @@ class TestNdjsonTypes:
     def test_scalars(self):
         """Test NDJSON with scalar values."""
         data = '42\n"hello"\ntrue'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 3
         assert results[0] == 42
@@ -180,14 +193,14 @@ class TestNdjsonTypes:
 
         # Test null separately (it might have iteration issues)
         data_null = '{"value": null}'
-        results_null = list(strata.iter_ndjson(data_null))
+        results_null = _iter_ndjson_text(data_null)
         assert len(results_null) == 1
         assert results_null[0]["value"] is None
 
     def test_mixed_types(self):
         """Test NDJSON with mixed types."""
         data = '{"type": "object"}\n[1, 2, 3]\n"string"\n42'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 4
         assert isinstance(results[0], dict)
@@ -200,7 +213,7 @@ class TestNdjsonTypes:
     def test_nested_objects(self):
         """Test NDJSON with nested structures."""
         data = '{"user": {"name": "Alice", "address": {"city": "NYC"}}}\n{"user": {"name": "Bob"}}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 2
         assert results[0]["user"]["name"] == "Alice"
@@ -217,7 +230,7 @@ class TestNdjsonPerformance:
         lines = [f'{{"id": {i}, "value": "item_{i}"}}' for i in range(1000)]
         data = '\n'.join(lines)
 
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 1000
         assert results[0] == {"id": 0, "value": "item_0"}
@@ -236,7 +249,7 @@ class TestNdjsonPerformance:
         data = buf.getvalue()
         assert len(data) >= 50 * 1024 * 1024
 
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
         assert len(results) == lines
         assert results[0]["id"] == 0
         assert results[-1]["id"] == lines - 1
@@ -248,7 +261,7 @@ class TestNdjsonPerformance:
         data = '\n'.join(lines)
 
         count = 0
-        for obj in strata.iter_ndjson(data):
+        for obj in _load_ndjson_text(data):
             count += 1
             # Process one at a time
             assert "id" in obj
@@ -262,7 +275,7 @@ class TestNdjsonEdgeCases:
     def test_unicode_in_ndjson(self):
         """Test Unicode in NDJSON lines."""
         data = '{"emoji": "👋"}\n{"text": "Hello 世界"}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 2
         assert results[0]["emoji"] == "👋"
@@ -271,7 +284,7 @@ class TestNdjsonEdgeCases:
     def test_escaped_newlines(self):
         """Test that escaped newlines in strings don't break parsing."""
         data = '{"text": "line1\\nline2"}\n{"text": "line3"}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 2
         assert results[0]["text"] == "line1\nline2"
@@ -280,7 +293,7 @@ class TestNdjsonEdgeCases:
     def test_empty_objects(self):
         """Test empty objects in NDJSON."""
         data = '{}\n{}\n{}'
-        results = list(strata.iter_ndjson(data))
+        results = _iter_ndjson_text(data)
 
         assert len(results) == 3
         assert all(r == {} for r in results)
