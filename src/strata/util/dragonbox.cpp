@@ -9,27 +9,6 @@
 namespace strata {
 namespace util {
 
-// Strip trailing zeros from fractional part. E.g. "1.230" -> "1.23", but keep "1.0".
-static inline int strip_trailing_zeros(char* p, int len) {
-    // Only strip if there's a dot and no exponent
-    int dot_pos = -1;
-    for (int i = 0; i < len; ++i) {
-        if (p[i] == '.') {
-            dot_pos = i;
-        } else if (p[i] == 'e' || p[i] == 'E') {
-            return len;
-        } // don't strip scientific
-    }
-    if (dot_pos < 0)
-        return len;
-    // Strip trailing zeros, but keep at least one digit after dot
-    int end = len;
-    while (end > dot_pos + 2 && p[end - 1] == '0') {
-        --end;
-    }
-    return end;
-}
-
 int dragonbox_d2s(double value, char* buffer) {
     // Fast path: zero
     if (value == 0.0) {

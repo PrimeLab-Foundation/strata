@@ -233,7 +233,7 @@ def is_universal_build():
 
 
 def build_compile_flags():
-    flags = ["-std=c++20", "-O3"]
+    flags = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
     if not is_universal_build():
         flags.append("-march=native")
     if enable_lto:
@@ -294,6 +294,7 @@ ext_modules = [
             # Utilities (KEEP)
             "src/strata/util/ryu_dtoa.cpp",
             "src/strata/util/dragonbox.cpp",
+            "src/strata/util/fast_dtoa.cpp",
             "src/strata/util/simd_escape.cpp",
             "src/strata/util/simd_newline.cpp",
             "src/strata/util/simd_utf8.cpp",

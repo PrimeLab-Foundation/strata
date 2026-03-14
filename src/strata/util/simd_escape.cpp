@@ -449,9 +449,8 @@ static inline bool has_escape_chars_neon(const char* str, size_t len) {
         uint8x16_t is_backslash = vceqq_u8(chunk, backslash);
         uint8x16_t needs_escape = vorrq_u8(control, vorrq_u8(is_quote, is_backslash));
 
-        // Check if any lane is non-zero
-        uint64x2_t combined = vreinterpretq_u64_u8(needs_escape);
-        if (vgetq_lane_u64(combined, 0) != 0 || vgetq_lane_u64(combined, 1) != 0) {
+        // vmaxvq_u8: single instruction to reduce 16 lanes to scalar max
+        if (vmaxvq_u8(needs_escape) != 0) {
             return true;
         }
     }

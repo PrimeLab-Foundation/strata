@@ -1,5 +1,5 @@
 #include "python_types.h"
-#include "strata/util/dragonbox.hpp"
+#include "strata/util/fast_dtoa.hpp"
 #include "strata/util/output_buffer.hpp"
 #include "strata/util/simd_string.hpp"
 
@@ -10,6 +10,11 @@
 #include <cstring>
 #include <string>
 #include <vector>
+
+#if defined(__ARM_NEON) || defined(__aarch64__)
+#include <arm_neon.h>
+#define STRATA_SERIALIZE_HAS_NEON 1
+#endif
 
 // Thread-local buffer for zero-allocation serialization
 thread_local strata::util::OutputBuffer g_serialize_buffer;
@@ -154,8 +159,6 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
     }
 
     // Fast path: integer-valued doubles (very common in JSON data).
-    // Avoid std::to_chars entirely — reuse the fast integer formatter.
-    // Exclude -0.0 (signbit set, but ival==0 would lose the sign).
     if (value >= -999999999999999.0 && value <= 999999999999999.0) {
         int64_t ival = static_cast<int64_t>(value);
         if (static_cast<double>(ival) == value && LIKELY(ival != 0 || !std::signbit(value))) {
@@ -165,20 +168,100 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
         }
     }
 
-    // Write directly into output buffer to avoid extra memcpy
-    out.reserve(out.size() + 32);
-    int len = strata::util::dragonbox_d2s(value, out.data() + out.size());
-    out.unsafe_advance(static_cast<size_t>(len));
+    // Use Ryu algorithm for non-integer floats
+    out.reserve(out.size() + 36);
+    char* start = out.data() + out.size();
+    char* p = start;
+
+    if (value < 0) {
+        *p++ = '-';
+        value = -value;
+    }
+
+    int len = strata::util::fast_dtoa(value, p);
+    out.unsafe_advance(static_cast<size_t>((p - start) + len));
     return true;
 }
 
 template <typename Buffer> static inline bool append_string(PyObject* obj, Buffer& out) {
-    if (PyUnicode_IS_COMPACT_ASCII(obj)) {
-        Py_ssize_t len = PyUnicode_GET_LENGTH(obj);
+    if (LIKELY(PyUnicode_IS_COMPACT_ASCII(obj))) {
+        const Py_ssize_t len = PyUnicode_GET_LENGTH(obj);
         const char* data = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(obj));
-        // Single-pass: escape_json_string_simd now handles clean strings efficiently
-        // (finds first escape position; if none, does unsafe copy — no redundant scan).
-        strata::util::escape_json_string_simd(data, static_cast<size_t>(len), out);
+        const size_t ulen = static_cast<size_t>(len);
+
+        // Reserve space for quotes + data (worst case: no escapes)
+        out.reserve(out.size() + ulen + 2);
+
+        // Single-pass: write directly to buffer memory, only advance size_ once at end.
+        // If escapes found, size_ is unchanged so partial writes are harmless.
+        char* dest = out.data() + out.size();
+        char* const dest_start = dest;
+        *dest++ = '"';
+
+        size_t i = 0;
+
+#ifdef STRATA_SERIALIZE_HAS_NEON
+        // Short string fast path: check 16 bytes at once even for strings < 16 chars.
+        // We pad-read up to 16 bytes (safe because compact ASCII strings are null-terminated
+        // and part of a PyObject allocation that's always >= 16 bytes after the data).
+        if (ulen <= 16 && ulen > 0) {
+            uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(data));
+            const uint8x16_t thr = vdupq_n_u8(0x20);
+            const uint8x16_t qv = vdupq_n_u8('"');
+            const uint8x16_t bv = vdupq_n_u8('\\');
+            uint8x16_t esc =
+                vorrq_u8(vcltq_u8(chunk, thr), vorrq_u8(vceqq_u8(chunk, qv), vceqq_u8(chunk, bv)));
+            // Mask out bytes beyond the string length
+            // Create mask: 0xFF for positions < ulen, 0x00 for positions >= ulen
+            static const uint8_t mask_data[32] __attribute__((aligned(16))) = {
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            uint8x16_t mask = vld1q_u8(mask_data + (16 - ulen));
+            esc = vandq_u8(esc, mask);
+            if (LIKELY(vmaxvq_u8(esc) == 0)) {
+                std::memcpy(dest, data, ulen);
+                dest += ulen;
+                *dest++ = '"';
+                out.unsafe_advance(static_cast<size_t>(dest - dest_start));
+                return true;
+            }
+            // Has escapes — fall through to full handler
+            strata::util::escape_json_string_simd(data, ulen, out);
+            return true;
+        }
+
+        {
+            const uint8x16_t thr = vdupq_n_u8(0x20);
+            const uint8x16_t qv = vdupq_n_u8('"');
+            const uint8x16_t bv = vdupq_n_u8('\\');
+
+            for (; i + 16 <= ulen; i += 16) {
+                uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(data + i));
+                uint8x16_t esc = vorrq_u8(vcltq_u8(chunk, thr),
+                                          vorrq_u8(vceqq_u8(chunk, qv), vceqq_u8(chunk, bv)));
+                if (UNLIKELY(vmaxvq_u8(esc) != 0))
+                    goto has_escapes;
+                vst1q_u8(reinterpret_cast<uint8_t*>(dest), chunk);
+                dest += 16;
+            }
+        }
+#endif
+        // Scalar tail
+        for (; i < ulen; ++i) {
+            unsigned char c = static_cast<unsigned char>(data[i]);
+            if (UNLIKELY(c < 0x20 || c == '"' || c == '\\'))
+                goto has_escapes;
+            *dest++ = data[i];
+        }
+
+        *dest++ = '"';
+        out.unsafe_advance(static_cast<size_t>(dest - dest_start));
+        return true;
+
+    has_escapes:
+        // Fall back to full escape handler — size_ is unchanged
+        strata::util::escape_json_string_simd(data, ulen, out);
         return true;
     }
 
@@ -314,7 +397,8 @@ static inline size_t estimate_size(PyObject* obj) {
 template <typename Buffer>
 static inline bool serialize_value(PyObject* val, Buffer& out, int depth);
 
-// Write a dict key (compact ASCII fast path). Returns false on error.
+// Write a dict key using direct pointer writes to avoid size_ dependency chain.
+// Combines comma+quote+key+quote+colon into a single pointer advancement.
 template <typename Buffer>
 static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
     if (LIKELY(PyUnicode_IS_COMPACT_ASCII(key))) {
@@ -322,25 +406,52 @@ static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
         const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
         const size_t need = static_cast<size_t>(klen) + (first ? 3 : 4);
         out.reserve(out.size() + need);
+
+        // Direct pointer writes — avoids 4-5 separate size_ updates
+        char* p = out.data() + out.size();
         if (!first) {
-            out.unsafe_push_back(',');
+            *p++ = ',';
         }
-        // Inline scalar escape check — keys are almost always short clean ASCII,
-        // so a lookup-table loop is faster than SIMD function call overhead.
+
+        // NEON escape check for keys (most keys are < 16 chars, no escapes)
         bool key_clean = true;
-        for (Py_ssize_t ki = 0; ki < klen; ++ki) {
-            unsigned char c = static_cast<unsigned char>(kdata[ki]);
-            if (UNLIKELY(c < 0x20 || c == '"' || c == '\\')) {
-                key_clean = false;
-                break;
+#ifdef STRATA_SERIALIZE_HAS_NEON
+        if (LIKELY(klen <= 16 && klen > 0)) {
+            uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(kdata));
+            const uint8x16_t thr = vdupq_n_u8(0x20);
+            const uint8x16_t qv = vdupq_n_u8('"');
+            const uint8x16_t bv = vdupq_n_u8('\\');
+            uint8x16_t esc =
+                vorrq_u8(vcltq_u8(chunk, thr), vorrq_u8(vceqq_u8(chunk, qv), vceqq_u8(chunk, bv)));
+            static const uint8_t mask_data[32] __attribute__((aligned(16))) = {
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+            uint8x16_t mask = vld1q_u8(mask_data + (16 - klen));
+            esc = vandq_u8(esc, mask);
+            key_clean = (vmaxvq_u8(esc) == 0);
+        } else
+#endif
+        {
+            for (Py_ssize_t ki = 0; ki < klen; ++ki) {
+                unsigned char c = static_cast<unsigned char>(kdata[ki]);
+                if (UNLIKELY(c < 0x20 || c == '"' || c == '\\')) {
+                    key_clean = false;
+                    break;
+                }
             }
         }
+
         if (LIKELY(key_clean)) {
-            out.unsafe_push_back('"');
-            out.unsafe_append(kdata, static_cast<size_t>(klen));
-            out.unsafe_push_back('"');
-            out.unsafe_push_back(':');
+            *p++ = '"';
+            std::memcpy(p, kdata, static_cast<size_t>(klen));
+            p += klen;
+            *p++ = '"';
+            *p++ = ':';
+            out.unsafe_advance(static_cast<size_t>(p - out.data()) - out.size());
         } else {
+            // Advance past comma we already wrote
+            out.unsafe_advance(static_cast<size_t>(p - out.data()) - out.size());
             strata::util::escape_json_string_simd(kdata, static_cast<size_t>(klen), out);
             out.push_back(':');
         }
@@ -421,18 +532,31 @@ static inline bool serialize_dict_t(PyObject* dict, Buffer& out, int depth) {
             pop_seen();
         return true;
     }
-    out.push_back('{');
     Py_ssize_t pos = 0;
     PyObject* key = nullptr;
     PyObject* value = nullptr;
-    bool first = true;
+
+    // First key-value pair: write "{" before key (no comma)
+    PyDict_Next(dict, &pos, &key, &value);
+    out.push_back('{');
+    if (!write_dict_key(key, out, true)) {
+        if constexpr (Tracking)
+            pop_seen();
+        return false;
+    }
+    if (!serialize_item_t<Tracking>(value, out, depth)) {
+        if constexpr (Tracking)
+            pop_seen();
+        return false;
+    }
+
+    // Remaining key-value pairs: always with comma
     while (PyDict_Next(dict, &pos, &key, &value)) {
-        if (!write_dict_key(key, out, first)) {
+        if (!write_dict_key(key, out, false)) {
             if constexpr (Tracking)
                 pop_seen();
             return false;
         }
-        first = false;
         if (!serialize_item_t<Tracking>(value, out, depth)) {
             if constexpr (Tracking)
                 pop_seen();
@@ -442,6 +566,133 @@ static inline bool serialize_dict_t(PyObject* dict, Buffer& out, int depth) {
     out.push_back('}');
     if constexpr (Tracking)
         pop_seen();
+    return true;
+}
+
+// Batch optimization for lists of same-schema dicts.
+// Pre-serializes dict keys once and reuses them for all elements,
+// eliminating per-dict key escape checking and reducing buffer writes.
+// Python 3.7+ guarantees dict insertion order, so if all dicts were
+// created with the same code, key order is identical.
+static constexpr int kMaxBatchKeys = 24;
+
+template <bool Tracking, typename Buffer>
+static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int depth) {
+    const Py_ssize_t sz = PyList_GET_SIZE(list);
+    if (sz < 4)
+        return false; // not enough elements to benefit
+
+    // Check first element
+    PyObject* first = PyList_GET_ITEM(list, 0);
+    if (!PyDict_CheckExact(first))
+        return false;
+    const Py_ssize_t nkeys = PyDict_GET_SIZE(first);
+    if (nkeys == 0 || nkeys > kMaxBatchKeys)
+        return false;
+
+    // Pre-serialize keys from first element: ,"keyname":
+    // Stack-allocated for zero heap overhead.
+    struct PreKey {
+        const char* data; // points into keybuf
+        uint16_t len;
+    };
+    PreKey prekeys[kMaxBatchKeys];
+    char keybuf[kMaxBatchKeys * 80]; // generous space
+    char* kp = keybuf;
+
+    Py_ssize_t pos = 0;
+    PyObject* key = nullptr;
+    PyObject* val = nullptr;
+    int ki = 0;
+
+    while (PyDict_Next(first, &pos, &key, &val)) {
+        if (!PyUnicode_IS_COMPACT_ASCII(key))
+            return false;
+        const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
+        Py_ssize_t klen = PyUnicode_GET_LENGTH(key);
+
+        // Check key is escape-free
+        for (Py_ssize_t i = 0; i < klen; ++i) {
+            unsigned char c = static_cast<unsigned char>(kdata[i]);
+            if (c < 0x20 || c == '"' || c == '\\')
+                return false;
+        }
+
+        // Check buffer space
+        size_t need = static_cast<size_t>(klen) + 4; // ,"key":
+        if (static_cast<size_t>(kp - keybuf) + need > sizeof(keybuf))
+            return false;
+
+        prekeys[ki].data = kp;
+        if (ki > 0)
+            *kp++ = ',';
+        *kp++ = '"';
+        std::memcpy(kp, kdata, static_cast<size_t>(klen));
+        kp += klen;
+        *kp++ = '"';
+        *kp++ = ':';
+        prekeys[ki].len = static_cast<uint16_t>(kp - prekeys[ki].data);
+        ++ki;
+    }
+
+    // Quick verify: spot-check a few elements for same key count
+    // (full key order verification happens implicitly during serialization)
+    for (Py_ssize_t i = 1; i < sz && i < 4; ++i) {
+        PyObject* elem = PyList_GET_ITEM(list, i);
+        if (!PyDict_CheckExact(elem) || PyDict_GET_SIZE(elem) != nkeys)
+            return false;
+    }
+
+    // Serialize using pre-computed keys
+    out.push_back('[');
+
+    for (Py_ssize_t i = 0; i < sz; ++i) {
+        if (i > 0)
+            out.push_back(',');
+        PyObject* dict = PyList_GET_ITEM(list, i);
+
+        // Verify this dict has the expected key count (fast bail for heterogeneous lists)
+        if (UNLIKELY(!PyDict_CheckExact(dict) || PyDict_GET_SIZE(dict) != nkeys)) {
+            // Schema mismatch — can't use batch. But we've already written partial output.
+            // Write this and remaining elements normally.
+            out.push_back('{');
+            Py_ssize_t dpos = 0;
+            PyObject* dk = nullptr;
+            PyObject* dv = nullptr;
+            bool dfirst = true;
+            while (PyDict_Next(dict, &dpos, &dk, &dv)) {
+                if (!write_dict_key(dk, out, dfirst))
+                    return false;
+                dfirst = false;
+                if (!serialize_item_t<Tracking>(dv, out, depth + 1))
+                    return false;
+            }
+            out.push_back('}');
+            for (Py_ssize_t j = i + 1; j < sz; ++j) {
+                out.push_back(',');
+                if (!serialize_item_t<Tracking>(PyList_GET_ITEM(list, j), out, depth))
+                    return false;
+            }
+            out.push_back(']');
+            return true;
+        }
+
+        out.push_back('{');
+        Py_ssize_t dpos = 0;
+        PyObject* dk = nullptr;
+        PyObject* dv = nullptr;
+        int k = 0;
+        while (PyDict_Next(dict, &dpos, &dk, &dv)) {
+            // Write pre-computed key (no escape check, single append)
+            out.append(prekeys[k].data, prekeys[k].len);
+            if (!serialize_item_t<Tracking>(dv, out, depth + 1))
+                return false;
+            ++k;
+        }
+        out.push_back('}');
+    }
+
+    out.push_back(']');
     return true;
 }
 
@@ -458,6 +709,21 @@ static inline bool serialize_list_t(PyObject* list, Buffer& out, int depth) {
         if constexpr (Tracking)
             pop_seen();
         return true;
+    }
+
+    // Try batch optimization for lists of same-schema dicts
+    if (!Tracking && sz >= 4 && PyDict_CheckExact(PyList_GET_ITEM(list, 0))) {
+        if (UNLIKELY(depth >= get_max_serialize_depth())) {
+            PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+            if constexpr (Tracking)
+                pop_seen();
+            return false;
+        }
+        if (try_batch_list_of_dicts<Tracking>(list, out, depth)) {
+            if constexpr (Tracking)
+                pop_seen();
+            return true;
+        }
     }
 
     out.push_back('[');

@@ -15,6 +15,14 @@
 #include <string>
 #include <vector>
 
+// POSIX I/O for fast file read (avoids iostream overhead)
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+// Forward declaration: SAX-based parse to Python dict (defined in python_loads.cpp)
+extern PyObject* parse_json_to_python(std::string_view text, bool validate_utf8);
+
 // From python_module.cpp
 extern bool strata_config_mem_eff();
 
@@ -1020,15 +1028,70 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
             Py_DECREF(line_results);
         }
         result_list = outer_list;
-    } else {
-        // JSON file: mmap + parse
+    } else if (mem_eff) {
+        // JSON file with mem_eff: parse to C++ tree, only convert matched results
         auto result = strata::parse_json_file(filepath);
         if (!result.ok()) {
             PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
             return NULL;
         }
         emit_duplicate_key_warnings();
-        result_list = search_jsonvalue(&result.value.root_value(), compiled_path, mem_eff);
+        result_list = search_jsonvalue(&result.value.root_value(), compiled_path, true);
+    } else {
+        // JSON file without mem_eff: SAX parse directly to Python dict, then query.
+        // This is much faster because it avoids building the C++ JsonValue tree
+        // and reuses the same optimized SAX→Python pipeline as loads().
+        int fd = ::open(filepath, O_RDONLY);
+        if (fd < 0) {
+            PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", filepath);
+            return NULL;
+        }
+        struct stat sb;
+        if (fstat(fd, &sb) < 0) {
+            ::close(fd);
+            PyErr_Format(PyExc_IOError, "Cannot stat file: %s", filepath);
+            return NULL;
+        }
+        size_t file_size = static_cast<size_t>(sb.st_size);
+        if (file_size == 0) {
+            ::close(fd);
+            PyErr_SetString(PyExc_ValueError, "Empty file");
+            return NULL;
+        }
+
+        // Thread-local raw buffer avoids per-call alloc
+        static thread_local char* file_buf = nullptr;
+        static thread_local size_t file_buf_cap = 0;
+        if (file_buf_cap < file_size) {
+            char* new_buf = static_cast<char*>(std::realloc(file_buf, file_size));
+            if (!new_buf) {
+                ::close(fd);
+                return PyErr_NoMemory();
+            }
+            file_buf = new_buf;
+            file_buf_cap = file_size;
+        }
+        ssize_t bytes_read = ::read(fd, file_buf, file_size);
+        ::close(fd);
+        if (bytes_read < 0 || static_cast<size_t>(bytes_read) != file_size) {
+            PyErr_Format(PyExc_IOError, "Failed to read file: %s", filepath);
+            return NULL;
+        }
+
+        PyObject* py_data;
+        {
+            PyGcPause gc_pause;
+            py_data = parse_json_to_python(std::string_view(file_buf, file_size),
+                                           /*validate_utf8=*/false);
+        }
+        if (!py_data) {
+            if (!PyErr_Occurred())
+                PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
+            return NULL;
+        }
+
+        result_list = search_pyobj(py_data, compiled_path);
+        Py_DECREF(py_data);
     }
 
     if (!result_list)
