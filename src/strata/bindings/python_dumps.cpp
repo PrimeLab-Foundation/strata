@@ -9,12 +9,13 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 // Thread-local buffer for zero-allocation serialization
 thread_local strata::util::OutputBuffer g_serialize_buffer;
 
 enum class CyclePolicy { Warn, Error, Ignore };
-static CyclePolicy g_cycle_policy = CyclePolicy::Ignore;
+static CyclePolicy g_cycle_policy = CyclePolicy::Warn;
 
 bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     if (policy == nullptr) {
@@ -157,41 +158,42 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
 static constexpr int kMaxSerializeDepth = 8192;
 
 // Cycle detection: thread-local stack of container object pointers.
-// Only checked when cycle_policy != Ignore.
+// Only used when cycle_policy != Ignore.
 thread_local std::vector<PyObject*> g_seen_stack;
 
-// Check for cycles. Returns true if obj is already in the seen stack.
-static inline bool check_cycle(PyObject* obj) {
+// Check for cycle + push if not found. Returns:
+//   0 = no cycle, pushed to seen stack (caller must pop)
+//   1 = cycle detected, handled (wrote null or set error), caller should return result
+// The return value of handle_cycle is stored in *ok.
+template <typename Buffer>
+static inline bool check_and_push_cycle(PyObject* obj, Buffer& out, bool& handled_ok) {
     for (auto* seen : g_seen_stack) {
-        if (seen == obj)
-            return true;
+        if (seen == obj) {
+            // Cycle detected — handle according to policy
+            switch (g_cycle_policy) {
+            case CyclePolicy::Warn:
+                PyErr_WarnEx(PyExc_RuntimeWarning,
+                             "Circular reference detected during serialization", 1);
+                out.append("null", 4);
+                handled_ok = true;
+                return true;
+            case CyclePolicy::Error:
+                PyErr_SetString(PyExc_ValueError,
+                                "Circular reference detected during serialization");
+                handled_ok = false;
+                return true;
+            case CyclePolicy::Ignore:
+                out.append("null", 4);
+                handled_ok = true;
+                return true;
+            }
+        }
     }
-    return false;
+    g_seen_stack.push_back(obj);
+    return false; // no cycle
 }
 
-// Handle a detected cycle according to policy. Returns:
-//   true  = wrote "null" (warn/ignore), caller should skip this value
-//   false = set error (error policy), caller should propagate failure
-template <typename Buffer> static inline bool handle_cycle(PyObject* obj, Buffer& out) {
-    switch (g_cycle_policy) {
-    case CyclePolicy::Warn:
-        PyErr_WarnEx(PyExc_RuntimeWarning, "Circular reference detected during serialization", 1);
-        out.append("null", 4);
-        return true;
-    case CyclePolicy::Error:
-        PyErr_SetString(PyExc_ValueError, "Circular reference detected during serialization");
-        return false;
-    case CyclePolicy::Ignore:
-        out.append("null", 4);
-        return true;
-    }
-    return false; // unreachable
-}
-
-struct ScopedSeen {
-    ScopedSeen(PyObject* obj) { g_seen_stack.push_back(obj); }
-    ~ScopedSeen() { g_seen_stack.pop_back(); }
-};
+static inline void pop_seen() { g_seen_stack.pop_back(); }
 
 static inline size_t estimate_size(PyObject* obj) {
     if (PyDict_CheckExact(obj)) {
@@ -283,9 +285,15 @@ static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
 
 template <typename Buffer>
 static inline bool serialize_dict(PyObject* dict, Buffer& out, int depth) {
+    {
+        bool ok;
+        if (check_and_push_cycle(dict, out, ok))
+            return ok;
+    }
     Py_ssize_t sz = PyDict_GET_SIZE(dict);
     if (sz == 0) {
         out.append("{}", 2);
+        pop_seen();
         return true;
     }
     out.push_back('{');
@@ -293,39 +301,58 @@ static inline bool serialize_dict(PyObject* dict, Buffer& out, int depth) {
     PyObject* key = nullptr;
     PyObject* value = nullptr;
     bool first = true;
+    bool ok = true;
     while (PyDict_Next(dict, &pos, &key, &value)) {
         if (!write_dict_key(key, out, first)) {
-            return false;
+            ok = false;
+            break;
         }
         first = false;
         // Inline common value types to avoid serialize_value function call overhead.
         PyTypeObject* vt = Py_TYPE(value);
         if (LIKELY(vt == &PyUnicode_Type)) {
-            if (!append_string(value, out))
-                return false;
+            if (!append_string(value, out)) {
+                ok = false;
+                break;
+            }
         } else if (LIKELY(vt == &PyLong_Type)) {
-            if (!append_py_long(out, value))
-                return false;
+            if (!append_py_long(out, value)) {
+                ok = false;
+                break;
+            }
         } else if (vt == &PyFloat_Type) {
-            if (!append_double(out, PyFloat_AS_DOUBLE(value)))
-                return false;
+            if (!append_double(out, PyFloat_AS_DOUBLE(value))) {
+                ok = false;
+                break;
+            }
         } else {
-            if (!serialize_value(value, out, depth))
-                return false;
+            if (!serialize_value(value, out, depth)) {
+                ok = false;
+                break;
+            }
         }
     }
-    out.push_back('}');
-    return true;
+    if (ok)
+        out.push_back('}');
+    pop_seen();
+    return ok;
 }
 
 template <typename Buffer>
 static inline bool serialize_list(PyObject* list, Buffer& out, int depth) {
+    {
+        bool ok;
+        if (check_and_push_cycle(list, out, ok))
+            return ok;
+    }
     Py_ssize_t sz = PyList_GET_SIZE(list);
     if (sz == 0) {
         out.append("[]", 2);
+        pop_seen();
         return true;
     }
     out.push_back('[');
+    bool ok = true;
     for (Py_ssize_t i = 0; i < sz; ++i) {
         if (i > 0) {
             out.push_back(',');
@@ -333,48 +360,71 @@ static inline bool serialize_list(PyObject* list, Buffer& out, int depth) {
         PyObject* item = PyList_GET_ITEM(list, i);
         PyTypeObject* vt = Py_TYPE(item);
         if (LIKELY(vt == &PyUnicode_Type)) {
-            if (!append_string(item, out))
-                return false;
+            if (!append_string(item, out)) {
+                ok = false;
+                break;
+            }
         } else if (LIKELY(vt == &PyLong_Type)) {
-            if (!append_py_long(out, item))
-                return false;
+            if (!append_py_long(out, item)) {
+                ok = false;
+                break;
+            }
         } else if (vt == &PyFloat_Type) {
-            if (!append_double(out, PyFloat_AS_DOUBLE(item)))
-                return false;
+            if (!append_double(out, PyFloat_AS_DOUBLE(item))) {
+                ok = false;
+                break;
+            }
         } else if (vt == &PyDict_Type) {
             if (UNLIKELY(depth >= kMaxSerializeDepth)) {
                 PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
-                return false;
+                ok = false;
+                break;
             }
-            if (!serialize_dict(item, out, depth + 1))
-                return false;
+            if (!serialize_dict(item, out, depth + 1)) {
+                ok = false;
+                break;
+            }
         } else {
-            if (!serialize_value(item, out, depth))
-                return false;
+            if (!serialize_value(item, out, depth)) {
+                ok = false;
+                break;
+            }
         }
     }
-    out.push_back(']');
-    return true;
+    if (ok)
+        out.push_back(']');
+    pop_seen();
+    return ok;
 }
 
 template <typename Buffer>
 static inline bool serialize_tuple(PyObject* tup, Buffer& out, int depth) {
+    {
+        bool ok;
+        if (check_and_push_cycle(tup, out, ok))
+            return ok;
+    }
     Py_ssize_t sz = PyTuple_GET_SIZE(tup);
     if (sz == 0) {
         out.append("[]", 2);
+        pop_seen();
         return true;
     }
     out.push_back('[');
+    bool ok = true;
     for (Py_ssize_t i = 0; i < sz; ++i) {
         if (i > 0) {
             out.push_back(',');
         }
         if (!serialize_value(PyTuple_GET_ITEM(tup, i), out, depth)) {
-            return false;
+            ok = false;
+            break;
         }
     }
-    out.push_back(']');
-    return true;
+    if (ok)
+        out.push_back(']');
+    pop_seen();
+    return ok;
 }
 
 template <typename Buffer>
@@ -430,6 +480,7 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
     PyGcPause gc_pause;
+    g_seen_stack.clear();
     g_serialize_buffer.clear();
     g_serialize_buffer.reserve(estimate_size(obj));
 
@@ -450,6 +501,7 @@ PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
     PyGcPause gc_pause;
+    g_seen_stack.clear();
     g_serialize_buffer.clear();
     g_serialize_buffer.reserve(estimate_size(obj));
 
