@@ -12,15 +12,16 @@ Strata uses the **CPython C API** (not pybind11) for Python bindings. All bindin
 
 ## Source files
 
-| File                  | Responsibility                                                     |
-| --------------------- | ------------------------------------------------------------------ |
-| `python_module.cpp`   | Module init, method table                                          |
-| `python_loads.cpp`    | `loads()`, `json_value_to_python()`, `json_value_list_to_python()` |
-| `python_dumps.cpp`    | `dumps()`, `dumps_bytes()`                                         |
-| `python_document.cpp` | `JsonDocument`, `JsonCursor` types                                 |
-| `python_ndjson.cpp`   | `NdjsonStream` type                                                |
-| `python_jsonpath.cpp` | `CompiledPath` type, `compile_path()`, `search()`                  |
-| `python_mmap.cpp`     | `parse_json_file()`                                                |
+| File                  | Responsibility                                                               |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `python_module.cpp`   | Module init, method table                                                    |
+| `python_loads.cpp`    | `loads()`, `json_value_to_python()`, `json_value_list_to_python()`           |
+| `python_dumps.cpp`    | `dumps()` (str and bytes via `return_type` kwarg)                            |
+| `python_document.cpp` | `JsonDocument`, `JsonCursor` types                                           |
+| `python_ndjson.cpp`   | `NdjsonStream` type                                                          |
+| `python_jsonpath.cpp` | `CompiledPath` type, `compile_path()`, `search()`, `query()`                 |
+| `python_iterator.cpp` | `StrataListIterator`, `StrataDictIterator`, `StrataNdjsonFileIterator` types |
+| `python_mmap.cpp`     | File-based mmap parsing (used internally by `load(return_type='cursor')`)    |
 
 ## Conventions
 

@@ -5,7 +5,7 @@ Strata uses **libFuzzer** with **AddressSanitizer (ASan)** and **UndefinedBehavi
 ## Overview
 
 - **fuzz_loads**: Fuzzes `strata::parse_json` (loads) with arbitrary byte inputs.
-- **fuzz_ndjson**: Fuzzes `strata::NdjsonStream` (iter_ndjson) with arbitrary byte inputs.
+- **fuzz_ndjson**: Fuzzes `strata::NdjsonStream` with arbitrary byte inputs.
 
 Builds use `-fsanitize=fuzzer,address,undefined`. Crashes and timeouts are written to artifact files for reproduction.
 
