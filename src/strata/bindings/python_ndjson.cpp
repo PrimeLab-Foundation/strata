@@ -114,7 +114,8 @@ static PyObject* PyNdjsonStream_next_line(PyNdjsonStream* self, PyObject* Py_UNU
     STRATA_CPP_CATCH
 }
 
-// parse_all() uses the SAX path for each line: eliminates the C++ DOM entirely.
+// parse_all() reuses a single PythonObjectBuilder (and its KeyCache) across all lines
+// to avoid per-line allocations and Python key re-creation.
 static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) {
     int skip_errors = 1; // Default: skip errors
 
@@ -124,47 +125,13 @@ static PyObject* PyNdjsonStream_parse_all(PyNdjsonStream* self, PyObject* args) 
 
     STRATA_CPP_TRY
 
-    PyObject* result_list = PyList_New(0);
-    if (!result_list)
-        return NULL;
-
-    // Suspend GC during bulk object creation to avoid collection pauses mid-parse
-    PyGcPause gc_pause;
-
-    while (self->stream->has_next()) {
-        std::string_view line = self->stream->read_raw_line();
-        if (line.empty()) {
-            break; // end of stream
-        }
-
-        PyObject* item = parse_json_to_python(line, /*validate_utf8=*/false);
-        if (!item) {
-            // Always clear any Python error from the parse attempt
-            if (PyErr_Occurred())
-                PyErr_Clear();
-            self->stream->record_error(); // keep error_count() consistent
-            if (skip_errors) {
-                continue; // skip bad line and keep going
-            }
-            // skip_errors=False: stop at first error and return what we have so far
-            // (matches original behaviour: no exception, partial results)
-            break;
-        }
-
-        if (PyList_Append(result_list, item) < 0) {
-            Py_DECREF(item);
-            Py_DECREF(result_list);
-            return NULL;
-        }
-        Py_DECREF(item);
-    }
-
-    return result_list;
+    return parse_ndjson_all_to_python(*self->stream, skip_errors);
 
     STRATA_CPP_CATCH
 }
 
-// next_batch() uses the SAX path for each line.
+// next_batch() reuses a single PythonObjectBuilder (and its KeyCache) across all lines
+// in the batch to avoid per-line allocations and Python key re-creation.
 static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args) {
     Py_ssize_t batch_size = 100;
     int skip_errors = 1;
@@ -175,40 +142,7 @@ static PyObject* PyNdjsonStream_next_batch(PyNdjsonStream* self, PyObject* args)
 
     STRATA_CPP_TRY
 
-    PyObject* result_list = PyList_New(0);
-    if (!result_list)
-        return NULL;
-
-    PyGcPause gc_pause;
-
-    Py_ssize_t count = 0;
-    while (count < batch_size && self->stream->has_next()) {
-        std::string_view line = self->stream->read_raw_line();
-        if (line.empty()) {
-            break;
-        }
-
-        PyObject* item = parse_json_to_python(line, /*validate_utf8=*/false);
-        if (!item) {
-            if (PyErr_Occurred())
-                PyErr_Clear();
-            self->stream->record_error(); // keep error_count() consistent
-            if (skip_errors) {
-                continue;
-            }
-            break; // stop at first error, return partial results
-        }
-
-        if (PyList_Append(result_list, item) < 0) {
-            Py_DECREF(item);
-            Py_DECREF(result_list);
-            return NULL;
-        }
-        Py_DECREF(item);
-        count++;
-    }
-
-    return result_list;
+    return parse_ndjson_batch_to_python(*self->stream, batch_size, skip_errors);
 
     STRATA_CPP_CATCH
 }

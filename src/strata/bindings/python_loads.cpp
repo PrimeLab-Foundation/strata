@@ -2,6 +2,7 @@
 #include "python_types.h"
 #include "strata/json/json_parse.hpp"
 #include "strata/json/json_sax_handler.hpp"
+#include "strata/json/ndjson_stream.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -358,6 +359,80 @@ PyObject* parse_json_to_python_reuse(std::string_view text, bool validate_utf8,
         return nullptr;
     }
     return builder.take_root();
+}
+
+// NDJSON batch functions: reuse a single PythonObjectBuilder (and its KeyCache) across all
+// lines in the batch, avoiding per-line vector/map construction and Python key re-creation.
+
+PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_errors) {
+    PyObject* result_list = PyList_New(0);
+    if (!result_list)
+        return NULL;
+
+    PyGcPause gc_pause;
+    PythonObjectBuilder builder;
+
+    while (stream.has_next()) {
+        std::string_view line = stream.read_raw_line();
+        if (line.empty())
+            break;
+
+        PyObject* item = parse_json_to_python_reuse(line, /*validate_utf8=*/false, builder);
+        if (!item) {
+            if (PyErr_Occurred())
+                PyErr_Clear();
+            stream.record_error();
+            if (skip_errors)
+                continue;
+            break;
+        }
+
+        if (PyList_Append(result_list, item) < 0) {
+            Py_DECREF(item);
+            Py_DECREF(result_list);
+            return NULL;
+        }
+        Py_DECREF(item);
+    }
+
+    return result_list;
+}
+
+PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t batch_size,
+                                       int skip_errors) {
+    PyObject* result_list = PyList_New(0);
+    if (!result_list)
+        return NULL;
+
+    PyGcPause gc_pause;
+    PythonObjectBuilder builder;
+
+    Py_ssize_t count = 0;
+    while (count < batch_size && stream.has_next()) {
+        std::string_view line = stream.read_raw_line();
+        if (line.empty())
+            break;
+
+        PyObject* item = parse_json_to_python_reuse(line, /*validate_utf8=*/false, builder);
+        if (!item) {
+            if (PyErr_Occurred())
+                PyErr_Clear();
+            stream.record_error();
+            if (skip_errors)
+                continue;
+            break;
+        }
+
+        if (PyList_Append(result_list, item) < 0) {
+            Py_DECREF(item);
+            Py_DECREF(result_list);
+            return NULL;
+        }
+        Py_DECREF(item);
+        count++;
+    }
+
+    return result_list;
 }
 
 // Python loads() function

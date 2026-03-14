@@ -249,28 +249,35 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
     };
 
     // Write a single value to out. Primitives are written inline; containers push a frame.
-    // Type-check order matches data frequency: str > int > float >> None/bool/container.
+    // Type-check order: str > int > dict > list > float >> None/bool/other.
+    // Dict and list are placed before float/None/bool since they appear as values frequently.
     auto write_value = [&](PyObject* val) -> bool {
-        if (LIKELY(PyUnicode_CheckExact(val))) {
+        PyTypeObject* vt = Py_TYPE(val);
+        if (LIKELY(vt == &PyUnicode_Type)) {
             return append_string(val, out);
         }
-        PyTypeObject* vt = Py_TYPE(val);
         if (LIKELY(vt == &PyLong_Type)) {
             return append_py_long(out, val);
         }
-        if (LIKELY(vt == &PyFloat_Type)) {
+        if (vt == &PyDict_Type) {
+            return push_container(val);
+        }
+        if (vt == &PyList_Type) {
+            return push_container(val);
+        }
+        if (vt == &PyFloat_Type) {
             append_double(out, PyFloat_AS_DOUBLE(val));
             return true;
         }
-        if (val == Py_None) {
+        if (UNLIKELY(val == Py_None)) {
             out.append("null", 4);
             return true;
         }
-        if (vt == &PyBool_Type) {
+        if (UNLIKELY(vt == &PyBool_Type)) {
             out.append(val == Py_True ? "true" : "false", val == Py_True ? 4 : 5);
             return true;
         }
-        return push_container(val); // dict/list/tuple/str-subclass/unsupported
+        return push_container(val); // tuple/str-subclass/unsupported
     };
 
     // Serialize root (which may itself be a primitive).

@@ -7,6 +7,10 @@
 
 #include <Python.h>
 
+namespace strata {
+class NdjsonStream;
+}
+
 /** Convert JsonValue to PyObject (defined in python_loads.cpp; used by document, jsonpath, ndjson).
  */
 PyObject* json_value_to_python(const strata::JsonValue& val);
@@ -18,6 +22,19 @@ PyObject* json_value_to_python(const strata::JsonValue& val);
  *  when PyUnicode creation will validate string content anyway.
  */
 PyObject* parse_json_to_python(std::string_view text, bool validate_utf8 = true);
+
+/** Parse all remaining lines of an NdjsonStream into a Python list, reusing a single
+ *  PythonObjectBuilder (and its KeyCache) across lines for reduced allocations.
+ *  GC is suspended for the duration. Defined in python_loads.cpp.
+ */
+PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_errors);
+
+/** Parse up to batch_size lines from an NdjsonStream into a Python list, reusing a
+ *  single PythonObjectBuilder (and its KeyCache) across lines. GC is suspended.
+ *  Defined in python_loads.cpp.
+ */
+PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t batch_size,
+                                       int skip_errors);
 #endif
 
 /** Convert vector of JsonValue to Python list. Inline so callers (jsonpath, ndjson, loads) get
