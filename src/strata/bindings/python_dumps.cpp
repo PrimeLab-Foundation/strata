@@ -670,6 +670,26 @@ PyObject* strata_dumps_internal(PyObject* obj) {
     return PyUnicode_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
 }
 
+// Internal: serialize to raw buffer, return (data, size) pair — avoids PyUnicode allocation
+bool strata_serialize_to_buffer(PyObject* obj, const char** out_data, size_t* out_size) {
+    PyGcPause gc_pause;
+    g_max_depth = Py_GetRecursionLimit();
+    g_seen_stack.clear();
+    g_serialize_buffer.clear();
+    g_serialize_buffer.reserve(estimate_size(obj));
+
+    if (!serialize_value(obj, g_serialize_buffer, 0)) {
+        return false;
+    }
+    if (PyErr_Occurred()) {
+        return false;
+    }
+
+    *out_data = g_serialize_buffer.data();
+    *out_size = g_serialize_buffer.size();
+    return true;
+}
+
 PyObject* strata_set_cycle_policy(PyObject* self, PyObject* args) {
     const char* policy = nullptr;
     if (!PyArg_ParseTuple(args, "s", &policy)) {

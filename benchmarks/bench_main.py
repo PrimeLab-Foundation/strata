@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import statistics
 import subprocess
 import sys
 import sysconfig
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -120,6 +122,96 @@ def _get_parse_json_runners(strict_missing: bool) -> list[tuple[str, Callable[[b
     # Stdlib always available
     runners.append(("json (stdlib)", lambda d: json.loads(d)))
 
+    return runners
+
+
+def _get_load_json_runners(strict_missing: bool) -> list[tuple[str, Callable[[str], Any]]]:
+    """Return [(library_name, load_func)] for file-based JSON loading. load_func(filepath) -> parsed."""
+    runners: list[tuple[str, Callable[[str], Any]]] = []
+
+    try:
+        import strata
+
+        runners.append(("strata", lambda p: strata.load(p)))
+    except ImportError:
+        if strict_missing:
+            print("Warning: strata not installed, skipping load benchmarks")
+
+    try:
+        import orjson
+
+        runners.append(("orjson", lambda p: orjson.loads(Path(p).read_bytes())))
+    except ImportError:
+        pass
+
+    try:
+        import ujson
+
+        runners.append(("ujson", lambda p: ujson.loads(Path(p).read_text(encoding="utf-8"))))
+    except ImportError:
+        pass
+
+    try:
+        import msgspec
+
+        runners.append(("msgspec", lambda p: msgspec.json.decode(Path(p).read_bytes())))
+    except ImportError:
+        pass
+
+    runners.append(("json (stdlib)", lambda p: json.load(open(p, encoding="utf-8"))))
+    return runners
+
+
+def _get_dump_json_runners(
+    strict_missing: bool,
+) -> list[tuple[str, Callable[[Any, str], None]]]:
+    """Return [(library_name, dump_func)] for file-based JSON dumping. dump_func(data, filepath)."""
+    runners: list[tuple[str, Callable[[Any, str], None]]] = []
+
+    try:
+        import strata
+
+        runners.append(("strata", lambda d, p: strata.dump(d, p)))
+    except ImportError:
+        if strict_missing:
+            print("Warning: strata not installed, skipping dump benchmarks")
+
+    try:
+        import orjson
+
+        def orjson_dump(d, p):
+            Path(p).write_bytes(orjson.dumps(d))
+
+        runners.append(("orjson", orjson_dump))
+    except ImportError:
+        pass
+
+    try:
+        import ujson
+
+        def ujson_dump(d, p):
+            with open(p, "w", encoding="utf-8") as f:
+                ujson.dump(d, f)
+
+        runners.append(("ujson", ujson_dump))
+    except ImportError:
+        pass
+
+    try:
+        import msgspec
+
+        def msgspec_dump(d, p):
+            Path(p).write_bytes(msgspec.json.encode(d))
+
+        runners.append(("msgspec", msgspec_dump))
+    except ImportError:
+        pass
+
+    def stdlib_dump(d, p):
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+
+    runners.append(("json (stdlib)", stdlib_dump))
     return runners
 
 
@@ -445,6 +537,246 @@ class BenchmarkRunner:
                 except Exception as e:
                     print(f"    jsonpath-ng: ERROR: {e}")
 
+    def bench_load_json(self, dataset_path: str) -> None:
+        """Benchmark file-based JSON loading (strata.load vs open+parse)."""
+        path = Path(dataset_path)
+        size = path.stat().st_size
+        dataset_name = path.name
+        print(f"\n=== Load (file): {dataset_name} ({size} bytes) ===")
+
+        runners = _get_load_json_runners(self.strict_missing)
+        for library_name, load_func in runners:
+            try:
+                tr = run_single_benchmark(
+                    lambda lf=load_func: lf(str(path)),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="load",
+                        dataset=dataset_name,
+                        times_ms=tr.times_ms,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(
+                    f"  {library_name:<15} {tr.min_ms:.3f}ms (min), {tr.median_ms:.3f}ms (median)"
+                )
+            except Exception as e:
+                print(f"  {library_name:<15} ERROR: {e}")
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="load",
+                        dataset=dataset_name,
+                        error=str(e),
+                    )
+                )
+
+    def bench_dump_json(self, dataset_path: str) -> None:
+        """Benchmark file-based JSON dumping (strata.dump vs open+serialize)."""
+        path = Path(dataset_path)
+        dataset_name = path.name
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        print(f"\n=== Dump (file): {dataset_name} ===")
+
+        runners = _get_dump_json_runners(self.strict_missing)
+        for library_name, dump_func in runners:
+            try:
+                tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+                tmp_path = tmp.name
+                tmp.close()
+
+                tr = run_single_benchmark(
+                    lambda df=dump_func, tp=tmp_path: df(data, tp),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="dump",
+                        dataset=dataset_name,
+                        times_ms=tr.times_ms,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(
+                    f"  {library_name:<15} {tr.min_ms:.3f}ms (min), {tr.median_ms:.3f}ms (median)"
+                )
+                os.unlink(tmp_path)
+            except Exception as e:
+                print(f"  {library_name:<15} ERROR: {e}")
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="dump",
+                        dataset=dataset_name,
+                        error=str(e),
+                    )
+                )
+
+    def bench_search_json(self, dataset_path: str) -> None:
+        """Benchmark file-based search: strata.search vs end-to-end (open+parse+query) with competitors."""
+        path = Path(dataset_path)
+        dataset_name = path.name
+        filepath = str(path)
+        data_bytes = path.read_bytes()
+
+        # Queries: (strata_expr, jmespath_expr_or_None, jsonpath_ng_expr_or_None, description)
+        queries = [
+            ("$.users[*].id", "users[*].id", "$.users[*].id", "all user ids"),
+            (
+                "$.users[*].orders[*].items[*].price",
+                "users[*].orders[*].items[*].price",
+                "$.users[*].orders[*].items[*].price",
+                "all item prices",
+            ),
+            ("$..price", None, "$..price", "recursive price"),
+        ]
+
+        print(f"\n=== Search (file): {dataset_name} ===")
+
+        for strata_expr, jmes_expr, jp_expr, desc in queries:
+            compiled_path = strata.compile_path(strata_expr)
+
+            print(f"\n  Search: {desc}")
+
+            # strata search (mem_eff=False)
+            try:
+                tr = run_single_benchmark(
+                    lambda cp=compiled_path: strata.search(filepath, cp),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                result = strata.search(filepath, compiled_path)
+                n = len(result) if isinstance(result, list) else 1
+                self.results.append(
+                    BenchResult(
+                        library="strata",
+                        operation="search",
+                        dataset=dataset_name,
+                        query=desc,
+                        times_ms=tr.times_ms,
+                        result_count=n,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(f"    strata (search):          {tr.min_ms:.3f}ms → {n} results")
+            except Exception as e:
+                print(f"    strata (search):          ERROR: {e}")
+
+            # strata search (mem_eff=True)
+            try:
+                tr = run_single_benchmark(
+                    lambda cp=compiled_path: strata.search(filepath, cp, mem_eff=True),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                result = strata.search(filepath, compiled_path, mem_eff=True)
+                n = len(result) if isinstance(result, list) else 1
+                self.results.append(
+                    BenchResult(
+                        library="strata (mem_eff)",
+                        operation="search",
+                        dataset=dataset_name,
+                        query=desc,
+                        times_ms=tr.times_ms,
+                        result_count=n,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(f"    strata (search mem_eff):  {tr.min_ms:.3f}ms → {n} results")
+            except Exception as e:
+                print(f"    strata (search mem_eff):  ERROR: {e}")
+
+            # Competitor: orjson (open+parse) + jmespath (end-to-end)
+            if jmes_expr:
+                try:
+                    import jmespath as _jmespath
+
+                    try:
+                        import orjson as _orjson
+
+                        jmes_compiled = _jmespath.compile(jmes_expr)
+
+                        def run_orjson_jmes(db=data_bytes, jc=jmes_compiled):
+                            parsed = _orjson.loads(db)
+                            return jc.search(parsed)
+
+                        tr = run_single_benchmark(
+                            run_orjson_jmes,
+                            warmup=self.warmup,
+                            repeat=self.repeat,
+                            capture_rss=True,
+                        )
+                        res = run_orjson_jmes()
+                        n = len(res) if isinstance(res, (list, tuple)) else 1
+                        self.results.append(
+                            BenchResult(
+                                library="orjson+jmespath",
+                                operation="search",
+                                dataset=dataset_name,
+                                query=desc,
+                                times_ms=tr.times_ms,
+                                result_count=n,
+                                rss_mb=tr.rss_mb,
+                            )
+                        )
+                        print(f"    orjson+jmespath:          {tr.min_ms:.3f}ms → {n} results")
+                    except ImportError:
+                        pass
+                except ImportError:
+                    pass
+
+            # Competitor: orjson (open+parse) + jsonpath-ng (end-to-end)
+            if jp_expr:
+                try:
+                    from jsonpath_ng import parse as jp_parse
+
+                    try:
+                        import orjson as _orjson
+
+                        jp_compiled = jp_parse(jp_expr)
+
+                        def run_orjson_jpng(db=data_bytes, jc=jp_compiled):
+                            parsed = _orjson.loads(db)
+                            return [m.value for m in jc.find(parsed)]
+
+                        tr = run_single_benchmark(
+                            run_orjson_jpng,
+                            warmup=self.warmup,
+                            repeat=self.repeat,
+                            capture_rss=True,
+                        )
+                        res = run_orjson_jpng()
+                        n = len(res) if isinstance(res, list) else 1
+                        self.results.append(
+                            BenchResult(
+                                library="orjson+jsonpath-ng",
+                                operation="search",
+                                dataset=dataset_name,
+                                query=desc,
+                                times_ms=tr.times_ms,
+                                result_count=n,
+                                rss_mb=tr.rss_mb,
+                            )
+                        )
+                        print(f"    orjson+jsonpath-ng:       {tr.min_ms:.3f}ms → {n} results")
+                    except ImportError:
+                        pass
+                except ImportError:
+                    pass
+                except Exception as e:
+                    print(f"    orjson+jsonpath-ng:       ERROR: {e}")
+
     def bench_dumps_json(self, dataset_path: str) -> None:
         """Benchmark JSON serialization (dumps)."""
         path = Path(dataset_path)
@@ -462,7 +794,7 @@ class BenchmarkRunner:
             )
 
     def run_all(self) -> None:
-        """Run all benchmarks for configured datasets."""
+        """Run all 7 benchmark sections for configured datasets."""
         for dataset in self.datasets:
             path = Path(dataset)
             if not path.exists():
@@ -471,9 +803,18 @@ class BenchmarkRunner:
             if path.suffix == ".ndjson":
                 self.bench_parse_ndjson(str(path))
             else:
+                # 1. loads (parse in-memory)
                 self.bench_parse_json(str(path))
+                # 2. load (file-based)
+                self.bench_load_json(str(path))
+                # 3. dumps (serialize in-memory)
                 self.bench_dumps_json(str(path))
+                # 4. dump (file-based)
+                self.bench_dump_json(str(path))
             if path.stem == "users" and path.suffix == ".json":
+                # 5 & 6. search (file-based, with/without mem_eff)
+                self.bench_search_json(str(path))
+                # 7. query (in-memory dict)
                 self.bench_query_json(str(path))
 
     def print_summary(self) -> None:
@@ -482,15 +823,18 @@ class BenchmarkRunner:
         print("BENCHMARK SUMMARY")
         print("=" * 80)
 
-        parse_results = [r for r in self.results if r.operation == "parse"]
-        if parse_results:
-            print("\nPARSING BENCHMARKS:")
+        # Helper for table sections
+        def _print_table(title: str, op: str) -> None:
+            op_results = [r for r in self.results if r.operation == op]
+            if not op_results:
+                return
+            print(f"\n{title}:")
             print(
                 f"{'Library':<20} {'Dataset':<15} {'Min (ms)':<12} {'Median (ms)':<12} {'P95 (ms)':<12}"
             )
             print("-" * 80)
-            parse_results.sort(key=lambda r: (r.dataset, r.median_ms))
-            for r in parse_results:
+            op_results.sort(key=lambda r: (r.dataset, r.median_ms))
+            for r in op_results:
                 if r.error:
                     print(f"{r.library:<20} {r.dataset:<15} ERROR: {r.error}")
                 else:
@@ -498,22 +842,59 @@ class BenchmarkRunner:
                         f"{r.library:<20} {r.dataset:<15} {r.min_ms:>10.3f}  {r.median_ms:>10.3f}  {r.p95_ms:>10.3f}"
                     )
 
-        dumps_results = [r for r in self.results if r.operation == "dumps"]
-        if dumps_results:
-            print("\nSERIALIZATION BENCHMARKS:")
-            print(
-                f"{'Library':<20} {'Dataset':<15} {'Min (ms)':<12} {'Median (ms)':<12} {'P95 (ms)':<12}"
-            )
-            print("-" * 80)
-            dumps_results.sort(key=lambda r: (r.dataset, r.min_ms))
-            for r in dumps_results:
-                if r.error:
-                    print(f"{r.library:<20} {r.dataset:<15} ERROR: {r.error}")
-                else:
-                    print(
-                        f"{r.library:<20} {r.dataset:<15} {r.min_ms:>10.3f}  {r.median_ms:>10.3f}  {r.p95_ms:>10.3f}"
-                    )
+        # 1. loads (in-memory parsing)
+        _print_table("LOADS (in-memory parsing)", "parse")
+        # 2. load (file-based)
+        _print_table("LOAD (file-based)", "load")
+        # 3. dumps (in-memory serialization)
+        _print_table("DUMPS (in-memory serialization)", "dumps")
+        # 4. dump (file-based)
+        _print_table("DUMP (file-based)", "dump")
 
+        # 5 & 6. search (file-based, mem_eff=True and mem_eff=False)
+        search_results = [r for r in self.results if r.operation == "search"]
+        if search_results:
+            # Split into mem_eff and non-mem_eff
+            search_std = [r for r in search_results if "mem_eff" not in r.library]
+            search_mem = [r for r in search_results if "mem_eff" in r.library]
+
+            if search_mem:
+                print("\nSEARCH (mem_eff=True):")
+                print(f"{'Library':<25} {'Query':<30} {'Min (ms)':<12} {'Results':<10}")
+                print("-" * 80)
+                by_query: dict[str, list[BenchResult]] = {}
+                for r in search_mem:
+                    by_query.setdefault(r.query, []).append(r)
+                for query, results in by_query.items():
+                    results.sort(key=lambda r: r.min_ms)
+                    print(f"\n  {query}")
+                    for r in results:
+                        if r.error:
+                            print(f"    {r.library:<23} ERROR: {r.error}")
+                        else:
+                            print(
+                                f"    {r.library:<23} {r.min_ms:>10.3f}ms    {r.result_count:>6} results"
+                            )
+
+            if search_std:
+                print("\nSEARCH (mem_eff=False):")
+                print(f"{'Library':<25} {'Query':<30} {'Min (ms)':<12} {'Results':<10}")
+                print("-" * 80)
+                by_query = {}
+                for r in search_std:
+                    by_query.setdefault(r.query, []).append(r)
+                for query, results in by_query.items():
+                    results.sort(key=lambda r: r.min_ms)
+                    print(f"\n  {query}")
+                    for r in results:
+                        if r.error:
+                            print(f"    {r.library:<23} ERROR: {r.error}")
+                        else:
+                            print(
+                                f"    {r.library:<23} {r.min_ms:>10.3f}ms    {r.result_count:>6} results"
+                            )
+
+        # 7. query (in-memory dict)
         query_results = [r for r in self.results if r.operation == "query"]
         if query_results:
             print("\nQUERY BENCHMARKS:")
@@ -561,18 +942,23 @@ class BenchmarkRunner:
                 "",
             ]
         )
-        parse_results = [r for r in self.results if r.operation == "parse"]
-        if parse_results:
+
+        # Helper for table sections in Markdown
+        def _md_table(title: str, op: str) -> None:
+            op_results = [r for r in self.results if r.operation == op]
+            if not op_results:
+                return
             lines.extend(
                 [
-                    "## Parsing Benchmarks",
+                    "",
+                    f"## {title}",
                     "",
                     "| Library | Dataset | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |",
                     "|---------|---------|----------|-------------|----------|---------|",
                 ]
             )
-            parse_results.sort(key=lambda r: (r.dataset, r.median_ms))
-            for r in parse_results:
+            op_results.sort(key=lambda r: (r.dataset, r.median_ms))
+            for r in op_results:
                 if r.error:
                     lines.append(f"| {r.library} | {r.dataset} | ERROR | - | - | - |")
                 else:
@@ -580,26 +966,71 @@ class BenchmarkRunner:
                         f"| {r.library} | {r.dataset} | {r.min_ms:.3f} | {r.median_ms:.3f} | {r.p95_ms:.3f} | {r.rss_mb:.1f} |"
                     )
 
-        dumps_results = [r for r in self.results if r.operation == "dumps"]
-        if dumps_results:
-            lines.extend(
-                [
-                    "",
-                    "## Serialization Benchmarks",
-                    "",
-                    "| Library | Dataset | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |",
-                    "|---------|---------|----------|-------------|----------|---------|",
-                ]
-            )
-            dumps_results.sort(key=lambda r: (r.dataset, r.min_ms))
-            for r in dumps_results:
-                if r.error:
-                    lines.append(f"| {r.library} | {r.dataset} | ERROR | - | - | - |")
-                else:
-                    lines.append(
-                        f"| {r.library} | {r.dataset} | {r.min_ms:.3f} | {r.median_ms:.3f} | {r.p95_ms:.3f} | {r.rss_mb:.1f} |"
-                    )
+        # 1. loads
+        _md_table("loads (in-memory parsing)", "parse")
+        # 2. load
+        _md_table("load (file-based)", "load")
+        # 3. dumps
+        _md_table("dumps (in-memory serialization)", "dumps")
+        # 4. dump
+        _md_table("dump (file-based)", "dump")
 
+        # 5. search (mem_eff=True)
+        search_results = [r for r in self.results if r.operation == "search"]
+        if search_results:
+            search_mem = [r for r in search_results if "mem_eff" in r.library]
+            search_std = [r for r in search_results if "mem_eff" not in r.library]
+
+            if search_mem:
+                lines.extend(
+                    [
+                        "",
+                        "## search (mem_eff=True)",
+                        "",
+                        "| Query | Library | Min (ms) | Results | RSS (MB) |",
+                        "|-------|---------|----------|----------|---------|",
+                    ]
+                )
+                by_query: dict[str, list[BenchResult]] = {}
+                for r in search_mem:
+                    by_query.setdefault(r.query, []).append(r)
+                for query, results in by_query.items():
+                    results.sort(key=lambda r: r.min_ms)
+                    for i, r in enumerate(results):
+                        qcol = query if i == 0 else ""
+                        if r.error:
+                            lines.append(f"| {qcol} | {r.library} | ERROR | - | - |")
+                        else:
+                            lines.append(
+                                f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} | {r.rss_mb:.1f} |"
+                            )
+
+            # 6. search (mem_eff=False)
+            if search_std:
+                lines.extend(
+                    [
+                        "",
+                        "## search (mem_eff=False)",
+                        "",
+                        "| Query | Library | Min (ms) | Results | RSS (MB) |",
+                        "|-------|---------|----------|----------|---------|",
+                    ]
+                )
+                by_query = {}
+                for r in search_std:
+                    by_query.setdefault(r.query, []).append(r)
+                for query, results in by_query.items():
+                    results.sort(key=lambda r: r.min_ms)
+                    for i, r in enumerate(results):
+                        qcol = query if i == 0 else ""
+                        if r.error:
+                            lines.append(f"| {qcol} | {r.library} | ERROR | - | - |")
+                        else:
+                            lines.append(
+                                f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} | {r.rss_mb:.1f} |"
+                            )
+
+        # 7. query
         query_results = [r for r in self.results if r.operation == "query"]
         if query_results:
             lines.extend(
@@ -633,7 +1064,9 @@ class BenchmarkRunner:
         categories = [
             ("Parsing (JSON)", "parse", ".json"),
             ("Parsing (NDJSON)", "parse", ".ndjson"),
-            ("Serialization", "dumps", ".json"),
+            ("Load (file)", "load", ".json"),
+            ("Serialization (dumps)", "dumps", ".json"),
+            ("Dump (file)", "dump", ".json"),
         ]
         for label, op, suffix in categories:
             cat_results = [
@@ -664,6 +1097,24 @@ class BenchmarkRunner:
                 gap = f"{pct:.1f}% behind #1 ({first.library})"
             rank_str = f"**#{rank}** / {len(cat_results)}"
             lines.append(f"| {label} | {rank_str} | {gap} |")
+
+        # Search summary (strata vs strata mem_eff)
+        search_results = [r for r in self.results if r.operation == "search" and not r.error]
+        if search_results:
+            by_query: dict[str, list[BenchResult]] = {}
+            for r in search_results:
+                by_query.setdefault(r.query, []).append(r)
+            mem_eff_wins = 0
+            total = 0
+            for query, results in by_query.items():
+                results.sort(key=lambda r: r.min_ms)
+                total += 1
+                if "mem_eff" in results[0].library.lower():
+                    mem_eff_wins += 1
+            if total > 0:
+                lines.append(
+                    f"| Search (file) | mem_eff faster in {mem_eff_wins}/{total} queries | - |"
+                )
 
         # JSONPath summary
         query_results = [r for r in self.results if r.operation == "query" and not r.error]

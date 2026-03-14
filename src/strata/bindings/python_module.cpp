@@ -12,6 +12,7 @@
 // Forward declarations
 extern PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_dumps_internal(PyObject* obj);
+extern bool strata_serialize_to_buffer(PyObject* obj, const char** out_data, size_t* out_size);
 extern PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
@@ -233,35 +234,38 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
         return strata_parse_json_file(self, args);
     }
 
-    // JSON: use mmap + convert to Python
-    auto result = strata::parse_json_file(filepath);
-    if (!result.ok()) {
-        PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
-        return NULL;
-    }
-
-    auto warnings = strata::consume_parse_warnings();
-    for (const auto& msg : warnings) {
-        PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
-    }
-
-    PyObject* py_result = json_value_to_python(result.value.root_value());
-    if (!py_result)
-        return NULL;
-
-    if (iterator) {
-        if (PyDict_Check(py_result)) {
-            PyObject* it = create_dict_iterator(py_result);
-            Py_DECREF(py_result);
-            return it;
-        } else if (PyList_Check(py_result)) {
-            PyObject* it = create_list_iterator(py_result);
-            Py_DECREF(py_result);
-            return it;
+    // JSON dict: read file and use fast SAX-based parse (single pass, no C++ DOM)
+    {
+        std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+        if (!file.is_open()) {
+            PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", filepath);
+            return NULL;
         }
-    }
+        auto size = file.tellg();
+        file.seekg(0);
+        std::string content(static_cast<size_t>(size), '\0');
+        file.read(content.data(), size);
+        file.close();
 
-    return py_result;
+        PyObject* py_result = parse_json_to_python(std::string_view(content.data(), content.size()),
+                                                   /*validate_utf8=*/false);
+        if (!py_result)
+            return NULL;
+
+        if (iterator) {
+            if (PyDict_Check(py_result)) {
+                PyObject* it = create_dict_iterator(py_result);
+                Py_DECREF(py_result);
+                return it;
+            } else if (PyList_Check(py_result)) {
+                PyObject* it = create_list_iterator(py_result);
+                Py_DECREF(py_result);
+                return it;
+            }
+        }
+
+        return py_result;
+    }
 
     STRATA_CPP_CATCH
 }
@@ -274,22 +278,15 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
 
     STRATA_CPP_TRY
 
-    // Serialize to string using internal helper
-    PyObject* json_str = strata_dumps_internal(obj);
-    if (!json_str)
+    // Serialize directly to buffer (no PyUnicode intermediate)
+    const char* data;
+    size_t len;
+    if (!strata_serialize_to_buffer(obj, &data, &len))
         return NULL;
 
-    Py_ssize_t len;
-    const char* data = PyUnicode_AsUTF8AndSize(json_str, &len);
-    if (!data) {
-        Py_DECREF(json_str);
-        return NULL;
-    }
-
-    // Write to file
+    // Write buffer to file
     std::ofstream file(filepath, std::ios::binary);
     if (!file.is_open()) {
-        Py_DECREF(json_str);
         PyErr_Format(PyExc_IOError, "Cannot open file for writing: %s", filepath);
         return NULL;
     }
@@ -297,7 +294,6 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
     file.write("\n", 1);
     file.close();
 
-    Py_DECREF(json_str);
     Py_RETURN_NONE;
 
     STRATA_CPP_CATCH
