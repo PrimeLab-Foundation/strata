@@ -409,11 +409,8 @@ PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_erro
             stream.record_error();
             if (skip_errors)
                 continue;
-            // On error without skip: clean up items and return
-            for (auto* obj : items)
-                Py_DECREF(obj);
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON in NDJSON line");
-            return NULL;
+            // On error without skip: stop parsing, return what we have so far
+            break;
         }
         items.push_back(item);
     }

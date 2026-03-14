@@ -154,7 +154,44 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
     return true;
 }
 
-static constexpr int kMaxSerializeDepth = 1024;
+static constexpr int kMaxSerializeDepth = 8192;
+
+// Cycle detection: thread-local stack of container object pointers.
+// Only checked when cycle_policy != Ignore.
+thread_local std::vector<PyObject*> g_seen_stack;
+
+// Check for cycles. Returns true if obj is already in the seen stack.
+static inline bool check_cycle(PyObject* obj) {
+    for (auto* seen : g_seen_stack) {
+        if (seen == obj)
+            return true;
+    }
+    return false;
+}
+
+// Handle a detected cycle according to policy. Returns:
+//   true  = wrote "null" (warn/ignore), caller should skip this value
+//   false = set error (error policy), caller should propagate failure
+template <typename Buffer> static inline bool handle_cycle(PyObject* obj, Buffer& out) {
+    switch (g_cycle_policy) {
+    case CyclePolicy::Warn:
+        PyErr_WarnEx(PyExc_RuntimeWarning, "Circular reference detected during serialization", 1);
+        out.append("null", 4);
+        return true;
+    case CyclePolicy::Error:
+        PyErr_SetString(PyExc_ValueError, "Circular reference detected during serialization");
+        return false;
+    case CyclePolicy::Ignore:
+        out.append("null", 4);
+        return true;
+    }
+    return false; // unreachable
+}
+
+struct ScopedSeen {
+    ScopedSeen(PyObject* obj) { g_seen_stack.push_back(obj); }
+    ~ScopedSeen() { g_seen_stack.pop_back(); }
+};
 
 static inline size_t estimate_size(PyObject* obj) {
     if (PyDict_CheckExact(obj)) {
