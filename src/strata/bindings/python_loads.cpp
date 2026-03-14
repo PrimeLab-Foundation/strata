@@ -51,10 +51,6 @@ class KeyCache {
     std::unordered_map<std::string, PyObject*, string_hash, string_equal> cache_;
 };
 
-// Thread-local key cache shared across all PythonObjectBuilder instances on the same thread.
-// This allows NDJSON batch parsing to reuse the same interned key strings across lines.
-static thread_local KeyCache g_key_cache;
-
 class PythonObjectBuilder : public strata::JsonSaxHandler {
   public:
     explicit PythonObjectBuilder() {
@@ -103,7 +99,7 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     }
 
     bool on_key(std::string_view v) override {
-        PyObject* key = g_key_cache.get(v);
+        PyObject* key = cache_.get(v);
         if (!key)
             return false;
         keys_.push_back(key);
@@ -250,6 +246,7 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     std::vector<PyObject*> stack_;
     std::vector<PyObject*> keys_;
     strata::DuplicateKeyPolicy policy_;
+    KeyCache cache_;
 };
 
 } // namespace
@@ -334,7 +331,8 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
 
 // Convert JsonValue to PyObject
 PyObject* json_value_to_python(const strata::JsonValue& val) {
-    return json_value_to_python_internal(val, g_key_cache);
+    KeyCache cache;
+    return json_value_to_python_internal(val, cache);
 }
 
 // Helper: parse JSON text directly to a Python object via SAX (no intermediate C++ DOM).

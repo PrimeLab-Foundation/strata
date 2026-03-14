@@ -173,26 +173,11 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
 
 template <typename Buffer>
 static inline bool serialize_primitive(PyObject* obj, Buffer& out, bool& handled) {
-    if (obj == Py_None) {
-        append_literal(out, "null", 4);
-        handled = true;
-        return true;
-    }
-    if (obj == Py_True) {
-        append_literal(out, "true", 4);
-        handled = true;
-        return true;
-    }
-    if (obj == Py_False) {
-        append_literal(out, "false", 5);
-        handled = true;
-        return true;
-    }
-    if (PyUnicode_Check(obj)) {
+    // Order by frequency: str ~35%, int ~33%, float ~30%, then rare types.
+    if (PyUnicode_CheckExact(obj)) {
         handled = true;
         return append_string(obj, out);
     }
-
     PyTypeObject* type = Py_TYPE(obj);
     if (type == &PyLong_Type) {
         handled = true;
@@ -201,6 +186,22 @@ static inline bool serialize_primitive(PyObject* obj, Buffer& out, bool& handled
     if (type == &PyFloat_Type) {
         handled = true;
         return append_double(out, PyFloat_AS_DOUBLE(obj));
+    }
+    if (obj == Py_None) {
+        append_literal(out, "null", 4);
+        handled = true;
+        return true;
+    }
+    if (type == &PyBool_Type) {
+        // Py_True/Py_False: bool is a subtype of int, but &PyLong_Type won't match it.
+        append_literal(out, obj == Py_True ? "true" : "false", obj == Py_True ? 4 : 5);
+        handled = true;
+        return true;
+    }
+    // Non-ASCII unicode subtype (e.g. str subclasses): fall through to append_string
+    if (PyUnicode_Check(obj)) {
+        handled = true;
+        return append_string(obj, out);
     }
 
     handled = false;
@@ -445,11 +446,12 @@ template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffe
                         out.unsafe_push_back('"');
                         out.unsafe_append(kdata, static_cast<size_t>(klen));
                         out.unsafe_push_back('"');
+                        out.unsafe_push_back(':');
                     } else {
                         strata::util::escape_json_string_simd(kdata, static_cast<size_t>(klen),
                                                               out);
+                        out.push_back(':');
                     }
-                    out.push_back(':');
                 } else {
                     if (!frame.first) {
                         out.push_back(',');

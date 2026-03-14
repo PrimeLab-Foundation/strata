@@ -552,5 +552,17 @@ void escape_json_string_simd(const char* str, size_t len, FixedOutputBuffer& out
     out.push_back('"');
 }
 
+bool string_needs_escape(const char* str, size_t len) {
+#ifdef STRATA_HAS_AVX2
+    return has_escape_chars_avx2(str, len);
+#elif defined(STRATA_HAS_SSE42)
+    return has_escape_chars_sse(str, len);
+#elif defined(STRATA_HAS_NEON)
+    return has_escape_chars_neon(str, len);
+#else
+    return has_escape_chars_scalar(str, len);
+#endif
+}
+
 } // namespace util
 } // namespace strata

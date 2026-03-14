@@ -117,6 +117,10 @@ class FixedOutputBuffer {
         data_[size_++] = c;
     }
 
+    // For FixedOutputBuffer, unsafe variants still check bounds (no dynamic growth possible).
+    void unsafe_push_back(char c) { push_back(c); }
+    void unsafe_append(const char* src, size_t len) { append(src, len); }
+
   private:
     char* data_ = nullptr;
     size_t size_ = 0;

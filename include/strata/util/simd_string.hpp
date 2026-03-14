@@ -80,6 +80,12 @@ bool is_whitespace_only_simd(const char* data, size_t len);
 size_t find_next_escape_simd(const char* str, size_t len);
 
 /**
+ * Returns true if the string contains any character that must be escaped in JSON.
+ * Equivalent to the has_escape_chars_* helpers used internally.
+ */
+bool string_needs_escape(const char* str, size_t len);
+
+/**
  * Validate UTF-8 byte sequence (RFC 3629).
  *
  * Rejects overlong encodings, surrogate codepoints (U+D800–U+DFFF),
