@@ -138,9 +138,8 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
     if (PyUnicode_IS_COMPACT_ASCII(obj)) {
         Py_ssize_t len = PyUnicode_GET_LENGTH(obj);
         const char* data = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(obj));
-        if (strata::util::try_copy_clean_string(data, static_cast<size_t>(len), out)) {
-            return true;
-        }
+        // Single-pass: escape_json_string_simd now handles clean strings efficiently
+        // (finds first escape position; if none, does unsafe copy — no redundant scan).
         strata::util::escape_json_string_simd(data, static_cast<size_t>(len), out);
         return true;
     }
@@ -159,13 +158,29 @@ static constexpr int kMaxSerializeDepth = 1024;
 
 static inline size_t estimate_size(PyObject* obj) {
     if (PyDict_CheckExact(obj)) {
-        return static_cast<size_t>(PyDict_GET_SIZE(obj)) * 48 + 2;
+        Py_ssize_t sz = PyDict_GET_SIZE(obj);
+        size_t est = static_cast<size_t>(sz) * 48 + 2;
+        // For small dicts (common top-level wrapper), peek at values to catch
+        // large nested collections — avoids many buffer reallocations.
+        if (sz <= 4) {
+            Py_ssize_t pos = 0;
+            PyObject* k = nullptr;
+            PyObject* v = nullptr;
+            while (PyDict_Next(obj, &pos, &k, &v)) {
+                if (PyList_CheckExact(v)) {
+                    est += static_cast<size_t>(PyList_GET_SIZE(v)) * 128;
+                } else if (PyDict_CheckExact(v)) {
+                    est += static_cast<size_t>(PyDict_GET_SIZE(v)) * 48;
+                }
+            }
+        }
+        return est;
     }
     if (PyList_CheckExact(obj)) {
-        return static_cast<size_t>(PyList_GET_SIZE(obj)) * 32 + 2;
+        return static_cast<size_t>(PyList_GET_SIZE(obj)) * 128 + 2;
     }
     if (PyTuple_Check(obj)) {
-        return static_cast<size_t>(PyTuple_GET_SIZE(obj)) * 32 + 2;
+        return static_cast<size_t>(PyTuple_GET_SIZE(obj)) * 128 + 2;
     }
     if (PyUnicode_Check(obj)) {
         Py_ssize_t len = 0;
@@ -194,7 +209,17 @@ static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
         if (!first) {
             out.unsafe_push_back(',');
         }
-        if (LIKELY(!strata::util::string_needs_escape(kdata, static_cast<size_t>(klen)))) {
+        // Inline scalar escape check — keys are almost always short clean ASCII,
+        // so a lookup-table loop is faster than SIMD function call overhead.
+        bool key_clean = true;
+        for (Py_ssize_t ki = 0; ki < klen; ++ki) {
+            unsigned char c = static_cast<unsigned char>(kdata[ki]);
+            if (UNLIKELY(c < 0x20 || c == '"' || c == '\\')) {
+                key_clean = false;
+                break;
+            }
+        }
+        if (LIKELY(key_clean)) {
             out.unsafe_push_back('"');
             out.unsafe_append(kdata, static_cast<size_t>(klen));
             out.unsafe_push_back('"');
@@ -237,7 +262,6 @@ static inline bool serialize_dict(PyObject* dict, Buffer& out, int depth) {
         }
         first = false;
         // Inline common value types to avoid serialize_value function call overhead.
-        // serialize_value is recursive and cannot be fully inlined by the compiler.
         PyTypeObject* vt = Py_TYPE(value);
         if (LIKELY(vt == &PyUnicode_Type)) {
             if (!append_string(value, out))

@@ -1,6 +1,7 @@
 #include "python_convert.h"
 #include "python_types.h"
 #include "strata/json/json_parse.hpp"
+#include "strata/json/json_parser_inline.hpp"
 #include "strata/json/json_sax_handler.hpp"
 #include "strata/json/ndjson_stream.hpp"
 
@@ -57,7 +58,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     explicit PythonObjectBuilder() {
         stack_.reserve(32);
         keys_.reserve(32);
-        // Cache policy once per document (thread-local read is cheap but avoidable in hot path)
+        array_items_.reserve(256);
+        array_starts_.reserve(16);
         policy_ = strata::get_duplicate_key_policy();
     }
 
@@ -66,7 +68,11 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
             Py_DECREF(root_);
         }
         for (auto obj : stack_) {
-            Py_DECREF(obj);
+            if (obj)
+                Py_DECREF(obj);
+        }
+        for (auto* p : array_items_) {
+            Py_DECREF(p);
         }
     }
 
@@ -115,19 +121,36 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         return push_value(dict);
     }
 
+    // Array building: collect items in a single flat C++ vector, tracked by start
+    // indices.  At on_end_array, build PyList_New(n) + PyList_SET_ITEM (steals ref,
+    // no INCREF/DECREF).  Uses one flat vector to avoid per-array allocation overhead.
     bool on_start_array(size_t) override {
-        PyObject* list = PyList_New(0);
-        if (!list)
-            return false;
-        stack_.push_back(list);
+        stack_.push_back(nullptr); // nullptr sentinel = "building an array"
+        array_starts_.push_back(array_items_.size());
         return true;
     }
 
     bool on_end_array() override {
-        if (stack_.empty())
+        if (stack_.empty() || stack_.back() != nullptr)
             return false;
-        PyObject* list = stack_.back();
         stack_.pop_back();
+
+        size_t start = array_starts_.back();
+        array_starts_.pop_back();
+        size_t count = array_items_.size() - start;
+
+        PyObject* list = PyList_New(static_cast<Py_ssize_t>(count));
+        if (!list) {
+            for (size_t i = start; i < array_items_.size(); ++i) {
+                Py_DECREF(array_items_[i]);
+            }
+            array_items_.resize(start);
+            return false;
+        }
+        for (size_t i = 0; i < count; ++i) {
+            PyList_SET_ITEM(list, static_cast<Py_ssize_t>(i), array_items_[start + i]);
+        }
+        array_items_.resize(start);
         return push_value(list);
     }
 
@@ -145,13 +168,19 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
             root_ = nullptr;
         }
         for (auto obj : stack_) {
-            Py_DECREF(obj);
+            if (obj)
+                Py_DECREF(obj);
         }
         stack_.clear();
         for (auto obj : keys_) {
             Py_DECREF(obj);
         }
         keys_.clear();
+        for (auto* p : array_items_) {
+            Py_DECREF(p);
+        }
+        array_items_.clear();
+        array_starts_.clear();
         policy_ = strata::get_duplicate_key_policy();
     }
 
@@ -169,67 +198,22 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         }
 
         PyObject* top = stack_.back();
-        if (PyList_Check(top)) {
-            if (PyList_Append(top, val) < 0) {
-                Py_DECREF(val);
-                return false;
-            }
-            Py_DECREF(val);
+        if (top == nullptr) {
+            // Building an array — collect into C++ vector (no Python API calls).
+            array_items_.push_back(val);
             return true;
-        } else if (PyDict_Check(top)) {
-            if (keys_.empty()) {
-                Py_DECREF(val);
-                return false;
-            }
-            PyObject* key = keys_.back();
-            keys_.pop_back();
+        }
 
-            // Optimized duplicate key handling based on cached policy
-            if (policy_ == strata::DuplicateKeyPolicy::LastWins) {
-                // Always overwrite – single hash lookup
-                if (PyDict_SetItem(top, key, val) < 0) {
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return false;
-                }
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return true;
-            }
+        // Must be a dict.
+        if (keys_.empty()) {
+            Py_DECREF(val);
+            return false;
+        }
+        PyObject* key = keys_.back();
+        keys_.pop_back();
 
-            if (policy_ == strata::DuplicateKeyPolicy::FirstWins) {
-                // PyDict_SetDefault: inserts key=val only when key absent; single hash op
-                PyObject* result = PyDict_SetDefault(top, key, val);
-                if (!result) {
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return false;
-                }
-                // Whether key was inserted or already present, release our refs
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return true;
-            }
-
-            // Warn / Error: need to detect duplicate first
-            if (PyDict_Contains(top, key)) {
-                if (policy_ == strata::DuplicateKeyPolicy::Warn) {
-                    PyObject* key_repr = PyObject_Repr(key);
-                    const char* key_str = PyUnicode_AsUTF8(key_repr);
-                    std::string msg = "Duplicate key encountered: ";
-                    msg += key_str;
-                    PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
-                    Py_XDECREF(key_repr);
-                    Py_DECREF(key);
-                    Py_DECREF(val);
-                    return true;
-                }
-                // Error policy
-                Py_DECREF(key);
-                Py_DECREF(val);
-                return false;
-            }
-
+        // Optimized duplicate key handling based on cached policy
+        if (policy_ == strata::DuplicateKeyPolicy::LastWins) {
             if (PyDict_SetItem(top, key, val) < 0) {
                 Py_DECREF(key);
                 Py_DECREF(val);
@@ -239,13 +223,52 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
             Py_DECREF(val);
             return true;
         }
+
+        if (policy_ == strata::DuplicateKeyPolicy::FirstWins) {
+            PyObject* result = PyDict_SetDefault(top, key, val);
+            if (!result) {
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return false;
+            }
+            Py_DECREF(key);
+            Py_DECREF(val);
+            return true;
+        }
+
+        // Warn / Error: need to detect duplicate first
+        if (PyDict_Contains(top, key)) {
+            if (policy_ == strata::DuplicateKeyPolicy::Warn) {
+                PyObject* key_repr = PyObject_Repr(key);
+                const char* key_str = PyUnicode_AsUTF8(key_repr);
+                std::string msg = "Duplicate key encountered: ";
+                msg += key_str;
+                PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
+                Py_XDECREF(key_repr);
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return true;
+            }
+            Py_DECREF(key);
+            Py_DECREF(val);
+            return false;
+        }
+
+        if (PyDict_SetItem(top, key, val) < 0) {
+            Py_DECREF(key);
+            Py_DECREF(val);
+            return false;
+        }
+        Py_DECREF(key);
         Py_DECREF(val);
-        return false;
+        return true;
     }
 
     PyObject* root_ = nullptr;
     std::vector<PyObject*> stack_;
     std::vector<PyObject*> keys_;
+    std::vector<PyObject*> array_items_; // flat storage for all in-flight array items
+    std::vector<size_t> array_starts_;   // stack of start indices into array_items_
     strata::DuplicateKeyPolicy policy_;
     KeyCache cache_;
 };
@@ -337,10 +360,11 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
 }
 
 // Helper: parse JSON text directly to a Python object via SAX (no intermediate C++ DOM).
+// Uses parse_sax_inline<PythonObjectBuilder> for devirtualised, inlineable parsing.
 // validate_utf8=false is safe when the caller creates PyUnicode objects, which validate inline.
 PyObject* parse_json_to_python(std::string_view text, bool validate_utf8) {
     PythonObjectBuilder builder;
-    auto status = strata::parse_sax(text, builder, validate_utf8);
+    auto status = strata::parse_sax_inline(text, builder, validate_utf8);
     if (status != strata::Status::Ok) {
         return nullptr; // caller must set the Python exception
     }
@@ -354,7 +378,7 @@ PyObject* parse_json_to_python(std::string_view text, bool validate_utf8) {
 PyObject* parse_json_to_python_reuse(std::string_view text, bool validate_utf8,
                                      PythonObjectBuilder& builder) {
     builder.reset();
-    auto status = strata::parse_sax(text, builder, validate_utf8);
+    auto status = strata::parse_sax_inline(text, builder, validate_utf8);
     if (status != strata::Status::Ok) {
         return nullptr;
     }

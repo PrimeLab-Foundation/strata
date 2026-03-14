@@ -24,6 +24,273 @@ namespace util {
 // Characters that need escaping: 0x00-0x1F, '"' (0x22), '\\' (0x5C)
 // We check for: c < 0x20 || c == '"' || c == '\\'
 
+// Lookup table: 1 = needs escape, 0 = clean. Avoids SIMD setup for short strings.
+static constexpr uint8_t kEscapeTable[256] = {
+    // 0x00-0x0F: control chars
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    // 0x10-0x1F: control chars
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    // 0x20-0x2F: space is clean, '"' (0x22) needs escape
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    // 0x30-0x3F: all clean
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    // 0x40-0x4F: all clean
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    // 0x50-0x5F: '\\' (0x5C) needs escape
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    // 0x60-0xFF: all clean
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+};
+
 #ifdef STRATA_HAS_AVX2
 
 // AVX2 implementation (32 bytes at a time)
@@ -485,12 +752,78 @@ bool try_copy_clean_string(const char* str, size_t len, FixedOutputBuffer& out) 
 }
 
 void escape_json_string_simd(const char* str, size_t len, OutputBuffer& out) {
-    out.reserve(out.size() + len + 2);
-    out.push_back('"');
+    // Short-string scalar fast path: avoids SIMD register setup overhead for the
+    // many short strings typical in JSON (keys, short values).  Threshold chosen
+    // to be below the SIMD lane width so the SIMD loop body never executes anyway.
+#if defined(STRATA_HAS_AVX2)
+    constexpr size_t kShortThreshold = 32;
+#else
+    constexpr size_t kShortThreshold = 16;
+#endif
 
-    size_t pos = 0;
+    if (len <= kShortThreshold) {
+        out.reserve(out.size() + len + 2);
+        out.unsafe_push_back('"');
+        // Scan for escape chars using lookup table (no SIMD setup).
+        size_t i = 0;
+        for (; i < len; ++i) {
+            if (kEscapeTable[static_cast<unsigned char>(str[i])]) {
+                break;
+            }
+        }
+        if (i == len) {
+            // All clean — bulk copy.
+            out.unsafe_append(str, len);
+            out.unsafe_push_back('"');
+            return;
+        }
+        // Copy the clean prefix, then escape char-by-char.
+        if (i > 0) {
+            out.unsafe_append(str, i);
+        }
+        escape_char_buffer(static_cast<unsigned char>(str[i]), out);
+        ++i;
+        for (; i < len; ++i) {
+            if (kEscapeTable[static_cast<unsigned char>(str[i])]) {
+                escape_char_buffer(static_cast<unsigned char>(str[i]), out);
+            } else {
+                out.push_back(str[i]);
+            }
+        }
+        out.push_back('"');
+        return;
+    }
+
+    // SIMD path for longer strings.
+    size_t first_escape;
+
+#ifdef STRATA_HAS_AVX2
+    first_escape = find_next_escape_avx2(str, len);
+#elif defined(STRATA_HAS_SSE42)
+    first_escape = find_next_escape_sse(str, len);
+#elif defined(STRATA_HAS_NEON)
+    first_escape = find_next_escape_neon(str, len);
+#else
+    first_escape = find_next_escape_scalar(str, len);
+#endif
+
+    if (first_escape == len) {
+        out.reserve(out.size() + len + 2);
+        out.unsafe_push_back('"');
+        out.unsafe_append(str, len);
+        out.unsafe_push_back('"');
+        return;
+    }
+
+    out.reserve(out.size() + len + 8);
+    out.unsafe_push_back('"');
+    if (first_escape > 0) {
+        out.unsafe_append(str, first_escape);
+    }
+    escape_char_buffer(static_cast<unsigned char>(str[first_escape]), out);
+
+    size_t pos = first_escape + 1;
     while (pos < len) {
-        // Find next character that needs escaping
         size_t next_escape;
 
 #ifdef STRATA_HAS_AVX2
@@ -503,12 +836,9 @@ void escape_json_string_simd(const char* str, size_t len, OutputBuffer& out) {
         next_escape = find_next_escape_scalar(str + pos, len - pos) + pos;
 #endif
 
-        // Copy clean chunk
         if (next_escape > pos) {
             out.append(str + pos, next_escape - pos);
         }
-
-        // Escape the character if we found one
         if (next_escape < len) {
             escape_char_buffer(static_cast<unsigned char>(str[next_escape]), out);
             pos = next_escape + 1;
