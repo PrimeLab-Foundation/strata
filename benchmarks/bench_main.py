@@ -268,9 +268,7 @@ def _get_parse_ndjson_runners(strict_missing: bool) -> list[tuple[str, Callable[
     try:
         import strata
 
-        runners.append(
-            ("strata", lambda t: [strata.loads(line) for line in t.splitlines() if line.strip()])
-        )
+        runners.append(("strata", lambda t: strata.parse_ndjson(t)))
     except ImportError:
         if strict_missing:
             print("Warning: strata not installed")

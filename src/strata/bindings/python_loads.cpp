@@ -498,6 +498,31 @@ extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
     const char* data;
     Py_ssize_t len;
+
+    // Fast path: no kwargs → skip keyword parsing, strcmp, etc.
+    // This is the hot path for NDJSON per-line parsing (2000+ calls).
+    if (kwargs == NULL || PyDict_GET_SIZE(kwargs) == 0) {
+        if (!PyArg_ParseTuple(args, "s#", &data, &len)) {
+            return NULL;
+        }
+
+        STRATA_CPP_TRY
+
+        PyGcPause gc_pause;
+        static thread_local PythonObjectBuilder* tl_builder = new PythonObjectBuilder();
+        PyObject* result = parse_json_to_python_reuse(std::string_view(data, len),
+                                                      /*validate_utf8=*/false, *tl_builder);
+        if (!result) {
+            if (!PyErr_Occurred()) {
+                PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+            }
+            return NULL;
+        }
+        return result;
+
+        STRATA_CPP_CATCH
+    }
+
     const char* return_type = "dict";
     int iterator = 0;
 
@@ -553,10 +578,14 @@ PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
         return result;
     }
 
-    // Standard SAX parse path
+    // Standard SAX parse path — reuse a thread-local builder so the KeyCache
+    // persists across calls (e.g. NDJSON per-line parsing benchmarks).
+    // Use a leaked raw pointer to avoid destructor running after Python shutdown.
     PyGcPause gc_pause;
+    static thread_local PythonObjectBuilder* tl_builder = new PythonObjectBuilder();
 
-    PyObject* result = parse_json_to_python(std::string_view(data, len), /*validate_utf8=*/false);
+    PyObject* result = parse_json_to_python_reuse(std::string_view(data, len),
+                                                  /*validate_utf8=*/false, *tl_builder);
 
     if (!result) {
         if (!PyErr_Occurred()) {

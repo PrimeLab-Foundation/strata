@@ -35,6 +35,9 @@ PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_erro
  */
 PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t batch_size,
                                        int skip_errors);
+/** Python-exposed parse_ndjson(text, skip_errors=False) -> list.
+ *  Defined in python_loads.cpp. */
+PyObject* strata_parse_ndjson(PyObject* self, PyObject* args);
 #endif
 
 /** Convert vector of JsonValue to Python list. Inline so callers (jsonpath, ndjson, loads) get

@@ -21,6 +21,7 @@ def load(filepath, *, return_type: str = "dict", iterator: bool = False):
 
 
 dump = _native.dump
+parse_ndjson = _native.parse_ndjson
 
 __version__ = "0.2.0"
 
