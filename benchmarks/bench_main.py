@@ -1138,12 +1138,12 @@ class BenchmarkRunner:
         lines.append("|----------|-------------|-------|")
 
         categories = [
-            ("Parsing (JSON)", "parse", ".json"),
-            ("Parsing (NDJSON)", "parse", ".ndjson"),
-            ("Load JSON (file)", "load", ".json"),
-            ("Load NDJSON (file)", "load", ".ndjson"),
-            ("Serialization (dumps)", "dumps", ".json"),
-            ("Dump (file)", "dump", ".json"),
+            ("loads (JSON)", "parse", ".json"),
+            ("loads (NDJSON)", "parse", ".ndjson"),
+            ("load (JSON file)", "load", ".json"),
+            ("load (NDJSON file)", "load", ".ndjson"),
+            ("dumps", "dumps", ".json"),
+            ("dump", "dump", ".json"),
         ]
         for label, op, suffix in categories:
             cat_results = [
@@ -1175,28 +1175,55 @@ class BenchmarkRunner:
             rank_str = f"**#{rank}** / {len(cat_results)}"
             lines.append(f"| {label} | {rank_str} | {gap} |")
 
-        # Search summary (strata vs strata mem_eff)
+        # Search summary — separate rows for mem_eff=True and mem_eff=False
         search_results = [r for r in self.results if r.operation == "search" and not r.error]
         if search_results:
-            by_query: dict[str, list[BenchResult]] = {}
-            for r in search_results:
-                by_query.setdefault(r.query, []).append(r)
-            mem_eff_wins = 0
-            total = 0
-            for query, results in by_query.items():
-                results.sort(key=lambda r: r.min_ms)
-                total += 1
-                if "mem_eff" in results[0].library.lower():
-                    mem_eff_wins += 1
-            if total > 0:
-                lines.append(
-                    f"| Search (file) | mem_eff faster in {mem_eff_wins}/{total} queries | - |"
-                )
+            for mem_eff_mode, label in [
+                (True, "search (mem_eff=True)"),
+                (False, "search (mem_eff=False)"),
+            ]:
+                if mem_eff_mode:
+                    mode_results = [r for r in search_results if "mem_eff" in r.library]
+                else:
+                    mode_results = [r for r in search_results if "mem_eff" not in r.library]
+                if not mode_results:
+                    continue
+                by_query: dict[str, list[BenchResult]] = {}
+                for r in mode_results:
+                    by_query.setdefault(r.query, []).append(r)
+                wins = 0
+                total = 0
+                for query, results in by_query.items():
+                    results.sort(key=lambda r: r.min_ms)
+                    total += 1
+                    strata_lib = "strata (mem_eff)" if mem_eff_mode else "strata"
+                    if results[0].library == strata_lib:
+                        wins += 1
+                if total > 0:
+                    if wins == total:
+                        # Find the biggest gap across all queries
+                        gaps = []
+                        for query, results in by_query.items():
+                            results.sort(key=lambda r: r.min_ms)
+                            strata_lib = "strata (mem_eff)" if mem_eff_mode else "strata"
+                            strata_r = next((r for r in results if r.library == strata_lib), None)
+                            if strata_r and results[0] is strata_r and len(results) > 1:
+                                pct = (results[1].min_ms / strata_r.min_ms - 1) * 100
+                                gaps.append((pct, results[1].library))
+                        if gaps:
+                            avg_pct = sum(g[0] for g in gaps) / len(gaps)
+                            lines.append(
+                                f"| {label} | **#1** in {wins}/{total} queries | avg **{avg_pct:.0f}% faster** |"
+                            )
+                        else:
+                            lines.append(f"| {label} | **#1** in {wins}/{total} queries | - |")
+                    else:
+                        lines.append(f"| {label} | #1 in {wins}/{total} queries | - |")
 
-        # JSONPath summary
+        # query (JSONPath) summary
         query_results = [r for r in self.results if r.operation == "query" and not r.error]
         if query_results:
-            by_query: dict[str, list[BenchResult]] = {}
+            by_query = {}
             for r in query_results:
                 by_query.setdefault(r.query, []).append(r)
             wins = 0
@@ -1207,7 +1234,7 @@ class BenchmarkRunner:
                 if results[0].library.lower() == "strata":
                     wins += 1
             if total > 0:
-                lines.append(f"| JSONPath | **#1** in {wins}/{total} queries | - |")
+                lines.append(f"| query (JSONPath) | **#1** in {wins}/{total} queries | - |")
 
         out.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"\nResults saved to {output_path}")
