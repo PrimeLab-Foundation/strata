@@ -24,9 +24,11 @@ from typing import Any, Callable
 from .harness import run_single_benchmark
 from .data.generate_bench_data import generate_users_datasets
 from .eval_queries import (
-    eval_query_users_json,
     get_query_description,
 )
+from .bench_dumps import run_benchmarks as run_dumps_benchmarks
+
+import strata
 
 
 # -----------------------------------------------------------------------------
@@ -36,7 +38,7 @@ from .eval_queries import (
 
 @dataclass
 class BenchResult:
-    """Single benchmark result (parse or query)."""
+    """Single benchmark result (parse, dumps, or query)."""
 
     library: str
     operation: str
@@ -46,6 +48,8 @@ class BenchResult:
     result_count: int = 0
     rss_mb: float = 0.0
     error: str = ""
+    # For dumps results where we only get pre-computed stats:
+    dumps_p95_ms: float = 0.0
 
     @property
     def min_ms(self) -> float:
@@ -57,6 +61,8 @@ class BenchResult:
 
     @property
     def p95_ms(self) -> float:
+        if self.dumps_p95_ms > 0:
+            return self.dumps_p95_ms
         if not self.times_ms:
             return 0.0
         sorted_times = sorted(self.times_ms)
@@ -296,25 +302,68 @@ class BenchmarkRunner:
         data = path.read_bytes()
         dataset_name = path.stem
         parsed = json.loads(data)
+
+        # Strata: parse once with loads(), query on Python dict (same as other libraries)
+        strata_data = strata.loads(data)
+
+        # Queries: strata expression, jmespath expression (or None), jsonpath-ng expression (or None)
+        queries = [
+            {
+                "id": 1,
+                "strata": "$.users[*].id",
+                "jmespath": "users[*].id",
+                "jsonpath_ng": "$.users[*].id",
+            },
+            {
+                "id": 2,
+                "strata": "$.users[*].orders[*].items[*].price",
+                "jmespath": "users[*].orders[*].items[*].price",
+                "jsonpath_ng": "$.users[*].orders[*].items[*].price",
+            },
+            {
+                "id": 3,
+                "strata": "$..price",
+                "jmespath": None,
+                "jsonpath_ng": "$..price",
+            },
+            {
+                "id": 4,
+                "strata": "$.users[?(@.age>30)]",
+                "jmespath": None,
+                "jsonpath_ng": "$.users[?(@.age > 30)]",
+            },
+            {
+                "id": 5,
+                "strata": '$..orders[?(@.status=="shipped")]',
+                "jmespath": None,
+                "jsonpath_ng": None,
+            },
+        ]
+
         print(f"\n=== Queries: {dataset_name} ===")
 
-        for query_id in range(1, 6):
-            query_desc = get_query_description(query_id, is_ndjson=False)
-            print(f"\n  Query {query_id}: {query_desc}")
+        for q in queries:
+            query_desc = get_query_description(q["id"], is_ndjson=False)
+            print(f"\n  Query {q['id']}: {query_desc}")
 
-            # Baseline (Python eval)
+            # Strata (C++ search engine)
             try:
+                compiled_path = strata.compile_path(q["strata"])
+
+                def run_strata(cp=compiled_path):
+                    return strata.search(strata_data, cp)
+
                 tr = run_single_benchmark(
-                    lambda q=query_id: eval_query_users_json(parsed, q),
+                    run_strata,
                     warmup=self.warmup,
                     repeat=self.repeat,
                     capture_rss=True,
                 )
-                result = eval_query_users_json(parsed, query_id)
+                result = strata.search(strata_data, compiled_path)
                 n = len(result) if isinstance(result, list) else 1
                 self.results.append(
                     BenchResult(
-                        library="eval_query (baseline)",
+                        library="strata",
                         operation="query",
                         dataset=dataset_name,
                         query=query_desc,
@@ -327,19 +376,15 @@ class BenchmarkRunner:
             except Exception as e:
                 print(f"    strata:    ERROR: {e}")
 
-            # jmespath (queries 1–3)
-            if query_id in (1, 2, 3):
+            # jmespath
+            jmes_expr = q.get("jmespath")
+            if jmes_expr:
                 try:
                     import jmespath
 
-                    exprs = {
-                        1: "users[*].id",
-                        2: "users[*].orders[*].items[*].price",
-                        3: "users[*].orders[*].items[*].price | [*]",
-                    }
-                    expr = jmespath.compile(exprs[query_id])
+                    expr = jmespath.compile(jmes_expr)
                     tr = run_single_benchmark(
-                        lambda: expr.search(parsed),
+                        lambda e=expr: e.search(parsed),
                         warmup=self.warmup,
                         repeat=self.repeat,
                         capture_rss=True,
@@ -364,21 +409,15 @@ class BenchmarkRunner:
                     print(f"    jmespath:    ERROR: {e}")
 
             # jsonpath-ng
-            try:
-                from jsonpath_ng import parse as jp_parse
+            jp_expr = q.get("jsonpath_ng")
+            if jp_expr:
+                try:
+                    from jsonpath_ng import parse as jp_parse
 
-                exprs = {
-                    1: "$.users[*].id",
-                    2: "$.users[*].orders[*].items[*].price",
-                    3: "$..price",
-                    4: "$.users[?(@.age > 30)]",
-                }
-                expr_str = exprs.get(query_id)
-                if expr_str:
-                    compiled = jp_parse(expr_str)
+                    compiled = jp_parse(jp_expr)
 
-                    def run_jp():
-                        return [m.value for m in compiled.find(parsed)]
+                    def run_jp(c=compiled):
+                        return [m.value for m in c.find(parsed)]
 
                     tr = run_single_benchmark(
                         run_jp,
@@ -399,10 +438,26 @@ class BenchmarkRunner:
                         )
                     )
                     print(f"    jsonpath-ng: {tr.min_ms:.3f}ms → {n} results")
-            except ImportError:
-                pass
-            except Exception as e:
-                print(f"    jsonpath-ng: ERROR: {e}")
+                except ImportError:
+                    pass
+                except Exception as e:
+                    print(f"    jsonpath-ng: ERROR: {e}")
+
+    def bench_dumps_json(self, dataset_path: str) -> None:
+        """Benchmark JSON serialization (dumps)."""
+        path = Path(dataset_path)
+        dumps_results = run_dumps_benchmarks(path, repeat=self.repeat, warmup=self.warmup)
+        for dr in dumps_results:
+            self.results.append(
+                BenchResult(
+                    library=dr.library,
+                    operation="dumps",
+                    dataset=path.name,
+                    times_ms=[dr.min_ms, dr.median_ms],
+                    rss_mb=dr.rss_mb,
+                    dumps_p95_ms=dr.p95_ms,
+                )
+            )
 
     def run_all(self) -> None:
         """Run all benchmarks for configured datasets."""
@@ -415,6 +470,7 @@ class BenchmarkRunner:
                 self.bench_parse_ndjson(str(path))
             else:
                 self.bench_parse_json(str(path))
+                self.bench_dumps_json(str(path))
             if path.stem == "users" and path.suffix == ".json":
                 self.bench_query_json(str(path))
 
@@ -433,6 +489,22 @@ class BenchmarkRunner:
             print("-" * 80)
             parse_results.sort(key=lambda r: (r.dataset, r.median_ms))
             for r in parse_results:
+                if r.error:
+                    print(f"{r.library:<20} {r.dataset:<15} ERROR: {r.error}")
+                else:
+                    print(
+                        f"{r.library:<20} {r.dataset:<15} {r.min_ms:>10.3f}  {r.median_ms:>10.3f}  {r.p95_ms:>10.3f}"
+                    )
+
+        dumps_results = [r for r in self.results if r.operation == "dumps"]
+        if dumps_results:
+            print("\nSERIALIZATION BENCHMARKS:")
+            print(
+                f"{'Library':<20} {'Dataset':<15} {'Min (ms)':<12} {'Median (ms)':<12} {'P95 (ms)':<12}"
+            )
+            print("-" * 80)
+            dumps_results.sort(key=lambda r: (r.dataset, r.min_ms))
+            for r in dumps_results:
                 if r.error:
                     print(f"{r.library:<20} {r.dataset:<15} ERROR: {r.error}")
                 else:
@@ -506,6 +578,26 @@ class BenchmarkRunner:
                         f"| {r.library} | {r.dataset} | {r.min_ms:.3f} | {r.median_ms:.3f} | {r.p95_ms:.3f} | {r.rss_mb:.1f} |"
                     )
 
+        dumps_results = [r for r in self.results if r.operation == "dumps"]
+        if dumps_results:
+            lines.extend(
+                [
+                    "",
+                    "## Serialization Benchmarks",
+                    "",
+                    "| Library | Dataset | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |",
+                    "|---------|---------|----------|-------------|----------|---------|",
+                ]
+            )
+            dumps_results.sort(key=lambda r: (r.dataset, r.min_ms))
+            for r in dumps_results:
+                if r.error:
+                    lines.append(f"| {r.library} | {r.dataset} | ERROR | - | - | - |")
+                else:
+                    lines.append(
+                        f"| {r.library} | {r.dataset} | {r.min_ms:.3f} | {r.median_ms:.3f} | {r.p95_ms:.3f} | {r.rss_mb:.1f} |"
+                    )
+
         query_results = [r for r in self.results if r.operation == "query"]
         if query_results:
             lines.extend(
@@ -513,8 +605,8 @@ class BenchmarkRunner:
                     "",
                     "## Query Benchmarks",
                     "",
-                    "| Query | Library | Min (ms) | Results |",
-                    "|-------|---------|----------|----------|",
+                    "| Query | Library | Min (ms) | Results | RSS (MB) |",
+                    "|-------|---------|----------|----------|---------|",
                 ]
             )
             by_query: dict[str, list[BenchResult]] = {}
@@ -525,11 +617,67 @@ class BenchmarkRunner:
                 for i, r in enumerate(results):
                     qcol = query if i == 0 else ""
                     if r.error:
-                        lines.append(f"| {qcol} | {r.library} | ERROR | - |")
+                        lines.append(f"| {qcol} | {r.library} | ERROR | - | - |")
                     else:
                         lines.append(
-                            f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} |"
+                            f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} | {r.rss_mb:.1f} |"
                         )
+
+        # --- Summary: Strata ranking per category ---
+        lines.extend(["", "## Summary", ""])
+        lines.append("| Category | Strata Rank | vs #1 |")
+        lines.append("|----------|-------------|-------|")
+
+        categories = [
+            ("Parsing (JSON)", "parse", ".json"),
+            ("Parsing (NDJSON)", "parse", ".ndjson"),
+            ("Serialization", "dumps", ".json"),
+        ]
+        for label, op, suffix in categories:
+            cat_results = [
+                r
+                for r in self.results
+                if r.operation == op and not r.error and r.dataset.endswith(suffix)
+            ]
+            if not cat_results:
+                continue
+            cat_results.sort(key=lambda r: r.min_ms)
+            strata_r = next(
+                (r for r in cat_results if r.library.lower() == "strata"),
+                None,
+            )
+            if not strata_r:
+                continue
+            rank = cat_results.index(strata_r) + 1
+            first = cat_results[0]
+            if strata_r is first:
+                if len(cat_results) > 1:
+                    second = cat_results[1]
+                    pct = (second.min_ms / strata_r.min_ms - 1) * 100
+                    gap = f"**{pct:.1f}% faster** than #2 ({second.library})"
+                else:
+                    gap = "-"
+            else:
+                pct = (strata_r.min_ms / first.min_ms - 1) * 100
+                gap = f"{pct:.1f}% behind #1 ({first.library})"
+            rank_str = f"**#{rank}** / {len(cat_results)}"
+            lines.append(f"| {label} | {rank_str} | {gap} |")
+
+        # JSONPath summary
+        query_results = [r for r in self.results if r.operation == "query" and not r.error]
+        if query_results:
+            by_query: dict[str, list[BenchResult]] = {}
+            for r in query_results:
+                by_query.setdefault(r.query, []).append(r)
+            wins = 0
+            total = 0
+            for query, results in by_query.items():
+                results.sort(key=lambda r: r.min_ms)
+                total += 1
+                if results[0].library.lower() == "strata":
+                    wins += 1
+            if total > 0:
+                lines.append(f"| JSONPath | **#1** in {wins}/{total} queries | - |")
 
         out.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"\nResults saved to {output_path}")

@@ -1,14 +1,22 @@
 #include "python_convert.h"
 #include "python_document.h"
 #include "python_types.h"
+#include "strata/json/json_mmap.hpp"
+#include "strata/json/ndjson_stream.hpp"
 #include "strata/search/jsonpath.hpp"
 #include "strata/util/fast_parse.hpp"
 
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <functional>
 #include <limits>
 #include <string>
 #include <vector>
+
+// From python_module.cpp
+extern bool strata_config_mem_eff();
 
 //=============================================================================
 // PyObject-native JSONPath evaluation
@@ -67,6 +75,210 @@ static bool eval_filter_pyobj(PyObject* val, const strata::FilterPredicate& filt
         default:
             return false;
         }
+    }
+}
+
+// Collect values for recursive descent directly from C++ JsonValue tree,
+// converting only the matched leaf values to Python (not the whole tree).
+static void collect_recursive_jsonvalue(const strata::JsonValue* value,
+                                        const std::string& field_name,
+                                        std::vector<PyObject*>& collected) {
+    if (!value)
+        return;
+
+    if (value->is_object()) {
+        const auto& obj = value->as_object();
+        for (const auto& pair : obj) {
+            if (pair.first == field_name) {
+                PyObject* py_val = json_value_to_python(pair.second);
+                if (py_val)
+                    collected.push_back(py_val);
+            }
+            collect_recursive_jsonvalue(&pair.second, field_name, collected);
+        }
+    } else if (value->is_array()) {
+        const auto& arr = value->as_array();
+        for (const auto& elem : arr) {
+            collect_recursive_jsonvalue(&elem, field_name, collected);
+        }
+    }
+}
+
+// Recursive JSONPath evaluator on C++ JsonValue tree, producing Python results directly.
+// Only the matched leaf values are converted to Python, not the whole tree.
+static void eval_step_jsonvalue(const strata::JsonValue* value,
+                                const std::vector<strata::PathStep>& steps, size_t step_idx,
+                                std::vector<PyObject*>& results) {
+    if (!value)
+        return;
+
+    if (step_idx >= steps.size()) {
+        PyObject* py_val = json_value_to_python(*value);
+        if (py_val)
+            results.push_back(py_val);
+        return;
+    }
+
+    const strata::PathStep& step = steps[step_idx];
+
+    switch (step.op) {
+    case strata::PathOp::Root:
+        eval_step_jsonvalue(value, steps, step_idx + 1, results);
+        break;
+
+    case strata::PathOp::Field:
+        if (value->is_object()) {
+            const auto& obj = value->as_object();
+            auto it = obj.find(step.field);
+            if (it != obj.end()) {
+                eval_step_jsonvalue(&it->second, steps, step_idx + 1, results);
+            }
+        }
+        break;
+
+    case strata::PathOp::Index:
+        if (value->is_array()) {
+            const auto& arr = value->as_array();
+            int64_t idx = step.index;
+            if (idx < 0)
+                idx = static_cast<int64_t>(arr.size()) + idx;
+            if (idx >= 0 && idx < static_cast<int64_t>(arr.size())) {
+                eval_step_jsonvalue(&arr[static_cast<size_t>(idx)], steps, step_idx + 1, results);
+            }
+        }
+        break;
+
+    case strata::PathOp::Wildcard:
+        if (value->is_array()) {
+            const auto& arr = value->as_array();
+            for (const auto& elem : arr) {
+                eval_step_jsonvalue(&elem, steps, step_idx + 1, results);
+            }
+        } else if (value->is_object()) {
+            const auto& obj = value->as_object();
+            for (const auto& pair : obj) {
+                eval_step_jsonvalue(&pair.second, steps, step_idx + 1, results);
+            }
+        }
+        break;
+
+    case strata::PathOp::RecursiveDescent: {
+        // For recursive descent with remaining steps, collect matches then continue
+        if (step_idx + 1 >= steps.size()) {
+            // Terminal recursive: collect field values directly
+            collect_recursive_jsonvalue(value, step.field, results);
+        } else {
+            // Non-terminal: collect cursors then evaluate remaining steps
+            std::vector<const strata::JsonValue*> found;
+            // Inline collection to avoid JsonCursor overhead
+            std::function<void(const strata::JsonValue*)> collect;
+            collect = [&](const strata::JsonValue* v) {
+                if (!v)
+                    return;
+                if (v->is_object()) {
+                    const auto& obj = v->as_object();
+                    for (const auto& pair : obj) {
+                        if (pair.first == step.field) {
+                            found.push_back(&pair.second);
+                        }
+                        collect(&pair.second);
+                    }
+                } else if (v->is_array()) {
+                    for (const auto& elem : v->as_array()) {
+                        collect(&elem);
+                    }
+                }
+            };
+            collect(value);
+            for (const auto* f : found) {
+                eval_step_jsonvalue(f, steps, step_idx + 1, results);
+            }
+        }
+        break;
+    }
+
+    case strata::PathOp::Slice:
+        if (value->is_array()) {
+            const auto& arr = value->as_array();
+            int64_t start = step.slice_start;
+            int64_t end = step.slice_end;
+            int64_t stp = step.slice_step;
+            int64_t sz = static_cast<int64_t>(arr.size());
+            if (start < 0)
+                start = sz + start;
+            if (end < 0)
+                end = sz + end;
+            start = std::max(int64_t(0), std::min(start, sz));
+            end = std::max(int64_t(0), std::min(end, sz));
+            if (stp > 0) {
+                for (int64_t i = start; i < end; i += stp) {
+                    eval_step_jsonvalue(&arr[static_cast<size_t>(i)], steps, step_idx + 1, results);
+                }
+            }
+        }
+        break;
+
+    case strata::PathOp::Filter:
+        if (value->is_array()) {
+            const auto& arr = value->as_array();
+            for (const auto& elem : arr) {
+                if (elem.is_object()) {
+                    const auto& obj = elem.as_object();
+                    auto it = obj.find(step.filter.field);
+                    if (it != obj.end()) {
+                        // Evaluate filter directly on JsonValue
+                        bool match = false;
+                        if (step.filter.is_numeric && it->second.is_number()) {
+                            double v = it->second.as_number();
+                            switch (step.filter.op) {
+                            case strata::FilterOp::Equal:
+                                match = v == step.filter.numeric_value;
+                                break;
+                            case strata::FilterOp::NotEqual:
+                                match = v != step.filter.numeric_value;
+                                break;
+                            case strata::FilterOp::GreaterThan:
+                                match = v > step.filter.numeric_value;
+                                break;
+                            case strata::FilterOp::GreaterEqual:
+                                match = v >= step.filter.numeric_value;
+                                break;
+                            case strata::FilterOp::LessThan:
+                                match = v < step.filter.numeric_value;
+                                break;
+                            case strata::FilterOp::LessEqual:
+                                match = v <= step.filter.numeric_value;
+                                break;
+                            default:
+                                break;
+                            }
+                        } else if (!step.filter.is_numeric && it->second.is_string()) {
+                            const auto& s = it->second.as_string();
+                            switch (step.filter.op) {
+                            case strata::FilterOp::Equal:
+                                match = s == step.filter.string_value;
+                                break;
+                            case strata::FilterOp::NotEqual:
+                                match = s != step.filter.string_value;
+                                break;
+                            default:
+                                break;
+                            }
+                        }
+                        if (match) {
+                            eval_step_jsonvalue(&elem, steps, step_idx + 1, results);
+                        }
+                    }
+                }
+            }
+        }
+        break;
+
+    case strata::PathOp::End: {
+        PyObject* py_val = json_value_to_python(*value);
+        if (py_val)
+            results.push_back(py_val);
+    } break;
     }
 }
 
@@ -225,6 +437,21 @@ static void eval_step_pyobj(PyObject* obj, const std::vector<strata::PathStep>& 
         results.push_back(obj);
         break;
     }
+}
+
+// Build a Python list from a vector of owned PyObject refs (steal refs, no incref).
+static PyObject* pyobj_results_to_list_steal(std::vector<PyObject*>& results) {
+    PyObject* list = PyList_New((Py_ssize_t)results.size());
+    if (!list) {
+        for (auto* p : results)
+            Py_XDECREF(p);
+        return nullptr;
+    }
+    for (size_t i = 0; i < results.size(); i++) {
+        PyList_SET_ITEM(list, (Py_ssize_t)i, results[i]); // steals ref
+    }
+    results.clear();
+    return list;
 }
 
 // Build a Python list from a vector of borrowed PyObject refs (incref each).
@@ -581,21 +808,112 @@ PyObject* strata_compile_path(PyObject* self, PyObject* args) {
     STRATA_CPP_CATCH
 }
 
-PyObject* strata_search(PyObject* self, PyObject* args) {
+// Helper: search a single JsonValue with compiled path, respecting mem_eff.
+// Returns new ref (Python list).
+static PyObject* search_jsonvalue(const strata::JsonValue* raw,
+                                  const strata::CompiledPath& compiled_path, bool mem_eff) {
+    if (!raw) {
+        PyErr_SetString(PyExc_TypeError, "Invalid JSON value");
+        return NULL;
+    }
+
+    if (mem_eff) {
+        // Memory-efficient: search on C++ tree, only materialize matched results
+        std::vector<PyObject*> py_results;
+        eval_step_jsonvalue(raw, compiled_path.steps(), 0, py_results);
+        if (PyErr_Occurred()) {
+            for (auto* p : py_results)
+                Py_XDECREF(p);
+            return NULL;
+        }
+        return pyobj_results_to_list_steal(py_results);
+    }
+
+    // Check if path needs full walk (recursive descent / filter)
+    bool needs_full_walk = false;
+    for (const auto& step : compiled_path.steps()) {
+        if (step.op == strata::PathOp::RecursiveDescent || step.op == strata::PathOp::Filter) {
+            needs_full_walk = true;
+            break;
+        }
+    }
+
+    if (needs_full_walk) {
+        // Convert to Python dict and use fast PyObject-native path
+        PyObject* py_data = json_value_to_python(*raw);
+        if (!py_data)
+            return NULL;
+        std::vector<PyObject*> py_results;
+        eval_step_pyobj(py_data, compiled_path.steps(), 0, py_results);
+        PyObject* result = PyErr_Occurred() ? NULL : pyobj_results_to_list(py_results);
+        Py_DECREF(py_data);
+        return result;
+    }
+
+    // Simple path: direct JsonValue evaluation (no full-tree convert)
+    std::vector<PyObject*> py_results;
+    eval_step_jsonvalue(raw, compiled_path.steps(), 0, py_results);
+    if (PyErr_Occurred()) {
+        for (auto* p : py_results)
+            Py_XDECREF(p);
+        return NULL;
+    }
+    return pyobj_results_to_list_steal(py_results);
+}
+
+// Helper: search a Python object with compiled path
+static PyObject* search_pyobj(PyObject* py_data, const strata::CompiledPath& compiled_path) {
+    std::vector<PyObject*> py_results;
+    eval_step_pyobj(py_data, compiled_path.steps(), 0, py_results);
+    if (PyErr_Occurred())
+        return NULL;
+    return pyobj_results_to_list(py_results);
+}
+
+// Check if string looks like a file path (ends with .json/.ndjson/.jsonl)
+static bool is_file_path(const char* str, size_t len) {
+    if (len > 5 && strcmp(str + len - 5, ".json") == 0)
+        return true;
+    if (len > 7 && strcmp(str + len - 7, ".ndjson") == 0)
+        return true;
+    if (len > 6 && strcmp(str + len - 6, ".jsonl") == 0)
+        return true;
+    return false;
+}
+
+static bool is_ndjson_path(const char* str, size_t len) {
+    if (len > 7 && strcmp(str + len - 7, ".ndjson") == 0)
+        return true;
+    if (len > 6 && strcmp(str + len - 6, ".jsonl") == 0)
+        return true;
+    return false;
+}
+
+PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* data_obj;
     PyObject* path_obj;
+    PyObject* mem_eff_obj = nullptr;
 
-    if (!PyArg_ParseTuple(args, "OO", &data_obj, &path_obj)) {
+    static const char* kwlist[] = {"data", "path", "mem_eff", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|O", const_cast<char**>(kwlist), &data_obj,
+                                     &path_obj, &mem_eff_obj)) {
         return NULL;
     }
 
     STRATA_CPP_TRY
 
+    // Resolve mem_eff: per-call kwarg > global config
+    bool mem_eff;
+    if (mem_eff_obj && mem_eff_obj != Py_None) {
+        mem_eff = PyObject_IsTrue(mem_eff_obj);
+    } else {
+        mem_eff = strata_config_mem_eff();
+    }
+
     // Compile the path (if it's a string)
     strata::CompiledPath compiled_path;
 
     if (PyUnicode_Check(path_obj)) {
-        // String path - compile it
         const char* path_str = PyUnicode_AsUTF8(path_obj);
         if (!path_str)
             return NULL;
@@ -607,7 +925,6 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         }
         compiled_path = std::move(compile_result.value);
     } else if (Py_TYPE(path_obj) == &PyCompiledPathType) {
-        // Pre-compiled path - use it directly
         PyCompiledPath* compiled_obj = (PyCompiledPath*)path_obj;
         compiled_path = *compiled_obj->path;
     } else {
@@ -615,50 +932,130 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    // Handle JsonDocument/JsonCursor inputs (parsed once, no reparse)
+    // Handle JsonDocument inputs
     if (is_py_json_document(data_obj)) {
         auto* doc = get_py_json_document(data_obj);
         if (!doc) {
             PyErr_SetString(PyExc_TypeError, "Invalid JsonDocument");
             return NULL;
         }
-
-        strata::JsonCursor cursor(doc->root());
-        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-        return json_value_list_to_python(result_values);
+        return search_jsonvalue(&doc->root_value(), compiled_path, mem_eff);
     }
 
+    // Handle JsonCursor inputs
     if (is_py_json_cursor(data_obj)) {
         auto* cursor_ptr = get_py_json_cursor(data_obj);
         if (!cursor_ptr) {
             PyErr_SetString(PyExc_TypeError, "Invalid JsonCursor");
             return NULL;
         }
-
-        auto result_values = strata::eval_jsonpath(*cursor_ptr, compiled_path);
-        return json_value_list_to_python(result_values);
+        const strata::JsonValue* raw = cursor_ptr->raw();
+        return search_jsonvalue(raw, compiled_path, mem_eff);
     }
 
-    // Handle string input (JSON text)
+    // Handle string input — could be file path or JSON text
     if (PyUnicode_Check(data_obj)) {
         Py_ssize_t json_len;
         const char* json_data = PyUnicode_AsUTF8AndSize(data_obj, &json_len);
         if (!json_data)
             return NULL;
 
-        // Parse JSON text
-        auto parse_result = strata::parse_json(std::string_view(json_data, json_len));
-        if (!parse_result.ok()) {
+        // Check if it's a file path
+        if (is_file_path(json_data, static_cast<size_t>(json_len))) {
+            if (is_ndjson_path(json_data, static_cast<size_t>(json_len))) {
+                // NDJSON/JSONL file: search each line, return list of result lists
+                std::ifstream file(std::string(json_data, json_len),
+                                   std::ios::binary | std::ios::ate);
+                if (!file.is_open()) {
+                    PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", json_data);
+                    return NULL;
+                }
+                auto size = file.tellg();
+                file.seekg(0);
+                std::string content(static_cast<size_t>(size), '\0');
+                file.read(content.data(), size);
+                file.close();
+
+                strata::NdjsonStream stream(content);
+                PyObject* outer_list = PyList_New(0);
+                if (!outer_list)
+                    return NULL;
+
+                while (stream.has_next()) {
+                    auto line_result = stream.next();
+                    if (!line_result.ok())
+                        continue;
+
+                    PyObject* line_results;
+                    if (mem_eff) {
+                        // Search directly on C++ JsonValue
+                        line_results = search_jsonvalue(&line_result.value, compiled_path, true);
+                    } else {
+                        // Convert line to Python, search on Python objects
+                        PyObject* py_line = json_value_to_python(line_result.value);
+                        if (!py_line) {
+                            Py_DECREF(outer_list);
+                            return NULL;
+                        }
+                        line_results = search_pyobj(py_line, compiled_path);
+                        Py_DECREF(py_line);
+                    }
+
+                    if (!line_results) {
+                        Py_DECREF(outer_list);
+                        return NULL;
+                    }
+
+                    // Flatten: extend outer list with line results
+                    Py_ssize_t n = PyList_GET_SIZE(line_results);
+                    for (Py_ssize_t i = 0; i < n; i++) {
+                        PyObject* item = PyList_GET_ITEM(line_results, i);
+                        Py_INCREF(item);
+                        if (PyList_Append(outer_list, item) < 0) {
+                            Py_DECREF(item);
+                            Py_DECREF(line_results);
+                            Py_DECREF(outer_list);
+                            return NULL;
+                        }
+                        Py_DECREF(item);
+                    }
+                    Py_DECREF(line_results);
+                }
+                return outer_list;
+            }
+
+            // JSON file: mmap + parse
+            if (mem_eff) {
+                // Parse to C++ tree, search on C++ tree
+                auto result = strata::parse_json_file(json_data);
+                if (!result.ok()) {
+                    PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", json_data);
+                    return NULL;
+                }
+                emit_duplicate_key_warnings();
+                return search_jsonvalue(&result.value.root_value(), compiled_path, true);
+            } else {
+                // Read file and parse to Python via SAX
+                auto result = strata::parse_json_file(json_data);
+                if (!result.ok()) {
+                    PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", json_data);
+                    return NULL;
+                }
+                emit_duplicate_key_warnings();
+                return search_jsonvalue(&result.value.root_value(), compiled_path, false);
+            }
+        }
+
+        // Regular JSON text
+        PyObject* py_data = parse_json_to_python(std::string_view(json_data, json_len));
+        if (!py_data) {
             PyErr_SetString(PyExc_ValueError, "Invalid JSON");
             return NULL;
         }
-
         emit_duplicate_key_warnings();
-
-        // Execute query
-        strata::JsonCursor cursor(&parse_result.value);
-        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-        return json_value_list_to_python(result_values);
+        PyObject* result = search_pyobj(py_data, compiled_path);
+        Py_DECREF(py_data);
+        return result;
     }
 
     if (PyBytes_Check(data_obj)) {
@@ -667,28 +1064,20 @@ PyObject* strata_search(PyObject* self, PyObject* args) {
         if (PyBytes_AsStringAndSize(data_obj, &json_data, &json_len) < 0) {
             return NULL;
         }
-        auto parse_result = strata::parse_json(std::string_view(json_data, json_len));
-        if (!parse_result.ok()) {
+
+        PyObject* py_data = parse_json_to_python(std::string_view(json_data, json_len));
+        if (!py_data) {
             PyErr_SetString(PyExc_ValueError, "Invalid JSON");
             return NULL;
         }
-
         emit_duplicate_key_warnings();
-
-        strata::JsonCursor cursor(&parse_result.value);
-        auto result_values = strata::eval_jsonpath(cursor, compiled_path);
-        return json_value_list_to_python(result_values);
+        PyObject* result = search_pyobj(py_data, compiled_path);
+        Py_DECREF(py_data);
+        return result;
     }
 
-    // Handle Python object (dict/list/scalar) – evaluate natively without C++ tree copy.
-    // This eliminates the pyobject_to_json_value conversion for the common dict/list case,
-    // saving a full O(n) tree walk and all associated allocations.
-    std::vector<PyObject*> py_results;
-    eval_step_pyobj(data_obj, compiled_path.steps(), 0, py_results);
-    if (PyErr_Occurred()) {
-        return NULL;
-    }
-    return pyobj_results_to_list(py_results);
+    // Handle Python object (dict/list/scalar)
+    return search_pyobj(data_obj, compiled_path);
 
     STRATA_CPP_CATCH
 }

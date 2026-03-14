@@ -6,6 +6,8 @@ Compile and evaluate JSONPath expressions against JSON data.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from . import _strata as _native
 from .json_cursor import JsonCursor
 
@@ -14,54 +16,37 @@ CompiledPath = _native.CompiledPath
 
 
 def compile_path(expression: str) -> CompiledPath:
-    """
-    Compile a JSONPath expression for repeated use.
-
-    Use this when you will run the same query many times; compilation is
-    done once and the result can be passed to search().
-
-    Args:
-        expression: JSONPath string (e.g. "$.users[*].id").
-
-    Returns:
-        Compiled path that can be passed to search().
-
-    Raises:
-        ValueError: If the expression is invalid.
-
-    Example:
-        >>> path = compile_path("$.users[*].name")
-        >>> search(doc1, path)
-        ['Alice', 'Bob']
-        >>> search(doc2, path)
-        ['Carol']
-    """
+    """Compile a JSONPath expression for repeated use."""
     return _native.compile_path(expression)
 
 
 def search(
-    data: str | bytes | JsonCursor | dict | list,
+    data: str | bytes | Path | JsonCursor | dict | list,
     expression: str | CompiledPath,
+    *,
+    mem_eff: bool | None = None,
 ) -> list:
     """
     Find all values matching a JSONPath expression.
 
     Args:
-        data: JSON as string, bytes, JsonCursor, or already-parsed dict/list.
+        data: JSON string, bytes, file path (.json/.ndjson/.jsonl),
+              JsonCursor, or already-parsed dict/list.
         expression: JSONPath string or a pre-compiled CompiledPath.
-
-    Returns:
-        List of matching values (primitives, dicts, or lists).
-
-    Example:
-        >>> search('{"users": [{"id": 1}, {"id": 2}]}', "$.users[*].id")
-        [1, 2]
+        mem_eff: If True, search on C++ tree without full Python conversion.
+                 If None, uses global config (strata.config.get("mem_eff")).
     """
-    # JsonCursor wraps the C++ cursor; unwrap for the native search API
+    # Unwrap JsonCursor and Path for the native API
     if isinstance(data, JsonCursor):
         data = data._cursor
+    elif isinstance(data, Path):
+        data = str(data)
 
-    return _native.search(data, expression)
+    kwargs = {}
+    if mem_eff is not None:
+        kwargs["mem_eff"] = mem_eff
+
+    return _native.search(data, expression, **kwargs)
 
 
 __all__ = ["compile_path", "search"]

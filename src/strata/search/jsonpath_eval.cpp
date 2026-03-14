@@ -94,38 +94,26 @@ static bool eval_filter(const JsonCursor& cursor, const FilterPredicate& filter)
     }
 }
 
-// Helper for recursive descent - finds all matching cursors
-static void collect_recursive_cursors(const JsonCursor& cursor, const std::string& field_name,
-                                      std::vector<JsonCursor>& cursors) {
-    // Check if current node has the field
-    if (cursor.is_object()) {
-        try {
-            JsonCursor child = cursor.field(field_name);
-            cursors.push_back(child);
-        } catch (...) {
-            // Field not found at this level
-        }
+// Helper for recursive descent - works directly with JsonValue* to avoid
+// exception overhead, string allocations, and redundant lookups.
+static void collect_recursive_values(const JsonValue* value, const std::string& field_name,
+                                     std::vector<JsonCursor>& cursors) {
+    if (!value)
+        return;
 
-        // Recurse into all object values (NOT into the matched field itself)
-        auto keys = cursor.object_keys();
-        for (const auto& key : keys) {
-            try {
-                JsonCursor child = cursor.field(key);
-                collect_recursive_cursors(child, field_name, cursors);
-            } catch (...) {
-                // Skip on error
+    if (value->is_object()) {
+        const auto& obj = value->as_object();
+        for (const auto& pair : obj) {
+            if (pair.first == field_name) {
+                cursors.emplace_back(&pair.second);
             }
+            // Recurse into all values (including matched ones - their children may also match)
+            collect_recursive_values(&pair.second, field_name, cursors);
         }
-    } else if (cursor.is_array()) {
-        // Recurse into all array elements
-        size_t len = cursor.array_size();
-        for (size_t i = 0; i < len; ++i) {
-            try {
-                JsonCursor child = cursor.at(i);
-                collect_recursive_cursors(child, field_name, cursors);
-            } catch (...) {
-                // Skip on error
-            }
+    } else if (value->is_array()) {
+        const auto& arr = value->as_array();
+        for (const auto& elem : arr) {
+            collect_recursive_values(&elem, field_name, cursors);
         }
     }
 }
@@ -209,7 +197,7 @@ static void eval_step(const JsonCursor& cursor, const std::vector<PathStep>& ste
     case PathOp::RecursiveDescent: {
         // Recursively find all instances of the field
         std::vector<JsonCursor> found_cursors;
-        collect_recursive_cursors(cursor, step.field, found_cursors);
+        collect_recursive_values(cursor.raw(), step.field, found_cursors);
 
         // Continue evaluation with remaining steps for each found cursor
         for (const auto& found : found_cursors) {

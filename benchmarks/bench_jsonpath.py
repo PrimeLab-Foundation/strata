@@ -132,13 +132,13 @@ def run_all(
     *,
     repeat: int = 5,
     warmup: int = 1,
-    strata_mode: str = "cursor",
+    strata_mode: str = "dict",
 ) -> list[QueryBenchResult]:
     """Run all query benchmarks; return list of QueryBenchResult.
 
-    strata_mode: "cursor" (default) = parse_json_file once, then search(cursor, path) [query only];
-                 "string" = search(text, path) [parse+query per call, no dumps];
-                 "dict" = search(loads(text), path) [dumps+parse+query per call]. Use for loads()+search() comparison.
+    strata_mode: "dict" (default) = loads() once, then search(dict, path) [query only, fair comparison];
+                 "cursor" = parse_json_file once, then search(cursor, path) [query only];
+                 "string" = search(text, path) [parse+query per call, no dumps].
     """
     data_file = Path(data_file)
     json_bytes = data_file.read_bytes()
@@ -327,8 +327,8 @@ def main() -> int:
     parser.add_argument(
         "--strata-mode",
         choices=["dict", "string", "cursor"],
-        default="cursor",
-        help="Strata input: cursor=parse_json_file then search(cursor,path) [query only, default]; dict=search(loads(text),path); string=search(text,path). Use --strata-mode dict for loads()+search() comparison.",
+        default="dict",
+        help="Strata input: dict=loads() then search(dict,path) [query only, default, fair comparison]; cursor=parse_json_file then search(cursor,path); string=search(text,path).",
     )
     args = parser.parse_args()
 
