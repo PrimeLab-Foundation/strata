@@ -1,5 +1,4 @@
 #include "python_types.h"
-#include "strata/util/arena_allocator.hpp"
 #include "strata/util/dragonbox.hpp"
 #include "strata/util/output_buffer.hpp"
 #include "strata/util/simd_string.hpp"
@@ -10,14 +9,12 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
-#include <vector>
 
-// Thread-local buffers for zero-allocation serialization
+// Thread-local buffer for zero-allocation serialization
 thread_local strata::util::OutputBuffer g_serialize_buffer;
-thread_local strata::util::Arena g_serialize_arena;
 
 enum class CyclePolicy { Warn, Error, Ignore };
-static CyclePolicy g_cycle_policy = CyclePolicy::Warn;
+static CyclePolicy g_cycle_policy = CyclePolicy::Ignore;
 
 bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     if (policy == nullptr) {
@@ -158,17 +155,7 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
     return true;
 }
 
-struct Frame {
-    enum class Type { Dict, List, Tuple };
-    Type type;
-    PyObject* obj;
-    Py_ssize_t index;
-    Py_ssize_t size;
-    Py_ssize_t pos;
-    bool first;
-};
-
-template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out);
+static constexpr int kMaxSerializeDepth = 1024;
 
 static inline size_t estimate_size(PyObject* obj) {
     if (PyDict_CheckExact(obj)) {
@@ -190,183 +177,202 @@ static inline size_t estimate_size(PyObject* obj) {
     return 256;
 }
 
-template <typename Buffer> static bool serialize_iterative(PyObject* root, Buffer& out) {
-    using FrameAllocator = strata::util::ArenaAllocator<Frame>;
-    std::vector<Frame, FrameAllocator> stack{FrameAllocator(&g_serialize_arena)};
-    stack.reserve(64);
+// Recursive serializer: uses the hardware call stack instead of an explicit frame stack.
+// This reduces per-element overhead (no vector push/pop, no frame type dispatch) at the
+// cost of ~128 bytes of stack per nesting level (bounded by kMaxSerializeDepth).
+template <typename Buffer>
+static inline bool serialize_value(PyObject* val, Buffer& out, int depth);
 
-    // Push a container (dict/list/tuple) onto the frame stack with cycle detection.
-    // Non-container, non-string types set a TypeError. Returns false only on error.
-    auto push_container = [&](PyObject* val) -> bool {
-        for (const auto& f : stack) {
-            if (UNLIKELY(f.obj == val)) {
-                switch (g_cycle_policy) {
-                case CyclePolicy::Warn:
-                    PyErr_WarnEx(PyExc_RuntimeWarning, "Cycle detected during JSON serialization",
-                                 1);
-                    [[fallthrough]];
-                case CyclePolicy::Ignore:
-                    out.append("null", 4);
-                    return true;
-                case CyclePolicy::Error:
-                    PyErr_SetString(PyExc_ValueError, "Cycle detected during JSON serialization");
-                    return false;
-                }
-            }
+// Write a dict key (compact ASCII fast path). Returns false on error.
+template <typename Buffer>
+static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
+    if (LIKELY(PyUnicode_IS_COMPACT_ASCII(key))) {
+        const Py_ssize_t klen = PyUnicode_GET_LENGTH(key);
+        const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
+        const size_t need = static_cast<size_t>(klen) + (first ? 3 : 4);
+        out.reserve(out.size() + need);
+        if (!first) {
+            out.unsafe_push_back(',');
         }
-        if (LIKELY(PyDict_CheckExact(val))) {
-            Py_ssize_t sz = PyDict_GET_SIZE(val);
-            if (sz == 0) {
-                out.append("{}", 2);
-            } else {
-                out.push_back('{');
-                stack.push_back({Frame::Type::Dict, val, 0, sz, 0, true});
-            }
-        } else if (LIKELY(PyList_CheckExact(val))) {
-            Py_ssize_t sz = PyList_GET_SIZE(val);
-            if (sz == 0) {
-                out.append("[]", 2);
-            } else {
-                out.push_back('[');
-                stack.push_back({Frame::Type::List, val, 0, sz, 0, true});
-            }
-        } else if (PyTuple_Check(val)) {
-            Py_ssize_t sz = PyTuple_GET_SIZE(val);
-            if (sz == 0) {
-                out.append("[]", 2);
-            } else {
-                out.push_back('[');
-                stack.push_back({Frame::Type::Tuple, val, 0, sz, 0, true});
-            }
-        } else if (PyUnicode_Check(val)) {
-            return append_string(val, out);
+        if (LIKELY(!strata::util::string_needs_escape(kdata, static_cast<size_t>(klen)))) {
+            out.unsafe_push_back('"');
+            out.unsafe_append(kdata, static_cast<size_t>(klen));
+            out.unsafe_push_back('"');
+            out.unsafe_push_back(':');
         } else {
-            PyErr_SetString(PyExc_TypeError,
-                            "Object of unsupported type cannot be serialized to JSON");
-            return false;
+            strata::util::escape_json_string_simd(kdata, static_cast<size_t>(klen), out);
+            out.push_back(':');
         }
         return true;
-    };
-
-    // Write a single value to out. Primitives are written inline; containers push a frame.
-    // Type-check order: str > int > dict > list > float >> None/bool/other.
-    // Dict and list are placed before float/None/bool since they appear as values frequently.
-    auto write_value = [&](PyObject* val) -> bool {
-        PyTypeObject* vt = Py_TYPE(val);
-        if (LIKELY(vt == &PyUnicode_Type)) {
-            return append_string(val, out);
-        }
-        if (LIKELY(vt == &PyLong_Type)) {
-            return append_py_long(out, val);
-        }
-        if (vt == &PyDict_Type) {
-            return push_container(val);
-        }
-        if (vt == &PyList_Type) {
-            return push_container(val);
-        }
-        if (vt == &PyFloat_Type) {
-            append_double(out, PyFloat_AS_DOUBLE(val));
-            return true;
-        }
-        if (UNLIKELY(val == Py_None)) {
-            out.append("null", 4);
-            return true;
-        }
-        if (UNLIKELY(vt == &PyBool_Type)) {
-            out.append(val == Py_True ? "true" : "false", val == Py_True ? 4 : 5);
-            return true;
-        }
-        return push_container(val); // tuple/str-subclass/unsupported
-    };
-
-    // Serialize root (which may itself be a primitive).
-    if (!write_value(root)) {
+    }
+    if (!first) {
+        out.push_back(',');
+    }
+    if (!PyUnicode_Check(key)) {
+        PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
         return false;
     }
+    if (!append_string(key, out)) {
+        return false;
+    }
+    out.push_back(':');
+    return true;
+}
 
-    while (!stack.empty()) {
-        Frame& frame = stack.back();
-
-        if (frame.type == Frame::Type::Dict) {
-            PyObject* key = nullptr;
-            PyObject* value = nullptr;
-            if (PyDict_Next(frame.obj, &frame.pos, &key, &value)) {
-                // Fast path for compact ASCII keys (interned keys are almost always ASCII).
-                if (LIKELY(PyUnicode_IS_COMPACT_ASCII(key))) {
-                    const Py_ssize_t klen = PyUnicode_GET_LENGTH(key);
-                    const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
-                    const size_t need = static_cast<size_t>(klen) + (frame.first ? 3 : 4);
-                    out.reserve(out.size() + need);
-                    if (!frame.first) {
-                        out.unsafe_push_back(',');
-                    }
-                    frame.first = false;
-                    if (LIKELY(
-                            !strata::util::string_needs_escape(kdata, static_cast<size_t>(klen)))) {
-                        out.unsafe_push_back('"');
-                        out.unsafe_append(kdata, static_cast<size_t>(klen));
-                        out.unsafe_push_back('"');
-                        out.unsafe_push_back(':');
-                    } else {
-                        strata::util::escape_json_string_simd(kdata, static_cast<size_t>(klen),
-                                                              out);
-                        out.push_back(':');
-                    }
-                } else {
-                    if (!frame.first) {
-                        out.push_back(',');
-                    }
-                    frame.first = false;
-                    if (!PyUnicode_Check(key)) {
-                        PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
-                        return false;
-                    }
-                    if (!append_string(key, out)) {
-                        return false;
-                    }
-                    out.push_back(':');
-                }
-                if (!write_value(value)) {
-                    return false;
-                }
-            } else {
-                out.push_back('}');
-                stack.pop_back();
-            }
+template <typename Buffer>
+static inline bool serialize_dict(PyObject* dict, Buffer& out, int depth) {
+    Py_ssize_t sz = PyDict_GET_SIZE(dict);
+    if (sz == 0) {
+        out.append("{}", 2);
+        return true;
+    }
+    out.push_back('{');
+    Py_ssize_t pos = 0;
+    PyObject* key = nullptr;
+    PyObject* value = nullptr;
+    bool first = true;
+    while (PyDict_Next(dict, &pos, &key, &value)) {
+        if (!write_dict_key(key, out, first)) {
+            return false;
+        }
+        first = false;
+        // Inline common value types to avoid serialize_value function call overhead.
+        // serialize_value is recursive and cannot be fully inlined by the compiler.
+        PyTypeObject* vt = Py_TYPE(value);
+        if (LIKELY(vt == &PyUnicode_Type)) {
+            if (!append_string(value, out))
+                return false;
+        } else if (LIKELY(vt == &PyLong_Type)) {
+            if (!append_py_long(out, value))
+                return false;
+        } else if (vt == &PyFloat_Type) {
+            if (!append_double(out, PyFloat_AS_DOUBLE(value)))
+                return false;
         } else {
-            // List or Tuple
-            if (frame.index < frame.size) {
-                if (!frame.first) {
-                    out.push_back(',');
-                }
-                frame.first = false;
-                PyObject* item = (frame.type == Frame::Type::List)
-                                     ? PyList_GET_ITEM(frame.obj, frame.index)
-                                     : PyTuple_GET_ITEM(frame.obj, frame.index);
-                frame.index += 1;
-                if (!write_value(item)) {
-                    return false;
-                }
-            } else {
-                out.push_back(']');
-                stack.pop_back();
-            }
+            if (!serialize_value(value, out, depth))
+                return false;
         }
     }
-
+    out.push_back('}');
     return true;
+}
+
+template <typename Buffer>
+static inline bool serialize_list(PyObject* list, Buffer& out, int depth) {
+    Py_ssize_t sz = PyList_GET_SIZE(list);
+    if (sz == 0) {
+        out.append("[]", 2);
+        return true;
+    }
+    out.push_back('[');
+    for (Py_ssize_t i = 0; i < sz; ++i) {
+        if (i > 0) {
+            out.push_back(',');
+        }
+        PyObject* item = PyList_GET_ITEM(list, i);
+        PyTypeObject* vt = Py_TYPE(item);
+        if (LIKELY(vt == &PyUnicode_Type)) {
+            if (!append_string(item, out))
+                return false;
+        } else if (LIKELY(vt == &PyLong_Type)) {
+            if (!append_py_long(out, item))
+                return false;
+        } else if (vt == &PyFloat_Type) {
+            if (!append_double(out, PyFloat_AS_DOUBLE(item)))
+                return false;
+        } else if (vt == &PyDict_Type) {
+            if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+                PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+                return false;
+            }
+            if (!serialize_dict(item, out, depth + 1))
+                return false;
+        } else {
+            if (!serialize_value(item, out, depth))
+                return false;
+        }
+    }
+    out.push_back(']');
+    return true;
+}
+
+template <typename Buffer>
+static inline bool serialize_tuple(PyObject* tup, Buffer& out, int depth) {
+    Py_ssize_t sz = PyTuple_GET_SIZE(tup);
+    if (sz == 0) {
+        out.append("[]", 2);
+        return true;
+    }
+    out.push_back('[');
+    for (Py_ssize_t i = 0; i < sz; ++i) {
+        if (i > 0) {
+            out.push_back(',');
+        }
+        if (!serialize_value(PyTuple_GET_ITEM(tup, i), out, depth)) {
+            return false;
+        }
+    }
+    out.push_back(']');
+    return true;
+}
+
+template <typename Buffer>
+static inline bool serialize_value(PyObject* val, Buffer& out, int depth) {
+    PyTypeObject* vt = Py_TYPE(val);
+    if (LIKELY(vt == &PyUnicode_Type)) {
+        return append_string(val, out);
+    }
+    if (LIKELY(vt == &PyLong_Type)) {
+        return append_py_long(out, val);
+    }
+    if (vt == &PyDict_Type) {
+        if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+            PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+            return false;
+        }
+        return serialize_dict(val, out, depth + 1);
+    }
+    if (vt == &PyList_Type) {
+        if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+            PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+            return false;
+        }
+        return serialize_list(val, out, depth + 1);
+    }
+    if (vt == &PyFloat_Type) {
+        return append_double(out, PyFloat_AS_DOUBLE(val));
+    }
+    if (UNLIKELY(val == Py_None)) {
+        out.append("null", 4);
+        return true;
+    }
+    if (UNLIKELY(vt == &PyBool_Type)) {
+        out.append(val == Py_True ? "true" : "false", val == Py_True ? 4 : 5);
+        return true;
+    }
+    if (PyTuple_Check(val)) {
+        if (UNLIKELY(depth >= kMaxSerializeDepth)) {
+            PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+            return false;
+        }
+        return serialize_tuple(val, out, depth + 1);
+    }
+    if (PyUnicode_Check(val)) {
+        return append_string(val, out);
+    }
+    PyErr_SetString(PyExc_TypeError, "Object of unsupported type cannot be serialized to JSON");
+    return false;
 }
 
 // Python dumps() function
 PyObject* strata_dumps(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
-    g_serialize_arena.reset();
+    PyGcPause gc_pause;
     g_serialize_buffer.clear();
     g_serialize_buffer.reserve(estimate_size(obj));
 
-    if (!serialize_iterative(obj, g_serialize_buffer)) {
+    if (!serialize_value(obj, g_serialize_buffer, 0)) {
         return NULL;
     }
     if (PyErr_Occurred()) {
@@ -382,11 +388,11 @@ PyObject* strata_dumps(PyObject* self, PyObject* obj) {
 PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj) {
     STRATA_CPP_TRY
 
-    g_serialize_arena.reset();
+    PyGcPause gc_pause;
     g_serialize_buffer.clear();
     g_serialize_buffer.reserve(estimate_size(obj));
 
-    if (!serialize_iterative(obj, g_serialize_buffer)) {
+    if (!serialize_value(obj, g_serialize_buffer, 0)) {
         return NULL;
     }
     if (PyErr_Occurred()) {

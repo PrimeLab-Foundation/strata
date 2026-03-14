@@ -365,12 +365,13 @@ PyObject* parse_json_to_python_reuse(std::string_view text, bool validate_utf8,
 // lines in the batch, avoiding per-line vector/map construction and Python key re-creation.
 
 PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_errors) {
-    PyObject* result_list = PyList_New(0);
-    if (!result_list)
-        return NULL;
-
     PyGcPause gc_pause;
     PythonObjectBuilder builder;
+
+    // Collect parsed items into a temporary vector, then build the list once.
+    // This avoids repeated PyList_Append resizing and extra INCREF/DECREF.
+    std::vector<PyObject*> items;
+    items.reserve(256);
 
     while (stream.has_next()) {
         std::string_view line = stream.read_raw_line();
@@ -384,17 +385,25 @@ PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_erro
             stream.record_error();
             if (skip_errors)
                 continue;
-            break;
-        }
-
-        if (PyList_Append(result_list, item) < 0) {
-            Py_DECREF(item);
-            Py_DECREF(result_list);
+            // On error without skip: clean up items and return
+            for (auto* obj : items)
+                Py_DECREF(obj);
+            PyErr_SetString(PyExc_ValueError, "Invalid JSON in NDJSON line");
             return NULL;
         }
-        Py_DECREF(item);
+        items.push_back(item);
     }
 
+    // Build the Python list in one allocation with SET_ITEM (no extra INCREF)
+    PyObject* result_list = PyList_New(static_cast<Py_ssize_t>(items.size()));
+    if (!result_list) {
+        for (auto* obj : items)
+            Py_DECREF(obj);
+        return NULL;
+    }
+    for (size_t i = 0; i < items.size(); ++i) {
+        PyList_SET_ITEM(result_list, static_cast<Py_ssize_t>(i), items[i]); // steals ref
+    }
     return result_list;
 }
 
@@ -433,6 +442,25 @@ PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t 
     }
 
     return result_list;
+}
+
+// Python parse_ndjson() — parse all NDJSON lines into a list in one C++ call.
+// Avoids the Python NdjsonStream wrapper overhead.
+PyObject* strata_parse_ndjson(PyObject* self, PyObject* args) {
+    const char* data;
+    Py_ssize_t len;
+    int skip_errors = 0;
+
+    if (!PyArg_ParseTuple(args, "s#|p", &data, &len, &skip_errors)) {
+        return NULL;
+    }
+
+    STRATA_CPP_TRY
+
+    strata::NdjsonStream stream(std::string_view(data, len));
+    return parse_ndjson_all_to_python(stream, skip_errors);
+
+    STRATA_CPP_CATCH
 }
 
 // Python loads() function

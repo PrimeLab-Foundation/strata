@@ -70,8 +70,7 @@ def parse_ndjson(data: str | bytes, *, skip_errors: bool = False) -> list[dict |
         [{'a': 1}, {'b': 2}]
     """
     text = data.decode("utf-8") if isinstance(data, bytes) else data
-    stream = _native.NdjsonStream.from_string(text)
-    return stream.parse_all(skip_errors)
+    return _native.parse_ndjson(text, skip_errors)
 
 
 __all__ = ["iter_ndjson", "parse_ndjson"]

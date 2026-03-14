@@ -7,6 +7,7 @@
 extern PyObject* strata_dumps(PyObject* self, PyObject* obj);
 extern PyObject* strata_dumps_bytes(PyObject* self, PyObject* obj);
 extern PyObject* strata_loads(PyObject* self, PyObject* args);
+extern PyObject* strata_parse_ndjson(PyObject* self, PyObject* args);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args);
@@ -47,6 +48,9 @@ static PyMethodDef strata_methods[] = {
      "dumps_bytes(obj) -> bytes\n\nSerialize Python object to JSON bytes."},
     {"loads", strata_loads, METH_VARARGS,
      "loads(s) -> object\n\nParse JSON string to Python object."},
+    {"parse_ndjson", strata_parse_ndjson, METH_VARARGS,
+     "parse_ndjson(s, skip_errors=False) -> list\n\n"
+     "Parse all NDJSON lines into a list."},
     {"parse_json_file", strata_parse_json_file, METH_VARARGS,
      "parse_json_file(filepath) -> (JsonDocument, JsonCursor)\n\n"
      "Parse JSON file using memory-mapped I/O."},

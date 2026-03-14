@@ -59,7 +59,7 @@ def _get_ndjson_runners() -> list[tuple[str, Callable[[str], list[Any]]]]:
     """Return [(library_name, parse_func)] where parse_func(ndjson_str) -> list of objects."""
 
     def strata_run(text: str) -> list:
-        return list(strata.iter_ndjson(text))
+        return strata.parse_ndjson(text)
 
     def orjson_run(text: str) -> list:
         return [orjson.loads(line) for line in _lines(text)]
