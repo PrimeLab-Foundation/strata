@@ -284,14 +284,10 @@ template <typename Handler> struct ParserInline {
         if (!consume('['))
             return false;
 
-        // Pre-count elements for list pre-sizing
-        skip_ws();
-        size_t size_hint = 0;
-        if (peek() != ']') {
-            size_hint = count_array_elements(i);
-        }
-
-        if (!handler.on_start_array(size_hint))
+        // Skip pre-counting: the flat vector approach in PythonObjectBuilder
+        // handles dynamic growth efficiently (amortized O(1) per element).
+        // Pre-counting doubles the scan work and isn't worth the cost.
+        if (!handler.on_start_array(0))
             return false;
         if (consume(']'))
             return handler.on_end_array();
@@ -399,14 +395,10 @@ template <typename Handler> struct ParserInline {
         if (!consume('{'))
             return false;
 
-        // Pre-count keys for dict pre-sizing (lightweight forward scan)
-        skip_ws();
-        size_t size_hint = 0;
-        if (peek() != '}') {
-            size_hint = count_object_keys(i);
-        }
-
-        if (!handler.on_start_object(size_hint))
+        // Skip pre-counting: Python dicts start at capacity 8 and resize
+        // efficiently. The forward scan doubles the parse work for each object,
+        // costing more than the occasional dict resize it prevents.
+        if (!handler.on_start_object(0))
             return false;
         if (consume('}'))
             return handler.on_end_object();
