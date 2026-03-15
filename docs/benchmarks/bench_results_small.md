@@ -1,10 +1,10 @@
 # Strata Benchmark Results
 
-Generated: 2026-03-15 02:17:15
+Generated: 2026-03-15 03:09:55
 
 ## Environment
 
-- Commit: 1ad8828b764067899097f4fab331b0010dccd034
+- Commit: 5c264ca1e42ba846ee2425bce2f825e70fdfafb1
 - OS: macOS-26.3-arm64-arm-64bit-Mach-O
 - CPU: arm64
 - Python: 3.14.3
@@ -19,89 +19,89 @@ Generated: 2026-03-15 02:17:15
 
 | Library       | Dataset      | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |
 | ------------- | ------------ | -------- | ----------- | -------- | -------- |
-| strata        | users.json   | 3.500    | 4.233       | 4.711    | 37.7     |
-| orjson        | users.json   | 4.367    | 5.542       | 6.010    | 41.7     |
-| msgspec       | users.json   | 4.597    | 6.489       | 6.738    | 44.9     |
-| ujson         | users.json   | 6.142    | 7.848       | 8.142    | 43.8     |
-| json (stdlib) | users.json   | 8.758    | 9.814       | 9.897    | 46.8     |
-| strata        | users.ndjson | 3.553    | 4.419       | 4.590    | 60.5     |
-| orjson        | users.ndjson | 4.899    | 6.469       | 6.926    | 61.5     |
-| msgspec       | users.ndjson | 4.780    | 6.620       | 7.125    | 62.6     |
-| ujson         | users.ndjson | 6.632    | 8.671       | 8.847    | 63.6     |
-| json (stdlib) | users.ndjson | 10.197   | 11.224      | 11.390   | 62.6     |
+| strata        | users.json   | 3.859    | 4.894       | 6.280    | 35.0     |
+| orjson        | users.json   | 4.591    | 6.001       | 7.142    | 39.1     |
+| msgspec       | users.json   | 4.839    | 6.148       | 6.348    | 42.2     |
+| ujson         | users.json   | 6.734    | 8.783       | 10.354   | 41.1     |
+| json (stdlib) | users.json   | 9.697    | 12.153      | 15.127   | 44.1     |
+| strata        | users.ndjson | 4.098    | 5.490       | 7.335    | 56.6     |
+| msgspec       | users.ndjson | 5.018    | 6.653       | 6.691    | 57.8     |
+| orjson        | users.ndjson | 5.964    | 7.384       | 7.878    | 57.6     |
+| ujson         | users.ndjson | 6.417    | 9.556       | 9.902    | 57.8     |
+| json (stdlib) | users.ndjson | 11.142   | 12.994      | 15.541   | 58.6     |
 
 ## load (file-based)
 
 | Library       | Dataset      | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |
 | ------------- | ------------ | -------- | ----------- | -------- | -------- |
-| strata        | users.json   | 3.487    | 4.267       | 4.543    | 46.8     |
-| orjson        | users.json   | 4.354    | 5.912       | 6.344    | 46.8     |
-| msgspec       | users.json   | 4.728    | 6.153       | 6.578    | 49.9     |
-| ujson         | users.json   | 6.470    | 8.135       | 8.651    | 49.9     |
-| json (stdlib) | users.json   | 8.970    | 9.915       | 10.185   | 49.9     |
-| strata        | users.ndjson | 3.894    | 4.574       | 4.916    | 62.6     |
-| msgspec       | users.ndjson | 4.524    | 6.031       | 7.087    | 63.6     |
-| orjson        | users.ndjson | 4.441    | 7.041       | 7.120    | 62.6     |
-| ujson         | users.ndjson | 6.986    | 8.901       | 10.150   | 64.6     |
-| json (stdlib) | users.ndjson | 9.742    | 10.566      | 10.835   | 63.6     |
+| strata        | users.json   | 3.690    | 4.714       | 4.780    | 44.2     |
+| orjson        | users.json   | 5.206    | 6.576       | 6.784    | 44.2     |
+| ujson         | users.json   | 6.688    | 9.378       | 9.919    | 48.3     |
+| msgspec       | users.json   | 4.955    | 9.536       | 10.371   | 48.3     |
+| json (stdlib) | users.json   | 10.860   | 11.183      | 11.495   | 48.3     |
+| strata        | users.ndjson | 3.981    | 4.997       | 5.079    | 58.6     |
+| orjson        | users.ndjson | 4.569    | 6.379       | 7.188    | 58.6     |
+| msgspec       | users.ndjson | 6.724    | 7.174       | 8.062    | 59.0     |
+| ujson         | users.ndjson | 7.161    | 8.911       | 9.902    | 59.0     |
+| json (stdlib) | users.ndjson | 9.847    | 11.762      | 12.529   | 59.0     |
 
 ## dumps (in-memory serialization)
 
 | Library | Dataset    | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |
 | ------- | ---------- | -------- | ----------- | -------- | -------- |
-| strata  | users.json | 1.392    | 1.393       | 1.494    | 49.9     |
-| msgspec | users.json | 1.396    | 1.414       | 1.498    | 53.8     |
-| orjson  | users.json | 1.508    | 1.547       | 1.623    | 53.7     |
-| ujson   | users.json | 6.128    | 6.170       | 6.315    | 56.0     |
-| json    | users.json | 8.619    | 8.639       | 8.721    | 56.7     |
+| strata  | users.json | 1.468    | 1.480       | 1.500    | 48.9     |
+| orjson  | users.json | 1.474    | 1.495       | 1.678    | 50.8     |
+| msgspec | users.json | 1.450    | 1.506       | 1.757    | 51.7     |
+| ujson   | users.json | 6.435    | 6.524       | 6.638    | 52.7     |
+| json    | users.json | 8.814    | 8.832       | 9.112    | 53.2     |
 
 ## dump (file-based)
 
 | Library       | Dataset    | Min (ms) | Median (ms) | P95 (ms) | RSS (MB) |
 | ------------- | ---------- | -------- | ----------- | -------- | -------- |
-| strata        | users.json | 1.543    | 1.614       | 1.697    | 56.7     |
-| orjson        | users.json | 1.676    | 1.766       | 1.828    | 56.7     |
-| msgspec       | users.json | 1.690    | 1.817       | 1.827    | 56.7     |
-| ujson         | users.json | 6.577    | 6.595       | 6.757    | 56.7     |
-| json (stdlib) | users.json | 65.167   | 65.360      | 66.168   | 56.7     |
+| strata        | users.json | 1.657    | 1.706       | 1.779    | 53.2     |
+| orjson        | users.json | 1.735    | 1.786       | 1.817    | 53.2     |
+| msgspec       | users.json | 1.872    | 2.234       | 2.265    | 53.2     |
+| ujson         | users.json | 6.780    | 6.985       | 7.087    | 53.2     |
+| json (stdlib) | users.json | 67.488   | 68.924      | 69.085   | 53.2     |
 
 ## search (file-based)
 
 | Query           | Library            | Min (ms) | Results | RSS (MB) |
 | --------------- | ------------------ | -------- | ------- | -------- |
-| all user ids    | strata             | 1.497    | 1000    | 56.7     |
-|                 | orjson+jmespath    | 5.229    | 1000    | 56.8     |
-|                 | orjson+jsonpath-ng | 6.732    | 1000    | 57.3     |
-| all item prices | strata             | 1.670    | 12046   | 57.3     |
-|                 | orjson+jmespath    | 13.285   | 1000    | 57.3     |
-|                 | orjson+jsonpath-ng | 35.425   | 12046   | 57.0     |
-| recursive price | strata             | 1.719    | 12046   | 57.4     |
-|                 | orjson+jsonpath-ng | 124.139  | 12046   | 58.5     |
+| all user ids    | strata             | 1.608    | 1000    | 53.2     |
+|                 | orjson+jmespath    | 5.784    | 1000    | 53.3     |
+|                 | orjson+jsonpath-ng | 6.923    | 1000    | 54.0     |
+| all item prices | strata             | 1.857    | 12046   | 54.0     |
+|                 | orjson+jmespath    | 13.893   | 1000    | 54.0     |
+|                 | orjson+jsonpath-ng | 35.869   | 12046   | 54.0     |
+| recursive price | strata             | 1.802    | 12046   | 53.3     |
+|                 | orjson+jsonpath-ng | 126.719  | 12046   | 54.4     |
 
 ## Query Benchmarks
 
 | Query                                      | Library     | Min (ms) | Results | RSS (MB) |
 | ------------------------------------------ | ----------- | -------- | ------- | -------- |
-| $.users\[\*\].id                           | strata      | 0.089    | 1000    | 58.4     |
-|                                            | jmespath    | 0.405    | 1000    | 58.4     |
-|                                            | jsonpath-ng | 3.791    | 1000    | 58.4     |
-| $.users\[*\].orders\[*\].items\[\*\].price | strata      | 0.912    | 12046   | 58.5     |
-|                                            | jmespath    | 10.062   | 1000    | 58.5     |
-|                                            | jsonpath-ng | 32.009   | 12046   | 62.1     |
-| $..price                                   | strata      | 1.308    | 12046   | 60.1     |
-|                                            | jsonpath-ng | 121.721  | 12046   | 62.1     |
-| $.users\[?(@.age>30)\]                     | strata      | 0.110    | 794     | 61.5     |
-| $..orders\[?(@.status=="shipped")\]        | strata      | 1.468    | 1604    | 60.5     |
+| $.users\[\*\].id                           | strata      | 0.102    | 1000    | 53.6     |
+|                                            | jmespath    | 0.383    | 1000    | 53.6     |
+|                                            | jsonpath-ng | 4.428    | 1000    | 53.6     |
+| $.users\[*\].orders\[*\].items\[\*\].price | strata      | 0.914    | 12046   | 53.6     |
+|                                            | jmespath    | 10.914   | 1000    | 53.9     |
+|                                            | jsonpath-ng | 32.405   | 12046   | 58.1     |
+| $..price                                   | strata      | 1.269    | 12046   | 56.2     |
+|                                            | jsonpath-ng | 125.502  | 12046   | 58.2     |
+| $.users\[?(@.age>30)\]                     | strata      | 0.143    | 794     | 56.6     |
+| $..orders\[?(@.status=="shipped")\]        | strata      | 1.499    | 1604    | 56.6     |
 
 ## Summary
 
-| Category               | Strata Rank           | vs #1                              |
-| ---------------------- | --------------------- | ---------------------------------- |
-| loads (JSON)           | **#1** / 5            | **24.7% faster** than #2 (orjson)  |
-| loads (NDJSON)         | **#1** / 5            | **34.5% faster** than #2 (msgspec) |
-| load (JSON file)       | **#1** / 5            | **24.9% faster** than #2 (orjson)  |
-| load (NDJSON file)     | **#1** / 5            | **14.0% faster** than #2 (orjson)  |
-| dumps                  | **#1** / 5            | **0.3% faster** than #2 (msgspec)  |
-| dump                   | **#1** / 5            | **8.6% faster** than #2 (orjson)   |
-| search (mem_eff=False) | **#1** in 3/3 queries | avg **2688% faster**               |
-| query (JSONPath)       | **#1** in 5/5 queries | -                                  |
+| Category           | Strata Rank           | vs #1                              |
+| ------------------ | --------------------- | ---------------------------------- |
+| loads (JSON)       | **#1** / 5            | **19.0% faster** than #2 (orjson)  |
+| loads (NDJSON)     | **#1** / 5            | **22.5% faster** than #2 (msgspec) |
+| load (JSON file)   | **#1** / 5            | **34.3% faster** than #2 (msgspec) |
+| load (NDJSON file) | **#1** / 5            | **14.8% faster** than #2 (orjson)  |
+| dumps              | **#2** / 5            | 1.3% behind #1 (msgspec)           |
+| dump               | **#1** / 5            | **4.7% faster** than #2 (orjson)   |
+| search (JSONPath)  | **#1** in 3/3 queries | avg **2613% faster**               |
+| query (JSONPath)   | **#1** in 5/5 queries | -                                  |
