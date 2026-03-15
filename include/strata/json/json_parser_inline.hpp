@@ -283,7 +283,15 @@ template <typename Handler> struct ParserInline {
     bool parse_array() {
         if (!consume('['))
             return false;
-        if (!handler.on_start_array(0))
+
+        // Pre-count elements for list pre-sizing
+        skip_ws();
+        size_t size_hint = 0;
+        if (peek() != ']') {
+            size_hint = count_array_elements(i);
+        }
+
+        if (!handler.on_start_array(size_hint))
             return false;
         if (consume(']'))
             return handler.on_end_array();
@@ -298,10 +306,107 @@ template <typename Handler> struct ParserInline {
         return handler.on_end_array();
     }
 
+    /// Lightweight forward scan to count object keys without parsing values.
+    /// Scans from position @p start (just after '{') counting colons at depth 0.
+    /// Handles nested objects/arrays by tracking bracket depth, and skips strings
+    /// to avoid counting colons inside string literals.
+    /// Returns 0 if the scan would be too expensive (object > 4KB).
+    size_t count_object_keys(size_t start) const noexcept {
+        static constexpr size_t kMaxScanBytes = 4096;
+        const size_t scan_end = (start + kMaxScanBytes < len) ? start + kMaxScanBytes : len;
+        size_t depth = 0;
+        size_t count = 0;
+        bool found_first_key = false;
+
+        for (size_t p = start; p < scan_end; ++p) {
+            const char c = data[p];
+            if (c == '"') {
+                // Skip string content (handle escaped quotes)
+                ++p;
+                while (p < scan_end) {
+                    if (data[p] == '\\') {
+                        ++p; // skip escaped char
+                    } else if (data[p] == '"') {
+                        break;
+                    }
+                    ++p;
+                }
+            } else if (c == '{' || c == '[') {
+                ++depth;
+            } else if (c == '}') {
+                if (depth == 0) {
+                    // End of this object — return count
+                    return found_first_key ? count + 1 : 0;
+                }
+                --depth;
+            } else if (c == ']') {
+                if (depth > 0)
+                    --depth;
+            } else if (c == ':' && depth == 0) {
+                found_first_key = true;
+                ++count;
+                // Skip the value — fast-forward to next comma or closing brace at depth 0
+            }
+        }
+        // Exceeded scan budget — return 0 (don't pre-size)
+        return 0;
+    }
+
+    /// Lightweight forward scan to count array elements.
+    /// Returns 0 if scan would be too expensive (array > 4KB).
+    size_t count_array_elements(size_t start) const noexcept {
+        static constexpr size_t kMaxScanBytes = 4096;
+        const size_t scan_end = (start + kMaxScanBytes < len) ? start + kMaxScanBytes : len;
+        size_t depth = 0;
+        size_t count = 0;
+        bool has_element = false;
+
+        for (size_t p = start; p < scan_end; ++p) {
+            const char c = data[p];
+            if (c == '"') {
+                ++p;
+                while (p < scan_end) {
+                    if (data[p] == '\\') {
+                        ++p;
+                    } else if (data[p] == '"') {
+                        break;
+                    }
+                    ++p;
+                }
+                has_element = true;
+            } else if (c == '{' || c == '[') {
+                ++depth;
+                has_element = true;
+            } else if (c == ']') {
+                if (depth == 0) {
+                    return has_element ? count + 1 : 0;
+                }
+                --depth;
+            } else if (c == '}') {
+                if (depth > 0)
+                    --depth;
+            } else if (c == ',' && depth == 0) {
+                ++count;
+                has_element = true;
+            } else if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
+                has_element = true;
+            }
+        }
+        return 0;
+    }
+
     bool parse_object() {
         if (!consume('{'))
             return false;
-        if (!handler.on_start_object(0))
+
+        // Pre-count keys for dict pre-sizing (lightweight forward scan)
+        skip_ws();
+        size_t size_hint = 0;
+        if (peek() != '}') {
+            size_hint = count_object_keys(i);
+        }
+
+        if (!handler.on_start_object(size_hint))
             return false;
         if (consume('}'))
             return handler.on_end_object();

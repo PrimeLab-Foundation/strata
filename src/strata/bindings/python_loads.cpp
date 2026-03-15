@@ -134,9 +134,14 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     // Array building: collect items in a single flat C++ vector, tracked by start
     // indices.  At on_end_array, build PyList_New(n) + PyList_SET_ITEM (steals ref,
     // no INCREF/DECREF).  Uses one flat vector to avoid per-array allocation overhead.
-    bool on_start_array(size_t) override {
+    bool on_start_array(size_t size_hint) override {
         stack_.push_back(nullptr); // nullptr sentinel = "building an array"
         array_starts_.push_back(array_items_.size());
+        // Pre-reserve vector capacity when the parser provides a size hint,
+        // avoiding repeated reallocation during element collection.
+        if (size_hint > 0) {
+            array_items_.reserve(array_items_.size() + size_hint);
+        }
         return true;
     }
 

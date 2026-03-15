@@ -62,11 +62,13 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
                                       "80818283848586878889"
                                       "90919293949596979899";
 
-    // Reserve 8 bytes for the fast path (max 7 chars: -999999).
-    // Large ints reserve separately.
-    out.reserve(out.size() + 8);
+    // Reserve 12 bytes for the fast path (max 11 chars: -2147483648).
+    out.reserve(out.size() + 12);
 
-    if (LIKELY(value >= -999999 && value <= 999999)) {
+    // Fast path covers full int32 range (±2,147,483,647) using digit-pair
+    // decomposition. This handles virtually all JSON integers without
+    // falling through to std::to_chars.
+    if (LIKELY(value >= -2147483647LL && value <= 2147483647LL)) {
         uint32_t v;
         if (value < 0) {
             out.unsafe_push_back('-');
@@ -84,7 +86,7 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
             return true;
         }
 
-        // 3-6 digit numbers: decompose into pairs
+        // 3-4 digit numbers
         if (v < 10000) {
             uint32_t high = v / 100;
             uint32_t low = v - high * 100;
@@ -94,8 +96,11 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
                 out.unsafe_append(kDigitPairs + high * 2, 2);
             }
             out.unsafe_append(kDigitPairs + low * 2, 2);
-        } else {
-            // 5-6 digit numbers
+            return true;
+        }
+
+        // 5-6 digit numbers
+        if (v < 1000000) {
             uint32_t top = v / 10000;
             uint32_t rem = v - top * 10000;
             uint32_t mid = rem / 100;
@@ -107,11 +112,51 @@ template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t 
             }
             out.unsafe_append(kDigitPairs + mid * 2, 2);
             out.unsafe_append(kDigitPairs + low * 2, 2);
+            return true;
+        }
+
+        // 7-10 digit numbers (covers full int32 range)
+        // Decompose: v = top * 10000_0000 + mid_hi * 10000 + mid_lo * 100 + low
+        if (v < 100000000) {
+            // 7-8 digits
+            uint32_t hi4 = v / 10000;
+            uint32_t lo4 = v - hi4 * 10000;
+            uint32_t p1 = hi4 / 100;
+            uint32_t p2 = hi4 - p1 * 100;
+            uint32_t p3 = lo4 / 100;
+            uint32_t p4 = lo4 - p3 * 100;
+            if (p1 < 10) {
+                out.unsafe_push_back(static_cast<char>('0' + p1));
+            } else {
+                out.unsafe_append(kDigitPairs + p1 * 2, 2);
+            }
+            out.unsafe_append(kDigitPairs + p2 * 2, 2);
+            out.unsafe_append(kDigitPairs + p3 * 2, 2);
+            out.unsafe_append(kDigitPairs + p4 * 2, 2);
+        } else {
+            // 9-10 digits
+            uint32_t hi = v / 100000000;
+            uint32_t lo8 = v - hi * 100000000;
+            uint32_t hi4 = lo8 / 10000;
+            uint32_t lo4 = lo8 - hi4 * 10000;
+            uint32_t p1 = hi4 / 100;
+            uint32_t p2 = hi4 - p1 * 100;
+            uint32_t p3 = lo4 / 100;
+            uint32_t p4 = lo4 - p3 * 100;
+            if (hi < 10) {
+                out.unsafe_push_back(static_cast<char>('0' + hi));
+            } else {
+                out.unsafe_append(kDigitPairs + hi * 2, 2);
+            }
+            out.unsafe_append(kDigitPairs + p1 * 2, 2);
+            out.unsafe_append(kDigitPairs + p2 * 2, 2);
+            out.unsafe_append(kDigitPairs + p3 * 2, 2);
+            out.unsafe_append(kDigitPairs + p4 * 2, 2);
         }
         return true;
     }
 
-    // Large ints: need up to 21 bytes (sign + 20 digits)
+    // Large ints (beyond int32 range): need up to 21 bytes (sign + 20 digits)
     out.reserve(out.size() + 21);
     char* start = out.data() + out.size();
     auto result = std::to_chars(start, start + 21, value);
@@ -737,6 +782,41 @@ static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ss
     return true;
 }
 
+// Fast path for homogeneous string arrays: skips per-element type dispatch.
+// Checks first min(sz, 8) elements to verify all are PyUnicode_Type, then
+// serializes with a tight loop calling append_string() directly.
+template <typename Buffer>
+static inline bool serialize_string_array_fast(PyObject* list, Buffer& out, Py_ssize_t sz) {
+    const Py_ssize_t check = sz < 8 ? sz : 8;
+    for (Py_ssize_t i = 0; i < check; ++i) {
+        if (Py_TYPE(PyList_GET_ITEM(list, i)) != &PyUnicode_Type)
+            return false;
+    }
+
+    out.push_back('[');
+    if (!append_string(PyList_GET_ITEM(list, 0), out))
+        return false;
+
+    for (Py_ssize_t i = 1; i < sz; ++i) {
+        PyObject* item = PyList_GET_ITEM(list, i);
+        if (UNLIKELY(Py_TYPE(item) != &PyUnicode_Type)) {
+            for (Py_ssize_t j = i; j < sz; ++j) {
+                out.push_back(',');
+                if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
+                    return false;
+            }
+            out.push_back(']');
+            return true;
+        }
+        out.push_back(',');
+        if (!append_string(item, out))
+            return false;
+    }
+
+    out.push_back(']');
+    return true;
+}
+
 template <bool Tracking, typename Buffer>
 static inline bool serialize_list_t(PyObject* list, Buffer& out, int depth) {
     if constexpr (Tracking) {
@@ -752,10 +832,15 @@ static inline bool serialize_list_t(PyObject* list, Buffer& out, int depth) {
         return true;
     }
 
-    // Try fast path for homogeneous float arrays (common in scientific/numeric data)
-    if (!Tracking && sz >= 4 && Py_TYPE(PyList_GET_ITEM(list, 0)) == &PyFloat_Type) {
-        if (serialize_float_array_fast(list, out, sz)) {
-            return true;
+    // Try fast paths for homogeneous arrays (skip per-element type dispatch)
+    if (!Tracking && sz >= 4) {
+        PyTypeObject* first_type = Py_TYPE(PyList_GET_ITEM(list, 0));
+        if (first_type == &PyFloat_Type) {
+            if (serialize_float_array_fast(list, out, sz))
+                return true;
+        } else if (first_type == &PyUnicode_Type) {
+            if (serialize_string_array_fast(list, out, sz))
+                return true;
         }
     }
 

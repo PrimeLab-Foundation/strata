@@ -21,6 +21,14 @@
 #include <string>
 #include <string_view>
 
+#if defined(__ARM_NEON) || defined(__aarch64__)
+#include <arm_neon.h>
+#define STRATA_PARSE_HAS_NEON 1
+#elif defined(__SSE2__)
+#include <emmintrin.h>
+#define STRATA_PARSE_HAS_SSE2 1
+#endif
+
 namespace strata {
 namespace util {
 
@@ -159,7 +167,8 @@ namespace util {
  * Fast whitespace skipper.
  *
  * Returns the position of the first non-whitespace character starting
- * from @p start.  Uses an unrolled loop (4 chars per iteration).
+ * from @p start.  Uses SIMD (NEON/SSE2) to check 16 bytes per iteration
+ * when available, with a scalar fallback.
  *
  * @param str   Pointer to the buffer.
  * @param len   Total buffer length.
@@ -170,24 +179,69 @@ namespace util {
                                                  size_t start) noexcept {
     size_t pos = start;
 
-    // Unrolled loop — 4 characters per iteration.
-    while (pos + 4 <= len) {
-        if (str[pos] != ' ' && str[pos] != '\t' && str[pos] != '\n' && str[pos] != '\r')
+    // Fast exit: most JSON tokens have zero or one whitespace byte before them.
+    // This avoids SIMD register setup overhead for the common case.
+    if (pos < len) {
+        char c = str[pos];
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
             return pos;
-        if (str[pos + 1] != ' ' && str[pos + 1] != '\t' && str[pos + 1] != '\n' &&
-            str[pos + 1] != '\r')
-            return pos + 1;
-        if (str[pos + 2] != ' ' && str[pos + 2] != '\t' && str[pos + 2] != '\n' &&
-            str[pos + 2] != '\r')
-            return pos + 2;
-        if (str[pos + 3] != ' ' && str[pos + 3] != '\t' && str[pos + 3] != '\n' &&
-            str[pos + 3] != '\r')
-            return pos + 3;
-        pos += 4;
+        ++pos;
+        if (pos < len) {
+            c = str[pos];
+            if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
+                return pos;
+        }
     }
 
-    while (pos < len &&
-           (str[pos] == ' ' || str[pos] == '\t' || str[pos] == '\n' || str[pos] == '\r')) {
+#ifdef STRATA_PARSE_HAS_NEON
+    // NEON: check 16 bytes at once using comparison against 4 whitespace chars.
+    // A byte is whitespace iff it matches ' ', '\t', '\n', or '\r'.
+    const uint8x16_t sp = vdupq_n_u8(' ');
+    const uint8x16_t tab = vdupq_n_u8('\t');
+    const uint8x16_t nl = vdupq_n_u8('\n');
+    const uint8x16_t cr = vdupq_n_u8('\r');
+
+    while (pos + 16 <= len) {
+        uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(str + pos));
+        uint8x16_t is_ws = vorrq_u8(vorrq_u8(vceqq_u8(chunk, sp), vceqq_u8(chunk, tab)),
+                                    vorrq_u8(vceqq_u8(chunk, nl), vceqq_u8(chunk, cr)));
+        // If any byte is NOT whitespace, find which one
+        if (vminvq_u8(is_ws) == 0) {
+            // At least one non-whitespace byte found — scan to find it
+            for (int j = 0; j < 16; ++j) {
+                char ch = str[pos + j];
+                if (ch != ' ' && ch != '\t' && ch != '\n' && ch != '\r')
+                    return pos + j;
+            }
+        }
+        pos += 16;
+    }
+#elif defined(STRATA_PARSE_HAS_SSE2)
+    const __m128i sp = _mm_set1_epi8(' ');
+    const __m128i tab = _mm_set1_epi8('\t');
+    const __m128i nl = _mm_set1_epi8('\n');
+    const __m128i cr = _mm_set1_epi8('\r');
+
+    while (pos + 16 <= len) {
+        __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(str + pos));
+        __m128i is_ws =
+            _mm_or_si128(_mm_or_si128(_mm_cmpeq_epi8(chunk, sp), _mm_cmpeq_epi8(chunk, tab)),
+                         _mm_or_si128(_mm_cmpeq_epi8(chunk, nl), _mm_cmpeq_epi8(chunk, cr)));
+        int mask = _mm_movemask_epi8(is_ws);
+        if (mask != 0xFFFF) {
+            // Found non-whitespace — count trailing ones
+            int first_non_ws = __builtin_ctz(~mask);
+            return pos + first_non_ws;
+        }
+        pos += 16;
+    }
+#endif
+
+    // Scalar tail
+    while (pos < len) {
+        char c = str[pos];
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
+            return pos;
         ++pos;
     }
 
