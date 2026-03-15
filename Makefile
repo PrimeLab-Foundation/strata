@@ -1,4 +1,4 @@
-.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-all bench-random clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
+.PHONY: dev fmt lint typecheck test test-py test-cpp build bench-data bench-small bench-all clean fuzz-build fuzz-run fuzz pgo all help scripts-executable
 
 # Default target: run all tests (Rule 16: Make is the interface)
 all: test
@@ -186,39 +186,35 @@ bench-data: $(BENCH_SMALL_JSON) $(BENCH_MEDIUM_JSON) $(BENCH_LARGE_JSON)
 # Run full benchmark suite (bench_main) on small data
 bench-small: $(BENCH_SMALL_JSON)
 	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: SMALL (7 sections: loads, load, dumps, dump, search, search_mem_eff, query)"
+	@echo "  Benchmarks: SMALL"
 	@echo "════════════════════════════════════════════════════════════════"
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_main \
 		--dataset $(BENCH_SMALL_JSON) \
 		--dataset $(BENCH_SMALL_NDJSON) \
+		--records 500 --seed 42 \
 		--repeat 3 --warmup 1 --output docs/benchmarks/bench_results_small.md
 
 # Run full benchmark suite on medium data
 bench-medium: $(BENCH_MEDIUM_JSON)
 	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: MEDIUM (7 sections: loads, load, dumps, dump, search, search_mem_eff, query)"
+	@echo "  Benchmarks: MEDIUM"
 	@echo "════════════════════════════════════════════════════════════════"
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_main \
 		--dataset $(BENCH_MEDIUM_JSON) \
 		--dataset $(BENCH_MEDIUM_NDJSON) \
+		--records 2000 --seed 42 \
 		--repeat 3 --warmup 1 --output docs/benchmarks/bench_results_medium.md
 
 # Run full benchmark suite on large data
 bench-large: $(BENCH_LARGE_JSON)
 	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: LARGE (7 sections: loads, load, dumps, dump, search, search_mem_eff, query)"
+	@echo "  Benchmarks: LARGE"
 	@echo "════════════════════════════════════════════════════════════════"
 	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_main \
 		--dataset $(BENCH_LARGE_JSON) \
 		--dataset $(BENCH_LARGE_NDJSON) \
+		--records 5000 --seed 42 \
 		--repeat 3 --warmup 1 --output docs/benchmarks/bench_results_large.md
-
-# Run random-schema benchmarks (no data files needed)
-bench-random:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "  Benchmarks: RANDOM SCHEMAS"
-	@echo "════════════════════════════════════════════════════════════════"
-	PYTHONPATH=. $(VENV)/bin/$(PYTHON) -m benchmarks.bench_random --repeat 3 --warmup 1
 
 # Generate all data once, then run small + medium + large
 bench-all: bench-data bench-small bench-medium bench-large

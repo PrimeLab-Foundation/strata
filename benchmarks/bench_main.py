@@ -13,7 +13,9 @@ import argparse
 import json
 import os
 import platform
+import random
 import statistics
+import string
 import subprocess
 import sys
 import sysconfig
@@ -31,6 +33,113 @@ from .eval_queries import (
 from .bench_dumps import run_benchmarks as run_dumps_benchmarks
 
 import strata
+
+
+# -----------------------------------------------------------------------------
+# Random schema generators (from bench_random.py)
+# -----------------------------------------------------------------------------
+
+RANDOM_SCHEMAS = {
+    "flat": "Flat objects with many keys",
+    "nested": "Deeply nested objects",
+    "wide_arrays": "Objects with large arrays",
+    "mixed": "Mix of all shapes",
+}
+
+
+def _random_string(length: int = 10) -> str:
+    return "".join(random.choices(string.ascii_lowercase, k=length))
+
+
+def _generate_flat(num_records: int, num_keys: int = 20) -> list[dict]:
+    """Generate flat objects with many scalar keys."""
+    records = []
+    for i in range(num_records):
+        obj: dict[str, Any] = {"id": i}
+        for k in range(num_keys):
+            if k % 3 == 0:
+                obj[f"field_{k}"] = random.randint(0, 100000)
+            elif k % 3 == 1:
+                obj[f"field_{k}"] = random.random() * 1000
+            else:
+                obj[f"field_{k}"] = _random_string(random.randint(5, 50))
+        records.append(obj)
+    return records
+
+
+def _generate_nested(num_records: int, depth: int = 6) -> list[dict]:
+    """Generate deeply nested objects."""
+    records = []
+    for i in range(num_records):
+        obj: dict[str, Any] = {"id": i}
+        current = obj
+        for d in range(depth):
+            child: dict[str, Any] = {
+                "level": d,
+                "value": _random_string(10),
+                "count": random.randint(0, 1000),
+            }
+            current["child"] = child
+            current = child
+        current["leaf"] = True
+        records.append(obj)
+    return records
+
+
+def _generate_wide_arrays(num_records: int, array_size: int = 100) -> list[dict]:
+    """Generate objects with large arrays."""
+    records = []
+    for i in range(num_records):
+        obj = {
+            "id": i,
+            "numbers": [random.random() for _ in range(array_size)],
+            "strings": [_random_string(8) for _ in range(array_size // 2)],
+            "tags": [_random_string(5) for _ in range(random.randint(1, 10))],
+        }
+        records.append(obj)
+    return records
+
+
+def _generate_mixed(num_records: int) -> list[dict]:
+    """Generate a mix of shapes."""
+    records = []
+    generators = [
+        lambda: _generate_flat(1, num_keys=10)[0],
+        lambda: _generate_nested(1, depth=4)[0],
+        lambda: _generate_wide_arrays(1, array_size=30)[0],
+    ]
+    for i in range(num_records):
+        gen = random.choice(generators)
+        obj = gen()
+        obj["id"] = i
+        obj["type"] = gen.__name__ if hasattr(gen, "__name__") else "mixed"
+        records.append(obj)
+    return records
+
+
+RANDOM_GENERATORS = {
+    "flat": _generate_flat,
+    "nested": _generate_nested,
+    "wide_arrays": _generate_wide_arrays,
+    "mixed": _generate_mixed,
+}
+
+
+# Random schema queries (adapted for $.records[*] structure)
+RANDOM_QUERIES = [
+    {
+        "id": 1,
+        "strata": "$.records[*].id",
+        "jmespath": "records[*].id",
+        "jsonpath_ng": "$.records[*].id",
+    },
+    {
+        "id": 2,
+        "strata": "$.records[0]",
+        "jmespath": "records[0]",
+        "jsonpath_ng": "$.records[0]",
+    },
+]
 
 
 # -----------------------------------------------------------------------------
@@ -260,6 +369,37 @@ def _get_dump_json_runners(
     return runners
 
 
+def _get_random_dumps_runners() -> list[tuple[str, Callable[[Any], Any]]]:
+    """Return [(library_name, dumps_func)] for in-memory serialization benchmarks."""
+    runners: list[tuple[str, Callable[[Any], Any]]] = []
+
+    runners.append(("strata", lambda d: strata.dumps(d)))
+
+    try:
+        import orjson
+
+        runners.append(("orjson", lambda d: orjson.dumps(d)))
+    except ImportError:
+        pass
+
+    try:
+        import msgspec
+
+        runners.append(("msgspec", lambda d: msgspec.json.encode(d)))
+    except ImportError:
+        pass
+
+    try:
+        import ujson
+
+        runners.append(("ujson", lambda d: ujson.dumps(d)))
+    except ImportError:
+        pass
+
+    runners.append(("json", lambda d: json.dumps(d)))
+    return runners
+
+
 def _get_parse_ndjson_runners(strict_missing: bool) -> list[tuple[str, Callable[[str], list]]]:
     """Return [(library_name, parse_func)] for NDJSON. parse_func(str) -> list of objects."""
     runners: list[tuple[str, Callable[[str], list]]] = []
@@ -316,12 +456,16 @@ class BenchmarkRunner:
         warmup: int = 1,
         limit: int | None = None,
         strict_missing: bool = True,
+        records: int = 500,
+        seed: int = 42,
     ):
         self.datasets = datasets
         self.repeat = repeat
         self.warmup = warmup
         self.limit = limit
         self.strict_missing = strict_missing
+        self.records = records
+        self.seed = seed
         self.results: list[BenchResult] = []
         self.environment = self._collect_environment()
 
@@ -814,8 +958,401 @@ class BenchmarkRunner:
                 )
             )
 
+    def _bench_random_loads(self, schema_name: str, json_bytes: bytes) -> None:
+        """Benchmark loads (in-memory parse) for a random schema dataset."""
+        print(f"\n=== Parsing: {schema_name} ({len(json_bytes)} bytes) ===")
+        runners = _get_parse_json_runners(self.strict_missing)
+        for library_name, parse_func in runners:
+            try:
+                tr = run_single_benchmark(
+                    lambda fn=parse_func: fn(json_bytes),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="parse",
+                        dataset=schema_name,
+                        times_ms=tr.times_ms,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(
+                    f"  {library_name:<15} {tr.min_ms:.3f}ms (min), {tr.median_ms:.3f}ms (median)"
+                )
+            except Exception as e:
+                print(f"  {library_name:<15} ERROR: {e}")
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="parse",
+                        dataset=schema_name,
+                        error=str(e),
+                    )
+                )
+
+    def _bench_random_load(self, schema_name: str, tmp_path: str) -> None:
+        """Benchmark load (file-based) for a random schema dataset."""
+        size = Path(tmp_path).stat().st_size
+        print(f"\n=== Load (file): {schema_name} ({size} bytes) ===")
+        runners = _get_load_json_runners(self.strict_missing, is_ndjson=False)
+        for library_name, load_func in runners:
+            try:
+                tr = run_single_benchmark(
+                    lambda lf=load_func: lf(tmp_path),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="load",
+                        dataset=schema_name,
+                        times_ms=tr.times_ms,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(
+                    f"  {library_name:<15} {tr.min_ms:.3f}ms (min), {tr.median_ms:.3f}ms (median)"
+                )
+            except Exception as e:
+                print(f"  {library_name:<15} ERROR: {e}")
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="load",
+                        dataset=schema_name,
+                        error=str(e),
+                    )
+                )
+
+    def _bench_random_dumps(self, schema_name: str, parsed_data: Any) -> None:
+        """Benchmark dumps (in-memory serialization) for a random schema dataset."""
+        print(f"\n=== Dumps: {schema_name} ===")
+        libs = _get_random_dumps_runners()
+        for library_name, dumps_func in libs:
+            try:
+                tr = run_single_benchmark(
+                    lambda fn=dumps_func: fn(parsed_data),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="dumps",
+                        dataset=schema_name,
+                        times_ms=tr.times_ms,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(
+                    f"  {library_name:<15} {tr.min_ms:.3f}ms (min), {tr.median_ms:.3f}ms (median)"
+                )
+            except Exception as e:
+                print(f"  {library_name:<15} ERROR: {e}")
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="dumps",
+                        dataset=schema_name,
+                        error=str(e),
+                    )
+                )
+
+    def _bench_random_dump(self, schema_name: str, parsed_data: Any) -> None:
+        """Benchmark dump (file-based) for a random schema dataset."""
+        print(f"\n=== Dump (file): {schema_name} ===")
+        runners = _get_dump_json_runners(self.strict_missing)
+        for library_name, dump_func in runners:
+            try:
+                tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+                tmp_path = tmp.name
+                tmp.close()
+                tr = run_single_benchmark(
+                    lambda df=dump_func, tp=tmp_path: df(parsed_data, tp),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="dump",
+                        dataset=schema_name,
+                        times_ms=tr.times_ms,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(
+                    f"  {library_name:<15} {tr.min_ms:.3f}ms (min), {tr.median_ms:.3f}ms (median)"
+                )
+                os.unlink(tmp_path)
+            except Exception as e:
+                print(f"  {library_name:<15} ERROR: {e}")
+                self.results.append(
+                    BenchResult(
+                        library=library_name,
+                        operation="dump",
+                        dataset=schema_name,
+                        error=str(e),
+                    )
+                )
+
+    def _bench_random_search(self, schema_name: str, tmp_path: str, json_bytes: bytes) -> None:
+        """Benchmark search (file-based) for a random schema dataset."""
+        print(f"\n=== Search (file): {schema_name} ===")
+        for q in RANDOM_QUERIES:
+            strata_expr = q["strata"]
+            jmes_expr = q.get("jmespath")
+            jp_expr = q.get("jsonpath_ng")
+            desc = f"{schema_name}:{strata_expr}"
+            compiled_path = strata.compile_path(strata_expr)
+
+            print(f"\n  Search: {strata_expr}")
+
+            # strata search
+            try:
+                tr = run_single_benchmark(
+                    lambda cp=compiled_path: strata.search(tmp_path, cp),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                result = strata.search(tmp_path, compiled_path)
+                n = len(result) if isinstance(result, list) else 1
+                self.results.append(
+                    BenchResult(
+                        library="strata",
+                        operation="search",
+                        dataset=schema_name,
+                        query=desc,
+                        times_ms=tr.times_ms,
+                        result_count=n,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(f"    strata (search):          {tr.min_ms:.3f}ms → {n} results")
+            except Exception as e:
+                print(f"    strata (search):          ERROR: {e}")
+
+            # orjson+jmespath
+            if jmes_expr:
+                try:
+                    import jmespath as _jmespath
+                    import orjson as _orjson
+
+                    jmes_compiled = _jmespath.compile(jmes_expr)
+
+                    def run_orjson_jmes(db=json_bytes, jc=jmes_compiled):
+                        parsed = _orjson.loads(db)
+                        return jc.search(parsed)
+
+                    tr = run_single_benchmark(
+                        run_orjson_jmes,
+                        warmup=self.warmup,
+                        repeat=self.repeat,
+                        capture_rss=True,
+                    )
+                    res = run_orjson_jmes()
+                    n = len(res) if isinstance(res, (list, tuple)) else 1
+                    self.results.append(
+                        BenchResult(
+                            library="orjson+jmespath",
+                            operation="search",
+                            dataset=schema_name,
+                            query=desc,
+                            times_ms=tr.times_ms,
+                            result_count=n,
+                            rss_mb=tr.rss_mb,
+                        )
+                    )
+                    print(f"    orjson+jmespath:          {tr.min_ms:.3f}ms → {n} results")
+                except ImportError:
+                    pass
+
+            # orjson+jsonpath-ng
+            if jp_expr:
+                try:
+                    from jsonpath_ng import parse as jp_parse
+                    import orjson as _orjson
+
+                    jp_compiled = jp_parse(jp_expr)
+
+                    def run_orjson_jpng(db=json_bytes, jc=jp_compiled):
+                        parsed = _orjson.loads(db)
+                        return [m.value for m in jc.find(parsed)]
+
+                    tr = run_single_benchmark(
+                        run_orjson_jpng,
+                        warmup=self.warmup,
+                        repeat=self.repeat,
+                        capture_rss=True,
+                    )
+                    res = run_orjson_jpng()
+                    n = len(res) if isinstance(res, list) else 1
+                    self.results.append(
+                        BenchResult(
+                            library="orjson+jsonpath-ng",
+                            operation="search",
+                            dataset=schema_name,
+                            query=desc,
+                            times_ms=tr.times_ms,
+                            result_count=n,
+                            rss_mb=tr.rss_mb,
+                        )
+                    )
+                    print(f"    orjson+jsonpath-ng:       {tr.min_ms:.3f}ms → {n} results")
+                except ImportError:
+                    pass
+
+    def _bench_random_query(self, schema_name: str, json_bytes: bytes, parsed_data: Any) -> None:
+        """Benchmark query (in-memory) for a random schema dataset."""
+        strata_data = strata.loads(json_bytes)
+        print(f"\n=== Queries: {schema_name} ===")
+
+        for q in RANDOM_QUERIES:
+            strata_expr = q["strata"]
+            jmes_expr = q.get("jmespath")
+            jp_expr = q.get("jsonpath_ng")
+            desc = f"{schema_name}:{strata_expr}"
+
+            print(f"\n  Query: {strata_expr}")
+
+            # strata
+            try:
+                compiled_path = strata.compile_path(strata_expr)
+                tr = run_single_benchmark(
+                    lambda cp=compiled_path: strata.query(strata_data, cp),
+                    warmup=self.warmup,
+                    repeat=self.repeat,
+                    capture_rss=True,
+                )
+                result = strata.query(strata_data, compiled_path)
+                n = len(result) if isinstance(result, list) else 1
+                self.results.append(
+                    BenchResult(
+                        library="strata",
+                        operation="query",
+                        dataset=schema_name,
+                        query=desc,
+                        times_ms=tr.times_ms,
+                        result_count=n,
+                        rss_mb=tr.rss_mb,
+                    )
+                )
+                print(f"    strata:    {tr.min_ms:.3f}ms → {n} results")
+            except Exception as e:
+                print(f"    strata:    ERROR: {e}")
+
+            # jmespath
+            if jmes_expr:
+                try:
+                    import jmespath
+
+                    expr = jmespath.compile(jmes_expr)
+                    tr = run_single_benchmark(
+                        lambda e=expr: e.search(parsed_data),
+                        warmup=self.warmup,
+                        repeat=self.repeat,
+                        capture_rss=True,
+                    )
+                    res = expr.search(parsed_data)
+                    n = len(res) if isinstance(res, (list, tuple)) else 1
+                    self.results.append(
+                        BenchResult(
+                            library="jmespath",
+                            operation="query",
+                            dataset=schema_name,
+                            query=desc,
+                            times_ms=tr.times_ms,
+                            result_count=n,
+                            rss_mb=tr.rss_mb,
+                        )
+                    )
+                    print(f"    jmespath:    {tr.min_ms:.3f}ms → {n} results")
+                except ImportError:
+                    pass
+
+            # jsonpath-ng
+            if jp_expr:
+                try:
+                    from jsonpath_ng import parse as jp_parse
+
+                    compiled = jp_parse(jp_expr)
+
+                    def run_jp(c=compiled):
+                        return [m.value for m in c.find(parsed_data)]
+
+                    tr = run_single_benchmark(
+                        run_jp,
+                        warmup=self.warmup,
+                        repeat=self.repeat,
+                        capture_rss=True,
+                    )
+                    n = len(compiled.find(parsed_data))
+                    self.results.append(
+                        BenchResult(
+                            library="jsonpath-ng",
+                            operation="query",
+                            dataset=schema_name,
+                            query=desc,
+                            times_ms=tr.times_ms,
+                            result_count=n,
+                            rss_mb=tr.rss_mb,
+                        )
+                    )
+                    print(f"    jsonpath-ng: {tr.min_ms:.3f}ms → {n} results")
+                except ImportError:
+                    pass
+
+    def run_random_schemas(self) -> None:
+        """Generate random schema data and run all benchmarks for each schema."""
+        random.seed(self.seed)
+        for schema_name, desc in RANDOM_SCHEMAS.items():
+            gen = RANDOM_GENERATORS[schema_name]
+            data = {"records": gen(self.records)}
+            json_text = json.dumps(data)
+            json_bytes = json_text.encode()
+            parsed_data = json.loads(json_text)
+
+            print(f"\n{'=' * 70}")
+            print(f"Random Schema: {schema_name} ({desc})")
+            print(f"  Records: {self.records}, JSON size: {len(json_bytes) / 1024:.1f} KB")
+            print(f"{'=' * 70}")
+
+            # Write to temp file for file-based benchmarks
+            tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+            tmp.write(json_bytes)
+            tmp.close()
+            tmp_path = tmp.name
+
+            try:
+                # 1. loads
+                self._bench_random_loads(schema_name, json_bytes)
+                # 2. load
+                self._bench_random_load(schema_name, tmp_path)
+                # 3. dumps
+                self._bench_random_dumps(schema_name, parsed_data)
+                # 4. dump
+                self._bench_random_dump(schema_name, parsed_data)
+                # 5. search
+                self._bench_random_search(schema_name, tmp_path, json_bytes)
+                # 6. query
+                self._bench_random_query(schema_name, json_bytes, parsed_data)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
     def run_all(self) -> None:
-        """Run all 7 benchmark sections for configured datasets."""
+        """Run all benchmark sections for configured datasets + random schemas."""
+        # Pre-generated datasets
         for dataset in self.datasets:
             path = Path(dataset)
             if not path.exists():
@@ -840,6 +1377,9 @@ class BenchmarkRunner:
                 self.bench_search_json(str(path))
                 # 7. query (in-memory dict)
                 self.bench_query_json(str(path))
+
+        # Random schema datasets
+        self.run_random_schemas()
 
     def print_summary(self) -> None:
         """Print summary tables to stdout."""
@@ -940,6 +1480,7 @@ class BenchmarkRunner:
                 f"- Repeat: {self.repeat}",
                 f"- Warmup: {self.warmup}",
                 f"- Datasets: {', '.join(self.datasets)}",
+                f"- Random schemas: {', '.join(RANDOM_SCHEMAS.keys())} ({self.records} records each, seed={self.seed})",
                 "",
             ]
         )
@@ -1033,7 +1574,7 @@ class BenchmarkRunner:
         lines.append("| Category | Strata Rank | vs #1 |")
         lines.append("|----------|-------------|-------|")
 
-        categories = [
+        categories: list[tuple[str, str, str | None]] = [
             ("loads (JSON)", "parse", ".json"),
             ("loads (NDJSON)", "parse", ".ndjson"),
             ("load (JSON file)", "load", ".json"),
@@ -1041,12 +1582,28 @@ class BenchmarkRunner:
             ("dumps", "dumps", ".json"),
             ("dump", "dump", ".json"),
         ]
+        # Add per-schema summary rows for random schemas
+        for schema_name in RANDOM_SCHEMAS:
+            categories.append((f"loads ({schema_name})", "parse", schema_name))
+            categories.append((f"load ({schema_name})", "load", schema_name))
+            categories.append((f"dumps ({schema_name})", "dumps", schema_name))
+            categories.append((f"dump ({schema_name})", "dump", schema_name))
+
         for label, op, suffix in categories:
-            cat_results = [
-                r
-                for r in self.results
-                if r.operation == op and not r.error and r.dataset.endswith(suffix)
-            ]
+            if suffix and suffix.startswith("."):
+                # File extension match
+                cat_results = [
+                    r
+                    for r in self.results
+                    if r.operation == op and not r.error and r.dataset.endswith(suffix)
+                ]
+            else:
+                # Exact dataset name match (random schemas)
+                cat_results = [
+                    r
+                    for r in self.results
+                    if r.operation == op and not r.error and r.dataset == suffix
+                ]
             if not cat_results:
                 continue
             cat_results.sort(key=lambda r: r.min_ms)
@@ -1131,6 +1688,8 @@ def main() -> None:
     )
     parser.add_argument("--repeat", type=int, default=3, help="Iterations per benchmark")
     parser.add_argument("--warmup", type=int, default=1, help="Warmup iterations")
+    parser.add_argument("--records", type=int, default=500, help="Records per random schema")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--limit", type=int, default=None, help="Limit records (unused)")
     parser.add_argument("--mode", default="auto", help="Mode (unused)")
     parser.add_argument("--materialize", default="auto", help="Materialize (unused)")
@@ -1168,6 +1727,8 @@ def main() -> None:
         warmup=args.warmup,
         limit=args.limit,
         strict_missing=args.strict_missing,
+        records=args.records,
+        seed=args.seed,
     )
     runner.run_all()
     runner.print_summary()
