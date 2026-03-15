@@ -2,6 +2,8 @@
 #include "python_document.h"
 #include "python_types.h"
 #include "strata/json/json_mmap.hpp"
+#include "strata/json/json_parser_inline.hpp"
+#include "strata/json/json_sax_handler.hpp"
 #include "strata/json/ndjson_stream.hpp"
 #include "strata/search/jsonpath.hpp"
 #include "strata/util/fast_parse.hpp"
@@ -816,6 +818,577 @@ PyObject* strata_compile_path(PyObject* self, PyObject* args) {
     STRATA_CPP_CATCH
 }
 
+//=============================================================================
+// SAX-based JSONPath search: evaluates JSONPath during JSON parsing.
+// Never builds a full tree (C++ or Python). Only creates Python objects for
+// matched values. Fastest path + lowest memory.
+//=============================================================================
+
+class SaxSearchHandler {
+  public:
+    explicit SaxSearchHandler(const std::vector<strata::PathStep>& steps) {
+        // Skip Root step
+        size_t start = 0;
+        if (!steps.empty() && steps[0].op == strata::PathOp::Root)
+            start = 1;
+        steps_ = steps.data() + start;
+        nsteps_ = steps.size() - start;
+
+        stack_.reserve(32);
+        results_.reserve(256);
+
+        // Initial state: the root value is at step 0
+        pending_step_ = 0;
+        pending_skip_ = false;
+    }
+
+    // Check if path can be handled by SAX search (no Filter, no Slice)
+    static bool is_sax_compatible(const std::vector<strata::PathStep>& steps) {
+        for (const auto& s : steps) {
+            if (s.op == strata::PathOp::Filter || s.op == strata::PathOp::Slice)
+                return false;
+        }
+        return true;
+    }
+
+    bool on_null() {
+        if (capture_depth_ > 0)
+            return cap_.on_null();
+        if (skip_depth_ > 0)
+            return true;
+        if (pending_skip_) {
+            pending_skip_ = false;
+            return true;
+        }
+        if (pending_step_ >= nsteps_) {
+            Py_INCREF(Py_None);
+            results_.push_back(Py_None);
+        }
+        return true;
+    }
+
+    bool on_bool(bool v) {
+        if (capture_depth_ > 0)
+            return cap_.on_bool(v);
+        if (skip_depth_ > 0)
+            return true;
+        if (pending_skip_) {
+            pending_skip_ = false;
+            return true;
+        }
+        if (pending_step_ >= nsteps_) {
+            PyObject* obj = v ? Py_True : Py_False;
+            Py_INCREF(obj);
+            results_.push_back(obj);
+        }
+        return true;
+    }
+
+    bool on_int(int64_t v) {
+        if (capture_depth_ > 0)
+            return cap_.on_int(v);
+        if (skip_depth_ > 0)
+            return true;
+        if (pending_skip_) {
+            pending_skip_ = false;
+            return true;
+        }
+        if (pending_step_ >= nsteps_) {
+            results_.push_back(PyLong_FromLongLong(v));
+        }
+        return true;
+    }
+
+    bool on_uint(uint64_t v) {
+        if (capture_depth_ > 0)
+            return cap_.on_uint(v);
+        if (skip_depth_ > 0)
+            return true;
+        if (pending_skip_) {
+            pending_skip_ = false;
+            return true;
+        }
+        if (pending_step_ >= nsteps_) {
+            results_.push_back(PyLong_FromUnsignedLongLong(v));
+        }
+        return true;
+    }
+
+    bool on_double(double v) {
+        if (capture_depth_ > 0)
+            return cap_.on_double(v);
+        if (skip_depth_ > 0)
+            return true;
+        if (pending_skip_) {
+            pending_skip_ = false;
+            return true;
+        }
+        if (pending_step_ >= nsteps_) {
+            results_.push_back(PyFloat_FromDouble(v));
+        }
+        return true;
+    }
+
+    bool on_string(std::string_view v) {
+        if (capture_depth_ > 0)
+            return cap_.on_string(v);
+        if (skip_depth_ > 0)
+            return true;
+        if (pending_skip_) {
+            pending_skip_ = false;
+            return true;
+        }
+        if (pending_step_ >= nsteps_) {
+            results_.push_back(PyUnicode_FromStringAndSize(v.data(), v.size()));
+        }
+        return true;
+    }
+
+    bool on_start_object(size_t hint = 0) {
+        if (capture_depth_ > 0) {
+            capture_depth_++;
+            return cap_.on_start_object(hint);
+        }
+        if (skip_depth_ > 0) {
+            skip_depth_++;
+            return true;
+        }
+        if (pending_skip_) {
+            pending_skip_ = false;
+            skip_depth_ = 1;
+            return true;
+        }
+
+        size_t step = pending_step_;
+        if (step >= nsteps_) {
+            // Entire object is a match — capture it
+            capture_depth_ = 1;
+            cap_.reset();
+            return cap_.on_start_object(hint);
+        }
+
+        // Push frame: entering an object at this step
+        stack_.push_back({Frame::Object, step, -1});
+        return true;
+    }
+
+    bool on_key(std::string_view k) {
+        if (capture_depth_ > 0)
+            return cap_.on_key(k);
+        if (skip_depth_ > 0)
+            return true;
+
+        auto& frame = stack_.back();
+        size_t s = frame.step;
+
+        if (s >= nsteps_) {
+            // All steps matched, but we're inside a non-captured object? Shouldn't happen.
+            pending_skip_ = true;
+            return true;
+        }
+
+        const auto& step = steps_[s];
+
+        if (step.op == strata::PathOp::Field) {
+            if (step.field.size() == k.size() && step.field == k) {
+                pending_step_ = s + 1;
+                pending_skip_ = false;
+            } else {
+                pending_skip_ = true;
+            }
+        } else if (step.op == strata::PathOp::Wildcard) {
+            pending_step_ = s + 1;
+            pending_skip_ = false;
+        } else if (step.op == strata::PathOp::RecursiveDescent) {
+            // RecursiveDescent: the field name is stored in step.field
+            // (compiled as a single step, e.g. $..price → RecursiveDescent(field="price"))
+            if (!step.field.empty() && step.field == k) {
+                // Key matches the recursive descent field — advance past this step
+                pending_step_ = s + 1;
+                pending_skip_ = false;
+            } else {
+                // Stay at RecursiveDescent step — value will continue searching
+                pending_step_ = s;
+                pending_skip_ = false;
+            }
+        } else {
+            // Other ops (Index, etc.) don't match object keys
+            pending_skip_ = true;
+        }
+        return true;
+    }
+
+    bool on_end_object() {
+        if (capture_depth_ > 0) {
+            capture_depth_--;
+            cap_.on_end_object();
+            if (capture_depth_ == 0) {
+                PyObject* val = cap_.take_root();
+                if (val)
+                    results_.push_back(val);
+            }
+            return true;
+        }
+        if (skip_depth_ > 0) {
+            skip_depth_--;
+            return true;
+        }
+        if (!stack_.empty())
+            stack_.pop_back();
+        return true;
+    }
+
+    bool on_start_array(size_t hint = 0) {
+        if (capture_depth_ > 0) {
+            capture_depth_++;
+            return cap_.on_start_array(hint);
+        }
+        if (skip_depth_ > 0) {
+            skip_depth_++;
+            return true;
+        }
+        if (pending_skip_) {
+            pending_skip_ = false;
+            skip_depth_ = 1;
+            return true;
+        }
+
+        size_t step = pending_step_;
+        if (step >= nsteps_) {
+            // Entire array is a match — capture it
+            capture_depth_ = 1;
+            cap_.reset();
+            return cap_.on_start_array(hint);
+        }
+
+        // Push frame: entering an array at this step
+        stack_.push_back({Frame::Array, step, -1});
+        return true;
+    }
+
+    bool on_end_array() {
+        if (capture_depth_ > 0) {
+            capture_depth_--;
+            cap_.on_end_array();
+            if (capture_depth_ == 0) {
+                PyObject* val = cap_.take_root();
+                if (val)
+                    results_.push_back(val);
+            }
+            return true;
+        }
+        if (skip_depth_ > 0) {
+            skip_depth_--;
+            return true;
+        }
+        if (!stack_.empty())
+            stack_.pop_back();
+        return true;
+    }
+
+    // Called between array elements (before each element value).
+    // The parser calls: on_start_array → [on_* for elem0] → [on_* for elem1] → ... → on_end_array
+    // We need to set pending_step_ for each element. This is done by hooking into the
+    // value callbacks: when a value completes at the array level, the next value in the
+    // array gets its pending_step_ set.
+    //
+    // Actually, the SAX parser doesn't call a separate "next element" callback.
+    // We set pending_step_ for the first element in on_start_array, and for subsequent
+    // elements after each value completes.
+    //
+    // Let's handle this: after on_start_array, the very next value callback is the first element.
+    // After each element finishes (scalar or end_object/end_array), the next value callback
+    // is the next element. So we need to set pending_step_ after on_start_array and after
+    // each element completes.
+
+    // Called before each value callback from the wrapper.
+    // If the top frame is an Array (not in capture/skip mode), set up pending_step_ for the
+    // element.
+    void setup_array_element_if_needed() {
+        if (capture_depth_ > 0 || skip_depth_ > 0 || pending_skip_)
+            return;
+        if (stack_.empty())
+            return;
+        auto& frame = stack_.back();
+        if (frame.type != Frame::Array)
+            return;
+        setup_array_element();
+    }
+
+    // Helper: called when we're about to process the next array element
+    void setup_array_element() {
+        if (stack_.empty())
+            return;
+        auto& frame = stack_.back();
+        if (frame.type != Frame::Array)
+            return;
+
+        frame.array_idx++;
+        size_t s = frame.step;
+
+        if (s >= nsteps_) {
+            pending_step_ = s; // shouldn't normally happen
+            return;
+        }
+
+        const auto& step = steps_[s];
+        if (step.op == strata::PathOp::Wildcard) {
+            pending_step_ = s + 1;
+            pending_skip_ = false;
+        } else if (step.op == strata::PathOp::Index) {
+            if (frame.array_idx == static_cast<int>(step.index)) {
+                pending_step_ = s + 1;
+                pending_skip_ = false;
+            } else {
+                pending_skip_ = true;
+            }
+        } else if (step.op == strata::PathOp::RecursiveDescent) {
+            // Array elements continue recursive descent search
+            pending_step_ = s;
+            pending_skip_ = false;
+        } else {
+            // Field or other op at array level — skip elements
+            pending_skip_ = true;
+        }
+    }
+
+    PyObject* take_results() {
+        PyObject* list = PyList_New(static_cast<Py_ssize_t>(results_.size()));
+        if (!list) {
+            for (auto* p : results_)
+                Py_XDECREF(p);
+            results_.clear();
+            return nullptr;
+        }
+        for (size_t i = 0; i < results_.size(); i++) {
+            PyList_SET_ITEM(list, static_cast<Py_ssize_t>(i), results_[i]);
+        }
+        results_.clear();
+        return list;
+    }
+
+  private:
+    struct Frame {
+        enum Type : uint8_t { Object, Array };
+        Type type;
+        size_t step;
+        int array_idx;
+    };
+
+    const strata::PathStep* steps_;
+    size_t nsteps_;
+
+    std::vector<Frame> stack_;
+    size_t pending_step_ = 0;
+    bool pending_skip_ = false;
+
+    int capture_depth_ = 0;
+    int skip_depth_ = 0;
+
+    // PythonObjectBuilder for capturing matched complex values.
+    // Defined inline here since we need access to its SAX methods.
+    // We reuse the same one from python_loads.cpp — but it's in an anonymous namespace there.
+    // So we duplicate a minimal capture builder here.
+    struct CaptureBuilder {
+        PyObject* root_ = nullptr;
+        std::vector<PyObject*> stack_;
+        std::vector<PyObject*> keys_;
+        std::vector<PyObject*> array_items_;
+        std::vector<size_t> array_starts_;
+
+        void reset() {
+            if (root_) {
+                Py_DECREF(root_);
+                root_ = nullptr;
+            }
+            for (auto* p : stack_) {
+                if (p)
+                    Py_DECREF(p);
+            }
+            stack_.clear();
+            for (auto* p : keys_)
+                Py_DECREF(p);
+            keys_.clear();
+            for (auto* p : array_items_)
+                Py_DECREF(p);
+            array_items_.clear();
+            array_starts_.clear();
+        }
+
+        ~CaptureBuilder() { reset(); }
+
+        PyObject* take_root() {
+            PyObject* r = root_;
+            root_ = nullptr;
+            return r;
+        }
+
+        bool push_value(PyObject* val) {
+            if (!val)
+                return false;
+            if (stack_.empty()) {
+                if (root_)
+                    Py_DECREF(root_);
+                root_ = val;
+                return true;
+            }
+            PyObject* top = stack_.back();
+            if (top == nullptr) {
+                array_items_.push_back(val);
+                return true;
+            }
+            if (keys_.empty()) {
+                Py_DECREF(val);
+                return false;
+            }
+            PyObject* key = keys_.back();
+            keys_.pop_back();
+            if (PyDict_SetItem(top, key, val) < 0) {
+                Py_DECREF(key);
+                Py_DECREF(val);
+                return false;
+            }
+            Py_DECREF(key);
+            Py_DECREF(val);
+            return true;
+        }
+
+        bool on_null() {
+            Py_INCREF(Py_None);
+            return push_value(Py_None);
+        }
+        bool on_bool(bool v) {
+            PyObject* obj = v ? Py_True : Py_False;
+            Py_INCREF(obj);
+            return push_value(obj);
+        }
+        bool on_int(int64_t v) { return push_value(PyLong_FromLongLong(v)); }
+        bool on_uint(uint64_t v) { return push_value(PyLong_FromUnsignedLongLong(v)); }
+        bool on_double(double v) { return push_value(PyFloat_FromDouble(v)); }
+        bool on_string(std::string_view v) {
+            return push_value(PyUnicode_FromStringAndSize(v.data(), v.size()));
+        }
+        bool on_start_object(size_t = 0) {
+            PyObject* d = PyDict_New();
+            if (!d)
+                return false;
+            stack_.push_back(d);
+            return true;
+        }
+        bool on_key(std::string_view v) {
+            PyObject* key = PyUnicode_FromStringAndSize(v.data(), v.size());
+            if (!key)
+                return false;
+            PyUnicode_InternInPlace(&key);
+            keys_.push_back(key);
+            return true;
+        }
+        bool on_end_object() {
+            if (stack_.empty())
+                return false;
+            PyObject* d = stack_.back();
+            stack_.pop_back();
+            return push_value(d);
+        }
+        bool on_start_array(size_t = 0) {
+            stack_.push_back(nullptr);
+            array_starts_.push_back(array_items_.size());
+            return true;
+        }
+        bool on_end_array() {
+            if (stack_.empty() || stack_.back() != nullptr)
+                return false;
+            stack_.pop_back();
+            size_t start = array_starts_.back();
+            array_starts_.pop_back();
+            size_t count = array_items_.size() - start;
+            PyObject* list = PyList_New(static_cast<Py_ssize_t>(count));
+            if (!list) {
+                for (size_t i = start; i < array_items_.size(); i++)
+                    Py_DECREF(array_items_[i]);
+                array_items_.resize(start);
+                return false;
+            }
+            for (size_t i = 0; i < count; i++)
+                PyList_SET_ITEM(list, static_cast<Py_ssize_t>(i), array_items_[start + i]);
+            array_items_.resize(start);
+            return push_value(list);
+        }
+    } cap_;
+
+    std::vector<PyObject*> results_;
+};
+
+// SAX-based search: parse JSON text and evaluate JSONPath in a single pass.
+// Returns PyList of matched values, or nullptr if path not SAX-compatible
+// (caller should fallback to tree-based search).
+static PyObject* sax_search_json(std::string_view text, const strata::CompiledPath& path) {
+    if (!SaxSearchHandler::is_sax_compatible(path.steps()))
+        return nullptr; // signal fallback
+
+    SaxSearchHandler handler(path.steps());
+
+    // The SAX parser calls value callbacks directly. But for arrays, we need to
+    // set pending_step_ before each element. We do this by wrapping the parser:
+    // after on_start_array and after each element's value callbacks complete,
+    // setup_array_element() is called.
+    //
+    // Unfortunately parse_sax_inline doesn't have an "array element separator" callback.
+    // We need a wrapper that intercepts calls to inject array element setup.
+
+    // Wrapper handler that injects array element tracking
+    struct SaxWrapper {
+        SaxSearchHandler& h;
+
+        bool on_null() {
+            h.setup_array_element_if_needed();
+            return h.on_null();
+        }
+        bool on_bool(bool v) {
+            h.setup_array_element_if_needed();
+            return h.on_bool(v);
+        }
+        bool on_int(int64_t v) {
+            h.setup_array_element_if_needed();
+            return h.on_int(v);
+        }
+        bool on_uint(uint64_t v) {
+            h.setup_array_element_if_needed();
+            return h.on_uint(v);
+        }
+        bool on_double(double v) {
+            h.setup_array_element_if_needed();
+            return h.on_double(v);
+        }
+        bool on_string(std::string_view v) {
+            h.setup_array_element_if_needed();
+            return h.on_string(v);
+        }
+        bool on_start_object(size_t hint = 0) {
+            h.setup_array_element_if_needed();
+            return h.on_start_object(hint);
+        }
+        bool on_key(std::string_view v) { return h.on_key(v); }
+        bool on_end_object() { return h.on_end_object(); }
+        bool on_start_array(size_t hint = 0) {
+            h.setup_array_element_if_needed();
+            return h.on_start_array(hint);
+        }
+        bool on_end_array() { return h.on_end_array(); }
+    };
+
+    SaxWrapper wrapper{handler};
+    PyGcPause gc_pause;
+    auto status = strata::parse_sax_inline(text, wrapper, /*validate_utf8=*/false);
+    if (status != strata::Status::Ok) {
+        // Parse error — clean up any partial results
+        PyObject* partial = handler.take_results();
+        Py_XDECREF(partial);
+        return nullptr;
+    }
+    return handler.take_results();
+}
+
 // Helper: search a single JsonValue with compiled path, respecting mem_eff.
 // Returns new ref (Python list).
 static PyObject* search_jsonvalue(const strata::JsonValue* raw,
@@ -1028,19 +1601,9 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
             Py_DECREF(line_results);
         }
         result_list = outer_list;
-    } else if (mem_eff) {
-        // JSON file with mem_eff: parse to C++ tree, only convert matched results
-        auto result = strata::parse_json_file(filepath);
-        if (!result.ok()) {
-            PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
-            return NULL;
-        }
-        emit_duplicate_key_warnings();
-        result_list = search_jsonvalue(&result.value.root_value(), compiled_path, true);
     } else {
-        // JSON file without mem_eff: SAX parse directly to Python dict, then query.
-        // This is much faster because it avoids building the C++ JsonValue tree
-        // and reuses the same optimized SAX→Python pipeline as loads().
+        // JSON file: read into buffer, then try SAX search (fastest, no tree at all).
+        // Falls back to tree-based for Filter/Slice paths.
         int fd = ::open(filepath, O_RDONLY);
         if (fd < 0) {
             PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", filepath);
@@ -1059,7 +1622,6 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
             return NULL;
         }
 
-        // Thread-local raw buffer avoids per-call alloc
         static thread_local char* file_buf = nullptr;
         static thread_local size_t file_buf_cap = 0;
         if (file_buf_cap < file_size) {
@@ -1078,20 +1640,38 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
             return NULL;
         }
 
-        PyObject* py_data;
-        {
-            PyGcPause gc_pause;
-            py_data = parse_json_to_python(std::string_view(file_buf, file_size),
-                                           /*validate_utf8=*/false);
-        }
-        if (!py_data) {
-            if (!PyErr_Occurred())
-                PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
-            return NULL;
-        }
+        std::string_view file_text(file_buf, file_size);
 
-        result_list = search_pyobj(py_data, compiled_path);
-        Py_DECREF(py_data);
+        // Try SAX-based search first (no tree, lowest memory)
+        result_list = sax_search_json(file_text, compiled_path);
+
+        if (!result_list && !PyErr_Occurred()) {
+            // Fallback: SAX search not supported (Filter/Slice path).
+            if (mem_eff) {
+                // Parse to C++ tree, only convert matched results
+                auto result = strata::parse_json_file(filepath);
+                if (!result.ok()) {
+                    PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
+                    return NULL;
+                }
+                emit_duplicate_key_warnings();
+                result_list = search_jsonvalue(&result.value.root_value(), compiled_path, mem_eff);
+            } else {
+                // SAX→Python dict → query
+                PyObject* py_data;
+                {
+                    PyGcPause gc_pause;
+                    py_data = parse_json_to_python(file_text, /*validate_utf8=*/false);
+                }
+                if (!py_data) {
+                    if (!PyErr_Occurred())
+                        PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
+                    return NULL;
+                }
+                result_list = search_pyobj(py_data, compiled_path);
+                Py_DECREF(py_data);
+            }
+        }
     }
 
     if (!result_list)
