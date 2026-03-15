@@ -1,5 +1,22 @@
 #pragma once
 
+/**
+ * @file json_parser_inline.hpp
+ * @brief Templated inline JSON parser for devirtualised SAX dispatch.
+ *
+ * ParserInline<Handler> is the core parsing state machine.  When
+ * instantiated with a **concrete** handler type (rather than the
+ * abstract JsonSaxHandler), the compiler can devirtualise and inline
+ * every handler callback, eliminating ~10-30 indirect calls per JSON
+ * object on the hot path.
+ *
+ * Entry point: parse_sax_inline<Handler>().
+ *
+ * Supports: null, true, false, numbers (int/double with fast path),
+ * strings (SIMD escape detection, UTF-16 surrogate pairs),
+ * arrays, and objects.
+ */
+
 #include "strata/util/fast_parse.hpp"
 #include "strata/util/simd_string.hpp"
 
@@ -10,21 +27,25 @@
 
 namespace strata {
 
-// Templated parser: when instantiated with a concrete handler type the compiler
-// can devirtualise and inline every handler callback, eliminating virtual-dispatch
-// overhead on the hot path (~10-30 indirect calls per JSON object).
-
+/**
+ * Templated SAX parser.
+ *
+ * @tparam Handler  Concrete SAX handler type.  Must provide the same
+ *                  interface as JsonSaxHandler (on_null, on_bool, …).
+ *                  Using a concrete type enables devirtualisation.
+ */
 template <typename Handler> struct ParserInline {
     const char* data;
     size_t len;
     Handler& handler;
     size_t i = 0;
 
-    bool eof() const { return i >= len; }
-    char peek() const { return eof() ? '\0' : data[i]; }
-    char get() { return eof() ? '\0' : data[i++]; }
+    [[nodiscard]] bool eof() const noexcept { return i >= len; }
+    [[nodiscard]] char peek() const noexcept { return eof() ? '\0' : data[i]; }
+    char get() noexcept { return eof() ? '\0' : data[i++]; }
 
-    static int hex_value(char c) {
+    /// Convert a hex character to its integer value (0-15), or -1.
+    [[nodiscard]] static int hex_value(char c) noexcept {
         if (c >= '0' && c <= '9')
             return c - '0';
         if (c >= 'a' && c <= 'f')
@@ -34,6 +55,7 @@ template <typename Handler> struct ParserInline {
         return -1;
     }
 
+    /// Read exactly 4 hex digits for a \uXXXX escape sequence.
     bool read_hex4(uint32_t& out) {
         if (i + 4 > len)
             return false;
@@ -48,7 +70,8 @@ template <typename Handler> struct ParserInline {
         return true;
     }
 
-    static bool append_utf8(std::string& out, uint32_t codepoint) {
+    /// Encode a Unicode codepoint as UTF-8 and append to @p out.
+    [[nodiscard]] static bool append_utf8(std::string& out, uint32_t codepoint) noexcept {
         if (codepoint > 0x10FFFF)
             return false;
         if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
@@ -75,9 +98,9 @@ template <typename Handler> struct ParserInline {
         return true;
     }
 
-    void skip_ws() { i = util::skip_whitespace_fast(data, len, i); }
+    void skip_ws() noexcept { i = util::skip_whitespace_fast(data, len, i); }
 
-    bool consume(char c) {
+    bool consume(char c) noexcept {
         skip_ws();
         if (peek() == c) {
             ++i;
@@ -85,6 +108,8 @@ template <typename Handler> struct ParserInline {
         }
         return false;
     }
+
+    // --- Value dispatch ----------------------------------------------------
 
     bool parse_value() {
         skip_ws();
@@ -129,6 +154,12 @@ template <typename Handler> struct ParserInline {
         return false;
     }
 
+    /**
+     * Parse a JSON number.
+     *
+     * Tries the integer fast path first (parse_int_fast); falls through
+     * to double parsing only when a decimal point or exponent is found.
+     */
     bool parse_number() {
         size_t start = i;
 
@@ -153,18 +184,29 @@ template <typename Handler> struct ParserInline {
         return false;
     }
 
+    /**
+     * Parse a JSON string (or object key when @p is_key is true).
+     *
+     * Fast path: uses SIMD to scan for the first escape/quote character.
+     * If the closing quote is found without escapes the string_view is
+     * passed directly to the handler (zero-copy).  Otherwise a std::string
+     * is built by processing escape sequences one at a time.
+     */
     bool parse_string(bool is_key = false) {
         if (get() != '"')
             return false;
 
+        // SIMD fast scan: find first escape character or closing quote.
         size_t scan_pos = util::find_next_escape_simd(data + i, len - i);
 
         if (scan_pos < len - i && data[i + scan_pos] == '"') {
+            // No escapes — zero-copy path.
             std::string_view result(data + i, scan_pos);
             i += scan_pos + 1;
             return is_key ? handler.on_key(result) : handler.on_string(result);
         }
 
+        // Slow path: build string with escape handling.
         std::string out;
         out.reserve(scan_pos + 16);
 
@@ -206,6 +248,7 @@ template <typename Handler> struct ParserInline {
                     uint32_t codepoint = 0;
                     if (!read_hex4(codepoint))
                         return false;
+                    // Handle UTF-16 surrogate pairs (\uD800-\uDBFF + \uDC00-\uDFFF).
                     if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
                         if (eof() || get() != '\\')
                             return false;
@@ -218,7 +261,7 @@ template <typename Handler> struct ParserInline {
                             return false;
                         codepoint = 0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00);
                     } else if (codepoint >= 0xDC00 && codepoint <= 0xDFFF) {
-                        return false;
+                        return false; // Lone low surrogate
                     }
                     if (!append_utf8(out, codepoint))
                         return false;
@@ -229,12 +272,12 @@ template <typename Handler> struct ParserInline {
                 }
             } else {
                 if (static_cast<unsigned char>(c) < 0x20) {
-                    return false;
+                    return false; // Unescaped control character
                 }
                 out.push_back(c);
             }
         }
-        return false;
+        return false; // Unterminated string
     }
 
     bool parse_array() {
@@ -279,9 +322,22 @@ template <typename Handler> struct ParserInline {
     }
 };
 
-// Templated SAX parse: concrete handler type enables devirtualisation + inlining.
+/**
+ * Templated SAX parse entry point.
+ *
+ * Instantiate with a concrete handler type to enable devirtualisation
+ * and inlining of every callback.  For virtual dispatch, call
+ * parse_sax() in json_parse.hpp instead.
+ *
+ * @tparam Handler  Concrete handler type (must provide JsonSaxHandler interface).
+ * @param text          UTF-8 JSON input.
+ * @param handler       SAX event sink.
+ * @param validate_utf8 Run SIMD UTF-8 validation before parsing (default: true).
+ * @return Status::Ok on success, Status::ParseError on failure.
+ */
 template <typename Handler>
-Status parse_sax_inline(std::string_view text, Handler& handler, bool validate_utf8 = true) {
+[[nodiscard]] Status parse_sax_inline(std::string_view text, Handler& handler,
+                                      bool validate_utf8 = true) {
     if (validate_utf8 && !text.empty() && !util::validate_utf8_simd(text.data(), text.size())) {
         return Status::ParseError;
     }

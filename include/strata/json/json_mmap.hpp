@@ -1,14 +1,8 @@
 #pragma once
 
-#include "strata/json/json_core.hpp"
-#include "strata/json/json_document.hpp"
-
-#include <string_view>
-
-namespace strata {
-
 /**
- * Memory-mapped JSON file parser.
+ * @file json_mmap.hpp
+ * @brief Memory-mapped JSON file parser.
  *
  * Provides zero-copy parsing of JSON files using memory-mapped I/O.
  *
@@ -26,21 +20,28 @@ namespace strata {
  *   }
  */
 
+#include "strata/json/json_core.hpp"
+#include "strata/json/json_document.hpp"
+
+#include <string_view>
+
+namespace strata {
+
 /**
  * Parse a JSON file using memory-mapped I/O.
  *
- * @param filepath Path to JSON file
- * @return Result with JsonDocument or error status
+ * @param filepath Path to JSON file.
+ * @return Result with JsonDocument or error status.
  */
-Result<JsonDocument> parse_json_file(const char* filepath);
+[[nodiscard]] Result<JsonDocument> parse_json_file(const char* filepath);
 
 /**
  * Parse a JSON file and return the root cursor.
  * Convenience function that returns JsonCursor directly.
  *
- * @param filepath Path to JSON file
- * @return Result with JsonCursor or error status
+ * @param filepath Path to JSON file.
+ * @return Result with JsonCursor or error status.
  */
-Result<JsonCursor> parse_json_file_cursor(const char* filepath);
+[[nodiscard]] Result<JsonCursor> parse_json_file_cursor(const char* filepath);
 
 } // namespace strata

@@ -1,3 +1,12 @@
+/**
+ * @file json_cursor.cpp
+ * @brief JsonCursor implementation — non-owning JSON value navigation.
+ *
+ * Integer extraction from doubles (get_int64, get_uint64) uses
+ * std::modf to reject non-integer doubles rather than simple casting,
+ * which would silently truncate 3.7 → 3.
+ */
+
 #include "strata/json/json_cursor.hpp"
 
 #include <cmath>
@@ -6,14 +15,14 @@
 
 namespace strata {
 
-JsonCursor::JsonCursor(const JsonValue* v) : value_(v) {}
+JsonCursor::JsonCursor(const JsonValue* v) noexcept : value_(v) {}
 
-bool JsonCursor::is_null() const { return value_ && value_->is_null(); }
-bool JsonCursor::is_bool() const { return value_ && value_->is_bool(); }
-bool JsonCursor::is_number() const { return value_ && value_->is_number(); }
-bool JsonCursor::is_string() const { return value_ && value_->is_string(); }
-bool JsonCursor::is_array() const { return value_ && value_->is_array(); }
-bool JsonCursor::is_object() const { return value_ && value_->is_object(); }
+bool JsonCursor::is_null() const noexcept { return value_ && value_->is_null(); }
+bool JsonCursor::is_bool() const noexcept { return value_ && value_->is_bool(); }
+bool JsonCursor::is_number() const noexcept { return value_ && value_->is_number(); }
+bool JsonCursor::is_string() const noexcept { return value_ && value_->is_string(); }
+bool JsonCursor::is_array() const noexcept { return value_ && value_->is_array(); }
+bool JsonCursor::is_object() const noexcept { return value_ && value_->is_object(); }
 
 Result<bool> JsonCursor::get_bool() const {
     if (!is_bool())
@@ -136,15 +145,15 @@ JsonCursor JsonCursor::at(std::size_t index) const {
     return r.value;
 }
 
-const JsonValue* JsonCursor::raw() const { return value_; }
+const JsonValue* JsonCursor::raw() const noexcept { return value_; }
 
-size_t JsonCursor::array_size() const {
+size_t JsonCursor::array_size() const noexcept {
     if (!is_array())
         return 0;
     return value_->as_array().size();
 }
 
-size_t JsonCursor::object_size() const {
+size_t JsonCursor::object_size() const noexcept {
     if (!is_object())
         return 0;
     return value_->as_object().size();

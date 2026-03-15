@@ -1,3 +1,17 @@
+/**
+ * @file jsonpath_eval.cpp
+ * @brief JSONPath evaluator — walks compiled path steps over a JsonValue tree.
+ *
+ * Evaluation strategy:
+ * - Uses direct const JsonValue* access throughout (no cursors, no
+ *   exceptions) to minimise overhead in the recursive descent.
+ * - Results are **materialised** (deep-copied) into the output vector
+ *   so that the caller does not need to worry about JsonValue lifetimes.
+ * - RecursiveDescent collects all matching values depth-first.
+ * - Filter evaluation compares a child field value against a literal;
+ *   mismatches are silently skipped.
+ */
+
 #include "strata/search/jsonpath.hpp"
 
 #include <algorithm>

@@ -1,5 +1,20 @@
 #pragma once
 
+/**
+ * @file fast_parse.hpp
+ * @brief Fast number parsing and string scanning utilities.
+ *
+ * Optimised for common JSON patterns. 3-5x faster than std::stod
+ * for typical integer and floating-point values.
+ *
+ * Key design choices:
+ * - parse_int_fast rejects leading zeros (JSON spec).
+ * - parse_double_fast handles decimal point and exponent notation.
+ * - scan_string_fast uses an unrolled loop (8 chars/iter) for branch
+ *   predictor–friendly escape/quote detection.
+ * - skip_whitespace_fast uses an unrolled loop (4 chars/iter).
+ */
+
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -10,17 +25,20 @@ namespace strata {
 namespace util {
 
 /**
- * Fast number parsing utilities.
+ * Fast integer parser for JSON numbers.
  *
- * Optimized for common JSON number patterns.
- * 3-5x faster than std::stod for typical cases.
+ * Parses an optional minus sign followed by digits.  Rejects leading
+ * zeros (except bare "0") per the JSON specification.  Returns false
+ * on overflow or invalid input.
+ *
+ * @param str      Pointer to the first character.
+ * @param len      Number of available characters.
+ * @param[out] result  Parsed int64_t value.
+ * @param[out] consumed Number of characters consumed.
+ * @return true on success.
  */
-
-/**
- * Parse integer from string view.
- * Returns value and number of characters consumed.
- */
-inline bool parse_int_fast(const char* str, size_t len, int64_t& result, size_t& consumed) {
+[[nodiscard]] inline bool parse_int_fast(const char* str, size_t len, int64_t& result,
+                                         size_t& consumed) noexcept {
     if (len == 0)
         return false;
 
@@ -36,12 +54,11 @@ inline bool parse_int_fast(const char* str, size_t len, int64_t& result, size_t&
         return false;
     }
 
-    // Check for leading zero (not allowed in JSON except for "0" itself)
+    // JSON rejects leading zeros (e.g. "007") — only bare "0" is allowed.
     if (str[pos] == '0') {
         ++pos;
-        // After '0', must not be another digit
         if (pos < len && str[pos] >= '0' && str[pos] <= '9') {
-            return false; // Leading zero not allowed
+            return false;
         }
         result = 0;
         consumed = pos;
@@ -54,7 +71,7 @@ inline bool parse_int_fast(const char* str, size_t len, int64_t& result, size_t&
     while (pos < len && str[pos] >= '0' && str[pos] <= '9') {
         int digit = str[pos] - '0';
         if (val > (limit - static_cast<uint64_t>(digit)) / 10) {
-            return false; // overflow
+            return false; // Overflow
         }
         val = val * 10 + static_cast<uint64_t>(digit);
         ++pos;
@@ -62,7 +79,7 @@ inline bool parse_int_fast(const char* str, size_t len, int64_t& result, size_t&
 
     if (negative) {
         const uint64_t min_abs =
-            static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1; // |-INT64_MIN|
+            static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1; // |INT64_MIN|
         if (val > min_abs)
             return false;
         if (val == min_abs) {
@@ -80,19 +97,34 @@ inline bool parse_int_fast(const char* str, size_t len, int64_t& result, size_t&
 }
 
 /**
- * Fast float parsing (simplified Ryū-inspired algorithm).
- * Handles common JSON float patterns efficiently.
+ * Fast double parser (simplified Ryu-inspired algorithm).
+ *
+ * Handles common JSON float patterns efficiently.  Declared in the
+ * header, defined in fast_parse.cpp.
+ *
+ * @param str      Pointer to the first character.
+ * @param len      Number of available characters.
+ * @param[out] result  Parsed double value.
+ * @param[out] consumed Number of characters consumed.
+ * @return true on success.
  */
-bool parse_double_fast(const char* str, size_t len, double& result, size_t& consumed);
+[[nodiscard]] bool parse_double_fast(const char* str, size_t len, double& result, size_t& consumed);
 
 /**
- * Fast string scanning for escape detection.
- * Returns position of first escape or quote, or len if none found.
+ * Fast string scan for escape detection.
+ *
+ * Returns the position of the first quote, backslash, or control
+ * character (<0x20), or @p len if none is found.  Uses an unrolled
+ * loop (8 chars per iteration) for better branch prediction.
+ *
+ * @param str  Pointer to the first character (after the opening quote).
+ * @param len  Number of available characters.
+ * @return Position of first special character, or @p len.
  */
-inline size_t scan_string_fast(const char* str, size_t len) {
+[[nodiscard]] inline size_t scan_string_fast(const char* str, size_t len) noexcept {
     size_t pos = 0;
 
-    // Unrolled loop for better branch prediction
+    // Unrolled loop — 8 characters per iteration.
     while (pos + 8 <= len) {
         if (str[pos] == '"' || str[pos] == '\\' || str[pos] < 0x20)
             return pos;
@@ -113,6 +145,7 @@ inline size_t scan_string_fast(const char* str, size_t len) {
         pos += 8;
     }
 
+    // Scalar tail.
     while (pos < len) {
         if (str[pos] == '"' || str[pos] == '\\' || str[pos] < 0x20)
             return pos;
@@ -123,13 +156,21 @@ inline size_t scan_string_fast(const char* str, size_t len) {
 }
 
 /**
- * Fast whitespace skipping.
- * Returns position of first non-whitespace character.
+ * Fast whitespace skipper.
+ *
+ * Returns the position of the first non-whitespace character starting
+ * from @p start.  Uses an unrolled loop (4 chars per iteration).
+ *
+ * @param str   Pointer to the buffer.
+ * @param len   Total buffer length.
+ * @param start Starting position.
+ * @return Position of first non-whitespace character, or @p len.
  */
-inline size_t skip_whitespace_fast(const char* str, size_t len, size_t start) {
+[[nodiscard]] inline size_t skip_whitespace_fast(const char* str, size_t len,
+                                                 size_t start) noexcept {
     size_t pos = start;
 
-    // Unrolled loop
+    // Unrolled loop — 4 characters per iteration.
     while (pos + 4 <= len) {
         if (str[pos] != ' ' && str[pos] != '\t' && str[pos] != '\n' && str[pos] != '\r')
             return pos;

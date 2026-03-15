@@ -1,3 +1,16 @@
+/**
+ * @file json_serialize.cpp
+ * @brief JSON serialisation (JsonValue → string).
+ *
+ * Recursive descent serialiser.  Strings are escaped per RFC 8259;
+ * control characters below U+0020 are emitted as \\uXXXX.
+ * Numbers are formatted via dragonbox_d2s for shortest round-trip;
+ * NaN/Inf are serialised as JSON null (spec-compliant).
+ *
+ * Note: This serialiser does NOT impose a recursion depth limit.
+ * Extremely deeply nested inputs may cause a stack overflow.
+ */
+
 #include "strata/json/json_serialize.hpp"
 
 #include "strata/util/dragonbox.hpp"
@@ -9,10 +22,13 @@
 
 namespace strata {
 
+/// Default initial reserve for serialisation output buffers.
+static constexpr size_t kSerializeInitialCapacity = 1024;
+
 // Forward declaration
 static void serialize_value(const JsonValue& value, std::string& out);
 
-// Escape a string for JSON output
+/// Escape a JSON string and append to @p out (including surrounding quotes).
 static void escape_string(std::string_view str, std::string& out) {
     out.push_back('"');
 
@@ -131,14 +147,14 @@ static void serialize_value(const JsonValue& value, std::string& out) {
 
 std::string serialize_json(const JsonValue& value) {
     std::string out;
-    out.reserve(1024); // Initial capacity
+    out.reserve(kSerializeInitialCapacity);
     serialize_value(value, out);
     return out;
 }
 
 void serialize_json_to(const JsonValue& value, std::string& out) {
     out.clear();
-    out.reserve(1024); // Initial capacity
+    out.reserve(kSerializeInitialCapacity);
     serialize_value(value, out);
 }
 

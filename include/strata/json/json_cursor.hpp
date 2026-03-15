@@ -1,5 +1,22 @@
 #pragma once
 
+/**
+ * @file json_cursor.hpp
+ * @brief Lightweight, non-owning navigator over a JsonValue tree.
+ *
+ * JsonCursor wraps a borrowed const JsonValue* and provides two
+ * flavours of accessors:
+ *
+ * 1. **Status-code API** (get_bool(), get_field(), …) — returns
+ *    Result<T>, never throws.  Preferred on hot paths.
+ * 2. **Throwing API** (get_bool_or_throw(), field(), at(), …) —
+ *    throws std::runtime_error / std::out_of_range on mismatch.
+ *    Convenient for callers that prefer exceptions.
+ *
+ * The cursor does NOT own the pointed-to value; the caller must
+ * ensure the owning JsonDocument (or equivalent) outlives the cursor.
+ */
+
 #include "strata/json/json_core.hpp"
 
 #include <string>
@@ -9,48 +26,47 @@ namespace strata {
 
 class JsonCursor {
   public:
-    JsonCursor() = default;
-    explicit JsonCursor(const JsonValue* v);
+    JsonCursor() noexcept = default;
+    explicit JsonCursor(const JsonValue* v) noexcept;
 
-    // Type predicates
-    bool is_null() const;
-    bool is_bool() const;
-    bool is_number() const;
-    bool is_string() const;
-    bool is_array() const;
-    bool is_object() const;
+    // --- Type predicates (never throw) -------------------------------------
+    [[nodiscard]] bool is_null() const noexcept;
+    [[nodiscard]] bool is_bool() const noexcept;
+    [[nodiscard]] bool is_number() const noexcept;
+    [[nodiscard]] bool is_string() const noexcept;
+    [[nodiscard]] bool is_array() const noexcept;
+    [[nodiscard]] bool is_object() const noexcept;
 
-    // Low-level, status-code based accessors
-    Result<bool> get_bool() const;
-    Result<int64_t> get_int64() const;
-    Result<uint64_t> get_uint64() const;
-    Result<double> get_double() const;
-    Result<std::string_view> get_string() const;
+    // --- Low-level, status-code based accessors ----------------------------
+    [[nodiscard]] Result<bool> get_bool() const;
+    [[nodiscard]] Result<int64_t> get_int64() const;
+    [[nodiscard]] Result<uint64_t> get_uint64() const;
+    [[nodiscard]] Result<double> get_double() const;
+    [[nodiscard]] Result<std::string_view> get_string() const;
 
-    // Generic number accessor (alias for get_double in this model)
-    Result<double> get_number() const;
+    /// Alias for get_double() (single number model).
+    [[nodiscard]] Result<double> get_number() const;
 
-    // Object field / array index navigation
-    Result<JsonCursor> get_field(std::string_view key) const;
-    Result<JsonCursor> get_at(std::size_t index) const;
+    /// Navigate into an object field by key.
+    [[nodiscard]] Result<JsonCursor> get_field(std::string_view key) const;
+    /// Navigate into an array element by index.
+    [[nodiscard]] Result<JsonCursor> get_at(std::size_t index) const;
 
-    // ------------------------------------------------------------------
-    // High-level convenience methods expected by module_pybind.cpp
-    // These throw std::runtime_error / std::out_of_range on mismatch.
-    // ------------------------------------------------------------------
-    bool get_bool_or_throw() const;
-    int64_t get_int() const;
-    double get_float() const;
-    std::string get_str() const;
-    JsonCursor field(std::string_view key) const;
-    JsonCursor at(std::size_t index) const;
+    // --- Throwing convenience methods --------------------------------------
+    [[nodiscard]] bool get_bool_or_throw() const;
+    [[nodiscard]] int64_t get_int() const;
+    [[nodiscard]] double get_float() const;
+    [[nodiscard]] std::string get_str() const;
+    [[nodiscard]] JsonCursor field(std::string_view key) const;
+    [[nodiscard]] JsonCursor at(std::size_t index) const;
 
-    // Iteration helpers for JSONPath
-    size_t array_size() const;
-    size_t object_size() const;
-    std::vector<std::string> object_keys() const;
+    // --- Iteration helpers for JSONPath ------------------------------------
+    [[nodiscard]] size_t array_size() const noexcept;
+    [[nodiscard]] size_t object_size() const noexcept;
+    [[nodiscard]] std::vector<std::string> object_keys() const;
 
-    const JsonValue* raw() const;
+    /// Access the underlying raw pointer (may be nullptr).
+    [[nodiscard]] const JsonValue* raw() const noexcept;
 
   private:
     const JsonValue* value_ = nullptr;

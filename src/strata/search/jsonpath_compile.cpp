@@ -1,3 +1,22 @@
+/**
+ * @file jsonpath_compile.cpp
+ * @brief JSONPath expression compiler.
+ *
+ * PathParser is a hand-written recursive-descent parser that converts
+ * a JSONPath string into a vector of PathStep operations.
+ *
+ * Supported grammar (subset of RFC 9535):
+ *   $                       — root
+ *   .field / ["field"]      — field access
+ *   .*  / [*]               — wildcard
+ *   [n]                     — array index (negative allowed)
+ *   [start:end:step]        — array slice
+ *   ..                      — recursive descent
+ *   [?(@.field op value)]   — filter predicate (==, !=, >, >=, <, <=)
+ *
+ * Parsing is non-throwing: errors are reported via Result<CompiledPath>.
+ */
+
 #include "strata/search/jsonpath.hpp"
 
 #include <cctype>

@@ -1,3 +1,15 @@
+/**
+ * @file json_mmap.cpp
+ * @brief Memory-mapped JSON file parsing (POSIX).
+ *
+ * MmapFile is a move-only RAII wrapper around mmap/munmap.  The file
+ * is opened read-only, mapped with PROT_READ, and advised as
+ * MADV_SEQUENTIAL for optimal kernel page prefetching.
+ *
+ * After mapping, the data is parsed via parse_json() into a full
+ * JsonValue tree (the mapping is unmapped once parsing completes).
+ */
+
 #include "strata/json/json_mmap.hpp"
 
 #include "strata/json/json_parse.hpp"

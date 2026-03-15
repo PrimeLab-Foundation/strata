@@ -1,3 +1,16 @@
+/**
+ * @file json_parse.cpp
+ * @brief Implementation of parse_json() and parse_sax().
+ *
+ * Uses ParserInline<DomBuilderHandler> for DOM construction, which
+ * lets the compiler devirtualise every SAX callback.
+ *
+ * Thread-local state:
+ *   g_duplicate_policy — controls how duplicate object keys are handled.
+ *   g_parse_warnings   — collects warnings (e.g. duplicate keys in Warn mode).
+ *                         Cleared at the start of each parse_json() call.
+ */
+
 #include "strata/json/json_parse.hpp"
 
 #include "strata/json/json_parser_inline.hpp"
@@ -12,9 +25,19 @@ namespace strata {
 
 namespace {
 
+/// Thread-local duplicate-key policy (default: first occurrence wins).
 thread_local DuplicateKeyPolicy g_duplicate_policy = DuplicateKeyPolicy::FirstWins;
+
+/// Thread-local vector of parse warnings, consumed via consume_parse_warnings().
 thread_local std::vector<std::string> g_parse_warnings;
 
+/**
+ * SAX handler that builds a full JsonValue DOM tree.
+ *
+ * Uses a stack of in-progress containers (objects/arrays).  When a
+ * value is produced it is pushed into the top-of-stack container;
+ * when the stack is empty the value becomes the root.
+ */
 class DomBuilderHandler : public JsonSaxHandler {
   public:
     DomBuilderHandler() = default;

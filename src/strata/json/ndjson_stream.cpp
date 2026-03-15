@@ -1,3 +1,17 @@
+/**
+ * @file ndjson_stream.cpp
+ * @brief NDJSON streaming parser implementation.
+ *
+ * Line splitting uses SIMD-accelerated newline search
+ * (find_newline_simd) for fast scanning of large buffers.
+ * Batch mode (parse_all_fast) pre-counts lines via SIMD to
+ * pre-allocate the result vector, reducing reallocations.
+ *
+ * parse_batch_chunked() collects newline positions in batches and
+ * parses each line in order, supporting both skip-errors and
+ * stop-on-first-error modes.
+ */
+
 #include "strata/json/ndjson_stream.hpp"
 
 #include "strata/util/simd_string.hpp"
@@ -130,7 +144,7 @@ Result<JsonValue> NdjsonStream::next() {
     return {Status::KeyNotFound, JsonValue()};
 }
 
-bool NdjsonStream::has_next() const {
+bool NdjsonStream::has_next() const noexcept {
     // Quick check: if we haven't reached end of data, assume there's content
     // This avoids expensive O(n) scan on every call
     return pos_ < data_.size();

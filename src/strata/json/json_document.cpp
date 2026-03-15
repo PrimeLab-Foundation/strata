@@ -1,3 +1,12 @@
+/**
+ * @file json_document.cpp
+ * @brief JsonDocument implementation — owning handle for parsed JSON.
+ *
+ * The root JsonValue is wrapped in a shared_ptr so that cursors,
+ * which hold a borrowed pointer, remain valid as long as any
+ * copy of the document exists.
+ */
+
 #include "strata/json/json_document.hpp"
 
 namespace strata {

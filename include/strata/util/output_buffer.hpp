@@ -1,5 +1,17 @@
 #pragma once
 
+/**
+ * @file output_buffer.hpp
+ * @brief Growable and fixed-size output buffers for JSON serialisation.
+ *
+ * OutputBuffer is a realloc-based growable buffer with unsafe fast-path
+ * variants (unsafe_push_back, unsafe_append) that skip capacity checks
+ * when the caller has already called reserve().
+ *
+ * FixedOutputBuffer writes into a caller-owned region and sets an
+ * overflow flag instead of growing.
+ */
+
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -15,6 +27,14 @@
 namespace strata {
 namespace util {
 
+/// Default initial capacity for OutputBuffer (bytes).
+static constexpr size_t kOutputBufferDefaultCapacity = 1024;
+
+/**
+ * Growable output buffer backed by malloc/realloc.
+ *
+ * Move-only. Memory is freed in the destructor.
+ */
 class OutputBuffer {
   public:
     OutputBuffer() = default;
@@ -23,12 +43,12 @@ class OutputBuffer {
     OutputBuffer(const OutputBuffer&) = delete;
     OutputBuffer& operator=(const OutputBuffer&) = delete;
 
-    void clear() { size_ = 0; }
+    void clear() noexcept { size_ = 0; }
 
-    const char* data() const { return data_; }
-    char* data() { return data_; }
-    size_t size() const { return size_; }
-    size_t capacity() const { return capacity_; }
+    [[nodiscard]] const char* data() const noexcept { return data_; }
+    [[nodiscard]] char* data() noexcept { return data_; }
+    [[nodiscard]] size_t size() const noexcept { return size_; }
+    [[nodiscard]] size_t capacity() const noexcept { return capacity_; }
 
     void reserve(size_t min_capacity) {
         if (min_capacity <= capacity_) {
@@ -56,12 +76,14 @@ class OutputBuffer {
         data_[size_++] = c;
     }
 
-    // Unsafe variants: skip capacity check. Call only after reserve(size + n).
+    /// Skip capacity check. Caller must have reserved sufficient space.
     void unsafe_push_back(char c) noexcept { data_[size_++] = c; }
+    /// Skip capacity check. Caller must have reserved sufficient space.
     void unsafe_append(const char* src, size_t len) noexcept {
         std::memcpy(data_ + size_, src, len);
         size_ += len;
     }
+    /// Advance write position without writing. Caller must have reserved.
     void unsafe_advance(size_t n) noexcept { size_ += n; }
 
   private:
@@ -71,8 +93,9 @@ class OutputBuffer {
         }
     }
 
+    /// Grow by 1.5x (or to @p needed, whichever is larger).
     __attribute__((noinline)) void grow(size_t needed) {
-        size_t new_capacity = capacity_ == 0 ? 1024 : capacity_;
+        size_t new_capacity = capacity_ == 0 ? kOutputBufferDefaultCapacity : capacity_;
         while (new_capacity < needed) {
             new_capacity = new_capacity + (new_capacity / 2);
         }
@@ -90,22 +113,28 @@ class OutputBuffer {
     size_t capacity_ = 0;
 };
 
+/**
+ * Fixed-size output buffer (no dynamic growth).
+ *
+ * Writes into a caller-owned region. Sets an overflow flag when
+ * the capacity is exceeded instead of throwing.
+ */
 class FixedOutputBuffer {
   public:
     FixedOutputBuffer(char* data, size_t capacity) : data_(data), capacity_(capacity) {}
 
-    void clear() {
+    void clear() noexcept {
         size_ = 0;
         overflowed_ = false;
     }
 
-    const char* data() const { return data_; }
-    char* data() { return data_; }
-    size_t size() const { return size_; }
-    size_t capacity() const { return capacity_; }
-    bool overflowed() const { return overflowed_; }
+    [[nodiscard]] const char* data() const noexcept { return data_; }
+    [[nodiscard]] char* data() noexcept { return data_; }
+    [[nodiscard]] size_t size() const noexcept { return size_; }
+    [[nodiscard]] size_t capacity() const noexcept { return capacity_; }
+    [[nodiscard]] bool overflowed() const noexcept { return overflowed_; }
 
-    void reserve(size_t) {}
+    void reserve(size_t) {} // No-op for fixed buffers.
 
     void append(const char* src, size_t len) {
         if (len == 0 || overflowed_) {

@@ -20,7 +20,7 @@ namespace strata {
  * @param value The JsonValue to serialize
  * @return JSON string representation
  */
-std::string serialize_json(const JsonValue& value);
+[[nodiscard]] std::string serialize_json(const JsonValue& value);
 
 /**
  * Serialize to pre-allocated string (for efficiency).
