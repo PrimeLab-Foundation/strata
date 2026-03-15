@@ -100,8 +100,15 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         return push_value(PyUnicode_FromStringAndSize(v.data(), v.size()));
     }
 
-    bool on_start_object(size_t) override {
-        PyObject* dict = PyDict_New();
+    bool on_start_object(size_t size_hint) override {
+        PyObject* dict;
+        if (size_hint > 0) {
+            // Pre-size the dict to avoid rehashing during population.
+            // _PyDict_NewPresized is a CPython internal API available since 3.6+.
+            dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(size_hint));
+        } else {
+            dict = PyDict_New();
+        }
         if (!dict)
             return false;
         stack_.push_back(dict);
@@ -323,7 +330,7 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
 
     if (val.is_object()) {
         const auto& obj = val.as_object();
-        PyObject* dict = PyDict_New();
+        PyObject* dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(obj.size()));
         if (!dict)
             return NULL;
 

@@ -1,5 +1,5 @@
 #include "python_types.h"
-#include "strata/util/fast_dtoa.hpp"
+#include "strata/util/dragonbox.hpp"
 #include "strata/util/output_buffer.hpp"
 #include "strata/util/simd_string.hpp"
 
@@ -178,7 +178,7 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
         value = -value;
     }
 
-    int len = strata::util::fast_dtoa(value, p);
+    int len = strata::util::dragonbox_d2s(value, p);
     out.unsafe_advance(static_cast<size_t>((p - start) + len));
     return true;
 }
@@ -696,6 +696,47 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
     return true;
 }
 
+// Fast path for homogeneous float arrays: skips per-element type dispatch.
+// Checks first min(sz, 8) elements to verify all are PyFloat_Type, then
+// serializes with a tight loop calling append_double() directly.
+template <typename Buffer>
+static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ssize_t sz) {
+    // Verify homogeneity by sampling first min(sz, 8) elements
+    const Py_ssize_t check = sz < 8 ? sz : 8;
+    for (Py_ssize_t i = 0; i < check; ++i) {
+        if (Py_TYPE(PyList_GET_ITEM(list, i)) != &PyFloat_Type)
+            return false;
+    }
+
+    // Pre-reserve: each float needs at most 25 chars + comma
+    out.reserve(out.size() + static_cast<size_t>(sz) * 26 + 2);
+    out.push_back('[');
+
+    if (!append_double(out, PyFloat_AS_DOUBLE(PyList_GET_ITEM(list, 0))))
+        return false;
+
+    for (Py_ssize_t i = 1; i < sz; ++i) {
+        PyObject* item = PyList_GET_ITEM(list, i);
+        // Late bail if a non-float sneaks in after the sampled prefix
+        if (UNLIKELY(Py_TYPE(item) != &PyFloat_Type)) {
+            // Write remaining elements through the generic path
+            for (Py_ssize_t j = i; j < sz; ++j) {
+                out.push_back(',');
+                if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
+                    return false;
+            }
+            out.push_back(']');
+            return true;
+        }
+        out.push_back(',');
+        if (!append_double(out, PyFloat_AS_DOUBLE(item)))
+            return false;
+    }
+
+    out.push_back(']');
+    return true;
+}
+
 template <bool Tracking, typename Buffer>
 static inline bool serialize_list_t(PyObject* list, Buffer& out, int depth) {
     if constexpr (Tracking) {
@@ -709,6 +750,13 @@ static inline bool serialize_list_t(PyObject* list, Buffer& out, int depth) {
         if constexpr (Tracking)
             pop_seen();
         return true;
+    }
+
+    // Try fast path for homogeneous float arrays (common in scientific/numeric data)
+    if (!Tracking && sz >= 4 && Py_TYPE(PyList_GET_ITEM(list, 0)) == &PyFloat_Type) {
+        if (serialize_float_array_fast(list, out, sz)) {
+            return true;
+        }
     }
 
     // Try batch optimization for lists of same-schema dicts
