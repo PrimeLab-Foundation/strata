@@ -35,6 +35,10 @@ PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_erro
  */
 PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t batch_size,
                                        int skip_errors);
+/** Direct NDJSON buffer parsing — bypasses NdjsonStream for maximum throughput.
+ *  Uses SIMD newline counting for pre-allocation. Defined in python_loads.cpp. */
+PyObject* parse_ndjson_direct(const char* data, size_t len, int skip_errors);
+
 /** Python-exposed parse_ndjson(text, skip_errors=False) -> list.
  *  Defined in python_loads.cpp. */
 PyObject* strata_parse_ndjson(PyObject* self, PyObject* args);

@@ -74,6 +74,16 @@ namespace util {
     }
 
     uint64_t val = 0;
+
+    // Fast path: accumulate up to 18 digits without overflow checking.
+    // 18 digits fit in uint64 (max 999999999999999999 < 2^63-1).
+    const size_t safe_end = (pos + 18 < len) ? pos + 18 : len;
+    while (pos < safe_end && str[pos] >= '0' && str[pos] <= '9') {
+        val = val * 10 + static_cast<uint64_t>(str[pos] - '0');
+        ++pos;
+    }
+
+    // Slow path: remaining digits with overflow checking (19+ digit numbers)
     const uint64_t limit = negative ? static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1
                                     : static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
     while (pos < len && str[pos] >= '0' && str[pos] <= '9') {

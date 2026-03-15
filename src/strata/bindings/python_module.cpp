@@ -246,8 +246,7 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
             return NULL;
         }
 
-        strata::NdjsonStream stream(std::string_view(ndjson_buf, file_size));
-        return parse_ndjson_all_to_python(stream, 0);
+        return parse_ndjson_direct(ndjson_buf, file_size, 0);
     }
 
     // JSON file

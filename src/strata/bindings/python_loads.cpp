@@ -6,11 +6,15 @@
 #include "strata/json/json_parser_inline.hpp"
 #include "strata/json/json_sax_handler.hpp"
 #include "strata/json/ndjson_stream.hpp"
+#include "strata/util/simd_string.hpp"
 
 #include <cstring>
 #include <string>
-#include <unordered_map>
 #include <vector>
+
+#if defined(__ARM_NEON) || defined(__aarch64__)
+#include <arm_neon.h>
+#endif
 
 // Forward-declare CPython internal function for hash-aware dict insertion.
 // This function is exported in libpython (PyAPI_FUNC) but the header guard
@@ -22,17 +26,6 @@ int _PyDict_SetItem_KnownHash(PyObject* mp, PyObject* key, PyObject* item, Py_ha
 
 namespace {
 
-struct string_hash {
-    using is_transparent = void;
-    size_t operator()(std::string_view sv) const { return std::hash<std::string_view>{}(sv); }
-    size_t operator()(const std::string& s) const { return std::hash<std::string>{}(s); }
-};
-
-struct string_equal {
-    using is_transparent = void;
-    bool operator()(std::string_view sv1, std::string_view sv2) const { return sv1 == sv2; }
-};
-
 // Cached key entry: interned PyObject* + pre-computed hash.
 // Storing the hash alongside the key avoids recomputing it during
 // _PyDict_SetItem_KnownHash, saving ~10-15% of dict insertion cost.
@@ -41,38 +34,123 @@ struct CachedKeyEntry {
     Py_hash_t hash;
 };
 
-// Key cache: maps JSON key strings → interned PyObject* with pre-computed hash.
-// Thread-local instance persists across multiple parse calls (e.g. all lines in an NDJSON
-// batch), so the same key strings are not recreated for every line.
+// Cursor-predicted key cache with flat storage.
+//
+// Key insight: for JSON arrays of same-schema objects (the dominant pattern),
+// keys repeat in the same order for every record.  A cursor that tracks
+// position in the key sequence gives O(1) amortized lookup:
+//
+//   First record:  O(k²) total — k keys, each scanned linearly (cold cache)
+//   All others:    O(k) total — each lookup is a single comparison at cursor
+//
+// For 500 records × 21 keys: ~10,500 lookups, ~10,500 comparisons (vs ~105,000
+// with unordered_map or linear scan).  The cursor also gives better cache
+// locality than std::unordered_map's chained buckets.
 class KeyCache {
   public:
+    KeyCache() {
+        entries_.reserve(32);
+        // Initialize hash table slots to empty
+        std::memset(hash_slots_, 0xFF, sizeof(hash_slots_));
+    }
+
+    /// Look up or create a cached key entry.
+    ///
+    /// Returns a **borrowed** CachedKeyEntry — the caller must NOT Py_DECREF
+    /// the key.  The cache owns the reference; _PyDict_SetItem_KnownHash
+    /// will INCREF internally when inserting into a dict.
     CachedKeyEntry get(std::string_view key) {
-        auto it = cache_.find(key);
-        if (it != cache_.end()) {
-            Py_INCREF(it->second.key);
-            return it->second;
+        const size_t n = entries_.size();
+
+        // Fast path: cursor prediction — O(1) for repeated key patterns.
+        // After the first record, the cursor cycles through entries in the
+        // same order that keys appear.  For same-schema objects this means
+        // every lookup is a single memcmp hit.
+        if (n > 0) {
+            auto& e = entries_[cursor_];
+            if (e.key_len == static_cast<uint16_t>(key.size()) &&
+                std::memcmp(e.key_data, key.data(), key.size()) == 0) {
+                // Borrowed ref — no INCREF needed.
+                cursor_ = (cursor_ + 1 < n) ? cursor_ + 1 : 0;
+                return e.cached;
+            }
+
+            // Prediction miss: use hash table for O(1) lookup.
+            // FNV-1a hash of key bytes, masked to table size.
+            uint32_t h = 2166136261u;
+            for (size_t ki = 0; ki < key.size(); ++ki)
+                h = (h ^ static_cast<unsigned char>(key.data()[ki])) * 16777619u;
+            uint32_t slot = h & kHashMask;
+
+            // Linear probing (table is always < 50% full for n ≤ 64)
+            for (int probe = 0; probe < kHashSlots; ++probe) {
+                uint8_t idx = hash_slots_[slot];
+                if (idx == 0xFF)
+                    break; // empty slot → key not in cache
+                if (idx < n) {
+                    auto& s = entries_[idx];
+                    if (s.key_len == static_cast<uint16_t>(key.size()) &&
+                        std::memcmp(s.key_data, key.data(), key.size()) == 0) {
+                        cursor_ = (idx + 1 < n) ? idx + 1 : 0;
+                        return s.cached;
+                    }
+                }
+                slot = (slot + 1) & kHashMask;
+            }
         }
 
+        // Not found: intern the key and add to cache.
         PyObject* py_key = PyUnicode_FromStringAndSize(key.data(), key.size());
         if (!py_key)
             return {nullptr, 0};
 
         PyUnicode_InternInPlace(&py_key);
         Py_hash_t hash = PyObject_Hash(py_key);
-        Py_INCREF(py_key); // One for the cache
-        CachedKeyEntry entry{py_key, hash};
-        cache_[std::string(key)] = entry;
-        return entry;
+
+        CachedKeyEntry cached{py_key, hash};
+        size_t new_idx = entries_.size();
+        entries_.push_back({std::string(key), nullptr, 0, cached});
+        auto& back = entries_.back();
+        back.key_data = back.key_storage.data();
+        back.key_len = static_cast<uint16_t>(key.size());
+
+        // Insert into hash table
+        uint32_t h = 2166136261u;
+        for (size_t ki = 0; ki < key.size(); ++ki)
+            h = (h ^ static_cast<unsigned char>(key.data()[ki])) * 16777619u;
+        uint32_t slot = h & kHashMask;
+        while (hash_slots_[slot] != 0xFF)
+            slot = (slot + 1) & kHashMask;
+        hash_slots_[slot] = static_cast<uint8_t>(new_idx);
+
+        return cached;
     }
 
     ~KeyCache() {
-        for (auto& pair : cache_) {
-            Py_DECREF(pair.second.key);
+        for (auto& e : entries_) {
+            Py_DECREF(e.cached.key);
         }
     }
 
+    struct Entry {
+        std::string key_storage; // owning storage for key bytes
+        const char* key_data;    // points into key_storage (for fast access)
+        uint16_t key_len;        // cached length for quick comparison
+        CachedKeyEntry cached;   // {interned PyObject*, pre-computed hash}
+    };
+
+    // Public access for speculative key matching in the parser.
+    const std::vector<Entry>& entries() const { return entries_; }
+    size_t cursor() const { return cursor_; }
+    void advance_cursor() { cursor_ = (cursor_ + 1 < entries_.size()) ? cursor_ + 1 : 0; }
+
   private:
-    std::unordered_map<std::string, CachedKeyEntry, string_hash, string_equal> cache_;
+    static constexpr int kHashSlots = 128; // must be power of 2
+    static constexpr uint32_t kHashMask = kHashSlots - 1;
+
+    std::vector<Entry> entries_;
+    size_t cursor_ = 0;
+    uint8_t hash_slots_[kHashSlots]; // index into entries_, 0xFF = empty
 };
 
 // Small integer cache: avoid PyLong_FromLongLong overhead for 0..256.
@@ -100,6 +178,7 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         keys_.reserve(32);
         array_items_.reserve(256);
         array_starts_.reserve(16);
+        depth_sizes_.reserve(8);
         policy_ = strata::get_duplicate_key_policy();
         ensure_small_int_cache();
     }
@@ -151,13 +230,68 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     bool on_double(double v) override { return push_value(PyFloat_FromDouble(v)); }
 
     bool on_string(std::string_view v) override {
-        return push_value(PyUnicode_FromStringAndSize(v.data(), v.size()));
+        // Fast path for ASCII strings: skip CPython's internal codepoint scan
+        // by constructing compact-ASCII directly. Most JSON string values are
+        // pure ASCII (no \uXXXX escapes decoding to non-ASCII).
+        const size_t slen = v.size();
+        const char* sdata = v.data();
+
+        // Short strings (≤16 bytes, the common case): scalar OR-accumulation
+        // is cheaper than NEON setup for these sizes.
+        if (LIKELY(slen <= 16)) {
+            unsigned char high = 0;
+            for (size_t si = 0; si < slen; ++si)
+                high |= static_cast<unsigned char>(sdata[si]);
+            if (LIKELY(high < 0x80)) {
+                PyObject* s = PyUnicode_New(static_cast<Py_ssize_t>(slen), 127);
+                if (!s)
+                    return false;
+                memcpy(PyUnicode_1BYTE_DATA(s), sdata, slen);
+                return push_value(s);
+            }
+            return push_value(PyUnicode_DecodeUTF8(sdata, static_cast<Py_ssize_t>(slen), NULL));
+        }
+
+        // Longer strings: SIMD ASCII check
+        bool is_ascii = true;
+        size_t si = 0;
+#if defined(__ARM_NEON) || defined(__aarch64__)
+        for (; si + 16 <= slen; si += 16) {
+            uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(sdata + si));
+            if (vmaxvq_u8(chunk) >= 0x80) {
+                is_ascii = false;
+                break;
+            }
+        }
+#endif
+        if (is_ascii) {
+            for (; si < slen; ++si) {
+                if (static_cast<unsigned char>(sdata[si]) >= 0x80) {
+                    is_ascii = false;
+                    break;
+                }
+            }
+        }
+
+        if (LIKELY(is_ascii)) {
+            PyObject* s = PyUnicode_New(static_cast<Py_ssize_t>(slen), 127);
+            if (!s)
+                return false;
+            memcpy(PyUnicode_1BYTE_DATA(s), sdata, slen);
+            return push_value(s);
+        }
+        return push_value(PyUnicode_DecodeUTF8(sdata, static_cast<Py_ssize_t>(slen), NULL));
     }
 
-    bool on_start_object(size_t size_hint) override {
+    bool on_start_object(size_t /*size_hint*/) override {
+        // Predict dict size from previous object at the same nesting depth.
+        // For arrays of same-schema objects (the dominant JSON pattern),
+        // every object has the same key count, so this gives a perfect prediction.
+        // Eliminates dict resize cascades: e.g. for 21 keys, avoids 8→16→32.
+        size_t depth = stack_.size();
         PyObject* dict;
-        if (size_hint > 0) {
-            dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(size_hint));
+        if (depth < depth_sizes_.size() && depth_sizes_[depth] > 0) {
+            dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(depth_sizes_[depth]));
         } else {
             dict = PyDict_New();
         }
@@ -175,10 +309,57 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         return true;
     }
 
+    /// Speculative key match: called by the parser before SIMD string scanning.
+    ///
+    /// Compares the raw JSON bytes (after the opening quote) against the
+    /// cursor-predicted key in the cache.  If the bytes match and the next
+    /// byte is a closing quote, we skip the full parse_string() path:
+    /// - No SIMD escape scan (find_next_escape_simd)
+    /// - No cache lookup (already at the cursor)
+    /// - No PyUnicode_FromStringAndSize (reuse cached PyObject)
+    ///
+    /// @param data  Bytes after the opening '"'.
+    /// @param remaining  Available bytes after the opening '"'.
+    /// @return Number of bytes consumed (key_len + 1 for closing quote),
+    ///         or 0 if prediction failed (fall back to full parsing).
+    size_t try_match_key(const char* data, size_t remaining) {
+        const auto& entries = cache_.entries();
+        const size_t n = entries.size();
+        if (n == 0)
+            return 0;
+
+        const auto& e = entries[cache_.cursor()];
+        const size_t key_len = e.key_len;
+
+        // Need key_len bytes + closing quote
+        if (key_len + 1 > remaining)
+            return 0;
+
+        // Compare key bytes
+        if (std::memcmp(data, e.key_data, key_len) != 0)
+            return 0;
+
+        // Check closing quote
+        if (data[key_len] != '"')
+            return 0;
+
+        // Match! Push the cached key (borrowed ref) and advance cursor.
+        keys_.push_back(e.cached);
+        cache_.advance_cursor();
+        return key_len + 1; // consumed: key bytes + closing quote
+    }
+
     bool on_end_object() override {
         if (stack_.empty())
             return false;
         PyObject* dict = stack_.back();
+        // Record the object size for depth-based prediction.
+        size_t depth = stack_.size() - 1;
+        Py_ssize_t sz = PyDict_GET_SIZE(dict);
+        if (depth >= depth_sizes_.size()) {
+            depth_sizes_.resize(depth + 1, 0);
+        }
+        depth_sizes_[depth] = static_cast<size_t>(sz);
         stack_.pop_back();
         return push_value(dict);
     }
@@ -223,7 +404,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     }
 
     // Reset for reuse across multiple parse calls (e.g. NDJSON batches).
-    // Clears parse state but keeps the KeyCache populated for cross-line key reuse.
+    // Clears parse state but keeps KeyCache and depth_sizes_ populated
+    // for cross-line key reuse and dict pre-sizing prediction.
     void reset() {
         if (root_) {
             Py_DECREF(root_);
@@ -234,9 +416,7 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
                 Py_DECREF(obj);
         }
         stack_.clear();
-        for (auto& entry : keys_) {
-            Py_DECREF(entry.key);
-        }
+        // keys_ contains borrowed refs from KeyCache — no DECREF needed.
         keys_.clear();
         for (auto* p : array_items_) {
             Py_DECREF(p);
@@ -274,16 +454,16 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         CachedKeyEntry key_entry = keys_.back();
         keys_.pop_back();
 
+        // Keys are borrowed from the KeyCache — no INCREF/DECREF needed.
+        // _PyDict_SetItem_KnownHash and PyDict_SetDefault INCREF the key
+        // internally, so the dict holds its own reference.
+
         // Hot path: LastWins (default policy) with pre-computed hash.
-        // _PyDict_SetItem_KnownHash avoids recomputing the key hash,
-        // saving ~10-15% of dict insertion time per key-value pair.
         if (policy_ == strata::DuplicateKeyPolicy::LastWins) {
             if (_PyDict_SetItem_KnownHash(top, key_entry.key, val, key_entry.hash) < 0) {
-                Py_DECREF(key_entry.key);
                 Py_DECREF(val);
                 return false;
             }
-            Py_DECREF(key_entry.key);
             Py_DECREF(val);
             return true;
         }
@@ -291,11 +471,9 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         if (policy_ == strata::DuplicateKeyPolicy::FirstWins) {
             PyObject* result = PyDict_SetDefault(top, key_entry.key, val);
             if (!result) {
-                Py_DECREF(key_entry.key);
                 Py_DECREF(val);
                 return false;
             }
-            Py_DECREF(key_entry.key);
             Py_DECREF(val);
             return true;
         }
@@ -309,30 +487,27 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
                 msg += key_str;
                 PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
                 Py_XDECREF(key_repr);
-                Py_DECREF(key_entry.key);
                 Py_DECREF(val);
                 return true;
             }
-            Py_DECREF(key_entry.key);
             Py_DECREF(val);
             return false;
         }
 
         if (_PyDict_SetItem_KnownHash(top, key_entry.key, val, key_entry.hash) < 0) {
-            Py_DECREF(key_entry.key);
             Py_DECREF(val);
             return false;
         }
-        Py_DECREF(key_entry.key);
         Py_DECREF(val);
         return true;
     }
 
     PyObject* root_ = nullptr;
     std::vector<PyObject*> stack_;
-    std::vector<CachedKeyEntry> keys_;   // key + pre-computed hash
+    std::vector<CachedKeyEntry> keys_;   // borrowed key refs + pre-computed hash
     std::vector<PyObject*> array_items_; // flat storage for all in-flight array items
     std::vector<size_t> array_starts_;   // stack of start indices into array_items_
+    std::vector<size_t> depth_sizes_;    // predicted object size at each nesting depth
     strata::DuplicateKeyPolicy policy_;
     KeyCache cache_;
 };
@@ -389,6 +564,7 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
             return NULL;
 
         for (const auto& [key, value] : obj) {
+            // Borrowed ref from cache — no DECREF needed.
             CachedKeyEntry entry = cache.get(key);
             if (!entry.key) {
                 Py_DECREF(dict);
@@ -397,13 +573,11 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
 
             PyObject* py_val = json_value_to_python_internal(value, cache);
             if (!py_val) {
-                Py_DECREF(entry.key);
                 Py_DECREF(dict);
                 return NULL;
             }
 
             int rc = _PyDict_SetItem_KnownHash(dict, entry.key, py_val, entry.hash);
-            Py_DECREF(entry.key);
             Py_DECREF(py_val);
 
             if (rc < 0) {
@@ -451,6 +625,68 @@ PyObject* parse_json_to_python_reuse(std::string_view text, bool validate_utf8,
 
 // NDJSON batch functions: reuse a single PythonObjectBuilder (and its KeyCache) across all
 // lines in the batch, avoiding per-line vector/map construction and Python key re-creation.
+
+// Direct NDJSON parsing: bypass NdjsonStream overhead for the all-at-once case.
+// Uses SIMD newline counting for pre-allocation, then parses lines directly
+// from the raw buffer without per-line whitespace checks.
+PyObject* parse_ndjson_direct(const char* data, size_t len, int skip_errors) {
+    PyGcPause gc_pause;
+    PythonObjectBuilder builder;
+
+    // SIMD-count newlines for precise pre-allocation
+    size_t line_count = strata::util::count_newlines_simd(data, len) + 1;
+
+    std::vector<PyObject*> items;
+    items.reserve(line_count);
+
+    size_t pos = 0;
+    while (pos < len) {
+        // Find next newline using SIMD
+        size_t nl = strata::util::find_newline_simd(data, len, pos);
+        size_t line_end = nl;
+
+        // Handle \r\n
+        if (line_end > pos && data[line_end - 1] == '\r')
+            --line_end;
+
+        size_t line_len = line_end - pos;
+
+        // Skip empty/whitespace lines cheaply: check first char
+        if (line_len == 0 || static_cast<unsigned char>(data[pos]) <= ' ') {
+            // Only do full whitespace check if first char is whitespace
+            if (line_len == 0 || strata::util::is_whitespace_only_simd(data + pos, line_len)) {
+                pos = (nl < len) ? nl + 1 : len;
+                continue;
+            }
+        }
+
+        std::string_view line(data + pos, line_len);
+        PyObject* item = parse_json_to_python_reuse(line, /*validate_utf8=*/false, builder);
+        if (!item) {
+            if (PyErr_Occurred())
+                PyErr_Clear();
+            if (skip_errors) {
+                pos = (nl < len) ? nl + 1 : len;
+                continue;
+            }
+            break;
+        }
+        items.push_back(item);
+        pos = (nl < len) ? nl + 1 : len;
+    }
+
+    // Build the Python list in one allocation with SET_ITEM (no extra INCREF)
+    PyObject* result_list = PyList_New(static_cast<Py_ssize_t>(items.size()));
+    if (!result_list) {
+        for (auto* obj : items)
+            Py_DECREF(obj);
+        return NULL;
+    }
+    for (size_t i = 0; i < items.size(); ++i) {
+        PyList_SET_ITEM(result_list, static_cast<Py_ssize_t>(i), items[i]); // steals ref
+    }
+    return result_list;
+}
 
 PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_errors) {
     PyGcPause gc_pause;
@@ -530,21 +766,45 @@ PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t 
 }
 
 // Python parse_ndjson() — parse all NDJSON lines into a list in one C++ call.
-// Avoids the Python NdjsonStream wrapper overhead.
+// Uses direct buffer parsing (bypass NdjsonStream) for maximum throughput.
 PyObject* strata_parse_ndjson(PyObject* self, PyObject* args) {
     const char* data;
     Py_ssize_t len;
     int skip_errors = 0;
+
+    // Fast path: single str argument, no skip_errors
+    if (PyTuple_GET_SIZE(args) >= 1) {
+        PyObject* arg = PyTuple_GET_ITEM(args, 0);
+        if (PyUnicode_Check(arg)) {
+            Py_ssize_t py_len;
+            data = PyUnicode_AsUTF8AndSize(arg, &py_len);
+            if (!data)
+                return NULL;
+            len = py_len;
+        } else if (PyBytes_Check(arg)) {
+            data = PyBytes_AS_STRING(arg);
+            len = PyBytes_GET_SIZE(arg);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "parse_ndjson() argument must be str or bytes");
+            return NULL;
+        }
+
+        if (PyTuple_GET_SIZE(args) >= 2) {
+            PyObject* se = PyTuple_GET_ITEM(args, 1);
+            skip_errors = PyObject_IsTrue(se);
+        }
+
+        STRATA_CPP_TRY
+        return parse_ndjson_direct(data, static_cast<size_t>(len), skip_errors);
+        STRATA_CPP_CATCH
+    }
 
     if (!PyArg_ParseTuple(args, "s#|p", &data, &len, &skip_errors)) {
         return NULL;
     }
 
     STRATA_CPP_TRY
-
-    strata::NdjsonStream stream(std::string_view(data, len));
-    return parse_ndjson_all_to_python(stream, skip_errors);
-
+    return parse_ndjson_direct(data, static_cast<size_t>(len), skip_errors);
     STRATA_CPP_CATCH
 }
 
@@ -563,7 +823,23 @@ PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
     // Fast path: no kwargs → skip keyword parsing, strcmp, etc.
     // This is the hot path for NDJSON per-line parsing (2000+ calls).
     if (kwargs == NULL || PyDict_GET_SIZE(kwargs) == 0) {
-        if (!PyArg_ParseTuple(args, "s#", &data, &len)) {
+        // Direct tuple access — avoids PyArg_ParseTuple format string parsing.
+        if (PyTuple_GET_SIZE(args) != 1) {
+            PyErr_SetString(PyExc_TypeError, "loads() takes exactly 1 argument");
+            return NULL;
+        }
+        PyObject* arg = PyTuple_GET_ITEM(args, 0);
+        Py_ssize_t py_len;
+        if (PyUnicode_Check(arg)) {
+            data = PyUnicode_AsUTF8AndSize(arg, &py_len);
+            if (!data)
+                return NULL;
+            len = py_len;
+        } else if (PyBytes_Check(arg)) {
+            data = PyBytes_AS_STRING(arg);
+            len = PyBytes_GET_SIZE(arg);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "loads() argument must be str or bytes");
             return NULL;
         }
 

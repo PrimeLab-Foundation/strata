@@ -24,8 +24,17 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace strata {
+
+/// SFINAE trait: detect if Handler has try_match_key(const char*, size_t) → size_t.
+template <typename T, typename = void> struct has_try_match_key : std::false_type {};
+
+template <typename T>
+struct has_try_match_key<T, std::void_t<decltype(std::declval<T&>().try_match_key(
+                                std::declval<const char*>(), std::declval<size_t>()))>>
+    : std::true_type {};
 
 /**
  * Templated SAX parser.
@@ -98,7 +107,14 @@ template <typename Handler> struct ParserInline {
         return true;
     }
 
-    void skip_ws() noexcept { i = util::skip_whitespace_fast(data, len, i); }
+    void skip_ws() noexcept {
+        // Inline fast exit: for compact JSON (the common case), the next
+        // character is not whitespace.  Avoids calling skip_whitespace_fast
+        // (which contains SIMD code the compiler may not inline).
+        if (i < len && static_cast<unsigned char>(data[i]) > ' ')
+            return;
+        i = util::skip_whitespace_fast(data, len, i);
+    }
 
     bool consume(char c) noexcept {
         skip_ws();
@@ -284,9 +300,6 @@ template <typename Handler> struct ParserInline {
         if (!consume('['))
             return false;
 
-        // Skip pre-counting: the flat vector approach in PythonObjectBuilder
-        // handles dynamic growth efficiently (amortized O(1) per element).
-        // Pre-counting doubles the scan work and isn't worth the cost.
         if (!handler.on_start_array(0))
             return false;
         if (consume(']'))
@@ -294,10 +307,16 @@ template <typename Handler> struct ParserInline {
         while (true) {
             if (!parse_value())
                 return false;
-            if (consume(']'))
+            // Combined delimiter check: one skip_ws() instead of two separate
+            // consume() calls (each of which would call skip_ws()).
+            skip_ws();
+            if (peek() == ']') {
+                ++i;
                 break;
-            if (!consume(','))
+            }
+            if (peek() != ',')
                 return false;
+            ++i;
         }
         return handler.on_end_array();
     }
@@ -391,29 +410,59 @@ template <typename Handler> struct ParserInline {
         return 0;
     }
 
+    /// Try to match a predicted key (speculative key parsing).
+    ///
+    /// When the handler supports try_match_key(), the parser can skip
+    /// the SIMD escape scan and key cache lookup for predicted keys.
+    /// For same-schema JSON objects, this eliminates ~10,500 SIMD scans
+    /// per 500 records × 21 keys.
+    ///
+    /// @param pos Position just after the opening quote.
+    /// @return true if predicted key matched (i advanced past closing quote).
+    bool try_predicted_key(size_t pos) {
+        if constexpr (has_try_match_key<Handler>::value) {
+            size_t consumed = handler.try_match_key(data + pos, len - pos);
+            if (consumed > 0) {
+                i = pos + consumed;
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool parse_object() {
         if (!consume('{'))
             return false;
 
-        // Skip pre-counting: Python dicts start at capacity 8 and resize
-        // efficiently. The forward scan doubles the parse work for each object,
-        // costing more than the occasional dict resize it prevents.
         if (!handler.on_start_object(0))
             return false;
         if (consume('}'))
             return handler.on_end_object();
         while (true) {
             skip_ws();
-            if (!parse_string(true))
+            // Speculative key parsing: try the cursor-predicted key first.
+            // If the prediction hits, we skip SIMD scanning and cache lookup
+            // entirely — just a memcmp against the predicted key bytes.
+            if (peek() != '"')
                 return false;
+            if (!try_predicted_key(i + 1)) {
+                // Prediction missed or not supported — full parse.
+                if (!parse_string(true))
+                    return false;
+            }
             if (!consume(':'))
                 return false;
             if (!parse_value())
                 return false;
-            if (consume('}'))
+            // Combined delimiter check: one skip_ws() instead of two.
+            skip_ws();
+            if (peek() == '}') {
+                ++i;
                 break;
-            if (!consume(','))
+            }
+            if (peek() != ',')
                 return false;
+            ++i;
         }
         return handler.on_end_object();
     }

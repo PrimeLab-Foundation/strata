@@ -14,10 +14,58 @@
 #if defined(__ARM_NEON) || defined(__aarch64__)
 #include <arm_neon.h>
 #define STRATA_SERIALIZE_HAS_NEON 1
+#elif defined(__SSE2__)
+#include <emmintrin.h>
 #endif
 
 // Thread-local buffer for zero-allocation serialization
 thread_local strata::util::OutputBuffer g_serialize_buffer;
+
+// Create a PyUnicode string from a buffer.  When the content is pure ASCII
+// (the common case for JSON output), we skip CPython's internal codepoint
+// scan by constructing the compact-ASCII representation directly.
+static inline PyObject* buffer_to_pyunicode(const char* data, size_t len) {
+    // Quick ASCII check: scan for any byte with high bit set.
+    bool is_ascii = true;
+    size_t i = 0;
+#if defined(STRATA_SERIALIZE_HAS_NEON)
+    for (; i + 16 <= len; i += 16) {
+        uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(data + i));
+        // Any byte >= 0x80 means non-ASCII
+        if (vmaxvq_u8(chunk) >= 0x80) {
+            is_ascii = false;
+            break;
+        }
+    }
+#elif defined(__SSE2__)
+    for (; i + 16 <= len; i += 16) {
+        __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data + i));
+        if (_mm_movemask_epi8(chunk) != 0) {
+            is_ascii = false;
+            break;
+        }
+    }
+#endif
+    if (is_ascii) {
+        for (; i < len; ++i) {
+            if (static_cast<unsigned char>(data[i]) >= 0x80) {
+                is_ascii = false;
+                break;
+            }
+        }
+    }
+
+    if (is_ascii) {
+        Py_ssize_t slen = static_cast<Py_ssize_t>(len);
+        PyObject* result = PyUnicode_New(slen, 127);
+        if (!result)
+            return NULL;
+        memcpy(PyUnicode_1BYTE_DATA(result), data, len);
+        return result;
+    }
+    // Non-ASCII path: full UTF-8 decode
+    return PyUnicode_DecodeUTF8(data, static_cast<Py_ssize_t>(len), NULL);
+}
 
 enum class CyclePolicy { Warn, Error, Ignore };
 static CyclePolicy g_cycle_policy = CyclePolicy::Ignore;
@@ -730,11 +778,66 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
         while (PyDict_Next(dict, &dpos, &dk, &dv)) {
             // Write pre-computed key (no escape check, single append)
             out.append(prekeys[k].data, prekeys[k].len);
-            if (!serialize_item_t<Tracking>(dv, out, depth + 1))
-                return false;
+            // Inline top-3 type checks to avoid serialize_item_t function call
+            PyTypeObject* vt = Py_TYPE(dv);
+            if (LIKELY(vt == &PyUnicode_Type)) {
+                if (!append_string(dv, out))
+                    return false;
+            } else if (LIKELY(vt == &PyLong_Type)) {
+                if (!append_py_long(out, dv))
+                    return false;
+            } else if (vt == &PyFloat_Type) {
+                if (!append_double(out, PyFloat_AS_DOUBLE(dv)))
+                    return false;
+            } else if (UNLIKELY(dv == Py_None)) {
+                out.append("null", 4);
+            } else if (UNLIKELY(vt == &PyBool_Type)) {
+                out.append(dv == Py_True ? "true" : "false", dv == Py_True ? 4 : 5);
+            } else {
+                if (!serialize_item_t<Tracking>(dv, out, depth + 1))
+                    return false;
+            }
             ++k;
         }
         out.push_back('}');
+    }
+
+    out.push_back(']');
+    return true;
+}
+
+// Fast path for homogeneous int arrays: skips per-element type dispatch.
+// Checks first min(sz, 8) elements to verify all are PyLong_Type, then
+// serializes with a tight loop calling append_py_long() directly.
+template <typename Buffer>
+static inline bool serialize_int_array_fast(PyObject* list, Buffer& out, Py_ssize_t sz) {
+    const Py_ssize_t check = sz < 8 ? sz : 8;
+    for (Py_ssize_t i = 0; i < check; ++i) {
+        if (Py_TYPE(PyList_GET_ITEM(list, i)) != &PyLong_Type)
+            return false;
+    }
+
+    // Pre-reserve: each int needs at most 20 chars + comma
+    out.reserve(out.size() + static_cast<size_t>(sz) * 21 + 2);
+    out.push_back('[');
+
+    if (!append_py_long(out, PyList_GET_ITEM(list, 0)))
+        return false;
+
+    for (Py_ssize_t i = 1; i < sz; ++i) {
+        PyObject* item = PyList_GET_ITEM(list, i);
+        if (UNLIKELY(Py_TYPE(item) != &PyLong_Type)) {
+            for (Py_ssize_t j = i; j < sz; ++j) {
+                out.push_back(',');
+                if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
+                    return false;
+            }
+            out.push_back(']');
+            return true;
+        }
+        out.push_back(',');
+        if (!append_py_long(out, item))
+            return false;
     }
 
     out.push_back(']');
@@ -835,7 +938,10 @@ static inline bool serialize_list_t(PyObject* list, Buffer& out, int depth) {
     // Try fast paths for homogeneous arrays (skip per-element type dispatch)
     if (!Tracking && sz >= 4) {
         PyTypeObject* first_type = Py_TYPE(PyList_GET_ITEM(list, 0));
-        if (first_type == &PyFloat_Type) {
+        if (first_type == &PyLong_Type) {
+            if (serialize_int_array_fast(list, out, sz))
+                return true;
+        } else if (first_type == &PyFloat_Type) {
             if (serialize_float_array_fast(list, out, sz))
                 return true;
         } else if (first_type == &PyUnicode_Type) {
@@ -968,8 +1074,53 @@ static inline bool serialize_value(PyObject* val, Buffer& out, int depth) {
 // Unified dumps() with return_type kwarg: "str" (default) or "bytes"
 PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* obj;
-    const char* return_type = "str";
 
+    // Fast path: no kwargs → skip PyArg_ParseTupleAndKeywords overhead.
+    // Direct tuple access avoids format string parsing entirely.
+    if (kwargs == NULL || PyDict_GET_SIZE(kwargs) == 0) {
+        if (PyTuple_GET_SIZE(args) != 1) {
+            PyErr_SetString(PyExc_TypeError, "dumps() takes exactly 1 argument");
+            return NULL;
+        }
+        obj = PyTuple_GET_ITEM(args, 0);
+
+        STRATA_CPP_TRY
+
+        PyGcPause gc_pause;
+        g_max_depth = Py_GetRecursionLimit();
+        g_seen_stack.clear();
+        g_serialize_buffer.clear();
+
+        size_t est = estimate_size(obj);
+        if (g_serialize_buffer.capacity() < est) {
+            g_serialize_buffer.reserve(est);
+        }
+
+        bool ok;
+        if (LIKELY(g_cycle_policy == CyclePolicy::Ignore)) {
+            PyTypeObject* vt = Py_TYPE(obj);
+            if (vt == &PyDict_Type)
+                ok = serialize_dict_t<false>(obj, g_serialize_buffer, 1);
+            else if (vt == &PyList_Type)
+                ok = serialize_list_t<false>(obj, g_serialize_buffer, 1);
+            else
+                ok = serialize_value(obj, g_serialize_buffer, 0);
+        } else {
+            ok = serialize_value(obj, g_serialize_buffer, 0);
+        }
+
+        if (!ok)
+            return NULL;
+        if (PyErr_Occurred())
+            return NULL;
+
+        return buffer_to_pyunicode(g_serialize_buffer.data(), g_serialize_buffer.size());
+
+        STRATA_CPP_CATCH
+    }
+
+    // Slow path: parse kwargs for return_type
+    const char* return_type = "str";
     static const char* kwlist[] = {"obj", "return_type", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|s", const_cast<char**>(kwlist), &obj,
                                      &return_type)) {
@@ -994,15 +1145,11 @@ PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
     g_seen_stack.clear();
     g_serialize_buffer.clear();
 
-    // Only estimate and reserve if buffer capacity is insufficient.
-    // Thread-local buffer persists across calls — usually already large enough.
     size_t est = estimate_size(obj);
     if (g_serialize_buffer.capacity() < est) {
         g_serialize_buffer.reserve(est);
     }
 
-    // Fast-path: dispatch directly to typed serializer for the common top-level types,
-    // avoiding an extra function call through serialize_value.
     bool ok;
     if (LIKELY(g_cycle_policy == CyclePolicy::Ignore)) {
         PyTypeObject* vt = Py_TYPE(obj);
@@ -1026,7 +1173,7 @@ PyObject* strata_dumps(PyObject* self, PyObject* args, PyObject* kwargs) {
     if (as_bytes) {
         return PyBytes_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
     }
-    return PyUnicode_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
+    return buffer_to_pyunicode(g_serialize_buffer.data(), g_serialize_buffer.size());
 
     STRATA_CPP_CATCH
 }
@@ -1048,7 +1195,7 @@ PyObject* strata_dumps_internal(PyObject* obj) {
         return NULL;
     }
 
-    return PyUnicode_FromStringAndSize(g_serialize_buffer.data(), g_serialize_buffer.size());
+    return buffer_to_pyunicode(g_serialize_buffer.data(), g_serialize_buffer.size());
 }
 
 // Internal: serialize to raw buffer, return (data, size) pair — avoids PyUnicode allocation
