@@ -2,7 +2,7 @@
 Test search() and query() API split.
 
 search() = file paths only (.json/.ndjson/.jsonl)
-query() = dict/list only, no mem_eff
+query() = dict/list only
 """
 
 import json
@@ -122,16 +122,6 @@ class TestSearch:
         filepath = self._write_json(tmp_path, {"x": 42})
         results = strata.search(Path(filepath), "$.x")
         assert results == [42]
-
-    def test_search_mem_eff_true(self, tmp_path):
-        filepath = self._write_json(tmp_path, {"users": [{"id": 1}, {"id": 2}]})
-        results = strata.search(filepath, "$.users[*].id", mem_eff=True)
-        assert results == [1, 2]
-
-    def test_search_mem_eff_false(self, tmp_path):
-        filepath = self._write_json(tmp_path, {"a": 1})
-        results = strata.search(filepath, "$.a", mem_eff=False)
-        assert results == [1]
 
     def test_search_dict_raises_typeerror(self):
         with pytest.raises(TypeError):

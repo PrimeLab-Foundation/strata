@@ -55,12 +55,6 @@ PyObject* strata_config_get_internal(const char* key) {
     return nullptr;
 }
 
-// Internal: check if mem_eff is enabled
-bool strata_config_mem_eff() {
-    PyObject* val = strata_config_get_internal("mem_eff");
-    return val && PyObject_IsTrue(val);
-}
-
 static void config_set_internal(const std::string& key, PyObject* value) {
     auto& map = get_config_map();
     auto it = map.find(key);
@@ -102,12 +96,7 @@ static PyObject* strata_config_set(PyObject* self, PyObject* args) {
     std::string k(key);
 
     // Validate known keys
-    if (k == "mem_eff") {
-        if (!PyBool_Check(value)) {
-            PyErr_SetString(PyExc_TypeError, "mem_eff must be a bool");
-            return NULL;
-        }
-    } else if (k == "duplicate_key_policy") {
+    if (k == "duplicate_key_policy") {
         if (!PyUnicode_Check(value)) {
             PyErr_SetString(PyExc_TypeError, "duplicate_key_policy must be a string");
             return NULL;
@@ -394,7 +383,7 @@ static PyMethodDef strata_methods[] = {
     {"compile_path", strata_compile_path, METH_VARARGS,
      "compile_path(path) -> CompiledPath\n\nCompile a JSONPath expression."},
     {"search", (PyCFunction)strata_search, METH_VARARGS | METH_KEYWORDS,
-     "search(filepath, path, *, mem_eff=None, iterator=False) -> list\n\n"
+     "search(filepath, path, *, iterator=False) -> list\n\n"
      "Search JSON file using JSONPath."},
     {"query", (PyCFunction)strata_query, METH_VARARGS | METH_KEYWORDS,
      "query(data, path, *, iterator=False) -> list\n\n"
@@ -461,8 +450,6 @@ PyMODINIT_FUNC PyInit__strata(void) {
     {
         auto& map = get_config_map();
         if (map.empty()) {
-            Py_INCREF(Py_False);
-            map["mem_eff"] = {Py_False};
             PyObject* dup = PyUnicode_FromString("first");
             if (dup)
                 map["duplicate_key_policy"] = {dup};

@@ -25,9 +25,6 @@
 // Forward declaration: SAX-based parse to Python dict (defined in python_loads.cpp)
 extern PyObject* parse_json_to_python(std::string_view text, bool validate_utf8);
 
-// From python_module.cpp
-extern bool strata_config_mem_eff();
-
 //=============================================================================
 // PyObject-native JSONPath evaluation
 // Evaluates a compiled path directly on Python dicts/lists without building
@@ -1389,59 +1386,6 @@ static PyObject* sax_search_json(std::string_view text, const strata::CompiledPa
     return handler.take_results();
 }
 
-// Helper: search a single JsonValue with compiled path, respecting mem_eff.
-// Returns new ref (Python list).
-static PyObject* search_jsonvalue(const strata::JsonValue* raw,
-                                  const strata::CompiledPath& compiled_path, bool mem_eff) {
-    if (!raw) {
-        PyErr_SetString(PyExc_TypeError, "Invalid JSON value");
-        return NULL;
-    }
-
-    if (mem_eff) {
-        // Memory-efficient: search on C++ tree, only materialize matched results
-        std::vector<PyObject*> py_results;
-        eval_step_jsonvalue(raw, compiled_path.steps(), 0, py_results);
-        if (PyErr_Occurred()) {
-            for (auto* p : py_results)
-                Py_XDECREF(p);
-            return NULL;
-        }
-        return pyobj_results_to_list_steal(py_results);
-    }
-
-    // Check if path needs full walk (recursive descent / filter)
-    bool needs_full_walk = false;
-    for (const auto& step : compiled_path.steps()) {
-        if (step.op == strata::PathOp::RecursiveDescent || step.op == strata::PathOp::Filter) {
-            needs_full_walk = true;
-            break;
-        }
-    }
-
-    if (needs_full_walk) {
-        // Convert to Python dict and use fast PyObject-native path
-        PyObject* py_data = json_value_to_python(*raw);
-        if (!py_data)
-            return NULL;
-        std::vector<PyObject*> py_results;
-        eval_step_pyobj(py_data, compiled_path.steps(), 0, py_results);
-        PyObject* result = PyErr_Occurred() ? NULL : pyobj_results_to_list(py_results);
-        Py_DECREF(py_data);
-        return result;
-    }
-
-    // Simple path: direct JsonValue evaluation (no full-tree convert)
-    std::vector<PyObject*> py_results;
-    eval_step_jsonvalue(raw, compiled_path.steps(), 0, py_results);
-    if (PyErr_Occurred()) {
-        for (auto* p : py_results)
-            Py_XDECREF(p);
-        return NULL;
-    }
-    return pyobj_results_to_list_steal(py_results);
-}
-
 // Helper: search a Python object with compiled path
 static PyObject* search_pyobj(PyObject* py_data, const strata::CompiledPath& compiled_path) {
     std::vector<PyObject*> py_results;
@@ -1500,12 +1444,11 @@ static bool compile_path_from_arg(PyObject* path_obj, strata::CompiledPath& out)
 PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* filepath_obj;
     PyObject* path_obj;
-    PyObject* mem_eff_obj = nullptr;
     int iterator = 0;
 
-    static const char* kwlist[] = {"filepath", "path", "mem_eff", "iterator", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|Op", const_cast<char**>(kwlist),
-                                     &filepath_obj, &path_obj, &mem_eff_obj, &iterator)) {
+    static const char* kwlist[] = {"filepath", "path", "iterator", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|p", const_cast<char**>(kwlist),
+                                     &filepath_obj, &path_obj, &iterator)) {
         return NULL;
     }
 
@@ -1528,14 +1471,6 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         PyErr_SetString(PyExc_TypeError,
                         "search() requires a file path ending in .json, .ndjson, or .jsonl");
         return NULL;
-    }
-
-    // Resolve mem_eff
-    bool mem_eff;
-    if (mem_eff_obj && mem_eff_obj != Py_None) {
-        mem_eff = PyObject_IsTrue(mem_eff_obj);
-    } else {
-        mem_eff = strata_config_mem_eff();
     }
 
     // Compile path
@@ -1568,18 +1503,13 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
             if (!line_result.ok())
                 continue;
 
-            PyObject* line_results;
-            if (mem_eff) {
-                line_results = search_jsonvalue(&line_result.value, compiled_path, true);
-            } else {
-                PyObject* py_line = json_value_to_python(line_result.value);
-                if (!py_line) {
-                    Py_DECREF(outer_list);
-                    return NULL;
-                }
-                line_results = search_pyobj(py_line, compiled_path);
-                Py_DECREF(py_line);
+            PyObject* py_line = json_value_to_python(line_result.value);
+            if (!py_line) {
+                Py_DECREF(outer_list);
+                return NULL;
             }
+            PyObject* line_results = search_pyobj(py_line, compiled_path);
+            Py_DECREF(py_line);
 
             if (!line_results) {
                 Py_DECREF(outer_list);
@@ -1603,7 +1533,7 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
         result_list = outer_list;
     } else {
         // JSON file: read into buffer, then try SAX search (fastest, no tree at all).
-        // Falls back to tree-based for Filter/Slice paths.
+        // Falls back to SAX→Python dict→query for Filter/Slice paths.
         int fd = ::open(filepath, O_RDONLY);
         if (fd < 0) {
             PyErr_Format(PyExc_FileNotFoundError, "Cannot open file: %s", filepath);
@@ -1647,30 +1577,19 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
 
         if (!result_list && !PyErr_Occurred()) {
             // Fallback: SAX search not supported (Filter/Slice path).
-            if (mem_eff) {
-                // Parse to C++ tree, only convert matched results
-                auto result = strata::parse_json_file(filepath);
-                if (!result.ok()) {
-                    PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
-                    return NULL;
-                }
-                emit_duplicate_key_warnings();
-                result_list = search_jsonvalue(&result.value.root_value(), compiled_path, mem_eff);
-            } else {
-                // SAX→Python dict → query
-                PyObject* py_data;
-                {
-                    PyGcPause gc_pause;
-                    py_data = parse_json_to_python(file_text, /*validate_utf8=*/false);
-                }
-                if (!py_data) {
-                    if (!PyErr_Occurred())
-                        PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
-                    return NULL;
-                }
-                result_list = search_pyobj(py_data, compiled_path);
-                Py_DECREF(py_data);
+            // SAX→Python dict → query
+            PyObject* py_data;
+            {
+                PyGcPause gc_pause;
+                py_data = parse_json_to_python(file_text, /*validate_utf8=*/false);
             }
+            if (!py_data) {
+                if (!PyErr_Occurred())
+                    PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
+                return NULL;
+            }
+            result_list = search_pyobj(py_data, compiled_path);
+            Py_DECREF(py_data);
         }
     }
 
@@ -1688,7 +1607,7 @@ PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_CATCH
 }
 
-// query(): dict/list only, no file paths, no mem_eff
+// query(): dict/list only, no file paths
 PyObject* strata_query(PyObject* self, PyObject* args, PyObject* kwargs) {
     PyObject* data_obj;
     PyObject* path_obj;

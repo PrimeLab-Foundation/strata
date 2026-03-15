@@ -8,7 +8,6 @@ Uses shared harness for timing and RSS. Public API only (no _strata).
 Modes:
   - dict: loads() once, then query(dict, path) [in-memory, fair comparison]
   - file: search(filepath, path) [file-based, includes I/O]
-  - file_mem_eff: search(filepath, path, mem_eff=True) [file-based, memory-efficient]
 """
 
 from __future__ import annotations
@@ -137,8 +136,7 @@ def run_all(
     """Run all query benchmarks; return list of QueryBenchResult.
 
     strata_mode: "dict" (default) = loads() once, then query(dict, path) [in-memory, fair comparison];
-                 "file" = search(filepath, path) [file-based];
-                 "file_mem_eff" = search(filepath, path, mem_eff=True) [file-based, memory-efficient].
+                 "file" = search(filepath, path) [file-based].
     """
     data_file = Path(data_file)
     json_bytes = data_file.read_bytes()
@@ -171,11 +169,6 @@ def run_all(
 
                 def run_strata():
                     return strata.query(parsed_strata, path)
-
-            elif strata_mode == "file_mem_eff":
-
-                def run_strata():
-                    return strata.search(filepath, path, mem_eff=True)
 
             else:  # file: search(filepath, path)
 
@@ -326,9 +319,9 @@ def main() -> int:
     parser.add_argument("--warmup", type=int, default=1, help="Warmup iterations")
     parser.add_argument(
         "--strata-mode",
-        choices=["dict", "file", "file_mem_eff"],
+        choices=["dict", "file"],
         default="dict",
-        help="Strata input: dict=query(dict,path) [in-memory, default]; file=search(filepath,path); file_mem_eff=search(filepath,path,mem_eff=True).",
+        help="Strata input: dict=query(dict,path) [in-memory, default]; file=search(filepath,path).",
     )
     args = parser.parse_args()
 

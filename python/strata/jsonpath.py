@@ -22,16 +22,12 @@ def search(
     filepath: str | Path,
     expression: str | CompiledPath,
     *,
-    mem_eff: bool | None = None,
     iterator: bool = False,
 ):
     """Search a JSON/NDJSON/JSONL file using JSONPath."""
     if isinstance(filepath, Path):
         filepath = str(filepath)
-    kwargs = {"iterator": iterator}
-    if mem_eff is not None:
-        kwargs["mem_eff"] = mem_eff
-    return _native.search(filepath, expression, **kwargs)
+    return _native.search(filepath, expression, iterator=iterator)
 
 
 def query(data: dict | list, expression: str | CompiledPath, *, iterator: bool = False):

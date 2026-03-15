@@ -691,7 +691,7 @@ class BenchmarkRunner:
 
             print(f"\n  Search: {desc}")
 
-            # strata search (mem_eff=False)
+            # strata search
             try:
                 tr = run_single_benchmark(
                     lambda cp=compiled_path: strata.search(filepath, cp),
@@ -716,33 +716,7 @@ class BenchmarkRunner:
             except Exception as e:
                 print(f"    strata (search):          ERROR: {e}")
 
-            # strata search (mem_eff=True)
-            try:
-                tr = run_single_benchmark(
-                    lambda cp=compiled_path: strata.search(filepath, cp, mem_eff=True),
-                    warmup=self.warmup,
-                    repeat=self.repeat,
-                    capture_rss=True,
-                )
-                result = strata.search(filepath, compiled_path, mem_eff=True)
-                n = len(result) if isinstance(result, list) else 1
-                self.results.append(
-                    BenchResult(
-                        library="strata (mem_eff)",
-                        operation="search",
-                        dataset=dataset_name,
-                        query=desc,
-                        times_ms=tr.times_ms,
-                        result_count=n,
-                        rss_mb=tr.rss_mb,
-                    )
-                )
-                print(f"    strata (search mem_eff):  {tr.min_ms:.3f}ms → {n} results")
-            except Exception as e:
-                print(f"    strata (search mem_eff):  ERROR: {e}")
-
-            # Competitor benchmarks: run once, store results for BOTH search sections
-            # (mem_eff and non-mem_eff share the same competitor baselines)
+            # Competitor benchmarks
 
             # Competitor: orjson (open+parse) + jmespath (end-to-end)
             if jmes_expr:
@@ -766,22 +740,9 @@ class BenchmarkRunner:
                         )
                         res = run_orjson_jmes()
                         n = len(res) if isinstance(res, (list, tuple)) else 1
-                        # Store for non-mem_eff section
                         self.results.append(
                             BenchResult(
                                 library="orjson+jmespath",
-                                operation="search",
-                                dataset=dataset_name,
-                                query=desc,
-                                times_ms=tr.times_ms,
-                                result_count=n,
-                                rss_mb=tr.rss_mb,
-                            )
-                        )
-                        # Store for mem_eff section (same competitor baseline)
-                        self.results.append(
-                            BenchResult(
-                                library="orjson+jmespath (mem_eff)",
                                 operation="search",
                                 dataset=dataset_name,
                                 query=desc,
@@ -818,22 +779,9 @@ class BenchmarkRunner:
                         )
                         res = run_orjson_jpng()
                         n = len(res) if isinstance(res, list) else 1
-                        # Store for non-mem_eff section
                         self.results.append(
                             BenchResult(
                                 library="orjson+jsonpath-ng",
-                                operation="search",
-                                dataset=dataset_name,
-                                query=desc,
-                                times_ms=tr.times_ms,
-                                result_count=n,
-                                rss_mb=tr.rss_mb,
-                            )
-                        )
-                        # Store for mem_eff section (same competitor baseline)
-                        self.results.append(
-                            BenchResult(
-                                library="orjson+jsonpath-ng (mem_eff)",
                                 operation="search",
                                 dataset=dataset_name,
                                 query=desc,
@@ -888,7 +836,7 @@ class BenchmarkRunner:
                 # 4. dump (file-based)
                 self.bench_dump_json(str(path))
             if path.stem == "users" and path.suffix == ".json":
-                # 5 & 6. search (file-based, with/without mem_eff)
+                # 5. search (file-based)
                 self.bench_search_json(str(path))
                 # 7. query (in-memory dict)
                 self.bench_query_json(str(path))
@@ -927,48 +875,25 @@ class BenchmarkRunner:
         # 4. dump (file-based)
         _print_table("DUMP (file-based)", "dump")
 
-        # 5 & 6. search (file-based, mem_eff=True and mem_eff=False)
+        # 5. search (file-based)
         search_results = [r for r in self.results if r.operation == "search"]
         if search_results:
-            # Split into mem_eff and non-mem_eff
-            search_std = [r for r in search_results if "mem_eff" not in r.library]
-            search_mem = [r for r in search_results if "mem_eff" in r.library]
-
-            if search_mem:
-                print("\nSEARCH (mem_eff=True):")
-                print(f"{'Library':<25} {'Query':<30} {'Min (ms)':<12} {'Results':<10}")
-                print("-" * 80)
-                by_query: dict[str, list[BenchResult]] = {}
-                for r in search_mem:
-                    by_query.setdefault(r.query, []).append(r)
-                for query, results in by_query.items():
-                    results.sort(key=lambda r: r.min_ms)
-                    print(f"\n  {query}")
-                    for r in results:
-                        if r.error:
-                            print(f"    {r.library:<23} ERROR: {r.error}")
-                        else:
-                            print(
-                                f"    {r.library:<23} {r.min_ms:>10.3f}ms    {r.result_count:>6} results"
-                            )
-
-            if search_std:
-                print("\nSEARCH (mem_eff=False):")
-                print(f"{'Library':<25} {'Query':<30} {'Min (ms)':<12} {'Results':<10}")
-                print("-" * 80)
-                by_query = {}
-                for r in search_std:
-                    by_query.setdefault(r.query, []).append(r)
-                for query, results in by_query.items():
-                    results.sort(key=lambda r: r.min_ms)
-                    print(f"\n  {query}")
-                    for r in results:
-                        if r.error:
-                            print(f"    {r.library:<23} ERROR: {r.error}")
-                        else:
-                            print(
-                                f"    {r.library:<23} {r.min_ms:>10.3f}ms    {r.result_count:>6} results"
-                            )
+            print("\nSEARCH (file-based):")
+            print(f"{'Library':<25} {'Query':<30} {'Min (ms)':<12} {'Results':<10}")
+            print("-" * 80)
+            by_query: dict[str, list[BenchResult]] = {}
+            for r in search_results:
+                by_query.setdefault(r.query, []).append(r)
+            for query, results in by_query.items():
+                results.sort(key=lambda r: r.min_ms)
+                print(f"\n  {query}")
+                for r in results:
+                    if r.error:
+                        print(f"    {r.library:<23} ERROR: {r.error}")
+                    else:
+                        print(
+                            f"    {r.library:<23} {r.min_ms:>10.3f}ms    {r.result_count:>6} results"
+                        )
 
         # 7. query (in-memory dict)
         query_results = [r for r in self.results if r.operation == "query"]
@@ -1051,60 +976,31 @@ class BenchmarkRunner:
         # 4. dump
         _md_table("dump (file-based)", "dump")
 
-        # 5. search (mem_eff=True)
+        # 5. search (file-based)
         search_results = [r for r in self.results if r.operation == "search"]
         if search_results:
-            search_mem = [r for r in search_results if "mem_eff" in r.library]
-            search_std = [r for r in search_results if "mem_eff" not in r.library]
-
-            if search_mem:
-                lines.extend(
-                    [
-                        "",
-                        "## search (mem_eff=True)",
-                        "",
-                        "| Query | Library | Min (ms) | Results | RSS (MB) |",
-                        "|-------|---------|----------|----------|---------|",
-                    ]
-                )
-                by_query: dict[str, list[BenchResult]] = {}
-                for r in search_mem:
-                    by_query.setdefault(r.query, []).append(r)
-                for query, results in by_query.items():
-                    results.sort(key=lambda r: r.min_ms)
-                    for i, r in enumerate(results):
-                        qcol = query if i == 0 else ""
-                        if r.error:
-                            lines.append(f"| {qcol} | {r.library} | ERROR | - | - |")
-                        else:
-                            lines.append(
-                                f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} | {r.rss_mb:.1f} |"
-                            )
-
-            # 6. search (mem_eff=False)
-            if search_std:
-                lines.extend(
-                    [
-                        "",
-                        "## search (mem_eff=False)",
-                        "",
-                        "| Query | Library | Min (ms) | Results | RSS (MB) |",
-                        "|-------|---------|----------|----------|---------|",
-                    ]
-                )
-                by_query = {}
-                for r in search_std:
-                    by_query.setdefault(r.query, []).append(r)
-                for query, results in by_query.items():
-                    results.sort(key=lambda r: r.min_ms)
-                    for i, r in enumerate(results):
-                        qcol = query if i == 0 else ""
-                        if r.error:
-                            lines.append(f"| {qcol} | {r.library} | ERROR | - | - |")
-                        else:
-                            lines.append(
-                                f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} | {r.rss_mb:.1f} |"
-                            )
+            lines.extend(
+                [
+                    "",
+                    "## search (file-based)",
+                    "",
+                    "| Query | Library | Min (ms) | Results | RSS (MB) |",
+                    "|-------|---------|----------|----------|---------|",
+                ]
+            )
+            by_query: dict[str, list[BenchResult]] = {}
+            for r in search_results:
+                by_query.setdefault(r.query, []).append(r)
+            for query, results in by_query.items():
+                results.sort(key=lambda r: r.min_ms)
+                for i, r in enumerate(results):
+                    qcol = query if i == 0 else ""
+                    if r.error:
+                        lines.append(f"| {qcol} | {r.library} | ERROR | - | - |")
+                    else:
+                        lines.append(
+                            f"| {qcol} | {r.library} | {r.min_ms:.3f} | {r.result_count} | {r.rss_mb:.1f} |"
+                        )
 
         # 7. query
         query_results = [r for r in self.results if r.operation == "query"]
@@ -1175,50 +1071,38 @@ class BenchmarkRunner:
             rank_str = f"**#{rank}** / {len(cat_results)}"
             lines.append(f"| {label} | {rank_str} | {gap} |")
 
-        # Search summary — separate rows for mem_eff=True and mem_eff=False
+        # Search summary
         search_results = [r for r in self.results if r.operation == "search" and not r.error]
         if search_results:
-            for mem_eff_mode, label in [
-                (True, "search (mem_eff=True)"),
-                (False, "search (mem_eff=False)"),
-            ]:
-                if mem_eff_mode:
-                    mode_results = [r for r in search_results if "mem_eff" in r.library]
-                else:
-                    mode_results = [r for r in search_results if "mem_eff" not in r.library]
-                if not mode_results:
-                    continue
-                by_query: dict[str, list[BenchResult]] = {}
-                for r in mode_results:
-                    by_query.setdefault(r.query, []).append(r)
-                wins = 0
-                total = 0
-                for query, results in by_query.items():
-                    results.sort(key=lambda r: r.min_ms)
-                    total += 1
-                    strata_lib = "strata (mem_eff)" if mem_eff_mode else "strata"
-                    if results[0].library == strata_lib:
-                        wins += 1
-                if total > 0:
-                    if wins == total:
-                        # Find the biggest gap across all queries
-                        gaps = []
-                        for query, results in by_query.items():
-                            results.sort(key=lambda r: r.min_ms)
-                            strata_lib = "strata (mem_eff)" if mem_eff_mode else "strata"
-                            strata_r = next((r for r in results if r.library == strata_lib), None)
-                            if strata_r and results[0] is strata_r and len(results) > 1:
-                                pct = (results[1].min_ms / strata_r.min_ms - 1) * 100
-                                gaps.append((pct, results[1].library))
-                        if gaps:
-                            avg_pct = sum(g[0] for g in gaps) / len(gaps)
-                            lines.append(
-                                f"| {label} | **#1** in {wins}/{total} queries | avg **{avg_pct:.0f}% faster** |"
-                            )
-                        else:
-                            lines.append(f"| {label} | **#1** in {wins}/{total} queries | - |")
+            by_query: dict[str, list[BenchResult]] = {}
+            for r in search_results:
+                by_query.setdefault(r.query, []).append(r)
+            wins = 0
+            total = 0
+            for query, results in by_query.items():
+                results.sort(key=lambda r: r.min_ms)
+                total += 1
+                if results[0].library == "strata":
+                    wins += 1
+            if total > 0:
+                label = "search (JSONPath)"
+                if wins == total:
+                    gaps = []
+                    for query, results in by_query.items():
+                        results.sort(key=lambda r: r.min_ms)
+                        strata_r = next((r for r in results if r.library == "strata"), None)
+                        if strata_r and results[0] is strata_r and len(results) > 1:
+                            pct = (results[1].min_ms / strata_r.min_ms - 1) * 100
+                            gaps.append((pct, results[1].library))
+                    if gaps:
+                        avg_pct = sum(g[0] for g in gaps) / len(gaps)
+                        lines.append(
+                            f"| {label} | **#1** in {wins}/{total} queries | avg **{avg_pct:.0f}% faster** |"
+                        )
                     else:
-                        lines.append(f"| {label} | #1 in {wins}/{total} queries | - |")
+                        lines.append(f"| {label} | **#1** in {wins}/{total} queries | - |")
+                else:
+                    lines.append(f"| {label} | #1 in {wins}/{total} queries | - |")
 
         # query (JSONPath) summary
         query_results = [r for r in self.results if r.operation == "query" and not r.error]

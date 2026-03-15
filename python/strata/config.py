@@ -8,7 +8,7 @@ from . import _strata as _native
 
 
 def set(key: str, value) -> None:
-    """Set a config value. Known keys: mem_eff, duplicate_key_policy, cycle_policy."""
+    """Set a config value. Known keys: duplicate_key_policy, cycle_policy."""
     _native.config_set(key, value)
 
 

@@ -75,10 +75,10 @@ strata.query(data: dict | list, path: str | CompiledPath, *, iterator=False) -> 
 Query in-memory data. Raises `TypeError` if data is not a dict or list.
 
 ```python
-strata.search(filepath: str, path: str | CompiledPath, *, mem_eff=None, iterator=False) -> list
+strata.search(filepath: str, path: str | CompiledPath, *, iterator=False) -> list
 ```
 
-Search a JSON/NDJSON/JSONL file. Raises `TypeError` if filepath is not a string. `mem_eff=True` enables memory-efficient mode.
+Search a JSON/NDJSON/JSONL file. Raises `TypeError` if filepath is not a string.
 
 ```python
 strata.compile_path(expression: str) -> CompiledPath
@@ -96,7 +96,6 @@ strata.config.list() -> dict
 
 Keys:
 
-- `mem_eff` (bool): Memory-efficient mode. Default: `False`.
 - `duplicate_key_policy` (str): `"first"` | `"last"` | `"error"` | `"warn"`. Default: `"first"`.
 - `cycle_policy` (str): `"warn"` | `"error"` | `"ignore"`. Default: `"warn"`.
 

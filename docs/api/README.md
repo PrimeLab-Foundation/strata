@@ -146,7 +146,7 @@ strata.query("not a dict", "$.x")
 
 ______________________________________________________________________
 
-## `strata.search(filepath, path, *, mem_eff=None, iterator=False)`
+## `strata.search(filepath, path, *, iterator=False)`
 
 Search a JSON/NDJSON/JSONL file using JSONPath.
 
@@ -154,7 +154,6 @@ Search a JSON/NDJSON/JSONL file using JSONPath.
 
 - `filepath` (`str | Path`): Path to a `.json`, `.ndjson`, or `.jsonl` file.
 - `path` (`str | CompiledPath`): JSONPath expression or compiled path.
-- `mem_eff` (`bool | None`): Memory-efficient mode. `None` uses config default.
 - `iterator` (`bool`): If `True`, yields results one at a time.
 
 **Returns:** `list` of matched values, or iterator.
@@ -205,11 +204,10 @@ Configuration management.
 
 Set a configuration value.
 
-| Key                    | Type   | Values                                   | Default   |
-| ---------------------- | ------ | ---------------------------------------- | --------- |
-| `mem_eff`              | `bool` | `True` / `False`                         | `False`   |
-| `duplicate_key_policy` | `str`  | `"first"`, `"last"`, `"error"`, `"warn"` | `"first"` |
-| `cycle_policy`         | `str`  | `"warn"`, `"error"`, `"ignore"`          | `"warn"`  |
+| Key                    | Type  | Values                                   | Default   |
+| ---------------------- | ----- | ---------------------------------------- | --------- |
+| `duplicate_key_policy` | `str` | `"first"`, `"last"`, `"error"`, `"warn"` | `"first"` |
+| `cycle_policy`         | `str` | `"warn"`, `"error"`, `"ignore"`          | `"warn"`  |
 
 **Raises:**
 
