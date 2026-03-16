@@ -173,30 +173,19 @@ template <typename Handler> struct ParserInline {
     /**
      * Parse a JSON number.
      *
-     * Tries the integer fast path first (parse_int_fast); falls through
-     * to double parsing only when a decimal point or exponent is found.
+     * Uses a unified parser that scans digits once — if '.' or 'e'/'E'
+     * is found, continues to fractional/exponent part (returns double);
+     * otherwise returns int64.  Avoids the previous double-scan overhead.
      */
     bool parse_number() {
-        size_t start = i;
-
         int64_t int_val;
+        double dbl_val;
         size_t consumed;
-        if (util::parse_int_fast(data + i, len - i, int_val, consumed)) {
-            if (i + consumed < len && (data[i + consumed] == '.' || data[i + consumed] == 'e' ||
-                                       data[i + consumed] == 'E')) {
-                // Fall through to double parsing
-            } else {
-                i += consumed;
-                return handler.on_int(int_val);
-            }
+        bool is_dbl;
+        if (util::parse_number_unified(data + i, len - i, int_val, dbl_val, consumed, is_dbl)) {
+            i += consumed;
+            return is_dbl ? handler.on_double(dbl_val) : handler.on_int(int_val);
         }
-
-        double double_val;
-        if (util::parse_double_fast(data + start, len - start, double_val, consumed)) {
-            i = start + consumed;
-            return handler.on_double(double_val);
-        }
-
         return false;
     }
 
@@ -302,21 +291,116 @@ template <typename Handler> struct ParserInline {
 
         if (!handler.on_start_array(0))
             return false;
-        if (consume(']'))
+
+        skip_ws();
+        if (eof())
+            return false;
+        if (peek() == ']') {
+            ++i;
             return handler.on_end_array();
-        while (true) {
-            if (!parse_value())
+        }
+
+        // Tight element loop — inline dispatch avoids parse_value's skip_ws overhead
+        for (;;) {
+            // Dispatch on first character (ws already skipped)
+            if (eof())
                 return false;
-            // Combined delimiter check: one skip_ws() instead of two separate
-            // consume() calls (each of which would call skip_ws()).
+            {
+                char c = peek();
+                bool ok;
+                if (c == '"')
+                    ok = parse_string();
+                else if (c >= '0' && c <= '9') {
+                    // Inline fast path for small positive numbers (very common in arrays).
+                    // Parse digits directly without parse_number_unified overhead.
+                    if (c != '0') {
+                        uint64_t val = static_cast<uint64_t>(c - '0');
+                        size_t p = i + 1;
+                        while (p < len && data[p] >= '0' && data[p] <= '9') {
+                            val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                            ++p;
+                        }
+                        if (p < len && data[p] == '.') {
+                            // Float: parse fractional digits inline
+                            size_t dot_pos = p;
+                            ++p;
+                            if (p < len && data[p] >= '0' && data[p] <= '9') {
+                                int frac_digits = 0;
+                                while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                    val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                    ++frac_digits;
+                                    ++p;
+                                }
+                                // No exponent → simple Clinger fast path
+                                if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                    if (val < (1ULL << 53) && frac_digits <= 22) {
+                                        static constexpr double kPow10[] = {
+                                            1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,
+                                            1e8,  1e9,  1e10, 1e11, 1e12, 1e13, 1e14, 1e15,
+                                            1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+                                        };
+                                        double result =
+                                            static_cast<double>(val) / kPow10[frac_digits];
+                                        i = p;
+                                        ok = handler.on_double(result);
+                                        goto dispatch_done;
+                                    }
+                                }
+                            }
+                            // Fall through to full parser
+                        } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                            // Pure integer — no float suffix
+                            if (val <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+                                i = p;
+                                ok = handler.on_int(static_cast<int64_t>(val));
+                                goto dispatch_done;
+                            }
+                        }
+                    }
+                    ok = parse_number();
+                } else if (c == '-')
+                    ok = parse_number();
+                else if (c == '{')
+                    ok = parse_object();
+                else if (c == '[')
+                    ok = parse_array();
+                else if (c == 't') {
+                    if (i + 4 <= len && data[i + 1] == 'r' && data[i + 2] == 'u' &&
+                        data[i + 3] == 'e') {
+                        i += 4;
+                        ok = handler.on_bool(true);
+                    } else {
+                        return false;
+                    }
+                } else if (c == 'f') {
+                    if (i + 5 <= len && data[i + 1] == 'a' && data[i + 2] == 'l' &&
+                        data[i + 3] == 's' && data[i + 4] == 'e') {
+                        i += 5;
+                        ok = handler.on_bool(false);
+                    } else {
+                        return false;
+                    }
+                } else if (c == 'n')
+                    ok = parse_null();
+                else
+                    return false;
+                if (!ok)
+                    return false;
+            dispatch_done:;
+            }
+            // Delimiter — single skip_ws per element
             skip_ws();
-            if (peek() == ']') {
+            if (eof())
+                return false;
+            char delim = peek();
+            if (delim == ']') {
                 ++i;
                 break;
             }
-            if (peek() != ',')
+            if (delim != ',')
                 return false;
             ++i;
+            skip_ws();
         }
         return handler.on_end_array();
     }

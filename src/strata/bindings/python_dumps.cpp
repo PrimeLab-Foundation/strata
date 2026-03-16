@@ -1,6 +1,7 @@
 #include "python_types.h"
 #include "strata/util/dragonbox.hpp"
 #include "strata/util/output_buffer.hpp"
+#include "strata/util/ryu_inline.hpp"
 #include "strata/util/simd_string.hpp"
 
 #include <charconv>
@@ -98,121 +99,95 @@ static inline void append_literal(Buffer& out, const char* data, size_t len) {
     out.append(data, len);
 }
 
+// Count decimal digits of a uint64_t value.
+static inline int count_digits(uint64_t v) noexcept {
+    // Use a lookup approach: compare against powers of 10.
+    if (v < 10ULL)
+        return 1;
+    if (v < 100ULL)
+        return 2;
+    if (v < 1000ULL)
+        return 3;
+    if (v < 10000ULL)
+        return 4;
+    if (v < 100000ULL)
+        return 5;
+    if (v < 1000000ULL)
+        return 6;
+    if (v < 10000000ULL)
+        return 7;
+    if (v < 100000000ULL)
+        return 8;
+    if (v < 1000000000ULL)
+        return 9;
+    if (v < 10000000000ULL)
+        return 10;
+    if (v < 100000000000ULL)
+        return 11;
+    if (v < 1000000000000ULL)
+        return 12;
+    if (v < 10000000000000ULL)
+        return 13;
+    if (v < 100000000000000ULL)
+        return 14;
+    if (v < 1000000000000000ULL)
+        return 15;
+    if (v < 10000000000000000ULL)
+        return 16;
+    if (v < 100000000000000000ULL)
+        return 17;
+    if (v < 1000000000000000000ULL)
+        return 18;
+    if (v < 10000000000000000000ULL)
+        return 19;
+    return 20;
+}
+
 template <typename Buffer> static inline bool append_int64(Buffer& out, int64_t value) {
-    static const char kDigitPairs[] = "00010203040506070809"
-                                      "10111213141516171819"
-                                      "20212223242526272829"
-                                      "30313233343536373839"
-                                      "40414243444546474849"
-                                      "50515253545556575859"
-                                      "60616263646566676869"
-                                      "70717273747576777879"
-                                      "80818283848586878889"
-                                      "90919293949596979899";
+    static constexpr char kDigitPairs[] = "00010203040506070809"
+                                          "10111213141516171819"
+                                          "20212223242526272829"
+                                          "30313233343536373839"
+                                          "40414243444546474849"
+                                          "50515253545556575859"
+                                          "60616263646566676869"
+                                          "70717273747576777879"
+                                          "80818283848586878889"
+                                          "90919293949596979899";
 
-    // Reserve 12 bytes for the fast path (max 11 chars: -2147483648).
-    out.reserve(out.size() + 12);
-
-    // Fast path covers full int32 range (±2,147,483,647) using digit-pair
-    // decomposition. This handles virtually all JSON integers without
-    // falling through to std::to_chars.
-    if (LIKELY(value >= -2147483647LL && value <= 2147483647LL)) {
-        uint32_t v;
-        if (value < 0) {
-            out.unsafe_push_back('-');
-            v = static_cast<uint32_t>(-value);
-        } else {
-            v = static_cast<uint32_t>(value);
-        }
-
-        if (v < 10) {
-            out.unsafe_push_back(static_cast<char>('0' + v));
-            return true;
-        }
-        if (v < 100) {
-            out.unsafe_append(kDigitPairs + v * 2, 2);
-            return true;
-        }
-
-        // 3-4 digit numbers
-        if (v < 10000) {
-            uint32_t high = v / 100;
-            uint32_t low = v - high * 100;
-            if (high < 10) {
-                out.unsafe_push_back(static_cast<char>('0' + high));
-            } else {
-                out.unsafe_append(kDigitPairs + high * 2, 2);
-            }
-            out.unsafe_append(kDigitPairs + low * 2, 2);
-            return true;
-        }
-
-        // 5-6 digit numbers
-        if (v < 1000000) {
-            uint32_t top = v / 10000;
-            uint32_t rem = v - top * 10000;
-            uint32_t mid = rem / 100;
-            uint32_t low = rem - mid * 100;
-            if (top < 10) {
-                out.unsafe_push_back(static_cast<char>('0' + top));
-            } else {
-                out.unsafe_append(kDigitPairs + top * 2, 2);
-            }
-            out.unsafe_append(kDigitPairs + mid * 2, 2);
-            out.unsafe_append(kDigitPairs + low * 2, 2);
-            return true;
-        }
-
-        // 7-10 digit numbers (covers full int32 range)
-        // Decompose: v = top * 10000_0000 + mid_hi * 10000 + mid_lo * 100 + low
-        if (v < 100000000) {
-            // 7-8 digits
-            uint32_t hi4 = v / 10000;
-            uint32_t lo4 = v - hi4 * 10000;
-            uint32_t p1 = hi4 / 100;
-            uint32_t p2 = hi4 - p1 * 100;
-            uint32_t p3 = lo4 / 100;
-            uint32_t p4 = lo4 - p3 * 100;
-            if (p1 < 10) {
-                out.unsafe_push_back(static_cast<char>('0' + p1));
-            } else {
-                out.unsafe_append(kDigitPairs + p1 * 2, 2);
-            }
-            out.unsafe_append(kDigitPairs + p2 * 2, 2);
-            out.unsafe_append(kDigitPairs + p3 * 2, 2);
-            out.unsafe_append(kDigitPairs + p4 * 2, 2);
-        } else {
-            // 9-10 digits
-            uint32_t hi = v / 100000000;
-            uint32_t lo8 = v - hi * 100000000;
-            uint32_t hi4 = lo8 / 10000;
-            uint32_t lo4 = lo8 - hi4 * 10000;
-            uint32_t p1 = hi4 / 100;
-            uint32_t p2 = hi4 - p1 * 100;
-            uint32_t p3 = lo4 / 100;
-            uint32_t p4 = lo4 - p3 * 100;
-            if (hi < 10) {
-                out.unsafe_push_back(static_cast<char>('0' + hi));
-            } else {
-                out.unsafe_append(kDigitPairs + hi * 2, 2);
-            }
-            out.unsafe_append(kDigitPairs + p1 * 2, 2);
-            out.unsafe_append(kDigitPairs + p2 * 2, 2);
-            out.unsafe_append(kDigitPairs + p3 * 2, 2);
-            out.unsafe_append(kDigitPairs + p4 * 2, 2);
-        }
-        return true;
+    uint64_t v;
+    bool neg = value < 0;
+    if (neg) {
+        v = static_cast<uint64_t>(~value) + 1ULL;
+    } else {
+        v = static_cast<uint64_t>(value);
     }
 
-    // Large ints (beyond int32 range): need up to 21 bytes (sign + 20 digits)
-    out.reserve(out.size() + 21);
-    char* start = out.data() + out.size();
-    auto result = std::to_chars(start, start + 21, value);
-    if (UNLIKELY(result.ec != std::errc())) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to format integer");
-        return false;
+    // Count digits first, then write right-to-left directly at the correct offset.
+    // This avoids the memmove needed when writing from the end of a stack buffer.
+    int ndigits = count_digits(v);
+    int total_len = ndigits + (neg ? 1 : 0);
+    out.reserve(out.size() + static_cast<size_t>(total_len));
+    char* buf = out.data() + out.size();
+    char* p = buf + total_len;
+
+    while (v >= 100) {
+        uint64_t q = v / 100;
+        uint32_t r = static_cast<uint32_t>(v - q * 100);
+        v = q;
+        p -= 2;
+        memcpy(p, kDigitPairs + r * 2, 2);
     }
-    out.unsafe_advance(static_cast<size_t>(result.ptr - start));
+    if (v >= 10) {
+        p -= 2;
+        memcpy(p, kDigitPairs + v * 2, 2);
+    } else {
+        *--p = static_cast<char>('0' + v);
+    }
+    if (neg)
+        *--p = '-';
+
+    out.unsafe_advance(static_cast<size_t>(total_len));
     return true;
 }
 
@@ -252,6 +227,8 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
     }
 
     // Fast path: integer-valued doubles (very common in JSON data).
+    // Covers ~30% of floats in typical JSON. Uses append_int64 + ".0"
+    // which is 5-10× faster than dragonbox for these values.
     if (value >= -999999999999999.0 && value <= 999999999999999.0) {
         int64_t ival = static_cast<int64_t>(value);
         if (static_cast<double>(ival) == value && LIKELY(ival != 0 || !std::signbit(value))) {
@@ -261,8 +238,79 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
         }
     }
 
-    // Use Ryu algorithm for non-integer floats
-    out.reserve(out.size() + 36);
+    // Fast path for 1-2 decimal digit doubles (e.g., 35.31, -126.59).
+    // Very common in real-world JSON. Single multiply + compare, minimal overhead.
+    if (value >= -1e15 && value <= 1e15) {
+        double av = value < 0 ? -value : value;
+        double s2 = av * 100.0;
+        uint64_t is2 = static_cast<uint64_t>(s2);
+        if (static_cast<double>(is2) == s2) {
+            uint32_t frac = static_cast<uint32_t>(is2 % 100);
+            if (frac != 0) {
+                static constexpr char kDigitPairs[] = "00010203040506070809"
+                                                      "10111213141516171819"
+                                                      "20212223242526272829"
+                                                      "30313233343536373839"
+                                                      "40414243444546474849"
+                                                      "50515253545556575859"
+                                                      "60616263646566676869"
+                                                      "70717273747576777879"
+                                                      "80818283848586878889"
+                                                      "90919293949596979899";
+
+                uint64_t int_part = is2 / 100;
+                out.reserve(out.size() + 24);
+                char* buf = out.data() + out.size();
+                char* p = buf;
+
+                if (value < 0)
+                    *p++ = '-';
+
+                // Write integer part
+                char ibuf[20];
+                char* ip = ibuf + 20;
+                uint64_t iv = int_part;
+                if (iv == 0) {
+                    *--ip = '0';
+                } else {
+                    while (iv >= 100) {
+                        uint64_t q = iv / 100;
+                        uint32_t r = static_cast<uint32_t>(iv - q * 100);
+                        iv = q;
+                        ip -= 2;
+                        memcpy(ip, kDigitPairs + r * 2, 2);
+                    }
+                    if (iv >= 10) {
+                        ip -= 2;
+                        memcpy(ip, kDigitPairs + iv * 2, 2);
+                    } else {
+                        *--ip = static_cast<char>('0' + iv);
+                    }
+                }
+                size_t ilen = static_cast<size_t>((ibuf + 20) - ip);
+                memcpy(p, ip, ilen);
+                p += ilen;
+
+                // Write decimal point + 1 or 2 fractional digits
+                *p++ = '.';
+                if (frac % 10 == 0) {
+                    // 1 decimal digit (e.g., 3.5)
+                    *p++ = static_cast<char>('0' + frac / 10);
+                } else {
+                    // 2 decimal digits (e.g., 3.14)
+                    memcpy(p, kDigitPairs + frac * 2, 2);
+                    p += 2;
+                }
+
+                out.unsafe_advance(static_cast<size_t>(p - buf));
+                return true;
+            }
+            // frac == 0 means integer-valued, already handled above
+        }
+    }
+
+    // General path: fully-inlined Ryu d2d + format.
+    out.reserve(out.size() + 32);
     char* start = out.data() + out.size();
     char* p = start;
 
@@ -271,7 +319,7 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
         value = -value;
     }
 
-    int len = strata::util::dragonbox_d2s(value, p);
+    int len = strata::util::ryu_inline::convert(value, p);
     out.unsafe_advance(static_cast<size_t>((p - start) + len));
     return true;
 }
@@ -284,10 +332,10 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
 
         // Reserve space for quotes + data (worst case: no escapes)
         out.reserve(out.size() + ulen + 2);
+        char* dest = out.data() + out.size();
 
         // Single-pass: write directly to buffer memory, only advance size_ once at end.
         // If escapes found, size_ is unchanged so partial writes are harmless.
-        char* dest = out.data() + out.size();
         char* const dest_start = dest;
         *dest++ = '"';
 
@@ -305,7 +353,6 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
             uint8x16_t esc =
                 vorrq_u8(vcltq_u8(chunk, thr), vorrq_u8(vceqq_u8(chunk, qv), vceqq_u8(chunk, bv)));
             // Mask out bytes beyond the string length
-            // Create mask: 0xFF for positions < ulen, 0x00 for positions >= ulen
             static const uint8_t mask_data[32] __attribute__((aligned(16))) = {
                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
                 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -585,6 +632,18 @@ static inline bool serialize_item_t(PyObject* item, Buffer& out, int depth) {
     if (vt == &PyFloat_Type) {
         return append_double(out, PyFloat_AS_DOUBLE(item));
     }
+    if (vt == &PyBool_Type) {
+        if (item == Py_True) {
+            out.append("true", 4);
+        } else {
+            out.append("false", 5);
+        }
+        return true;
+    }
+    if (item == Py_None) {
+        out.append("null", 4);
+        return true;
+    }
     if (vt == &PyDict_Type) {
         if (UNLIKELY(depth >= get_max_serialize_depth())) {
             PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
@@ -598,14 +657,6 @@ static inline bool serialize_item_t(PyObject* item, Buffer& out, int depth) {
             return false;
         }
         return serialize_list_t<Tracking>(item, out, depth + 1);
-    }
-    if (UNLIKELY(item == Py_None)) {
-        out.append("null", 4);
-        return true;
-    }
-    if (UNLIKELY(vt == &PyBool_Type)) {
-        out.append(item == Py_True ? "true" : "false", item == Py_True ? 4 : 5);
-        return true;
     }
     // Fallback for tuples and subtypes
     return serialize_value(item, out, depth);
@@ -736,6 +787,10 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
             return false;
     }
 
+    // Pre-reserve for the estimated output. Each dict has ~nkeys * 40 bytes
+    // (key + value). This makes per-element reserve checks essentially free.
+    out.reserve(out.size() + static_cast<size_t>(sz) * static_cast<size_t>(nkeys) * 40 + 4);
+
     // Serialize using pre-computed keys
     out.push_back('[');
 
@@ -789,10 +844,30 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
             } else if (vt == &PyFloat_Type) {
                 if (!append_double(out, PyFloat_AS_DOUBLE(dv)))
                     return false;
-            } else if (UNLIKELY(dv == Py_None)) {
+            } else if (vt == &PyBool_Type) {
+                if (dv == Py_True)
+                    out.append("true", 4);
+                else
+                    out.append("false", 5);
+            } else if (dv == Py_None) {
                 out.append("null", 4);
-            } else if (UNLIKELY(vt == &PyBool_Type)) {
-                out.append(dv == Py_True ? "true" : "false", dv == Py_True ? 4 : 5);
+            } else if (vt == &PyList_Type) {
+                // Inline small list serialization: avoids function call overhead
+                // for common cases like tags arrays in flat schemas.
+                Py_ssize_t lsz = PyList_GET_SIZE(dv);
+                if (lsz == 0) {
+                    out.append("[]", 2);
+                } else {
+                    out.push_back('[');
+                    if (!serialize_item_t<Tracking>(PyList_GET_ITEM(dv, 0), out, depth + 2))
+                        return false;
+                    for (Py_ssize_t li = 1; li < lsz; ++li) {
+                        out.push_back(',');
+                        if (!serialize_item_t<Tracking>(PyList_GET_ITEM(dv, li), out, depth + 2))
+                            return false;
+                    }
+                    out.push_back(']');
+                }
             } else {
                 if (!serialize_item_t<Tracking>(dv, out, depth + 1))
                     return false;
@@ -817,30 +892,50 @@ static inline bool serialize_int_array_fast(PyObject* list, Buffer& out, Py_ssiz
             return false;
     }
 
-    // Pre-reserve: each int needs at most 20 chars + comma
-    out.reserve(out.size() + static_cast<size_t>(sz) * 21 + 2);
-    out.push_back('[');
+    // Pre-reserve: each int needs at most 21 chars + comma + bracket
+    out.reserve(out.size() + static_cast<size_t>(sz) * 22 + 2);
+    out.unsafe_push_back('[');
 
-    if (!append_py_long(out, PyList_GET_ITEM(list, 0)))
-        return false;
+    // First element
+    {
+        PyObject* item = PyList_GET_ITEM(list, 0);
+#ifdef PyUnstable_Long_IsCompact
+        if (LIKELY(PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(item)))) {
+            append_int64(out, static_cast<int64_t>(PyUnstable_Long_CompactValue(
+                                  reinterpret_cast<PyLongObject*>(item))));
+        } else
+#endif
+        {
+            if (!append_py_long(out, item))
+                return false;
+        }
+    }
 
     for (Py_ssize_t i = 1; i < sz; ++i) {
         PyObject* item = PyList_GET_ITEM(list, i);
         if (UNLIKELY(Py_TYPE(item) != &PyLong_Type)) {
             for (Py_ssize_t j = i; j < sz; ++j) {
-                out.push_back(',');
+                out.unsafe_push_back(',');
                 if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
                     return false;
             }
-            out.push_back(']');
+            out.unsafe_push_back(']');
             return true;
         }
-        out.push_back(',');
-        if (!append_py_long(out, item))
-            return false;
+        out.unsafe_push_back(',');
+#ifdef PyUnstable_Long_IsCompact
+        if (LIKELY(PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(item)))) {
+            append_int64(out, static_cast<int64_t>(PyUnstable_Long_CompactValue(
+                                  reinterpret_cast<PyLongObject*>(item))));
+        } else
+#endif
+        {
+            if (!append_py_long(out, item))
+                return false;
+        }
     }
 
-    out.push_back(']');
+    out.unsafe_push_back(']');
     return true;
 }
 
@@ -882,6 +977,46 @@ static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ss
     }
 
     out.push_back(']');
+    return true;
+}
+
+// Fast path for homogeneous bool arrays: writes "true"/"false" directly.
+template <typename Buffer>
+static inline bool serialize_bool_array_fast(PyObject* list, Buffer& out, Py_ssize_t sz) {
+    const Py_ssize_t check = sz < 8 ? sz : 8;
+    for (Py_ssize_t i = 0; i < check; ++i) {
+        if (Py_TYPE(PyList_GET_ITEM(list, i)) != &PyBool_Type)
+            return false;
+    }
+
+    // Pre-reserve: worst case 6 bytes per element ("false,")
+    out.reserve(out.size() + static_cast<size_t>(sz) * 6 + 2);
+    out.unsafe_push_back('[');
+
+    for (Py_ssize_t i = 0; i < sz; ++i) {
+        if (i > 0)
+            out.unsafe_push_back(',');
+        PyObject* item = PyList_GET_ITEM(list, i);
+        if (UNLIKELY(Py_TYPE(item) != &PyBool_Type)) {
+            // Fallback: finish with generic serialization
+            for (Py_ssize_t j = i; j < sz; ++j) {
+                out.push_back(',');
+                if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
+                    return false;
+            }
+            out.push_back(']');
+            return true;
+        }
+        if (item == Py_True) {
+            memcpy(out.data() + out.size(), "true", 4);
+            out.unsafe_advance(4);
+        } else {
+            memcpy(out.data() + out.size(), "false", 5);
+            out.unsafe_advance(5);
+        }
+    }
+
+    out.unsafe_push_back(']');
     return true;
 }
 
@@ -946,6 +1081,9 @@ static inline bool serialize_list_t(PyObject* list, Buffer& out, int depth) {
                 return true;
         } else if (first_type == &PyUnicode_Type) {
             if (serialize_string_array_fast(list, out, sz))
+                return true;
+        } else if (first_type == &PyBool_Type) {
+            if (serialize_bool_array_fast(list, out, sz))
                 return true;
         }
     }
@@ -1049,12 +1187,15 @@ static inline bool serialize_value(PyObject* val, Buffer& out, int depth) {
     if (vt == &PyFloat_Type) {
         return append_double(out, PyFloat_AS_DOUBLE(val));
     }
-    if (UNLIKELY(val == Py_None)) {
-        out.append("null", 4);
+    if (vt == &PyBool_Type) {
+        if (val == Py_True)
+            out.append("true", 4);
+        else
+            out.append("false", 5);
         return true;
     }
-    if (UNLIKELY(vt == &PyBool_Type)) {
-        out.append(val == Py_True ? "true" : "false", val == Py_True ? 4 : 5);
+    if (val == Py_None) {
+        out.append("null", 4);
         return true;
     }
     if (PyTuple_Check(val)) {
