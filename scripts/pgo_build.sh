@@ -71,7 +71,7 @@ ensure_bench_data() {
 }
 
 generate_training_data() {
-  echo "  Generating PGO training data (~64MB)..."
+  echo "  Generating PGO training data (~10MB)..."
   PYTHONPATH=. "$VENV/bin/python" "${ROOT_DIR}/scripts/pgo_training_data.py" --out-dir "$PGO_DIR"
 }
 

@@ -54,6 +54,27 @@ class KeyCache {
         std::memset(hash_slots_, 0xFF, sizeof(hash_slots_));
     }
 
+    /// Fast FNV-1a hash with 8-byte-at-a-time processing.
+    static inline uint32_t fnv1a(const char* data, size_t len) {
+        uint32_t h = 2166136261u;
+        // Process 8 bytes at a time for keys > 8 bytes
+        const char* end = data + len;
+        while (data + 8 <= end) {
+            uint64_t chunk;
+            std::memcpy(&chunk, data, 8);
+            // Mix all 8 bytes into hash
+            h = (h ^ static_cast<uint32_t>(chunk)) * 16777619u;
+            h = (h ^ static_cast<uint32_t>(chunk >> 32)) * 16777619u;
+            data += 8;
+        }
+        // Process remaining bytes
+        while (data < end) {
+            h = (h ^ static_cast<unsigned char>(*data)) * 16777619u;
+            ++data;
+        }
+        return h;
+    }
+
     /// Look up or create a cached key entry.
     ///
     /// Returns a **borrowed** CachedKeyEntry — the caller must NOT Py_DECREF
@@ -76,16 +97,13 @@ class KeyCache {
             }
 
             // Prediction miss: use hash table for O(1) lookup.
-            // FNV-1a hash of key bytes, masked to table size.
-            uint32_t h = 2166136261u;
-            for (size_t ki = 0; ki < key.size(); ++ki)
-                h = (h ^ static_cast<unsigned char>(key.data()[ki])) * 16777619u;
+            uint32_t h = fnv1a(key.data(), key.size());
             uint32_t slot = h & kHashMask;
 
-            // Linear probing (table is always < 50% full for n ≤ 64)
-            for (int probe = 0; probe < kHashSlots; ++probe) {
-                uint8_t idx = hash_slots_[slot];
-                if (idx == 0xFF)
+            // Linear probing (table is < 75% full)
+            for (int probe = 0; probe < 16; ++probe) {
+                uint16_t idx = hash_slots_[slot];
+                if (idx == 0xFFFF)
                     break; // empty slot → key not in cache
                 if (idx < n) {
                     auto& s = entries_[idx];
@@ -97,48 +115,13 @@ class KeyCache {
                 }
                 slot = (slot + 1) & kHashMask;
             }
+
+            // Cache miss with existing entries: store hash for insert reuse
+            return insert_new(key, h);
         }
 
-        // Not found: intern the key and add to cache.
-        PyObject* py_key = PyUnicode_FromStringAndSize(key.data(), key.size());
-        if (!py_key)
-            return {nullptr, 0};
-
-        PyUnicode_InternInPlace(&py_key);
-        Py_hash_t hash = PyObject_Hash(py_key);
-
-        CachedKeyEntry cached{py_key, hash};
-        size_t new_idx = entries_.size();
-
-        // Cap entries to avoid hash table overload (75% load factor).
-        // Beyond this, we still return the correct key but don't cache it.
-        if (new_idx >= kMaxEntries) {
-            // Return uncached entry — caller still gets a valid key+hash,
-            // but we must transfer ownership: the caller will use it once
-            // and we won't track it. Actually, we need to own it for cleanup.
-            // Just grow the entries vector but skip hash table insertion.
-            entries_.push_back({std::string(key), nullptr, 0, cached});
-            auto& back = entries_.back();
-            back.key_data = back.key_storage.data();
-            back.key_len = static_cast<uint16_t>(key.size());
-            return cached;
-        }
-
-        entries_.push_back({std::string(key), nullptr, 0, cached});
-        auto& back = entries_.back();
-        back.key_data = back.key_storage.data();
-        back.key_len = static_cast<uint16_t>(key.size());
-
-        // Insert into hash table
-        uint32_t h = 2166136261u;
-        for (size_t ki = 0; ki < key.size(); ++ki)
-            h = (h ^ static_cast<unsigned char>(key.data()[ki])) * 16777619u;
-        uint32_t slot = h & kHashMask;
-        while (hash_slots_[slot] != 0xFF)
-            slot = (slot + 1) & kHashMask;
-        hash_slots_[slot] = static_cast<uint8_t>(new_idx);
-
-        return cached;
+        // Empty cache — first key ever
+        return insert_new(key, fnv1a(key.data(), key.size()));
     }
 
     ~KeyCache() {
@@ -160,13 +143,68 @@ class KeyCache {
     void advance_cursor() { cursor_ = (cursor_ + 1 < entries_.size()) ? cursor_ + 1 : 0; }
 
   private:
-    static constexpr int kHashSlots = 128; // must be power of 2
+    /// Insert a new key into the cache. Called when key is not found.
+    /// @param h  Pre-computed FNV-1a hash (avoids double-hashing).
+    CachedKeyEntry insert_new(std::string_view key, uint32_t h) {
+        size_t new_idx = entries_.size();
+
+        // If hash table is full, check overflow entries (index >= kMaxEntries)
+        // before creating a new PyObject. Without this, keys beyond the hash
+        // table capacity would be re-created on every lookup, causing O(n²)
+        // growth of entries_ across records.
+        if (new_idx >= kMaxEntries) {
+            for (size_t i = kMaxEntries; i < new_idx; ++i) {
+                auto& s = entries_[i];
+                if (s.key_len == static_cast<uint16_t>(key.size()) &&
+                    std::memcmp(s.key_data, key.data(), key.size()) == 0) {
+                    cursor_ = (i + 1 < new_idx) ? i + 1 : 0;
+                    return s.cached;
+                }
+            }
+            // Truly new key beyond hash table capacity. Add to entries_
+            // for ownership tracking but don't insert into hash table.
+            PyObject* py_key = PyUnicode_FromStringAndSize(key.data(), key.size());
+            if (!py_key)
+                return {nullptr, 0};
+            PyUnicode_InternInPlace(&py_key);
+            Py_hash_t py_hash = PyObject_Hash(py_key);
+            CachedKeyEntry cached{py_key, py_hash};
+            entries_.push_back({std::string(key), nullptr, 0, cached});
+            auto& back = entries_.back();
+            back.key_data = back.key_storage.data();
+            back.key_len = static_cast<uint16_t>(key.size());
+            return cached;
+        }
+
+        PyObject* py_key = PyUnicode_FromStringAndSize(key.data(), key.size());
+        if (!py_key)
+            return {nullptr, 0};
+
+        PyUnicode_InternInPlace(&py_key);
+        Py_hash_t py_hash = PyObject_Hash(py_key);
+
+        CachedKeyEntry cached{py_key, py_hash};
+        entries_.push_back({std::string(key), nullptr, 0, cached});
+        auto& back = entries_.back();
+        back.key_data = back.key_storage.data();
+        back.key_len = static_cast<uint16_t>(key.size());
+
+        // Insert into hash table — reuse pre-computed hash h
+        uint32_t slot = h & kHashMask;
+        while (hash_slots_[slot] != 0xFFFF)
+            slot = (slot + 1) & kHashMask;
+        hash_slots_[slot] = static_cast<uint16_t>(new_idx);
+
+        return cached;
+    }
+
+    static constexpr int kHashSlots = 256; // power of 2, larger table = less probing
     static constexpr uint32_t kHashMask = kHashSlots - 1;
-    static constexpr size_t kMaxEntries = 96; // 75% load — stop hash inserts beyond this
+    static constexpr size_t kMaxEntries = 192; // 75% of 256
 
     std::vector<Entry> entries_;
     size_t cursor_ = 0;
-    uint8_t hash_slots_[kHashSlots]; // index into entries_, 0xFF = empty
+    uint16_t hash_slots_[kHashSlots]; // index into entries_, 0xFFFF = empty
 };
 
 // Small integer cache: avoid PyLong_FromLongLong overhead for 0..256.

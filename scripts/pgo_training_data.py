@@ -24,7 +24,7 @@ import string
 from pathlib import Path
 
 SEED = 0xDA7A
-TARGET_MB = 64
+TARGET_MB = 10  # ~10MB gives good branch frequency stats; ~20s under instrumentation
 
 # Pre-built string pools
 _ESCAPE_STRINGS = [
