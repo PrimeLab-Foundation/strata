@@ -52,6 +52,10 @@ class KeyCache {
         entries_.reserve(32);
         // Initialize hash table slots to empty
         std::memset(hash_slots_, 0xFF, sizeof(hash_slots_));
+        for (int i = 0; i < kMaxSchemas; ++i) {
+            schemas_[i].num_keys = 0;
+            schemas_[i].cursor_pos = 0;
+        }
     }
 
     /// Fast FNV-1a hash with 8-byte-at-a-time processing.
@@ -80,49 +84,121 @@ class KeyCache {
     /// Returns a **borrowed** CachedKeyEntry — the caller must NOT Py_DECREF
     /// the key.  The cache owns the reference; _PyDict_SetItem_KnownHash
     /// will INCREF internally when inserting into a dict.
+    ///
+    /// After a successful call, last_matched_index() returns the entry index
+    /// of the matched/inserted key (for external schema recording).
     CachedKeyEntry get(std::string_view key) {
         const size_t n = entries_.size();
 
-        // Fast path: cursor prediction — O(1) for repeated key patterns.
-        // After the first record, the cursor cycles through entries in the
-        // same order that keys appear.  For same-schema objects this means
-        // every lookup is a single memcmp hit.
-        if (n > 0) {
+        if (n == 0) {
+            // Empty cache — first key ever
+            CachedKeyEntry result = insert_new(key, fnv1a(key.data(), key.size()));
+            last_matched_idx_ = static_cast<uint16_t>(entries_.size() - 1);
+            return result;
+        }
+
+        // Fast path 1: cursor prediction — O(1).
+        // cursor_ is always the single prediction source for both speculative
+        // matching and normal get(). Schema tracking keeps it aligned.
+        {
             auto& e = entries_[cursor_];
             if (e.key_len == static_cast<uint16_t>(key.size()) &&
                 std::memcmp(e.key_data, key.data(), key.size()) == 0) {
-                // Borrowed ref — no INCREF needed.
-                cursor_ = (cursor_ + 1 < n) ? cursor_ + 1 : 0;
+                last_matched_idx_ = static_cast<uint16_t>(cursor_);
+                // For multi-schema data, advance schema cursor and set cursor_
+                // to next schema key. For settled data, simple advance.
+                if (UNLIKELY(!settled_) && active_schema_ >= 0) {
+                    auto& schema = schemas_[active_schema_];
+                    if (schema.cursor_pos < schema.num_keys &&
+                        schema.key_indices[schema.cursor_pos] == static_cast<uint16_t>(cursor_)) {
+                        uint16_t matched_pos = schema.cursor_pos;
+                        schema.cursor_pos++;
+                        if (schema.cursor_pos < schema.num_keys) {
+                            cursor_ = schema.key_indices[schema.cursor_pos];
+                        } else {
+                            cursor_ = (cursor_ + 1 < n) ? cursor_ + 1 : 0;
+                        }
+                        // Advance shared keys in other schemas.
+                        if (num_schemas_ > 1 && matched_pos < 2) {
+                            uint16_t midx = schema.key_indices[matched_pos];
+                            for (int j = 0; j < num_schemas_; ++j) {
+                                if (j != active_schema_ && schemas_[j].cursor_pos == matched_pos &&
+                                    schemas_[j].num_keys > matched_pos &&
+                                    schemas_[j].key_indices[matched_pos] == midx) {
+                                    schemas_[j].cursor_pos = matched_pos + 1;
+                                }
+                            }
+                        }
+                    } else {
+                        cursor_ = (cursor_ + 1 < n) ? cursor_ + 1 : 0;
+                    }
+                } else {
+                    cursor_ = (cursor_ + 1 < n) ? cursor_ + 1 : 0;
+                }
                 return e.cached;
             }
-
-            // Prediction miss: use hash table for O(1) lookup.
-            uint32_t h = fnv1a(key.data(), key.size());
-            uint32_t slot = h & kHashMask;
-
-            // Linear probing (table is < 75% full)
-            for (int probe = 0; probe < 16; ++probe) {
-                uint16_t idx = hash_slots_[slot];
-                if (idx == 0xFFFF)
-                    break; // empty slot → key not in cache
-                if (idx < n) {
-                    auto& s = entries_[idx];
-                    if (s.key_len == static_cast<uint16_t>(key.size()) &&
-                        std::memcmp(s.key_data, key.data(), key.size()) == 0) {
-                        cursor_ = (idx + 1 < n) ? idx + 1 : 0;
-                        return s.cached;
-                    }
-                }
-                slot = (slot + 1) & kHashMask;
-            }
-
-            // Cache miss with existing entries: store hash for insert reuse
-            return insert_new(key, h);
         }
 
-        // Empty cache — first key ever
-        return insert_new(key, fnv1a(key.data(), key.size()));
+        // Fast path 2: try other schemas' predictions (for schema switches).
+        // Only triggered on cursor miss. Cost: up to kMaxSchemas memcmp.
+        if (!settled_) {
+            for (int i = 0; i < num_schemas_; ++i) {
+                auto& schema = schemas_[i];
+                if (schema.cursor_pos < schema.num_keys) {
+                    uint16_t idx = schema.key_indices[schema.cursor_pos];
+                    auto& e = entries_[idx];
+                    if (e.key_len == static_cast<uint16_t>(key.size()) &&
+                        std::memcmp(e.key_data, key.data(), key.size()) == 0) {
+                        active_schema_ = i;
+                        schema.cursor_pos++;
+                        last_matched_idx_ = idx;
+                        // Set cursor_ to next schema key.
+                        if (schema.cursor_pos < schema.num_keys) {
+                            cursor_ = schema.key_indices[schema.cursor_pos];
+                        } else {
+                            cursor_ = (idx + 1 < n) ? idx + 1 : 0;
+                        }
+                        return e.cached;
+                    }
+                }
+            }
+        }
+
+        // Hash table fallback.
+        uint32_t h = fnv1a(key.data(), key.size());
+        uint32_t slot = h & kHashMask;
+
+        // Linear probing (table is < 75% full)
+        for (int probe = 0; probe < 16; ++probe) {
+            uint16_t idx = hash_slots_[slot];
+            if (idx == 0xFFFF)
+                break; // empty slot → key not in cache
+            if (idx < n) {
+                auto& s = entries_[idx];
+                if (s.key_len == static_cast<uint16_t>(key.size()) &&
+                    std::memcmp(s.key_data, key.data(), key.size()) == 0) {
+                    cursor_ = (idx + 1 < n) ? idx + 1 : 0;
+                    last_matched_idx_ = idx;
+                    return s.cached;
+                }
+            }
+            slot = (slot + 1) & kHashMask;
+        }
+
+        // Cache miss: insert new key
+        CachedKeyEntry result = insert_new(key, h);
+        if (entries_.size() > n) {
+            last_matched_idx_ = static_cast<uint16_t>(entries_.size() - 1);
+        } else {
+            // Found in overflow scan
+            last_matched_idx_ =
+                static_cast<uint16_t>(cursor_ > 0 ? cursor_ - 1 : entries_.size() - 1);
+        }
+        return result;
     }
+
+    /// Index of the entry matched/inserted by the last get() call.
+    uint16_t last_matched_index() const { return last_matched_idx_; }
 
     ~KeyCache() {
         for (auto& e : entries_) {
@@ -139,8 +215,117 @@ class KeyCache {
 
     // Public access for speculative key matching in the parser.
     const std::vector<Entry>& entries() const { return entries_; }
-    size_t cursor() const { return cursor_; }
-    void advance_cursor() { cursor_ = (cursor_ + 1 < entries_.size()) ? cursor_ + 1 : 0; }
+
+    /// Get the predicted entry index for speculative matching.
+    /// Returns cursor_ directly — zero overhead on the hot path.
+    /// Schema tracking updates cursor_ at object boundaries and on misses.
+    size_t predicted_entry_index() const { return cursor_; }
+
+    /// Advance the cursor after a successful speculative match.
+    void advance_after_match(size_t matched_idx) {
+        const size_t n = entries_.size();
+        last_matched_idx_ = static_cast<uint16_t>(matched_idx);
+        // For multi-schema data, advance schema cursor and set cursor_
+        // to next schema key. For settled data, simple advance.
+        if (UNLIKELY(!settled_) && active_schema_ >= 0) {
+            auto& schema = schemas_[active_schema_];
+            if (schema.cursor_pos < schema.num_keys &&
+                schema.key_indices[schema.cursor_pos] == static_cast<uint16_t>(matched_idx)) {
+                uint16_t matched_pos = schema.cursor_pos;
+                schema.cursor_pos++;
+                if (schema.cursor_pos < schema.num_keys) {
+                    cursor_ = schema.key_indices[schema.cursor_pos];
+                } else {
+                    cursor_ = (matched_idx + 1 < n) ? matched_idx + 1 : 0;
+                }
+                // Advance shared keys in other schemas.
+                if (num_schemas_ > 1 && matched_pos < 2) {
+                    uint16_t midx = schema.key_indices[matched_pos];
+                    for (int j = 0; j < num_schemas_; ++j) {
+                        if (j != active_schema_ && schemas_[j].cursor_pos == matched_pos &&
+                            schemas_[j].num_keys > matched_pos &&
+                            schemas_[j].key_indices[matched_pos] == midx) {
+                            schemas_[j].cursor_pos = matched_pos + 1;
+                        }
+                    }
+                }
+                return;
+            }
+        }
+        cursor_ = (matched_idx + 1 < n) ? matched_idx + 1 : 0;
+    }
+
+    /// Whether schema tracking has settled (single schema confirmed).
+    /// When true, notify_object_start/end are effectively no-ops and
+    /// schema tracking in PythonObjectBuilder can be skipped entirely.
+    bool settled() const { return settled_; }
+
+    /// Called at the start of each JSON object (array-element objects only).
+    /// For settled single-schema data: no-op (cursor_ wraps naturally).
+    /// For multi-schema data: resets schema cursors and aligns cursor_.
+    void notify_object_start() {
+        if (LIKELY(settled_))
+            return;
+
+        // Reset all schema cursors to their start position.
+        for (int i = 0; i < num_schemas_; ++i) {
+            schemas_[i].cursor_pos = 0;
+        }
+        // Point cursor_ at the active schema's first key.
+        if (active_schema_ >= 0 && schemas_[active_schema_].num_keys > 0) {
+            cursor_ = schemas_[active_schema_].key_indices[0];
+        }
+    }
+
+    /// Called at the end of each JSON object (array-element objects only).
+    /// @param keys  Array of entry indices for each top-level key in order.
+    /// @param count Number of keys.
+    void notify_object_end(const uint16_t* keys, uint16_t count) {
+        if (LIKELY(settled_))
+            return;
+        if (count == 0)
+            return;
+
+        // Check if this key sequence matches the active schema
+        if (active_schema_ >= 0) {
+            auto& schema = schemas_[active_schema_];
+            if (schema.num_keys == count &&
+                std::memcmp(schema.key_indices, keys, count * sizeof(uint16_t)) == 0) {
+                // Same schema matched. After 2 consecutive matches with a
+                // single schema, mark as settled (zero overhead for remaining
+                // 498+ objects in a typical benchmark).
+                if (num_schemas_ == 1) {
+                    settle_count_++;
+                    if (settle_count_ >= 2) {
+                        settled_ = true;
+                    }
+                }
+                return;
+            }
+        }
+
+        // Check if this key sequence matches any known schema
+        for (int i = 0; i < num_schemas_; ++i) {
+            auto& schema = schemas_[i];
+            if (schema.num_keys == count &&
+                std::memcmp(schema.key_indices, keys, count * sizeof(uint16_t)) == 0) {
+                active_schema_ = i;
+                settle_count_ = 0; // Different schema — reset settle counter
+                return;
+            }
+        }
+
+        // New schema — register it
+        if (num_schemas_ < kMaxSchemas && count <= kMaxSchemaKeys) {
+            auto& schema = schemas_[num_schemas_];
+            std::memcpy(schema.key_indices, keys, count * sizeof(uint16_t));
+            schema.num_keys = count;
+            schema.cursor_pos = 0;
+            active_schema_ = num_schemas_;
+            num_schemas_++;
+            settle_count_ = 0;
+        }
+    }
 
   private:
     /// Insert a new key into the cache. Called when key is not found.
@@ -202,9 +387,31 @@ class KeyCache {
     static constexpr uint32_t kHashMask = kHashSlots - 1;
     static constexpr size_t kMaxEntries = 192; // 75% of 256
 
+    // Multi-schema cursor tracking.
+    // Each schema stores its own key index sequence so the cursor can predict
+    // keys correctly even when JSON objects alternate between different schemas.
+    static constexpr int kMaxSchemas = 4;
+    static constexpr int kMaxSchemaKeys = 64;
+
+    struct SchemaInfo {
+        uint16_t key_indices[kMaxSchemaKeys]; // entry indices for each key in order
+        uint16_t num_keys = 0;
+        uint16_t cursor_pos = 0; // current position in key_indices for prediction
+    };
+
     std::vector<Entry> entries_;
     size_t cursor_ = 0;
     uint16_t hash_slots_[kHashSlots]; // index into entries_, 0xFFFF = empty
+
+    // Schema tracking state
+    SchemaInfo schemas_[kMaxSchemas];
+    int num_schemas_ = 0;
+    int active_schema_ = -1;
+    int settle_count_ = 0; // consecutive same-schema matches
+    bool settled_ = false; // true after single schema confirmed (zero-overhead mode)
+
+    // Index of the entry matched/inserted by the last get() call.
+    uint16_t last_matched_idx_ = 0;
 };
 
 // Small integer cache: avoid PyLong_FromLongLong overhead for 0..256.
@@ -338,6 +545,21 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     }
 
     bool on_start_object(size_t /*size_hint*/) override {
+        // Only track schemas for objects that are direct children of arrays.
+        // This is where schema variation occurs (e.g., mixed benchmark has
+        // flat/nested/wide_arrays records alternating in the same array).
+        // Inner objects (dict values, deeply nested) are consistent per-schema
+        // and handled well by the legacy cursor.
+        bool in_array = !stack_.empty() && stack_.back() == nullptr;
+        if (in_array && !schema_tracking_active_) {
+            cache_.notify_object_start();
+            if (LIKELY(!cache_.settled())) {
+                schema_tracking_active_ = true;
+                schema_tracking_depth_ = stack_.size();
+                schema_recording_count_ = 0;
+            }
+        }
+
         // Predict dict size from previous object at the same nesting depth.
         // For arrays of same-schema objects (the dominant JSON pattern),
         // every object has the same key count, so this gives a perfect prediction.
@@ -360,16 +582,25 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         if (!entry.key)
             return false;
         keys_.push_back(entry);
+
+        // Record key index for schema tracking (only for top-level keys of
+        // tracked array-element objects, not inner/nested object keys).
+        if (schema_tracking_active_ && stack_.size() == schema_tracking_depth_ + 1) {
+            if (schema_recording_count_ < kMaxSchemaKeys) {
+                schema_recording_[schema_recording_count_++] = cache_.last_matched_index();
+            }
+        }
         return true;
     }
 
     /// Speculative key match: called by the parser before SIMD string scanning.
     ///
     /// Compares the raw JSON bytes (after the opening quote) against the
-    /// cursor-predicted key in the cache.  If the bytes match and the next
-    /// byte is a closing quote, we skip the full parse_string() path:
+    /// predicted key from the active schema (or legacy cursor). If the bytes
+    /// match and the next byte is a closing quote, we skip the full
+    /// parse_string() path:
     /// - No SIMD escape scan (find_next_escape_simd)
-    /// - No cache lookup (already at the cursor)
+    /// - No cache lookup (already at the predicted position)
     /// - No PyUnicode_FromStringAndSize (reuse cached PyObject)
     ///
     /// @param data  Bytes after the opening '"'.
@@ -382,7 +613,10 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         if (n == 0)
             return 0;
 
-        const auto& e = entries[cache_.cursor()];
+        // Use schema-aware prediction: tries active schema first,
+        // then falls back to legacy cursor position.
+        size_t pred_idx = cache_.predicted_entry_index();
+        const auto& e = entries[pred_idx];
         const size_t key_len = e.key_len;
 
         // Need key_len bytes + closing quote
@@ -399,7 +633,14 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
         // Match! Push the cached key (borrowed ref) and advance cursor.
         keys_.push_back(e.cached);
-        cache_.advance_cursor();
+        cache_.advance_after_match(pred_idx);
+
+        // Record key index for schema tracking (speculative match bypasses on_key).
+        if (schema_tracking_active_ && stack_.size() == schema_tracking_depth_ + 1) {
+            if (schema_recording_count_ < kMaxSchemaKeys) {
+                schema_recording_[schema_recording_count_++] = static_cast<uint16_t>(pred_idx);
+            }
+        }
         return key_len + 1; // consumed: key bytes + closing quote
     }
 
@@ -407,8 +648,15 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         if (stack_.empty())
             return false;
         PyObject* dict = stack_.back();
-        // Record the object size for depth-based prediction.
+
+        // Notify key cache of object end only for tracked array-element objects.
         size_t depth = stack_.size() - 1;
+        if (schema_tracking_active_ && depth == schema_tracking_depth_) {
+            cache_.notify_object_end(schema_recording_, schema_recording_count_);
+            schema_tracking_active_ = false;
+        }
+
+        // Record the object size for depth-based prediction.
         Py_ssize_t sz = PyDict_GET_SIZE(dict);
         if (depth >= depth_sizes_.size()) {
             depth_sizes_.resize(depth + 1, 0);
@@ -477,6 +725,9 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         }
         array_items_.clear();
         array_starts_.clear();
+        schema_tracking_active_ = false;
+        schema_tracking_depth_ = 0;
+        schema_recording_count_ = 0;
         policy_ = strata::get_duplicate_key_policy();
     }
 
@@ -564,6 +815,13 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     std::vector<size_t> depth_sizes_;    // predicted object size at each nesting depth
     strata::DuplicateKeyPolicy policy_;
     KeyCache cache_;
+
+    // Schema tracking: only active for objects that are direct children of arrays.
+    bool schema_tracking_active_ = false;
+    size_t schema_tracking_depth_ = 0;
+    static constexpr int kMaxSchemaKeys = 64;
+    uint16_t schema_recording_[kMaxSchemaKeys];
+    uint16_t schema_recording_count_ = 0;
 };
 
 } // namespace

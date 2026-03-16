@@ -939,9 +939,41 @@ static inline bool serialize_int_array_fast(PyObject* list, Buffer& out, Py_ssiz
     return true;
 }
 
+// Batch-optimized double serialization: skips per-element reserve (caller pre-reserved).
+// Keeps integer and 1-2 decimal fast paths but uses unsafe buffer operations.
+template <typename Buffer> static inline void append_double_batch(Buffer& out, double value) {
+    // NaN/Inf check (rare but needed for correctness)
+    if (UNLIKELY(std::isnan(value) || std::isinf(value))) {
+        memcpy(out.data() + out.size(), "null", 4);
+        out.unsafe_advance(4);
+        return;
+    }
+
+    // Integer-valued fast path
+    if (value >= -999999999999999.0 && value <= 999999999999999.0) {
+        int64_t ival = static_cast<int64_t>(value);
+        if (static_cast<double>(ival) == value && LIKELY(ival != 0 || !std::signbit(value))) {
+            append_int64(out, ival);
+            out.unsafe_push_back('.');
+            out.unsafe_push_back('0');
+            return;
+        }
+    }
+
+    // General path: Ryu d2d. No reserve needed — caller pre-reserved.
+    char* start = out.data() + out.size();
+    char* p = start;
+    if (value < 0) {
+        *p++ = '-';
+        value = -value;
+    }
+    int len = strata::util::ryu_inline::convert(value, p);
+    out.unsafe_advance(static_cast<size_t>((p - start) + len));
+}
+
 // Fast path for homogeneous float arrays: skips per-element type dispatch.
 // Checks first min(sz, 8) elements to verify all are PyFloat_Type, then
-// serializes with a tight loop calling append_double() directly.
+// serializes with a tight loop using batch-optimized append_double_batch().
 template <typename Buffer>
 static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ssize_t sz) {
     // Verify homogeneity by sampling first min(sz, 8) elements
@@ -951,12 +983,11 @@ static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ss
             return false;
     }
 
-    // Pre-reserve: each float needs at most 25 chars + comma
+    // Pre-reserve: each float needs at most 25 chars + comma + brackets
     out.reserve(out.size() + static_cast<size_t>(sz) * 26 + 2);
-    out.push_back('[');
+    out.unsafe_push_back('[');
 
-    if (!append_double(out, PyFloat_AS_DOUBLE(PyList_GET_ITEM(list, 0))))
-        return false;
+    append_double_batch(out, PyFloat_AS_DOUBLE(PyList_GET_ITEM(list, 0)));
 
     for (Py_ssize_t i = 1; i < sz; ++i) {
         PyObject* item = PyList_GET_ITEM(list, i);
@@ -971,12 +1002,11 @@ static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ss
             out.push_back(']');
             return true;
         }
-        out.push_back(',');
-        if (!append_double(out, PyFloat_AS_DOUBLE(item)))
-            return false;
+        out.unsafe_push_back(',');
+        append_double_batch(out, PyFloat_AS_DOUBLE(item));
     }
 
-    out.push_back(']');
+    out.unsafe_push_back(']');
     return true;
 }
 

@@ -313,16 +313,28 @@ template <typename Handler> struct ParserInline {
                 else if (c >= '0' && c <= '9') {
                     // Inline fast path for small positive numbers (very common in arrays).
                     // Parse digits directly without parse_number_unified overhead.
-                    if (c != '0') {
-                        uint64_t val = static_cast<uint64_t>(c - '0');
-                        size_t p = i + 1;
-                        while (p < len && data[p] >= '0' && data[p] <= '9') {
-                            val = val * 10 + static_cast<uint64_t>(data[p] - '0');
-                            ++p;
+                    // Also handles "0.xxx" floats (e.g., random.random() values).
+                    static constexpr double kPow10Fast[] = {
+                        1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
+                        1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+                    };
+                    {
+                        uint64_t val;
+                        size_t p;
+                        if (c != '0') {
+                            val = static_cast<uint64_t>(c - '0');
+                            p = i + 1;
+                            while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                ++p;
+                            }
+                        } else {
+                            // Leading zero: only "0", "0.", "0e" are valid JSON.
+                            val = 0;
+                            p = i + 1;
                         }
                         if (p < len && data[p] == '.') {
                             // Float: parse fractional digits inline
-                            size_t dot_pos = p;
                             ++p;
                             if (p < len && data[p] >= '0' && data[p] <= '9') {
                                 int frac_digits = 0;
@@ -334,13 +346,8 @@ template <typename Handler> struct ParserInline {
                                 // No exponent → simple Clinger fast path
                                 if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
                                     if (val < (1ULL << 53) && frac_digits <= 22) {
-                                        static constexpr double kPow10[] = {
-                                            1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,
-                                            1e8,  1e9,  1e10, 1e11, 1e12, 1e13, 1e14, 1e15,
-                                            1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
-                                        };
                                         double result =
-                                            static_cast<double>(val) / kPow10[frac_digits];
+                                            static_cast<double>(val) / kPow10Fast[frac_digits];
                                         i = p;
                                         ok = handler.on_double(result);
                                         goto dispatch_done;
@@ -502,16 +509,27 @@ template <typename Handler> struct ParserInline {
     /// per 500 records × 21 keys.
     ///
     /// @param pos Position just after the opening quote.
-    /// @return true if predicted key matched (i advanced past closing quote).
-    bool try_predicted_key(size_t pos) {
+    /// @return 0 = miss, 1 = matched key only, 2 = matched key + colon.
+    int try_predicted_key(size_t pos) {
         if constexpr (has_try_match_key<Handler>::value) {
             size_t consumed = handler.try_match_key(data + pos, len - pos);
             if (consumed > 0) {
                 i = pos + consumed;
-                return true;
+                // Try to also consume optional whitespace + colon after the key.
+                // This saves a separate consume(':') step in parse_object().
+                size_t j = i;
+                // Skip whitespace (common case: no whitespace before colon)
+                while (j < len &&
+                       (data[j] == ' ' || data[j] == '\t' || data[j] == '\n' || data[j] == '\r'))
+                    ++j;
+                if (j < len && data[j] == ':') {
+                    i = j + 1;
+                    return 2; // matched key + colon
+                }
+                return 1; // matched key only
             }
         }
-        return false;
+        return 0;
     }
 
     bool parse_object() {
@@ -529,13 +547,17 @@ template <typename Handler> struct ParserInline {
             // entirely — just a memcmp against the predicted key bytes.
             if (peek() != '"')
                 return false;
-            if (!try_predicted_key(i + 1)) {
+            int key_result = try_predicted_key(i + 1);
+            if (key_result == 0) {
                 // Prediction missed or not supported — full parse.
                 if (!parse_string(true))
                     return false;
             }
-            if (!consume(':'))
-                return false;
+            if (key_result < 2) {
+                // Key matched but colon not consumed, or full parse path
+                if (!consume(':'))
+                    return false;
+            }
             if (!parse_value())
                 return false;
             // Combined delimiter check: one skip_ws() instead of two.
