@@ -12,8 +12,8 @@ hot path in the Strata parser and serializer:
   - UTF-8 validation paths
 
 Output:
-  build/pgo/train.json   (~70MB, single array of diverse records)
-  build/pgo/train.ndjson  (~70MB, one record per line)
+  build/pgo/train.json   (~64MB, single array of diverse records)
+  build/pgo/train.ndjson  (~64MB, one record per line)
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import string
 from pathlib import Path
 
 SEED = 0xDA7A
-TARGET_MB = 70
+TARGET_MB = 64
 
 # Pre-built string pools
 _ESCAPE_STRINGS = [

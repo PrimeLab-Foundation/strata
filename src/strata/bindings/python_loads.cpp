@@ -109,6 +109,21 @@ class KeyCache {
 
         CachedKeyEntry cached{py_key, hash};
         size_t new_idx = entries_.size();
+
+        // Cap entries to avoid hash table overload (75% load factor).
+        // Beyond this, we still return the correct key but don't cache it.
+        if (new_idx >= kMaxEntries) {
+            // Return uncached entry — caller still gets a valid key+hash,
+            // but we must transfer ownership: the caller will use it once
+            // and we won't track it. Actually, we need to own it for cleanup.
+            // Just grow the entries vector but skip hash table insertion.
+            entries_.push_back({std::string(key), nullptr, 0, cached});
+            auto& back = entries_.back();
+            back.key_data = back.key_storage.data();
+            back.key_len = static_cast<uint16_t>(key.size());
+            return cached;
+        }
+
         entries_.push_back({std::string(key), nullptr, 0, cached});
         auto& back = entries_.back();
         back.key_data = back.key_storage.data();
@@ -147,6 +162,7 @@ class KeyCache {
   private:
     static constexpr int kHashSlots = 128; // must be power of 2
     static constexpr uint32_t kHashMask = kHashSlots - 1;
+    static constexpr size_t kMaxEntries = 96; // 75% load — stop hash inserts beyond this
 
     std::vector<Entry> entries_;
     size_t cursor_ = 0;

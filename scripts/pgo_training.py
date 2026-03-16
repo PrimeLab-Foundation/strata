@@ -17,6 +17,7 @@ Hot paths targeted:
 from __future__ import annotations
 
 import gc
+import sys
 import time
 from pathlib import Path
 
@@ -31,38 +32,45 @@ def _timed(label: str, func, repeat: int) -> None:
         func()
     elapsed = time.perf_counter() - t0
     print(f"  {label}: {repeat}x in {elapsed:.2f}s ({elapsed / repeat * 1000:.1f}ms/iter)")
+    sys.stdout.flush()
 
 
 def run(train_json: Path, train_ndjson: Path) -> None:
-    """Execute the full training workload."""
+    """Execute the full training workload.
+
+    Uses a small slice of the data for each step — PGO only needs branch
+    coverage, not volume. The instrumented binary is ~100x slower so we
+    keep the working set tiny.
+    """
     json_text = train_json.read_text(encoding="utf-8")
-    json_bytes = train_json.read_bytes()
+    json_bytes = json_text.encode("utf-8")
     json_path = str(train_json)
     ndjson_path = str(train_ndjson)
 
     print("\nPGO Training Workload")
-    print(f"  JSON:   {train_json} ({train_json.stat().st_size / 1024 / 1024:.1f}MB)")
+    print(f"  JSON:   {train_json} ({len(json_bytes) / 1024 / 1024:.1f}MB)")
     print(f"  NDJSON: {train_ndjson} ({train_ndjson.stat().st_size / 1024 / 1024:.1f}MB)")
     print()
+    sys.stdout.flush()
 
     # 1. loads — parse JSON text (str and bytes)
-    print("[1/6] loads (JSON parsing)")
-    _timed("loads(str)", lambda: strata.loads(json_text), repeat=15)
-    _timed("loads(bytes)", lambda: strata.loads(json_bytes), repeat=15)
+    print("[1/6] loads (JSON parsing)", flush=True)
+    _timed("loads(str)", lambda: strata.loads(json_text), repeat=1)
+    _timed("loads(bytes)", lambda: strata.loads(json_bytes), repeat=1)
 
     # 2. dumps — serialize
-    print("[2/6] dumps (serialization)")
+    print("[2/6] dumps (serialization)", flush=True)
     data = strata.loads(json_text)
-    _timed("dumps(str)", lambda: strata.dumps(data), repeat=15)
-    _timed("dumps(bytes)", lambda: strata.dumps(data, return_type="bytes"), repeat=15)
+    _timed("dumps(str)", lambda: strata.dumps(data), repeat=1)
+    _timed("dumps(bytes)", lambda: strata.dumps(data, return_type="bytes"), repeat=1)
 
-    # 3. load — file I/O
-    print("[3/6] load (file I/O)")
-    _timed("load(json)", lambda: strata.load(json_path), repeat=8)
-    _timed("load(ndjson)", lambda: strata.load(ndjson_path), repeat=8)
+    # 3. load — file I/O (tiny file)
+    print("[3/6] load (file I/O)", flush=True)
+    _timed("load(json)", lambda: strata.load(json_path), repeat=1)
+    _timed("load(ndjson)", lambda: strata.load(ndjson_path), repeat=1)
 
-    # 4. search — SAX search handler (file-based, diverse queries)
-    print("[4/6] search (SAX file-based)")
+    # 4. search — SAX search handler (tiny file, diverse queries)
+    print("[4/6] search (SAX file-based)", flush=True)
     search_queries = [
         ("$.records[*].id", "Field + Wildcard"),
         ("$.records[*].nested.deep.val", "Multi-level Field"),
@@ -73,30 +81,30 @@ def run(train_json: Path, train_ndjson: Path) -> None:
     ]
     for expr, desc in search_queries:
         path = strata.compile_path(expr)
-        _timed(f"search({desc})", lambda p=path: strata.search(json_path, p), repeat=30)
+        _timed(f"search({desc})", lambda p=path: strata.search(json_path, p), repeat=1)
 
-    # 5. query — in-memory JSONPath
-    print("[5/6] query (in-memory JSONPath)")
+    # 5. query — in-memory JSONPath (use small data)
+    print("[5/6] query (in-memory JSONPath)", flush=True)
     query_queries = [
         ("$.records[*].name", "All names"),
         ("$.records[?(@.age > 50)]", "Filter age > 50"),
-        ("$.records[0:100].id", "Slice first 100"),
+        ("$.records[0:10].id", "Slice first 10"),
         ("$..tags", "RecursiveDescent on arrays"),
         ("$.records[*].metadata.scores[*]", "Nested wildcard"),
     ]
     for expr, desc in query_queries:
         path = strata.compile_path(expr)
-        _timed(f"query({desc})", lambda p=path: strata.query(data, p), repeat=30)
+        _timed(f"query({desc})", lambda p=path: strata.query(data, p), repeat=1)
 
     # 6. Iterator paths
-    print("[6/6] iterator paths")
-    _timed("loads(iterator)", lambda: list(strata.loads(json_text, iterator=True)), repeat=10)
+    print("[6/6] iterator paths", flush=True)
+    _timed("loads(iterator)", lambda: list(strata.loads(json_text, iterator=True)), repeat=1)
     _timed(
         "search(iterator)",
         lambda: list(
             strata.search(json_path, strata.compile_path("$.records[*].id"), iterator=True)
         ),
-        repeat=15,
+        repeat=1,
     )
 
     print("\nPGO training workload complete.")
