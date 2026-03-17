@@ -238,8 +238,9 @@ class KeyCache {
                 } else {
                     cursor_ = (matched_idx + 1 < n) ? matched_idx + 1 : 0;
                 }
-                // Advance shared keys in other schemas.
-                if (num_schemas_ > 1 && matched_pos < 2) {
+                // Advance shared keys in other schemas (only during discovery).
+                // Once multi_settled, schemas are known — sync is wasted work.
+                if (num_schemas_ > 1 && matched_pos < 2 && !multi_settled_) {
                     uint16_t midx = schema.key_indices[matched_pos];
                     for (int j = 0; j < num_schemas_; ++j) {
                         if (j != active_schema_ && schemas_[j].cursor_pos == matched_pos &&
@@ -255,10 +256,53 @@ class KeyCache {
         cursor_ = (matched_idx + 1 < n) ? matched_idx + 1 : 0;
     }
 
+    /// Number of known schemas for multi-schema fallback in speculative matching.
+    int num_schemas() const { return num_schemas_; }
+
+    /// Try alternative schema predictions when primary cursor misses.
+    /// Returns the entry index if a match is found, or SIZE_MAX on miss.
+    /// On match, switches active schema and advances cursor.
+    size_t try_alternative_schemas(const char* data, size_t remaining) {
+        if (settled_ || num_schemas_ <= 1)
+            return SIZE_MAX;
+        const size_t n = entries_.size();
+        for (int s = 0; s < num_schemas_; ++s) {
+            auto& schema = schemas_[s];
+            if (schema.cursor_pos >= schema.num_keys)
+                continue;
+            size_t idx = schema.key_indices[schema.cursor_pos];
+            if (idx == cursor_)
+                continue; // already checked by primary prediction
+            auto& e = entries_[idx];
+            size_t key_len = e.key_len;
+            if (key_len + 1 > remaining)
+                continue;
+            if (std::memcmp(data, e.key_data, key_len) != 0)
+                continue;
+            if (data[key_len] != '"')
+                continue;
+            // Match! Switch to this schema.
+            active_schema_ = s;
+            last_matched_idx_ = static_cast<uint16_t>(idx);
+            schema.cursor_pos++;
+            if (schema.cursor_pos < schema.num_keys) {
+                cursor_ = schema.key_indices[schema.cursor_pos];
+            } else {
+                cursor_ = (idx + 1 < n) ? idx + 1 : 0;
+            }
+            return idx;
+        }
+        return SIZE_MAX;
+    }
+
     /// Whether schema tracking has settled (single schema confirmed).
     /// When true, notify_object_start/end are effectively no-ops and
     /// schema tracking in PythonObjectBuilder can be skipped entirely.
     bool settled() const { return settled_; }
+
+    /// Whether multi-schema tracking has stabilized.
+    /// When true, schema recording in the handler can be skipped.
+    bool multi_settled() const { return multi_settled_; }
 
     /// Called at the start of each JSON object (array-element objects only).
     /// For settled single-schema data: no-op (cursor_ wraps naturally).
@@ -281,7 +325,7 @@ class KeyCache {
     /// @param keys  Array of entry indices for each top-level key in order.
     /// @param count Number of keys.
     void notify_object_end(const uint16_t* keys, uint16_t count) {
-        if (LIKELY(settled_))
+        if (LIKELY(settled_ || multi_settled_))
             return;
         if (count == 0)
             return;
@@ -299,6 +343,13 @@ class KeyCache {
                     if (settle_count_ >= 2) {
                         settled_ = true;
                     }
+                } else {
+                    // Multi-schema: count total matches across all schemas
+                    settle_count_++;
+                    if (settle_count_ >= 6) {
+                        // All schemas seen enough times — stop verifying
+                        multi_settled_ = true;
+                    }
                 }
                 return;
             }
@@ -310,7 +361,14 @@ class KeyCache {
             if (schema.num_keys == count &&
                 std::memcmp(schema.key_indices, keys, count * sizeof(uint16_t)) == 0) {
                 active_schema_ = i;
-                settle_count_ = 0; // Different schema — reset settle counter
+                if (num_schemas_ > 1) {
+                    settle_count_++; // Count towards multi-settle
+                    if (settle_count_ >= 6) {
+                        multi_settled_ = true;
+                    }
+                } else {
+                    settle_count_ = 0;
+                }
                 return;
             }
         }
@@ -407,8 +465,9 @@ class KeyCache {
     SchemaInfo schemas_[kMaxSchemas];
     int num_schemas_ = 0;
     int active_schema_ = -1;
-    int settle_count_ = 0; // consecutive same-schema matches
+    int settle_count_ = 0; // consecutive same-schema matches (single) or total matches (multi)
     bool settled_ = false; // true after single schema confirmed (zero-overhead mode)
+    bool multi_settled_ = false; // true after multi-schema patterns stabilized
 
     // Index of the entry matched/inserted by the last get() call.
     uint16_t last_matched_idx_ = 0;
@@ -550,10 +609,14 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         // flat/nested/wide_arrays records alternating in the same array).
         // Inner objects (dict values, deeply nested) are consistent per-schema
         // and handled well by the legacy cursor.
+        // Once settled (single or multi), skip schema recording overhead.
+        // notify_object_start is still needed for multi-schema to reset cursors.
         bool in_array = !stack_.empty() && stack_.back() == nullptr;
-        if (in_array && !schema_tracking_active_) {
+        if (UNLIKELY(in_array && !schema_tracking_active_ && !cache_.settled())) {
             cache_.notify_object_start();
-            if (LIKELY(!cache_.settled())) {
+            // Only record schema keys during discovery phase (before multi_settled).
+            // Once multi_settled, schemas are known — recording is wasted work.
+            if (!cache_.multi_settled()) {
                 schema_tracking_active_ = true;
                 schema_tracking_depth_ = stack_.size();
                 schema_recording_count_ = 0;
@@ -620,28 +683,40 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         const size_t key_len = e.key_len;
 
         // Need key_len bytes + closing quote
-        if (key_len + 1 > remaining)
-            return 0;
+        if (key_len + 1 <= remaining && std::memcmp(data, e.key_data, key_len) == 0 &&
+            data[key_len] == '"') {
+            // Primary prediction match! Push the cached key and advance cursor.
+            keys_.push_back(e.cached);
+            cache_.advance_after_match(pred_idx);
 
-        // Compare key bytes
-        if (std::memcmp(data, e.key_data, key_len) != 0)
-            return 0;
+            // Record key index for schema tracking (speculative match bypasses on_key).
+            if (schema_tracking_active_ && stack_.size() == schema_tracking_depth_ + 1) {
+                if (schema_recording_count_ < kMaxSchemaKeys) {
+                    schema_recording_[schema_recording_count_++] = static_cast<uint16_t>(pred_idx);
+                }
+            }
+            return key_len + 1; // consumed: key bytes + closing quote
+        }
 
-        // Check closing quote
-        if (data[key_len] != '"')
-            return 0;
-
-        // Match! Push the cached key (borrowed ref) and advance cursor.
-        keys_.push_back(e.cached);
-        cache_.advance_after_match(pred_idx);
-
-        // Record key index for schema tracking (speculative match bypasses on_key).
-        if (schema_tracking_active_ && stack_.size() == schema_tracking_depth_ + 1) {
-            if (schema_recording_count_ < kMaxSchemaKeys) {
-                schema_recording_[schema_recording_count_++] = static_cast<uint16_t>(pred_idx);
+        // Primary prediction missed. For multi-schema data, try other schemas'
+        // cursor positions before falling back to expensive full string parsing.
+        if (cache_.num_schemas() > 1) {
+            size_t alt_idx = cache_.try_alternative_schemas(data, remaining);
+            if (alt_idx != SIZE_MAX) {
+                const auto& alt_e = entries[alt_idx];
+                keys_.push_back(alt_e.cached);
+                // Record key index for schema tracking
+                if (schema_tracking_active_ && stack_.size() == schema_tracking_depth_ + 1) {
+                    if (schema_recording_count_ < kMaxSchemaKeys) {
+                        schema_recording_[schema_recording_count_++] =
+                            static_cast<uint16_t>(alt_idx);
+                    }
+                }
+                return alt_e.key_len + 1;
             }
         }
-        return key_len + 1; // consumed: key bytes + closing quote
+
+        return 0;
     }
 
     bool on_end_object() override {

@@ -313,6 +313,24 @@ def _make_record(
             if k not in record:
                 record[k] = _scalar_value(rng, str_pool)
 
+    # Every 10th record: wide float arrays (exercises Dragonbox d2d + inline formatting)
+    if record_id % 10 == 0:
+        record["float_values"] = [rng.random() for _ in range(100)]
+        record["float_mixed"] = [rng.random() * 1000 for _ in range(50)]
+
+    # Every 3rd record: flat-like schema (20 keys, strings/ints/floats)
+    # Exercises the mixed-schema pattern that alternates between flat/nested/wide_arrays.
+    if record_id % 3 == 0:
+        for i in range(20):
+            k = f"field_{i}"
+            kind = i % 3
+            if kind == 0:
+                record[k] = rng.randint(-10000, 10000)
+            elif kind == 1:
+                record[k] = rng.random() * 1000
+            else:
+                record[k] = rng.choice(str_pool)
+
     # Every 50th record: deep nesting chain (10+ levels)
     if record_id % 50 == 0:
         chain: dict = {}

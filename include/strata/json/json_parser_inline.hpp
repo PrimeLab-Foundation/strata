@@ -131,19 +131,26 @@ template <typename Handler> struct ParserInline {
         skip_ws();
         if (eof())
             return false;
-        char c = peek();
+        // Dispatch order optimised for JSON data where numbers and strings
+        // dominate. Digits (0-9) use a branchless range check as the first
+        // test because they are the most common value start in real-world JSON
+        // (ints and floats). Strings come next. Structural and literal tokens
+        // (objects, arrays, null, true/false) are rarer inside values.
+        unsigned char c = static_cast<unsigned char>(peek());
+        if (c - '0' <= 9u)
+            return parse_number();
+        if (c == '"')
+            return parse_string();
+        if (c == '-')
+            return parse_number();
+        if (c == '{')
+            return parse_object();
+        if (c == '[')
+            return parse_array();
         if (c == 'n')
             return parse_null();
         if (c == 't' || c == 'f')
             return parse_bool();
-        if (c == '"')
-            return parse_string();
-        if (c == '[')
-            return parse_array();
-        if (c == '{')
-            return parse_object();
-        if (c == '-' || std::isdigit(static_cast<unsigned char>(c)))
-            return parse_number();
         return false;
     }
 
@@ -395,19 +402,41 @@ template <typename Handler> struct ParserInline {
                     return false;
             dispatch_done:;
             }
-            // Delimiter — single skip_ws per element
-            skip_ws();
-            if (eof())
-                return false;
-            char delim = peek();
-            if (delim == ']') {
-                ++i;
-                break;
+            // Delimiter — optimised for compact JSON (no whitespace).
+            // Avoids 2× skip_ws calls on the common path.
+            if (__builtin_expect(i < len, 1)) {
+                char d = data[i];
+                if (__builtin_expect(d == ',', 1)) {
+                    ++i;
+                    // Fast exit: next char is not whitespace (compact JSON)
+                    if (__builtin_expect(i < len && static_cast<unsigned char>(data[i]) > ' ', 1))
+                        continue;
+                    skip_ws();
+                    continue;
+                }
+                if (d == ']') {
+                    ++i;
+                    break;
+                }
+                if (static_cast<unsigned char>(d) <= ' ') {
+                    // Whitespace before delimiter — rare in benchmarks
+                    skip_ws();
+                    if (i >= len)
+                        return false;
+                    d = data[i];
+                    if (d == ']') {
+                        ++i;
+                        break;
+                    }
+                    if (d != ',')
+                        return false;
+                    ++i;
+                    skip_ws();
+                    continue;
+                }
+                return false; // Invalid character
             }
-            if (delim != ',')
-                return false;
-            ++i;
-            skip_ws();
+            return false;
         }
         return handler.on_end_array();
     }
@@ -515,10 +544,15 @@ template <typename Handler> struct ParserInline {
             size_t consumed = handler.try_match_key(data + pos, len - pos);
             if (consumed > 0) {
                 i = pos + consumed;
-                // Try to also consume optional whitespace + colon after the key.
-                // This saves a separate consume(':') step in parse_object().
+                // Fast colon check: for compact JSON (the common case),
+                // the colon immediately follows the closing quote with no
+                // whitespace. Avoids entering the whitespace loop below.
+                if (LIKELY(i < len && data[i] == ':')) {
+                    ++i;
+                    return 2; // matched key + colon
+                }
+                // Slow path: whitespace before colon (rare in machine-generated JSON)
                 size_t j = i;
-                // Skip whitespace (common case: no whitespace before colon)
                 while (j < len &&
                        (data[j] == ' ' || data[j] == '\t' || data[j] == '\n' || data[j] == '\r'))
                     ++j;

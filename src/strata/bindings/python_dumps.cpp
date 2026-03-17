@@ -1,7 +1,7 @@
 #include "python_types.h"
 #include "strata/util/dragonbox.hpp"
+#include "strata/util/dragonbox_inline.hpp"
 #include "strata/util/output_buffer.hpp"
-#include "strata/util/ryu_inline.hpp"
 #include "strata/util/simd_string.hpp"
 
 #include <charconv>
@@ -319,7 +319,7 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
         value = -value;
     }
 
-    int len = strata::util::ryu_inline::convert(value, p);
+    int len = strata::util::dragonbox_inline::convert(value, p);
     out.unsafe_advance(static_cast<size_t>((p - start) + len));
     return true;
 }
@@ -330,8 +330,8 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
         const char* data = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(obj));
         const size_t ulen = static_cast<size_t>(len);
 
-        // Reserve space for quotes + data (worst case: no escapes)
-        out.reserve(out.size() + ulen + 2);
+        // Reserve space for quotes + data + 16 bytes NEON padding
+        out.reserve(out.size() + ulen + 18);
         char* dest = out.data() + out.size();
 
         // Single-pass: write directly to buffer memory, only advance size_ once at end.
@@ -360,7 +360,8 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
             uint8x16_t mask = vld1q_u8(mask_data + (16 - ulen));
             esc = vandq_u8(esc, mask);
             if (LIKELY(vmaxvq_u8(esc) == 0)) {
-                std::memcpy(dest, data, ulen);
+                // Store NEON register directly — reuse already-loaded data, avoids memcpy call
+                vst1q_u8(reinterpret_cast<uint8_t*>(dest), chunk);
                 dest += ulen;
                 *dest++ = '"';
                 out.unsafe_advance(static_cast<size_t>(dest - dest_start));
@@ -385,15 +386,32 @@ template <typename Buffer> static inline bool append_string(PyObject* obj, Buffe
                 vst1q_u8(reinterpret_cast<uint8_t*>(dest), chunk);
                 dest += 16;
             }
+
+            // Overlapping NEON tail: handle remaining 1-15 bytes with a single vector
+            // op instead of byte-by-byte scalar loop. Loads last 16 bytes of string
+            // (overlapping with already-checked region) and stores at overlapping position.
+            if (i < ulen) {
+                uint8x16_t chunk = vld1q_u8(reinterpret_cast<const uint8_t*>(data + ulen - 16));
+                uint8x16_t esc = vorrq_u8(vcltq_u8(chunk, thr),
+                                          vorrq_u8(vceqq_u8(chunk, qv), vceqq_u8(chunk, bv)));
+                if (UNLIKELY(vmaxvq_u8(esc) != 0))
+                    goto has_escapes;
+                // Store at overlapping position: writes bytes [ulen-16, ulen-1]
+                // to their correct output positions. Overlap with prior writes is harmless.
+                vst1q_u8(reinterpret_cast<uint8_t*>(dest_start + 1 + ulen - 16), chunk);
+                dest = dest_start + 1 + ulen;
+            }
         }
 #endif
-        // Scalar tail
+#ifndef STRATA_SERIALIZE_HAS_NEON
+        // Scalar fallback (non-NEON platforms)
         for (; i < ulen; ++i) {
             unsigned char c = static_cast<unsigned char>(data[i]);
             if (UNLIKELY(c < 0x20 || c == '"' || c == '\\'))
                 goto has_escapes;
             *dest++ = data[i];
         }
+#endif
 
         *dest++ = '"';
         out.unsafe_advance(static_cast<size_t>(dest - dest_start));
@@ -676,6 +694,11 @@ static inline bool serialize_dict_t(PyObject* dict, Buffer& out, int depth) {
             pop_seen();
         return true;
     }
+
+    // Pre-reserve for the whole dict to make per-key/value reserves free (no-op comparisons).
+    // Each key-value pair: key ~15 bytes + value ~30 bytes + comma = ~48 bytes average.
+    out.reserve(out.size() + static_cast<size_t>(sz) * 48 + 2);
+
     Py_ssize_t pos = 0;
     PyObject* key = nullptr;
     PyObject* value = nullptr;
@@ -787,16 +810,16 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
             return false;
     }
 
-    // Pre-reserve for the estimated output. Each dict has ~nkeys * 40 bytes
-    // (key + value). This makes per-element reserve checks essentially free.
-    out.reserve(out.size() + static_cast<size_t>(sz) * static_cast<size_t>(nkeys) * 40 + 4);
+    // Pre-reserve for the estimated output. Each dict has ~nkeys * 60 bytes
+    // (key + value). Generous to avoid mid-serialization reallocs.
+    out.reserve(out.size() + static_cast<size_t>(sz) * static_cast<size_t>(nkeys) * 60 + 4);
 
     // Serialize using pre-computed keys
-    out.push_back('[');
+    out.unsafe_push_back('[');
 
     for (Py_ssize_t i = 0; i < sz; ++i) {
         if (i > 0)
-            out.push_back(',');
+            out.unsafe_push_back(',');
         PyObject* dict = PyList_GET_ITEM(list, i);
 
         // Verify this dict has the expected key count (fast bail for heterogeneous lists)
@@ -825,14 +848,14 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
             return true;
         }
 
-        out.push_back('{');
+        out.unsafe_push_back('{');
         Py_ssize_t dpos = 0;
         PyObject* dk = nullptr;
         PyObject* dv = nullptr;
         int k = 0;
         while (PyDict_Next(dict, &dpos, &dk, &dv)) {
-            // Write pre-computed key (no escape check, single append)
-            out.append(prekeys[k].data, prekeys[k].len);
+            // Write pre-computed key (no escape check, single unsafe append)
+            out.unsafe_append(prekeys[k].data, prekeys[k].len);
             // Inline top-3 type checks to avoid serialize_item_t function call
             PyTypeObject* vt = Py_TYPE(dv);
             if (LIKELY(vt == &PyUnicode_Type)) {
@@ -846,38 +869,30 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
                     return false;
             } else if (vt == &PyBool_Type) {
                 if (dv == Py_True)
-                    out.append("true", 4);
+                    out.unsafe_append("true", 4);
                 else
-                    out.append("false", 5);
+                    out.unsafe_append("false", 5);
             } else if (dv == Py_None) {
-                out.append("null", 4);
+                out.unsafe_append("null", 4);
+            } else if (vt == &PyDict_Type) {
+                // Inline dict dispatch to avoid serialize_item_t overhead
+                if (!serialize_dict_t<Tracking>(dv, out, depth + 1))
+                    return false;
             } else if (vt == &PyList_Type) {
-                // Inline small list serialization: avoids function call overhead
-                // for common cases like tags arrays in flat schemas.
-                Py_ssize_t lsz = PyList_GET_SIZE(dv);
-                if (lsz == 0) {
-                    out.append("[]", 2);
-                } else {
-                    out.push_back('[');
-                    if (!serialize_item_t<Tracking>(PyList_GET_ITEM(dv, 0), out, depth + 2))
-                        return false;
-                    for (Py_ssize_t li = 1; li < lsz; ++li) {
-                        out.push_back(',');
-                        if (!serialize_item_t<Tracking>(PyList_GET_ITEM(dv, li), out, depth + 2))
-                            return false;
-                    }
-                    out.push_back(']');
-                }
+                // Route through serialize_list_t to benefit from homogeneous
+                // array fast paths (float_array_fast, int_array_fast, etc.)
+                if (!serialize_list_t<Tracking>(dv, out, depth + 1))
+                    return false;
             } else {
                 if (!serialize_item_t<Tracking>(dv, out, depth + 1))
                     return false;
             }
             ++k;
         }
-        out.push_back('}');
+        out.unsafe_push_back('}');
     }
 
-    out.push_back(']');
+    out.unsafe_push_back(']');
     return true;
 }
 
@@ -949,37 +964,54 @@ template <typename Buffer> static inline void append_double_batch(Buffer& out, d
         return;
     }
 
-    // Integer-valued fast path
-    if (value >= -999999999999999.0 && value <= 999999999999999.0) {
-        int64_t ival = static_cast<int64_t>(value);
-        if (static_cast<double>(ival) == value && LIKELY(ival != 0 || !std::signbit(value))) {
-            append_int64(out, ival);
-            out.unsafe_push_back('.');
-            out.unsafe_push_back('0');
-            return;
+    // Integer-valued fast path — only check for |value| >= 1.0.
+    // For values in (-1, 1) like random.random(), this skips 3 wasted branches.
+    double abs_val = value < 0 ? -value : value;
+    if (abs_val >= 1.0) {
+        if (abs_val <= 999999999999999.0) {
+            int64_t ival = static_cast<int64_t>(value);
+            if (static_cast<double>(ival) == value) {
+                append_int64(out, ival);
+                out.unsafe_push_back('.');
+                out.unsafe_push_back('0');
+                return;
+            }
         }
+    } else if (UNLIKELY(abs_val == 0.0)) {
+        // Zero (positive or negative)
+        if (std::signbit(value)) {
+            memcpy(out.data() + out.size(), "-0.0", 4);
+            out.unsafe_advance(4);
+        } else {
+            memcpy(out.data() + out.size(), "0.0", 3);
+            out.unsafe_advance(3);
+        }
+        return;
     }
 
-    // General path: Ryu d2d. No reserve needed — caller pre-reserved.
+    // General path: Dragonbox d2d. No reserve needed — caller pre-reserved.
     char* start = out.data() + out.size();
     char* p = start;
     if (value < 0) {
         *p++ = '-';
         value = -value;
     }
-    int len = strata::util::ryu_inline::convert(value, p);
+    int len = strata::util::dragonbox_inline::convert(value, p);
     out.unsafe_advance(static_cast<size_t>((p - start) + len));
 }
 
 // Fast path for homogeneous float arrays: skips per-element type dispatch.
-// Checks first min(sz, 8) elements to verify all are PyFloat_Type, then
-// serializes with a tight loop using batch-optimized append_double_batch().
+// Verifies ALL elements are PyFloat_Type upfront, then serializes with
+// a tight loop that inlines the Dragonbox convert directly — no type checks,
+// no NaN/Inf/zero/sign/integer branches in the hot loop.
 template <typename Buffer>
 static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ssize_t sz) {
-    // Verify homogeneity by sampling first min(sz, 8) elements
-    const Py_ssize_t check = sz < 8 ? sz : 8;
-    for (Py_ssize_t i = 0; i < check; ++i) {
-        if (Py_TYPE(PyList_GET_ITEM(list, i)) != &PyFloat_Type)
+    // Verify ALL elements are floats (not just a sample).
+    // This is fast: just pointer comparison, ~1 cycle per element.
+    // Enables a type-check-free hot loop below.
+    PyObject** items = &PyList_GET_ITEM(list, 0);
+    for (Py_ssize_t i = 0; i < sz; ++i) {
+        if (Py_TYPE(items[i]) != &PyFloat_Type)
             return false;
     }
 
@@ -987,23 +1019,12 @@ static inline bool serialize_float_array_fast(PyObject* list, Buffer& out, Py_ss
     out.reserve(out.size() + static_cast<size_t>(sz) * 26 + 2);
     out.unsafe_push_back('[');
 
-    append_double_batch(out, PyFloat_AS_DOUBLE(PyList_GET_ITEM(list, 0)));
+    // Tight serialization loop — no type checks, no branch mispredictions.
+    append_double_batch(out, PyFloat_AS_DOUBLE(items[0]));
 
     for (Py_ssize_t i = 1; i < sz; ++i) {
-        PyObject* item = PyList_GET_ITEM(list, i);
-        // Late bail if a non-float sneaks in after the sampled prefix
-        if (UNLIKELY(Py_TYPE(item) != &PyFloat_Type)) {
-            // Write remaining elements through the generic path
-            for (Py_ssize_t j = i; j < sz; ++j) {
-                out.push_back(',');
-                if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
-                    return false;
-            }
-            out.push_back(']');
-            return true;
-        }
         out.unsafe_push_back(',');
-        append_double_batch(out, PyFloat_AS_DOUBLE(item));
+        append_double_batch(out, PyFloat_AS_DOUBLE(items[i]));
     }
 
     out.unsafe_push_back(']');
@@ -1359,12 +1380,23 @@ PyObject* strata_dumps_internal(PyObject* obj) {
     if (g_serialize_buffer.capacity() < est)
         g_serialize_buffer.reserve(est);
 
-    if (!serialize_value(obj, g_serialize_buffer, 0)) {
-        return NULL;
+    bool ok;
+    if (LIKELY(g_cycle_policy == CyclePolicy::Ignore)) {
+        PyTypeObject* vt = Py_TYPE(obj);
+        if (vt == &PyDict_Type)
+            ok = serialize_dict_t<false>(obj, g_serialize_buffer, 1);
+        else if (vt == &PyList_Type)
+            ok = serialize_list_t<false>(obj, g_serialize_buffer, 1);
+        else
+            ok = serialize_value(obj, g_serialize_buffer, 0);
+    } else {
+        ok = serialize_value(obj, g_serialize_buffer, 0);
     }
-    if (PyErr_Occurred()) {
+
+    if (!ok)
         return NULL;
-    }
+    if (PyErr_Occurred())
+        return NULL;
 
     return buffer_to_pyunicode(g_serialize_buffer.data(), g_serialize_buffer.size());
 }

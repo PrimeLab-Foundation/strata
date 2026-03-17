@@ -57,6 +57,28 @@ struct DecimalResult {
 
 namespace detail {
 
+/// Power-of-10 lookup table (avoids divisor loop in formatting).
+inline constexpr uint64_t POW10[18] = {
+    1ULL,
+    10ULL,
+    100ULL,
+    1000ULL,
+    10000ULL,
+    100000ULL,
+    1000000ULL,
+    10000000ULL,
+    100000000ULL,
+    1000000000ULL,
+    10000000000ULL,
+    100000000000ULL,
+    1000000000000ULL,
+    10000000000000ULL,
+    100000000000000ULL,
+    1000000000000000ULL,
+    10000000000000000ULL,
+    100000000000000000ULL,
+};
+
 /// Digit-pair lookup table: "00", "01", ..., "99"
 inline constexpr char DIGIT_PAIRS[201] = "00010203040506070809"
                                          "10111213141516171819"
@@ -97,12 +119,12 @@ inline int decimalLength17(uint64_t v) {
     return v >= 10ULL ? 2 : 1;
 }
 
-/// Write digits of `output` into buf[0..olength-1] using digit-pair table.
-inline void writeDigitsPairs(uint64_t output, char* buf, int olength) {
+/// Write digits of a 32-bit value using faster 32-bit division.
+inline void writeDigitsPairs32(uint32_t output, char* buf, int olength) {
     int i = olength - 1;
     while (i >= 1) {
-        uint64_t q = output / 100;
-        uint32_t r = static_cast<uint32_t>(output - 100 * q);
+        uint32_t q = output / 100;
+        uint32_t r = output - 100 * q;
         output = q;
         memcpy(buf + i - 1, DIGIT_PAIRS + 2 * r, 2);
         i -= 2;
@@ -110,6 +132,21 @@ inline void writeDigitsPairs(uint64_t output, char* buf, int olength) {
     if (i == 0) {
         buf[0] = '0' + static_cast<char>(output);
     }
+}
+
+/// Write digits of `output` into buf[0..olength-1] using digit-pair table.
+/// For values > 9 digits, splits into two 32-bit halves for faster division.
+inline void writeDigitsPairs(uint64_t output, char* buf, int olength) {
+    if (olength <= 9) {
+        writeDigitsPairs32(static_cast<uint32_t>(output), buf, olength);
+        return;
+    }
+    // Split into lo (bottom 8 digits) and hi (remaining top digits).
+    static constexpr uint64_t kE8 = 100000000ULL;
+    uint32_t lo = static_cast<uint32_t>(output % kE8);
+    uint32_t hi = static_cast<uint32_t>(output / kE8);
+    writeDigitsPairs32(lo, buf + olength - 8, 8);
+    writeDigitsPairs32(hi, buf, olength - 8);
 }
 
 /// Write scientific exponent (minimum 2 digits, e.g. "06", "12", "308").
@@ -165,9 +202,7 @@ inline char* writeExponent(int32_t exp, char* p) {
             // Split mantissa: intPart = mantissa / 10^(olength - dotPos)
             //                 fracPart = mantissa % 10^(olength - dotPos)
             int fracLen = olength - dotPos;
-            uint64_t divisor = 1;
-            for (int i = 0; i < fracLen; ++i)
-                divisor *= 10;
+            uint64_t divisor = detail::POW10[fracLen];
             uint64_t intPart = mantissa / divisor;
             uint64_t fracPart = mantissa % divisor;
 
@@ -194,9 +229,7 @@ inline char* writeExponent(int32_t exp, char* p) {
             // Split: first digit = mantissa / 10^(olength-1)
             //        rest = mantissa % 10^(olength-1)
             int restLen = olength - 1;
-            uint64_t divisor = 1;
-            for (int i = 0; i < restLen; ++i)
-                divisor *= 10;
+            uint64_t divisor = detail::POW10[restLen];
             uint64_t first = mantissa / divisor;
             uint64_t rest = mantissa % divisor;
 
