@@ -32,15 +32,41 @@
 
 #include <cstdint>
 
-// Detect SIMD support
+// ============================================================================
+// Platform / SIMD feature detection
+//
+// Multiple features may be defined simultaneously (e.g. AVX-512 + AVX2, or
+// SVE2 + NEON).  The structural_indexer selects the best path at compile time
+// via a #if / #elif priority chain.
+// ============================================================================
+
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+// --- x86: AVX-512, AVX2 (both may be defined; AVX-512 implies AVX2) ------
+#if defined(__AVX512F__) && defined(__AVX512BW__)
+#define STRATA_SIMD_HAS_AVX512 1
+#endif
 #if defined(__AVX2__)
 #define STRATA_SIMD_HAS_AVX2 1
+#endif
+#if defined(STRATA_SIMD_HAS_AVX512) || defined(STRATA_SIMD_HAS_AVX2)
 #include <immintrin.h>
 #endif
-#elif defined(__ARM_NEON) || defined(__aarch64__)
+#elif defined(__aarch64__) || defined(__ARM_NEON)
+// --- ARM: SVE2, NEON (both may be defined; SVE2 implies AArch64+NEON) ----
+#if defined(__ARM_FEATURE_SVE2)
+#define STRATA_SIMD_HAS_SVE2 1
+#include <arm_sve.h>
+#endif
 #define STRATA_SIMD_HAS_NEON 1
 #include <arm_neon.h>
+#elif defined(__wasm_simd128__)
+// --- WebAssembly SIMD128 -------------------------------------------------
+#define STRATA_SIMD_HAS_WASM_SIMD 1
+#include <wasm_simd128.h>
+#elif defined(__riscv_v) || defined(__riscv_vector)
+// --- RISC-V Vector Extension (RVV 1.0) -----------------------------------
+#define STRATA_SIMD_HAS_RVV 1
+#include <riscv_vector.h>
 #endif
 
 namespace strata {
@@ -64,21 +90,38 @@ struct ClassMask {
  */
 class Classifier {
   public:
+#ifdef STRATA_SIMD_HAS_AVX512
+    /// Classify 64 bytes at once (AVX-512BW).  Single 512-bit vpshufb across
+    /// four 128-bit lanes, same nibble-AND trick.  Pair with
+    /// _mm512_test_epi8_mask for direct 64-bit class bitmasks.
+    [[nodiscard]] __m512i classify64(__m512i input) const noexcept;
+#endif
+
 #ifdef STRATA_SIMD_HAS_AVX2
-    /**
-     * Classify 32 bytes at once.
-     *
-     * @param input  A 256-bit vector of 32 input bytes.
-     * @return A 256-bit vector where each byte contains the classification
-     *         bitmask for the corresponding input byte (see ClassMask).
-     *
-     * To extract a 32-bit bitmask for a specific class:
-     *   __m256i cls = classify32(input);
-     *   __m256i test = _mm256_and_si256(cls, _mm256_set1_epi8(ClassMask::kStructural));
-     *   __m256i nonzero = _mm256_cmpeq_epi8(test, _mm256_setzero_si256());
-     *   uint32_t mask = ~(uint32_t)_mm256_movemask_epi8(nonzero);
-     */
+    /// Classify 32 bytes at once (AVX2 vpshufb across two 128-bit lanes).
     [[nodiscard]] __m256i classify32(__m256i input) const noexcept;
+#endif
+
+#ifdef STRATA_SIMD_HAS_SVE2
+    /// Classify a scalable vector of bytes (ARM SVE2 svtbl).
+    /// @param pg  Governing predicate — only active lanes are classified.
+    [[nodiscard]] svuint8_t classify_sve2(svuint8_t input, svbool_t pg) const noexcept;
+#endif
+
+#ifdef STRATA_SIMD_HAS_NEON
+    /// Classify 16 bytes at once (ARM NEON vqtbl1q_u8).
+    [[nodiscard]] uint8x16_t classify16(uint8x16_t input) const noexcept;
+#endif
+
+#ifdef STRATA_SIMD_HAS_WASM_SIMD
+    /// Classify 16 bytes at once (WebAssembly SIMD128 i8x16.swizzle).
+    [[nodiscard]] v128_t classify16_wasm(v128_t input) const noexcept;
+#endif
+
+#ifdef STRATA_SIMD_HAS_RVV
+    /// Classify a vector of bytes (RISC-V Vector vluxei8 gather).
+    /// @param vl  Current vector length from vsetvl.
+    [[nodiscard]] vuint8m1_t classify_rvv(vuint8m1_t input, size_t vl) const noexcept;
 #endif
 
     /**

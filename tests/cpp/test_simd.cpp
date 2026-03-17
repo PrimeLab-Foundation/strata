@@ -406,7 +406,8 @@ TEST(dispatch_detection) {
     const char* name = backend_name(b);
     std::printf("    Detected backend: %s\n", name);
     ASSERT_TRUE(b == Backend::SCALAR || b == Backend::AVX2 || b == Backend::AVX2_BMI2 ||
-                b == Backend::NEON);
+                b == Backend::AVX512 || b == Backend::NEON || b == Backend::SVE2 ||
+                b == Backend::WASM_SIMD || b == Backend::RVV);
 }
 
 TEST(dispatch_index_document) {

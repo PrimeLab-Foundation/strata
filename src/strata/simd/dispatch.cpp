@@ -16,37 +16,37 @@ namespace strata {
 namespace simd {
 
 // ============================================================================
-// Runtime backend detection via cpuid
+// Runtime backend detection
 // ============================================================================
 
 #ifdef STRATA_X86
 
 static Backend detect_backend_impl() noexcept {
-    // EAX=7, ECX=0 gives extended feature flags.
-    //   EBX bit 5:  AVX2
-    //   EBX bit 8:  BMI2
+    // cpuid EAX=7, ECX=0 → EBX:
+    //   bit 5:  AVX2
+    //   bit 8:  BMI2
+    //   bit 16: AVX512F
+    //   bit 30: AVX512BW
     //
-    // EAX=1 gives basic feature flags.
-    //   ECX bit 1:  PCLMULQDQ
+    // cpuid EAX=1 → ECX:
+    //   bit 1:  PCLMULQDQ
 
     unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
 
 #if defined(__GNUC__) || defined(__clang__)
-    // Check maximum supported cpuid leaf.
     __cpuid(0, eax, ebx, ecx, edx);
     unsigned int max_leaf = eax;
-
     if (max_leaf < 7)
         return Backend::SCALAR;
 
-    // EAX=1: basic feature flags (PCLMUL in ECX bit 1).
     __cpuid(1, eax, ebx, ecx, edx);
     bool has_pclmul = (ecx >> 1) & 1;
 
-    // EAX=7, ECX=0: extended features (AVX2, BMI2 in EBX).
     __cpuid_count(7, 0, eax, ebx, ecx, edx);
     bool has_avx2 = (ebx >> 5) & 1;
     bool has_bmi2 = (ebx >> 8) & 1;
+    bool has_avx512f = (ebx >> 16) & 1;
+    bool has_avx512bw = (ebx >> 30) & 1;
 
 #elif defined(_MSC_VER)
     int info[4];
@@ -61,36 +61,51 @@ static Backend detect_backend_impl() noexcept {
     __cpuidex(info, 7, 0);
     bool has_avx2 = (info[1] >> 5) & 1;
     bool has_bmi2 = (info[1] >> 8) & 1;
+    bool has_avx512f = (info[1] >> 16) & 1;
+    bool has_avx512bw = (info[1] >> 30) & 1;
 #else
-    bool has_avx2 = false;
-    bool has_bmi2 = false;
-    bool has_pclmul = false;
+    bool has_avx2 = false, has_bmi2 = false, has_pclmul = false;
+    bool has_avx512f = false, has_avx512bw = false;
 #endif
 
-    // We require at least AVX2 + PCLMUL for the SIMD path.
+    // AVX-512 requires F + BW (byte-level operations) + PCLMUL for prefix-XOR.
+    if (has_avx512f && has_avx512bw && has_pclmul)
+        return Backend::AVX512;
+
     if (!has_avx2 || !has_pclmul)
         return Backend::SCALAR;
 
     return has_bmi2 ? Backend::AVX2_BMI2 : Backend::AVX2;
 }
 
-#elif defined(__ARM_NEON) || defined(__aarch64__)
+#elif defined(__aarch64__) || defined(__ARM_NEON)
 
 static Backend detect_backend_impl() noexcept {
-    // NEON structural indexer is not yet implemented — the classify() path
-    // falls through to the scalar #else branch.  Report SCALAR until a real
-    // NEON implementation exists so callers get an accurate label.
-    return Backend::SCALAR;
+    // SVE2 is detected at compile time (__ARM_FEATURE_SVE2).
+    // At runtime on Linux we could check /proc/cpuinfo or HWCAP2,
+    // but compile-time detection is sufficient for statically-linked paths.
+#if defined(__ARM_FEATURE_SVE2)
+    return Backend::SVE2;
+#else
+    return Backend::NEON;
+#endif
 }
+
+#elif defined(__wasm_simd128__)
+
+static Backend detect_backend_impl() noexcept { return Backend::WASM_SIMD; }
+
+#elif defined(__riscv_v) || defined(__riscv_vector)
+
+static Backend detect_backend_impl() noexcept { return Backend::RVV; }
 
 #else
 
 static Backend detect_backend_impl() noexcept { return Backend::SCALAR; }
 
-#endif // STRATA_X86
+#endif // platform detection
 
 Backend detect_backend() noexcept {
-    // Cache the result in a function-local static (thread-safe in C++11+).
     static Backend cached = detect_backend_impl();
     return cached;
 }
@@ -103,8 +118,16 @@ const char* backend_name(Backend b) noexcept {
         return "avx2";
     case Backend::AVX2_BMI2:
         return "avx2+bmi2";
+    case Backend::AVX512:
+        return "avx512";
     case Backend::NEON:
         return "neon";
+    case Backend::SVE2:
+        return "sve2";
+    case Backend::WASM_SIMD:
+        return "wasm-simd";
+    case Backend::RVV:
+        return "rvv";
     }
     return "unknown";
 }
@@ -114,13 +137,6 @@ const char* backend_name(Backend b) noexcept {
 // ============================================================================
 
 IndexBuilder::StructuralIndex index_document(const uint8_t* data, size_t len) {
-    // The IndexBuilder uses StructuralIndexer internally, which already
-    // selects the AVX2 or scalar path at compile time.  Runtime dispatch
-    // here is informational — the actual SIMD path is determined by
-    // compile flags (-mavx2, -mpclmul, -mbmi2).
-    //
-    // A future enhancement could use ifunc or dlsym-based dispatch to
-    // select between separately compiled object files at load time.
     IndexBuilder builder;
     return builder.build(data, len);
 }

@@ -298,7 +298,7 @@ fuzz: fuzz-run  ## Build and run fuzzers (alias for fuzz-run after fuzz-build).
 # ============================================================================
 # PGO (Rule 16: Makefile → scripts/)
 # ============================================================================
-pgo:  ## Run PGO workflow (generate profile, use+LTO build, tests, benchmarks). Env: PYTHON, CXX=clang++.
+pgo: clean ## Run PGO workflow (generate profile, use+LTO build, tests, benchmarks). Env: PYTHON, CXX=clang++.
 	@bash scripts/pgo_build.sh
 
 scripts-executable:  ## Make scripts/ runnable (chmod +x). Run once if you want ./scripts/foo.sh.

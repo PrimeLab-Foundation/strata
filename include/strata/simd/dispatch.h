@@ -5,10 +5,10 @@
  * @brief Compile-time and runtime SIMD backend dispatch for the structural indexer.
  *
  * Provides:
- *   - Compile-time detection via preprocessor (#ifdef __AVX2__, __BMI2__, __PCLMUL__)
+ *   - Compile-time detection via preprocessor (#ifdef __AVX512F__, __AVX2__, etc.)
  *   - Runtime cpuid-based feature detection with cached function pointers
  *   - Scalar fallback for all operations (no SIMD at all)
- *   - ARM NEON stubs (interface only, implementation deferred)
+ *   - Backends: AVX-512, AVX2(+BMI2), SVE2, NEON, WASM SIMD, RVV, Scalar
  */
 
 #include "strata/simd/index_builder.h"
@@ -18,12 +18,16 @@
 namespace strata {
 namespace simd {
 
-/// Available SIMD backends.
+/// Available SIMD backends (ordered roughly by throughput on target hardware).
 enum class Backend {
     SCALAR,    ///< No SIMD — portable C++ fallback
-    AVX2,      ///< AVX2 without BMI2 (vpshufb, PCLMUL, ctz-loop extraction)
-    AVX2_BMI2, ///< AVX2 + BMI2 (adds PEXT for fast bit extraction)
-    NEON,      ///< ARM NEON (stub — not yet implemented)
+    AVX2,      ///< x86 AVX2 (vpshufb, PCLMUL, ctz-loop extraction)
+    AVX2_BMI2, ///< x86 AVX2 + BMI2 (adds PEXT for fast bit extraction)
+    AVX512,    ///< x86 AVX-512BW (64-byte classify, native kmask)
+    NEON,      ///< ARM NEON (vqtbl1q_u8, PMULL prefix-XOR)
+    SVE2,      ///< ARM SVE2 (svtbl, scalable 128–2048-bit vectors)
+    WASM_SIMD, ///< WebAssembly SIMD128 (i8x16.swizzle, native bitmask)
+    RVV,       ///< RISC-V Vector Extension 1.0 (vluxei8 gather)
 };
 
 /**
