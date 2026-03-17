@@ -23,6 +23,7 @@ extern bool strata_serialize_to_buffer(PyObject* obj, const char** out_data, siz
 // Thread-local serialize buffer from python_dumps.cpp — used by dump() to append newline
 extern thread_local strata::util::OutputBuffer g_serialize_buffer;
 extern PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs);
+extern PyObject* parse_json_to_python_tl(std::string_view text, bool validate_utf8);
 extern PyObject* strata_parse_json_file(PyObject* self, PyObject* args);
 extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs);
@@ -297,8 +298,8 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
         PyObject* py_result;
         {
             PyGcPause gc_pause;
-            py_result = parse_json_to_python(std::string_view(file_buf, file_size),
-                                             /*validate_utf8=*/false);
+            py_result = parse_json_to_python_tl(std::string_view(file_buf, file_size),
+                                                /*validate_utf8=*/false);
         }
 
         if (!py_result)
@@ -336,11 +337,16 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
     if (!strata_serialize_to_buffer(obj, &data, &len))
         return NULL;
 
-    // Write buffer to file using POSIX I/O (avoids iostream overhead)
-    int fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    // Write buffer to file using POSIX I/O (avoids iostream overhead).
+    // Try O_WRONLY | O_TRUNC first (avoids O_CREAT metadata overhead on
+    // existing files — common in benchmarks and repeated writes).
+    int fd = open(filepath, O_WRONLY | O_TRUNC);
     if (fd < 0) {
-        PyErr_Format(PyExc_IOError, "Cannot open file for writing: %s", filepath);
-        return NULL;
+        fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) {
+            PyErr_Format(PyExc_IOError, "Cannot open file for writing: %s", filepath);
+            return NULL;
+        }
     }
 
     // Single write call for data + newline by appending newline to buffer
@@ -449,7 +455,7 @@ PyMODINIT_FUNC PyInit__strata(void) {
     {
         auto& map = get_config_map();
         if (map.empty()) {
-            PyObject* dup = PyUnicode_FromString("first");
+            PyObject* dup = PyUnicode_FromString("last");
             if (dup)
                 map["duplicate_key_policy"] = {dup};
             PyObject* cyc = PyUnicode_FromString("warn");

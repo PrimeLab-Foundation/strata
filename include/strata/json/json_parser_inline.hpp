@@ -359,9 +359,21 @@ template <typename Handler> struct ParserInline {
                                         ok = handler.on_double(result);
                                         goto dispatch_done;
                                     }
+                                    // Mantissa too large for Clinger — use Eisel-Lemire directly.
+                                    // Avoids re-scanning all digits via parse_number_unified.
+                                    {
+                                        double result;
+                                        auto answer =
+                                            fast_float::from_chars(data + i, data + p, result);
+                                        if (answer.ec == std::errc()) {
+                                            i = p;
+                                            ok = handler.on_double(result);
+                                            goto dispatch_done;
+                                        }
+                                    }
                                 }
                             }
-                            // Fall through to full parser
+                            // Fall through to full parser (exponent case)
                         } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
                             // Pure integer — no float suffix
                             if (val <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {

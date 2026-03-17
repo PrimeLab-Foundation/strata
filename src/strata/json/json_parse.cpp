@@ -25,8 +25,10 @@ namespace strata {
 
 namespace {
 
-/// Thread-local duplicate-key policy (default: first occurrence wins).
-thread_local DuplicateKeyPolicy g_duplicate_policy = DuplicateKeyPolicy::FirstWins;
+/// Thread-local duplicate-key policy (default: last occurrence wins).
+/// LastWins is the standard JSON behavior (RFC 8259), matches Python's
+/// json.loads(), and enables the _PyDict_SetItem_KnownHash fast path.
+thread_local DuplicateKeyPolicy g_duplicate_policy = DuplicateKeyPolicy::LastWins;
 
 /// Thread-local vector of parse warnings, consumed via consume_parse_warnings().
 thread_local std::vector<std::string> g_parse_warnings;

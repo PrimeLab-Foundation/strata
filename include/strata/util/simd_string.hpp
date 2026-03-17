@@ -85,10 +85,32 @@ void collect_newlines_simd(const char* data, size_t len, size_t start_pos, size_
 
 /**
  * SIMD-accelerated search for JSON escape characters (", \\, control chars).
+ * Full implementation in simd_escape.cpp — called for strings > 16 bytes.
  *
  * @return Position of first escape/quote, or @p len if none found.
  */
-[[nodiscard]] size_t find_next_escape_simd(const char* str, size_t len);
+[[nodiscard]] size_t find_next_escape_simd_long(const char* str, size_t len);
+
+/**
+ * Search for JSON escape characters (", \\, control chars).
+ * Inline short-string fast path avoids function call overhead for typical
+ * JSON keys (5-15 bytes). Falls through to SIMD for longer strings.
+ *
+ * @return Position of first escape/quote, or @p len if none found.
+ */
+[[nodiscard]] inline size_t find_next_escape_simd(const char* str, size_t len) {
+    // Inline scalar path for short strings — avoids function call overhead
+    // (~5ns) which dominates for typical JSON keys and short values.
+    if (len <= 16) {
+        for (size_t i = 0; i < len; ++i) {
+            unsigned char c = static_cast<unsigned char>(str[i]);
+            if (c < 0x20 || c == '"' || c == '\\')
+                return i;
+        }
+        return len;
+    }
+    return find_next_escape_simd_long(str, len);
+}
 
 /**
  * Check whether a string contains any character that must be escaped in JSON.

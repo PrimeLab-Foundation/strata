@@ -820,6 +820,18 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
     for (Py_ssize_t i = 0; i < sz; ++i) {
         if (i > 0)
             out.unsafe_push_back(',');
+
+        // After first element, refine pre-reserve based on actual first-element size.
+        // This avoids realloc cascades for nested objects where the initial estimate
+        // (nkeys * 60) significantly underestimates per-element output size.
+        if (UNLIKELY(i == 1)) {
+            size_t first_elem_size = out.size(); // approximate: includes '[' + first elem
+            size_t remaining = static_cast<size_t>(sz - 1);
+            size_t estimated_total = first_elem_size + remaining * first_elem_size + 8;
+            if (estimated_total > out.capacity()) {
+                out.reserve(estimated_total);
+            }
+        }
         PyObject* dict = PyList_GET_ITEM(list, i);
 
         // Verify this dict has the expected key count (fast bail for heterogeneous lists)

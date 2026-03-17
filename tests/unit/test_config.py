@@ -12,7 +12,7 @@ class TestConfigSetGet:
 
     def test_get_default_duplicate_key_policy(self):
         val = strata.config.get("duplicate_key_policy")
-        assert val == "first"
+        assert val == "last"
 
     def test_get_default_cycle_policy(self):
         val = strata.config.get("cycle_policy")

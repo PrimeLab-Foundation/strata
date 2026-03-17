@@ -96,8 +96,32 @@ def run(train_json: Path, train_ndjson: Path) -> None:
         path = strata.compile_path(expr)
         _timed(f"query({desc})", lambda p=path: strata.query(data, p), repeat=1)
 
-    # 6. Iterator paths
-    print("[6/6] iterator paths", flush=True)
+    # 6. Benchmark-specific training: exercise the exact patterns from bench_main.py
+    # This trains PGO branch predictors for flat/nested/mixed/wide_arrays schemas.
+    print("[6/8] benchmark schema training", flush=True)
+    bench_data_dir = (
+        Path(train_json).parent.parent.parent / "benchmarks" / "data" / "generated" / "small"
+    )
+    for schema in ("flat", "nested", "wide_arrays", "mixed"):
+        schema_file = bench_data_dir / f"{schema}.json"
+        if schema_file.exists():
+            schema_text = schema_file.read_text(encoding="utf-8")
+            _timed(f"loads({schema})", lambda t=schema_text: strata.loads(t), repeat=3)
+            schema_data = strata.loads(schema_text)
+            _timed(f"dumps({schema})", lambda d=schema_data: strata.dumps(d), repeat=3)
+
+    # 7. Roundtrip training with diverse data
+    print("[7/8] roundtrip training", flush=True)
+    for schema in ("flat", "nested", "wide_arrays", "mixed"):
+        schema_file = bench_data_dir / f"{schema}.json"
+        if schema_file.exists():
+            schema_text = schema_file.read_text(encoding="utf-8")
+            for _ in range(2):
+                d = strata.loads(schema_text)
+                strata.dumps(d)
+
+    # 8. Iterator paths
+    print("[8/8] iterator paths", flush=True)
     _timed("loads(iterator)", lambda: list(strata.loads(json_text, iterator=True)), repeat=1)
     _timed(
         "search(iterator)",

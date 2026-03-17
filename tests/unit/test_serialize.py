@@ -545,10 +545,9 @@ class TestDuplicateKeyPolicy:
     """Test configurable duplicate key handling."""
 
     def teardown_method(self):
-        strata.config.set("duplicate_key_policy", "first")
+        strata.config.set("duplicate_key_policy", "last")
 
     def test_last_wins(self):
-        strata.config.set("duplicate_key_policy", "last")
         result = strata.loads('{"a": 1, "a": 2}')
         assert result["a"] == 2
 

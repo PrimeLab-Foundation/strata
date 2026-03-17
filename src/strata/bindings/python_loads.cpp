@@ -556,13 +556,22 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         const size_t slen = v.size();
         const char* sdata = v.data();
 
-        // Short strings (≤16 bytes, the common case): scalar OR-accumulation
-        // is cheaper than NEON setup for these sizes.
+        // Short strings (≤16 bytes, the common case): SWAR word-at-a-time
+        // ASCII check is faster than byte loop for 5-16 byte strings
+        // (the typical range for JSON keys and short values).
         if (LIKELY(slen <= 16)) {
-            unsigned char high = 0;
-            for (size_t si = 0; si < slen; ++si)
-                high |= static_cast<unsigned char>(sdata[si]);
-            if (LIKELY(high < 0x80)) {
+            uint64_t high_bits = 0;
+            if (slen <= 8) {
+                uint64_t w = 0;
+                std::memcpy(&w, sdata, slen);
+                high_bits = w & 0x8080808080808080ULL;
+            } else {
+                uint64_t w0, w1 = 0;
+                std::memcpy(&w0, sdata, 8);
+                std::memcpy(&w1, sdata + 8, slen - 8);
+                high_bits = (w0 | w1) & 0x8080808080808080ULL;
+            }
+            if (LIKELY(high_bits == 0)) {
                 PyObject* s = PyUnicode_New(static_cast<Py_ssize_t>(slen), 127);
                 if (!s)
                     return false;
@@ -644,7 +653,19 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         CachedKeyEntry entry = cache_.get(v);
         if (!entry.key)
             return false;
-        keys_.push_back(entry);
+        // Pending-key fast path: store the key directly instead of
+        // pushing/popping the keys_ vector on every key-value pair.
+        // For the common case (flat objects), on_key is immediately followed
+        // by a value callback → push_value reads pending_key_.  This
+        // eliminates 2 vector operations per key-value pair.
+        // Nesting is handled: if a new on_key arrives before push_value
+        // consumed the previous one (nested object key), we spill the
+        // old pending key to the keys_ stack.
+        if (UNLIKELY(has_pending_key_)) {
+            keys_.push_back(pending_key_);
+        }
+        pending_key_ = entry;
+        has_pending_key_ = true;
 
         // Record key index for schema tracking (only for top-level keys of
         // tracked array-element objects, not inner/nested object keys).
@@ -685,8 +706,12 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         // Need key_len bytes + closing quote
         if (key_len + 1 <= remaining && std::memcmp(data, e.key_data, key_len) == 0 &&
             data[key_len] == '"') {
-            // Primary prediction match! Push the cached key and advance cursor.
-            keys_.push_back(e.cached);
+            // Primary prediction match! Store as pending key and advance cursor.
+            if (UNLIKELY(has_pending_key_)) {
+                keys_.push_back(pending_key_);
+            }
+            pending_key_ = e.cached;
+            has_pending_key_ = true;
             cache_.advance_after_match(pred_idx);
 
             // Record key index for schema tracking (speculative match bypasses on_key).
@@ -704,7 +729,11 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
             size_t alt_idx = cache_.try_alternative_schemas(data, remaining);
             if (alt_idx != SIZE_MAX) {
                 const auto& alt_e = entries[alt_idx];
-                keys_.push_back(alt_e.cached);
+                if (UNLIKELY(has_pending_key_)) {
+                    keys_.push_back(pending_key_);
+                }
+                pending_key_ = alt_e.cached;
+                has_pending_key_ = true;
                 // Record key index for schema tracking
                 if (schema_tracking_active_ && stack_.size() == schema_tracking_depth_ + 1) {
                     if (schema_recording_count_ < kMaxSchemaKeys) {
@@ -720,23 +749,30 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     }
 
     bool on_end_object() override {
-        if (stack_.empty())
-            return false;
         PyObject* dict = stack_.back();
 
         // Notify key cache of object end only for tracked array-element objects.
         size_t depth = stack_.size() - 1;
-        if (schema_tracking_active_ && depth == schema_tracking_depth_) {
+        if (UNLIKELY(schema_tracking_active_ && depth == schema_tracking_depth_)) {
             cache_.notify_object_end(schema_recording_, schema_recording_count_);
             schema_tracking_active_ = false;
         }
 
-        // Record the object size for depth-based prediction.
-        Py_ssize_t sz = PyDict_GET_SIZE(dict);
-        if (depth >= depth_sizes_.size()) {
-            depth_sizes_.resize(depth + 1, 0);
+        // Record the MAX object size at each depth for pre-sizing.
+        // Using max (not last) prevents dict resize cascades when schemas
+        // alternate (e.g. mixed benchmark: flat(12 keys) → nested(3 keys)
+        // → flat(12 keys) — without max, the nested's "3" would cause a
+        // resize on the next flat object).
+        {
+            size_t obj_size = static_cast<size_t>(PyDict_GET_SIZE(dict));
+            if (LIKELY(depth < depth_sizes_.size())) {
+                if (obj_size > depth_sizes_[depth])
+                    depth_sizes_[depth] = obj_size;
+            } else {
+                depth_sizes_.resize(depth + 1, 0);
+                depth_sizes_[depth] = obj_size;
+            }
         }
-        depth_sizes_[depth] = static_cast<size_t>(sz);
         stack_.pop_back();
         return push_value(dict);
     }
@@ -795,6 +831,7 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         stack_.clear();
         // keys_ contains borrowed refs from KeyCache — no DECREF needed.
         keys_.clear();
+        has_pending_key_ = false;
         for (auto* p : array_items_) {
             Py_DECREF(p);
         }
@@ -808,10 +845,10 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
   private:
     bool push_value(PyObject* val) {
-        if (!val)
+        if (UNLIKELY(!val))
             return false;
 
-        if (stack_.empty()) {
+        if (UNLIKELY(stack_.empty())) {
             if (root_) {
                 Py_DECREF(root_);
             }
@@ -826,24 +863,20 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
             return true;
         }
 
-        // Must be a dict.
-        if (keys_.empty()) {
-            Py_DECREF(val);
-            return false;
+        // Must be a dict — hot path.
+        // Use pending key (fast path) or fall back to keys_ stack (nesting).
+        CachedKeyEntry key_entry;
+        if (LIKELY(has_pending_key_)) {
+            key_entry = pending_key_;
+            has_pending_key_ = false;
+        } else {
+            key_entry = keys_.back();
+            keys_.pop_back();
         }
-        CachedKeyEntry key_entry = keys_.back();
-        keys_.pop_back();
-
-        // Keys are borrowed from the KeyCache — no INCREF/DECREF needed.
-        // _PyDict_SetItem_KnownHash and PyDict_SetDefault INCREF the key
-        // internally, so the dict holds its own reference.
 
         // Hot path: LastWins (default policy) with pre-computed hash.
-        if (policy_ == strata::DuplicateKeyPolicy::LastWins) {
-            if (_PyDict_SetItem_KnownHash(top, key_entry.key, val, key_entry.hash) < 0) {
-                Py_DECREF(val);
-                return false;
-            }
+        if (LIKELY(policy_ == strata::DuplicateKeyPolicy::LastWins)) {
+            _PyDict_SetItem_KnownHash(top, key_entry.key, val, key_entry.hash);
             Py_DECREF(val);
             return true;
         }
@@ -884,7 +917,9 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
     PyObject* root_ = nullptr;
     std::vector<PyObject*> stack_;
-    std::vector<CachedKeyEntry> keys_;   // borrowed key refs + pre-computed hash
+    std::vector<CachedKeyEntry> keys_;   // overflow stack for nested object keys
+    CachedKeyEntry pending_key_{};       // fast-path: current key awaiting its value
+    bool has_pending_key_ = false;       // whether pending_key_ is valid
     std::vector<PyObject*> array_items_; // flat storage for all in-flight array items
     std::vector<size_t> array_starts_;   // stack of start indices into array_items_
     std::vector<size_t> depth_sizes_;    // predicted object size at each nesting depth
@@ -994,6 +1029,19 @@ PyObject* parse_json_to_python(std::string_view text, bool validate_utf8) {
         return nullptr; // caller must set the Python exception
     }
     return builder.take_root();
+}
+
+// Thread-local variant: uses a process-lifetime PythonObjectBuilder so that the KeyCache
+// persists across calls (matching strata_loads behaviour). Intended for file-based load()
+// where the caller cannot pass in a builder directly.
+PyObject* parse_json_to_python_tl(std::string_view text, bool validate_utf8) {
+    static thread_local PythonObjectBuilder* tl_builder = new PythonObjectBuilder();
+    tl_builder->reset();
+    auto status = strata::parse_sax_inline(text, *tl_builder, validate_utf8);
+    if (status != strata::Status::Ok) {
+        return nullptr;
+    }
+    return tl_builder->take_root();
 }
 
 // Reusable-builder variant: caller provides a PythonObjectBuilder that persists across

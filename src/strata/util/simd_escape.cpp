@@ -621,7 +621,7 @@ void escape_json_string_simd(const char* str, size_t len, std::string& out) {
     out.push_back('"');
 }
 
-size_t find_next_escape_simd(const char* str, size_t len) {
+size_t find_next_escape_simd_long(const char* str, size_t len) {
 #ifdef STRATA_HAS_AVX2
     return find_next_escape_avx2(str, len);
 #elif defined(STRATA_HAS_SSE42)
