@@ -574,35 +574,64 @@ template <typename Handler> struct ParserInline {
             return false;
         if (consume('}'))
             return handler.on_end_object();
-        while (true) {
-            skip_ws();
+        skip_ws(); // Only for first key
+        for (;;) {
             // Speculative key parsing: try the cursor-predicted key first.
             // If the prediction hits, we skip SIMD scanning and cache lookup
             // entirely — just a memcmp against the predicted key bytes.
-            if (peek() != '"')
+            if (__builtin_expect(i < len && data[i] == '"', 1)) {
+                int key_result = try_predicted_key(i + 1);
+                if (key_result == 0) {
+                    // Prediction missed or not supported — full parse.
+                    if (!parse_string(true))
+                        return false;
+                }
+                if (key_result < 2) {
+                    // Key matched but colon not consumed, or full parse path
+                    // Fast colon: check directly before calling consume()
+                    if (__builtin_expect(i < len && data[i] == ':', 1))
+                        ++i;
+                    else if (!consume(':'))
+                        return false;
+                }
+            } else {
                 return false;
-            int key_result = try_predicted_key(i + 1);
-            if (key_result == 0) {
-                // Prediction missed or not supported — full parse.
-                if (!parse_string(true))
-                    return false;
-            }
-            if (key_result < 2) {
-                // Key matched but colon not consumed, or full parse path
-                if (!consume(':'))
-                    return false;
             }
             if (!parse_value())
                 return false;
-            // Combined delimiter check: one skip_ws() instead of two.
-            skip_ws();
-            if (peek() == '}') {
-                ++i;
-                break;
-            }
-            if (peek() != ',')
+            // Delimiter — optimised for compact JSON (no whitespace).
+            if (__builtin_expect(i < len, 1)) {
+                char d = data[i];
+                if (d == '}') {
+                    ++i;
+                    break;
+                }
+                if (__builtin_expect(d == ',', 1)) {
+                    ++i;
+                    // Fast skip: if next char is '"' (the key), no ws needed
+                    if (__builtin_expect(i < len && data[i] == '"', 1))
+                        continue;
+                    skip_ws();
+                    continue;
+                }
+                if (static_cast<unsigned char>(d) <= ' ') {
+                    skip_ws();
+                    if (i >= len)
+                        return false;
+                    d = data[i];
+                    if (d == '}') {
+                        ++i;
+                        break;
+                    }
+                    if (d != ',')
+                        return false;
+                    ++i;
+                    skip_ws();
+                    continue;
+                }
                 return false;
-            ++i;
+            }
+            return false;
         }
         return handler.on_end_object();
     }
