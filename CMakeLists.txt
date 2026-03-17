@@ -51,6 +51,10 @@ set(STRATA_CORE_SOURCES
     src/strata/util/simd_newline.cpp
     src/strata/util/simd_utf8.cpp
     src/strata/util/fast_parse.cpp
+    src/strata/simd/classifier.cpp
+    src/strata/simd/structural_indexer.cpp
+    src/strata/simd/index_builder.cpp
+    src/strata/simd/dispatch.cpp
 )
 
 # Include directories
@@ -175,6 +179,36 @@ target_include_directories(stress_deep_tests PRIVATE ${STRATA_INCLUDE_DIRS})
 target_compile_options(stress_deep_tests PRIVATE -Wall -Wextra)
 strata_apply_lto(stress_deep_tests)
 add_test(NAME stress_deep_tests COMMAND stress_deep_tests)
+
+# ---------------------------------------------------------------------------
+# 10) SIMD Structural Indexer Tests
+# ---------------------------------------------------------------------------
+set(STRATA_SIMD_SOURCES
+    src/strata/simd/classifier.cpp
+    src/strata/simd/structural_indexer.cpp
+    src/strata/simd/index_builder.cpp
+    src/strata/simd/dispatch.cpp
+)
+
+add_executable(simd_tests
+    tests/cpp/test_simd.cpp
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(simd_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(simd_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(simd_tests)
+add_test(NAME simd_tests COMMAND simd_tests)
+
+# ---------------------------------------------------------------------------
+# 11) SIMD Benchmark (not a test — build only, run manually)
+# ---------------------------------------------------------------------------
+add_executable(bench_simd
+    tests/cpp/bench_simd.cpp
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(bench_simd PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(bench_simd PRIVATE -Wall -Wextra -O3)
+strata_apply_lto(bench_simd)
 
 # ---------------------------------------------------------------------------
 # Fuzz targets (libFuzzer + ASan + UBSan) — optional

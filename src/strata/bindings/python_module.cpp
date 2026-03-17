@@ -3,6 +3,7 @@
 #include "strata/json/json_mmap.hpp"
 #include "strata/json/json_parse.hpp"
 #include "strata/json/ndjson_stream.hpp"
+#include "strata/simd/dispatch.h"
 #include "strata/util/output_buffer.hpp"
 
 #include <cstdlib>
@@ -366,6 +367,46 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
     STRATA_CPP_CATCH
 }
 
+//=============================================================================
+// SIMD Structural Indexer (exposed for testing / verification)
+//=============================================================================
+
+static PyObject* strata_structural_index(PyObject* /*self*/, PyObject* args) {
+    STRATA_CPP_TRY
+
+    const char* data;
+    Py_ssize_t length;
+
+    if (!PyArg_ParseTuple(args, "s#", &data, &length)) {
+        return NULL;
+    }
+
+    auto idx = strata::simd::index_document(reinterpret_cast<const uint8_t*>(data),
+                                            static_cast<size_t>(length));
+
+    // Build result dict: {"positions": [...], "backend": "...", "length": N}
+    PyObject* positions = PyList_New(static_cast<Py_ssize_t>(idx.positions.size()));
+    if (!positions)
+        return NULL;
+
+    for (size_t i = 0; i < idx.positions.size(); ++i) {
+        PyObject* val = PyLong_FromUnsignedLong(idx.positions[i]);
+        if (!val) {
+            Py_DECREF(positions);
+            return NULL;
+        }
+        PyList_SET_ITEM(positions, static_cast<Py_ssize_t>(i), val); // steals ref
+    }
+
+    const char* backend = strata::simd::backend_name(strata::simd::detect_backend());
+
+    PyObject* result = Py_BuildValue("{s:N,s:s,s:n}", "positions", positions, "backend", backend,
+                                     "length", static_cast<Py_ssize_t>(idx.document_length));
+    return result;
+
+    STRATA_CPP_CATCH
+}
+
 // Method definitions
 static PyMethodDef strata_methods[] = {
     {"dumps", (PyCFunction)strata_dumps, METH_VARARGS | METH_KEYWORDS,
@@ -396,6 +437,10 @@ static PyMethodDef strata_methods[] = {
      "config_get(key) -> value\n\nGet a config value."},
     {"config_list", strata_config_list, METH_NOARGS,
      "config_list() -> dict\n\nList all config keys and values."},
+    {"structural_index", strata_structural_index, METH_VARARGS,
+     "structural_index(data) -> dict\n\n"
+     "Run the SIMD structural indexer on raw JSON bytes.\n"
+     "Returns {'positions': [int, ...], 'backend': str, 'length': int}."},
     {NULL, NULL, 0, NULL} // Sentinel
 };
 

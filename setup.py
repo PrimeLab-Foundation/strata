@@ -299,6 +299,11 @@ ext_modules = [
             "src/strata/util/simd_newline.cpp",
             "src/strata/util/simd_utf8.cpp",
             "src/strata/util/fast_parse.cpp",
+            # SIMD structural indexer
+            "src/strata/simd/classifier.cpp",
+            "src/strata/simd/structural_indexer.cpp",
+            "src/strata/simd/index_builder.cpp",
+            "src/strata/simd/dispatch.cpp",
         ],
         include_dirs=[
             "include",

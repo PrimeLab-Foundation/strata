@@ -79,6 +79,38 @@ run_test "output_buffer_tests" "tests/cpp/test_output_buffer.cpp"
 run_test "stress_large_tests" "tests/cpp/test_stress_large.cpp"
 run_test "stress_deep_tests" "tests/cpp/test_stress_deep.cpp"
 
+# SIMD structural indexer tests — uses its own source set (not CORE_SOURCES)
+SIMD_SOURCES="
+    src/strata/simd/classifier.cpp
+    src/strata/simd/structural_indexer.cpp
+    src/strata/simd/index_builder.cpp
+    src/strata/simd/dispatch.cpp
+"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Building: simd_tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if $CXX $CXXFLAGS $INCLUDES tests/cpp/test_simd.cpp $SIMD_SOURCES -o "$BUILD_DIR/simd_tests" 2>&1; then
+    echo "✅ Build successful"
+    echo ""
+    echo "Running tests..."
+    echo "────────────────────────────────────────────────────────────────"
+    if "$BUILD_DIR/simd_tests"; then
+        echo "────────────────────────────────────────────────────────────────"
+        echo "✅ simd_tests: PASSED"
+        echo ""
+        PASSED=$((PASSED + 1))
+    else
+        echo "────────────────────────────────────────────────────────────────"
+        echo "❌ simd_tests: FAILED"
+        echo ""
+        FAILED=$((FAILED + 1))
+    fi
+else
+    echo "❌ Build failed for simd_tests"
+    echo ""
+    FAILED=$((FAILED + 1))
+fi
+
 echo "════════════════════════════════════════════════════════════════"
 echo "  C++ Test Results"
 echo "════════════════════════════════════════════════════════════════"
