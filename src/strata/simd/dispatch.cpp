@@ -2,6 +2,8 @@
 
 #include "strata/simd/dispatch.h"
 
+#include <cstring>
+
 // cpuid detection on x86
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 #define STRATA_X86 1
@@ -19,18 +21,13 @@ namespace simd {
 // Runtime backend detection
 // ============================================================================
 
-#ifdef STRATA_X86
+#if defined(STRATA_FORCE_SCALAR)
+
+static Backend detect_backend_impl() noexcept { return Backend::SCALAR; }
+
+#elif defined(STRATA_X86)
 
 static Backend detect_backend_impl() noexcept {
-    // cpuid EAX=7, ECX=0 → EBX:
-    //   bit 5:  AVX2
-    //   bit 8:  BMI2
-    //   bit 16: AVX512F
-    //   bit 30: AVX512BW
-    //
-    // cpuid EAX=1 → ECX:
-    //   bit 1:  PCLMULQDQ
-
     unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -47,7 +44,6 @@ static Backend detect_backend_impl() noexcept {
     bool has_bmi2 = (ebx >> 8) & 1;
     bool has_avx512f = (ebx >> 16) & 1;
     bool has_avx512bw = (ebx >> 30) & 1;
-
 #elif defined(_MSC_VER)
     int info[4];
     __cpuid(info, 0);
@@ -68,22 +64,16 @@ static Backend detect_backend_impl() noexcept {
     bool has_avx512f = false, has_avx512bw = false;
 #endif
 
-    // AVX-512 requires F + BW (byte-level operations) + PCLMUL for prefix-XOR.
     if (has_avx512f && has_avx512bw && has_pclmul)
         return Backend::AVX512;
-
     if (!has_avx2 || !has_pclmul)
         return Backend::SCALAR;
-
     return has_bmi2 ? Backend::AVX2_BMI2 : Backend::AVX2;
 }
 
 #elif defined(__aarch64__) || defined(__ARM_NEON)
 
 static Backend detect_backend_impl() noexcept {
-    // SVE2 is detected at compile time (__ARM_FEATURE_SVE2).
-    // At runtime on Linux we could check /proc/cpuinfo or HWCAP2,
-    // but compile-time detection is sufficient for statically-linked paths.
 #if defined(__ARM_FEATURE_SVE2)
     return Backend::SVE2;
 #else
@@ -92,23 +82,21 @@ static Backend detect_backend_impl() noexcept {
 }
 
 #elif defined(__wasm_simd128__)
-
 static Backend detect_backend_impl() noexcept { return Backend::WASM_SIMD; }
-
 #elif defined(__riscv_v) || defined(__riscv_vector)
-
 static Backend detect_backend_impl() noexcept { return Backend::RVV; }
-
 #else
-
 static Backend detect_backend_impl() noexcept { return Backend::SCALAR; }
-
-#endif // platform detection
+#endif
 
 Backend detect_backend() noexcept {
     static Backend cached = detect_backend_impl();
     return cached;
 }
+
+// ============================================================================
+// Backend naming (string ↔ enum)
+// ============================================================================
 
 const char* backend_name(Backend b) noexcept {
     switch (b) {

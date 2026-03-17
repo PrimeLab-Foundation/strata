@@ -38,9 +38,15 @@
 // Multiple features may be defined simultaneously (e.g. AVX-512 + AVX2, or
 // SVE2 + NEON).  The structural_indexer selects the best path at compile time
 // via a #if / #elif priority chain.
+//
+// Define STRATA_FORCE_SCALAR=1 (via -DSTRATA_FORCE_SCALAR=1 or env
+// STRATA_SCALAR_ONLY=1 at build time) to disable ALL SIMD backends and
+// compile only the portable scalar fallback.
 // ============================================================================
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if defined(STRATA_FORCE_SCALAR)
+// All SIMD backends suppressed — scalar fallback only.
+#elif defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 // --- x86: AVX-512, AVX2 (both may be defined; AVX-512 implies AVX2) ------
 #if defined(__AVX512F__) && defined(__AVX512BW__)
 #define STRATA_SIMD_HAS_AVX512 1

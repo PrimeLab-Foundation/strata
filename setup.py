@@ -234,6 +234,11 @@ def is_universal_build():
 
 def build_compile_flags():
     flags = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
+    # STRATA_SCALAR_ONLY=1 disables all SIMD backends, forcing the scalar
+    # fallback.  Useful for debugging, profiling, or cross-compiling to
+    # platforms where SIMD is unavailable or untested.
+    if os.environ.get("STRATA_SCALAR_ONLY", "").strip() == "1":
+        flags.append("-DSTRATA_FORCE_SCALAR=1")
     if not is_universal_build():
         flags.append("-march=native")
     if enable_lto:

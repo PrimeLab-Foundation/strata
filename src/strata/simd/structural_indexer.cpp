@@ -12,7 +12,9 @@
 // Platform detection (mirrors classifier.h — both files must agree)
 // ============================================================================
 
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+#if defined(STRATA_FORCE_SCALAR)
+// All SIMD backends suppressed — scalar fallback only.
+#elif defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
 #if defined(__AVX512F__) && defined(__AVX512BW__)
 #define STRATA_SIMD_HAS_AVX512 1
 #endif

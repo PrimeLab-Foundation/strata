@@ -47,11 +47,7 @@ enum class Backend {
 [[nodiscard]] const char* backend_name(Backend b) noexcept;
 
 /**
- * Build a structural index for the document using the best available backend.
- *
- * This is the primary entry point for users who don't want to manage
- * StructuralIndexer / IndexBuilder manually.  It detects the backend once
- * (on first call) and dispatches to the appropriate implementation.
+ * Build a structural index for the document using the compile-time-selected backend.
  *
  * @param data  Pointer to the raw JSON document bytes.
  * @param len   Length of the document in bytes.
