@@ -128,7 +128,6 @@ def test_large_document_consistency():
 def test_cross_validates_with_loads():
     """Parse via loads() and structural_index() — ensure the index is compatible."""
     json_str = '{"name":"Alice","age":30,"items":[{"id":1},{"id":2}]}'
-    # _strata.loads(json_str)
 
     result = _strata.structural_index(json_str)
     positions = result["positions"]
