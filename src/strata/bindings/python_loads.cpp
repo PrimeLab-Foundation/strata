@@ -499,6 +499,7 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         array_items_.reserve(256);
         array_starts_.reserve(16);
         depth_sizes_.reserve(8);
+        double_buffer_.reserve(128);
         policy_ = strata::get_duplicate_key_policy();
         ensure_small_int_cache();
     }
@@ -517,17 +518,23 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     }
 
     bool on_null() override {
+        if (UNLIKELY(!double_buffer_.empty()))
+            flush_double_buffer();
         Py_INCREF(Py_None);
         return push_value(Py_None);
     }
 
     bool on_bool(bool v) override {
+        if (UNLIKELY(!double_buffer_.empty()))
+            flush_double_buffer();
         PyObject* obj = v ? Py_True : Py_False;
         Py_INCREF(obj);
         return push_value(obj);
     }
 
     bool on_int(int64_t v) override {
+        if (UNLIKELY(!double_buffer_.empty()))
+            flush_double_buffer();
         // Fast path: small integers (0..256) are pre-cached — avoids
         // PyLong_FromLongLong function call overhead on the hot path.
         if (static_cast<uint64_t>(v) <= static_cast<uint64_t>(kSmallIntMax)) {
@@ -539,6 +546,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     }
 
     bool on_uint(uint64_t v) override {
+        if (UNLIKELY(!double_buffer_.empty()))
+            flush_double_buffer();
         if (v <= static_cast<uint64_t>(kSmallIntMax)) {
             PyObject* cached = g_small_int_cache[v];
             Py_INCREF(cached);
@@ -547,9 +556,23 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         return push_value(PyLong_FromUnsignedLongLong(v));
     }
 
-    bool on_double(double v) override { return push_value(PyFloat_FromDouble(v)); }
+    bool on_double(double v) override {
+        // Batch float creation: when building an array of doubles, buffer the
+        // raw values and defer PyFloat_FromDouble until on_end_array.  This
+        // keeps the parser L1-cache-hot during digit accumulation and batches
+        // allocations together (better allocator locality).
+        // Only buffer when we're directly inside an array (stack top is nullptr).
+        if (buffering_doubles_ && !stack_.empty() && stack_.back() == nullptr) {
+            double_buffer_.push_back(v);
+            return true;
+        }
+        buffering_doubles_ = false;
+        return push_value(PyFloat_FromDouble(v));
+    }
 
     bool on_string(std::string_view v) override {
+        if (UNLIKELY(!double_buffer_.empty()))
+            flush_double_buffer();
         // Fast path for ASCII strings: skip CPython's internal codepoint scan
         // by constructing compact-ASCII directly. Most JSON string values are
         // pure ASCII (no \uXXXX escapes decoding to non-ASCII).
@@ -604,6 +627,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     }
 
     bool on_start_object(size_t /*size_hint*/) override {
+        if (UNLIKELY(!double_buffer_.empty()))
+            flush_double_buffer();
         // Only track schemas for objects that are direct children of arrays.
         // This is where schema variation occurs (e.g., mixed benchmark has
         // flat/nested/wide_arrays records alternating in the same array).
@@ -705,7 +730,6 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
             if (alt_idx != SIZE_MAX) {
                 const auto& alt_e = entries[alt_idx];
                 keys_.push_back(alt_e.cached);
-                // Record key index for schema tracking
                 if (schema_tracking_active_ && stack_.size() == schema_tracking_depth_ + 1) {
                     if (schema_recording_count_ < kMaxSchemaKeys) {
                         schema_recording_[schema_recording_count_++] =
@@ -745,14 +769,25 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     // indices.  At on_end_array, build PyList_New(n) + PyList_SET_ITEM (steals ref,
     // no INCREF/DECREF).  Uses one flat vector to avoid per-array allocation overhead.
     bool on_start_array(size_t /*size_hint*/) override {
+        if (UNLIKELY(!double_buffer_.empty()))
+            flush_double_buffer();
         stack_.push_back(nullptr); // nullptr sentinel = "building an array"
         array_starts_.push_back(array_items_.size());
+        // Optimistically assume homogeneous double array — most arrays in
+        // numeric/scientific JSON are pure floats.  If a non-double appears,
+        // flush_double_buffer() converts buffered doubles and disables buffering.
+        buffering_doubles_ = true;
         return true;
     }
 
     bool on_end_array() override {
         if (stack_.empty() || stack_.back() != nullptr)
             return false;
+
+        // Flush any buffered doubles into array_items_ before building the list.
+        if (!double_buffer_.empty())
+            flush_double_buffer();
+
         stack_.pop_back();
 
         size_t start = array_starts_.back();
@@ -800,6 +835,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         }
         array_items_.clear();
         array_starts_.clear();
+        double_buffer_.clear();
+        buffering_doubles_ = false;
         schema_tracking_active_ = false;
         schema_tracking_depth_ = 0;
         schema_recording_count_ = 0;
@@ -882,12 +919,32 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         return true;
     }
 
+    /// Flush buffered doubles into array_items_ as PyFloat objects.
+    /// Called when a non-double value appears in an array, or at on_end_array.
+    void flush_double_buffer() {
+        if (double_buffer_.empty())
+            return;
+        // Tight loop: all PyFloat allocations are sequential (cache-friendly).
+        for (double v : double_buffer_) {
+            PyObject* f = PyFloat_FromDouble(v);
+            if (UNLIKELY(!f)) {
+                // Out of memory — push what we can, let on_end_array handle cleanup.
+                break;
+            }
+            array_items_.push_back(f);
+        }
+        double_buffer_.clear();
+        buffering_doubles_ = false;
+    }
+
     PyObject* root_ = nullptr;
     std::vector<PyObject*> stack_;
     std::vector<CachedKeyEntry> keys_;   // borrowed key refs + pre-computed hash
     std::vector<PyObject*> array_items_; // flat storage for all in-flight array items
     std::vector<size_t> array_starts_;   // stack of start indices into array_items_
     std::vector<size_t> depth_sizes_;    // predicted object size at each nesting depth
+    std::vector<double> double_buffer_;  // deferred float values for batch creation
+    bool buffering_doubles_ = false;     // true when collecting doubles in an array
     strata::DuplicateKeyPolicy policy_;
     KeyCache cache_;
 

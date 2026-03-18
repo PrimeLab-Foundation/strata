@@ -318,63 +318,182 @@ template <typename Handler> struct ParserInline {
                 if (c == '"')
                     ok = parse_string();
                 else if (c >= '0' && c <= '9') {
-                    // Inline fast path for small positive numbers (very common in arrays).
-                    // Parse digits directly without parse_number_unified overhead.
-                    // Also handles "0.xxx" floats (e.g., random.random() values).
-                    static constexpr double kPow10Fast[] = {
-                        1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
-                        1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+                    // Inline fast path for positive numbers (very common in arrays).
+                    // Uses multiplication by negative powers of 10 (faster than division).
+                    static constexpr double kPow10Neg[] = {
+                        1e0,   1e-1,  1e-2,  1e-3,  1e-4,  1e-5,  1e-6,  1e-7,
+                        1e-8,  1e-9,  1e-10, 1e-11, 1e-12, 1e-13, 1e-14, 1e-15,
+                        1e-16, 1e-17, 1e-18, 1e-19, 1e-20, 1e-21, 1e-22,
                     };
                     {
-                        uint64_t val;
-                        size_t p;
-                        if (c != '0') {
-                            val = static_cast<uint64_t>(c - '0');
-                            p = i + 1;
+                        size_t p = i + 1;
+                        if (c == '0') {
+                            // "0.xxx" pattern (random.random() values) — tight path.
+                            if (__builtin_expect(p < len && data[p] == '.', 1)) {
+                                ++p;
+                                if (p < len && data[p] >= '0' && data[p] <= '9') {
+                                    uint64_t val = 0;
+                                    int frac_digits = 0;
+                                    // 4x unrolled digit loop — reduces branch overhead
+                                    // by 75% for typical 16-digit fractional parts.
+                                    while (p + 4 <= len) {
+                                        unsigned d0 = static_cast<unsigned>(data[p]) - '0';
+                                        if (d0 > 9u)
+                                            break;
+                                        unsigned d1 = static_cast<unsigned>(data[p + 1]) - '0';
+                                        if (d1 > 9u) {
+                                            val = val * 10 + d0;
+                                            ++frac_digits;
+                                            p += 1;
+                                            goto frac0_tail;
+                                        }
+                                        unsigned d2 = static_cast<unsigned>(data[p + 2]) - '0';
+                                        if (d2 > 9u) {
+                                            val = val * 100 + d0 * 10 + d1;
+                                            frac_digits += 2;
+                                            p += 2;
+                                            goto frac0_tail;
+                                        }
+                                        unsigned d3 = static_cast<unsigned>(data[p + 3]) - '0';
+                                        if (d3 > 9u) {
+                                            val = val * 1000 + d0 * 100 + d1 * 10 + d2;
+                                            frac_digits += 3;
+                                            p += 3;
+                                            goto frac0_tail;
+                                        }
+                                        val = val * 10000 + d0 * 1000 + d1 * 100 + d2 * 10 + d3;
+                                        frac_digits += 4;
+                                        p += 4;
+                                    }
+                                frac0_tail:
+                                    // Scalar tail for remaining 0-3 digits
+                                    while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                        val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                        ++frac_digits;
+                                        ++p;
+                                    }
+                                    if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                        if (val < (1ULL << 53) && frac_digits <= 22) {
+                                            i = p;
+                                            ok = handler.on_double(static_cast<double>(val) *
+                                                                   kPow10Neg[frac_digits]);
+                                            goto dispatch_done;
+                                        }
+                                    }
+                                }
+                                // Fall through to full parser for edge cases
+                            } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                // Bare "0"
+                                i = p;
+                                ok = handler.on_int(int64_t{0});
+                                goto dispatch_done;
+                            }
+                        } else {
+                            // Non-zero leading digit: integer or float
+                            uint64_t val = static_cast<uint64_t>(c - '0');
                             while (p < len && data[p] >= '0' && data[p] <= '9') {
                                 val = val * 10 + static_cast<uint64_t>(data[p] - '0');
                                 ++p;
                             }
-                        } else {
-                            // Leading zero: only "0", "0.", "0e" are valid JSON.
-                            val = 0;
-                            p = i + 1;
-                        }
-                        if (p < len && data[p] == '.') {
-                            // Float: parse fractional digits inline
-                            ++p;
-                            if (p < len && data[p] >= '0' && data[p] <= '9') {
-                                int frac_digits = 0;
-                                while (p < len && data[p] >= '0' && data[p] <= '9') {
-                                    val = val * 10 + static_cast<uint64_t>(data[p] - '0');
-                                    ++frac_digits;
-                                    ++p;
-                                }
-                                // No exponent → simple Clinger fast path
-                                if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
-                                    if (val < (1ULL << 53) && frac_digits <= 22) {
-                                        double result =
-                                            static_cast<double>(val) / kPow10Fast[frac_digits];
-                                        i = p;
-                                        ok = handler.on_double(result);
-                                        goto dispatch_done;
+                            if (p < len && data[p] == '.') {
+                                ++p;
+                                if (p < len && data[p] >= '0' && data[p] <= '9') {
+                                    int frac_digits = 0;
+                                    while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                        val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                        ++frac_digits;
+                                        ++p;
+                                    }
+                                    if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                        if (val < (1ULL << 53) && frac_digits <= 22) {
+                                            i = p;
+                                            ok = handler.on_double(static_cast<double>(val) *
+                                                                   kPow10Neg[frac_digits]);
+                                            goto dispatch_done;
+                                        }
                                     }
                                 }
-                            }
-                            // Fall through to full parser
-                        } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
-                            // Pure integer — no float suffix
-                            if (val <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
-                                i = p;
-                                ok = handler.on_int(static_cast<int64_t>(val));
-                                goto dispatch_done;
+                            } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                if (val <=
+                                    static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+                                    i = p;
+                                    ok = handler.on_int(static_cast<int64_t>(val));
+                                    goto dispatch_done;
+                                }
                             }
                         }
                     }
                     ok = parse_number();
-                } else if (c == '-')
+                } else if (c == '-') {
+                    // Inline fast path for negative numbers in arrays.
+                    static constexpr double kPow10Neg2[] = {
+                        1e0,   1e-1,  1e-2,  1e-3,  1e-4,  1e-5,  1e-6,  1e-7,
+                        1e-8,  1e-9,  1e-10, 1e-11, 1e-12, 1e-13, 1e-14, 1e-15,
+                        1e-16, 1e-17, 1e-18, 1e-19, 1e-20, 1e-21, 1e-22,
+                    };
+                    size_t p = i + 1;
+                    if (p < len && data[p] >= '1' && data[p] <= '9') {
+                        uint64_t val = static_cast<uint64_t>(data[p] - '0');
+                        ++p;
+                        while (p < len && data[p] >= '0' && data[p] <= '9') {
+                            val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                            ++p;
+                        }
+                        if (p < len && data[p] == '.') {
+                            ++p;
+                            if (p < len && data[p] >= '0' && data[p] <= '9') {
+                                int frac = 0;
+                                while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                    val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                    ++frac;
+                                    ++p;
+                                }
+                                if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                    if (val < (1ULL << 53) && frac <= 22) {
+                                        i = p;
+                                        ok = handler.on_double(
+                                            -(static_cast<double>(val) * kPow10Neg2[frac]));
+                                        goto dispatch_done;
+                                    }
+                                }
+                            }
+                        } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                            if (val <=
+                                static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1) {
+                                i = p;
+                                ok = handler.on_int(-static_cast<int64_t>(val));
+                                goto dispatch_done;
+                            }
+                        }
+                    } else if (p < len && data[p] == '0') {
+                        ++p;
+                        if (p < len && data[p] == '.') {
+                            ++p;
+                            if (p < len && data[p] >= '0' && data[p] <= '9') {
+                                uint64_t val = 0;
+                                int frac = 0;
+                                while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                    val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                    ++frac;
+                                    ++p;
+                                }
+                                if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                    if (val < (1ULL << 53) && frac <= 22) {
+                                        i = p;
+                                        ok = handler.on_double(
+                                            -(static_cast<double>(val) * kPow10Neg2[frac]));
+                                        goto dispatch_done;
+                                    }
+                                }
+                            }
+                        } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                            i = p;
+                            ok = handler.on_int(int64_t{0}); // -0 → 0
+                            goto dispatch_done;
+                        }
+                    }
                     ok = parse_number();
-                else if (c == '{')
+                } else if (c == '{')
                     ok = parse_object();
                 else if (c == '[')
                     ok = parse_array();

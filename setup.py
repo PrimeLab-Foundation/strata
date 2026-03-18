@@ -202,7 +202,7 @@ class TestGatedBuildExt(build_ext):
 # PGO_MODE=generate python -m pip install -e .  (generate profile)
 # PGO_MODE=use python -m pip install -e .       (use profile)
 pgo_mode = os.environ.get('PGO_MODE', '').lower()  # 'generate', 'use', or ''
-enable_lto = os.environ.get('STRATA_ENABLE_LTO', '0') == '1'
+enable_lto = os.environ.get('STRATA_ENABLE_LTO', '1') == '1'
 pgo_profile = os.environ.get('STRATA_PGO_PROFILE', 'build/pgo/strata.profdata')
 
 
@@ -233,7 +233,13 @@ def is_universal_build():
 
 
 def build_compile_flags():
-    flags = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
+    flags = [
+        "-std=c++20",
+        "-O3",
+        "-D_LIBCPP_DISABLE_AVAILABILITY",
+        "-fno-math-errno",
+        "-fno-trapping-math",
+    ]
     # STRATA_SCALAR_ONLY=1 disables all SIMD backends, forcing the scalar
     # fallback.  Useful for debugging, profiling, or cross-compiling to
     # platforms where SIMD is unavailable or untested.
@@ -242,7 +248,10 @@ def build_compile_flags():
     if not is_universal_build():
         flags.append("-march=native")
     if enable_lto:
-        flags.append("-flto")
+        if compiler_kind == "clang":
+            flags.append("-flto=thin")
+        else:
+            flags.append("-flto")
         if compiler_kind == "gcc":
             flags.append("-fno-fat-lto-objects")
     if pgo_mode == "generate":
@@ -261,7 +270,10 @@ def build_compile_flags():
 def build_link_flags():
     flags = ["-O3"]
     if enable_lto:
-        flags.append("-flto")
+        if compiler_kind == "clang":
+            flags.append("-flto=thin")
+        else:
+            flags.append("-flto")
     if pgo_mode == "generate":
         if compiler_kind == "clang":
             flags.append("-fprofile-instr-generate")
