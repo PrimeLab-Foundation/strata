@@ -8,6 +8,10 @@
 #include "strata/search/jsonpath.hpp"
 #include "strata/util/fast_parse.hpp"
 
+extern "C" {
+int _PyDict_SetItem_KnownHash(PyObject* mp, PyObject* key, PyObject* item, Py_hash_t hash);
+}
+
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -1189,7 +1193,11 @@ class SaxSearchHandler {
     struct CaptureBuilder {
         PyObject* root_ = nullptr;
         std::vector<PyObject*> stack_;
-        std::vector<PyObject*> keys_;
+        struct KeyEntry {
+            PyObject* key;
+            Py_hash_t hash;
+        };
+        std::vector<KeyEntry> keys_;
         std::vector<PyObject*> array_items_;
         std::vector<size_t> array_starts_;
 
@@ -1203,8 +1211,8 @@ class SaxSearchHandler {
                     Py_DECREF(p);
             }
             stack_.clear();
-            for (auto* p : keys_)
-                Py_DECREF(p);
+            for (auto& ke : keys_)
+                Py_DECREF(ke.key);
             keys_.clear();
             for (auto* p : array_items_)
                 Py_DECREF(p);
@@ -1238,9 +1246,9 @@ class SaxSearchHandler {
                 Py_DECREF(val);
                 return false;
             }
-            PyObject* key = keys_.back();
+            auto [key, hash] = keys_.back();
             keys_.pop_back();
-            if (PyDict_SetItem(top, key, val) < 0) {
+            if (_PyDict_SetItem_KnownHash(top, key, val, hash) < 0) {
                 Py_DECREF(key);
                 Py_DECREF(val);
                 return false;
@@ -1277,7 +1285,8 @@ class SaxSearchHandler {
             if (!key)
                 return false;
             PyUnicode_InternInPlace(&key);
-            keys_.push_back(key);
+            Py_hash_t h = PyObject_Hash(key);
+            keys_.push_back({key, h});
             return true;
         }
         bool on_end_object() {

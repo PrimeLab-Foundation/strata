@@ -1041,6 +1041,165 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
     return json_value_to_python_internal(val, cache);
 }
 
+// ─── Lightweight builder for small inputs ────────────────────────────────────
+// Strips out KeyCache, cursor prediction, schema tracking, depth sizing, and
+// double buffering.  ~30% faster than PythonObjectBuilder for small multi-schema
+// data because there's zero infrastructure overhead per object/key.
+class LightweightBuilder : public strata::JsonSaxHandler {
+  public:
+    LightweightBuilder() {
+        stack_.reserve(32);
+        keys_.reserve(32);
+        array_items_.reserve(256);
+        array_starts_.reserve(16);
+    }
+
+    ~LightweightBuilder() {
+        if (root_)
+            Py_DECREF(root_);
+        for (auto obj : stack_) {
+            if (obj)
+                Py_DECREF(obj);
+        }
+        for (auto* p : array_items_) {
+            Py_DECREF(p);
+        }
+    }
+
+    bool on_null() override {
+        Py_INCREF(Py_None);
+        return push_value(Py_None);
+    }
+    bool on_bool(bool v) override {
+        PyObject* obj = v ? Py_True : Py_False;
+        Py_INCREF(obj);
+        return push_value(obj);
+    }
+    bool on_int(int64_t v) override {
+        if (static_cast<uint64_t>(v) <= static_cast<uint64_t>(kSmallIntMax)) {
+            PyObject* cached = g_small_int_cache[v];
+            Py_INCREF(cached);
+            return push_value(cached);
+        }
+        return push_value(PyLong_FromLongLong(v));
+    }
+    bool on_uint(uint64_t v) override {
+        if (v <= static_cast<uint64_t>(kSmallIntMax)) {
+            PyObject* cached = g_small_int_cache[v];
+            Py_INCREF(cached);
+            return push_value(cached);
+        }
+        return push_value(PyLong_FromUnsignedLongLong(v));
+    }
+    bool on_double(double v) override { return push_value(PyFloat_FromDouble(v)); }
+    bool on_string(std::string_view v) override {
+        const size_t slen = v.size();
+        const char* sdata = v.data();
+        if (LIKELY(slen <= 16)) {
+            unsigned char high = 0;
+            for (size_t si = 0; si < slen; ++si)
+                high |= static_cast<unsigned char>(sdata[si]);
+            if (LIKELY(high < 0x80)) {
+                PyObject* s = PyUnicode_New(static_cast<Py_ssize_t>(slen), 127);
+                if (!s)
+                    return false;
+                memcpy(PyUnicode_1BYTE_DATA(s), sdata, slen);
+                return push_value(s);
+            }
+        }
+        return push_value(PyUnicode_DecodeUTF8(sdata, static_cast<Py_ssize_t>(slen), NULL));
+    }
+    bool on_start_object(size_t) override {
+        stack_.push_back(PyDict_New());
+        return stack_.back() != nullptr;
+    }
+    bool on_key(std::string_view v) override {
+        PyObject* key = PyUnicode_FromStringAndSize(v.data(), static_cast<Py_ssize_t>(v.size()));
+        if (!key)
+            return false;
+        PyUnicode_InternInPlace(&key);
+        Py_hash_t h = PyObject_Hash(key);
+        keys_.push_back({key, h});
+        return true;
+    }
+    bool on_end_object() override {
+        if (stack_.empty())
+            return false;
+        auto obj = stack_.back();
+        stack_.pop_back();
+        return push_value(obj);
+    }
+    bool on_start_array(size_t) override {
+        stack_.push_back(nullptr);
+        array_starts_.push_back(array_items_.size());
+        return true;
+    }
+    bool on_end_array() override {
+        if (stack_.empty() || stack_.back() != nullptr)
+            return false;
+        stack_.pop_back();
+        size_t start = array_starts_.back();
+        array_starts_.pop_back();
+        size_t count = array_items_.size() - start;
+        PyObject* list = PyList_New(static_cast<Py_ssize_t>(count));
+        if (!list) {
+            for (size_t i = start; i < array_items_.size(); ++i)
+                Py_DECREF(array_items_[i]);
+            array_items_.resize(start);
+            return false;
+        }
+        for (size_t i = 0; i < count; ++i)
+            PyList_SET_ITEM(list, static_cast<Py_ssize_t>(i), array_items_[start + i]);
+        array_items_.resize(start);
+        return push_value(list);
+    }
+
+    PyObject* take_root() {
+        PyObject* r = root_;
+        root_ = nullptr;
+        return r;
+    }
+
+  private:
+    struct KeyEntry {
+        PyObject* key;
+        Py_hash_t hash;
+    };
+
+    bool push_value(PyObject* val) {
+        if (!val)
+            return false;
+        if (stack_.empty()) {
+            if (root_)
+                Py_DECREF(root_);
+            root_ = val;
+            return true;
+        }
+        PyObject* top = stack_.back();
+        if (top == nullptr) {
+            array_items_.push_back(val);
+            return true;
+        }
+        // Dict — use pre-computed hash for fast insertion
+        if (keys_.empty()) {
+            Py_DECREF(val);
+            return false;
+        }
+        KeyEntry ke = keys_.back();
+        keys_.pop_back();
+        int rc = _PyDict_SetItem_KnownHash(top, ke.key, val, ke.hash);
+        Py_DECREF(ke.key);
+        Py_DECREF(val);
+        return rc >= 0;
+    }
+
+    PyObject* root_ = nullptr;
+    std::vector<PyObject*> stack_;
+    std::vector<KeyEntry> keys_; // owned refs (interned) + pre-computed hash
+    std::vector<PyObject*> array_items_;
+    std::vector<size_t> array_starts_;
+};
+
 // Helper: parse JSON text directly to a Python object via SAX (no intermediate C++ DOM).
 // Uses parse_sax_inline<PythonObjectBuilder> for devirtualised, inlineable parsing.
 // validate_utf8=false is safe when the caller creates PyUnicode objects, which validate inline.
@@ -1049,6 +1208,16 @@ PyObject* parse_json_to_python(std::string_view text, bool validate_utf8) {
     auto status = strata::parse_sax_inline(text, builder, validate_utf8);
     if (status != strata::Status::Ok) {
         return nullptr; // caller must set the Python exception
+    }
+    return builder.take_root();
+}
+
+// Lightweight parser for small inputs — no KeyCache, no schema tracking.
+static PyObject* parse_json_to_python_light(std::string_view text) {
+    LightweightBuilder builder;
+    auto status = strata::parse_sax_inline(text, builder, /*validate_utf8=*/false);
+    if (status != strata::Status::Ok) {
+        return nullptr;
     }
     return builder.take_root();
 }
@@ -1290,6 +1459,23 @@ PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
         STRATA_CPP_TRY
 
         PyGcPause gc_pause;
+
+        // Small-input fast path: for JSON under 200KB, use the lightweight builder
+        // that has zero infrastructure overhead (no KeyCache, no schema tracking,
+        // no cursor prediction).  This wins on small flat/mixed data where the
+        // PythonObjectBuilder's cursor prediction doesn't have enough records to
+        // amortize its setup cost.  Above 200KB, the full builder's cursor
+        // prediction and key caching pay for themselves.
+        if (len <= 200 * 1024) {
+            PyObject* result = parse_json_to_python_light(std::string_view(data, len));
+            if (!result) {
+                if (!PyErr_Occurred())
+                    PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+                return NULL;
+            }
+            return result;
+        }
+
         static thread_local PythonObjectBuilder* tl_builder = new PythonObjectBuilder();
         PyObject* result = parse_json_to_python_reuse(std::string_view(data, len),
                                                       /*validate_utf8=*/false, *tl_builder);
