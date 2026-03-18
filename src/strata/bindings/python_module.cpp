@@ -29,6 +29,7 @@ extern PyObject* strata_compile_path(PyObject* self, PyObject* args);
 extern PyObject* strata_search(PyObject* self, PyObject* args, PyObject* kwargs);
 extern PyObject* strata_query(PyObject* self, PyObject* args, PyObject* kwargs);
 extern bool set_cycle_policy_from_string(const char* policy, std::string& error);
+extern PyObject* parse_json_to_python_light_reuse_fn(std::string_view text);
 extern int register_document_types(PyObject* module);
 extern int register_ndjson_types(PyObject* module);
 extern int register_jsonpath_types(PyObject* module);

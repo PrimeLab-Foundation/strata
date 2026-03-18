@@ -1041,10 +1041,15 @@ PyObject* json_value_to_python(const strata::JsonValue& val) {
     return json_value_to_python_internal(val, cache);
 }
 
-// ─── Lightweight builder for small inputs ────────────────────────────────────
-// Strips out KeyCache, cursor prediction, schema tracking, depth sizing, and
-// double buffering.  ~30% faster than PythonObjectBuilder for small multi-schema
-// data because there's zero infrastructure overhead per object/key.
+// ─── Lightweight builder for small/medium inputs ─────────────────────────────
+// Optimised for throughput on data up to ~1MB with minimal infrastructure
+// overhead.  Features:
+//   • Open-addressed key cache with linear probing (no eviction on collision)
+//   • Cursor prediction for settled schemas (try_match_key support)
+//   • Dict presizing from observed object sizes
+//   • Borrowed key refs (no INCREF/DECREF per cache hit)
+//   • Double buffering for homogeneous float arrays
+//   • Reusable across calls via reset() for thread-local caching
 class LightweightBuilder : public strata::JsonSaxHandler {
   public:
     LightweightBuilder() {
@@ -1053,6 +1058,8 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         array_items_.reserve(256);
         array_starts_.reserve(16);
         double_buffer_.reserve(128);
+        ensure_small_int_cache();
+        std::memset(key_slots_, 0xFF, sizeof(key_slots_));
     }
 
     ~LightweightBuilder() {
@@ -1065,27 +1072,26 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         for (auto* p : array_items_) {
             Py_DECREF(p);
         }
-        for (auto& ce : key_cache_) {
-            if (ce.key)
-                Py_DECREF(ce.key);
+        for (auto& e : key_entries_) {
+            Py_DECREF(e.cached.py_key);
         }
     }
 
     bool on_null() override {
-        if (UNLIKELY(!double_buffer_.empty()))
+        if (UNLIKELY(has_buffered_doubles_))
             flush_double_buffer();
         Py_INCREF(Py_None);
         return push_value(Py_None);
     }
     bool on_bool(bool v) override {
-        if (UNLIKELY(!double_buffer_.empty()))
+        if (UNLIKELY(has_buffered_doubles_))
             flush_double_buffer();
         PyObject* obj = v ? Py_True : Py_False;
         Py_INCREF(obj);
         return push_value(obj);
     }
     bool on_int(int64_t v) override {
-        if (UNLIKELY(!double_buffer_.empty()))
+        if (UNLIKELY(has_buffered_doubles_))
             flush_double_buffer();
         if (static_cast<uint64_t>(v) <= static_cast<uint64_t>(kSmallIntMax)) {
             PyObject* cached = g_small_int_cache[v];
@@ -1095,7 +1101,7 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         return push_value(PyLong_FromLongLong(v));
     }
     bool on_uint(uint64_t v) override {
-        if (UNLIKELY(!double_buffer_.empty()))
+        if (UNLIKELY(has_buffered_doubles_))
             flush_double_buffer();
         if (v <= static_cast<uint64_t>(kSmallIntMax)) {
             PyObject* cached = g_small_int_cache[v];
@@ -1107,13 +1113,14 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     bool on_double(double v) override {
         if (buffering_doubles_ && !stack_.empty() && stack_.back() == nullptr) {
             double_buffer_.push_back(v);
+            has_buffered_doubles_ = true;
             return true;
         }
         buffering_doubles_ = false;
         return push_value(PyFloat_FromDouble(v));
     }
     bool on_string(std::string_view v) override {
-        if (UNLIKELY(!double_buffer_.empty()))
+        if (UNLIKELY(has_buffered_doubles_))
             flush_double_buffer();
         const size_t slen = v.size();
         const char* sdata = v.data();
@@ -1132,53 +1139,113 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         return push_value(PyUnicode_DecodeUTF8(sdata, static_cast<Py_ssize_t>(slen), NULL));
     }
     bool on_start_object(size_t) override {
-        if (UNLIKELY(!double_buffer_.empty()))
+        if (UNLIKELY(has_buffered_doubles_))
             flush_double_buffer();
-        stack_.push_back(PyDict_New());
-        return stack_.back() != nullptr;
+        // Pre-size dict from previously observed object size at this depth.
+        size_t depth = stack_.size();
+        PyObject* dict;
+        if (depth < depth_sizes_.size() && depth_sizes_[depth] > 0) {
+            dict = _PyDict_NewPresized(static_cast<Py_ssize_t>(depth_sizes_[depth]));
+        } else {
+            dict = PyDict_New();
+        }
+        if (!dict)
+            return false;
+        stack_.push_back(dict);
+        // For settled single-schema data, cursor naturally wraps from the last
+        // key back to 0 (correct prediction). For multi-schema data, we DON'T
+        // reset the cursor — letting it continue from where it left off avoids
+        // always-wrong predictions at the start of each object. The hash table
+        // fallback in on_key handles cursor misses efficiently.
+        return true;
     }
     bool on_key(std::string_view v) override {
-        // Simple key cache: hash → slot, check length+bytes, reuse if hit.
-        // Avoids PyUnicode_FromStringAndSize + InternInPlace + Hash on repeat keys.
-        uint32_t h = 0x811c9dc5u;
-        for (size_t j = 0; j < v.size(); ++j)
-            h = (h ^ static_cast<uint8_t>(v[j])) * 0x01000193u;
-        uint32_t slot = h & (kKeyCacheSlots - 1);
-        auto& ce = key_cache_[slot];
-        if (ce.key && ce.len == static_cast<uint16_t>(v.size()) &&
-            std::memcmp(ce.data, v.data(), v.size()) == 0) {
-            // Cache hit — reuse interned key + pre-computed hash.
-            Py_INCREF(ce.key);
-            keys_.push_back({ce.key, ce.hash});
-            return true;
+        // Open-addressed key cache with linear probing.
+        // Keys are borrowed from the cache — no INCREF/DECREF per lookup.
+        // The cache owns one reference per key (released in destructor/reset).
+        const size_t vlen = v.size();
+        uint32_t h = fnv1a_hash(v.data(), vlen);
+        uint32_t slot = h & kHashMask;
+
+        // Linear probe — table is < 75% full, so probing terminates quickly.
+        for (int probe = 0; probe < 8; ++probe) {
+            uint16_t idx = key_slots_[slot];
+            if (idx == 0xFFFF)
+                break; // empty slot → key not in cache
+            auto& e = key_entries_[idx];
+            if (e.key_len == static_cast<uint16_t>(vlen) &&
+                std::memcmp(e.key_data, v.data(), vlen) == 0) {
+                // Cache hit — borrowed ref (no INCREF).
+                keys_.push_back(e.cached);
+                return true;
+            }
+            slot = (slot + 1) & kHashMask;
         }
-        // Cache miss — create new key, cache it.
-        PyObject* key = PyUnicode_FromStringAndSize(v.data(), static_cast<Py_ssize_t>(v.size()));
+
+        // Cache miss — create new interned key and insert into cache.
+        PyObject* key = PyUnicode_FromStringAndSize(v.data(), static_cast<Py_ssize_t>(vlen));
         if (!key)
             return false;
         PyUnicode_InternInPlace(&key);
         Py_hash_t py_hash = PyObject_Hash(key);
-        // Store in cache (evict old entry if any)
-        if (ce.key)
-            Py_DECREF(ce.key);
-        Py_INCREF(key); // one ref for the cache
-        ce.key = key;
-        ce.hash = py_hash;
-        ce.len = static_cast<uint16_t>(v.size());
-        if (v.size() <= sizeof(ce.data))
-            std::memcpy(ce.data, v.data(), v.size());
+
+        size_t new_idx = key_entries_.size();
+        if (new_idx < kMaxEntries) {
+            key_entries_.push_back(
+                {std::string(v), nullptr, static_cast<uint16_t>(vlen), {key, py_hash}});
+            auto& back = key_entries_.back();
+            back.key_data = back.key_storage.data();
+            // Insert into hash table
+            uint32_t ins_slot = h & kHashMask;
+            while (key_slots_[ins_slot] != 0xFFFF)
+                ins_slot = (ins_slot + 1) & kHashMask;
+            key_slots_[ins_slot] = static_cast<uint16_t>(new_idx);
+        } else {
+            // Overflow: key not cached, but still usable for this call.
+            // We push an owned ref and DECREF in push_value via overflow flag.
+            keys_.push_back({key, py_hash});
+            overflow_key_ = true;
+            return true;
+        }
+
+        // Borrowed ref from cache.
         keys_.push_back({key, py_hash});
         return true;
     }
+
+    /// Speculative key match: compare raw JSON bytes against the cursor-predicted
+    /// key. Skips SIMD escape scan, hash computation, and cache lookup on hit.
+    size_t try_match_key(const char* data, size_t remaining) {
+        const size_t n = key_entries_.size();
+        if (n == 0 || cursor_ >= n)
+            return 0;
+        auto& e = key_entries_[cursor_];
+        const size_t klen = e.key_len;
+        if (klen + 1 <= remaining && std::memcmp(data, e.key_data, klen) == 0 &&
+            data[klen] == '"') {
+            // Hit! Push borrowed ref and advance cursor.
+            keys_.push_back(e.cached);
+            cursor_ = (cursor_ + 1 < n) ? cursor_ + 1 : 0;
+            return klen + 1;
+        }
+        return 0;
+    }
+
     bool on_end_object() override {
         if (stack_.empty())
             return false;
-        auto obj = stack_.back();
+        PyObject* dict = stack_.back();
+        // Record object size for depth-based presizing.
+        size_t depth = stack_.size() - 1;
+        Py_ssize_t sz = PyDict_GET_SIZE(dict);
+        if (depth >= depth_sizes_.size())
+            depth_sizes_.resize(depth + 1, 0);
+        depth_sizes_[depth] = static_cast<size_t>(sz);
         stack_.pop_back();
-        return push_value(obj);
+        return push_value(dict);
     }
     bool on_start_array(size_t) override {
-        if (UNLIKELY(!double_buffer_.empty()))
+        if (UNLIKELY(has_buffered_doubles_))
             flush_double_buffer();
         stack_.push_back(nullptr);
         array_starts_.push_back(array_items_.size());
@@ -1213,11 +1280,59 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         return r;
     }
 
+    /// Reset for reuse across calls (e.g. thread-local caching).
+    /// Clears parse state but keeps the key cache and depth_sizes_ warm.
+    void reset() {
+        if (root_) {
+            Py_DECREF(root_);
+            root_ = nullptr;
+        }
+        for (auto obj : stack_) {
+            if (obj)
+                Py_DECREF(obj);
+        }
+        stack_.clear();
+        keys_.clear();
+        for (auto* p : array_items_)
+            Py_DECREF(p);
+        array_items_.clear();
+        array_starts_.clear();
+        double_buffer_.clear();
+        buffering_doubles_ = false;
+        has_buffered_doubles_ = false;
+        overflow_key_ = false;
+        cursor_ = 0;
+    }
+
   private:
-    struct KeyEntry {
-        PyObject* key;
-        Py_hash_t hash;
+    struct CachedKeyEntry {
+        PyObject* py_key;
+        Py_hash_t py_hash;
     };
+
+    struct KeyCacheEntry {
+        std::string key_storage; // owning storage for key bytes
+        const char* key_data;    // points into key_storage
+        uint16_t key_len;
+        CachedKeyEntry cached; // {interned PyObject*, hash}
+    };
+
+    static inline uint32_t fnv1a_hash(const char* data, size_t len) {
+        uint32_t h = 0x811c9dc5u;
+        const char* end = data + len;
+        while (data + 8 <= end) {
+            uint64_t chunk;
+            std::memcpy(&chunk, data, 8);
+            h = (h ^ static_cast<uint32_t>(chunk)) * 0x01000193u;
+            h = (h ^ static_cast<uint32_t>(chunk >> 32)) * 0x01000193u;
+            data += 8;
+        }
+        while (data < end) {
+            h = (h ^ static_cast<unsigned char>(*data)) * 0x01000193u;
+            ++data;
+        }
+        return h;
+    }
 
     bool push_value(PyObject* val) {
         if (!val)
@@ -1238,10 +1353,14 @@ class LightweightBuilder : public strata::JsonSaxHandler {
             Py_DECREF(val);
             return false;
         }
-        KeyEntry ke = keys_.back();
+        CachedKeyEntry ke = keys_.back();
         keys_.pop_back();
-        int rc = _PyDict_SetItem_KnownHash(top, ke.key, val, ke.hash);
-        Py_DECREF(ke.key);
+        int rc = _PyDict_SetItem_KnownHash(top, ke.py_key, val, ke.py_hash);
+        // Only DECREF key if it was an overflow (non-cached) key.
+        if (UNLIKELY(overflow_key_)) {
+            Py_DECREF(ke.py_key);
+            overflow_key_ = false;
+        }
         Py_DECREF(val);
         return rc >= 0;
     }
@@ -1257,23 +1376,32 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         }
         double_buffer_.clear();
         buffering_doubles_ = false;
+        has_buffered_doubles_ = false;
     }
+
+    // Hash table: open-addressed with linear probing.
+    static constexpr size_t kHashSlots = 256; // power of 2
+    static constexpr uint32_t kHashMask = kHashSlots - 1;
+    static constexpr size_t kMaxEntries = 192; // 75% load factor
+
+    uint16_t key_slots_[kHashSlots]; // index into key_entries_, 0xFFFF = empty
+    std::vector<KeyCacheEntry> key_entries_;
+
+    // Cursor prediction: cursor_ points to the expected next key index.
+    // Naturally wraps for settled single-schema data; no reset for multi-schema.
+    size_t cursor_ = 0;
+
+    // Dict presizing from observed object sizes.
+    std::vector<size_t> depth_sizes_;
 
     std::vector<double> double_buffer_;
     bool buffering_doubles_ = false;
-
-    static constexpr size_t kKeyCacheSlots = 64; // power of 2
-    struct CachedKey {
-        PyObject* key = nullptr;
-        Py_hash_t hash = 0;
-        uint16_t len = 0;
-        char data[30] = {}; // inline key bytes for comparison (covers typical keys)
-    };
-    CachedKey key_cache_[kKeyCacheSlots] = {};
+    bool has_buffered_doubles_ = false;
+    bool overflow_key_ = false;
 
     PyObject* root_ = nullptr;
     std::vector<PyObject*> stack_;
-    std::vector<KeyEntry> keys_; // owned refs (interned) + pre-computed hash
+    std::vector<CachedKeyEntry> keys_; // borrowed refs from cache (no INCREF/DECREF)
     std::vector<PyObject*> array_items_;
     std::vector<size_t> array_starts_;
 };
@@ -1290,7 +1418,7 @@ PyObject* parse_json_to_python(std::string_view text, bool validate_utf8) {
     return builder.take_root();
 }
 
-// Lightweight parser for small inputs — no KeyCache, no schema tracking.
+// Lightweight parser for small/medium inputs.
 static PyObject* parse_json_to_python_light(std::string_view text) {
     LightweightBuilder builder;
     auto status = strata::parse_sax_inline(text, builder, /*validate_utf8=*/false);
@@ -1298,6 +1426,22 @@ static PyObject* parse_json_to_python_light(std::string_view text) {
         return nullptr;
     }
     return builder.take_root();
+}
+
+// Lightweight parser with thread-local reuse for warm key cache.
+static PyObject* parse_json_to_python_light_reuse(std::string_view text) {
+    static thread_local LightweightBuilder* tl_builder = new LightweightBuilder();
+    tl_builder->reset();
+    auto status = strata::parse_sax_inline(text, *tl_builder, /*validate_utf8=*/false);
+    if (status != strata::Status::Ok) {
+        return nullptr;
+    }
+    return tl_builder->take_root();
+}
+
+// Exported version for use from python_module.cpp (load() path).
+PyObject* parse_json_to_python_light_reuse_fn(std::string_view text) {
+    return parse_json_to_python_light_reuse(text);
 }
 
 // Thread-local reuse variant: uses a persistent PythonObjectBuilder for warm KeyCache.
@@ -1551,9 +1695,11 @@ PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
         PyGcPause gc_pause;
 
         // Small-input fast path: for JSON under 200KB, use the lightweight
-        // builder with zero infrastructure overhead (no KeyCache, no schema
-        // tracking, no cursor prediction).  Above 200KB the full builder's
-        // KeyCache and cursor prediction amortize their setup cost.
+        // builder (no heavy KeyCache / schema tracking infrastructure).
+        // Above 200KB the PythonObjectBuilder's cursor prediction, multi-schema
+        // tracking, and warm KeyCache amortize their setup cost and outperform
+        // the lightweight builder — especially for repeated calls with the
+        // same schema (thread-local reuse keeps the cache warm).
         if (len <= 200 * 1024) {
             PyObject* result = parse_json_to_python_light(std::string_view(data, len));
             if (!result) {
