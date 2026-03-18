@@ -476,6 +476,25 @@ JsonValue SpeculativeParser::parse_object(const uint8_t* data, size_t length, co
             if (val_start >= length)
                 break;
 
+            // ── Selective parsing: skip unwanted keys via Bloom filter ────
+            if (key_filter_ && !key_filter_->should_parse(key)) {
+                skip_value_structural(data, length, sp, num_sp, val_start, pos_index);
+
+                // Consume separator (, or })
+                if (pos_index < num_sp) {
+                    uint8_t sep = data[sp[pos_index]];
+                    if (sep == ',') {
+                        ++pos_index;
+                        continue;
+                    }
+                    if (sep == '}') {
+                        ++pos_index;
+                        break;
+                    }
+                }
+                continue;
+            }
+
             // Parse value
             JsonValue val =
                 parse_value_at(data, val_start, length, sp, num_sp, child_ctx, pos_index);
@@ -642,6 +661,42 @@ std::vector<JsonValue> SpeculativeParser::parse_ndjson(const uint8_t* data, size
     }
 
     return results;
+}
+
+// ─── Structural value skip (for selective parsing) ──────────────────────────
+//
+// Skips a JSON value by inspecting the structural index only.
+// For containers ({, [): counts depth until matching close.
+// For primitives: advances pos_index until the next , or } or ].
+
+void SpeculativeParser::skip_value_structural(const uint8_t* data, size_t /*length*/,
+                                              const uint32_t* sp, size_t num_sp, size_t val_start,
+                                              size_t& pos_index) noexcept {
+    uint8_t first = data[val_start];
+
+    if (first == '{' || first == '[') {
+        // Sync pos_index to the container opener.
+        while (pos_index < num_sp && sp[pos_index] < val_start)
+            ++pos_index;
+
+        // Count depth through the structural index.
+        int depth = 1;
+        ++pos_index; // skip opener
+        while (pos_index < num_sp && depth > 0) {
+            uint8_t c = data[sp[pos_index]];
+            if (c == '{' || c == '[')
+                ++depth;
+            else if (c == '}' || c == ']')
+                --depth;
+            ++pos_index;
+        }
+        return;
+    }
+
+    // Primitive value (string, number, bool, null):
+    // The structural index doesn't include primitive positions.
+    // pos_index already points to the next structural char after ':',
+    // which should be ',' or '}' or ']' — no advancement needed.
 }
 
 } // namespace strata::speculative

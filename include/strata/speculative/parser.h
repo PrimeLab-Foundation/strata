@@ -20,6 +20,7 @@
 // =============================================================================
 
 #include <cstdint>
+#include <strata/bloom/key_filter.h>
 #include <strata/json/json_core.hpp>
 #include <strata/speculative/fast_paths.h>
 #include <strata/speculative/transition_model.h>
@@ -57,12 +58,18 @@ class SpeculativeParser {
     [[nodiscard]] const TransitionModel& model() const noexcept { return model_; }
     [[nodiscard]] TransitionModel& model() noexcept { return model_; }
 
+    /// Set an optional key filter for selective parsing.
+    /// When set, the parser skips values of keys not in the filter.
+    /// The filter pointer must remain valid for the lifetime of the parse call.
+    void set_key_filter(const bloom::KeyFilter* filter) noexcept { key_filter_ = filter; }
+
   private:
     Config config_;
     TransitionModel model_;
     FastPaths fast_paths_;
     [[maybe_unused]] strata::util::Arena& arena_;
-    uint64_t values_observed_ = 0; // for warmup tracking
+    uint64_t values_observed_ = 0;                 // for warmup tracking
+    const bloom::KeyFilter* key_filter_ = nullptr; // optional selective parsing filter
 
     // ── Core recursive-descent with speculation ─────────────────────────
 
@@ -94,6 +101,11 @@ class SpeculativeParser {
 
     // Skip whitespace starting from offset, return new offset
     static size_t skip_ws(const uint8_t* data, size_t offset, size_t length) noexcept;
+
+    // Skip a JSON value using the structural index (no parsing, just brace counting).
+    // Used by selective parsing to jump past unwanted key values.
+    void skip_value_structural(const uint8_t* data, size_t length, const uint32_t* sp,
+                               size_t num_sp, size_t val_start, size_t& pos_index) noexcept;
 
     // Determine the actual ValueType from the first byte of a value
     static ValueType classify_value_byte(uint8_t c) noexcept;

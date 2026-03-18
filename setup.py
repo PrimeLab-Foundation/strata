@@ -313,6 +313,12 @@ ext_modules = [
             "src/strata/speculative/transition_model.cpp",
             "src/strata/speculative/fast_paths.cpp",
             "src/strata/speculative/parser.cpp",
+            # Bloom filter subsystem
+            "src/strata/bloom/bloom_filter.cpp",
+            "src/strata/bloom/key_filter.cpp",
+            "src/strata/bloom/schema_filter.cpp",
+            "src/strata/bloom/dedup_filter.cpp",
+            "src/strata/bloom/parser_integration.cpp",
         ],
         include_dirs=[
             "include",

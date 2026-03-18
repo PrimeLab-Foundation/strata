@@ -21,6 +21,7 @@
  *   {"name": "Bob", "age": 25}
  */
 
+#include "strata/bloom/key_filter.h"
 #include "strata/json/json_core.hpp"
 #include "strata/json/json_parse.hpp"
 #include "strata/simd/index_builder.h"
@@ -117,6 +118,13 @@ class NdjsonStream {
      */
     [[nodiscard]] std::string_view read_raw_line();
 
+    /// Set an optional key filter for selective parsing of NDJSON records.
+    /// When set, only desired keys are parsed; others are skipped at near-zero cost.
+    /// The filter is applied via the speculative parser's structural-index skipping.
+    void set_key_filter(std::unique_ptr<bloom::KeyFilter> filter) noexcept {
+        key_filter_ = std::move(filter);
+    }
+
     /// Access the speculative model (for stats / serialization).
     [[nodiscard]] const speculative::TransitionModel& speculative_model() const noexcept {
         return spec_model_;
@@ -131,6 +139,9 @@ class NdjsonStream {
 
     /// Speculative transition model — persists across lines for online learning.
     speculative::TransitionModel spec_model_;
+
+    /// Optional key filter for selective parsing (owned).
+    std::unique_ptr<bloom::KeyFilter> key_filter_;
 
     /// Extract next line from data (up to newline or end).
     std::string_view next_line();

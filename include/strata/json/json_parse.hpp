@@ -18,9 +18,11 @@
  *   a thread-local vector and retrieved via consume_parse_warnings().
  */
 
+#include "strata/bloom/key_filter.h"
 #include "strata/json/json_core.hpp"
 #include "strata/json/json_sax_handler.hpp"
 
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -72,5 +74,19 @@ void set_duplicate_key_policy(DuplicateKeyPolicy policy);
  * Falls back to parse_json() on any internal error.
  */
 [[nodiscard]] Result<JsonValue> parse_json_speculative(std::string_view text);
+
+/**
+ * Parse JSON using the speculative engine with selective key extraction.
+ *
+ * Only keys present in @p desired_keys are parsed; all others are skipped
+ * at near-zero cost via Bloom filter rejection and structural-index jumping.
+ * This is ideal for extracting a few fields from large JSON objects.
+ *
+ * @param text         UTF-8 JSON input.
+ * @param desired_keys Keys to extract (others are skipped).
+ * @return Result containing a sparse JsonValue with only matched keys.
+ */
+[[nodiscard]] Result<JsonValue>
+parse_json_selective(std::string_view text, std::span<const std::string_view> desired_keys);
 
 } // namespace strata

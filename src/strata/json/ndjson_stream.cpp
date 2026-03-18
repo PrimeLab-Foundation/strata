@@ -80,6 +80,11 @@ Result<JsonValue> NdjsonStream::parse_line_speculative(std::string_view line) {
 
     parser.model() = spec_model_;
 
+    // Apply key filter for selective parsing if set.
+    if (key_filter_) {
+        parser.set_key_filter(key_filter_.get());
+    }
+
     auto result = parser.parse(reinterpret_cast<const uint8_t*>(line.data()), line.size(),
                                index.positions.data(), index.positions.size());
 

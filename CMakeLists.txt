@@ -58,6 +58,11 @@ set(STRATA_CORE_SOURCES
     src/strata/speculative/transition_model.cpp
     src/strata/speculative/fast_paths.cpp
     src/strata/speculative/parser.cpp
+    src/strata/bloom/bloom_filter.cpp
+    src/strata/bloom/key_filter.cpp
+    src/strata/bloom/schema_filter.cpp
+    src/strata/bloom/dedup_filter.cpp
+    src/strata/bloom/parser_integration.cpp
 )
 
 # Include directories
@@ -193,6 +198,14 @@ set(STRATA_SIMD_SOURCES
     src/strata/simd/dispatch.cpp
 )
 
+set(STRATA_BLOOM_SOURCES
+    src/strata/bloom/bloom_filter.cpp
+    src/strata/bloom/key_filter.cpp
+    src/strata/bloom/schema_filter.cpp
+    src/strata/bloom/dedup_filter.cpp
+    src/strata/bloom/parser_integration.cpp
+)
+
 add_executable(simd_tests
     tests/cpp/test_simd.cpp
     ${STRATA_SIMD_SOURCES}
@@ -226,6 +239,7 @@ add_executable(speculative_tests
     tests/cpp/test_speculative.cpp
     ${STRATA_SPECULATIVE_SOURCES}
     ${STRATA_SIMD_SOURCES}
+    ${STRATA_BLOOM_SOURCES}
 )
 target_include_directories(speculative_tests PRIVATE ${STRATA_INCLUDE_DIRS})
 target_compile_options(speculative_tests PRIVATE -Wall -Wextra)
@@ -239,10 +253,36 @@ add_executable(bench_speculative
     tests/cpp/bench_speculative.cpp
     ${STRATA_SPECULATIVE_SOURCES}
     ${STRATA_SIMD_SOURCES}
+    ${STRATA_BLOOM_SOURCES}
 )
 target_include_directories(bench_speculative PRIVATE ${STRATA_INCLUDE_DIRS})
 target_compile_options(bench_speculative PRIVATE -Wall -Wextra -O3)
 strata_apply_lto(bench_speculative)
+
+# ---------------------------------------------------------------------------
+# 14) Bloom Filter Tests
+# ---------------------------------------------------------------------------
+add_executable(bloom_tests
+    tests/cpp/test_bloom.cpp
+    ${STRATA_BLOOM_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(bloom_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(bloom_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(bloom_tests)
+add_test(NAME bloom_tests COMMAND bloom_tests)
+
+# ---------------------------------------------------------------------------
+# 16) Bloom Filter Benchmark (build only, run manually)
+# ---------------------------------------------------------------------------
+add_executable(bench_bloom
+    tests/cpp/bench_bloom.cpp
+    ${STRATA_BLOOM_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(bench_bloom PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(bench_bloom PRIVATE -Wall -Wextra -O3)
+strata_apply_lto(bench_bloom)
 
 # ---------------------------------------------------------------------------
 # Fuzz targets (libFuzzer + ASan + UBSan) — optional

@@ -13,6 +13,7 @@
 
 #include "strata/json/json_parse.hpp"
 
+#include "strata/bloom/dedup_filter.h"
 #include "strata/json/json_parser_inline.hpp"
 #include "strata/simd/index_builder.h"
 #include "strata/speculative/parser.h"
@@ -59,6 +60,7 @@ class DomBuilderHandler : public JsonSaxHandler {
 
     bool on_start_object(size_t) override {
         stack_.emplace_back(JsonValue::Variant(JsonValue::Object()));
+        dedup_.push();
         return true;
     }
 
@@ -70,6 +72,7 @@ class DomBuilderHandler : public JsonSaxHandler {
     bool on_end_object() override {
         if (stack_.empty())
             return false;
+        dedup_.pop();
         auto obj = std::move(stack_.back());
         stack_.pop_back();
         return push_value(std::move(obj));
@@ -108,7 +111,11 @@ class DomBuilderHandler : public JsonSaxHandler {
             std::string key = std::move(keys_.back());
             keys_.pop_back();
 
-            auto existing = obj.find(key);
+            // Fast-path duplicate detection via Bloom filter:
+            // check_and_insert returns true only if the key MIGHT be a duplicate.
+            // For ~99% of unique keys, this skips the expensive obj.find() entirely.
+            bool maybe_dup = dedup_.check_and_insert(key);
+            auto existing = maybe_dup ? obj.find(key) : obj.end();
             if (existing != obj.end()) {
                 switch (g_duplicate_policy) {
                 case DuplicateKeyPolicy::FirstWins:
@@ -133,6 +140,7 @@ class DomBuilderHandler : public JsonSaxHandler {
     JsonValue root_;
     std::vector<JsonValue> stack_;
     std::vector<std::string> keys_;
+    bloom::DedupFilter dedup_;
 };
 
 // Parser is now in json_parser_inline.hpp as a template (ParserInline<Handler>).
@@ -197,6 +205,37 @@ std::vector<std::string> consume_parse_warnings() {
     std::vector<std::string> warnings = std::move(g_parse_warnings);
     g_parse_warnings.clear();
     return warnings;
+}
+
+Result<JsonValue> parse_json_selective(std::string_view text,
+                                       std::span<const std::string_view> desired_keys) {
+    if (text.empty() || desired_keys.empty())
+        return parse_json_speculative(text);
+
+    try {
+        strata::simd::IndexBuilder idx_builder;
+        auto index = idx_builder.build(reinterpret_cast<const uint8_t*>(text.data()), text.size());
+
+        if (!index.positions.empty()) {
+            bloom::KeyFilter filter(desired_keys);
+
+            strata::util::Arena arena;
+            speculative::SpeculativeParser::Config config;
+            config.enable_speculation = true;
+            config.enable_online_learning = true;
+            config.online_learning_warmup = 0;
+            speculative::SpeculativeParser parser(config, arena);
+            parser.set_key_filter(&filter);
+
+            auto result = parser.parse(reinterpret_cast<const uint8_t*>(text.data()), text.size(),
+                                       index.positions.data(), index.positions.size());
+
+            return {Status::Ok, std::move(result)};
+        }
+    } catch (...) {
+    }
+
+    return parse_json(text);
 }
 
 } // namespace strata
