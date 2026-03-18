@@ -27,6 +27,13 @@ CORE_SOURCES="
     src/strata/util/simd_newline.cpp
     src/strata/util/simd_utf8.cpp
     src/strata/util/fast_parse.cpp
+    src/strata/simd/classifier.cpp
+    src/strata/simd/structural_indexer.cpp
+    src/strata/simd/index_builder.cpp
+    src/strata/simd/dispatch.cpp
+    src/strata/speculative/transition_model.cpp
+    src/strata/speculative/fast_paths.cpp
+    src/strata/speculative/parser.cpp
 "
 
 PASSED=0

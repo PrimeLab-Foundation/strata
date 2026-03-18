@@ -23,6 +23,9 @@
 
 #include "strata/json/json_core.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/simd/index_builder.h"
+#include "strata/speculative/parser.h"
+#include "strata/util/arena_allocator.hpp"
 
 #include <memory>
 #include <string>
@@ -114,6 +117,11 @@ class NdjsonStream {
      */
     [[nodiscard]] std::string_view read_raw_line();
 
+    /// Access the speculative model (for stats / serialization).
+    [[nodiscard]] const speculative::TransitionModel& speculative_model() const noexcept {
+        return spec_model_;
+    }
+
   private:
     std::string_view data_;
     size_t pos_;
@@ -121,8 +129,14 @@ class NdjsonStream {
     size_t lines_processed_;
     size_t error_count_;
 
+    /// Speculative transition model — persists across lines for online learning.
+    speculative::TransitionModel spec_model_;
+
     /// Extract next line from data (up to newline or end).
     std::string_view next_line();
+
+    /// Parse a single line using the speculative parser with online learning.
+    Result<JsonValue> parse_line_speculative(std::string_view line);
 
     /// Parse a chunk of lines using SIMD newline collection.
     /// Returns true if a parse error was hit and skip_errors is false.

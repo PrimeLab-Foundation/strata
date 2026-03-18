@@ -309,6 +309,10 @@ ext_modules = [
             "src/strata/simd/structural_indexer.cpp",
             "src/strata/simd/index_builder.cpp",
             "src/strata/simd/dispatch.cpp",
+            # Speculative parsing engine
+            "src/strata/speculative/transition_model.cpp",
+            "src/strata/speculative/fast_paths.cpp",
+            "src/strata/speculative/parser.cpp",
         ],
         include_dirs=[
             "include",

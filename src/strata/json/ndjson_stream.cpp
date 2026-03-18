@@ -14,6 +14,9 @@
 
 #include "strata/json/ndjson_stream.hpp"
 
+#include "strata/simd/index_builder.h"
+#include "strata/speculative/parser.h"
+#include "strata/util/arena_allocator.hpp"
 #include "strata/util/simd_string.hpp"
 
 namespace strata {
@@ -40,7 +43,50 @@ static inline bool is_whitespace_only_line(std::string_view line) {
 } // namespace
 
 NdjsonStream::NdjsonStream(std::string_view data)
-    : data_(data), pos_(0), line_num_(1), lines_processed_(0), error_count_(0) {}
+    : data_(data), pos_(0), line_num_(1), lines_processed_(0), error_count_(0), spec_model_() {}
+
+Result<JsonValue> NdjsonStream::parse_line_speculative(std::string_view line) {
+    // First N lines: validate with parse_json() and train the speculative model.
+    // After warmup, use the speculative parser for speed (skip full validation).
+    constexpr size_t WARMUP_LINES = 10;
+
+    if (lines_processed_ <= WARMUP_LINES) {
+        // Validate with the strict parser
+        auto result = parse_json(line);
+        if (!result.ok())
+            return result;
+
+        // Train the speculative model on this validated line
+        spec_model_.train_from_samples(reinterpret_cast<const uint8_t*>(line.data()), line.size(),
+                                       1);
+
+        return result;
+    }
+
+    // Post-warmup: use speculative parser for throughput
+    strata::simd::IndexBuilder idx_builder;
+    auto index = idx_builder.build(reinterpret_cast<const uint8_t*>(line.data()), line.size());
+
+    if (index.positions.empty()) {
+        return parse_json(line);
+    }
+
+    strata::util::Arena arena;
+    speculative::SpeculativeParser::Config config;
+    config.enable_speculation = true;
+    config.enable_online_learning = true;
+    config.online_learning_warmup = 0;
+    speculative::SpeculativeParser parser(config, arena);
+
+    parser.model() = spec_model_;
+
+    auto result = parser.parse(reinterpret_cast<const uint8_t*>(line.data()), line.size(),
+                               index.positions.data(), index.positions.size());
+
+    spec_model_ = parser.model();
+
+    return {Status::Ok, std::move(result)};
+}
 
 std::string_view NdjsonStream::next_line() {
     if (pos_ >= data_.size()) {
@@ -103,7 +149,7 @@ bool NdjsonStream::parse_batch_chunked(size_t max_results, bool skip_errors,
         }
 
         lines_processed_++;
-        auto result = parse_json(line);
+        auto result = parse_line_speculative(line);
         if (result.ok()) {
             results.push_back(std::move(result.value));
             parsed++;
@@ -128,9 +174,9 @@ Result<JsonValue> NdjsonStream::next() {
             continue;
         }
 
-        // Parse JSON
+        // Parse JSON (speculative with online learning)
         lines_processed_++;
-        auto result = parse_json(line);
+        auto result = parse_line_speculative(line);
 
         if (!result.ok()) {
             error_count_++;

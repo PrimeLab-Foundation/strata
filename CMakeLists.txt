@@ -55,6 +55,9 @@ set(STRATA_CORE_SOURCES
     src/strata/simd/structural_indexer.cpp
     src/strata/simd/index_builder.cpp
     src/strata/simd/dispatch.cpp
+    src/strata/speculative/transition_model.cpp
+    src/strata/speculative/fast_paths.cpp
+    src/strata/speculative/parser.cpp
 )
 
 # Include directories
@@ -209,6 +212,37 @@ add_executable(bench_simd
 target_include_directories(bench_simd PRIVATE ${STRATA_INCLUDE_DIRS})
 target_compile_options(bench_simd PRIVATE -Wall -Wextra -O3)
 strata_apply_lto(bench_simd)
+
+# ---------------------------------------------------------------------------
+# 12) Speculative Parsing Engine Tests
+# ---------------------------------------------------------------------------
+set(STRATA_SPECULATIVE_SOURCES
+    src/strata/speculative/transition_model.cpp
+    src/strata/speculative/fast_paths.cpp
+    src/strata/speculative/parser.cpp
+)
+
+add_executable(speculative_tests
+    tests/cpp/test_speculative.cpp
+    ${STRATA_SPECULATIVE_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(speculative_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(speculative_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(speculative_tests)
+add_test(NAME speculative_tests COMMAND speculative_tests)
+
+# ---------------------------------------------------------------------------
+# 13) Speculative Parsing Benchmark (build only, run manually)
+# ---------------------------------------------------------------------------
+add_executable(bench_speculative
+    tests/cpp/bench_speculative.cpp
+    ${STRATA_SPECULATIVE_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(bench_speculative PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(bench_speculative PRIVATE -Wall -Wextra -O3)
+strata_apply_lto(bench_speculative)
 
 # ---------------------------------------------------------------------------
 # Fuzz targets (libFuzzer + ASan + UBSan) — optional

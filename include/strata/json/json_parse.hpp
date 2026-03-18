@@ -63,4 +63,14 @@ void set_duplicate_key_policy(DuplicateKeyPolicy policy);
 /// Retrieve and clear any parse warnings (e.g. duplicate keys when policy == Warn).
 [[nodiscard]] std::vector<std::string> consume_parse_warnings();
 
+/**
+ * Parse JSON using the speculative engine (structural index + Markov model).
+ *
+ * Faster than parse_json() for known-valid input but does NOT validate
+ * strictly — malformed JSON may be partially parsed instead of rejected.
+ * Use this for trusted input where throughput matters (e.g., NDJSON streams).
+ * Falls back to parse_json() on any internal error.
+ */
+[[nodiscard]] Result<JsonValue> parse_json_speculative(std::string_view text);
+
 } // namespace strata

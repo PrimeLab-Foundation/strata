@@ -14,6 +14,8 @@
 #include "strata/json/json_parse.hpp"
 
 #include "strata/json/json_parser_inline.hpp"
+#include "strata/simd/index_builder.h"
+#include "strata/speculative/parser.h"
 
 #include <cctype>
 #include <cstdint>
@@ -140,12 +142,45 @@ class DomBuilderHandler : public JsonSaxHandler {
 
 Result<JsonValue> parse_json(std::string_view text) {
     g_parse_warnings.clear();
+
+    // Use ParserInline for single-document parsing — it performs strict
+    // JSON validation (rejecting malformed input). The speculative parser
+    // is used for NDJSON streams where online learning across homogeneous
+    // lines provides the biggest win (see NdjsonStream::parse_line_speculative).
     DomBuilderHandler handler;
     Status status = parse_sax_inline(text, handler);
     if (status != Status::Ok) {
         return {status, JsonValue{}};
     }
     return {Status::Ok, handler.take_root()};
+}
+
+Result<JsonValue> parse_json_speculative(std::string_view text) {
+    if (text.empty())
+        return {Status::ParseError, JsonValue{}};
+
+    try {
+        strata::simd::IndexBuilder idx_builder;
+        auto index = idx_builder.build(reinterpret_cast<const uint8_t*>(text.data()), text.size());
+
+        if (!index.positions.empty()) {
+            strata::util::Arena arena;
+            speculative::SpeculativeParser::Config config;
+            config.enable_speculation = true;
+            config.enable_online_learning = true;
+            config.online_learning_warmup = 0;
+            speculative::SpeculativeParser parser(config, arena);
+
+            auto result = parser.parse(reinterpret_cast<const uint8_t*>(text.data()), text.size(),
+                                       index.positions.data(), index.positions.size());
+
+            return {Status::Ok, std::move(result)};
+        }
+    } catch (...) {
+    }
+
+    // Fallback
+    return parse_json(text);
 }
 
 Status parse_sax(std::string_view text, JsonSaxHandler& handler, bool validate_utf8) {
