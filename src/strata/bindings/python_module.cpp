@@ -298,8 +298,7 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
         PyObject* py_result;
         {
             PyGcPause gc_pause;
-            py_result = parse_json_to_python(std::string_view(file_buf, file_size),
-                                             /*validate_utf8=*/false);
+            py_result = parse_json_to_python_reuse_tl(std::string_view(file_buf, file_size));
         }
 
         if (!py_result)

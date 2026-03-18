@@ -23,6 +23,12 @@ PyObject* json_value_to_python(const strata::JsonValue& val);
  */
 PyObject* parse_json_to_python(std::string_view text, bool validate_utf8 = true);
 
+/** Parse JSON using a thread-local reused PythonObjectBuilder for warm KeyCache.
+ *  Faster than parse_json_to_python for repeated calls with same-schema data.
+ *  UTF-8 validation is skipped (safe for PyUnicode creation).
+ */
+PyObject* parse_json_to_python_reuse_tl(std::string_view text);
+
 /** Parse all remaining lines of an NdjsonStream into a Python list, reusing a single
  *  PythonObjectBuilder (and its KeyCache) across lines for reduced allocations.
  *  GC is suspended for the duration. Defined in python_loads.cpp.
