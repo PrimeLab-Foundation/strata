@@ -18,6 +18,9 @@ struct StrViewCmp {
 } // namespace
 
 // ─── Construction from flat key list ─────────────────────────────────────────
+//
+// Inserts all keys into the global Bloom filter and a sorted key vector
+// for exact-match fallback.  Duplicates are removed after sorting.
 
 SchemaFilter::SchemaFilter(std::span<const std::string_view> allowed_keys) {
     all_keys_.reserve(allowed_keys.size());
@@ -174,6 +177,9 @@ uint16_t SchemaFilter::short_hash(std::string_view key) noexcept {
     return static_cast<uint16_t>(h ^ (h >> 16) ^ (h >> 32) ^ (h >> 48));
 }
 
+/// Validate a key against the global schema.
+/// Returns {true, false, hash} for definite match, {false, false, hash} for
+/// definite non-match (Bloom negative), {false, true, hash} for Bloom false positive.
 SchemaFilter::ValidationResult SchemaFilter::validate(std::string_view key) const noexcept {
     uint16_t kh = short_hash(key);
 
@@ -187,6 +193,8 @@ SchemaFilter::ValidationResult SchemaFilter::validate(std::string_view key) cons
     return {exact, !exact, kh};
 }
 
+/// Batch-validate up to 64 keys via Bloom filter only (no exact check).
+/// Returns a bitmask where bit i is set if keys[i] passed the Bloom test.
 uint64_t SchemaFilter::validate_batch(const std::string_view* keys, size_t count) const noexcept {
     // Process keys sequentially using the Bloom filter.
     // Each bit in the result corresponds to a key that passed (might be valid).

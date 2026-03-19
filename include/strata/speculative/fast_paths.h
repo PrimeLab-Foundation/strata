@@ -44,39 +44,39 @@ class FastPaths {
     // Multiply accumulated digits using SWAR reduction.
     //
     // Targets 4+ GB/s on typical integer-heavy JSON.
-    ParseResult parse_integer(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_integer(const uint8_t* data, size_t remaining) noexcept;
 
     // ── Float parsing ───────────────────────────────────────────────────
     //
     // Expects digits with decimal point and/or exponent.
     // Uses strtod-fast-path (Lemire's algorithm via fast_float).
-    ParseResult parse_float(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_float(const uint8_t* data, size_t remaining) noexcept;
 
     // ── Short string (≤32 bytes, no escapes) ────────────────────────────
     //
     // Single 32-byte load (or 16-byte on NEON), scan for closing quote
     // and backslash simultaneously. If no escape found and quote within
     // range → direct copy to arena.
-    ParseResult parse_short_string(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_short_string(const uint8_t* data, size_t remaining) noexcept;
 
     // ── Long string (>32 bytes or with escapes) ─────────────────────────
     //
     // SIMD scan for backslash and quote. Processes escape sequences
     // using a lookup table for common escapes (\n, \t, \\, \", etc.).
-    ParseResult parse_long_string(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_long_string(const uint8_t* data, size_t remaining) noexcept;
 
     // ── Literal parsers (branchless) ────────────────────────────────────
     //
     // Compare 4 or 5 bytes as a single 32-bit or 64-bit integer.
-    ParseResult parse_bool_true(const uint8_t* data, size_t remaining) noexcept;
-    ParseResult parse_bool_false(const uint8_t* data, size_t remaining) noexcept;
-    ParseResult parse_null(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_bool_true(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_bool_false(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_null(const uint8_t* data, size_t remaining) noexcept;
 
     // ── Container openers ───────────────────────────────────────────────
     // These don't parse the container — they just confirm the opening
     // character matches prediction, enabling the coordinator to proceed.
-    ParseResult parse_object_open(const uint8_t* data, size_t remaining) noexcept;
-    ParseResult parse_array_open(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_object_open(const uint8_t* data, size_t remaining) noexcept;
+    [[nodiscard]] ParseResult parse_array_open(const uint8_t* data, size_t remaining) noexcept;
 
     // ── Dispatch table ──────────────────────────────────────────────────
     using ParseFn = ParseResult (FastPaths::*)(const uint8_t*, size_t) noexcept;

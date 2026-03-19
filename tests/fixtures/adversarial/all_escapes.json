@@ -1,0 +1,15 @@
+{
+  "backslash": "\\",
+  "quote": "\"",
+  "slash": "\/",
+  "backspace": "\b",
+  "formfeed": "\f",
+  "newline": "\n",
+  "carriage_return": "\r",
+  "tab": "\t",
+  "unicode_basic": "\u0041",
+  "unicode_null": "\u0000",
+  "unicode_bmp": "\u00e9",
+  "unicode_surrogate": "\uD83D\uDE00",
+  "mixed": "hello\nworld\t\"quoted\"\\\u0041"
+}

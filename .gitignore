@@ -68,3 +68,7 @@ venv
 
 # Cursor AI
 .cursor
+
+build/**
+build_coverage/**
+build_cpp_tests/**

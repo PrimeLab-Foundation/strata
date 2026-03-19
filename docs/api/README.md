@@ -1,5 +1,15 @@
 # Strata API Reference
 
+## C++ API
+
+| Subsystem                | Reference                                |
+| ------------------------ | ---------------------------------------- |
+| SIMD Structural Indexing | [simd_api.md](simd_api.md)               |
+| Speculative Parser       | [speculative_api.md](speculative_api.md) |
+| Bloom Filters            | [bloom_api.md](bloom_api.md)             |
+
+## Python API
+
 ## `strata.loads(source, *, return_type="dict", iterator=False)`
 
 Parse JSON text into a Python object.

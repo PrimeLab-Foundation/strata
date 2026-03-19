@@ -49,3 +49,45 @@ add_executable(fuzz_ndjson fuzz_ndjson.cpp ${FUZZ_CORE_SOURCES})
 target_include_directories(fuzz_ndjson PRIVATE ${FUZZ_INCLUDE_DIRS})
 target_compile_options(fuzz_ndjson PRIVATE ${FUZZ_FLAGS})
 target_link_options(fuzz_ndjson PRIVATE ${FUZZ_LINK_FLAGS})
+
+# --- Additional subsystem fuzz targets ---
+
+set(FUZZ_SIMD_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/strata/simd/classifier.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/simd/structural_indexer.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/simd/index_builder.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/simd/dispatch.cpp
+)
+
+set(FUZZ_SPECULATIVE_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/strata/speculative/transition_model.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/speculative/fast_paths.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/speculative/parser.cpp
+)
+
+set(FUZZ_BLOOM_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/strata/bloom/bloom_filter.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/bloom/key_filter.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/bloom/schema_filter.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/bloom/dedup_filter.cpp
+    ${CMAKE_SOURCE_DIR}/src/strata/bloom/parser_integration.cpp
+)
+
+# fuzz_structural_indexer: SIMD structural indexer
+add_executable(fuzz_structural_indexer fuzz_structural_indexer.cpp ${FUZZ_SIMD_SOURCES})
+target_include_directories(fuzz_structural_indexer PRIVATE ${FUZZ_INCLUDE_DIRS})
+target_compile_options(fuzz_structural_indexer PRIVATE ${FUZZ_FLAGS})
+target_link_options(fuzz_structural_indexer PRIVATE ${FUZZ_LINK_FLAGS})
+
+# fuzz_speculative_parser: speculative parsing engine
+add_executable(fuzz_speculative_parser fuzz_speculative_parser.cpp
+    ${FUZZ_SPECULATIVE_SOURCES} ${FUZZ_SIMD_SOURCES} ${FUZZ_BLOOM_SOURCES})
+target_include_directories(fuzz_speculative_parser PRIVATE ${FUZZ_INCLUDE_DIRS})
+target_compile_options(fuzz_speculative_parser PRIVATE ${FUZZ_FLAGS})
+target_link_options(fuzz_speculative_parser PRIVATE ${FUZZ_LINK_FLAGS})
+
+# fuzz_bloom_filter: Bloom filter + DedupFilter
+add_executable(fuzz_bloom_filter fuzz_bloom_filter.cpp ${FUZZ_BLOOM_SOURCES} ${FUZZ_SIMD_SOURCES})
+target_include_directories(fuzz_bloom_filter PRIVATE ${FUZZ_INCLUDE_DIRS})
+target_compile_options(fuzz_bloom_filter PRIVATE ${FUZZ_FLAGS})
+target_link_options(fuzz_bloom_filter PRIVATE ${FUZZ_LINK_FLAGS})

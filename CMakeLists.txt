@@ -285,6 +285,113 @@ target_compile_options(bench_bloom PRIVATE -Wall -Wextra -O3)
 strata_apply_lto(bench_bloom)
 
 # ---------------------------------------------------------------------------
+# 17) SIMD Edge-Case Tests
+# ---------------------------------------------------------------------------
+add_executable(simd_edge_tests
+    tests/cpp/test_simd_edge.cpp
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(simd_edge_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(simd_edge_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(simd_edge_tests)
+add_test(NAME simd_edge_tests COMMAND simd_edge_tests)
+
+# ---------------------------------------------------------------------------
+# 18) Speculative Edge-Case Tests
+# ---------------------------------------------------------------------------
+add_executable(speculative_edge_tests
+    tests/cpp/test_speculative_edge.cpp
+    ${STRATA_SPECULATIVE_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+    ${STRATA_BLOOM_SOURCES}
+)
+target_include_directories(speculative_edge_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(speculative_edge_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(speculative_edge_tests)
+add_test(NAME speculative_edge_tests COMMAND speculative_edge_tests)
+
+# ---------------------------------------------------------------------------
+# 19) Bloom Edge-Case Tests
+# ---------------------------------------------------------------------------
+add_executable(bloom_edge_tests
+    tests/cpp/test_bloom_edge.cpp
+    ${STRATA_BLOOM_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(bloom_edge_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(bloom_edge_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(bloom_edge_tests)
+add_test(NAME bloom_edge_tests COMMAND bloom_edge_tests)
+
+# ---------------------------------------------------------------------------
+# 20) Integration Tests (all subsystems)
+# ---------------------------------------------------------------------------
+add_executable(integration_tests
+    tests/cpp/test_integration.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(integration_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(integration_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(integration_tests)
+add_test(NAME integration_tests COMMAND integration_tests)
+
+# ---------------------------------------------------------------------------
+# 21) MmapFile / parse_json_file Tests
+# ---------------------------------------------------------------------------
+add_executable(mmap_tests
+    tests/cpp/test_mmap.cpp
+    ${STRATA_CORE_SOURCES}
+)
+target_include_directories(mmap_tests PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(mmap_tests PRIVATE -Wall -Wextra)
+strata_apply_lto(mmap_tests)
+add_test(NAME mmap_tests COMMAND mmap_tests)
+
+# ---------------------------------------------------------------------------
+# 22) Doc Example: SIMD Usage
+# ---------------------------------------------------------------------------
+add_executable(example_simd_usage
+    tests/doc_examples/example_simd_usage.cpp
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(example_simd_usage PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(example_simd_usage PRIVATE -Wall -Wextra)
+strata_apply_lto(example_simd_usage)
+add_test(NAME example_simd_usage COMMAND example_simd_usage)
+
+# ---------------------------------------------------------------------------
+# 22) Doc Example: Speculative Parser Usage
+# ---------------------------------------------------------------------------
+add_executable(example_speculative_usage
+    tests/doc_examples/example_speculative_usage.cpp
+    ${STRATA_SPECULATIVE_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+    ${STRATA_BLOOM_SOURCES}
+)
+target_include_directories(example_speculative_usage PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(example_speculative_usage PRIVATE -Wall -Wextra)
+strata_apply_lto(example_speculative_usage)
+add_test(NAME example_speculative_usage COMMAND example_speculative_usage)
+
+# ---------------------------------------------------------------------------
+# 23) Doc Example: Bloom Filter Usage
+# ---------------------------------------------------------------------------
+add_executable(example_bloom_usage
+    tests/doc_examples/example_bloom_usage.cpp
+    ${STRATA_BLOOM_SOURCES}
+    ${STRATA_SIMD_SOURCES}
+)
+target_include_directories(example_bloom_usage PRIVATE ${STRATA_INCLUDE_DIRS})
+target_compile_options(example_bloom_usage PRIVATE -Wall -Wextra)
+strata_apply_lto(example_bloom_usage)
+add_test(NAME example_bloom_usage COMMAND example_bloom_usage)
+
+# ---------------------------------------------------------------------------
+# Coverage support (optional)
+# ---------------------------------------------------------------------------
+include(cmake/Coverage.cmake)
+
+# ---------------------------------------------------------------------------
 # Fuzz targets (libFuzzer + ASan + UBSan) — optional
 # ---------------------------------------------------------------------------
 option(FUZZ "Build libFuzzer fuzz targets (clang, -fsanitize=fuzzer,address,undefined)" OFF)

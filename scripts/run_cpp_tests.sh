@@ -90,6 +90,7 @@ run_test "float_precision_tests" "tests/cpp/test_float_precision.cpp"
 run_test "output_buffer_tests" "tests/cpp/test_output_buffer.cpp"
 run_test "stress_large_tests" "tests/cpp/test_stress_large.cpp"
 run_test "stress_deep_tests" "tests/cpp/test_stress_deep.cpp"
+run_test "mmap_tests" "tests/cpp/test_mmap.cpp"
 
 # SIMD structural indexer tests — uses its own source set (not CORE_SOURCES)
 SIMD_SOURCES="
@@ -98,30 +99,119 @@ SIMD_SOURCES="
     src/strata/simd/index_builder.cpp
     src/strata/simd/dispatch.cpp
 "
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Building: simd_tests"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-if $CXX $CXXFLAGS $INCLUDES tests/cpp/test_simd.cpp $SIMD_SOURCES -o "$BUILD_DIR/simd_tests" 2>&1; then
-    echo "✅ Build successful"
-    echo ""
-    echo "Running tests..."
-    echo "────────────────────────────────────────────────────────────────"
-    if "$BUILD_DIR/simd_tests"; then
+
+SPECULATIVE_SOURCES="
+    src/strata/speculative/transition_model.cpp
+    src/strata/speculative/fast_paths.cpp
+    src/strata/speculative/parser.cpp
+"
+
+BLOOM_SOURCES="
+    src/strata/bloom/bloom_filter.cpp
+    src/strata/bloom/key_filter.cpp
+    src/strata/bloom/schema_filter.cpp
+    src/strata/bloom/dedup_filter.cpp
+    src/strata/bloom/parser_integration.cpp
+"
+
+# --- SIMD tests (original + edge) ---
+run_simd_test() {
+    local test_name=$1
+    local test_file=$2
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Building: $test_name"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    if $CXX $CXXFLAGS $INCLUDES $test_file $SIMD_SOURCES -o "$BUILD_DIR/$test_name" 2>&1; then
+        echo "✅ Build successful"
+        echo "Running tests..."
         echo "────────────────────────────────────────────────────────────────"
-        echo "✅ simd_tests: PASSED"
-        echo ""
+        if "$BUILD_DIR/$test_name"; then
+            echo "✅ $test_name: PASSED"
+            PASSED=$((PASSED + 1))
+        else
+            echo "❌ $test_name: FAILED"
+            FAILED=$((FAILED + 1))
+        fi
+    else
+        echo "❌ Build failed for $test_name"
+        FAILED=$((FAILED + 1))
+    fi
+    echo ""
+}
+
+# --- Tests using speculative + SIMD + bloom sources ---
+run_spec_test() {
+    local test_name=$1
+    local test_file=$2
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Building: $test_name"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    if $CXX $CXXFLAGS $INCLUDES $test_file $SPECULATIVE_SOURCES $SIMD_SOURCES $BLOOM_SOURCES -o "$BUILD_DIR/$test_name" 2>&1; then
+        echo "✅ Build successful"
+        echo "Running tests..."
+        echo "────────────────────────────────────────────────────────────────"
+        if "$BUILD_DIR/$test_name"; then
+            echo "✅ $test_name: PASSED"
+            PASSED=$((PASSED + 1))
+        else
+            echo "❌ $test_name: FAILED"
+            FAILED=$((FAILED + 1))
+        fi
+    else
+        echo "❌ Build failed for $test_name"
+        FAILED=$((FAILED + 1))
+    fi
+    echo ""
+}
+
+run_simd_test "simd_tests" "tests/cpp/test_simd.cpp"
+run_simd_test "simd_edge_tests" "tests/cpp/test_simd_edge.cpp"
+
+run_spec_test "speculative_tests" "tests/cpp/test_speculative.cpp"
+run_spec_test "speculative_edge_tests" "tests/cpp/test_speculative_edge.cpp"
+
+# Bloom tests — use bloom + SIMD sources
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Building: bloom_tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if $CXX $CXXFLAGS $INCLUDES tests/cpp/test_bloom.cpp $BLOOM_SOURCES $SIMD_SOURCES -o "$BUILD_DIR/bloom_tests" 2>&1; then
+    echo "✅ Build successful"
+    echo "Running tests..."
+    if "$BUILD_DIR/bloom_tests"; then
+        echo "✅ bloom_tests: PASSED"
         PASSED=$((PASSED + 1))
     else
-        echo "────────────────────────────────────────────────────────────────"
-        echo "❌ simd_tests: FAILED"
-        echo ""
+        echo "❌ bloom_tests: FAILED"
         FAILED=$((FAILED + 1))
     fi
 else
-    echo "❌ Build failed for simd_tests"
-    echo ""
+    echo "❌ Build failed for bloom_tests"
     FAILED=$((FAILED + 1))
 fi
+echo ""
+
+# Bloom edge tests
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Building: bloom_edge_tests"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if $CXX $CXXFLAGS $INCLUDES tests/cpp/test_bloom_edge.cpp $BLOOM_SOURCES $SIMD_SOURCES -o "$BUILD_DIR/bloom_edge_tests" 2>&1; then
+    echo "✅ Build successful"
+    echo "Running tests..."
+    if "$BUILD_DIR/bloom_edge_tests"; then
+        echo "✅ bloom_edge_tests: PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "❌ bloom_edge_tests: FAILED"
+        FAILED=$((FAILED + 1))
+    fi
+else
+    echo "❌ Build failed for bloom_edge_tests"
+    FAILED=$((FAILED + 1))
+fi
+echo ""
+
+# Integration tests — use ALL sources
+run_test "integration_tests" "tests/cpp/test_integration.cpp"
 
 echo "════════════════════════════════════════════════════════════════"
 echo "  C++ Test Results"

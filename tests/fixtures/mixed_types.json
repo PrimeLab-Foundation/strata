@@ -1,0 +1,15 @@
+{
+  "string_val": "hello world",
+  "integer_val": 42,
+  "negative_int": -7,
+  "float_val": 3.14159,
+  "float_exp": 1.5e10,
+  "bool_true": true,
+  "bool_false": false,
+  "null_val": null,
+  "empty_string": "",
+  "empty_array": [],
+  "empty_object": {},
+  "nested_array": [1, "two", 3.0, true, null],
+  "nested_object": {"a": 1, "b": "two"}
+}

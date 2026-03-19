@@ -478,6 +478,9 @@ size_t train_scan_value(TransitionModel& model, const uint8_t* data, size_t pos,
 
 } // anonymous namespace
 
+/// Train the model from newline-delimited sample documents.
+/// Each line is parsed by a lightweight recursive scanner that observes
+/// value-type transitions without building a DOM.
 void TransitionModel::train_from_samples(const uint8_t* data, size_t length, size_t /*num_docs*/) {
     // Parse each newline-delimited document
     size_t pos = 0;
@@ -508,6 +511,8 @@ void TransitionModel::train_from_samples(const uint8_t* data, size_t length, siz
 //     [18 bytes] counts (9 * uint16_t)
 //   Total: 8 + 4096 * 26 = 106504 bytes
 
+/// Serialize the entire transition table to a compact binary blob.
+/// The format is versioned (magic "STM1") for forward compatibility.
 std::vector<uint8_t> TransitionModel::serialize() const {
     constexpr size_t BUCKET_SIZE = 4 + 4 + NUM_TYPES * 2;
     constexpr size_t HEADER_SIZE = 8;
@@ -536,6 +541,8 @@ std::vector<uint8_t> TransitionModel::serialize() const {
     return out;
 }
 
+/// Deserialize a model from the binary format produced by serialize().
+/// Returns a default (empty) model if the blob is malformed or too short.
 TransitionModel TransitionModel::deserialize(const uint8_t* data, size_t length) {
     constexpr size_t BUCKET_SIZE = 4 + 4 + TransitionModel::NUM_TYPES * 2;
     constexpr size_t HEADER_SIZE = 8;
@@ -563,6 +570,11 @@ TransitionModel TransitionModel::deserialize(const uint8_t* data, size_t length)
 }
 
 // ─── Merge ───────────────────────────────────────────────────────────────────
+//
+// Combines per-thread models after parallel NDJSON processing.
+// For each bucket: if empty locally, take other's data; if same context,
+// add counts (saturating at uint16 max); if different contexts, keep the
+// one with more observations (lossy semantics).
 
 void TransitionModel::merge(const TransitionModel& other) noexcept {
     for (size_t i = 0; i < MAX_CONTEXTS; ++i) {

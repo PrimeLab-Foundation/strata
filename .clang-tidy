@@ -1,0 +1,50 @@
+---
+# .clang-tidy — Readability-focused configuration for Strata.
+#
+# Disables checks incompatible with high-performance SIMD/systems code:
+#   - pro-type-reinterpret-cast: SIMD intrinsics require reinterpret_cast
+#   - pro-bounds-pointer-arithmetic: structural indexing uses pointer offsets
+#   - magic-numbers: lookup tables and hash constants are inherently numeric
+#   - easily-swappable-parameters: SIMD APIs have multiple same-type params
+#   - use-trailing-return-type: not the project's style
+
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  misc-*,
+  -misc-no-recursion,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-identifier-length
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: 'include/strata/.*'
+
+CheckOptions:
+  - key: readability-function-size.LineThreshold
+    value: '60'
+  - key: readability-function-size.StatementThreshold
+    value: '40'
+  - key: readability-function-size.BranchThreshold
+    value: '10'
+  - key: readability-function-size.ParameterThreshold
+    value: '5'
+  - key: readability-function-cognitive-complexity.Threshold
+    value: '15'
+  - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value: 'true'
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: 'string_view'
+  - key: modernize-use-nodiscard.ReplacementString
+    value: '[[nodiscard]]'
+...

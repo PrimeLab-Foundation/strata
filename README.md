@@ -121,6 +121,28 @@ for match in strata.query(data, "$.users[*].id", iterator=True):
     print(match)
 ```
 
+## Documentation
+
+| Section                                                       | Description                                 |
+| ------------------------------------------------------------- | ------------------------------------------- |
+| [Architecture Overview](docs/architecture/overview.md)        | How the subsystems fit together             |
+| [SIMD Engine](docs/architecture/simd_engine.md)               | Structural indexing deep dive               |
+| [Speculative Parser](docs/architecture/speculative_parser.md) | Markov model and fast paths                 |
+| [Bloom Filters](docs/architecture/bloom_filters.md)           | Probabilistic data structures               |
+| [Getting Started](docs/guides/getting_started.md)             | Build, install, first program               |
+| [Selective Parsing](docs/guides/selective_parsing.md)         | Bloom filter field extraction               |
+| [NDJSON Streaming](docs/guides/ndjson_streaming.md)           | Streaming with online learning              |
+| [Performance Tuning](docs/guides/performance_tuning.md)       | Benchmarking and optimization               |
+| [C++ API: SIMD](docs/api/simd_api.md)                         | SIMD subsystem API reference                |
+| [C++ API: Speculative](docs/api/speculative_api.md)           | Speculative parser API reference            |
+| [C++ API: Bloom](docs/api/bloom_api.md)                       | Bloom filter API reference                  |
+| [Python API](docs/api/README.md)                              | Python bindings documentation               |
+| [Internals](docs/internals/)                                  | SIMD tricks, Markov model, Bloom math, SWAR |
+| [Contributing](docs/contributing/)                            | Code style, testing, adding backends        |
+| [Best Practices](docs/summary.md)                             | Catalog of techniques with code references  |
+| [Development History](docs/history.md)                        | How Strata evolved, derived from git log    |
+| [Benchmarks](docs/benchmarks/)                                | Performance benchmark results               |
+
 ## Benchmarks
 
 Run benchmarks with:
