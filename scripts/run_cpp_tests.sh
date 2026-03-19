@@ -19,6 +19,7 @@ CORE_SOURCES="
     src/strata/json/json_document.cpp
     src/strata/json/json_serialize.cpp
     src/strata/json/ndjson_stream.cpp
+    src/strata/json/json_mmap.cpp
     src/strata/search/jsonpath_compile.cpp
     src/strata/search/jsonpath_eval.cpp
     src/strata/util/ryu_dtoa.cpp
