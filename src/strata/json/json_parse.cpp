@@ -47,10 +47,11 @@ class DomBuilderHandler : public JsonSaxHandler {
 
     bool on_null() override { return push_value(JsonValue()); }
     bool on_bool(bool v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
-    bool on_int(int64_t v) override {
-        return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
-    }
+    bool on_int(int64_t v) override { return push_value(JsonValue(JsonValue::Variant(v))); }
     bool on_uint(uint64_t v) override {
+        // Store as Int64 if it fits, otherwise as double.
+        if (v <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+            return push_value(JsonValue(JsonValue::Variant(static_cast<int64_t>(v))));
         return push_value(JsonValue(JsonValue::Variant(static_cast<double>(v))));
     }
     bool on_double(double v) override { return push_value(JsonValue(JsonValue::Variant(v))); }

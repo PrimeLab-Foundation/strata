@@ -376,7 +376,21 @@ namespace util {
         return true;
     }
 
-    // Integer path — no '.' or 'e'/'E' encountered
+    // Integer path — no '.' or 'e'/'E' encountered.
+    // If digits were dropped (> 19 digits), int_val is truncated and wrong.
+    // Fall through to double path via fast_float for correct handling.
+    if (int_digits > 19) {
+        const char* num_start = str + (negative ? 1 : 0);
+        const char* num_end = str + pos;
+        auto answer = fast_float::from_chars(num_start, num_end, dbl_result);
+        if (answer.ec != std::errc())
+            return false;
+        if (negative)
+            dbl_result = -dbl_result;
+        consumed = pos;
+        is_double = true;
+        return true;
+    }
     if (negative) {
         const uint64_t min_abs = static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1;
         if (int_val > min_abs)

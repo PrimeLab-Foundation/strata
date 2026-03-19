@@ -13,10 +13,12 @@
 
 typedef struct {
     PyObject_HEAD strata::NdjsonStream* stream;
+    PyObject* source_obj; // Strong ref to the Python str/bytes backing the string_view
 } PyNdjsonStream;
 
 static void PyNdjsonStream_dealloc(PyNdjsonStream* self) {
     delete self->stream;
+    Py_XDECREF(self->source_obj);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -24,6 +26,7 @@ static PyObject* PyNdjsonStream_new(PyTypeObject* type, PyObject* args, PyObject
     PyNdjsonStream* self = (PyNdjsonStream*)type->tp_alloc(type, 0);
     if (self != NULL) {
         self->stream = nullptr;
+        self->source_obj = nullptr;
     }
     return (PyObject*)self;
 }
@@ -66,10 +69,25 @@ static PyTypeObject PyNdjsonStreamType = {
 //=============================================================================
 
 static PyObject* PyNdjsonStream_from_string(PyObject* cls, PyObject* args) {
+    PyObject* source;
     const char* text;
     Py_ssize_t len;
 
-    if (!PyArg_ParseTuple(args, "s#", &text, &len)) {
+    if (!PyArg_ParseTuple(args, "O", &source)) {
+        return NULL;
+    }
+
+    // Extract text pointer from str or bytes
+    if (PyUnicode_Check(source)) {
+        text = PyUnicode_AsUTF8AndSize(source, &len);
+        if (!text)
+            return NULL;
+    } else if (PyBytes_Check(source)) {
+        text = PyBytes_AS_STRING(source);
+        len = PyBytes_GET_SIZE(source);
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+                        "NdjsonStream.from_string() argument must be str or bytes");
         return NULL;
     }
 
@@ -80,6 +98,10 @@ static PyObject* PyNdjsonStream_from_string(PyObject* cls, PyObject* args) {
         return NULL;
 
     self->stream = new strata::NdjsonStream(std::string_view(text, len));
+    // Hold a strong reference to the source object to prevent GC while
+    // the stream's string_view points into its buffer.
+    Py_INCREF(source);
+    self->source_obj = source;
 
     return (PyObject*)self;
 

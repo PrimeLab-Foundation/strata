@@ -28,6 +28,8 @@ static JsonValue materialize(const JsonCursor& cursor) {
         return JsonValue();
     } else if (cursor.is_bool()) {
         return JsonValue(JsonValue::Variant(cursor.get_bool_or_throw()));
+    } else if (cursor.raw() && cursor.raw()->is_int64()) {
+        return JsonValue(JsonValue::Variant(cursor.raw()->as_int64()));
     } else if (cursor.is_number()) {
         return JsonValue(JsonValue::Variant(cursor.get_float()));
     } else if (cursor.is_string()) {

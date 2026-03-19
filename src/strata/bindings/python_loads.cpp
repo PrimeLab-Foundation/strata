@@ -8,6 +8,7 @@
 #include "strata/json/ndjson_stream.hpp"
 #include "strata/util/simd_string.hpp"
 
+#include <atomic>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -49,7 +50,7 @@ struct CachedKeyEntry {
 class KeyCache {
   public:
     KeyCache() {
-        entries_.reserve(32);
+        entries_.reserve(kMaxEntries);
         // Initialize hash table slots to empty
         std::memset(hash_slots_, 0xFF, sizeof(hash_slots_));
         for (int i = 0; i < kMaxSchemas; ++i) {
@@ -479,16 +480,17 @@ class KeyCache {
 // eliminates that overhead on the hot path.
 static constexpr int kSmallIntMax = 256;
 static PyObject* g_small_int_cache[kSmallIntMax + 1] = {};
-static bool g_small_int_cache_ready = false;
+static std::atomic<bool> g_small_int_cache_ready{false};
 
 static void ensure_small_int_cache() {
-    if (g_small_int_cache_ready)
+    // Use acquire/release ordering for thread safety in free-threaded Python.
+    if (g_small_int_cache_ready.load(std::memory_order_acquire))
         return;
     for (int i = 0; i <= kSmallIntMax; ++i) {
         g_small_int_cache[i] = PyLong_FromLong(i);
         // These are permanent references — never decref'd.
     }
-    g_small_int_cache_ready = true;
+    g_small_int_cache_ready.store(true, std::memory_order_release);
 }
 
 class PythonObjectBuilder : public strata::JsonSaxHandler {
@@ -519,14 +521,16 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
     bool on_null() override {
         if (UNLIKELY(!double_buffer_.empty()))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         Py_INCREF(Py_None);
         return push_value(Py_None);
     }
 
     bool on_bool(bool v) override {
         if (UNLIKELY(!double_buffer_.empty()))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         PyObject* obj = v ? Py_True : Py_False;
         Py_INCREF(obj);
         return push_value(obj);
@@ -534,7 +538,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
     bool on_int(int64_t v) override {
         if (UNLIKELY(!double_buffer_.empty()))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         // Fast path: small integers (0..256) are pre-cached — avoids
         // PyLong_FromLongLong function call overhead on the hot path.
         if (static_cast<uint64_t>(v) <= static_cast<uint64_t>(kSmallIntMax)) {
@@ -547,7 +552,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
     bool on_uint(uint64_t v) override {
         if (UNLIKELY(!double_buffer_.empty()))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         if (v <= static_cast<uint64_t>(kSmallIntMax)) {
             PyObject* cached = g_small_int_cache[v];
             Py_INCREF(cached);
@@ -572,7 +578,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
     bool on_string(std::string_view v) override {
         if (UNLIKELY(!double_buffer_.empty()))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         // Fast path for ASCII strings: skip CPython's internal codepoint scan
         // by constructing compact-ASCII directly. Most JSON string values are
         // pure ASCII (no \uXXXX escapes decoding to non-ASCII).
@@ -628,7 +635,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
     bool on_start_object(size_t /*size_hint*/) override {
         if (UNLIKELY(!double_buffer_.empty()))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         // Only track schemas for objects that are direct children of arrays.
         // This is where schema variation occurs (e.g., mixed benchmark has
         // flat/nested/wide_arrays records alternating in the same array).
@@ -770,7 +778,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
     // no INCREF/DECREF).  Uses one flat vector to avoid per-array allocation overhead.
     bool on_start_array(size_t /*size_hint*/) override {
         if (UNLIKELY(!double_buffer_.empty()))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         stack_.push_back(nullptr); // nullptr sentinel = "building an array"
         array_starts_.push_back(array_items_.size());
         // Optimistically assume homogeneous double array — most arrays in
@@ -786,7 +795,8 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
         // Flush any buffered doubles into array_items_ before building the list.
         if (!double_buffer_.empty())
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
 
         stack_.pop_back();
 
@@ -899,9 +909,9 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
         if (PyDict_Contains(top, key_entry.key)) {
             if (policy_ == strata::DuplicateKeyPolicy::Warn) {
                 PyObject* key_repr = PyObject_Repr(key_entry.key);
-                const char* key_str = PyUnicode_AsUTF8(key_repr);
+                const char* key_str = key_repr ? PyUnicode_AsUTF8(key_repr) : nullptr;
                 std::string msg = "Duplicate key encountered: ";
-                msg += key_str;
+                msg += key_str ? key_str : "<unknown>";
                 PyErr_WarnEx(PyExc_RuntimeWarning, msg.c_str(), 1);
                 Py_XDECREF(key_repr);
                 Py_DECREF(val);
@@ -921,20 +931,23 @@ class PythonObjectBuilder : public strata::JsonSaxHandler {
 
     /// Flush buffered doubles into array_items_ as PyFloat objects.
     /// Called when a non-double value appears in an array, or at on_end_array.
-    void flush_double_buffer() {
+    /// Returns false on OOM to propagate the error.
+    bool flush_double_buffer() {
         if (double_buffer_.empty())
-            return;
+            return true;
         // Tight loop: all PyFloat allocations are sequential (cache-friendly).
         for (double v : double_buffer_) {
             PyObject* f = PyFloat_FromDouble(v);
             if (UNLIKELY(!f)) {
-                // Out of memory — push what we can, let on_end_array handle cleanup.
-                break;
+                double_buffer_.clear();
+                buffering_doubles_ = false;
+                return false;
             }
             array_items_.push_back(f);
         }
         double_buffer_.clear();
         buffering_doubles_ = false;
+        return true;
     }
 
     PyObject* root_ = nullptr;
@@ -976,7 +989,11 @@ static PyObject* json_value_to_python_internal(const strata::JsonValue& val, Key
         return result;
     }
 
-    if (val.is_number()) {
+    if (val.is_int64()) {
+        return PyLong_FromLongLong(val.as_int64());
+    }
+
+    if (val.is_double()) {
         return PyFloat_FromDouble(val.as_number());
     }
 
@@ -1055,6 +1072,8 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     LightweightBuilder() {
         stack_.reserve(32);
         keys_.reserve(32);
+        key_entries_.reserve(
+            kMaxEntries); // Prevent reallocation that would invalidate key_data pointers
         array_items_.reserve(256);
         array_starts_.reserve(16);
         double_buffer_.reserve(128);
@@ -1079,20 +1098,23 @@ class LightweightBuilder : public strata::JsonSaxHandler {
 
     bool on_null() override {
         if (UNLIKELY(has_buffered_doubles_))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         Py_INCREF(Py_None);
         return push_value(Py_None);
     }
     bool on_bool(bool v) override {
         if (UNLIKELY(has_buffered_doubles_))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         PyObject* obj = v ? Py_True : Py_False;
         Py_INCREF(obj);
         return push_value(obj);
     }
     bool on_int(int64_t v) override {
         if (UNLIKELY(has_buffered_doubles_))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         if (static_cast<uint64_t>(v) <= static_cast<uint64_t>(kSmallIntMax)) {
             PyObject* cached = g_small_int_cache[v];
             Py_INCREF(cached);
@@ -1102,7 +1124,8 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     }
     bool on_uint(uint64_t v) override {
         if (UNLIKELY(has_buffered_doubles_))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         if (v <= static_cast<uint64_t>(kSmallIntMax)) {
             PyObject* cached = g_small_int_cache[v];
             Py_INCREF(cached);
@@ -1121,7 +1144,8 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     }
     bool on_string(std::string_view v) override {
         if (UNLIKELY(has_buffered_doubles_))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         const size_t slen = v.size();
         const char* sdata = v.data();
         if (LIKELY(slen <= 16)) {
@@ -1140,7 +1164,8 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     }
     bool on_start_object(size_t) override {
         if (UNLIKELY(has_buffered_doubles_))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         // Pre-size dict from previously observed object size at this depth.
         size_t depth = stack_.size();
         PyObject* dict;
@@ -1168,7 +1193,9 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         uint32_t slot = h & kHashMask;
 
         // Linear probe — table is < 75% full, so probing terminates quickly.
-        for (int probe = 0; probe < 8; ++probe) {
+        // Probe limit 16 matches PythonObjectBuilder's KeyCache to avoid
+        // creating duplicate entries on long collision chains.
+        for (int probe = 0; probe < 16; ++probe) {
             uint16_t idx = key_slots_[slot];
             if (idx == 0xFFFF)
                 break; // empty slot → key not in cache
@@ -1176,7 +1203,7 @@ class LightweightBuilder : public strata::JsonSaxHandler {
             if (e.key_len == static_cast<uint16_t>(vlen) &&
                 std::memcmp(e.key_data, v.data(), vlen) == 0) {
                 // Cache hit — borrowed ref (no INCREF).
-                keys_.push_back(e.cached);
+                keys_.push_back({e.cached.py_key, e.cached.py_hash, false});
                 return true;
             }
             slot = (slot + 1) & kHashMask;
@@ -1192,7 +1219,7 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         size_t new_idx = key_entries_.size();
         if (new_idx < kMaxEntries) {
             key_entries_.push_back(
-                {std::string(v), nullptr, static_cast<uint16_t>(vlen), {key, py_hash}});
+                {std::string(v), nullptr, static_cast<uint16_t>(vlen), {key, py_hash, false}});
             auto& back = key_entries_.back();
             back.key_data = back.key_storage.data();
             // Insert into hash table
@@ -1202,14 +1229,13 @@ class LightweightBuilder : public strata::JsonSaxHandler {
             key_slots_[ins_slot] = static_cast<uint16_t>(new_idx);
         } else {
             // Overflow: key not cached, but still usable for this call.
-            // We push an owned ref and DECREF in push_value via overflow flag.
-            keys_.push_back({key, py_hash});
-            overflow_key_ = true;
+            // Mark as overflow so push_value DECREFs the owned ref.
+            keys_.push_back({key, py_hash, true});
             return true;
         }
 
         // Borrowed ref from cache.
-        keys_.push_back({key, py_hash});
+        keys_.push_back({key, py_hash, false});
         return true;
     }
 
@@ -1224,7 +1250,7 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         if (klen + 1 <= remaining && std::memcmp(data, e.key_data, klen) == 0 &&
             data[klen] == '"') {
             // Hit! Push borrowed ref and advance cursor.
-            keys_.push_back(e.cached);
+            keys_.push_back({e.cached.py_key, e.cached.py_hash, false});
             cursor_ = (cursor_ + 1 < n) ? cursor_ + 1 : 0;
             return klen + 1;
         }
@@ -1246,7 +1272,8 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     }
     bool on_start_array(size_t) override {
         if (UNLIKELY(has_buffered_doubles_))
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         stack_.push_back(nullptr);
         array_starts_.push_back(array_items_.size());
         buffering_doubles_ = true;
@@ -1256,7 +1283,8 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         if (stack_.empty() || stack_.back() != nullptr)
             return false;
         if (!double_buffer_.empty())
-            flush_double_buffer();
+            if (!flush_double_buffer())
+                return false;
         stack_.pop_back();
         size_t start = array_starts_.back();
         array_starts_.pop_back();
@@ -1300,7 +1328,6 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         double_buffer_.clear();
         buffering_doubles_ = false;
         has_buffered_doubles_ = false;
-        overflow_key_ = false;
         cursor_ = 0;
     }
 
@@ -1308,6 +1335,7 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     struct CachedKeyEntry {
         PyObject* py_key;
         Py_hash_t py_hash;
+        bool is_overflow; // true if this key is owned (not cached) — needs DECREF
     };
 
     struct KeyCacheEntry {
@@ -1357,26 +1385,30 @@ class LightweightBuilder : public strata::JsonSaxHandler {
         keys_.pop_back();
         int rc = _PyDict_SetItem_KnownHash(top, ke.py_key, val, ke.py_hash);
         // Only DECREF key if it was an overflow (non-cached) key.
-        if (UNLIKELY(overflow_key_)) {
+        if (UNLIKELY(ke.is_overflow)) {
             Py_DECREF(ke.py_key);
-            overflow_key_ = false;
         }
         Py_DECREF(val);
         return rc >= 0;
     }
 
-    void flush_double_buffer() {
+    bool flush_double_buffer() {
         if (double_buffer_.empty())
-            return;
+            return true;
         for (double v : double_buffer_) {
             PyObject* f = PyFloat_FromDouble(v);
-            if (UNLIKELY(!f))
-                break;
+            if (UNLIKELY(!f)) {
+                double_buffer_.clear();
+                buffering_doubles_ = false;
+                has_buffered_doubles_ = false;
+                return false;
+            }
             array_items_.push_back(f);
         }
         double_buffer_.clear();
         buffering_doubles_ = false;
         has_buffered_doubles_ = false;
+        return true;
     }
 
     // Hash table: open-addressed with linear probing.
@@ -1397,7 +1429,7 @@ class LightweightBuilder : public strata::JsonSaxHandler {
     std::vector<double> double_buffer_;
     bool buffering_doubles_ = false;
     bool has_buffered_doubles_ = false;
-    bool overflow_key_ = false;
+    // overflow_key_ removed: is_overflow flag is now per-key in CachedKeyEntry
 
     PyObject* root_ = nullptr;
     std::vector<PyObject*> stack_;
@@ -1510,13 +1542,18 @@ PyObject* parse_ndjson_direct(const char* data, size_t len, int skip_errors) {
         std::string_view line(data + pos, line_len);
         PyObject* item = parse_json_to_python_reuse(line, /*validate_utf8=*/false, builder);
         if (!item) {
-            if (PyErr_Occurred())
-                PyErr_Clear();
             if (skip_errors) {
+                if (PyErr_Occurred())
+                    PyErr_Clear();
                 pos = (nl < len) ? nl + 1 : len;
                 continue;
             }
-            break;
+            // Not skipping errors: clean up and propagate the failure.
+            for (auto* obj : items)
+                Py_DECREF(obj);
+            if (!PyErr_Occurred())
+                PyErr_SetString(PyExc_ValueError, "Failed to parse NDJSON line");
+            return NULL;
         }
         items.push_back(item);
         pos = (nl < len) ? nl + 1 : len;
@@ -1551,12 +1588,22 @@ PyObject* parse_ndjson_all_to_python(strata::NdjsonStream& stream, int skip_erro
 
         PyObject* item = parse_json_to_python_reuse(line, /*validate_utf8=*/false, builder);
         if (!item) {
-            if (PyErr_Occurred())
+            if (PyErr_Occurred()) {
+                // Propagate fatal exceptions instead of swallowing them.
+                if (PyErr_ExceptionMatches(PyExc_MemoryError) ||
+                    PyErr_ExceptionMatches(PyExc_KeyboardInterrupt) ||
+                    PyErr_ExceptionMatches(PyExc_SystemExit)) {
+                    for (auto* obj : items)
+                        Py_DECREF(obj);
+                    return NULL;
+                }
                 PyErr_Clear();
+            }
             stream.record_error();
             if (skip_errors)
                 continue;
-            // On error without skip: stop parsing, return what we have so far
+            // On error without skip: stop parsing, return what we have so far.
+            // File-based NDJSON load is best-effort by design.
             break;
         }
         items.push_back(item);
@@ -1592,8 +1639,16 @@ PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t 
 
         PyObject* item = parse_json_to_python_reuse(line, /*validate_utf8=*/false, builder);
         if (!item) {
-            if (PyErr_Occurred())
+            if (PyErr_Occurred()) {
+                // Propagate fatal exceptions instead of swallowing them.
+                if (PyErr_ExceptionMatches(PyExc_MemoryError) ||
+                    PyErr_ExceptionMatches(PyExc_KeyboardInterrupt) ||
+                    PyErr_ExceptionMatches(PyExc_SystemExit)) {
+                    Py_DECREF(result_list);
+                    return NULL;
+                }
                 PyErr_Clear();
+            }
             stream.record_error();
             if (skip_errors)
                 continue;
@@ -1639,6 +1694,8 @@ PyObject* strata_parse_ndjson(PyObject* self, PyObject* args) {
         if (PyTuple_GET_SIZE(args) >= 2) {
             PyObject* se = PyTuple_GET_ITEM(args, 1);
             skip_errors = PyObject_IsTrue(se);
+            if (skip_errors == -1)
+                return NULL;
         }
 
         STRATA_CPP_TRY
@@ -1726,10 +1783,26 @@ PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
 
     const char* return_type = "dict";
     int iterator = 0;
+    PyObject* source = nullptr;
 
     static const char* kwlist[] = {"source", "return_type", "iterator", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|sp", const_cast<char**>(kwlist), &data, &len,
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|sp", const_cast<char**>(kwlist), &source,
                                      &return_type, &iterator)) {
+        return NULL;
+    }
+
+    // Accept both str and bytes (consistent with the fast path)
+    Py_ssize_t py_len;
+    if (PyUnicode_Check(source)) {
+        data = PyUnicode_AsUTF8AndSize(source, &py_len);
+        if (!data)
+            return NULL;
+        len = py_len;
+    } else if (PyBytes_Check(source)) {
+        data = PyBytes_AS_STRING(source);
+        len = PyBytes_GET_SIZE(source);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "loads() argument must be str or bytes");
         return NULL;
     }
 

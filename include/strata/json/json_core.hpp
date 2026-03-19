@@ -135,9 +135,10 @@ template <typename T> struct Result {
 struct JsonValue {
     using Array = std::vector<JsonValue>;
     using Object = FlatMap<std::string, JsonValue>;
-    using Number = double; // All JSON numbers stored as IEEE 754 double
+    using Int64 = int64_t; // Exact integer (no precision loss)
+    using Number = double; // IEEE 754 double for fractional/exponent numbers
 
-    using Variant = std::variant<std::nullptr_t, bool, Number, std::string, Array, Object>;
+    using Variant = std::variant<std::nullptr_t, bool, Int64, Number, std::string, Array, Object>;
 
     Variant data;
 
@@ -149,7 +150,12 @@ struct JsonValue {
         return std::holds_alternative<std::nullptr_t>(data);
     }
     [[nodiscard]] bool is_bool() const noexcept { return std::holds_alternative<bool>(data); }
-    [[nodiscard]] bool is_number() const noexcept { return std::holds_alternative<Number>(data); }
+    [[nodiscard]] bool is_int64() const noexcept { return std::holds_alternative<Int64>(data); }
+    /// Returns true for both Int64 and Number (any numeric type).
+    [[nodiscard]] bool is_number() const noexcept {
+        return std::holds_alternative<Number>(data) || std::holds_alternative<Int64>(data);
+    }
+    [[nodiscard]] bool is_double() const noexcept { return std::holds_alternative<Number>(data); }
     [[nodiscard]] bool is_string() const noexcept {
         return std::holds_alternative<std::string>(data);
     }
@@ -158,14 +164,22 @@ struct JsonValue {
 
     // --- Const accessors (throw std::bad_variant_access on mismatch) -------
     [[nodiscard]] const bool& as_bool() const { return std::get<bool>(data); }
-    [[nodiscard]] const Number& as_number() const { return std::get<Number>(data); }
+    [[nodiscard]] Int64 as_int64() const { return std::get<Int64>(data); }
+    /// Returns double for both Int64 and Number variants.
+    [[nodiscard]] double as_number() const {
+        if (auto* p = std::get_if<Int64>(&data))
+            return static_cast<double>(*p);
+        return std::get<Number>(data);
+    }
+    [[nodiscard]] const Number& as_double_raw() const { return std::get<Number>(data); }
     [[nodiscard]] const std::string& as_string() const { return std::get<std::string>(data); }
     [[nodiscard]] const Array& as_array() const { return std::get<Array>(data); }
     [[nodiscard]] const Object& as_object() const { return std::get<Object>(data); }
 
     // --- Mutable accessors -------------------------------------------------
     [[nodiscard]] bool& as_bool() { return std::get<bool>(data); }
-    [[nodiscard]] Number& as_number() { return std::get<Number>(data); }
+    [[nodiscard]] Int64& as_int64_mut() { return std::get<Int64>(data); }
+    [[nodiscard]] Number& as_number_mut() { return std::get<Number>(data); }
     [[nodiscard]] std::string& as_string() { return std::get<std::string>(data); }
     [[nodiscard]] Array& as_array() { return std::get<Array>(data); }
     [[nodiscard]] Object& as_object() { return std::get<Object>(data); }

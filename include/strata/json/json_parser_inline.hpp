@@ -219,8 +219,13 @@ template <typename Handler> struct ParserInline {
         }
 
         // Slow path: build string with escape handling.
+        // Pre-copy the clean prefix found by SIMD scan to avoid re-scanning.
         std::string out;
         out.reserve(scan_pos + 16);
+        if (scan_pos > 0) {
+            out.append(data + i, scan_pos);
+            i += scan_pos;
+        }
 
         while (!eof()) {
             char c = get();
@@ -389,38 +394,45 @@ template <typename Handler> struct ParserInline {
                                 goto dispatch_done;
                             }
                         } else {
-                            // Non-zero leading digit: integer or float
+                            // Non-zero leading digit: integer or float.
+                            // Track digit count to detect uint64 overflow (max 19 safe digits).
                             uint64_t val = static_cast<uint64_t>(c - '0');
+                            int ndigits = 1;
                             while (p < len && data[p] >= '0' && data[p] <= '9') {
                                 val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                ++ndigits;
                                 ++p;
                             }
-                            if (p < len && data[p] == '.') {
-                                ++p;
-                                if (p < len && data[p] >= '0' && data[p] <= '9') {
-                                    int frac_digits = 0;
-                                    while (p < len && data[p] >= '0' && data[p] <= '9') {
-                                        val = val * 10 + static_cast<uint64_t>(data[p] - '0');
-                                        ++frac_digits;
-                                        ++p;
-                                    }
-                                    if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
-                                        if (val < (1ULL << 53) && frac_digits <= 22) {
-                                            i = p;
-                                            ok = handler.on_double(static_cast<double>(val) *
-                                                                   kPow10Neg[frac_digits]);
-                                            goto dispatch_done;
+                            if (ndigits <= 18) {
+                                // Safe: no overflow possible for <= 18 digits
+                                if (p < len && data[p] == '.') {
+                                    ++p;
+                                    if (p < len && data[p] >= '0' && data[p] <= '9') {
+                                        int frac_digits = 0;
+                                        while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                            val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                            ++frac_digits;
+                                            ++p;
+                                        }
+                                        if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                            if (val < (1ULL << 53) && frac_digits <= 22) {
+                                                i = p;
+                                                ok = handler.on_double(static_cast<double>(val) *
+                                                                       kPow10Neg[frac_digits]);
+                                                goto dispatch_done;
+                                            }
                                         }
                                     }
-                                }
-                            } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
-                                if (val <=
-                                    static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
-                                    i = p;
-                                    ok = handler.on_int(static_cast<int64_t>(val));
-                                    goto dispatch_done;
+                                } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                    if (val <= static_cast<uint64_t>(
+                                                   std::numeric_limits<int64_t>::max())) {
+                                        i = p;
+                                        ok = handler.on_int(static_cast<int64_t>(val));
+                                        goto dispatch_done;
+                                    }
                                 }
                             }
+                            // > 18 digits or didn't match fast path: fall through to full parser
                         }
                     }
                     ok = parse_number();
@@ -434,35 +446,40 @@ template <typename Handler> struct ParserInline {
                     size_t p = i + 1;
                     if (p < len && data[p] >= '1' && data[p] <= '9') {
                         uint64_t val = static_cast<uint64_t>(data[p] - '0');
+                        int ndigits = 1;
                         ++p;
                         while (p < len && data[p] >= '0' && data[p] <= '9') {
                             val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                            ++ndigits;
                             ++p;
                         }
-                        if (p < len && data[p] == '.') {
-                            ++p;
-                            if (p < len && data[p] >= '0' && data[p] <= '9') {
-                                int frac = 0;
-                                while (p < len && data[p] >= '0' && data[p] <= '9') {
-                                    val = val * 10 + static_cast<uint64_t>(data[p] - '0');
-                                    ++frac;
-                                    ++p;
-                                }
-                                if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
-                                    if (val < (1ULL << 53) && frac <= 22) {
-                                        i = p;
-                                        ok = handler.on_double(
-                                            -(static_cast<double>(val) * kPow10Neg2[frac]));
-                                        goto dispatch_done;
+                        if (ndigits <= 18) {
+                            if (p < len && data[p] == '.') {
+                                ++p;
+                                if (p < len && data[p] >= '0' && data[p] <= '9') {
+                                    int frac = 0;
+                                    while (p < len && data[p] >= '0' && data[p] <= '9') {
+                                        val = val * 10 + static_cast<uint64_t>(data[p] - '0');
+                                        ++frac;
+                                        ++p;
+                                    }
+                                    if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                        if (val < (1ULL << 53) && frac <= 22) {
+                                            i = p;
+                                            ok = handler.on_double(
+                                                -(static_cast<double>(val) * kPow10Neg2[frac]));
+                                            goto dispatch_done;
+                                        }
                                     }
                                 }
-                            }
-                        } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
-                            if (val <=
-                                static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1) {
-                                i = p;
-                                ok = handler.on_int(-static_cast<int64_t>(val));
-                                goto dispatch_done;
+                            } else if (p >= len || (data[p] != 'e' && data[p] != 'E')) {
+                                if (val <=
+                                    static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) +
+                                        1) {
+                                    i = p;
+                                    ok = handler.on_int(-static_cast<int64_t>(val));
+                                    goto dispatch_done;
+                                }
                             }
                         }
                     } else if (p < len && data[p] == '0') {

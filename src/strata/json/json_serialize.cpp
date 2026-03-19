@@ -72,8 +72,29 @@ static void escape_string(std::string_view str, std::string& out) {
     out.push_back('"');
 }
 
-// Serialize a number
+// Serialize a number (integer or double)
 static void serialize_number(const JsonValue& value, std::string& out) {
+    // Fast path: exact integer — write without decimal point.
+    if (value.is_int64()) {
+        char buf[21]; // max 20 digits + sign
+        char* p = buf + 21;
+        int64_t v = value.as_int64();
+        bool neg = v < 0;
+        uint64_t uv = neg ? static_cast<uint64_t>(-v) : static_cast<uint64_t>(v);
+        if (uv == 0) {
+            *--p = '0';
+        } else {
+            while (uv > 0) {
+                *--p = '0' + static_cast<char>(uv % 10);
+                uv /= 10;
+            }
+        }
+        if (neg)
+            *--p = '-';
+        out.append(p, static_cast<size_t>(buf + 21 - p));
+        return;
+    }
+
     double d = value.as_number();
 
     // Handle special float values (NaN, Inf)

@@ -295,7 +295,11 @@ static constexpr uint8_t kEscapeTable[256] = {
 
 // AVX2 implementation (32 bytes at a time)
 static inline bool has_escape_chars_avx2(const char* str, size_t len) {
-    const __m256i threshold = _mm256_set1_epi8(0x20);
+    // For unsigned "chunk < 0x20" we use: min_epu8(chunk, 0x1F) == chunk.
+    // This is true when chunk <= 0x1F (i.e., chunk < 0x20), using unsigned
+    // comparison. Avoids the signed _mm256_cmpgt_epi8 bug where bytes 0x80-0xFF
+    // are treated as negative and falsely detected as control characters.
+    const __m256i max_ctrl = _mm256_set1_epi8(0x1F);
     const __m256i quote = _mm256_set1_epi8('"');
     const __m256i backslash = _mm256_set1_epi8('\\');
 
@@ -305,8 +309,8 @@ static inline bool has_escape_chars_avx2(const char* str, size_t len) {
     for (; i + 32 <= len; i += 32) {
         __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(str + i));
 
-        // Check for control characters (< 0x20)
-        __m256i control = _mm256_cmpgt_epi8(threshold, chunk);
+        // Check for control characters (< 0x20) using unsigned comparison
+        __m256i control = _mm256_cmpeq_epi8(_mm256_min_epu8(chunk, max_ctrl), chunk);
 
         // Check for '"' and '\\'
         __m256i is_quote = _mm256_cmpeq_epi8(chunk, quote);
@@ -334,7 +338,7 @@ static inline bool has_escape_chars_avx2(const char* str, size_t len) {
 
 // Find next escape position using AVX2
 static inline size_t find_next_escape_avx2(const char* str, size_t len) {
-    const __m256i threshold = _mm256_set1_epi8(0x20);
+    const __m256i max_ctrl = _mm256_set1_epi8(0x1F);
     const __m256i quote = _mm256_set1_epi8('"');
     const __m256i backslash = _mm256_set1_epi8('\\');
 
@@ -344,7 +348,7 @@ static inline size_t find_next_escape_avx2(const char* str, size_t len) {
     for (; i + 32 <= len; i += 32) {
         __m256i chunk = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(str + i));
 
-        __m256i control = _mm256_cmpgt_epi8(threshold, chunk);
+        __m256i control = _mm256_cmpeq_epi8(_mm256_min_epu8(chunk, max_ctrl), chunk);
         __m256i is_quote = _mm256_cmpeq_epi8(chunk, quote);
         __m256i is_backslash = _mm256_cmpeq_epi8(chunk, backslash);
         __m256i needs_escape = _mm256_or_si256(control, _mm256_or_si256(is_quote, is_backslash));
@@ -371,7 +375,8 @@ static inline size_t find_next_escape_avx2(const char* str, size_t len) {
 
 // SSE4.2 implementation (16 bytes at a time)
 static inline bool has_escape_chars_sse(const char* str, size_t len) {
-    const __m128i threshold = _mm_set1_epi8(0x20);
+    // Use min_epu8 trick for unsigned < 0x20 comparison (see AVX2 comment).
+    const __m128i max_ctrl = _mm_set1_epi8(0x1F);
     const __m128i quote = _mm_set1_epi8('"');
     const __m128i backslash = _mm_set1_epi8('\\');
 
@@ -380,7 +385,7 @@ static inline bool has_escape_chars_sse(const char* str, size_t len) {
     for (; i + 16 <= len; i += 16) {
         __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(str + i));
 
-        __m128i control = _mm_cmplt_epi8(chunk, threshold);
+        __m128i control = _mm_cmpeq_epi8(_mm_min_epu8(chunk, max_ctrl), chunk);
         __m128i is_quote = _mm_cmpeq_epi8(chunk, quote);
         __m128i is_backslash = _mm_cmpeq_epi8(chunk, backslash);
         __m128i needs_escape = _mm_or_si128(control, _mm_or_si128(is_quote, is_backslash));
@@ -401,7 +406,7 @@ static inline bool has_escape_chars_sse(const char* str, size_t len) {
 }
 
 static inline size_t find_next_escape_sse(const char* str, size_t len) {
-    const __m128i threshold = _mm_set1_epi8(0x20);
+    const __m128i max_ctrl = _mm_set1_epi8(0x1F);
     const __m128i quote = _mm_set1_epi8('"');
     const __m128i backslash = _mm_set1_epi8('\\');
 
@@ -410,7 +415,7 @@ static inline size_t find_next_escape_sse(const char* str, size_t len) {
     for (; i + 16 <= len; i += 16) {
         __m128i chunk = _mm_loadu_si128(reinterpret_cast<const __m128i*>(str + i));
 
-        __m128i control = _mm_cmplt_epi8(chunk, threshold);
+        __m128i control = _mm_cmpeq_epi8(_mm_min_epu8(chunk, max_ctrl), chunk);
         __m128i is_quote = _mm_cmpeq_epi8(chunk, quote);
         __m128i is_backslash = _mm_cmpeq_epi8(chunk, backslash);
         __m128i needs_escape = _mm_or_si128(control, _mm_or_si128(is_quote, is_backslash));

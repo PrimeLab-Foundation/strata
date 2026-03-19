@@ -12,6 +12,7 @@
 #include <unordered_map>
 
 // POSIX I/O for fast file read/write (avoids iostream overhead)
+#include <cerrno>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -241,14 +242,31 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
             ndjson_buf = new_buf;
             ndjson_buf_cap = file_size;
         }
-        ssize_t bytes_read = read(fd, ndjson_buf, file_size);
-        close(fd);
-        if (bytes_read < 0 || static_cast<size_t>(bytes_read) != file_size) {
-            PyErr_Format(PyExc_IOError, "Failed to read file: %s", filepath);
-            return NULL;
+        // Read the entire file, handling short reads (NFS/FUSE) and EINTR.
+        {
+            size_t total_read = 0;
+            while (total_read < file_size) {
+                ssize_t n = read(fd, ndjson_buf + total_read, file_size - total_read);
+                if (n < 0) {
+                    if (errno == EINTR)
+                        continue;
+                    close(fd);
+                    PyErr_Format(PyExc_IOError, "Failed to read file: %s", filepath);
+                    return NULL;
+                }
+                if (n == 0)
+                    break; // EOF
+                total_read += static_cast<size_t>(n);
+            }
+            close(fd);
+            if (total_read != file_size) {
+                PyErr_Format(PyExc_IOError, "Short read on file: %s", filepath);
+                return NULL;
+            }
         }
 
-        return parse_ndjson_direct(ndjson_buf, file_size, 0);
+        // File-based NDJSON load is best-effort: skip malformed lines.
+        return parse_ndjson_direct(ndjson_buf, file_size, /*skip_errors=*/1);
     }
 
     // JSON file
@@ -289,11 +307,27 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
             file_buf = new_buf;
             file_buf_cap = file_size;
         }
-        ssize_t bytes_read = read(fd, file_buf, file_size);
-        close(fd);
-        if (bytes_read < 0 || static_cast<size_t>(bytes_read) != file_size) {
-            PyErr_Format(PyExc_IOError, "Failed to read file: %s", filepath);
-            return NULL;
+        // Read the entire file, handling short reads (NFS/FUSE) and EINTR.
+        {
+            size_t total_read = 0;
+            while (total_read < file_size) {
+                ssize_t n = read(fd, file_buf + total_read, file_size - total_read);
+                if (n < 0) {
+                    if (errno == EINTR)
+                        continue;
+                    close(fd);
+                    PyErr_Format(PyExc_IOError, "Failed to read file: %s", filepath);
+                    return NULL;
+                }
+                if (n == 0)
+                    break; // EOF
+                total_read += static_cast<size_t>(n);
+            }
+            close(fd);
+            if (total_read != file_size) {
+                PyErr_Format(PyExc_IOError, "Short read on file: %s", filepath);
+                return NULL;
+            }
         }
 
         PyObject* py_result;
@@ -302,8 +336,11 @@ static PyObject* strata_load(PyObject* self, PyObject* args, PyObject* kwargs) {
             py_result = parse_json_to_python_reuse_tl(std::string_view(file_buf, file_size));
         }
 
-        if (!py_result)
+        if (!py_result) {
+            if (!PyErr_Occurred())
+                PyErr_Format(PyExc_ValueError, "Failed to parse JSON file: %s", filepath);
             return NULL;
+        }
 
         if (iterator) {
             if (PyDict_Check(py_result)) {
@@ -353,6 +390,8 @@ static PyObject* strata_dump(PyObject* self, PyObject* args) {
     while (total > 0) {
         ssize_t written = write(fd, buf, total);
         if (written < 0) {
+            if (errno == EINTR)
+                continue; // Retry on signal interruption
             close(fd);
             PyErr_Format(PyExc_IOError, "Failed to write to file: %s", filepath);
             return NULL;
@@ -490,16 +529,26 @@ PyMODINIT_FUNC PyInit__strata(void) {
         return NULL;
     }
 
-    // Initialize config defaults
+    // Initialize config defaults using config_set_internal to ensure
+    // the C++ policy variables are synced with the config map values.
     {
         auto& map = get_config_map();
         if (map.empty()) {
             PyObject* dup = PyUnicode_FromString("first");
-            if (dup)
-                map["duplicate_key_policy"] = {dup};
+            if (!dup) {
+                Py_DECREF(module);
+                return NULL;
+            }
+            config_set_internal("duplicate_key_policy", dup);
+            Py_DECREF(dup);
+
             PyObject* cyc = PyUnicode_FromString("warn");
-            if (cyc)
-                map["cycle_policy"] = {cyc};
+            if (!cyc) {
+                Py_DECREF(module);
+                return NULL;
+            }
+            config_set_internal("cycle_policy", cyc);
+            Py_DECREF(cyc);
         }
     }
 

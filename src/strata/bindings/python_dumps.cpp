@@ -69,7 +69,7 @@ static inline PyObject* buffer_to_pyunicode(const char* data, size_t len) {
 }
 
 enum class CyclePolicy { Warn, Error, Ignore };
-static CyclePolicy g_cycle_policy = CyclePolicy::Ignore;
+static thread_local CyclePolicy g_cycle_policy = CyclePolicy::Ignore;
 
 bool set_cycle_policy_from_string(const char* policy, std::string& error) {
     if (policy == nullptr) {
@@ -202,6 +202,8 @@ template <typename Buffer> static inline bool append_py_long(Buffer& out, PyObje
     int overflow = 0;
     int64_t val = PyLong_AsLongLongAndOverflow(obj, &overflow);
     if (overflow == 0) {
+        if (val == -1 && PyErr_Occurred())
+            return false;
         return append_int64(out, val);
     }
 
@@ -307,6 +309,12 @@ template <typename Buffer> static inline bool append_double(Buffer& out, double 
             }
             // frac == 0 means integer-valued, already handled above
         }
+    }
+
+    // Handle negative zero explicitly (IEEE 754: -0.0 < 0 is false).
+    if (value == 0.0 && std::signbit(value)) {
+        out.append("-0.0", 4);
+        return true;
     }
 
     // General path: fully-inlined Ryu d2d + format.
@@ -545,6 +553,9 @@ static inline size_t estimate_size(PyObject* obj) {
         if (data && len > 0) {
             return static_cast<size_t>(len) + 2;
         }
+        // Clear any exception from PyUnicode_AsUTF8AndSize (e.g., surrogate
+        // characters) — estimate_size is advisory and must not leave latent exceptions.
+        PyErr_Clear();
     }
     return 256;
 }
@@ -559,6 +570,10 @@ static inline bool serialize_value(PyObject* val, Buffer& out, int depth);
 // Combines comma+quote+key+quote+colon into a single pointer advancement.
 template <typename Buffer>
 static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
+    if (UNLIKELY(!PyUnicode_Check(key))) {
+        PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
+        return false;
+    }
     if (LIKELY(PyUnicode_IS_COMPACT_ASCII(key))) {
         const Py_ssize_t klen = PyUnicode_GET_LENGTH(key);
         const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
@@ -618,10 +633,7 @@ static inline bool write_dict_key(PyObject* key, Buffer& out, bool first) {
     if (!first) {
         out.push_back(',');
     }
-    if (!PyUnicode_Check(key)) {
-        PyErr_SetString(PyExc_TypeError, "Dict keys must be strings");
-        return false;
-    }
+    // Non-compact ASCII Unicode key — use full escape path.
     if (!append_string(key, out)) {
         return false;
     }
@@ -762,6 +774,7 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
     struct PreKey {
         const char* data; // points into keybuf
         uint16_t len;
+        PyObject* key_obj; // original key for order verification in subsequent dicts
     };
     PreKey prekeys[kMaxBatchKeys];
     char keybuf[kMaxBatchKeys * 80]; // generous space
@@ -773,7 +786,7 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
     int ki = 0;
 
     while (PyDict_Next(first, &pos, &key, &val)) {
-        if (!PyUnicode_IS_COMPACT_ASCII(key))
+        if (!PyUnicode_Check(key) || !PyUnicode_IS_COMPACT_ASCII(key))
             return false;
         const char* kdata = reinterpret_cast<const char*>(PyUnicode_1BYTE_DATA(key));
         Py_ssize_t klen = PyUnicode_GET_LENGTH(key);
@@ -791,6 +804,7 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
             return false;
 
         prekeys[ki].data = kp;
+        prekeys[ki].key_obj = key; // Store for order verification
         if (ki > 0)
             *kp++ = ',';
         *kp++ = '"';
@@ -848,14 +862,48 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
             return true;
         }
 
-        out.unsafe_push_back('{');
+        out.push_back('{');
         Py_ssize_t dpos = 0;
         PyObject* dk = nullptr;
         PyObject* dv = nullptr;
         int k = 0;
         while (PyDict_Next(dict, &dpos, &dk, &dv)) {
-            // Write pre-computed key (no escape check, single unsafe append)
-            out.unsafe_append(prekeys[k].data, prekeys[k].len);
+            // Verify key order matches the first dict's key order.
+            // If keys differ (different insertion order), bail to generic path.
+            if (UNLIKELY(dk != prekeys[k].key_obj)) {
+                // Key order mismatch — can't use pre-serialized keys.
+                // Rewind output to before this dict and fall back to generic.
+                // Simplest: abort the batch and return false to let caller
+                // use the generic path. But we've already written partial output.
+                // Write remainder of this dict generically, then remaining elements.
+                if (k == 0) {
+                    // First key mismatch — write the key normally
+                    if (!write_dict_key(dk, out, true))
+                        return false;
+                } else {
+                    if (!write_dict_key(dk, out, false))
+                        return false;
+                }
+                if (!serialize_item_t<Tracking>(dv, out, depth + 1))
+                    return false;
+                while (PyDict_Next(dict, &dpos, &dk, &dv)) {
+                    if (!write_dict_key(dk, out, false))
+                        return false;
+                    if (!serialize_item_t<Tracking>(dv, out, depth + 1))
+                        return false;
+                }
+                out.push_back('}');
+                for (Py_ssize_t j = i + 1; j < sz; ++j) {
+                    out.push_back(',');
+                    if (!serialize_item_t<Tracking>(PyList_GET_ITEM(list, j), out, depth))
+                        return false;
+                }
+                out.push_back(']');
+                return true;
+            }
+            // Write pre-computed key. Use safe append since prior value
+            // serialization may have consumed the pre-reserved capacity.
+            out.append(prekeys[k].data, prekeys[k].len);
             // Inline top-3 type checks to avoid serialize_item_t function call
             PyTypeObject* vt = Py_TYPE(dv);
             if (LIKELY(vt == &PyUnicode_Type)) {
@@ -869,11 +917,11 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
                     return false;
             } else if (vt == &PyBool_Type) {
                 if (dv == Py_True)
-                    out.unsafe_append("true", 4);
+                    out.append("true", 4);
                 else
-                    out.unsafe_append("false", 5);
+                    out.append("false", 5);
             } else if (dv == Py_None) {
-                out.unsafe_append("null", 4);
+                out.append("null", 4);
             } else if (vt == &PyDict_Type) {
                 // Inline dict dispatch to avoid serialize_item_t overhead
                 if (!serialize_dict_t<Tracking>(dv, out, depth + 1))
@@ -889,10 +937,10 @@ static inline bool try_batch_list_of_dicts(PyObject* list, Buffer& out, int dept
             }
             ++k;
         }
-        out.unsafe_push_back('}');
+        out.push_back('}');
     }
 
-    out.unsafe_push_back(']');
+    out.push_back(']');
     return true;
 }
 
@@ -929,12 +977,14 @@ static inline bool serialize_int_array_fast(PyObject* list, Buffer& out, Py_ssiz
     for (Py_ssize_t i = 1; i < sz; ++i) {
         PyObject* item = PyList_GET_ITEM(list, i);
         if (UNLIKELY(Py_TYPE(item) != &PyLong_Type)) {
+            // Fallback to generic serialization — use safe push_back since
+            // serialize_item_t can grow the buffer beyond the initial reserve.
             for (Py_ssize_t j = i; j < sz; ++j) {
-                out.unsafe_push_back(',');
+                out.push_back(',');
                 if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
                     return false;
             }
-            out.unsafe_push_back(']');
+            out.push_back(']');
             return true;
         }
         out.unsafe_push_back(',');
@@ -1049,9 +1099,11 @@ static inline bool serialize_bool_array_fast(PyObject* list, Buffer& out, Py_ssi
             out.unsafe_push_back(',');
         PyObject* item = PyList_GET_ITEM(list, i);
         if (UNLIKELY(Py_TYPE(item) != &PyBool_Type)) {
-            // Fallback: finish with generic serialization
+            // Fallback: finish with generic serialization.
+            // First element (j==i) already has comma from outer loop (if i>0).
             for (Py_ssize_t j = i; j < sz; ++j) {
-                out.push_back(',');
+                if (j > i)
+                    out.push_back(',');
                 if (!serialize_item_t<false>(PyList_GET_ITEM(list, j), out, 0))
                     return false;
             }
@@ -1258,6 +1310,28 @@ static inline bool serialize_value(PyObject* val, Buffer& out, int depth) {
     }
     if (PyUnicode_Check(val)) {
         return append_string(val, out);
+    }
+    // Subclass fallbacks: IntEnum, OrderedDict, defaultdict, float subclasses, etc.
+    // These are slower (isinstance checks) but handle common Python patterns.
+    if (PyLong_Check(val)) {
+        return append_py_long(out, val);
+    }
+    if (PyFloat_Check(val)) {
+        return append_double(out, PyFloat_AsDouble(val));
+    }
+    if (PyDict_Check(val)) {
+        if (UNLIKELY(depth >= get_max_serialize_depth())) {
+            PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+            return false;
+        }
+        return serialize_dict(val, out, depth + 1);
+    }
+    if (PyList_Check(val)) {
+        if (UNLIKELY(depth >= get_max_serialize_depth())) {
+            PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+            return false;
+        }
+        return serialize_list(val, out, depth + 1);
     }
     PyErr_SetString(PyExc_TypeError, "Object of unsupported type cannot be serialized to JSON");
     return false;

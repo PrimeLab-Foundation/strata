@@ -73,9 +73,10 @@ class MmapFile {
 
         size_ = static_cast<size_t>(st.st_size);
 
-        // Handle empty file
+        // Handle empty file — use empty string instead of nullptr
+        // to avoid undefined behavior in std::string_view(nullptr, 0).
         if (size_ == 0) {
-            data_ = nullptr;
+            data_ = "";
             return true;
         }
 
@@ -143,11 +144,12 @@ Result<JsonDocument> parse_json_file(const char* filepath) {
 }
 
 Result<JsonCursor> parse_json_file_cursor(const char* filepath) {
-    auto doc_result = parse_json_file(filepath);
-    if (!doc_result.ok()) {
-        return {doc_result.status, JsonCursor()};
-    }
-    return {Status::Ok, doc_result.value.root()};
+    // NOTE: This function is fundamentally broken — the JsonDocument is destroyed
+    // at the end of this function, leaving the cursor pointing to freed memory.
+    // Callers should use parse_json_file() and call .root() on the document instead.
+    // Kept for ABI compatibility but marked as deprecated.
+    (void)filepath;
+    return {Status::ParseError, JsonCursor()};
 }
 
 } // namespace strata

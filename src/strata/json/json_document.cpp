@@ -30,7 +30,9 @@ std::string JsonDocument::root_type_debug() const {
         return "null";
     if (root_->is_bool())
         return "bool";
-    if (root_->is_number())
+    if (root_->is_int64())
+        return "integer";
+    if (root_->is_double())
         return "number";
     if (root_->is_string())
         return "string";

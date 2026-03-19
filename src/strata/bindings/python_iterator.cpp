@@ -124,8 +124,15 @@ static PyObject* StrataNdjsonFileIterator_next(StrataNdjsonFileIterator* self) {
 
         PyObject* item = parse_json_to_python(line, /*validate_utf8=*/false);
         if (!item) {
-            if (PyErr_Occurred())
+            if (PyErr_Occurred()) {
+                // Propagate fatal exceptions (MemoryError, KeyboardInterrupt, SystemExit)
+                // instead of silently swallowing them.
+                if (PyErr_ExceptionMatches(PyExc_MemoryError) ||
+                    PyErr_ExceptionMatches(PyExc_KeyboardInterrupt) ||
+                    PyErr_ExceptionMatches(PyExc_SystemExit))
+                    return NULL;
                 PyErr_Clear();
+            }
             self->stream->record_error();
             continue;
         }

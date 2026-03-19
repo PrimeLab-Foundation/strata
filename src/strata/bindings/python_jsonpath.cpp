@@ -558,7 +558,7 @@ static strata::JsonValue pyobject_to_json_value(PyObject* obj, PyObject* memo, b
         int overflow = 0;
         long long int_val = PyLong_AsLongLongAndOverflow(obj, &overflow);
         if (overflow == 0 && !PyErr_Occurred()) {
-            return strata::JsonValue(strata::JsonValue::Variant(static_cast<double>(int_val)));
+            return strata::JsonValue(strata::JsonValue::Variant(static_cast<int64_t>(int_val)));
         }
         PyErr_Clear();
 
@@ -895,7 +895,10 @@ class SaxSearchHandler {
             return true;
         }
         if (pending_step_ >= nsteps_) {
-            results_.push_back(PyLong_FromLongLong(v));
+            PyObject* obj = PyLong_FromLongLong(v);
+            if (!obj)
+                return false;
+            results_.push_back(obj);
         }
         return true;
     }
@@ -910,7 +913,10 @@ class SaxSearchHandler {
             return true;
         }
         if (pending_step_ >= nsteps_) {
-            results_.push_back(PyLong_FromUnsignedLongLong(v));
+            PyObject* obj = PyLong_FromUnsignedLongLong(v);
+            if (!obj)
+                return false;
+            results_.push_back(obj);
         }
         return true;
     }
@@ -925,7 +931,10 @@ class SaxSearchHandler {
             return true;
         }
         if (pending_step_ >= nsteps_) {
-            results_.push_back(PyFloat_FromDouble(v));
+            PyObject* obj = PyFloat_FromDouble(v);
+            if (!obj)
+                return false;
+            results_.push_back(obj);
         }
         return true;
     }
@@ -940,7 +949,10 @@ class SaxSearchHandler {
             return true;
         }
         if (pending_step_ >= nsteps_) {
-            results_.push_back(PyUnicode_FromStringAndSize(v.data(), v.size()));
+            PyObject* obj = PyUnicode_FromStringAndSize(v.data(), v.size());
+            if (!obj)
+                return false;
+            results_.push_back(obj);
         }
         return true;
     }
@@ -1022,7 +1034,8 @@ class SaxSearchHandler {
     bool on_end_object() {
         if (capture_depth_ > 0) {
             capture_depth_--;
-            cap_.on_end_object();
+            if (!cap_.on_end_object())
+                return false;
             if (capture_depth_ == 0) {
                 PyObject* val = cap_.take_root();
                 if (val)
@@ -1070,7 +1083,8 @@ class SaxSearchHandler {
     bool on_end_array() {
         if (capture_depth_ > 0) {
             capture_depth_--;
-            cap_.on_end_array();
+            if (!cap_.on_end_array())
+                return false;
             if (capture_depth_ == 0) {
                 PyObject* val = cap_.take_root();
                 if (val)
