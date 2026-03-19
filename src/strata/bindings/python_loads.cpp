@@ -3,6 +3,7 @@
 #include "python_types.h"
 #include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/json/json_parser_indexed.hpp"
 #include "strata/json/json_parser_inline.hpp"
 #include "strata/json/json_sax_handler.hpp"
 #include "strata/json/ndjson_stream.hpp"
@@ -1443,7 +1444,7 @@ class LightweightBuilder : public strata::JsonSaxHandler {
 // validate_utf8=false is safe when the caller creates PyUnicode objects, which validate inline.
 PyObject* parse_json_to_python(std::string_view text, bool validate_utf8) {
     PythonObjectBuilder builder;
-    auto status = strata::parse_sax_inline(text, builder, validate_utf8);
+    auto status = strata::parse_sax_indexed(text, builder, validate_utf8);
     if (status != strata::Status::Ok) {
         return nullptr; // caller must set the Python exception
     }
@@ -1453,7 +1454,7 @@ PyObject* parse_json_to_python(std::string_view text, bool validate_utf8) {
 // Lightweight parser for small/medium inputs.
 static PyObject* parse_json_to_python_light(std::string_view text) {
     LightweightBuilder builder;
-    auto status = strata::parse_sax_inline(text, builder, /*validate_utf8=*/false);
+    auto status = strata::parse_sax_indexed(text, builder, /*validate_utf8=*/false);
     if (status != strata::Status::Ok) {
         return nullptr;
     }
@@ -1464,7 +1465,7 @@ static PyObject* parse_json_to_python_light(std::string_view text) {
 static PyObject* parse_json_to_python_light_reuse(std::string_view text) {
     static thread_local LightweightBuilder* tl_builder = new LightweightBuilder();
     tl_builder->reset();
-    auto status = strata::parse_sax_inline(text, *tl_builder, /*validate_utf8=*/false);
+    auto status = strata::parse_sax_indexed(text, *tl_builder, /*validate_utf8=*/false);
     if (status != strata::Status::Ok) {
         return nullptr;
     }
@@ -1481,7 +1482,7 @@ PyObject* parse_json_to_python_light_reuse_fn(std::string_view text) {
 PyObject* parse_json_to_python_reuse_tl(std::string_view text) {
     static thread_local PythonObjectBuilder* tl_builder = new PythonObjectBuilder();
     tl_builder->reset();
-    auto status = strata::parse_sax_inline(text, *tl_builder, /*validate_utf8=*/false);
+    auto status = strata::parse_sax_indexed(text, *tl_builder, /*validate_utf8=*/false);
     if (status != strata::Status::Ok) {
         return nullptr;
     }
@@ -1495,7 +1496,7 @@ PyObject* parse_json_to_python_reuse_tl(std::string_view text) {
 PyObject* parse_json_to_python_reuse(std::string_view text, bool validate_utf8,
                                      PythonObjectBuilder& builder) {
     builder.reset();
-    auto status = strata::parse_sax_inline(text, builder, validate_utf8);
+    auto status = strata::parse_sax_indexed(text, builder, validate_utf8);
     if (status != strata::Status::Ok) {
         return nullptr;
     }
