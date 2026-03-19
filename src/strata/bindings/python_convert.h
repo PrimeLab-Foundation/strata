@@ -47,7 +47,7 @@ PyObject* parse_ndjson_direct(const char* data, size_t len, int skip_errors);
 
 /** Python-exposed parse_ndjson(text, skip_errors=False) -> list.
  *  Defined in python_loads.cpp. */
-PyObject* strata_parse_ndjson(PyObject* self, PyObject* args);
+PyObject* strata_parse_ndjson(PyObject* self, PyObject* args, PyObject* kwargs);
 #endif
 
 /** Convert vector of JsonValue to Python list. Inline so callers (jsonpath, ndjson, loads) get

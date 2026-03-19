@@ -152,10 +152,11 @@ class DomBuilderHandler : public JsonSaxHandler {
 Result<JsonValue> parse_json(std::string_view text) {
     g_parse_warnings.clear();
 
-    // Use ParserInline for single-document parsing — it performs strict
-    // JSON validation (rejecting malformed input). The speculative parser
-    // is used for NDJSON streams where online learning across homogeneous
-    // lines provides the biggest win (see NdjsonStream::parse_line_speculative).
+    // Use ParserInline for the C++ DOM API.  ParserIndexed is reserved for
+    // the Python hot path (loads/parse_ndjson) where the SIMD index pays for
+    // itself.  Adding ParserIndexed<DomBuilderHandler> here would bloat the
+    // binary with an extra template instantiation, increasing icache pressure
+    // on the Python loads() path for minimal gain.
     DomBuilderHandler handler;
     Status status = parse_sax_inline(text, handler);
     if (status != Status::Ok) {
@@ -193,8 +194,9 @@ Result<JsonValue> parse_json_speculative(std::string_view text) {
 }
 
 Status parse_sax(std::string_view text, JsonSaxHandler& handler, bool validate_utf8) {
-    // Thin wrapper: uses the templated parser with JsonSaxHandler (virtual dispatch).
-    // For concrete handler types, callers should use parse_sax_inline<T> directly.
+    // Uses ParserInline with virtual dispatch.  The SIMD-indexed parser is
+    // reserved for concrete handler types in the Python bindings where
+    // devirtualisation + structural navigation yield measurable gains.
     return parse_sax_inline(text, handler, validate_utf8);
 }
 

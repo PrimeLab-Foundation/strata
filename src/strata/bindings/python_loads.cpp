@@ -1670,41 +1670,46 @@ PyObject* parse_ndjson_batch_to_python(strata::NdjsonStream& stream, Py_ssize_t 
 
 // Python parse_ndjson() — parse all NDJSON lines into a list in one C++ call.
 // Uses direct buffer parsing (bypass NdjsonStream) for maximum throughput.
-PyObject* strata_parse_ndjson(PyObject* self, PyObject* args) {
+PyObject* strata_parse_ndjson(PyObject* self, PyObject* args, PyObject* kwargs) {
     const char* data;
     Py_ssize_t len;
     int skip_errors = 0;
 
-    // Fast path: single str argument, no skip_errors
-    if (PyTuple_GET_SIZE(args) >= 1) {
-        PyObject* arg = PyTuple_GET_ITEM(args, 0);
-        if (PyUnicode_Check(arg)) {
-            Py_ssize_t py_len;
-            data = PyUnicode_AsUTF8AndSize(arg, &py_len);
-            if (!data)
-                return NULL;
-            len = py_len;
-        } else if (PyBytes_Check(arg)) {
-            data = PyBytes_AS_STRING(arg);
-            len = PyBytes_GET_SIZE(arg);
-        } else {
-            PyErr_SetString(PyExc_TypeError, "parse_ndjson() argument must be str or bytes");
-            return NULL;
-        }
+    static const char* kwlist[] = {"text", "skip_errors", nullptr};
 
-        if (PyTuple_GET_SIZE(args) >= 2) {
-            PyObject* se = PyTuple_GET_ITEM(args, 1);
-            skip_errors = PyObject_IsTrue(se);
-            if (skip_errors == -1)
+    // Fast path: no kwargs → direct tuple access (avoids format string parsing).
+    if (kwargs == nullptr || PyDict_GET_SIZE(kwargs) == 0) {
+        if (PyTuple_GET_SIZE(args) >= 1) {
+            PyObject* arg = PyTuple_GET_ITEM(args, 0);
+            if (PyUnicode_Check(arg)) {
+                Py_ssize_t py_len;
+                data = PyUnicode_AsUTF8AndSize(arg, &py_len);
+                if (!data)
+                    return NULL;
+                len = py_len;
+            } else if (PyBytes_Check(arg)) {
+                data = PyBytes_AS_STRING(arg);
+                len = PyBytes_GET_SIZE(arg);
+            } else {
+                PyErr_SetString(PyExc_TypeError, "parse_ndjson() argument must be str or bytes");
                 return NULL;
-        }
+            }
 
-        STRATA_CPP_TRY
-        return parse_ndjson_direct(data, static_cast<size_t>(len), skip_errors);
-        STRATA_CPP_CATCH
+            if (PyTuple_GET_SIZE(args) >= 2) {
+                PyObject* se = PyTuple_GET_ITEM(args, 1);
+                skip_errors = PyObject_IsTrue(se);
+                if (skip_errors == -1)
+                    return NULL;
+            }
+
+            STRATA_CPP_TRY
+            return parse_ndjson_direct(data, static_cast<size_t>(len), skip_errors);
+            STRATA_CPP_CATCH
+        }
     }
 
-    if (!PyArg_ParseTuple(args, "s#|p", &data, &len, &skip_errors)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#|p", const_cast<char**>(kwlist), &data, &len,
+                                     &skip_errors)) {
         return NULL;
     }
 
@@ -1753,13 +1758,11 @@ PyObject* strata_loads(PyObject* self, PyObject* args, PyObject* kwargs) {
         PyGcPause gc_pause;
 
         // Small-input fast path: for JSON under 200KB, use the lightweight
-        // builder (no heavy KeyCache / schema tracking infrastructure).
-        // Above 200KB the PythonObjectBuilder's cursor prediction, multi-schema
-        // tracking, and warm KeyCache amortize their setup cost and outperform
-        // the lightweight builder — especially for repeated calls with the
-        // same schema (thread-local reuse keeps the cache warm).
+        // builder with thread-local reuse.  The reused builder keeps its key
+        // cache warm across calls, giving O(1) key lookup for repeated schemas
+        // (common in API responses and NDJSON lines).
         if (len <= 200 * 1024) {
-            PyObject* result = parse_json_to_python_light(std::string_view(data, len));
+            PyObject* result = parse_json_to_python_light_reuse(std::string_view(data, len));
             if (!result) {
                 if (!PyErr_Occurred())
                     PyErr_SetString(PyExc_ValueError, "Invalid JSON");

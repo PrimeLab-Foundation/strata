@@ -66,6 +66,16 @@ void StructuralIndexer::reset() noexcept {
 // ============================================================================
 
 uint64_t StructuralIndexer::compute_escape_mask(uint64_t bs) noexcept {
+    // Follows-odd-sequence-of-backslashes detection (adapted from simdjson).
+    //
+    // Detects bytes that follow an odd-length run of backslashes, which means
+    // they are "escaped" in JSON.  The algorithm uses add-with-carry to
+    // propagate through contiguous backslash bits.
+    //
+    // When prev_escaped_ == 1, a backslash run from the previous chunk
+    // continues into this one.  We handle this by adding prev_escaped_ into
+    // the odd carry chain — the 1-bit ripples through contiguous backslash
+    // bits, producing the correct carry-end position.
     constexpr uint64_t kEvenBits = 0x5555555555555555ULL;
     constexpr uint64_t kOddBits = ~kEvenBits;
 
@@ -76,16 +86,20 @@ uint64_t StructuralIndexer::compute_escape_mask(uint64_t bs) noexcept {
 
     uint64_t even_carries = bs + even_starts;
 
+    // Add prev_escaped_ into odd_starts so the carry from the previous chunk
+    // propagates through contiguous backslashes in this chunk.  The original
+    // code used OR (odd_carries |= prev_escaped_) which fails when the
+    // continued run needs to ripple-carry through multiple backslash bits.
+    uint64_t odd_seed = odd_starts + prev_escaped_;
     uint64_t odd_carries;
     bool overflow;
 #if defined(__GNUC__) || defined(__clang__)
-    overflow = __builtin_uaddll_overflow(bs, odd_starts,
+    overflow = __builtin_uaddll_overflow(bs, odd_seed,
                                          reinterpret_cast<unsigned long long*>(&odd_carries));
 #else
-    odd_carries = bs + odd_starts;
+    odd_carries = bs + odd_seed;
     overflow = (odd_carries < bs);
 #endif
-    odd_carries |= prev_escaped_;
     prev_escaped_ = overflow ? 1ULL : 0ULL;
 
     uint64_t even_carry_ends = even_carries & ~bs;

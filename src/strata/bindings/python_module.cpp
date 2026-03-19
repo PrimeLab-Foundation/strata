@@ -467,7 +467,7 @@ static PyMethodDef strata_methods[] = {
     {"query", (PyCFunction)strata_query, METH_VARARGS | METH_KEYWORDS,
      "query(data, path, *, iterator=False) -> list\n\n"
      "Query dict/list using JSONPath."},
-    {"parse_ndjson", strata_parse_ndjson, METH_VARARGS,
+    {"parse_ndjson", (PyCFunction)strata_parse_ndjson, METH_VARARGS | METH_KEYWORDS,
      "parse_ndjson(text, skip_errors=False) -> list\n\n"
      "Parse NDJSON/JSONL text into a list of objects in one C++ call."},
     {"config_set", strata_config_set, METH_VARARGS,

@@ -297,6 +297,7 @@ template <typename Handler> struct ParserIndexed {
                     data[pos + num_len - 1] == '\n' || data[pos + num_len - 1] == '\r')) {
                 --num_len;
             }
+
             int64_t int_val;
             double dbl_val;
             size_t consumed;
@@ -375,7 +376,6 @@ template <typename Handler> struct ParserIndexed {
                 return false;
 
             // After value, si should point to ',' or '}'.
-            // Sync si if parse_value_at consumed structural positions.
             if (si >= num_sp)
                 return false;
 

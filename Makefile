@@ -192,7 +192,7 @@ bench-small: $(BENCH_SMALL_JSON)
 		--dataset $(BENCH_SMALL_JSON) \
 		--dataset $(BENCH_SMALL_NDJSON) \
 		--records 500 --seed 42 \
-		--repeat 3 --warmup 1 --output docs/benchmarks/bench_results_small.md
+		--repeat 10 --warmup 5 --output docs/benchmarks/bench_results_small.md
 
 # Run full benchmark suite on medium data
 bench-medium: $(BENCH_MEDIUM_JSON)

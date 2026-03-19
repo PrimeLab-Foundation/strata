@@ -246,27 +246,33 @@ namespace util {
  * Unified JSON number parser — avoids double-scanning digits.
  *
  * Parses sign + integer digits once, then:
- * - If '.' or 'e'/'E' follows → continues to fractional/exponent and returns double.
+ * - If '.' or 'e'/'E' follows → continues via fast_float and returns double.
+ * - If the integer overflows int64_t (either >19 digits or out-of-range) →
+ *   promotes to double instead of failing, since the value is still a valid
+ *   JSON number.
  * - Otherwise → returns int64_t.
  *
- * @param str      Pointer to the first character.
- * @param len      Number of available characters.
- * @param[out] int_result   Set on integer result.
- * @param[out] dbl_result   Set on double result.
- * @param[out] consumed     Number of characters consumed.
- * @param[out] is_double    True if result is double, false if int.
- * @return true on success.
+ * Design notes:
+ * - The integer accumulator is uint64_t.  Any 19-digit decimal value fits
+ *   uint64_t (max uint64_t has 20 digits), so we accumulate up to 19 digits
+ *   without overflow.  If the number has >19 digits we delegate to fast_float.
+ * - fast_float (Eisel-Lemire) is used for all floating-point paths.  It is
+ *   faster than manual digit-by-digit accumulation for long mantissas (>8
+ *   digits) because it processes multiple digits at once via SWAR, and for
+ *   short mantissas the overhead is comparable.
+ *
+ * @param str             Pointer to the first character of the number.
+ * @param len             Number of available characters.
+ * @param[out] int_result Set when the result is an integer (is_double == false).
+ * @param[out] dbl_result Set when the result is a double  (is_double == true).
+ * @param[out] consumed   Number of characters consumed from @p str.
+ * @param[out] is_double  True if the result is stored in @p dbl_result.
+ * @return true on success, false on malformed input.
  */
 [[nodiscard]] inline bool parse_number_unified(const char* str, size_t len, int64_t& int_result,
                                                double& dbl_result, size_t& consumed,
                                                bool& is_double) noexcept {
-    static constexpr double kPow10Dbl[] = {
-        1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
-        1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
-    };
-    static constexpr int kPow10DblMax = 22;
-
-    if (len == 0)
+    if (len == 0) [[unlikely]]
         return false;
 
     size_t pos = 0;
@@ -277,19 +283,27 @@ namespace util {
         ++pos;
     }
 
-    if (pos >= len || str[pos] < '0' || str[pos] > '9')
+    // After an optional '-' we must see at least one digit.
+    // The unsigned subtraction trick folds two comparisons (< '0', > '9')
+    // into a single branch.
+    if (pos >= len || static_cast<unsigned char>(str[pos] - '0') > 9u) [[unlikely]]
         return false;
 
-    // Parse integer part as uint64_t
+    // --- Integer digit accumulation ----------------------------------------
+    // Accumulate into uint64_t.  Any 19-digit decimal value fits (max uint64_t
+    // is 18446744073709551615, which is 20 digits), so we collect up to 19
+    // digits losslessly.  If there are more we fall through to fast_float.
     uint64_t int_val = 0;
     int int_digits = 0;
 
     if (str[pos] == '0') {
+        // Leading-zero rule: after a literal '0' the next char must NOT be a
+        // digit (JSON spec §number).
         ++pos;
-        if (pos < len && str[pos] >= '0' && str[pos] <= '9')
-            return false; // Leading zero
+        if (pos < len && static_cast<unsigned char>(str[pos] - '0') <= 9u) [[unlikely]]
+            return false;
     } else {
-        while (pos < len && str[pos] >= '0' && str[pos] <= '9') {
+        while (pos < len && static_cast<unsigned char>(str[pos] - '0') <= 9u) {
             if (int_digits < 19)
                 int_val = int_val * 10 + static_cast<uint64_t>(str[pos] - '0');
             ++int_digits;
@@ -297,113 +311,74 @@ namespace util {
         }
     }
 
-    // Check if this is a float (has '.' or 'e'/'E')
+    // --- Floating-point path (fractional / exponent) -----------------------
     if (pos < len && (str[pos] == '.' || str[pos] == 'e' || str[pos] == 'E')) {
-        // Float path — continue parsing fractional/exponent parts
-        int total_digits = int_digits;
-        int frac_digits = 0;
-
-        if (pos < len && str[pos] == '.') {
-            ++pos;
-            if (pos >= len || str[pos] < '0' || str[pos] > '9')
+        // JSON validation: '.' must be followed by at least one digit.
+        if (str[pos] == '.') {
+            if (pos + 1 >= len || static_cast<unsigned char>(str[pos + 1] - '0') > 9u) [[unlikely]]
                 return false;
-            while (pos < len && str[pos] >= '0' && str[pos] <= '9') {
-                if (total_digits < 19) {
-                    int_val = int_val * 10 + static_cast<uint64_t>(str[pos] - '0');
-                    ++frac_digits;
-                }
-                ++total_digits;
-                ++pos;
-            }
         }
 
-        int exp_val = 0;
-        bool exp_negative = false;
-        if (pos < len && (str[pos] == 'e' || str[pos] == 'E')) {
-            ++pos;
-            if (pos < len) {
-                if (str[pos] == '-') {
-                    exp_negative = true;
-                    ++pos;
-                } else if (str[pos] == '+') {
-                    ++pos;
-                }
-            }
-            if (pos >= len || str[pos] < '0' || str[pos] > '9')
-                return false;
-            while (pos < len && str[pos] >= '0' && str[pos] <= '9') {
-                exp_val = exp_val * 10 + (str[pos] - '0');
-                if (exp_val > 400) {
-                    while (pos < len && str[pos] >= '0' && str[pos] <= '9')
-                        ++pos;
-                    break;
-                }
-                ++pos;
-            }
-        }
+        const char* num_start = str + (negative ? 1 : 0);
+        const char* num_end = str + len;
 
-        int combined_exp = (exp_negative ? -exp_val : exp_val) - frac_digits;
-
-        // Fast path: uses Clinger's technique for exact float parsing.
-        // Exact when mantissa < 2^53 and |combined_exp| <= 22, BUT only
-        // if no digits were dropped during uint64 accumulation (> 19 digits).
-        static constexpr uint64_t kMaxExactMantissa = (1ULL << 53);
-        int accumulated_digits = int_digits + frac_digits;
-        bool digits_dropped = (total_digits > accumulated_digits);
-        int abs_exp = combined_exp < 0 ? -combined_exp : combined_exp;
-        bool fast_ok = !digits_dropped && int_val < kMaxExactMantissa && abs_exp <= kPow10DblMax;
-        if (fast_ok) {
-            dbl_result = static_cast<double>(int_val);
-            if (combined_exp != 0) {
-                double power = kPow10Dbl[abs_exp];
-                dbl_result = combined_exp > 0 ? dbl_result * power : dbl_result / power;
-            }
-        } else {
-            // Slow path: use Eisel-Lemire (fast_float) for exact conversion.
-            // ~9x faster than strtod, handles 99%+ of cases without fallback.
-            const char* num_start = str + (negative ? 1 : 0);
-            const char* num_end = str + pos;
-            auto answer = fast_float::from_chars(num_start, num_end, dbl_result);
-            if (answer.ec != std::errc()) {
-                return false;
-            }
-        }
+        auto answer = fast_float::from_chars(num_start, num_end, dbl_result);
+        if (answer.ec != std::errc()) [[unlikely]]
+            return false;
 
         if (negative)
             dbl_result = -dbl_result;
-        consumed = pos;
+
+        consumed = static_cast<size_t>(answer.ptr - str);
         is_double = true;
         return true;
     }
 
-    // Integer path — no '.' or 'e'/'E' encountered.
-    // If digits were dropped (> 19 digits), int_val is truncated and wrong.
-    // Fall through to double path via fast_float for correct handling.
-    if (int_digits > 19) {
+    // --- Pure-integer path -------------------------------------------------
+
+    // If the number had more than 19 digits, our uint64_t accumulator is
+    // truncated.  Delegate to fast_float for a correct double result.
+    if (int_digits > 19) [[unlikely]] {
         const char* num_start = str + (negative ? 1 : 0);
         const char* num_end = str + pos;
+
         auto answer = fast_float::from_chars(num_start, num_end, dbl_result);
-        if (answer.ec != std::errc())
+        if (answer.ec != std::errc()) [[unlikely]]
             return false;
+
         if (negative)
             dbl_result = -dbl_result;
+
         consumed = pos;
         is_double = true;
         return true;
     }
+
+    // The value fits in uint64_t — try to narrow it into int64_t.
+    // On overflow, promote to double rather than rejecting a valid JSON number.
     if (negative) {
-        const uint64_t min_abs = static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1;
-        if (int_val > min_abs)
-            return false;
-        if (int_val == min_abs)
-            int_result = std::numeric_limits<int64_t>::min();
-        else
-            int_result = -static_cast<int64_t>(int_val);
+        // abs(INT64_MIN) == INT64_MAX + 1, which is representable in uint64_t.
+        constexpr uint64_t kMinAbs = static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1;
+
+        if (int_val > kMinAbs) [[unlikely]] {
+            dbl_result = -static_cast<double>(int_val);
+            consumed = pos;
+            is_double = true;
+            return true;
+        }
+
+        int_result = (int_val == kMinAbs) ? std::numeric_limits<int64_t>::min()
+                                          : -static_cast<int64_t>(int_val);
     } else {
-        if (int_val > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
-            return false;
+        if (int_val > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) [[unlikely]] {
+            dbl_result = static_cast<double>(int_val);
+            consumed = pos;
+            is_double = true;
+            return true;
+        }
         int_result = static_cast<int64_t>(int_val);
     }
+
     consumed = pos;
     is_double = false;
     return true;

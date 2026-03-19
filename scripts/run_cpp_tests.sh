@@ -214,6 +214,34 @@ echo ""
 # Integration tests — use ALL sources
 run_test "integration_tests" "tests/cpp/test_integration.cpp"
 
+# Coverage-gap tests — use ALL sources
+run_test "coverage_gaps_tests" "tests/cpp/test_coverage_gaps.cpp"
+run_test "coverage_gaps2_tests" "tests/cpp/test_coverage_gaps2.cpp"
+
+# Doc examples — SIMD
+run_simd_test "doc_example_simd" "tests/doc_examples/example_simd_usage.cpp"
+# Doc examples — speculative (uses spec + simd + bloom)
+run_spec_test "doc_example_speculative" "tests/doc_examples/example_speculative_usage.cpp"
+# Doc examples — bloom (uses bloom + simd)
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Building: doc_example_bloom"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if $CXX $CXXFLAGS $INCLUDES tests/doc_examples/example_bloom_usage.cpp $BLOOM_SOURCES $SIMD_SOURCES -o "$BUILD_DIR/doc_example_bloom" 2>&1; then
+    echo "✅ Build successful"
+    echo "Running tests..."
+    if "$BUILD_DIR/doc_example_bloom"; then
+        echo "✅ doc_example_bloom: PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "❌ doc_example_bloom: FAILED"
+        FAILED=$((FAILED + 1))
+    fi
+else
+    echo "❌ Build failed for doc_example_bloom"
+    FAILED=$((FAILED + 1))
+fi
+echo ""
+
 echo "════════════════════════════════════════════════════════════════"
 echo "  C++ Test Results"
 echo "════════════════════════════════════════════════════════════════"
