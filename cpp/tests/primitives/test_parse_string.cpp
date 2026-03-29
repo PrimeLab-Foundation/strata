@@ -1,4 +1,4 @@
-#include "strata/parse_string.hpp"
+#include "strata/primitives/parse_string.hpp"
 
 #include <cassert>
 #include <cstdio>

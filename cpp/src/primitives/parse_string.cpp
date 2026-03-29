@@ -24,7 +24,7 @@
 //   - Main loop scans for '"' and '\' — the two chars that need action.
 //     Everything else is a straight push_back.
 
-#include "strata/parse_string.hpp"
+#include "strata/primitives/parse_string.hpp"
 
 #include <array>
 

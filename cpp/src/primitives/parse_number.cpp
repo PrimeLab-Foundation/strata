@@ -17,7 +17,7 @@
 //   correctly-rounded results for IEEE 754 doubles (which have ~15.9
 //   digits of precision).
 
-#include "strata/parse_number.hpp"
+#include "strata/primitives/parse_number.hpp"
 
 #include <cfloat>
 #include <climits>

@@ -1,4 +1,4 @@
-#include "strata/parse_number.hpp"
+#include "strata/primitives/parse_number.hpp"
 
 #include <algorithm>
 #include <cassert>

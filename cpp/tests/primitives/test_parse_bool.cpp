@@ -1,4 +1,4 @@
-#include "strata/parse_bool.hpp"
+#include "strata/primitives/parse_bool.hpp"
 
 #include <cassert>
 #include <cstdio>

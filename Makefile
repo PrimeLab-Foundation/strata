@@ -11,10 +11,10 @@ CXXFLAGS := -std=c++23 -Wall -Wextra -Wpedantic -O2
 INCLUDES := -Icpp/include
 
 BUILD     := build
-CPP_SRCS  := $(wildcard cpp/src/*.cpp)
-CPP_OBJS  := $(patsubst cpp/src/%.cpp,$(BUILD)/%.o,$(CPP_SRCS))
-TEST_SRCS := $(wildcard cpp/tests/test_*.cpp)
-TEST_BINS := $(patsubst cpp/tests/test_%.cpp,$(BUILD)/test_%,$(TEST_SRCS))
+CPP_SRCS  := $(shell find cpp/src -name '*.cpp')
+CPP_OBJS  := $(patsubst cpp/src/%.cpp,$(BUILD)/obj/%.o,$(CPP_SRCS))
+TEST_SRCS := $(shell find cpp/tests -name 'test_*.cpp')
+TEST_BINS := $(patsubst cpp/tests/%.cpp,$(BUILD)/%,$(TEST_SRCS))
 
 FIND_EXCLUDE := ! -path './.venv/*' ! -path './.git/*' ! -path './.idea/*' \
                 ! -path './.pytest_cache/*' ! -path './.ruff_cache/*' \
@@ -22,15 +22,14 @@ FIND_EXCLUDE := ! -path './.venv/*' ! -path './.git/*' ! -path './.idea/*' \
 
 # --- Core targets ---
 
-build: dirs $(TEST_BINS) test-cpp
+build: $(TEST_BINS) test-cpp
 
-dirs:
-	@mkdir -p $(BUILD)
-
-$(BUILD)/%.o: cpp/src/%.cpp | dirs
+$(BUILD)/obj/%.o: cpp/src/%.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
-$(BUILD)/test_%: cpp/tests/test_%.cpp $(CPP_OBJS) | dirs
+$(BUILD)/%: cpp/tests/%.cpp $(CPP_OBJS)
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(CPP_OBJS) -o $@
 
 test-cpp: $(TEST_BINS)
@@ -71,7 +70,7 @@ status:
 	@find . $(FIND_EXCLUDE) \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.py' \) 2>/dev/null | xargs cat 2>/dev/null | wc -l | xargs echo " "
 	@echo ""
 	@echo "-- Tree --"
-	@find . -maxdepth 3 \
+	@find . -maxdepth 4 \
 		\( -name .venv -o -name .git -o -name .idea -o -name .pytest_cache \
 		   -o -name .ruff_cache -o -name build -o -name '*.egg-info' \) -prune \
 		-o ! -name '.' -print | sort | sed 's|[^/]*/|  |g'

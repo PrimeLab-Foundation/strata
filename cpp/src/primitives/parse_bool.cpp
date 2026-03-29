@@ -1,4 +1,4 @@
-#include "strata/parse_bool.hpp"          // Parsed<bool>, Result<bool>, parse<bool> declaration
+#include "strata/primitives/parse_bool.hpp"          // Parsed<bool>, Result<bool>, parse<bool> declaration
 #include <cstring>                         // std::memcmp
 
 namespace strata {
