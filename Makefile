@@ -31,4 +31,7 @@ status:
 	@find . $(FIND_EXCLUDE) \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' -o -name '*.py' \) 2>/dev/null | xargs cat 2>/dev/null | wc -l | xargs echo " "
 	@echo ""
 	@echo "-- Tree --"
-	@find . -maxdepth 3 $(FIND_EXCLUDE) ! -name '.' -not -name '*.pyc' | sort | sed 's|[^/]*/|  |g'
+	@find . -maxdepth 3 \
+		\( -name .venv -o -name .git -o -name .idea -o -name .pytest_cache \
+		   -o -name .ruff_cache -o -name build -o -name '*.egg-info' \) -prune \
+		-o ! -name '.' -print | sort | sed 's|[^/]*/|  |g'
