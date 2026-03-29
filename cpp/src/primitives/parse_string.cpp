@@ -25,6 +25,7 @@
 //     Everything else is a straight push_back.
 
 #include "strata/primitives/parse_string.hpp"
+#include "strata/simd/ops.hpp"
 
 #include <array>
 
@@ -121,6 +122,16 @@ namespace strata {
         std::string out;
 
         while (cur < end) {
+            // SIMD scan: skip past regular chars in bulk
+            const char* special = simd::find_string_special(cur, end);
+            if (special > cur) {
+                out.append(cur, static_cast<size_t>(special - cur));
+                cur = special;
+            }
+
+            if (cur >= end)
+                break;
+
             char ch = *cur;
 
             if (ch == '"')
@@ -129,13 +140,7 @@ namespace strata {
             if (static_cast<unsigned char>(ch) < 0x20)
                 return std::unexpected(ParseError{ErrorCode::UnexpectedChar, cur});
 
-            if (ch != '\\') {
-                out += ch;
-                ++cur;
-                continue;
-            }
-
-            // escape sequence
+            // escape sequence (ch == '\\')
             if (++cur >= end)
                 return std::unexpected(ParseError{ErrorCode::UnterminatedString, cur});
 

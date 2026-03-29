@@ -1,4 +1,4 @@
-.PHONY: venv install build test test-cpp test-py clean status
+.PHONY: venv install build test test-cpp test-py bench clean status
 
 # --- Python ---
 PYTHON ?= python3.14
@@ -39,6 +39,19 @@ test-py:
 	$(VENV) -m pytest python/tests/ -v
 
 test: test-cpp test-py
+
+# --- Bench ---
+
+BENCH_SRCS := $(shell find cpp/tests/bench -name 'bench_*.cpp' 2>/dev/null)
+BENCH_BINS := $(patsubst cpp/tests/bench/%.cpp,$(BUILD)/bench/%,$(BENCH_SRCS))
+
+$(BUILD)/bench/%: cpp/tests/bench/%.cpp $(CPP_OBJS)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(CPP_OBJS) -o $@
+
+bench: $(BENCH_BINS)
+	@mkdir -p docs/benchmarks/cpp_only
+	@for b in $(BENCH_BINS); do ./$$b; done
 
 # --- Python ---
 

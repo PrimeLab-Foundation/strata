@@ -1,28 +1,11 @@
 #include "strata/parse_value.hpp"
+#include "strata/simd/ops.hpp"
 
 namespace strata {
 
-    namespace {
-
-        // JSON whitespace: space, tab, newline, carriage return
-        inline const char* skip_ws(const char* cur, const char* end) {
-            while (cur < end) {
-                switch (*cur) {
-                    case ' ': case '\t': case '\n': case '\r':
-                        ++cur;
-                        continue;
-                    default:
-                        return cur;
-                }
-            }
-            return cur;
-        }
-
-    }
-
     template <>
     Result<JsonValue> parse<JsonValue>(const char* cur, const char* end) {
-        cur = skip_ws(cur, end);
+        cur = simd::skip_ws(cur, end);
 
         if (cur >= end)
             return std::unexpected(ParseError{ErrorCode::UnexpectedEnd, cur});

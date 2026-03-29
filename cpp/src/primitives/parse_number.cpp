@@ -18,6 +18,7 @@
 //   digits of precision).
 
 #include "strata/primitives/parse_number.hpp"
+#include "strata/simd/ops.hpp"
 
 #include <cfloat>
 #include <climits>
@@ -123,19 +124,17 @@ namespace strata {
         bool is_float = false;
         bool int_overflow = false;
 
-        // integer digits
-        while (cur < end && is_digit(*cur)) {
-            int d = to_digit(*cur);
-            if (sig_digits < MAX_SIG_DIGITS) {
-                sig = sig * 10 + static_cast<uint64_t>(d);
-                ++sig_digits;
-            } else {
-                // Beyond 19 digits: can't fit in uint64_t.
-                // For doubles, adjust exponent. For integers, mark overflow.
-                ++exp10;
-                int_overflow = true;
-            }
+        // integer digits: accumulate up to 19 digits, SIMD skip the rest
+        while (cur < end && is_digit(*cur) && sig_digits < MAX_SIG_DIGITS) {
+            sig = sig * 10 + static_cast<uint64_t>(to_digit(*cur));
+            ++sig_digits;
             ++cur;
+        }
+        if (cur < end && is_digit(*cur)) {
+            const char* digit_end = simd::skip_digits(cur, end);
+            exp10 += static_cast<int>(digit_end - cur);
+            int_overflow = true;
+            cur = digit_end;
         }
 
         // fraction
@@ -144,16 +143,14 @@ namespace strata {
             ++cur;
             if (cur >= end || !is_digit(*cur))
                 return std::unexpected(ParseError{ErrorCode::InvalidNumber, start});
-            while (cur < end && is_digit(*cur)) {
-                int d = to_digit(*cur);
-                if (sig_digits < MAX_SIG_DIGITS) {
-                    sig = sig * 10 + static_cast<uint64_t>(d);
-                    ++sig_digits;
-                    --exp10;
-                }
-                // Excess fraction digits: silently dropped (below double precision)
+            while (cur < end && is_digit(*cur) && sig_digits < MAX_SIG_DIGITS) {
+                sig = sig * 10 + static_cast<uint64_t>(to_digit(*cur));
+                ++sig_digits;
+                --exp10;
                 ++cur;
             }
+            // SIMD skip excess fraction digits (below double precision)
+            cur = simd::skip_digits(cur, end);
         }
 
         // exponent
