@@ -17,6 +17,31 @@
 
 namespace strata::simd {
 
+// --- Literal matching via integer load ---
+// Compiles to a single load + compare instruction.
+// Works on all platforms — uses 32/64-bit registers, not vector.
+
+inline uint32_t load4(const char* p) {
+    uint32_t v;
+    __builtin_memcpy(&v, p, 4);
+    return v;
+}
+
+constexpr uint32_t pack4(const char s[4]) {
+    return static_cast<uint32_t>(static_cast<unsigned char>(s[0]))
+         | static_cast<uint32_t>(static_cast<unsigned char>(s[1])) << 8
+         | static_cast<uint32_t>(static_cast<unsigned char>(s[2])) << 16
+         | static_cast<uint32_t>(static_cast<unsigned char>(s[3])) << 24;
+}
+
+inline bool match4(const char* cur, const char* end, const char lit[4]) {
+    return static_cast<size_t>(end - cur) >= 4 && load4(cur) == pack4(lit);
+}
+
+inline bool match5(const char* cur, const char* end, const char lit[5]) {
+    return static_cast<size_t>(end - cur) >= 5 && load4(cur) == pack4(lit) && cur[4] == lit[4];
+}
+
 inline const char* find_string_special(const char* cur, const char* end) {
 #if defined(__AVX2__)
     return avx2::find_string_special(cur, end);

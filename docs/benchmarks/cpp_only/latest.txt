@@ -1,22 +1,22 @@
-Strata parse benchmark — 2026-03-30 02:32:01
+Strata parse benchmark — 2026-03-30 02:38:49
 
   name                                ns/op        ops/sec
   ----                                -----        -------
-  null                                  5.1      196666927
-  bool_true                             3.4      291504112
-  bool_false                            3.7      270195047
-  int_small                             4.6      216218995
-  int_negative                          5.9      169760788
-  int_large                            12.6       79131282
-  float_simple                          6.5      153863815
-  float_negative                        7.5      133101583
-  float_exponent                        7.9      127099967
-  float_small_exp                       8.3      120109478
-  string_short                         13.5       74135390
-  string_medium                        41.4       24132364
-  string_escaped                       65.3       15303120
-  string_unicode                       21.5       46551375
-  string_surrogate                     14.0       71396132
-  string_empty                          8.2      121929710
-  value_ws_null                         6.8      146358737
-  value_ws_number                       6.2      161329395
+  null                                  5.0      198732186
+  bool_true                             3.0      335378455
+  bool_false                            3.6      278210543
+  int_small                             4.6      216905068
+  int_negative                          5.9      169902979
+  int_large                            12.5       79816612
+  float_simple                          6.5      153514353
+  float_negative                        7.4      134473525
+  float_exponent                        8.0      124894083
+  float_small_exp                       8.4      119585349
+  string_short                         13.5       74037170
+  string_medium                        41.5       24119856
+  string_escaped                       65.9       15172316
+  string_unicode                       21.6       46364582
+  string_surrogate                     14.0       71455976
+  string_empty                          9.2      108664479
+  value_ws_null                         6.8      146454855
+  value_ws_number                       6.4      157130762

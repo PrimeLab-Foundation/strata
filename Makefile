@@ -1,4 +1,4 @@
-.PHONY: venv install build test test-cpp test-py bench clean status
+.PHONY: venv install build test test-cpp test-py bench coverage clean status
 
 # --- Python ---
 PYTHON ?= python3.14
@@ -6,7 +6,7 @@ VENV   ?= .venv/bin/$(PYTHON)
 PIP    ?= .venv/bin/pip
 
 # --- C++ ---
-CXX      := g++
+CXX      ?= clang++
 CXXFLAGS := -std=c++23 -Wall -Wextra -Wpedantic -O2
 INCLUDES := -Icpp/include
 
@@ -52,6 +52,37 @@ $(BUILD)/bench/%: cpp/tests/bench/%.cpp $(CPP_OBJS)
 bench: $(BENCH_BINS)
 	@mkdir -p docs/benchmarks/cpp_only
 	@for b in $(BENCH_BINS); do ./$$b; done
+
+# --- Coverage ---
+
+COV_DIR     := $(BUILD)/coverage
+COV_CFLAGS  := -std=c++23 -Wall -Wextra -Wpedantic -O0 -fprofile-instr-generate -fcoverage-mapping
+COV_OBJS    := $(patsubst cpp/src/%.cpp,$(COV_DIR)/obj/%.o,$(CPP_SRCS))
+COV_BINS    := $(patsubst cpp/tests/%.cpp,$(COV_DIR)/%,$(TEST_SRCS))
+
+$(COV_DIR)/obj/%.o: cpp/src/%.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(COV_CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(COV_DIR)/%: cpp/tests/%.cpp $(COV_OBJS)
+	@mkdir -p $(dir $@)
+	$(CXX) $(COV_CFLAGS) $(INCLUDES) $< $(COV_OBJS) -o $@
+
+coverage: $(COV_BINS)
+	@rm -f $(COV_DIR)/default*.profraw $(COV_DIR)/merged.profdata
+	@cd $(COV_DIR) && for t in $(patsubst $(COV_DIR)/%,%,$(COV_BINS)); do \
+		LLVM_PROFILE_FILE="default_$$(echo $$t | tr '/' '_').profraw" ./$$t > /dev/null || exit 1; \
+	done
+	@xcrun llvm-profdata merge -sparse $(COV_DIR)/default_*.profraw -o $(COV_DIR)/merged.profdata
+	@echo ""
+	@echo "=== C++ Test Coverage ==="
+	@echo ""
+	@xcrun llvm-cov report $(firstword $(COV_BINS)) \
+		$(patsubst %,-object %,$(wordlist 2,$(words $(COV_BINS)),$(COV_BINS))) \
+		-instr-profile=$(COV_DIR)/merged.profdata \
+		$(CPP_SRCS) \
+		| tail -n +2
+	@echo ""
 
 # --- Python ---
 

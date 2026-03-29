@@ -11,7 +11,8 @@ static Result<std::string> run(const char* input) {
 }
 
 int main() {
-    printf("test_parse_string:\n");
+    printf("test_parse_string\n");
+
     // --- valid: basic ---
 
     printf("  simple                        ");
@@ -325,5 +326,133 @@ int main() {
         assert(r.error().code == ErrorCode::UnexpectedEnd);
     }
     printf("ok\n");
+
+    // --- SIMD paths (strings > 16 chars) ---
+
+    printf("  long string (SIMD bulk copy)  ");
+    {
+        auto r = run(R"("abcdefghijklmnopqrstuvwxyz0123456789")");
+        assert(r.has_value());
+        assert(r->value == "abcdefghijklmnopqrstuvwxyz0123456789");
+    }
+    printf("ok\n");
+
+    printf("  long + escape at end          ");
+    {
+        auto r = run(R"("abcdefghijklmnopqrstuvwxyz\n")");
+        assert(r.has_value());
+        assert(r->value == "abcdefghijklmnopqrstuvwxyz\n");
+    }
+    printf("ok\n");
+
+    printf("  long + escape in middle       ");
+    {
+        auto r = run(R"("abcdefghijklmnop\"qrstuvwxyz")");
+        assert(r.has_value());
+        assert(r->value == "abcdefghijklmnop\"qrstuvwxyz");
+    }
+    printf("ok\n");
+
+    printf("  long unterminated             ");
+    {
+        auto r = run(R"("abcdefghijklmnopqrstuvwxyz)");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnterminatedString);
+    }
+    printf("ok\n");
+
+    printf("  long + control char           ");
+    {
+        const char in[] = "\"abcdefghijklmnopqr\x01\"";
+        auto r = parse<std::string>(in, in + sizeof(in) - 1);
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedChar);
+    }
+    printf("ok\n");
+
+    printf("  exactly 16 chars              ");
+    {
+        auto r = run(R"("0123456789abcdef")");
+        assert(r.has_value());
+        assert(r->value == "0123456789abcdef");
+    }
+    printf("ok\n");
+
+    printf("  exactly 32 chars              ");
+    {
+        auto r = run(R"("0123456789abcdef0123456789abcdef")");
+        assert(r.has_value());
+        assert(r->value == "0123456789abcdef0123456789abcdef");
+    }
+    printf("ok\n");
+
+    // --- more escape edge cases ---
+
+    printf("  high surrogate + truncated    ");
+    {
+        auto r = run(R"("\uD800")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidUnicode);
+    }
+    printf("ok\n");
+
+    printf("  high surrogate + \\not-u       ");
+    {
+        auto r = run(R"("\uD800\n")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidUnicode);
+    }
+    printf("ok\n");
+
+    printf("  bad hex digit position 0      ");
+    {
+        auto r = run(R"("\uGG00")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidUnicode);
+    }
+    printf("ok\n");
+
+    printf("  bad hex digit position 1      ");
+    {
+        auto r = run(R"("\u0G00")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidUnicode);
+    }
+    printf("ok\n");
+
+    printf("  bad hex digit position 2      ");
+    {
+        auto r = run(R"("\u00G0")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidUnicode);
+    }
+    printf("ok\n");
+
+    printf("  bad hex digit position 3      ");
+    {
+        auto r = run(R"("\u000G")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidUnicode);
+    }
+    printf("ok\n");
+
+    printf("  surrogate bad low hex         ");
+    {
+        auto r = run(R"("\uD800\uGGGG")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidUnicode);
+    }
+    printf("ok\n");
+
+    printf("  only backslash in string      ");
+    {
+        const char in[] = "\"\\";
+        auto r = parse<std::string>(in, in + 2);
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnterminatedString);
+    }
+    printf("ok\n");
+
+    printf("  all passed\n");
     return 0;
 }

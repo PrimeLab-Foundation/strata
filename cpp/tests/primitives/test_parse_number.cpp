@@ -21,7 +21,7 @@ static bool near(double a, double b) {
 }
 
 int main() {
-    printf("test_parse_number:\n");
+    printf("test_parse_number\n");
 
     // --- integers: single-pass accumulation ---
 
@@ -421,5 +421,97 @@ int main() {
         assert(r.error().code == ErrorCode::InvalidNumber);
     }
     printf("ok\n");
+
+    // --- to_double split multiply boundaries ---
+
+    printf("  exp exactly 44 (2 loops)      ");
+    {
+        auto r = run("1e44");
+        assert(r.has_value());
+        assert(near(std::get<double>(r->value), 1e44));
+    }
+    printf("ok\n");
+
+    printf("  exp exactly 45                ");
+    {
+        auto r = run("1e45");
+        assert(r.has_value());
+        assert(near(std::get<double>(r->value), 1e45));
+    }
+    printf("ok\n");
+
+    printf("  exp exactly 66 (3 loops)      ");
+    {
+        auto r = run("1e66");
+        assert(r.has_value());
+        assert(near(std::get<double>(r->value), 1e66));
+    }
+    printf("ok\n");
+
+    printf("  negative exp exactly -44      ");
+    {
+        auto r = run("1e-44");
+        assert(r.has_value());
+        assert(std::get<double>(r->value) > 0.0);
+        assert(std::get<double>(r->value) < 1e-43);
+    }
+    printf("ok\n");
+
+    printf("  negative exp exactly -66      ");
+    {
+        auto r = run("1e-66");
+        assert(r.has_value());
+        assert(std::get<double>(r->value) > 0.0);
+    }
+    printf("ok\n");
+
+    printf("  exp 0 (no scaling)            ");
+    {
+        // 7e0 → exp10=0, should return 7.0 exactly
+        auto r = run("7e0");
+        assert(r.has_value());
+        assert(std::get<double>(r->value) == 7.0);
+    }
+    printf("ok\n");
+
+    // --- SIMD skip_digits: >19 digit float ---
+
+    printf("  30 digit float (SIMD skip)    ");
+    {
+        auto r = run("1.234567890123456789012345678901");
+        assert(r.has_value());
+        assert(std::holds_alternative<double>(r->value));
+        assert(std::abs(std::get<double>(r->value) - 1.2345678901234568) < 1e-14);
+    }
+    printf("ok\n");
+
+    printf("  20+ digit integer as float    ");
+    {
+        // 20+ digit integer → overflow → error (not float)
+        auto r = run("12345678901234567890");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::NumberOverflow);
+    }
+    printf("ok\n");
+
+    printf("  0 with many fraction digits   ");
+    {
+        auto r = run("0.0000000000000001");
+        assert(r.has_value());
+        assert(std::holds_alternative<double>(r->value));
+        assert(std::get<double>(r->value) > 0.0);
+        assert(std::get<double>(r->value) < 1e-15);
+    }
+    printf("ok\n");
+
+    printf("  negative 0 int                ");
+    {
+        auto r = run("-0");
+        assert(r.has_value());
+        assert(std::get<int64_t>(r->value) == 0);
+    }
+    printf("ok\n");
+
+    printf("  all passed\n");
     return 0;
 }

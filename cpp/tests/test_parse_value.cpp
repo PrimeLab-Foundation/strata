@@ -12,7 +12,7 @@ static Result<JsonValue> run(const char* input) {
 }
 
 int main() {
-    printf("test_parse_value:\n");
+    printf("test_parse_value\n");
 
     // --- dispatch: null ---
 
@@ -228,5 +228,88 @@ int main() {
         assert(r.error().code == ErrorCode::UnexpectedChar);
     }
     printf("ok\n");
+
+    // --- error propagation from sub-parsers ---
+
+    printf("  null error propagates         ");
+    {
+        auto r = run("nope");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::InvalidLiteral);
+    }
+    printf("ok\n");
+
+    printf("  bool error propagates         ");
+    {
+        auto r = run("tru");
+        assert(!r.has_value());
+    }
+    printf("ok\n");
+
+    printf("  false error propagates        ");
+    {
+        auto r = run("fals");
+        assert(!r.has_value());
+    }
+    printf("ok\n");
+
+    printf("  number error propagates       ");
+    {
+        auto r = run("-");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedEnd);
+    }
+    printf("ok\n");
+
+    printf("  string error propagates       ");
+    {
+        auto r = run(R"("unterminated)");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnterminatedString);
+    }
+    printf("ok\n");
+
+    // --- dispatch: all digit starts ---
+
+    printf("  digit 0                       ");
+    {
+        auto r = run("0");
+        assert(r.has_value());
+        assert(std::get<int64_t>(std::get<Number>(r->value)) == 0);
+    }
+    printf("ok\n");
+
+    printf("  digit 1                       ");
+    {
+        auto r = run("1");
+        assert(r.has_value());
+        assert(std::get<int64_t>(std::get<Number>(r->value)) == 1);
+    }
+    printf("ok\n");
+
+    printf("  digit 9                       ");
+    {
+        auto r = run("9");
+        assert(r.has_value());
+        assert(std::get<int64_t>(std::get<Number>(r->value)) == 9);
+    }
+    printf("ok\n");
+
+    printf("  ws + each type                ");
+    {
+        auto r1 = run("  true");
+        assert(r1 && std::get<bool>(r1->value) == true);
+        auto r2 = run("  false");
+        assert(r2 && std::get<bool>(r2->value) == false);
+        auto r3 = run("  null");
+        assert(r3 && std::holds_alternative<std::nullptr_t>(r3->value));
+        auto r4 = run(R"(  "x")");
+        assert(r4 && std::get<std::string>(r4->value) == "x");
+        auto r5 = run("  -1");
+        assert(r5 && std::get<int64_t>(std::get<Number>(r5->value)) == -1);
+    }
+    printf("ok\n");
+
+    printf("  all passed\n");
     return 0;
 }
