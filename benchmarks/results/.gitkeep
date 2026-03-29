@@ -1,2 +1,0 @@
-# Baseline and optional history live here.
-# Create strata: python -m benchmarks.regression_check docs/benchmarks/bench_results.md --save-baseline
