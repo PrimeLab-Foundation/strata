@@ -7,5 +7,5 @@ venv:
 	$(PYTHON) -m venv .venv
 	$(VENV) -m pip install -U pip setuptools
 
-install-py:
+install:
 	$(PIP) install -e .
