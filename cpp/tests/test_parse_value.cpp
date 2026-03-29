@@ -12,7 +12,7 @@ static Result<JsonValue> run(const char* input) {
 }
 
 int main() {
-    printf("test_parse_value\n");
+    printf("test_parse_value:\n");
 
     // --- dispatch: null ---
 
@@ -228,7 +228,5 @@ int main() {
         assert(r.error().code == ErrorCode::UnexpectedChar);
     }
     printf("ok\n");
-
-    printf("  all passed\n");
     return 0;
 }
