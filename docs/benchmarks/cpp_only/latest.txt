@@ -1,0 +1,22 @@
+Strata parse benchmark — 2026-03-30 02:09:29
+
+  name                                ns/op        ops/sec
+  ----                                -----        -------
+  null                                  4.9      203596053
+  bool_true                             3.4      292615231
+  bool_false                            4.3      232829521
+  int_small                             4.4      227651366
+  int_negative                          6.0      167102973
+  int_large                            12.6       79312758
+  float_simple                          5.2      190933967
+  float_negative                        6.4      156236165
+  float_exponent                        6.7      150350944
+  float_small_exp                       7.0      142235907
+  string_short                         11.8       84417306
+  string_medium                        92.2       10846666
+  string_escaped                       70.4       14202685
+  string_unicode                       15.8       63206524
+  string_surrogate                     12.3       81445495
+  string_empty                          7.8      128064261
+  value_ws_null                         6.9      144737147
+  value_ws_number                       6.0      166963407
