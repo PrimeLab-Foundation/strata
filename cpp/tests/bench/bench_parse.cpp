@@ -1,4 +1,5 @@
 #include "strata/parse_value.hpp"
+#include "platform.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -98,7 +99,8 @@ int main(int argc, char* argv[]) {
         {"realistic_array_of_obj", R"([{"id":1,"v":"a"},{"id":2,"v":"b"},{"id":3,"v":"c"},{"id":4,"v":"d"},{"id":5,"v":"e"}])"},
     };
 
-    printf("bench_parse\n");
+    printf("bench_parse\n\n");
+    bench::print_platform();
     printf("  %-28s %12s %12s %14s\n", "name", "iters", "ns/op", "ops/sec");
     printf("  %-28s %12s %12s %14s\n", "----", "-----", "-----", "-------");
 
@@ -115,48 +117,59 @@ int main(int argc, char* argv[]) {
         results.push_back({c.name, iters, ns, ops});
     }
 
-    // --- write CSV: append mode for tracking over time ---
+    // --- write history.md: append mode for tracking over time ---
 
     auto now = std::chrono::system_clock::now();
     auto t = std::chrono::system_clock::to_time_t(now);
     char timestamp[64];
     std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
 
-    std::string csv_path = std::string(output_dir) + "/results.csv";
+    std::string history_path = std::string(output_dir) + "/history.md";
 
     bool is_new = false;
     {
-        std::ifstream check(csv_path);
+        std::ifstream check(history_path);
         is_new = !check.good();
     }
 
-    std::ofstream csv(csv_path, std::ios::app);
+    std::ofstream history(history_path, std::ios::app);
     if (is_new)
-        csv << "timestamp,name,iterations,ns_per_op,ops_per_sec\n";
+        history << "# Strata parse benchmark history\n\n";
 
-    for (auto& r : results) {
-        csv << timestamp << ","
-            << r.name << ","
-            << r.iterations << ","
-            << r.ns_per_op << ","
-            << r.ops_per_sec << "\n";
-    }
-
-    printf("\n  results appended to %s\n", csv_path.c_str());
-
-    // --- write latest.txt: human-readable snapshot ---
-
-    std::string latest_path = std::string(output_dir) + "/latest.txt";
-    std::ofstream latest(latest_path);
-    latest << "Strata parse benchmark — " << timestamp << "\n\n";
-    char header[128];
-    std::snprintf(header, sizeof(header), "  %-28s %12s %14s\n", "name", "ns/op", "ops/sec");
-    latest << header;
-    std::snprintf(header, sizeof(header), "  %-28s %12s %14s\n", "----", "-----", "-------");
-    latest << header;
+    history << "## " << timestamp << "\n\n";
+    history << "**" << bench::get_cpu() << "** | "
+            << bench::get_os() << " | "
+            << bench::get_arch() << " | "
+            << bench::get_compiler() << " | "
+            << bench::get_simd() << "\n\n";
+    history << "| name | ns/op | ops/sec |\n";
+    history << "|------|------:|--------:|\n";
     for (auto& r : results) {
         char line[128];
-        std::snprintf(line, sizeof(line), "  %-28s %12.1f %14.0f\n",
+        std::snprintf(line, sizeof(line), "| %s | %.1f | %.0f |\n",
+                      r.name, r.ns_per_op, r.ops_per_sec);
+        history << line;
+    }
+    history << "\n";
+
+    printf("\n  results appended to %s\n", history_path.c_str());
+
+    // --- write latest.md: human-readable snapshot ---
+
+    std::string latest_path = std::string(output_dir) + "/latest.md";
+    std::ofstream latest(latest_path);
+    latest << "# Strata parse benchmark\n\n";
+    latest << "_" << timestamp << "_\n\n";
+    latest << "**" << bench::get_cpu() << "** | "
+           << bench::get_os() << " | "
+           << bench::get_arch() << " | "
+           << bench::get_compiler() << " | "
+           << bench::get_simd() << "\n\n";
+    latest << "| name | ns/op | ops/sec |\n";
+    latest << "|------|------:|--------:|\n";
+    for (auto& r : results) {
+        char line[128];
+        std::snprintf(line, sizeof(line), "| %s | %.1f | %.0f |\n",
                       r.name, r.ns_per_op, r.ops_per_sec);
         latest << line;
     }

@@ -1,4 +1,4 @@
-.PHONY: venv install build test test-cpp test-py bench coverage clean status
+.PHONY: venv install build test test-cpp test-py bench bench-compare coverage vendor vendor-nlohmann vendor-rapidjson vendor-simdjson vendor-clean clean status
 
 # --- Python ---
 PYTHON ?= python3.14
@@ -18,7 +18,7 @@ TEST_BINS := $(patsubst cpp/tests/%.cpp,$(BUILD)/%,$(TEST_SRCS))
 
 FIND_EXCLUDE := ! -path './.venv/*' ! -path './.git/*' ! -path './.idea/*' \
                 ! -path './.pytest_cache/*' ! -path './.ruff_cache/*' \
-                ! -path './build/*' ! -path './*.egg-info/*'
+                ! -path './build/*' ! -path './*.egg-info/*' ! -path '*/vendor/*'
 
 # --- Core targets ---
 
@@ -42,16 +42,42 @@ test: test-cpp test-py
 
 # --- Bench ---
 
-BENCH_SRCS := $(shell find cpp/tests/bench -name 'bench_*.cpp' 2>/dev/null)
-BENCH_BINS := $(patsubst cpp/tests/bench/%.cpp,$(BUILD)/bench/%,$(BENCH_SRCS))
+BENCH_INC := -Icpp/tests/bench
 
-$(BUILD)/bench/%: cpp/tests/bench/%.cpp $(CPP_OBJS)
+$(BUILD)/bench/bench_parse: cpp/tests/bench/bench_parse.cpp $(CPP_OBJS)
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) $< $(CPP_OBJS) -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(BENCH_INC) $< $(CPP_OBJS) -o $@
 
-bench: $(BENCH_BINS)
+bench: $(BUILD)/bench/bench_parse
 	@mkdir -p docs/benchmarks/cpp_only
-	@for b in $(BENCH_BINS); do ./$$b; done
+	@./$(BUILD)/bench/bench_parse
+
+VENDOR_FLAGS :=
+ifneq (,$(wildcard cpp/vendor/nlohmann/json.hpp))
+    VENDOR_FLAGS += -DHAS_NLOHMANN -Icpp/vendor
+endif
+ifneq (,$(wildcard cpp/vendor/rapidjson/include/rapidjson/document.h))
+    VENDOR_FLAGS += -DHAS_RAPIDJSON -Icpp/vendor/rapidjson/include
+endif
+ifneq (,$(wildcard cpp/vendor/simdjson/singleheader/simdjson.h))
+    VENDOR_FLAGS += -DHAS_SIMDJSON -Icpp/vendor/simdjson/singleheader
+endif
+
+SIMDJSON_OBJ :=
+ifneq (,$(wildcard cpp/vendor/simdjson/singleheader/simdjson.cpp))
+    SIMDJSON_OBJ := $(BUILD)/obj/vendor/simdjson.o
+endif
+
+$(BUILD)/obj/vendor/simdjson.o: cpp/vendor/simdjson/singleheader/simdjson.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) -std=c++23 -O2 -Icpp/vendor/simdjson/singleheader -c $< -o $@
+
+$(BUILD)/bench/bench_compare: cpp/tests/bench/bench_compare.cpp $(CPP_OBJS) $(SIMDJSON_OBJ)
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(BENCH_INC) $(VENDOR_FLAGS) $< $(CPP_OBJS) $(SIMDJSON_OBJ) -o $@
+
+bench-compare: $(BUILD)/bench/bench_compare
+	@./$(BUILD)/bench/bench_compare
 
 # --- Coverage ---
 
@@ -83,6 +109,42 @@ coverage: $(COV_BINS)
 		$(CPP_SRCS) \
 		| tail -n +2
 	@echo ""
+
+# --- Vendor ---
+
+vendor: vendor-clean vendor-nlohmann vendor-rapidjson vendor-simdjson
+
+vendor-nlohmann:
+	@mkdir -p cpp/vendor/nlohmann
+	@if [ ! -f cpp/vendor/nlohmann/json.hpp ]; then \
+		echo "downloading nlohmann/json..."; \
+		curl -sL https://github.com/nlohmann/json/releases/latest/download/json.hpp \
+			-o cpp/vendor/nlohmann/json.hpp; \
+		echo "  done"; \
+	else \
+		echo "nlohmann/json: already vendored"; \
+	fi
+
+vendor-rapidjson:
+	@if [ ! -d cpp/vendor/rapidjson ]; then \
+		echo "downloading rapidjson..."; \
+		git clone --depth 1 -q https://github.com/Tencent/rapidjson.git cpp/vendor/rapidjson; \
+		echo "  done"; \
+	else \
+		echo "rapidjson: already vendored"; \
+	fi
+
+vendor-simdjson:
+	@if [ ! -d cpp/vendor/simdjson ]; then \
+		echo "downloading simdjson..."; \
+		git clone --depth 1 -q https://github.com/simdjson/simdjson.git cpp/vendor/simdjson; \
+		echo "  done"; \
+	else \
+		echo "simdjson: already vendored"; \
+	fi
+
+vendor-clean:
+	rm -rf cpp/vendor
 
 # --- Python ---
 
@@ -116,5 +178,5 @@ status:
 	@echo "-- Tree --"
 	@find . -maxdepth 4 \
 		\( -name .venv -o -name .git -o -name .idea -o -name .pytest_cache \
-		   -o -name .ruff_cache -o -name build -o -name '*.egg-info' \) -prune \
+		   -o -name .ruff_cache -o -name build -o -name '*.egg-info' -o -name vendor \) -prune \
 		-o ! -name '.' -print | sort | sed 's|[^/]*/|  |g'

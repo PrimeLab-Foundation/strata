@@ -601,6 +601,82 @@ int main() {
     }
     printf("ok\n");
 
+    // --- coverage: object edge cases ---
+
+    printf("  object key then EOF           ");
+    {
+        auto r = run(R"({"a")");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedEnd);
+    }
+    printf("ok\n");
+
+    printf("  object comma then EOF         ");
+    {
+        auto r = run(R"({"a": 1,)");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedEnd);
+    }
+    printf("ok\n");
+
+    printf("  object comma ws then EOF      ");
+    {
+        auto r = run(R"({"a": 1,   )");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedEnd);
+    }
+    printf("ok\n");
+
+    printf("  object value then EOF         ");
+    {
+        auto r = run(R"({"a": 1)");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedEnd);
+    }
+    printf("ok\n");
+
+    printf("  object bad key string         ");
+    {
+        auto r = run(R"({"abc)");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnterminatedString);
+    }
+    printf("ok\n");
+
+    // --- coverage: array edge cases ---
+
+    printf("  array value then EOF          ");
+    {
+        auto r = run("[1");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedEnd);
+    }
+    printf("ok\n");
+
+    printf("  array comma then EOF          ");
+    {
+        auto r = run("[1,");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedEnd);
+    }
+    printf("ok\n");
+
+    printf("  array trailing comma          ");
+    {
+        auto r = run("[1,]");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedChar);
+    }
+    printf("ok\n");
+
+    printf("  object trailing comma         ");
+    {
+        auto r = run(R"({"a": 1,})");
+        assert(!r.has_value());
+        assert(r.error().code == ErrorCode::UnexpectedChar);
+    }
+    printf("ok\n");
+
     printf("  all passed\n");
     return 0;
 }
