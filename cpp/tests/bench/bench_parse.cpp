@@ -60,6 +60,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) output_dir = argv[1];
 
     std::vector<BenchCase> cases = {
+        // primitives
         {"null",                 "null"},
         {"bool_true",            "true"},
         {"bool_false",           "false"},
@@ -78,6 +79,23 @@ int main(int argc, char* argv[]) {
         {"string_empty",         R"("")"},
         {"value_ws_null",        "   \n\t  null"},
         {"value_ws_number",      "  \r\n  42"},
+        // arrays
+        {"array_empty",          "[]"},
+        {"array_3_ints",         "[1, 2, 3]"},
+        {"array_10_ints",        "[1,2,3,4,5,6,7,8,9,10]"},
+        {"array_nested",         "[[1,2],[3,4],[5,6]]"},
+        {"array_strings",        R"(["alpha","beta","gamma","delta"])"},
+        {"array_mixed",          R"([null, true, 42, "hi", 3.14])"},
+        // objects
+        {"object_empty",         "{}"},
+        {"object_1_key",         R"({"a": 1})"},
+        {"object_3_keys",        R"({"a": 1, "b": 2, "c": 3})"},
+        {"object_nested",        R"({"a": {"b": {"c": 1}}})"},
+        {"object_with_array",    R"({"items": [1, 2, 3], "count": 3})"},
+        // realistic
+        {"realistic_small",      R"({"id": 1, "name": "Alice", "active": true})"},
+        {"realistic_medium",     R"({"id": 42, "name": "Bob Smith", "email": "bob@example.com", "age": 31, "scores": [95, 87, 92, 88], "address": {"city": "Portland", "zip": "97201"}})"},
+        {"realistic_array_of_obj", R"([{"id":1,"v":"a"},{"id":2,"v":"b"},{"id":3,"v":"c"},{"id":4,"v":"d"},{"id":5,"v":"e"}])"},
     };
 
     printf("bench_parse\n");
