@@ -6,7 +6,7 @@
 
 using namespace strata;
 
-static Result<std::nullptr_t> run(const char* input) {
+static Result<std::nullptr_t> run(const char *input) {
     return parse<std::nullptr_t>(input, input + std::strlen(input));
 }
 

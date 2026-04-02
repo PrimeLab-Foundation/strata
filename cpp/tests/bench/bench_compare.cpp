@@ -37,48 +37,54 @@
 using Clock = std::chrono::high_resolution_clock;
 
 struct BenchEntry {
-    const char* parser;
-    const char* input_name;
-    double      ns_per_op;
+    const char *parser;
+    const char *input_name;
+    double ns_per_op;
 };
 
-static const char* INPUTS[][2] = {
+static const char *INPUTS[][2] = {
     // primitives
-    {"null",                 "null"},
-    {"bool_true",            "true"},
-    {"bool_false",           "false"},
-    {"int_small",            "42"},
-    {"int_negative",         "-12345"},
-    {"int_large",            "9223372036854775807"},
-    {"float_simple",         "3.14"},
-    {"float_negative",       "-0.001"},
-    {"float_exponent",       "1.23e45"},
-    {"float_small_exp",      "6.022e-23"},
-    {"string_short",         R"("hello")"},
-    {"string_medium",        R"("the quick brown fox jumps over the lazy dog")"},
-    {"string_escaped",       R"("line1\nline2\ttab\\slash\"quote")"},
-    {"string_unicode",       R"("\u0048\u0065\u006C\u006C\u006F")"},
-    {"string_surrogate",     R"("\uD83D\uDE00")"},
-    {"string_empty",         R"("")"},
-    {"value_ws_null",        "   \n\t  null"},
-    {"value_ws_number",      "  \r\n  42"},
+    {"null", "null"},
+    {"bool_true", "true"},
+    {"bool_false", "false"},
+    {"int_small", "42"},
+    {"int_negative", "-12345"},
+    {"int_large", "9223372036854775807"},
+    {"float_simple", "3.14"},
+    {"float_negative", "-0.001"},
+    {"float_exponent", "1.23e45"},
+    {"float_small_exp", "6.022e-23"},
+    {"string_short", R"("hello")"},
+    {"string_medium", R"("the quick brown fox jumps over the lazy dog")"},
+    {"string_escaped", R"("line1\nline2\ttab\\slash\"quote")"},
+    {"string_unicode", R"("\u0048\u0065\u006C\u006C\u006F")"},
+    {"string_surrogate", R"("\uD83D\uDE00")"},
+    {"string_empty", R"("")"},
+    {"value_ws_null", "   \n\t  null"},
+    {"value_ws_number", "  \r\n  42"},
     // arrays
-    {"array_empty",          "[]"},
-    {"array_3_ints",         "[1, 2, 3]"},
-    {"array_10_ints",        "[1,2,3,4,5,6,7,8,9,10]"},
-    {"array_nested",         "[[1,2],[3,4],[5,6]]"},
-    {"array_strings",        R"(["alpha","beta","gamma","delta"])"},
-    {"array_mixed",          R"([null, true, 42, "hi", 3.14])"},
+    {"array_empty", "[]"},
+    {"array_3_ints", "[1, 2, 3]"},
+    {"array_10_ints", "[1,2,3,4,5,6,7,8,9,10]"},
+    {"array_nested", "[[1,2],[3,4],[5,6]]"},
+    {"array_strings", R"(["alpha","beta","gamma","delta"])"},
+    {"array_mixed", R"([null, true, 42, "hi", 3.14])"},
     // objects
-    {"object_empty",         "{}"},
-    {"object_1_key",         R"({"a": 1})"},
-    {"object_3_keys",        R"({"a": 1, "b": 2, "c": 3})"},
-    {"object_nested",        R"({"a": {"b": {"c": 1}}})"},
-    {"object_with_array",    R"({"items": [1, 2, 3], "count": 3})"},
+    {"object_empty", "{}"},
+    {"object_1_key", R"({"a": 1})"},
+    {"object_3_keys", R"({"a": 1, "b": 2, "c": 3})"},
+    {"object_nested", R"({"a": {"b": {"c": 1}}})"},
+    {"object_with_array", R"({"items": [1, 2, 3], "count": 3})"},
     // realistic
-    {"realistic_small",      R"({"id": 1, "name": "Alice", "active": true})"},
-    {"realistic_medium",     R"({"id": 42, "name": "Bob Smith", "email": "bob@example.com", "age": 31, "scores": [95, 87, 92, 88], "address": {"city": "Portland", "zip": "97201"}})"},
-    {"realistic_array_of_obj", R"([{"id":1,"v":"a"},{"id":2,"v":"b"},{"id":3,"v":"c"},{"id":4,"v":"d"},{"id":5,"v":"e"}])"},
+    {"realistic_small", R"({"id": 1, "name": "Alice", "active": true})"},
+    {
+        "realistic_medium",
+        R"({"id": 42, "name": "Bob Smith", "email": "bob@example.com", "age": 31, "scores": [95, 87, 92, 88], "address": {"city": "Portland", "zip": "97201"}})"
+    },
+    {
+        "realistic_array_of_obj",
+        R"([{"id":1,"v":"a"},{"id":2,"v":"b"},{"id":3,"v":"c"},{"id":4,"v":"d"},{"id":5,"v":"e"}])"
+    },
 };
 
 static constexpr int NUM_INPUTS = sizeof(INPUTS) / sizeof(INPUTS[0]);
@@ -106,8 +112,8 @@ static double measure(auto fn, int64_t iters) {
     return static_cast<double>(ns) / static_cast<double>(iters);
 }
 
-int main(int argc, char* argv[]) {
-    const char* output_dir = "docs/benchmarks/cpp_only";
+int main(int argc, char *argv[]) {
+    const char *output_dir = "docs/benchmarks/cpp_only";
     if (argc > 1) output_dir = argv[1];
 
     printf("bench_compare\n\n");
@@ -116,8 +122,8 @@ int main(int argc, char* argv[]) {
     std::vector<BenchEntry> results;
 
     for (int i = 0; i < NUM_INPUTS; ++i) {
-        const char* name = INPUTS[i][0];
-        const char* input = INPUTS[i][1];
+        const char *name = INPUTS[i][0];
+        const char *input = INPUTS[i][1];
         auto len = std::strlen(input);
 
         printf("  %-24s (%3zu bytes)\n", name, len);
@@ -163,7 +169,7 @@ int main(int argc, char* argv[]) {
             auto fn = [&]() {
                 simdjson::dom::parser parser;
                 auto doc = parser.parse(padded);
-                (void)doc;
+                (void) doc;
             };
             auto iters = calibrate(fn);
             auto ns = measure(fn, iters);
@@ -202,16 +208,16 @@ int main(int argc, char* argv[]) {
     printf("\n");
 
     for (int i = 0; i < NUM_INPUTS; ++i) {
-        const char* name = INPUTS[i][0];
+        const char *name = INPUTS[i][0];
         double strata_ns = 0;
-        for (auto& r : results)
+        for (auto &r: results)
             if (r.parser == std::string("strata") && r.input_name == std::string(name))
                 strata_ns = r.ns_per_op;
 
         printf("  %-24s %8.1f ns", name, strata_ns);
 
 #ifdef HAS_NLOHMANN
-        for (auto& r : results) {
+        for (auto &r: results) {
             if (r.parser == std::string("nlohmann") && r.input_name == std::string(name)) {
                 printf(" %8.1f ns %8.1fx", r.ns_per_op, r.ns_per_op / strata_ns);
             }
@@ -219,7 +225,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef HAS_RAPIDJSON
-        for (auto& r : results) {
+        for (auto &r: results) {
             if (r.parser == std::string("rapidjson") && r.input_name == std::string(name)) {
                 printf(" %8.1f ns %8.1fx", r.ns_per_op, strata_ns / r.ns_per_op);
             }
@@ -227,7 +233,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef HAS_SIMDJSON
-        for (auto& r : results) {
+        for (auto &r: results) {
             if (r.parser == std::string("simdjson") && r.input_name == std::string(name)) {
                 printf(" %8.1f ns %8.1fx", r.ns_per_op, strata_ns / r.ns_per_op);
             }
@@ -274,9 +280,9 @@ int main(int argc, char* argv[]) {
     md << "\n";
 
     for (int i = 0; i < NUM_INPUTS; ++i) {
-        const char* name = INPUTS[i][0];
+        const char *name = INPUTS[i][0];
         double strata_ns = 0;
-        for (auto& r : results)
+        for (auto &r: results)
             if (r.parser == std::string("strata") && r.input_name == std::string(name))
                 strata_ns = r.ns_per_op;
 
@@ -285,7 +291,7 @@ int main(int argc, char* argv[]) {
         md << line;
 
 #ifdef HAS_NLOHMANN
-        for (auto& r : results) {
+        for (auto &r: results) {
             if (r.parser == std::string("nlohmann") && r.input_name == std::string(name)) {
                 std::snprintf(line, sizeof(line), " %.1f ns | %.1fx |", r.ns_per_op, r.ns_per_op / strata_ns);
                 md << line;
@@ -294,7 +300,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef HAS_RAPIDJSON
-        for (auto& r : results) {
+        for (auto &r: results) {
             if (r.parser == std::string("rapidjson") && r.input_name == std::string(name)) {
                 std::snprintf(line, sizeof(line), " %.1f ns | %.2fx |", r.ns_per_op, strata_ns / r.ns_per_op);
                 md << line;
@@ -303,7 +309,7 @@ int main(int argc, char* argv[]) {
 #endif
 
 #ifdef HAS_SIMDJSON
-        for (auto& r : results) {
+        for (auto &r: results) {
             if (r.parser == std::string("simdjson") && r.input_name == std::string(name)) {
                 std::snprintf(line, sizeof(line), " %.1f ns | %.2fx |", r.ns_per_op, strata_ns / r.ns_per_op);
                 md << line;

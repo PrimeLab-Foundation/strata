@@ -1,4 +1,4 @@
-.PHONY: venv install build test test-cpp test-py bench bench-compare coverage vendor vendor-nlohmann vendor-rapidjson vendor-simdjson vendor-clean clean status
+.PHONY: all venv install build test test-cpp test-py bench bench-compare coverage vendor vendor-nlohmann vendor-rapidjson vendor-simdjson vendor-clean clean status
 
 # --- Python ---
 PYTHON ?= python3.14
@@ -21,6 +21,7 @@ FIND_EXCLUDE := ! -path './.venv/*' ! -path './.git/*' ! -path './.idea/*' \
                 ! -path './build/*' ! -path './*.egg-info/*' ! -path '*/vendor/*'
 
 # --- Core targets ---
+all: clean build
 
 build: $(TEST_BINS) test-cpp
 
@@ -159,6 +160,9 @@ install:
 
 clean:                           ## Remove build artifacts
 	rm -rf $(BUILD)
+
+lint:
+	clang-tidy $(CPP_SRCS) -- $(CXXFLAGS) $(INCLUDES)
 
 status:
 	@echo "=== Strata Project Status ==="

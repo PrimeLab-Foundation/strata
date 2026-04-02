@@ -6,7 +6,7 @@
 
 using namespace strata;
 
-static Result<std::string> run(const char* input) {
+static Result<std::string> run(const char *input) {
     return parse<std::string>(input, input + std::strlen(input));
 }
 

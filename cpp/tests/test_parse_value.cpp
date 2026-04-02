@@ -7,7 +7,7 @@
 
 using namespace strata;
 
-static Result<JsonValue> run(const char* input) {
+static Result<JsonValue> run(const char *input) {
     return parse<JsonValue>(input, input + std::strlen(input));
 }
 
@@ -316,7 +316,7 @@ int main() {
     {
         auto r = run("[]");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.empty());
     }
     printf("ok\n");
@@ -325,7 +325,7 @@ int main() {
     {
         auto r = run("[1]");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.size() == 1);
         assert(std::get<int64_t>(std::get<Number>(arr[0].data)) == 1);
     }
@@ -335,7 +335,7 @@ int main() {
     {
         auto r = run("[1, 2, 3]");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.size() == 3);
         assert(std::get<int64_t>(std::get<Number>(arr[0].data)) == 1);
         assert(std::get<int64_t>(std::get<Number>(arr[1].data)) == 2);
@@ -347,7 +347,7 @@ int main() {
     {
         auto r = run(R"([null, true, 42, "hi"])");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.size() == 4);
         assert(std::holds_alternative<std::nullptr_t>(arr[0].data));
         assert(std::get<bool>(arr[1].data) == true);
@@ -360,11 +360,11 @@ int main() {
     {
         auto r = run("[[1, 2], [3]]");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.size() == 2);
-        auto& inner0 = std::get<JsonValue::Array>(arr[0].data);
+        auto &inner0 = std::get<JsonValue::Array>(arr[0].data);
         assert(inner0.size() == 2);
-        auto& inner1 = std::get<JsonValue::Array>(arr[1].data);
+        auto &inner1 = std::get<JsonValue::Array>(arr[1].data);
         assert(inner1.size() == 1);
     }
     printf("ok\n");
@@ -373,7 +373,7 @@ int main() {
     {
         auto r = run("[1,2,3]");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.size() == 3);
     }
     printf("ok\n");
@@ -382,7 +382,7 @@ int main() {
     {
         auto r = run("[  1  ,  2  ,  3  ]");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.size() == 3);
     }
     printf("ok\n");
@@ -433,7 +433,7 @@ int main() {
     {
         auto r = run("{}");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.empty());
     }
     printf("ok\n");
@@ -442,7 +442,7 @@ int main() {
     {
         auto r = run(R"({"a": 1})");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.size() == 1);
         assert(obj[0].first == "a");
         assert(std::get<int64_t>(std::get<Number>(obj[0].second.data)) == 1);
@@ -453,7 +453,7 @@ int main() {
     {
         auto r = run(R"({"a": 1, "b": true, "c": "x"})");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.size() == 3);
         assert(obj[0].first == "a");
         assert(obj[1].first == "b");
@@ -467,9 +467,9 @@ int main() {
     {
         auto r = run(R"({"a": {"b": 1}})");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.size() == 1);
-        auto& inner = std::get<JsonValue::Object>(obj[0].second.data);
+        auto &inner = std::get<JsonValue::Object>(obj[0].second.data);
         assert(inner.size() == 1);
         assert(inner[0].first == "b");
     }
@@ -479,9 +479,9 @@ int main() {
     {
         auto r = run(R"({"items": [1, 2, 3]})");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.size() == 1);
-        auto& arr = std::get<JsonValue::Array>(obj[0].second.data);
+        auto &arr = std::get<JsonValue::Array>(obj[0].second.data);
         assert(arr.size() == 3);
     }
     printf("ok\n");
@@ -490,11 +490,11 @@ int main() {
     {
         auto r = run(R"([{"a": 1}, {"b": 2}])");
         assert(r.has_value());
-        auto& arr = std::get<JsonValue::Array>(r->value.data);
+        auto &arr = std::get<JsonValue::Array>(r->value.data);
         assert(arr.size() == 2);
-        auto& obj0 = std::get<JsonValue::Object>(arr[0].data);
+        auto &obj0 = std::get<JsonValue::Object>(arr[0].data);
         assert(obj0[0].first == "a");
-        auto& obj1 = std::get<JsonValue::Object>(arr[1].data);
+        auto &obj1 = std::get<JsonValue::Object>(arr[1].data);
         assert(obj1[0].first == "b");
     }
     printf("ok\n");
@@ -503,7 +503,7 @@ int main() {
     {
         auto r = run(R"({"a":1,"b":2})");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.size() == 2);
     }
     printf("ok\n");
@@ -512,7 +512,7 @@ int main() {
     {
         auto r = run("{ \"a\" : 1 , \"b\" : 2 }");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.size() == 2);
     }
     printf("ok\n");
@@ -521,7 +521,7 @@ int main() {
     {
         auto r = run(R"({"z": 1, "a": 2, "m": 3})");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj[0].first == "z");
         assert(obj[1].first == "a");
         assert(obj[2].first == "m");
@@ -596,7 +596,7 @@ int main() {
     {
         auto r = run(R"({"a": [{"b": [1, [2, [3]]]}]})");
         assert(r.has_value());
-        auto& obj = std::get<JsonValue::Object>(r->value.data);
+        auto &obj = std::get<JsonValue::Object>(r->value.data);
         assert(obj.size() == 1);
     }
     printf("ok\n");

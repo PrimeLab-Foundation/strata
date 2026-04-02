@@ -9,7 +9,7 @@
 
 using namespace strata;
 
-static Result<Number> run(const char* input) {
+static Result<Number> run(const char *input) {
     return parse<Number>(input, input + std::strlen(input));
 }
 

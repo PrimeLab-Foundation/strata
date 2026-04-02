@@ -5,7 +5,6 @@
 #include <string_view>
 
 namespace strata {
-
     enum class ErrorCode : uint8_t {
         UnexpectedEnd,
         UnexpectedChar,
@@ -16,20 +15,20 @@ namespace strata {
         NumberOverflow,
         LeadingZero,
         InvalidNumber,
+        NestingTooDeep,
     };
 
     struct ParseError {
-        ErrorCode   code;
-        const char* where;
+        ErrorCode code;
+        const char *where;
     };
 
-    template <typename T>
+    template<typename T>
     struct Parsed {
-        T           value;
-        const char* rest;
+        T value;
+        const char *rest;
     };
 
-    template <typename T>
+    template<typename T>
     using Result = std::expected<Parsed<T>, ParseError>;
-
 }

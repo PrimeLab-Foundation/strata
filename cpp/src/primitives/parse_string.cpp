@@ -30,21 +30,19 @@
 #include <array>
 
 namespace strata {
-
     namespace {
-
         // --- escape table: maps escape char → decoded byte, 0 = invalid ---
 
         constexpr auto make_escape_table() {
             std::array<char, 256> t{};
-            t['"']  = '"';
+            t['"'] = '"';
             t['\\'] = '\\';
-            t['/']  = '/';
-            t['b']  = '\b';
-            t['f']  = '\f';
-            t['n']  = '\n';
-            t['r']  = '\r';
-            t['t']  = '\t';
+            t['/'] = '/';
+            t['b'] = '\b';
+            t['f'] = '\f';
+            t['n'] = '\n';
+            t['r'] = '\r';
+            t['t'] = '\t';
             return t;
         }
 
@@ -69,19 +67,23 @@ namespace strata {
 
         // --- read 4 hex digits → 16-bit value, -1 on error ---
 
-        int read_hex4(const char* p, const char* end) {
+        int read_hex4(const char *p, const char *end) {
             if (static_cast<size_t>(end - p) < 4) return -1;
-            int a = hex_val(p[0]); if (a < 0) return -1;
-            int b = hex_val(p[1]); if (b < 0) return -1;
-            int c = hex_val(p[2]); if (c < 0) return -1;
-            int d = hex_val(p[3]); if (d < 0) return -1;
+            int a = hex_val(p[0]);
+            if (a < 0) return -1;
+            int b = hex_val(p[1]);
+            if (b < 0) return -1;
+            int c = hex_val(p[2]);
+            if (c < 0) return -1;
+            int d = hex_val(p[3]);
+            if (d < 0) return -1;
             return (a << 12) | (b << 8) | (c << 4) | d;
         }
 
         // --- surrogate helpers ---
 
         inline bool is_high_surrogate(int cp) { return cp >= 0xD800 && cp <= 0xDBFF; }
-        inline bool is_low_surrogate(int cp)  { return cp >= 0xDC00 && cp <= 0xDFFF; }
+        inline bool is_low_surrogate(int cp) { return cp >= 0xDC00 && cp <= 0xDFFF; }
 
         inline int decode_pair(int high, int low) {
             return 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
@@ -89,7 +91,7 @@ namespace strata {
 
         // --- encode code point as UTF-8 ---
 
-        void utf8_encode(uint32_t cp, std::string& out) {
+        void utf8_encode(uint32_t cp, std::string &out) {
             if (cp < 0x80) {
                 out += static_cast<char>(cp);
             } else if (cp < 0x800) {
@@ -106,11 +108,10 @@ namespace strata {
                 out += static_cast<char>(0x80 | (cp & 0x3F));
             }
         }
-
     }
 
-    template <>
-    Result<std::string> parse<std::string>(const char* cur, const char* end) {
+    template<>
+    Result<std::string> parse<std::string>(const char *cur, const char *end) {
         if (cur >= end)
             return std::unexpected(ParseError{ErrorCode::UnexpectedEnd, cur});
 
@@ -123,7 +124,7 @@ namespace strata {
 
         while (cur < end) {
             // SIMD scan: skip past regular chars in bulk
-            const char* special = simd::find_string_special(cur, end);
+            const char *special = simd::find_string_special(cur, end);
             if (special > cur) {
                 out.append(cur, static_cast<size_t>(special - cur));
                 cur = special;
@@ -178,5 +179,4 @@ namespace strata {
 
         return std::unexpected(ParseError{ErrorCode::UnterminatedString, cur});
     }
-
 }

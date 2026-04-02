@@ -30,3 +30,8 @@ compile_commands.json
 
 # Coredumps
 core
+
+# Vendors ignore comparable json libs
+
+cpp/vendor/*
+!cpp/vendor/.gitkeep
