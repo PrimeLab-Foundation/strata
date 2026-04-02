@@ -1,38 +1,38 @@
 # Strata parser comparison
 
-_2026-04-02 02:33:03_
+_2026-04-02 03:56:43_
 
 | input | strata | nlohmann | speedup | rapidjson | ratio | simdjson | ratio |
 |-------|-------:|--------:|--------:|---------:|------:|--------:|------:|
-| null | 5.3 ns | 63.4 ns | 11.9x | 74.0 ns | 0.07x | 141.8 ns | 0.04x |
-| bool_true | 4.8 ns | 65.0 ns | 13.6x | 74.3 ns | 0.06x | 138.8 ns | 0.03x |
-| bool_false | 4.5 ns | 76.9 ns | 17.0x | 75.5 ns | 0.06x | 137.6 ns | 0.03x |
-| int_small | 5.5 ns | 62.8 ns | 11.5x | 78.9 ns | 0.07x | 155.7 ns | 0.04x |
-| int_negative | 7.7 ns | 103.6 ns | 13.4x | 81.4 ns | 0.10x | 153.4 ns | 0.05x |
-| int_large | 8.6 ns | 167.2 ns | 19.4x | 85.6 ns | 0.10x | 160.4 ns | 0.05x |
-| float_simple | 7.4 ns | 84.5 ns | 11.4x | 78.9 ns | 0.09x | 157.1 ns | 0.05x |
-| float_negative | 9.0 ns | 105.2 ns | 11.7x | 79.0 ns | 0.11x | 161.3 ns | 0.06x |
-| float_exponent | 9.6 ns | 104.0 ns | 10.8x | 82.2 ns | 0.12x | 157.0 ns | 0.06x |
-| float_small_exp | 11.3 ns | 120.8 ns | 10.7x | 81.4 ns | 0.14x | 157.1 ns | 0.07x |
-| string_short | 13.9 ns | 102.4 ns | 7.3x | 111.2 ns | 0.13x | 157.5 ns | 0.09x |
-| string_medium | 42.8 ns | 289.3 ns | 6.8x | 727.5 ns | 0.06x | 138.4 ns | 0.31x |
-| string_escaped | 68.4 ns | 252.7 ns | 3.7x | 651.3 ns | 0.11x | 163.1 ns | 0.42x |
-| string_unicode | 21.4 ns | 173.2 ns | 8.1x | 123.6 ns | 0.17x | 172.4 ns | 0.12x |
-| string_surrogate | 14.4 ns | 123.1 ns | 8.6x | 114.5 ns | 0.13x | 156.4 ns | 0.09x |
-| string_empty | 8.7 ns | 65.8 ns | 7.6x | 107.9 ns | 0.08x | 149.3 ns | 0.06x |
-| value_ws_null | 7.2 ns | 100.1 ns | 13.9x | 76.7 ns | 0.09x | 158.7 ns | 0.05x |
-| value_ws_number | 7.1 ns | 97.0 ns | 13.7x | 82.3 ns | 0.09x | 153.0 ns | 0.05x |
-| array_empty | 8.8 ns | 75.3 ns | 8.6x | 76.9 ns | 0.11x | 171.4 ns | 0.05x |
-| array_3_ints | 90.2 ns | 244.7 ns | 2.7x | 578.4 ns | 0.16x | 168.8 ns | 0.53x |
-| array_10_ints | 236.3 ns | 511.5 ns | 2.2x | 627.4 ns | 0.38x | 192.2 ns | 1.23x |
-| array_nested | 271.7 ns | 569.6 ns | 2.1x | 614.0 ns | 0.44x | 181.0 ns | 1.50x |
-| array_strings | 145.4 ns | 362.0 ns | 2.5x | 668.0 ns | 0.22x | 175.4 ns | 0.83x |
-| array_mixed | 149.5 ns | 380.3 ns | 2.5x | 615.8 ns | 0.24x | 168.0 ns | 0.89x |
-| object_empty | 9.4 ns | 76.8 ns | 8.1x | 76.2 ns | 0.12x | 164.8 ns | 0.06x |
-| object_1_key | 42.6 ns | 173.5 ns | 4.1x | 599.0 ns | 0.07x | 161.8 ns | 0.26x |
-| object_3_keys | 136.3 ns | 318.9 ns | 2.3x | 636.5 ns | 0.21x | 162.6 ns | 0.84x |
-| object_nested | 141.7 ns | 343.7 ns | 2.4x | 643.2 ns | 0.22x | 167.1 ns | 0.85x |
-| object_with_array | 201.7 ns | 442.3 ns | 2.2x | 768.9 ns | 0.26x | 172.3 ns | 1.17x |
-| realistic_small | 184.8 ns | 376.2 ns | 2.0x | 670.2 ns | 0.28x | 156.5 ns | 1.18x |
-| realistic_medium | 640.6 ns | 1286.8 ns | 2.0x | 937.1 ns | 0.68x | 215.0 ns | 2.98x |
-| realistic_array_of_obj | 847.8 ns | 1106.9 ns | 1.3x | 812.3 ns | 1.04x | 206.2 ns | 4.11x |
+| null | 8.6 ns | 68.2 ns | 7.9x | 73.1 ns | 0.12x | 139.0 ns | 0.06x |
+| bool_true | 9.2 ns | 64.2 ns | 7.0x | 73.9 ns | 0.12x | 140.6 ns | 0.07x |
+| bool_false | 9.8 ns | 77.3 ns | 7.9x | 79.5 ns | 0.12x | 144.3 ns | 0.07x |
+| int_small | 10.7 ns | 63.3 ns | 5.9x | 80.8 ns | 0.13x | 160.9 ns | 0.07x |
+| int_negative | 12.9 ns | 101.0 ns | 7.8x | 80.5 ns | 0.16x | 154.8 ns | 0.08x |
+| int_large | 13.9 ns | 171.6 ns | 12.4x | 85.4 ns | 0.16x | 159.1 ns | 0.09x |
+| float_simple | 12.7 ns | 85.1 ns | 6.7x | 77.8 ns | 0.16x | 161.4 ns | 0.08x |
+| float_negative | 14.9 ns | 105.0 ns | 7.0x | 77.8 ns | 0.19x | 175.8 ns | 0.09x |
+| float_exponent | 14.8 ns | 109.7 ns | 7.4x | 82.0 ns | 0.18x | 162.0 ns | 0.09x |
+| float_small_exp | 15.7 ns | 126.7 ns | 8.1x | 83.6 ns | 0.19x | 162.2 ns | 0.10x |
+| string_short | 18.6 ns | 103.7 ns | 5.6x | 110.4 ns | 0.17x | 150.5 ns | 0.12x |
+| string_medium | 47.1 ns | 306.6 ns | 6.5x | 756.0 ns | 0.06x | 138.6 ns | 0.34x |
+| string_escaped | 70.9 ns | 246.9 ns | 3.5x | 667.8 ns | 0.11x | 161.0 ns | 0.44x |
+| string_unicode | 25.6 ns | 178.8 ns | 7.0x | 128.6 ns | 0.20x | 170.5 ns | 0.15x |
+| string_surrogate | 18.9 ns | 128.2 ns | 6.8x | 115.9 ns | 0.16x | 153.5 ns | 0.12x |
+| string_empty | 12.7 ns | 63.8 ns | 5.0x | 103.5 ns | 0.12x | 152.0 ns | 0.08x |
+| value_ws_null | 10.7 ns | 102.4 ns | 9.6x | 81.0 ns | 0.13x | 156.0 ns | 0.07x |
+| value_ws_number | 12.2 ns | 97.5 ns | 8.0x | 81.0 ns | 0.15x | 156.8 ns | 0.08x |
+| array_empty | 11.9 ns | 77.1 ns | 6.5x | 78.7 ns | 0.15x | 158.9 ns | 0.08x |
+| array_3_ints | 93.9 ns | 243.9 ns | 2.6x | 584.8 ns | 0.16x | 152.5 ns | 0.62x |
+| array_10_ints | 210.2 ns | 518.0 ns | 2.5x | 614.9 ns | 0.34x | 183.6 ns | 1.14x |
+| array_nested | 265.4 ns | 574.8 ns | 2.2x | 621.5 ns | 0.43x | 167.6 ns | 1.58x |
+| array_strings | 148.7 ns | 362.9 ns | 2.4x | 668.2 ns | 0.22x | 149.0 ns | 1.00x |
+| array_mixed | 168.0 ns | 377.2 ns | 2.2x | 633.2 ns | 0.27x | 154.6 ns | 1.09x |
+| object_empty | 9.0 ns | 77.7 ns | 8.6x | 78.9 ns | 0.11x | 153.7 ns | 0.06x |
+| object_1_key | 54.8 ns | 176.1 ns | 3.2x | 607.8 ns | 0.09x | 152.3 ns | 0.36x |
+| object_3_keys | 115.4 ns | 322.0 ns | 2.8x | 639.3 ns | 0.18x | 156.6 ns | 0.74x |
+| object_nested | 162.8 ns | 346.5 ns | 2.1x | 637.8 ns | 0.26x | 153.4 ns | 1.06x |
+| object_with_array | 179.9 ns | 455.4 ns | 2.5x | 646.8 ns | 0.28x | 159.1 ns | 1.13x |
+| realistic_small | 157.7 ns | 377.1 ns | 2.4x | 681.3 ns | 0.23x | 166.1 ns | 0.95x |
+| realistic_medium | 554.5 ns | 1272.7 ns | 2.3x | 871.4 ns | 0.64x | 213.7 ns | 2.59x |
+| realistic_array_of_obj | 704.8 ns | 1101.3 ns | 1.6x | 819.6 ns | 0.86x | 204.3 ns | 3.45x |
