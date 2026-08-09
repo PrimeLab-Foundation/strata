@@ -6,12 +6,14 @@ a dependency-free C++20 engine with hand-written CPython C-API bindings.
 **Rebuild in progress.** The implementation is being rebuilt from scratch, one
 milestone at a time. Working today: `loads`, `dumps`, `load`, `dump`, cursor
 mode, JSONPath (`query`, `search`, `compile`) and `config`, over single files,
-NDJSON and whole directories. What remains is hardening and release work, and
-the performance layer is only partly rebuilt, so this is not yet a
-drop-in replacement for the previous release. The docs under [docs/](docs/) are the complete
-specification: conventions, style, public API contract, architecture,
-benchmarking methodology, the optimization playbook (including negative
-results), and project history.
+NDJSON and whole directories, with fuzzing, coverage and a PGO+LTO build in
+place. What remains is release work, and the performance layer is only partly
+rebuilt — strata currently places third against orjson and msgspec on parse
+and serialize — so this is not yet a drop-in replacement for the previous
+release. The docs under [docs/](docs/) are the complete specification:
+conventions, style, public API contract, architecture, benchmarking
+methodology, the optimization playbook (including negative results), and
+project history.
 
 ```python
 import strata
@@ -32,12 +34,31 @@ strata.load("out/")                                        # every record back
 strata.search("out/", "$..price")                          # across the tree
 ```
 
+Every entry point normalizes `Path` and `str` alike, raises `ValueError` on
+invalid JSON and `TypeError` on unsupported types, and parses integers exactly
+at any size. The full contract — including the folder round-trip law and the
+supported JSONPath subset — is [docs/context/api.md](docs/context/api.md).
+
+## Development
+
 ```bash
-make dev      # virtualenv, dev dependencies, pre-commit hooks
-make install  # editable install — C++ tests gate the build, Python tests gate the result
-make test     # both layers: ctest + pytest
-make fmt lint # ruff format + clang-format; ruff check
+make dev        # virtualenv, dev dependencies, pre-commit hooks
+make install    # editable install — C++ tests gate the build, Python tests gate the result
+make test       # both layers: ctest + pytest
+make fmt lint   # ruff format + clang-format; ruff check
+make gate       # full compliance pass: C++ tests, reinstall, Python tests, coverage
 ```
+
+```bash
+make coverage   # llvm-cov over the C++ suites + pytest-cov over the facade
+make fuzz       # libFuzzer over the committed seed corpus (FUZZ_TIME=120)
+make bench-all  # datasets + every tier vs orjson/msgspec/ujson → docs/benchmarks/
+make pgo        # two-phase PGO+LTO build; the gate runs on both phases
+```
+
+`make fuzz` needs a toolchain that ships the libFuzzer runtime — Apple's clang
+does not, so on macOS install LLVM (`brew install llvm`) or rely on
+`make test`, which replays the same corpus through the engine on every run.
 
 - Start here: [CLAUDE.md](CLAUDE.md)
 - Public API contract: [docs/context/api.md](docs/context/api.md)

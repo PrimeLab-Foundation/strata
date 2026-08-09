@@ -30,13 +30,13 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   └── benchmarks/          # machine-written benchmark results (generated; no folder until then)
 ├── .clang-format / .ruff.toml / .editorconfig / .markdownlint.yaml   # style configs
 ├── .pre-commit-config.yaml  # style gates: ruff, clang-format, mdformat, markdownlint
-├── .github/workflows/       # CI (skeleton; full matrix + bench/fuzz/pgo workflows at M9)
+├── .github/workflows/       # ci.yml (matrix, coverage, style, corpus) + fuzz/benchmark/pgo
 ├── pyproject.toml           # PEP 621 metadata; version read dynamically from the facade
 ├── setup.py                 # extension build + the two test gates (TestGatedBuildExt)
 ├── CMakeLists.txt           # the single C++ test registry (ctest)
 ├── MANIFEST.in              # sdist contents
 ├── Makefile                 # the single user-facing interface; targets forward to scripts/
-├── scripts/                 # automation: cpp_tests.py, py_tests.py, fmt.sh, lint.sh, gate.sh
+├── scripts/                 # automation: cpp_tests, py_tests, fmt, lint, gate, coverage, fuzz, pgo_*
 ├── include/strata/          # public C++ headers (core; never CPython)
 │   ├── json/                # value model, SAX handler, parser, parse + serialize API
 │   └── util/                # scan.hpp (utf-8/whitespace/escapes), fast_parse.hpp, dtoa.hpp
@@ -51,7 +51,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
 │   ├── py/                  # integration tests
 │   ├── unit/                # clause-by-clause contract suite
-│   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON); seed corpus at M9
+│   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON) + committed seed corpus/
 │
 ├── benchmarks/              # harness, datasets and the regression gate
 │

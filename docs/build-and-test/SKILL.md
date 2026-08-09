@@ -16,7 +16,7 @@ zero". What the rebuild has actually built so far is in "Current state"
 immediately below; everything after it is blueprint until a milestone makes it
 real.
 
-## Current state (after M0 — scaffolding)
+## Current state (after M9 — hardening & tooling)
 
 Real on this branch:
 
@@ -49,8 +49,12 @@ Real on this branch:
   out to the scripts above, so "the suite" has one definition. `SKIP_TESTS=1`
   still exists but is now *refused* when `CI` is set, rather than warned about.
   Flags: `-std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY`, plus `-march=native`
-  unless building universal2; MSVC `/std:c++20 /O2 (+/arch:AVX2)`. The
-  LTO/PGO env knobs are not wired yet — they return with `make pgo` at M9.
+  unless building universal2; MSVC `/std:c++20 /O2 (+/arch:AVX2)`. On top of
+  those, `STRATA_ENABLE_LTO=1` adds `-flto=thin` (gcc: `-flto`) and
+  `PGO_MODE=generate|use` adds **IR-level** `-fprofile-generate` /
+  `-fprofile-use=$STRATA_PGO_PROFILE` to both compile and link. `use` with a
+  missing or unset profile is a hard error, not a silent plain build, and
+  LTO/PGO with MSVC is refused rather than ignored.
 - `pyproject.toml` — version is `dynamic`, read via
   `[tool.setuptools.dynamic] version = {attr = "strata.__version__"}`. Only the
   `dev` extra exists (cmake, pytest, pytest-cov, ruff, pre-commit, clang-format
@@ -63,11 +67,12 @@ Real on this branch:
   and pinned by `tests/unit/test_build_manifest.py`: a core `.cpp` that is not
   listed, or a listed file that is missing, fails the Python suites. Keep it
   ASCII — CMake's `file(STRINGS)` treats non-ASCII bytes as separators.
-- `tests/fuzz/` — `fuzz_loads.cpp` plus its own CMakeLists, built only with
-  `-DFUZZ=ON`. It probes for the libFuzzer runtime at configure time and fails
-  with an actionable message when the toolchain lacks one (Apple's clang always
-  does), instead of the blueprint's raw missing-`libclang_rt.fuzzer_osx.a` link
-  error. The seed corpus and the scheduled runs arrive at M9.
+- `tests/fuzz/` — `fuzz_loads.cpp` and `fuzz_ndjson.cpp` plus their own
+  CMakeLists, built only with `-DFUZZ=ON`. It probes for the libFuzzer runtime
+  at configure time and fails with an actionable message when the toolchain
+  lacks one (Apple's clang always does), instead of the blueprint's raw
+  missing-`libclang_rt.fuzzer_osx.a` link error. The seed corpus is committed
+  under `tests/fuzz/corpus/` — see "Fuzzing" below.
 - `CMakeLists.txt` — single registry. One suite is one
   `strata_add_cpp_test(target, source...)` line; default build type is Release,
   tests run with the source tree as their working directory, and test targets
@@ -75,21 +80,24 @@ Real on this branch:
   compiled out into a vacuously passing suite. After the registrations a glob
   over `tests/cpp/test_*.cpp` fails configure if any suite was never
   registered — the registry is only "single" if nothing can sit outside it.
-  `STRATA_CORE_SOURCES` is empty until M1.
+  `-DCOVERAGE=ON` instruments that same registry for llvm-cov, so coverage can
+  never measure a different source list than the tests do.
 - `.pre-commit-config.yaml` — ruff + ruff-format, whitespace/EOL/YAML/TOML
   hooks, clang-format **covering include/ and src/**, mdformat (`--number`) and
   markdownlint. No mypy hook. Markdown is excluded from `trailing-whitespace`:
   mdformat re-emits YAML frontmatter with a trailing space that the whitespace
   hook would strip and mdformat would restore, so the pair never converges.
-- `.github/workflows/ci.yml` — skeleton: ubuntu 3.10 + 3.14, macOS 3.12, each
-  running ctest, the test-gated install and the Python suites, plus a style job
-  (`ruff check`, `ruff format --check`, `clang-format --dry-run --Werror`).
+- `.github/workflows/` — `ci.yml` (push + PR): a `test` matrix of ubuntu
+  3.10–3.14, macos-13 (x86_64), macos-latest (arm64) and windows-latest, each
+  running ctest → the test-gated install → the Python suites; a `coverage` job
+  (both layers, report uploaded); a `style` job; and a `corpus` job that
+  replays the fuzz corpus under ASan+UBSan on every push. `fuzz.yml` (weekly
+  Tue 04:00 UTC), `benchmark.yml` (weekly Mon 02:00 UTC, with the regression
+  gate), `pgo.yml` (weekly Mon 03:00 UTC, uploads a PGO+LTO wheel).
 
-Not built yet, by milestone: coverage targets and `coverage-cpp`, fuzzing,
-PGO, and the full CI matrix (M9); benchmark targets, datasets and the `bench`
-extra (M5); release/tag tooling (M10). `make gate` therefore runs three steps
-(C++ tests → force reinstall → Python suites); its coverage phase lands with
-the coverage tooling at M9. No step is suffixed with `|| true`.
+Not built yet, by milestone: release/tag tooling (M10). `make gate` runs the
+C++ tests → force reinstall → Python suites → both coverage reports. No step
+is suffixed with `|| true`.
 
 ## Makefile (the single interface — targets forward to `scripts/`)
 
@@ -98,14 +106,15 @@ the coverage tooling at M9. No step is suffixed with `|| true`.
 | Setup    | `venv`, `dev` (venv + pre-commit), `install` (gated editable install), `install-skip-tests`, `install-dev/-bench/-all`                                                                                                                                         |
 | Build    | `build` (sdist+wheel), `cpp-build` (CMake)                                                                                                                                                                                                                     |
 | Test     | `test` = `test-py` + `test-cpp`. **Target change:** rebuilt `test-py` runs `tests/py` *and* `tests/unit` (the previous one ran `tests/py` only, so `make test` skipped the contract mirrors); rebuilt `test-cpp` drives ctest. `gate` (5-step compliance gate) |
-| Coverage | `coverage`, `coverage-cpp` (llvm-cov — broken in the previous impl, see below), `coverage-py`                                                                                                                                                                  |
+| Coverage | `coverage`, `coverage-cpp` (llvm-cov over the CMake registry — the previous impl's had its own drifted source list, see below), `coverage-py` (pytest-cov)                                                                                                     |
 | Bench    | `bench-data`, `bench-small/-medium/-large`, `bench-all`                                                                                                                                                                                                        |
 | Fuzz/PGO | `fuzz-build`, `fuzz-run`, `fuzz` (→ `scripts/fuzz.sh`), `pgo` (→ `scripts/pgo_build.sh`)                                                                                                                                                                       |
 | Lint     | `fmt` (ruff format + clang-format), `lint` (ruff check), `pre-commit-check`                                                                                                                                                                                    |
 | Misc     | `clean`, `clean-venv`, `tag-create/-delete/-update`, `help`                                                                                                                                                                                                    |
 
-`PYTHON ?= python3.14`. Version drift note: pyproject says 0.2.0, Makefile
-`VERSION ?= 0.1.0`.
+`PYTHON ?= python3`. There is no `VERSION` variable: the version has exactly
+one home, `python/strata/__init__.py`, which pyproject reads dynamically. The
+previous implementation kept it in three places and they drifted.
 
 ## Build pipeline
 
@@ -157,11 +166,20 @@ coverage build silently compiled nothing (see below).
 
 `tests/fuzz/fuzz_loads.cpp` (bytes → `parse_json`) and `fuzz_ndjson.cpp`
 (→ `NdjsonStream`), built with `-fsanitize=fuzzer,address,undefined` via
-`-DFUZZ=ON` (`scripts/fuzz.sh`; on macOS auto-switches to Homebrew LLVM).
-Env: `FUZZ_TIME` (120 s default), artifacts → `fuzz_crashes/`.
-**Broken:** the corpus dirs `tests/fuzz/corpus/{loads,ndjson}` are documented and
-passed by fuzz.sh but have never existed in git — libFuzzer errors on start, so
-`make fuzz-run` (and the weekly CI job) fails until they are created.
+`-DFUZZ=ON` (`scripts/fuzz.sh`; on macOS it selects Homebrew LLVM
+automatically). Env: `FUZZ_TIME` (120 s default), artifacts → `fuzz_crashes/`.
+
+The seed corpus **is committed**: `tests/fuzz/corpus/loads` (37 seeds) and
+`tests/fuzz/corpus/ndjson` (13). Seeds are named for their intent — a
+`bad_`-prefixed seed must be rejected, every other seed must parse — and
+`fuzz.sh` checks both directories are non-empty before spending its budget.
+
+`tests/cpp/test_fuzz_corpus.cpp` replays the whole corpus on every
+`make test`, plus every truncation and single-byte mutation of it. That keeps
+the seeds honest (a seed that changes meaning fails the build) and gives the
+corpus value on toolchains with no libFuzzer runtime — **Apple's clang ships
+none**, so `make fuzz` on stock macOS stops at the configure-time probe with
+an actionable message. `brew install llvm` is the fix; CI fuzzes on Linux.
 
 ## CI (.github/workflows/)
 
@@ -181,11 +199,17 @@ passed by fuzz.sh but have never existed in git — libFuzzer errors on start, s
 
 1. `make coverage-cpp` — source list named deleted files
    (`search/jsonpath.cpp`, `util/simd_string.cpp`), omitted `dragonbox.cpp`;
-   failures swallowed by `|| true`.
+   failures swallowed by `|| true`. *Fixed in the rebuild:* `-DCOVERAGE=ON`
+   instruments the one CMake registry, so there is no second list to drift,
+   and no step is suffixed with `|| true`.
 2. `make typecheck` + pre-commit mypy hook — target `src/strata` has no Python;
    `mypy.ini` doesn't exist. Inert.
-3. `benchmark.yml` dataset paths (above) and the regression gate.
-4. `tests/fuzz/corpus/` missing (above).
+3. `benchmark.yml` dataset paths (above) and the regression gate. *Fixed in
+   the rebuild:* the workflow calls `make bench-data` + `make bench-small`, so
+   the paths are the Makefile's, and gates via `benchmarks/regression_check.py`
+   at the documented 2%/5% thresholds instead of the old `--threshold 5`.
+4. `tests/fuzz/corpus/` missing (above). *Fixed in the rebuild:* committed,
+   and replayed by a ctest suite so it cannot rot unnoticed.
 5. Makefile `test` target defined twice (later wins, with a make warning).
 6. `make dev` installs pybind11 (unused — raw C API project).
 7. pyproject Homepage/Repository are `github.com/example/strata` placeholders.

@@ -23,6 +23,27 @@ endif()
 
 enable_testing()
 
+# ---------------------------------------------------------------------------
+# Coverage — opt-in, applied to the same registry the ordinary suites use.
+#
+#   cmake -S . -B build/coverage -DCOVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
+#
+# Deliberately NOT a second source list: the previous implementation's coverage
+# build kept its own copy, which drifted until it named deleted files and
+# measured nothing (docs/build-and-test/SKILL.md, known-broken item 1).
+# ---------------------------------------------------------------------------
+option(COVERAGE "Instrument the test suites for llvm-cov" OFF)
+if(COVERAGE)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR
+                "-DCOVERAGE=ON needs Clang (source-based coverage); this is "
+                "${CMAKE_CXX_COMPILER_ID}. Configure with "
+                "-DCMAKE_CXX_COMPILER=clang++.")
+    endif()
+    add_compile_options(-fprofile-instr-generate -fcoverage-mapping -O0 -g)
+    add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+endif()
+
 # Core translation units linked into every suite. The list itself lives in one
 # shared manifest that setup.py reads too, so the test binaries and the shipped
 # extension cannot be built from different sources.
@@ -78,6 +99,8 @@ strata_add_cpp_test(float_precision_tests tests/cpp/test_float_precision.cpp)
 strata_add_cpp_test(json_cursor_tests tests/cpp/test_json_cursor.cpp)
 strata_add_cpp_test(ndjson_tests tests/cpp/test_ndjson.cpp)
 strata_add_cpp_test(jsonpath_tests tests/cpp/test_jsonpath.cpp)
+strata_add_cpp_test(folder_tests tests/cpp/test_folder.cpp)
+strata_add_cpp_test(fuzz_corpus_tests tests/cpp/test_fuzz_corpus.cpp)
 strata_add_cpp_test(stress_deep_tests tests/cpp/test_stress_deep.cpp)
 
 # The registry is only "the single registry" if nothing can sit outside it: a
@@ -99,10 +122,11 @@ endforeach()
 #
 #   cmake -S . -B build/fuzz -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
 #
-# They only have to *compile* at this milestone. Running them needs a committed
-# seed corpus, which lands with the hardening milestone: the previous
-# implementation documented a corpus directory that was never added to git, so
-# libFuzzer failed at startup on every scheduled run.
+# Seeds live in tests/fuzz/corpus/{loads,ndjson} and are committed — the
+# previous implementation documented that directory but never added it to git,
+# so libFuzzer failed at startup on every scheduled run. fuzz_corpus_tests
+# above replays those seeds on every `make test`, which keeps them honest on
+# toolchains that have no libFuzzer runtime at all.
 # ---------------------------------------------------------------------------
 option(FUZZ "Build libFuzzer fuzz targets (clang only)" OFF)
 if(FUZZ)

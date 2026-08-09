@@ -1,0 +1,62 @@
+name: Fuzzing
+
+# libFuzzer + ASan + UBSan over the committed seed corpus.
+#
+# The corpus in tests/fuzz/corpus/{loads,ndjson} is in git. The previous
+# implementation passed those paths to libFuzzer without ever creating them,
+# so this job failed at startup every week for its whole life — the run below
+# checks them explicitly before spending 20 minutes on nothing.
+
+on:
+  schedule:
+    - cron: "0 4 * * 2" # Tuesdays, 04:00 UTC
+  workflow_dispatch:
+    inputs:
+      fuzz_time:
+        description: Seconds per target
+        required: false
+        default: "300"
+
+jobs:
+  fuzz:
+    name: libFuzzer (ubuntu / clang)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Ubuntu's clang ships the libFuzzer runtime; Apple's does not, which is
+      # why this job is Linux-only.
+      - name: Install clang and cmake
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake
+
+      - name: Verify the seed corpus is present
+        run: |
+          for dir in tests/fuzz/corpus/loads tests/fuzz/corpus/ndjson; do
+            count=$(find "$dir" -type f | wc -l)
+            echo "$dir: $count seeds"
+            test "$count" -gt 0 || { echo "::error::$dir is empty"; exit 1; }
+          done
+
+      - name: Build and run the fuzz targets
+        env:
+          CXX: clang++
+          FUZZ_TIME: ${{ github.event.inputs.fuzz_time || 300 }}
+        run: make fuzz
+
+      # A crash leaves its input in fuzz_crashes/ — that file is the
+      # reproducer and belongs in the corpus once the bug is fixed.
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: fuzz_crashes/
+          if-no-files-found: ignore

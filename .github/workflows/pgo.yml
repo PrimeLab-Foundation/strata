@@ -1,0 +1,60 @@
+name: PGO
+
+# Two-phase PGO + LTO build. `make pgo` runs the full gate on *both* the
+# instrumented and the optimized build — an optimized extension that fails its
+# tests is worth nothing, and PGO is exactly the kind of change that can
+# miscompile silently.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays, 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  pgo:
+    name: PGO + LTO (ubuntu / clang)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # llvm-profdata must match the clang that wrote the .profraw files.
+      - name: Install clang and LLVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake
+
+      - name: Run the PGO workflow
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+        run: make pgo
+
+      - name: Build the PGO+LTO wheel
+        env:
+          CC: clang
+          CXX: clang++
+          STRATA_ENABLE_LTO: "1"
+          PGO_MODE: use
+          STRATA_PGO_PROFILE: build/pgo/strata.profdata
+        run: |
+          .venv/bin/python -m pip install -U build
+          .venv/bin/python -m build --wheel --no-isolation --outdir dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strata-pgo-wheel
+          path: dist/*.whl
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pgo-benchmark-results
+          path: build/pgo/bench_results_pgo.md
+          if-no-files-found: ignore

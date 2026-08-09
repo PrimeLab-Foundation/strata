@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -36,7 +37,25 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # The compiler flags the extension is built with (setup.py). Recorded so a
 # result can be traced back to the build that produced it.
-COMPILER_FLAGS = "-std=c++20 -O3 -march=native"
+BASE_COMPILER_FLAGS = "-std=c++20 -O3 -march=native"
+
+
+def _compiler_flags() -> str:
+    """Describe the build actually being measured.
+
+    A hardcoded string would report plain -O3 for a PGO+LTO run and quietly
+    make two incomparable reports look comparable — exactly the kind of
+    mismatch the fairness rules in docs/context/benchmarks.md exist to stop.
+    """
+    flags = [BASE_COMPILER_FLAGS]
+    if os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1":
+        flags.append("-flto")
+    mode = os.environ.get("PGO_MODE", "").strip().lower()
+    if mode == "generate":
+        flags.append("-fprofile-generate (instrumented; not a performance build)")
+    elif mode == "use":
+        flags.append("-fprofile-use (PGO)")
+    return " ".join(flags)
 
 
 def _load_competitors() -> tuple[dict, dict[str, str]]:
@@ -124,7 +143,9 @@ def _run_section(
 
 def run(datasets: list[Path], *, name: str, repeat: int, warmup: int) -> Report:
     libraries, excluded = _load_competitors()
-    report = Report(name=name, environment=describe_environment(COMPILER_FLAGS), excluded=excluded)
+    report = Report(
+        name=name, environment=describe_environment(_compiler_flags()), excluded=excluded
+    )
     report.environment["repeats"] = str(repeat)
     report.environment["warmup"] = str(warmup)
 

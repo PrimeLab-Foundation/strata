@@ -27,7 +27,7 @@ if(NOT STRATA_HAVE_LIBFUZZER)
             "-DCMAKE_CXX_COMPILER=$(brew --prefix llvm)/bin/clang++.")
 endif()
 
-foreach(target fuzz_loads)
+foreach(target fuzz_loads fuzz_ndjson)
     add_executable(${target} ${target}.cpp ${STRATA_CORE_SOURCES})
     target_include_directories(${target} PRIVATE ${STRATA_INCLUDE_DIRS})
     target_compile_options(${target} PRIVATE ${STRATA_FUZZ_FLAGS})

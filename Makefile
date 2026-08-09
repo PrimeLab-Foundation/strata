@@ -2,8 +2,7 @@
 #
 # Targets stay thin and forward to scripts/ (docs/context/convention.md,
 # "Automation"). Docs and CI reference these targets, never ad-hoc one-liners.
-# Benchmark, fuzz, coverage and PGO targets arrive with their tooling in the
-# milestones that build it (see docs/roadmap/SKILL.md).
+# Every target forwards to a script; none of them is a one-liner in disguise.
 
 PYTHON ?= python3
 VENV ?= .venv
@@ -11,6 +10,7 @@ VPY := $(VENV)/bin/python
 
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
         test test-py test-cpp fmt lint pre-commit-check gate \
+        coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline \
         clean clean-venv scripts-executable help
 
@@ -66,8 +66,44 @@ test-cpp: venv  ## Run the C++ suite through the CMake/ctest registry
 test-py: venv  ## Run tests/py (integration) and tests/unit (contract)
 	$(VPY) scripts/py_tests.py
 
-gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests
+gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests, coverage
 	@bash scripts/gate.sh
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+
+coverage: coverage-cpp coverage-py  ## Coverage for both layers
+
+coverage-cpp: venv  ## C++ coverage via llvm-cov over the CMake registry
+	@bash scripts/coverage.sh cpp
+
+coverage-py: venv  ## Python coverage via pytest-cov
+	@bash scripts/coverage.sh py
+
+# ---------------------------------------------------------------------------
+# Fuzzing
+#
+# The seed corpus in tests/fuzz/corpus/ is committed, and fuzz_corpus_tests
+# replays it on every `make test`. libFuzzer itself needs a toolchain that
+# ships the runtime — Apple's clang does not (see docs/build-and-test/SKILL.md).
+# ---------------------------------------------------------------------------
+
+fuzz-build:  ## Build the libFuzzer targets (-DFUZZ=ON)
+	@bash scripts/fuzz.sh build
+
+fuzz-run:  ## Run both fuzz targets over the committed corpus (FUZZ_TIME=120)
+	@bash scripts/fuzz.sh run
+
+fuzz: ## Build and run the fuzz targets
+	@bash scripts/fuzz.sh all
+
+# ---------------------------------------------------------------------------
+# PGO
+# ---------------------------------------------------------------------------
+
+pgo: venv  ## Two-phase PGO+LTO build; gate tests run on both phases
+	@bash scripts/pgo_build.sh
 
 # ---------------------------------------------------------------------------
 # Benchmarks
@@ -125,7 +161,7 @@ pre-commit-check: venv  ## Run every pre-commit hook over the whole tree
 # ---------------------------------------------------------------------------
 
 clean:  ## Remove build, packaging and test artefacts (keeps the virtualenv)
-	rm -rf build build_* dist *.egg-info .pytest_cache
+	rm -rf build build_* dist *.egg-info .pytest_cache .coverage htmlcov fuzz_crashes
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 clean-venv:  ## Remove the virtualenv

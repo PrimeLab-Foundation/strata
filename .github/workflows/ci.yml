@@ -1,9 +1,10 @@
 name: CI
 
-# Skeleton workflow for the rebuild: the test-gated install is the gate, plus
-# an explicit ctest leg and a style leg. The full cross-platform matrix
-# (3.10–3.14 × Linux/macOS/Windows) and the benchmark, fuzz and PGO workflows
-# land with milestone M9.
+# The test-gated install is the gate: `pip install -e .` runs the C++ suite
+# before compiling the extension and both Python suites after. The explicit
+# ctest and pytest legs around it exist so a failure names which layer broke.
+#
+# SKIP_TESTS=1 is banned here, and setup.py refuses it outright when CI is set.
 
 on:
   push:
@@ -18,16 +19,30 @@ jobs:
   test:
     name: ${{ matrix.os }} / py${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Floor and ceiling of the supported range, plus one macOS leg.
+          # Every supported Python on Linux ...
           - os: ubuntu-latest
             python: "3.10"
           - os: ubuntu-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: ubuntu-latest
             python: "3.14"
+          # ... plus both macOS architectures (macos-13 is x86_64,
+          # macos-latest is arm64) and Windows, so the SIMD dispatch and the
+          # MSVC branch of setup.py are both exercised.
+          - os: macos-13
+            python: "3.12"
           - os: macos-latest
+            python: "3.12"
+          - os: windows-latest
             python: "3.12"
 
     steps:
@@ -43,17 +58,53 @@ jobs:
       - name: Run the C++ suite
         run: python scripts/cpp_tests.py
 
-      # The install is itself the gate: it runs the C++ suite before compiling
-      # and both Python suites after. SKIP_TESTS=1 is banned here.
       - name: Install strata (test-gated build)
-        run: python -m pip install -e '.[dev]'
+        run: python -m pip install -e ".[dev]"
 
       - name: Run the Python suites
         run: python scripts/py_tests.py
 
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang and LLVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake
+
+      - name: Install strata (test-gated build)
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install -e ".[dev]"
+
+      # Source-based coverage needs clang; the runner's default cc is gcc.
+      - name: C++ coverage
+        env:
+          CC: clang
+          CXX: clang++
+        run: bash scripts/coverage.sh cpp
+
+      - name: Python coverage
+        run: bash scripts/coverage.sh py
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: build/coverage/report/
+
   style:
     name: lint / format
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -74,3 +125,32 @@ jobs:
         run: |
           git ls-files -z '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' \
             | xargs -0 --no-run-if-empty clang-format --dry-run --Werror
+
+  corpus:
+    name: fuzz corpus (ASan + UBSan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake
+
+      # The full fuzzing run is weekly (fuzz.yml). This leg replays the
+      # committed corpus through the suites under the sanitizers on every
+      # push, so a memory bug reaches the PR that introduced it.
+      - name: Build and run the suites under ASan + UBSan
+        env:
+          CXX: clang++
+          CXXFLAGS: -fsanitize=address,undefined -fno-omit-frame-pointer -g
+        run: |
+          cmake -B build/asan -S . -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_CXX_COMPILER=clang++
+          cmake --build build/asan --parallel
+          ctest --test-dir build/asan --output-on-failure --no-tests=error

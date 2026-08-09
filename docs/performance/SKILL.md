@@ -42,10 +42,32 @@ All measured with `make bench-small` before and after, on the same host.
 | Thread-local dumps output buffer, reused across calls                  | dumps -8% to -24% across all datasets       |
 | Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM` | loads -13% to -22% across all datasets      |
 | Per-document key cache (interned key reuse across records)             | (same batch)                                |
+| PGO + ThinLTO (`make pgo`), IR-level instrumentation                   | loads -8% to -12%, dumps -11% to -25%       |
 
 Not yet rebuilt, and the reason `dumps` still trails orjson ~3x: the 3-tier
 dtoa, batch same-schema dict serialization, and the homogeneous int/float/
 str/bool array fast paths.
+
+### PGO, measured (M9)
+
+Go. `make pgo` was A/B'd against a plain `-O3 -march=native` build on the same
+host, 3 datasets x 15 repeats, warmup 3, and **run in both orders** because the
+PGO build being measured first would otherwise flatter it on a warming machine.
+The two orderings agree to within 1 percentage point, and the two plain runs to
+within 0.6%:
+
+| Category | Dataset     | plain (ms) | PGO+LTO (ms) | delta (order A / order B) |
+| -------- | ----------- | ---------- | ------------ | ------------------------- |
+| loads    | users.json  | 13.207     | 11.802       | -10.6% / -10.2%           |
+| loads    | flat.json   | 1.385      | 1.270        | -8.3% / -9.0%             |
+| loads    | nested.json | 1.104      | 0.968        | -12.3% / -12.0%           |
+| dumps    | users.json  | 7.895      | 6.353        | -19.5% / -20.4%           |
+| dumps    | flat.json   | 0.807      | 0.715        | -11.4% / -12.4%           |
+| dumps    | nested.json | 0.724      | 0.545        | -24.7% / -25.1%           |
+
+Absolute numbers are higher than `docs/benchmarks/bench_results_small.md`
+because these ran straight after repeated full rebuilds; only the within-run
+comparison is meaningful, which is the point of running both orders.
 
 ### Measured non-wins in the rebuild
 
@@ -56,24 +78,25 @@ str/bool array fast paths.
 
 ## Negative results — do not retry without new evidence
 
-| Idea                                                                             | Where tried                                      | Verdict                                                                                     |
-| -------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| simdjson-style structural tape                                                   | 0.1 branch (`e8443f3`; default OFF in `84fdf8c`) | **Tape OFF was +22% on large loads** — 46MB JSON → ~110MB tape → L3 thrash on Apple Silicon |
-| Array/object pre-counting for pre-sizing                                         | main (`67ef7fc` → reverted `07f85a0` same day)   | Pre-scan cost more than resize savings; depth-based prediction won                          |
-| `mem_eff` JSONPath mode                                                          | main (`cbc9162` → removed `5c264ca`)             | SAX search made it redundant within a day                                                   |
-| mmap I/O as the primary file path + NDJSON bindings                              | removed `a41eea0`                                | Separate slower code path; file `load` was worst-in-class at the time                       |
-| Memo/hash-set cycle detection                                                    | removed `b66049d` etc.                           | O(depth) open-frame scan cheaper                                                            |
-| Custom `fast_dtoa` (572-line Ryu port)                                           | `ad401a8` → dropped `95fd416`                    | Superseded; file is now dead code                                                           |
-| `PythonObjectPool` (dict/list pooling)                                           | 0.1 branch                                       | Bookkeeping never beat CPython's allocator                                                  |
-| Adaptive EMA pre-sizing (`AdaptiveSizeEstimator`)                                | 0.1 branch                                       | Simple last-size-per-depth heuristic won                                                    |
-| String-value caching/pooling                                                     | 0.1 branch (`441bcc8`)                           | Null result: string creation = 0.92% of runtime, ≤9.7% hit rate                             |
-| Dict-construction micro-opts (compact builder, SIMD hash table, zero-copy views) | 0.1 branch (`66621b9`)                           | 0.1–0.5% absolute; `dict_dealloc` (~7%) unavoidable                                         |
-| CRTP/fused/computed-goto dispatch                                                | 0.1 branch                                       | 0%                                                                                          |
-| Parallel JSON parsing                                                            | 0.1 branch (`709de84`)                           | Never beat single-thread under the GIL                                                      |
-| SIMD structural indexer + `ParserIndexed`                                        | prompt-1/4 branches                              | Built but never wired into `loads`; bench delta ≈ noise                                     |
-| Markov speculative parser (`TransitionModel`)                                    | prompt-2 branch                                  | Opt-in only, unproven end-to-end                                                            |
-| Bloom-filter key subsystem                                                       | prompt-3 branch                                  | Never wired into hot path                                                                   |
-| Whole-repo from-scratch rewrites                                                 | `main-from-scratch-v1/v2`, `archive/new_strata`  | See `docs/history/SKILL.md` — new_strata *succeeded* technically but was never merged       |
+| Idea                                                                             | Where tried                                      | Verdict                                                                                                                                                                 |
+| -------------------------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| simdjson-style structural tape                                                   | 0.1 branch (`e8443f3`; default OFF in `84fdf8c`) | **Tape OFF was +22% on large loads** — 46MB JSON → ~110MB tape → L3 thrash on Apple Silicon                                                                             |
+| Array/object pre-counting for pre-sizing                                         | main (`67ef7fc` → reverted `07f85a0` same day)   | Pre-scan cost more than resize savings; depth-based prediction won                                                                                                      |
+| `mem_eff` JSONPath mode                                                          | main (`cbc9162` → removed `5c264ca`)             | SAX search made it redundant within a day                                                                                                                               |
+| mmap I/O as the primary file path + NDJSON bindings                              | removed `a41eea0`                                | Separate slower code path; file `load` was worst-in-class at the time                                                                                                   |
+| Memo/hash-set cycle detection                                                    | removed `b66049d` etc.                           | O(depth) open-frame scan cheaper                                                                                                                                        |
+| Custom `fast_dtoa` (572-line Ryu port)                                           | `ad401a8` → dropped `95fd416`                    | Superseded; file is now dead code                                                                                                                                       |
+| `PythonObjectPool` (dict/list pooling)                                           | 0.1 branch                                       | Bookkeeping never beat CPython's allocator                                                                                                                              |
+| Adaptive EMA pre-sizing (`AdaptiveSizeEstimator`)                                | 0.1 branch                                       | Simple last-size-per-depth heuristic won                                                                                                                                |
+| String-value caching/pooling                                                     | 0.1 branch (`441bcc8`)                           | Null result: string creation = 0.92% of runtime, ≤9.7% hit rate                                                                                                         |
+| Front-end instrumentation for PGO (`-fprofile-instr-generate/-use`)              | M9, and the blueprint's `setup.py`               | **~20% slower than plain -O3.** Source-level counters map poorly onto post-inlining IR; that flag pair is for coverage. IR-level `-fprofile-generate/-use` wins instead |
+| Dict-construction micro-opts (compact builder, SIMD hash table, zero-copy views) | 0.1 branch (`66621b9`)                           | 0.1–0.5% absolute; `dict_dealloc` (~7%) unavoidable                                                                                                                     |
+| CRTP/fused/computed-goto dispatch                                                | 0.1 branch                                       | 0%                                                                                                                                                                      |
+| Parallel JSON parsing                                                            | 0.1 branch (`709de84`)                           | Never beat single-thread under the GIL                                                                                                                                  |
+| SIMD structural indexer + `ParserIndexed`                                        | prompt-1/4 branches                              | Built but never wired into `loads`; bench delta ≈ noise                                                                                                                 |
+| Markov speculative parser (`TransitionModel`)                                    | prompt-2 branch                                  | Opt-in only, unproven end-to-end                                                                                                                                        |
+| Bloom-filter key subsystem                                                       | prompt-3 branch                                  | Never wired into hot path                                                                                                                                               |
+| Whole-repo from-scratch rewrites                                                 | `main-from-scratch-v1/v2`, `archive/new_strata`  | See `docs/history/SKILL.md` — new_strata *succeeded* technically but was never merged                                                                                   |
 
 ## Salvageable unmerged work (ranked, all in `../archive/strata`)
 
