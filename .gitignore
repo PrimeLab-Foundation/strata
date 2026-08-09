@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Build output (covers build/, build_cpp_tests/, build_coverage/, build_fuzz/)
+build*/
+_skbuild/
+*.o
+*.a
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+
+# Profiling / PGO artifacts
+*.profraw
+*.profdata
+
+# Fuzzing artifacts
+fuzz_crashes/
+
+# Experiment binaries (sources stay tracked)
+experiments/ndjson_chunk_scan/bench_ndjson_scan
+experiments/serialize_stack_arena/bench_stack_arena
+
+# IDEs
+.vscode/
+.idea/
+.cursor
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Benchmark artifacts and generated data
+artifacts/
+benchmarks/artifacts/
+benchmarks/data/generated/
+benchmarks/data/*.json
+benchmarks/data/*.ndjson
+!benchmarks/data/example_*.json
+!benchmarks/data/example_*.ndjson
+
+# Claude Code session files
+.claude/plans/

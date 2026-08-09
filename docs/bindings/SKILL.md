@@ -1,0 +1,115 @@
+---
+name: bindings
+description: CPython C-API binding layer — KeyCache and speculative key matching, dumps fast paths, config-to-policy mapping (including a known cycle_policy bug), GIL/GC posture, CPython internals in use, and dead code. Load before touching src/strata/bindings/ or python/strata/.
+---
+
+# Python Bindings
+
+Extension module `strata._strata` (`PyInit__strata` in `python_module.cpp`),
+hand-written CPython C API — **no pybind11** by policy. Pure-Python facade in
+`python/strata/`. Shared headers: `python_types.h` (`PyObjectPtr`,
+`STRATA_CPP_TRY/CATCH`, `LIKELY/UNLIKELY`, `PyGcPause`), `python_convert.h`,
+`python_document.h`. Conventions: include `python_convert.h` rather than extern
+redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
+
+## File map
+
+| File | Responsibility |
+|---|---|
+| `python_module.cpp` | Init, method table, `load`/`dump`, config store |
+| `python_loads.cpp` | `loads`, NDJSON direct parse, `PythonObjectBuilder`, `KeyCache` |
+| `python_dumps.cpp` | `dumps` + all serialization fast paths |
+| `python_jsonpath.cpp` | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
+| `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load |
+| `python_ndjson.cpp` | `NdjsonStream` type |
+| `python_iterator.cpp` | `DictIterator`/`ListIterator`/`NdjsonFileIterator` (instance-only types) |
+
+## loads-side techniques (the parsing win)
+
+- **KeyCache** (per-builder): two tiers — (1) *cursor prediction*: same-schema
+  records repeat keys in order, so the next expected key is one `memcmp`;
+  (2) on miss, a flat open-addressing table: 256 slots, ≤192 entries (75% load,
+  `efd00fd`), FNV-1a hashing 8 bytes at a time (`c0e3b5a`), 16-probe cap, overflow
+  keys linearly scanned. Entries store the interned key `PyObject*` **plus its
+  precomputed `Py_hash_t`**, fed to `_PyDict_SetItem_KnownHash`.
+- **Speculative raw-byte key match**: `try_match_key` lets the parser skip the
+  entire string path (SIMD scan + PyUnicode creation + cache lookup) when the
+  predicted key matches raw input bytes.
+- **Builder reuse:** `strata_loads` keeps a `static thread_local PythonObjectBuilder*`
+  (deliberately leaked to dodge destructor-after-interpreter-shutdown), so the
+  KeyCache persists across `loads()` calls per thread. NDJSON creates one builder
+  per call and `reset()`s per line (reset keeps the KeyCache).
+- **Other:** only object **keys** are interned; ASCII values get compact-ASCII
+  `PyUnicode_New(len,127)` + memcpy; module-lifetime small-int cache 0..256;
+  `_PyDict_NewPresized` sized by `depth_sizes_` (last object size per depth);
+  arrays build into one flat vector then a single `PyList_New(n)` with
+  ref-stealing `PyList_SET_ITEM`.
+
+## dumps-side techniques
+
+Thread-local `OutputBuffer g_serialize_buffer` (zero steady-state allocation);
+size estimation via one-level sampling; `serialize_dict_t<bool Tracking>` /
+`serialize_list_t<Tracking>` compile cycle checks out when policy is ignore;
+homogeneous int/float/bool/str list fast paths (sample first ≤8 elements, bail
+gracefully mid-list); `try_batch_list_of_dicts` (≤ `kMaxBatchKeys`=24) replays
+pre-serialized key byte strings per same-schema element; NEON masked-load escape
+check for ≤16-byte strings (pad-reads past the string — relies on CPython
+allocation slack, ASan-hostile); `PyUnstable_Long_IsCompact` int extraction.
+
+## config → policy mapping
+
+`strata.config` is a process-global map in `python_module.cpp`; setters translate:
+
+- `duplicate_key_policy` → `strata::set_duplicate_key_policy()` — consumed at
+  parse time in `PythonObjectBuilder::push_value` (FirstWins → `PyDict_SetDefault`,
+  LastWins → `_PyDict_SetItem_KnownHash`, Warn → `RuntimeWarning` + keep first,
+  Error → parse failure). C++ default: `FirstWins`. **The policy variable is
+  thread-local** — `config.set` only affects the calling thread.
+- `cycle_policy` → file-static `g_cycle_policy` in `python_dumps.cpp`.
+  **Known bug:** init seeds the config map with `"warn"` without calling the
+  setter, while `g_cycle_policy` starts as `Ignore` — so `config.get("cycle_policy")`
+  reports "warn" but actual behavior is ignore until the first `config.set`.
+  (Also: a stale comment in `python_loads.cpp` calls LastWins "the default" — it
+  is not.)
+
+## GIL / GC posture
+
+The GIL is **never released** (no `Py_BEGIN_ALLOW_THREADS` anywhere) — all file
+I/O and parsing hold it. Instead, `PyGcPause` (RAII `PyGC_Disable/Enable`) wraps
+every bulk build/serialize. Thread safety comes from thread-local state
+(serialize buffer, seen-stack, builders, file buffers, policies).
+
+## CPython internals in use (version-sensitive)
+
+`_PyDict_SetItem_KnownHash` (forward-declared to skip the `Py_BUILD_CORE` guard),
+`_PyDict_NewPresized`, `PyUnstable_Long_IsCompact/CompactValue`,
+`PyUnicode_IS_COMPACT_ASCII`. Audit these on every new CPython version.
+
+## Build
+
+`setup.py` compiles bindings + core + util into one extension:
+`-std=c++20 -O3 -march=native` (dropped for universal2), optional
+`STRATA_ENABLE_LTO=1`, `PGO_MODE=generate|use`. `TestGatedBuildExt` runs ctest
+pre-build and pytest post-build (`SKIP_TESTS=1` escape hatch).
+
+## Known sharp edges & dead code
+
+- `dump`/`search` filepaths are str-only at the C level (Python wrappers coerce
+  `Path` for `load`/`search`). Text arguments parsed with `s#` accept both str
+  and bytes.
+- `JsonCursor.field()`/`at()` on a missing key/index raises `RuntimeError`
+  ("field not found" / "index out of range") immediately — the `Py_RETURN_NONE`
+  branches in `python_document.cpp` are dead code (the throwing C++ API never
+  returns a null cursor).
+- The previous implementation publicly exposed `parse_json` and `parse_ndjson`;
+  both are dropped from the target API (the internal `parse_ndjson_direct`
+  machinery still backs `load()`). Its `parse_ndjson(skip_errors=False)`
+  returned a partial list instead of raising — do not reproduce that contract.
+- Dead: `eval_step_jsonvalue` + `pyobject_to_json_value` + memo apparatus
+  (~500 lines in `python_jsonpath.cpp`), `pyobj_results_to_list_steal`,
+  `strata_set_cycle_policy` (complete but unregistered),
+  `emit_duplicate_key_warnings` copies in `python_loads.cpp`/`python_jsonpath.cpp`,
+  stale `#include json_mmap.hpp` in `python_jsonpath.cpp`, unused
+  `#include dragonbox.hpp` in `python_dumps.cpp`.
+- `NdjsonStream` is registered but not re-exported by the package; the three
+  iterator types are reachable only as returned instances (no constructors).

@@ -1,0 +1,32 @@
+default: true
+
+# Relax rules to accommodate generated/reference documentation
+# Disable strict line-length checks; docs often contain long URLs and code
+MD013: false  # line-length
+
+# Allow multiple H1s in long reference pages or aggregates
+MD025: false  # single-title / single H1
+
+# Permit both asterisk and underscore for bold text (from imported docs)
+MD050: false  # strong-style
+
+# Allow bare URLs in docs
+MD034: false  # no-bare-urls
+MD040: false  # fenced-code-language
+MD029: false  # ordered list item prefix
+MD036: false  # no-emphasis-as-heading
+MD033: false  # no-inline-html
+MD060: false  # table-column-style
+
+# Disable rules that conflict with mdformat auto-formatting
+MD009: false  # no-trailing-spaces (mdformat handles this)
+MD022: false  # blanks-around-headings (mdformat handles this)
+MD031: false  # blanks-around-fences (mdformat handles this)
+MD032: false  # blanks-around-lists (mdformat handles this)
+
+# Keep some general hygiene rules
+no-trailing-punctuation: false
+first-line-h1: false
+no-duplicate-heading: false
+ul-indent:
+  indent: 2
