@@ -1,6 +1,9 @@
 ---
 name: bindings
-description: CPython C-API binding layer — KeyCache and speculative key matching, dumps fast paths, config-to-policy mapping (including a known cycle_policy bug), GIL/GC posture, CPython internals in use, and dead code. Load before touching src/strata/bindings/ or python/strata/.
+description: CPython C-API binding layer — KeyCache and speculative key 
+  matching, dumps fast paths, config-to-policy mapping (including a known 
+  cycle_policy bug), GIL/GC posture, CPython internals in use, and dead code. 
+  Load before touching src/strata/bindings/ or python/strata/.
 ---
 
 # Python Bindings
@@ -14,15 +17,15 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 
 ## File map
 
-| File | Responsibility |
-|---|---|
-| `python_module.cpp` | Init, method table, `load`/`dump`, config store |
-| `python_loads.cpp` | `loads`, NDJSON direct parse, `PythonObjectBuilder`, `KeyCache` |
-| `python_dumps.cpp` | `dumps` + all serialization fast paths |
-| `python_jsonpath.cpp` | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
-| `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load |
-| `python_ndjson.cpp` | `NdjsonStream` type |
-| `python_iterator.cpp` | `DictIterator`/`ListIterator`/`NdjsonFileIterator` (instance-only types) |
+| File                                      | Responsibility                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `python_module.cpp`                       | Init, method table, `load`/`dump`, config store                                            |
+| `python_loads.cpp`                        | `loads`, NDJSON direct parse, `PythonObjectBuilder`, `KeyCache`                            |
+| `python_dumps.cpp`                        | `dumps` + all serialization fast paths                                                     |
+| `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
+| `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                   |
+| `python_ndjson.cpp`                       | `NdjsonStream` type                                                                        |
+| `python_iterator.cpp`                     | `DictIterator`/`ListIterator`/`NdjsonFileIterator` (instance-only types)                   |
 
 ## loads-side techniques (the parsing win)
 

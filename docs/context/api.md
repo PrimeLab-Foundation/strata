@@ -20,6 +20,7 @@ anywhere (the previous implementation drifted across three locations).
 ```python
 strata.loads(source: str | bytes, *, return_type="dict", iterator=False)
 ```
+
 Parse JSON text. Default returns the full Python tree (`dict|list|str|int|float|bool|None`);
 integers parse **exactly at any size** (no double squashing; beyond int64 a
 slow path builds the arbitrary-precision int — matches stdlib `json`; the
@@ -34,6 +35,7 @@ Raises `ValueError` (invalid JSON / bad `return_type`), `TypeError`, `RuntimeErr
 ```python
 strata.dumps(obj, *, return_type="str") -> str | bytes
 ```
+
 Compact serialization (no whitespace). Supports dict/list/tuple/str/int/float/bool/None;
 dict keys must be `str` (else `TypeError`); NaN/±Inf serialize as `null`; big ints
 beyond int64 are emitted via their str form. Raises `TypeError` (unsupported type),
@@ -104,6 +106,7 @@ strata.query(data: dict | list, expression: str | CompiledPath, *, iterator=Fals
 strata.search(path: str | Path, expression: str | CompiledPath, *, iterator=False) -> list
 strata.compile(expression: str) -> CompiledPath
 ```
+
 `query` evaluates directly on Python objects (dict/list/tuple roots only,
 else `TypeError`). `search` operates on a file or a directory. A file must end
 `.json`/`.ndjson`/`.jsonl` (else `TypeError`); `.json` uses streaming SAX
@@ -134,6 +137,7 @@ and edge cases: `docs/jsonpath/SKILL.md`.
 ```python
 strata.loads(source, return_type="cursor") -> JsonCursor   # or load(fp, return_type="cursor")
 ```
+
 `JsonCursor`: `is_null/is_bool/is_number/is_string/is_array/is_object()`,
 `get_bool/get_int/get_float/get_str()` (type mismatch → `RuntimeError`),
 `field(key)`, `at(index)`. Missing key → `RuntimeError("field not found")`;
@@ -148,6 +152,7 @@ compiled path against a cursor.
 ```python
 strata.config.set(key, value); strata.config.get(key); strata.config.list()
 ```
+
 - `duplicate_key_policy`: `"first"` (default) | `"last"` | `"error"` | `"warn"`
 - `cycle_policy`: `"warn"` (default, **active from process start** — reported
   and actual behavior always agree; the previous implementation started on

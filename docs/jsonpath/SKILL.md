@@ -1,6 +1,9 @@
 ---
 name: jsonpath
-description: JSONPath subsystem — supported grammar, compile/eval architecture, the three live evaluators (C++ DOM, PyObject-native, SAX streaming), known semantic divergences, and unsupported syntax. Load before touching src/strata/search/, python_jsonpath.cpp, or python/strata/jsonpath.py.
+description: JSONPath subsystem — supported grammar, compile/eval architecture, 
+  the three live evaluators (C++ DOM, PyObject-native, SAX streaming), known 
+  semantic divergences, and unsupported syntax. Load before touching 
+  src/strata/search/, python_jsonpath.cpp, or python/strata/jsonpath.py.
 ---
 
 # JSONPath / Search

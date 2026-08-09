@@ -10,16 +10,16 @@ library natively supports the operation — strict mode: unsupported = excluded,
 never emulated with Python shims. Where no native equivalent exists, the
 documented composition below is the comparison target.
 
-| Category | Measured | Competitors | Composition for competitors |
-|---|---|---|---|
-| `loads` | text/bytes → Python tree | orjson, msgspec, ujson, stdlib json, pysimdjson | native parse |
-| `dumps` | tree → text/bytes | orjson, msgspec, ujson, stdlib json | native; orjson emits bytes — compare bytes-to-bytes |
-| `load` (.json) | file → tree | orjson, msgspec, ujson, stdlib json | `read()` + parse |
-| `load` (.ndjson) | file → list of records | orjson, msgspec, ujson, stdlib json | `read()` + splitlines + per-line parse |
-| `dump` | tree → file | orjson, msgspec, ujson, stdlib json | serialize + `write()` |
-| `query` | JSONPath over in-memory tree | jmespath, jsonpath-ng | equivalent query in each language |
-| `search` (.json/.ndjson) | file → matches | orjson+jmespath, orjson+jsonpath-ng | full parse + query pipeline (no competitor streams) |
-| folder `load`/`dump`/`search` | directory ↔ records | none | no competitor equivalent; benchmark vs per-file loop over strata itself |
+| Category                      | Measured                     | Competitors                                     | Composition for competitors                                             |
+| ----------------------------- | ---------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| `loads`                       | text/bytes → Python tree     | orjson, msgspec, ujson, stdlib json, pysimdjson | native parse                                                            |
+| `dumps`                       | tree → text/bytes            | orjson, msgspec, ujson, stdlib json             | native; orjson emits bytes — compare bytes-to-bytes                     |
+| `load` (.json)                | file → tree                  | orjson, msgspec, ujson, stdlib json             | `read()` + parse                                                        |
+| `load` (.ndjson)              | file → list of records       | orjson, msgspec, ujson, stdlib json             | `read()` + splitlines + per-line parse                                  |
+| `dump`                        | tree → file                  | orjson, msgspec, ujson, stdlib json             | serialize + `write()`                                                   |
+| `query`                       | JSONPath over in-memory tree | jmespath, jsonpath-ng                           | equivalent query in each language                                       |
+| `search` (.json/.ndjson)      | file → matches               | orjson+jmespath, orjson+jsonpath-ng             | full parse + query pipeline (no competitor streams)                     |
+| folder `load`/`dump`/`search` | directory ↔ records          | none                                            | no competitor equivalent; benchmark vs per-file loop over strata itself |
 
 pysimdjson: parse only (no serializer, no JSONPath). jmespath/jsonpath-ng:
 query only. msgspec: no NDJSON file API — composition row applies. Cursor mode

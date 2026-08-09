@@ -1,6 +1,9 @@
 ---
 name: architecture
-description: C++ core architecture of strata — hybrid SAX parser, DOM, serializers, NDJSON, mmap, error and memory model, contributor invariants, and the dead-code map. Load before modifying anything under include/strata/ or src/strata/{json,search,util}.
+description: C++ core architecture of strata — hybrid SAX parser, DOM, 
+  serializers, NDJSON, mmap, error and memory model, contributor invariants, and
+  the dead-code map. Load before modifying anything under include/strata/ or 
+  src/strata/{json,search,util}.
 ---
 
 # Core Architecture
@@ -24,8 +27,7 @@ in mind when comparing `query()` (exact) with `CompiledPath.execute()` (DOM-base
 Decision record (formerly ADR-0001, implemented in `8f468d2`):
 
 - `json_sax_handler.hpp` — abstract `JsonSaxHandler` with 11 callbacks
-  (`on_null/on_bool/on_int/on_uint/on_double/on_string/on_start_object/on_key/
-  on_end_object/on_start_array/on_end_array`), each returning `bool` (false aborts).
+  (`on_null/on_bool/on_int/on_uint/on_double/on_string/on_start_object/on_key/ on_end_object/on_start_array/on_end_array`), each returning `bool` (false aborts).
 - `json_parser_inline.hpp` — `ParserInline<Handler>`, a templated recursive-descent
   parser. Instantiating with a concrete handler type devirtualizes and inlines
   every callback. `parse_sax_inline<Handler>(text, handler, validate_utf8=true)`
@@ -46,7 +48,7 @@ Decision record (formerly ADR-0001, implemented in `8f468d2`):
 - **Strings:** SIMD scan (`find_next_escape_simd`) for quote/backslash/control;
   escape-free strings pass a **zero-copy `string_view` into the input buffer**
   (valid only during the callback). Slow path handles all escapes incl. UTF-16
-  surrogate pairs; lone surrogates and raw control chars < 0x20 rejected.
+  surrogate pairs; lone surrogates and raw control chars \< 0x20 rejected.
 - **Whitespace:** `skip_ws()` scalar fast-exit then `skip_whitespace_fast`
   (NEON `vminvq_u8` / SSE2 movemask, 16 B per iteration). Added `67ef7fc`;
   redundant skips removed in `aa99eea`.

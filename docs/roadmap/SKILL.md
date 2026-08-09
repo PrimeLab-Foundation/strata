@@ -1,6 +1,8 @@
 ---
 name: roadmap
-description: The rebuild's build order — small milestones with explicit acceptance criteria. Load at the start of every implementation session to pick the current increment; a session works on exactly one increment.
+description: The rebuild's build order — small milestones with explicit 
+  acceptance criteria. Load at the start of every implementation session to pick
+  the current increment; a session works on exactly one increment.
 ---
 
 # Rebuild Roadmap

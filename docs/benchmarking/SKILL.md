@@ -1,6 +1,9 @@
 ---
 name: benchmarking
-description: Benchmark suite deep detail — harness internals, previous-implementation standings, the old regression tool's defects (do not reproduce), PGO's role, and result-path contracts. Load before running or modifying benchmarks or interpreting results.
+description: Benchmark suite deep detail — harness internals, 
+  previous-implementation standings, the old regression tool's defects (do not 
+  reproduce), PGO's role, and result-path contracts. Load before running or 
+  modifying benchmarks or interpreting results.
 ---
 
 # Benchmarking
@@ -72,7 +75,8 @@ baselines by full filename.
 (historically ~+15% medium/large — measured wins table:
 `docs/performance/SKILL.md`). Weekly `pgo.yml` built and uploaded a PGO+LTO
 wheel. Training data/workload: `scripts/pgo_training_data.py` (TARGET_MB=10)
-+ `scripts/pgo_training.py` exercising all hot paths.
+
+- `scripts/pgo_training.py` exercising all hot paths.
 
 ## Result-path contract (writers and readers must agree)
 

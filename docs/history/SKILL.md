@@ -1,6 +1,10 @@
 ---
 name: history
-description: Project lineage and the archive map — turbojsonpath origins, the strata rename, the abandoned optimization campaigns and rewrite attempts, the shelved new_strata rearchitecture, and where every artifact lives under ../archive/. Load when archaeology, context, or "has this been tried?" questions come up.
+description: Project lineage and the archive map — turbojsonpath origins, the 
+  strata rename, the abandoned optimization campaigns and rewrite attempts, the 
+  shelved new_strata rearchitecture, and where every artifact lives under 
+  ../archive/. Load when archaeology, context, or "has this been tried?" 
+  questions come up.
 ---
 
 # Project History & Archive Map
@@ -52,6 +56,7 @@ doc is the narrative index.
    commit-by-commit optimization narrative.
 
 6. **Post-tip experiments** (Mar 16 – Apr 2026, all unmerged, in `../archive/strata`):
+
    - `main-v2` — main + 3 commits incl. the **Dragonbox dtoa swap** (`33d6835`);
      the top salvage candidate.
    - `main-v2-long-run-do-nothing` — control run that still produced real work
@@ -81,14 +86,14 @@ doc is the narrative index.
 
 ## Archive map
 
-| Path | What it is |
-|---|---|
-| `../archive/turbojsonpath` | Original project, 6 commits + uncommitted final reports |
-| `../archive/bkp_strata` | First 12 strata commits (ancestor of pre-reset main) |
-| `../archive/strata` | Full pre-reset repo: 167 commits, all experiment branches listed above |
-| `../archive/new_strata` | The shelved 2026-06 rearchitecture (working tree, builds included) |
-| `../archive/strata.zip` | Feb 2026 full snapshot incl. venv — redundant with the git repos |
-| branch `backup/pre-reset-main` (this repo) | The 49-commit pre-reset main line |
+| Path                                       | What it is                                                             |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| `../archive/turbojsonpath`                 | Original project, 6 commits + uncommitted final reports                |
+| `../archive/bkp_strata`                    | First 12 strata commits (ancestor of pre-reset main)                   |
+| `../archive/strata`                        | Full pre-reset repo: 167 commits, all experiment branches listed above |
+| `../archive/new_strata`                    | The shelved 2026-06 rearchitecture (working tree, builds included)     |
+| `../archive/strata.zip`                    | Feb 2026 full snapshot incl. venv — redundant with the git repos       |
+| branch `backup/pre-reset-main` (this repo) | The 49-commit pre-reset main line                                      |
 
 ## Hygiene lessons already paid for (don't repeat)
 

@@ -1,6 +1,10 @@
 line-length = 100
 target-version = "py310"
 
+# Markdown belongs to mdformat + markdownlint; ruff would otherwise reformat the
+# Python code blocks inside curated docs and fight the markdown formatter.
+extend-exclude = ["*.md"]
+
 [lint]
 select = [
   "E",  # pycodestyle errors
@@ -32,11 +36,8 @@ indent-style = "space"
 line-ending = "lf"
 
 [lint.per-file-ignores]
-# The benchmark harness is utility/experimental code; relax linting there to keep focus on core lib.
+# Only benchmarks/ and docs/ are lint-exempt (docs/context/styleguide.md).
+# The benchmark harness is utility code; relax linting there to keep focus on the core lib.
 "benchmarks/**" = ["ALL"]
-# Legacy tests may not follow current style.
-"legacy_tests/**" = ["ALL"]
 # Documentation sources are not Python, but in case of embedded snippets.
 "docs/**" = ["ALL"]
-# Allow looser rules in tools and scripts (ignore fully)
-"tools/**" = ["ALL"]

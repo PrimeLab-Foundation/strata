@@ -69,8 +69,7 @@ design compass:
 ## Tests
 
 - C++ tests are plain `assert` + `main()`, no framework; one file per subsystem
-  in `tests/cpp/`. **CMakeLists.txt is the single test registry** — `make
-  test-cpp`, coverage, and CI all drive ctest from it. Do not reproduce the
+  in `tests/cpp/`. **CMakeLists.txt is the single test registry** — `make test-cpp`, coverage, and CI all drive ctest from it. Do not reproduce the
   previous implementation's three parallel harnesses with hand-maintained
   source lists (that drift broke its coverage build).
 - Python tests use pytest; long-running tests get `@pytest.mark.stress`

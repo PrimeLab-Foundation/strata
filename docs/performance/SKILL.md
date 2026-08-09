@@ -1,6 +1,9 @@
 ---
 name: performance
-description: The optimization playbook — every technique that won (with commits and measured effect), every negative result (so failed ideas are not retried), and ranked salvageable work from unmerged branches. Load before attempting any performance work.
+description: The optimization playbook — every technique that won (with commits 
+  and measured effect), every negative result (so failed ideas are not retried),
+  and ranked salvageable work from unmerged branches. Load before attempting any
+  performance work.
 ---
 
 # Performance Playbook
@@ -12,42 +15,42 @@ are not unknowingly repeated.
 
 ## What won (chronological — all on the pre-reset main line, `backup/pre-reset-main`, tip `c0e3b5a`)
 
-| Commit | Technique | Effect / rationale |
-|---|---|---|
-| `8f468d2` | Hybrid SAX architecture: parser emits events, `PythonObjectBuilder` builds PyObjects in one pass | Eliminated double materialization (C++ DOM → Python); the parsing-lead foundation |
-| `d8985af` | Devirtualization: templated `ParserInline<Handler>` | +13% critical path (measured on the 0.1 campaign as static dispatch) |
-| `da3fe64` | Instance-level key cache + SIMD escape checks | Key `PyObject` reuse across records |
-| `b66049d`..`22c9816` | Memo-based cycle detection → open-frame scan / thread-local stack | Hash-set upkeep on every container dominated; cycles are rare |
-| `20ad3a0`/`bcf6dd1` | NDJSON batch parsing straight to PyObjects | Bypasses C++ DOM per line |
-| `1ad8828` | SAX streaming JSONPath search | ~9–10× vs orjson+jsonpath-ng; obsoleted `mem_eff` mode in one day |
-| `512403f` | PGO infrastructure | ~+15% medium/large (0.1-branch measurement `22015c8`); LTO alone +5–6% |
-| `95fd416` | `_PyDict_NewPresized`; homogeneous float-array dumps path | Kills dict resize cascades |
-| `67ef7fc` | SIMD whitespace skip; int32 serialization fast path; string-array dumps path | |
-| `aa99eea` | Speculative key matching (`try_match_key`) + fewer whitespace skips | Skips ~10.5k SIMD scans per 500 same-schema records |
-| `3f0d7fe` | Unified single-scan number parsing; tight array loops; inlined Ryu (`ryu_inline.hpp`) | Removed int-then-double double-scan and cross-TU dtoa calls |
-| `efd00fd`/`c0e3b5a` | KeyCache: 75% load cap; FNV-1a 8-byte hashing; precomputed `Py_hash_t` + `_PyDict_SetItem_KnownHash` | Final parsing-lead commits |
-| dumps side | 3-tier dtoa (int-valued / 2-decimal / Ryu), batch same-schema dict serialization, `serialize_*_t<Tracking>` template split | Flipped dumps from behind-orjson (Mar 14) to ahead (Mar 17) |
+| Commit               | Technique                                                                                                                  | Effect / rationale                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `8f468d2`            | Hybrid SAX architecture: parser emits events, `PythonObjectBuilder` builds PyObjects in one pass                           | Eliminated double materialization (C++ DOM → Python); the parsing-lead foundation |
+| `d8985af`            | Devirtualization: templated `ParserInline<Handler>`                                                                        | +13% critical path (measured on the 0.1 campaign as static dispatch)              |
+| `da3fe64`            | Instance-level key cache + SIMD escape checks                                                                              | Key `PyObject` reuse across records                                               |
+| `b66049d`..`22c9816` | Memo-based cycle detection → open-frame scan / thread-local stack                                                          | Hash-set upkeep on every container dominated; cycles are rare                     |
+| `20ad3a0`/`bcf6dd1`  | NDJSON batch parsing straight to PyObjects                                                                                 | Bypasses C++ DOM per line                                                         |
+| `1ad8828`            | SAX streaming JSONPath search                                                                                              | ~9–10× vs orjson+jsonpath-ng; obsoleted `mem_eff` mode in one day                 |
+| `512403f`            | PGO infrastructure                                                                                                         | ~+15% medium/large (0.1-branch measurement `22015c8`); LTO alone +5–6%            |
+| `95fd416`            | `_PyDict_NewPresized`; homogeneous float-array dumps path                                                                  | Kills dict resize cascades                                                        |
+| `67ef7fc`            | SIMD whitespace skip; int32 serialization fast path; string-array dumps path                                               |                                                                                   |
+| `aa99eea`            | Speculative key matching (`try_match_key`) + fewer whitespace skips                                                        | Skips ~10.5k SIMD scans per 500 same-schema records                               |
+| `3f0d7fe`            | Unified single-scan number parsing; tight array loops; inlined Ryu (`ryu_inline.hpp`)                                      | Removed int-then-double double-scan and cross-TU dtoa calls                       |
+| `efd00fd`/`c0e3b5a`  | KeyCache: 75% load cap; FNV-1a 8-byte hashing; precomputed `Py_hash_t` + `_PyDict_SetItem_KnownHash`                       | Final parsing-lead commits                                                        |
+| dumps side           | 3-tier dtoa (int-valued / 2-decimal / Ryu), batch same-schema dict serialization, `serialize_*_t<Tracking>` template split | Flipped dumps from behind-orjson (Mar 14) to ahead (Mar 17)                       |
 
 ## Negative results — do not retry without new evidence
 
-| Idea | Where tried | Verdict |
-|---|---|---|
-| simdjson-style structural tape | 0.1 branch (`e8443f3`; default OFF in `84fdf8c`) | **Tape OFF was +22% on large loads** — 46MB JSON → ~110MB tape → L3 thrash on Apple Silicon |
-| Array/object pre-counting for pre-sizing | main (`67ef7fc` → reverted `07f85a0` same day) | Pre-scan cost more than resize savings; depth-based prediction won |
-| `mem_eff` JSONPath mode | main (`cbc9162` → removed `5c264ca`) | SAX search made it redundant within a day |
-| mmap I/O as the primary file path + NDJSON bindings | removed `a41eea0` | Separate slower code path; file `load` was worst-in-class at the time |
-| Memo/hash-set cycle detection | removed `b66049d` etc. | O(depth) open-frame scan cheaper |
-| Custom `fast_dtoa` (572-line Ryu port) | `ad401a8` → dropped `95fd416` | Superseded; file is now dead code |
-| `PythonObjectPool` (dict/list pooling) | 0.1 branch | Bookkeeping never beat CPython's allocator |
-| Adaptive EMA pre-sizing (`AdaptiveSizeEstimator`) | 0.1 branch | Simple last-size-per-depth heuristic won |
-| String-value caching/pooling | 0.1 branch (`441bcc8`) | Null result: string creation = 0.92% of runtime, ≤9.7% hit rate |
-| Dict-construction micro-opts (compact builder, SIMD hash table, zero-copy views) | 0.1 branch (`66621b9`) | 0.1–0.5% absolute; `dict_dealloc` (~7%) unavoidable |
-| CRTP/fused/computed-goto dispatch | 0.1 branch | 0% |
-| Parallel JSON parsing | 0.1 branch (`709de84`) | Never beat single-thread under the GIL |
-| SIMD structural indexer + `ParserIndexed` | prompt-1/4 branches | Built but never wired into `loads`; bench delta ≈ noise |
-| Markov speculative parser (`TransitionModel`) | prompt-2 branch | Opt-in only, unproven end-to-end |
-| Bloom-filter key subsystem | prompt-3 branch | Never wired into hot path |
-| Whole-repo from-scratch rewrites | `main-from-scratch-v1/v2`, `archive/new_strata` | See `docs/history/SKILL.md` — new_strata *succeeded* technically but was never merged |
+| Idea                                                                             | Where tried                                      | Verdict                                                                                     |
+| -------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| simdjson-style structural tape                                                   | 0.1 branch (`e8443f3`; default OFF in `84fdf8c`) | **Tape OFF was +22% on large loads** — 46MB JSON → ~110MB tape → L3 thrash on Apple Silicon |
+| Array/object pre-counting for pre-sizing                                         | main (`67ef7fc` → reverted `07f85a0` same day)   | Pre-scan cost more than resize savings; depth-based prediction won                          |
+| `mem_eff` JSONPath mode                                                          | main (`cbc9162` → removed `5c264ca`)             | SAX search made it redundant within a day                                                   |
+| mmap I/O as the primary file path + NDJSON bindings                              | removed `a41eea0`                                | Separate slower code path; file `load` was worst-in-class at the time                       |
+| Memo/hash-set cycle detection                                                    | removed `b66049d` etc.                           | O(depth) open-frame scan cheaper                                                            |
+| Custom `fast_dtoa` (572-line Ryu port)                                           | `ad401a8` → dropped `95fd416`                    | Superseded; file is now dead code                                                           |
+| `PythonObjectPool` (dict/list pooling)                                           | 0.1 branch                                       | Bookkeeping never beat CPython's allocator                                                  |
+| Adaptive EMA pre-sizing (`AdaptiveSizeEstimator`)                                | 0.1 branch                                       | Simple last-size-per-depth heuristic won                                                    |
+| String-value caching/pooling                                                     | 0.1 branch (`441bcc8`)                           | Null result: string creation = 0.92% of runtime, ≤9.7% hit rate                             |
+| Dict-construction micro-opts (compact builder, SIMD hash table, zero-copy views) | 0.1 branch (`66621b9`)                           | 0.1–0.5% absolute; `dict_dealloc` (~7%) unavoidable                                         |
+| CRTP/fused/computed-goto dispatch                                                | 0.1 branch                                       | 0%                                                                                          |
+| Parallel JSON parsing                                                            | 0.1 branch (`709de84`)                           | Never beat single-thread under the GIL                                                      |
+| SIMD structural indexer + `ParserIndexed`                                        | prompt-1/4 branches                              | Built but never wired into `loads`; bench delta ≈ noise                                     |
+| Markov speculative parser (`TransitionModel`)                                    | prompt-2 branch                                  | Opt-in only, unproven end-to-end                                                            |
+| Bloom-filter key subsystem                                                       | prompt-3 branch                                  | Never wired into hot path                                                                   |
+| Whole-repo from-scratch rewrites                                                 | `main-from-scratch-v1/v2`, `archive/new_strata`  | See `docs/history/SKILL.md` — new_strata *succeeded* technically but was never merged       |
 
 ## Salvageable unmerged work (ranked, all in `../archive/strata`)
 
@@ -66,7 +69,7 @@ are not unknowingly repeated.
 5. From `archive/new_strata` (ideas, not code): Eisel–Lemire number parsing,
    runtime SIMD dispatch (CPUID/XGETBV vtable), construction-free
    `valid()`/tape-based navigation, `search_many` path-trie, and its measurement
-   discipline (interleaved A/B with MAD <1%).
+   discipline (interleaved A/B with MAD \<1%).
 
 ## Known remaining weaknesses
 
