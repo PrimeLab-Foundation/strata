@@ -10,7 +10,7 @@ trust PGO-build interleaved comparisons over single runs, and record go/no-go
 conclusions here. The negative-results table below exists so failed experiments
 are not unknowingly repeated.
 
-## What won (chronological, all in current main)
+## What won (chronological — all on the pre-reset main line, `backup/pre-reset-main`, tip `c0e3b5a`)
 
 | Commit | Technique | Effect / rationale |
 |---|---|---|

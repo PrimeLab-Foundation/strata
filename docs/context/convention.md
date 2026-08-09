@@ -54,9 +54,9 @@ North star: correctness first, then performance, then maintainability.
 
 - Any change touching a hot path (parse, serialize, NDJSON, search, allocations,
   compiler flags) requires before/after benchmarks against the competitor set.
-- Regression thresholds: median or p95 worse by >2% in a touched category, or
-  RSS/peak memory worse by >5% ⇒ do not proceed; fix or revert. Fairness: same
-  datasets, warmup + repeats, report min/median/p95, no winning by changing semantics.
+- Regression thresholds, protocol, and fairness rules: the canonical contract
+  is `docs/context/benchmarks.md` — a threshold breach means do not proceed;
+  fix or revert.
 - Release positioning ("production-ready") requires #1 rank in the targeted
   benchmark categories, with a reproducible evidence report under `docs/benchmarks/`.
 
@@ -76,8 +76,7 @@ North star: correctness first, then performance, then maintainability.
   Each experiment needs a hypothesis, a minimal prototype, microbenchmarks, and a
   written go/no-go conclusion (record it in `docs/performance/SKILL.md`).
   Read the negative-results table there before re-attempting an old idea —
-  structural tape, object pooling, pre-counting, and memo cycle detection have
-  all already lost on measurement.
+  several plausible techniques have already lost on measurement.
 
 ## Automation
 

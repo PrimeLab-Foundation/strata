@@ -17,7 +17,9 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 ├── README.md                # public-facing overview
 ├── LICENSE                  # MIT
 ├── docs/
-│   ├── context/             # always loaded: convention, styleguide, api, workflow
+│   ├── context/             # always loaded: convention, styleguide, api, workflow, benchmarks
+│   ├── roadmap/             # skill doc: rebuild milestones with acceptance criteria
+│   ├── decisions.md         # append-only decision log (ambiguities resolved visibly)
 │   ├── architecture/        # skill doc: C++ core blueprint and invariants
 │   ├── bindings/            # skill doc: CPython binding layer techniques
 │   ├── jsonpath/            # skill doc: search/query grammar and evaluators
@@ -42,7 +44,8 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 
 **This branch contains no code by design.** The implementation was deliberately
 removed; the project is to be rebuilt from scratch following the documentation
-in `docs/`. The complete previous implementation (v0.2.0, all tests green) is
+in `docs/`. The rebuild starts at version `2026.8.9` — versioning is calver,
+`YYYY.M.D` of release (see `docs/context/api.md`). The complete previous implementation (v0.2.0, all tests green) is
 preserved on branch `backup/pre-reset-main` and in `../archive/` — file paths,
 line numbers, and commit hashes cited throughout `docs/` refer to it. Use it as
 the blueprint and correctness oracle, not as code to copy blindly: known bugs,
@@ -71,6 +74,7 @@ The following context files are imported into every session:
 @docs/context/styleguide.md
 @docs/context/api.md
 @docs/context/workflow.md
+@docs/context/benchmarks.md
 
 ## Part 2 — Loaded on demand
 
@@ -79,6 +83,7 @@ doc (`SKILL.md` with YAML frontmatter) under `docs/`:
 
 | Doc | Read when |
 |---|---|
+| `docs/roadmap/SKILL.md` | **Every implementation session** — pick the current milestone; one increment per session, acceptance criteria = definition of done |
 | `docs/architecture/SKILL.md` | Building or touching the C++ core: parser, DOM, serializers, NDJSON, mmap, error/memory model, invariants, dead-code map of the previous implementation |
 | `docs/bindings/SKILL.md` | Building or touching the CPython bindings / Python facade: KeyCache, speculative keys, dumps fast paths, config→policy mapping, GIL/GC posture, CPython internals used |
 | `docs/jsonpath/SKILL.md` | Search/query work: supported grammar, the three evaluators, SAX streaming search, known semantic gaps |

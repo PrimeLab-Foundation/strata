@@ -56,9 +56,12 @@ Decision record (formerly ADR-0001, implemented in `8f468d2`):
   closing quote) or 0, and runs **before** escape scanning, so cached keys must be
   raw-byte-identical.
 - **UTF-8 validation** runs once up front (`validate_utf8_simd`) unless disabled;
-  the Python bindings pass `validate_utf8=false` because PyUnicode validates.
-  (Note: the "SIMD" UTF-8 validator is actually scalar byte-classification in
-  16/32-byte chunks — correct, but not vectorized.)
+  the Python bindings pass `validate_utf8=false` because PyUnicode validates
+  during string creation. Caveat for `bytes` input: that makes the parser the
+  only validator — invalid UTF-8 must still surface as
+  `ValueError("Invalid JSON")` (see api.md). (Note: the "SIMD" UTF-8 validator
+  is actually scalar byte-classification in 16/32-byte chunks — correct, but
+  not vectorized.)
 - Pre-counting of array/object sizes was removed (`07f85a0` — the extra scan cost
   more than it saved); `count_object_keys`/`count_array_elements` in the header
   are dead. Size prediction now lives in the Python builder (`depth_sizes_`).
@@ -70,14 +73,12 @@ Decision record (formerly ADR-0001, implemented in `8f468d2`):
    NaN/Inf → `null`. **No depth limit and no cycle detection** (a `JsonValue` tree
    cannot be cyclic, but deep input can overflow the stack). Header comment
    claiming "keys sorted via std::map" is stale — output is insertion-ordered.
-2. **Python `dumps`** (`bindings/python_dumps.cpp`, the optimized one): thread-local
-   reusable `OutputBuffer` (malloc/realloc, 1.5× growth, `unsafe_*` writes after
-   a covering `reserve()`); 3-tier dtoa (integer-valued → digit pairs + ".0";
-   1–2 decimals → ×100 exactness trick; general → inlined Ryu `ryu_inline::convert`);
-   homogeneous int/float/bool/str array fast paths; `try_batch_list_of_dicts`
-   replays pre-serialized `,"key":` byte strings for same-schema dict lists
-   (≤ 24 keys); cycle detection compiled in/out via `serialize_dict_t<bool Tracking>`;
-   depth limit = `Py_GetRecursionLimit()`; GC paused for the whole call.
+2. **Python `dumps`** (`bindings/python_dumps.cpp`, the heavily optimized one):
+   thread-local reusable `OutputBuffer` with `unsafe_*` writes after a
+   covering `reserve()`; depth limit = `Py_GetRecursionLimit()`; GC paused for
+   the whole call. The full fast-path inventory (3-tier dtoa, homogeneous
+   arrays, batch dict serialization, tracking-template cycle checks) lives
+   canonically in `docs/bindings/SKILL.md` §dumps-side techniques.
 
 **dtoa naming warning:** `dragonbox.{hpp,cpp}` is actually a **Ryu**
 implementation (its own comments say so); `ryu_dtoa.cpp` is actually a
@@ -130,8 +131,8 @@ with precomputed hashes, a module-lifetime small-int cache (0..256),
    anywhere**. C++ stress tests cap at depth 100 deliberately.
 2. `JsonCursor` never owns — the `JsonDocument` must outlive every cursor.
 3. `try_match_key` contract as above; runs before escape handling.
-4. `KeyCache::get()` returns a borrowed `PyObject*`; slot indices are `uint16_t`
-   with `0xFFFF` = empty; ≤ 192 entries (75% of 256 slots) in the table.
+4. `KeyCache::get()` returns a borrowed `PyObject*` — full cache contract and
+   constants: `docs/bindings/SKILL.md`.
 5. String-view SAX callbacks are transient — copy before the buffer dies.
 6. `unsafe_*` OutputBuffer ops require a prior covering `reserve()`.
 7. `NdjsonStream` borrows its buffer; `Status::KeyNotFound` = EOF.

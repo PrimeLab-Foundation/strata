@@ -7,11 +7,14 @@ description: JSONPath subsystem — supported grammar, compile/eval architecture
 
 ## Grammar (subset of RFC 9535)
 
+The canonical contract summary (supported set, error types) is
+`docs/context/api.md` §JSONPath; this section is the detailed grammar.
+
 Compiler: hand-written recursive descent `PathParser` in `jsonpath_compile.cpp`,
-non-throwing (`Result<CompiledPath>`) — with one exception: an unclosed quoted
-string throws `std::runtime_error("Unclosed quoted string in JSONPath")`, which
-escapes to Python as `RuntimeError` instead of the usual `ValueError`. A
-`CompiledPath` is an immutable `std::vector<PathStep>` with ops
+non-throwing (`Result<CompiledPath>`). Previous-implementation defect — **do
+not reproduce**: an unclosed quoted string threw `std::runtime_error`, leaking
+to Python as `RuntimeError`; the target is `ValueError` for every invalid
+expression. A `CompiledPath` is an immutable `std::vector<PathStep>` with ops
 Root/Field/Wildcard/Index/RecursiveDescent/Slice/Filter.
 
 Supported: `$` (mandatory) · `.field` (`[A-Za-z0-9_]+`) · `["f"]`/`['f']`
@@ -61,14 +64,17 @@ Slower legacy pipeline; candidate for the same SAX treatment.
 - PyObject filter eval coerces Python bools to 1.0/0.0 in numeric comparisons;
   the C++ DOM path requires an actual number.
 - `compile` errors are the generic `ValueError("Invalid JSONPath expression")`
-  with no position info — except unclosed quoted strings, which surface as
-  `RuntimeError` (uncaught C++ throw, see above).
+  with no position info — including unclosed quoted strings (the previous
+  implementation's `RuntimeError` leak there is a defect, see above).
 
 ## API split (enforced, tested)
 
-`search()` = file paths only (else `TypeError`); `query()` = dict/list/tuple
-only (else `TypeError`). `iterator=True` on both is eager-evaluate,
-lazy-consume (wraps the finished list).
+`search()` = file or directory paths only (else `TypeError`); `query()` =
+dict/list/tuple only (else `TypeError`). Folder mode is new in the target API
+(no reference code) — the contract lives in `docs/context/api.md`; the law to
+preserve: `search(dir, e) == concat(search(f, e) for each discovered file f)`.
+`iterator=True` is eager-evaluate, lazy-consume (wraps the finished list) for
+single files; in folder mode it must stream lazily file-by-file.
 
 ## Tests & benchmarks
 

@@ -31,8 +31,9 @@ design compass:
 
 - **Formatting:** `.clang-format` — LLVM base, IndentWidth 4, ColumnLimit 100,
   PointerAlignment Left, includes sorted and regrouped. Run `make fmt`.
-  Note: the pre-commit clang-format hook currently excludes `include/` and `src/`
-  ("temporarily") — format those with `make fmt` before committing.
+  The rebuilt pre-commit clang-format hook must cover `include/` and `src/`
+  (the previous implementation's hook excluded them "temporarily" — do not
+  reproduce that gap).
 - **Naming:** namespace `strata` with nested namespaces (`strata::util`,
   `strata::json` where used); types `PascalCase`; functions and methods
   `snake_case`; constants `kPascalCase`; filenames `snake_case`. Prefer
@@ -56,7 +57,7 @@ design compass:
 ## Python (≥ 3.10)
 
 - **Lint/format:** ruff (`.ruff.toml` — line length 100, target py310, rules
-  `E,F,I,UP,COM,N,PL,B`; quote style preserved). `benchmarks/`, `docs/`, `tools/`
+  `E,F,I,UP,COM,N,PL,B`; quote style preserved). `benchmarks/` and `docs/`
   are lint-exempt.
 - **Naming:** modules and functions `snake_case`, public classes `PascalCase`,
   internal helpers prefixed `_` and not exported. Exports go through
@@ -68,8 +69,10 @@ design compass:
 ## Tests
 
 - C++ tests are plain `assert` + `main()`, no framework; one file per subsystem
-  in `tests/cpp/`. Register every new C++ test in **both** `CMakeLists.txt` and
-  the hardcoded list in `scripts/run_cpp_tests.sh`.
+  in `tests/cpp/`. **CMakeLists.txt is the single test registry** — `make
+  test-cpp`, coverage, and CI all drive ctest from it. Do not reproduce the
+  previous implementation's three parallel harnesses with hand-maintained
+  source lists (that drift broke its coverage build).
 - Python tests use pytest; long-running tests get `@pytest.mark.stress`
   (≥100MB tests also check `RUN_STRESS_100MB`). Deep-nesting tests bump
   `sys.setrecursionlimit` in try/finally. Tests touching `strata.config` must
@@ -78,8 +81,8 @@ design compass:
 ## Markdown / configs
 
 - `.editorconfig`: UTF-8, LF, final newline, 4-space indent (2 for yml/toml/json/md).
-- Markdown is checked by markdownlint + mdformat (pre-commit). Lowercase
-  filenames except `README.md`, `CLAUDE.md`, and `SKILL.md` files.
-- Commit style follows the existing history: imperative summary of *what changed
-  and why it is faster/safer*, mentioning refreshed benchmark results when
-  applicable.
+- Markdown: markdownlint (`.markdownlint.yaml`) + mdformat via the rebuilt
+  pre-commit config. Lowercase filenames except `README.md`, `CLAUDE.md`, and
+  `SKILL.md` files.
+- Commit style and policy: see the Commits section of
+  `docs/context/workflow.md`.

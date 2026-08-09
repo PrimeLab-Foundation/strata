@@ -9,15 +9,23 @@ Deliberate changes vs the previous implementation: `compile_path` is renamed
 and `parse_ndjson` are dropped — cursors come from
 `loads`/`load` with `return_type="cursor"`, and NDJSON goes through `load`.
 
+Versioning is calver (`YYYY.M.D` of release — orders correctly under
+PEP 440). The rebuild starts at `__version__ = "2026.8.9"`, bumped at release
+time only. Single source of truth: the literal in
+`python/strata/__init__.py`; pyproject reads it dynamically — no second copy
+anywhere (the previous implementation drifted across three locations).
+
 ## Parse & serialize
 
 ```python
 strata.loads(source: str | bytes, *, return_type="dict", iterator=False)
 ```
 Parse JSON text. Default returns the full Python tree (`dict|list|str|int|float|bool|None`);
-ints are exact within int64 range (no double squashing). Beyond int64: 19-digit
-overflow raises `ValueError`; 20+ digit integers are silently mis-parsed (digits
-past 19 dropped — known limitation). `return_type="cursor"` returns a lazy
+integers parse **exactly at any size** (no double squashing; beyond int64 a
+slow path builds the arbitrary-precision int — matches stdlib `json`; the
+previous implementation mis-parsed 20+ digit ints, do not reproduce).
+Invalid UTF-8 in `bytes` input ⇒ `ValueError("Invalid JSON")` — for bytes the
+parser is the only validator. `return_type="cursor"` returns a lazy
 `JsonCursor`. `iterator=True`: dict root yields `(key, value)`, list root yields
 elements (eager parse, lazy consumption); scalar roots ignore the flag.
 Raises `ValueError` (invalid JSON / bad `return_type`), `TypeError`, `RuntimeError`
@@ -35,25 +43,33 @@ or cycle under `cycle_policy="error"`).
 ## File & folder I/O
 
 ```python
-strata.load(path, *, return_type="dict", iterator=False)     # str | Path; file or directory
-strata.dump(obj, path, *, split_by=None) -> None             # str | Path
+strata.load(path, *, return_type="dict", iterator=False, skip_errors=False)  # str | Path; file or dir
+strata.dump(obj, path, *, split_by=None) -> None                             # str | Path
 ```
 
 **File mode** (`path` is a file): `load` dispatches on extension:
-`.ndjson`/`.jsonl` → NDJSON (list of records; `iterator=True` parses lazily
-line-by-line — the whole file is still read into memory up front — silently
-skipping invalid lines; `return_type="cursor"` is a `ValueError`); anything
-else → single JSON document. Raises `FileNotFoundError`, `OSError`,
-`ValueError` ("Empty file" for JSON). `dump` writes compact JSON + trailing
-newline, mode 0644, truncating; `split_by` with a file path is a `ValueError`.
+`.ndjson`/`.jsonl` → NDJSON list of records; anything else → single JSON
+document. **Invalid NDJSON lines raise `ValueError` unless
+`skip_errors=True`** (opt-in silencing — uniform across eager, iterator, and
+folder modes; the previous implementation silently skipped, do not
+reproduce). `iterator=True` parses lazily line-by-line (the whole file is
+still read into memory up front; errors surface at the failing line);
+`return_type="cursor"` on NDJSON is a `ValueError`. Raises
+`FileNotFoundError`, `OSError`, `ValueError` ("Empty file" for JSON).
+`dump` writes compact JSON + trailing newline, mode 0644, truncating;
+`split_by` with a file path is a `ValueError`.
 
 **Folder mode:**
 
-- `load(dirpath)` loads every `*.json`/`*.ndjson`/`*.jsonl` under the
-  directory (recursive; other/hidden entries ignored) and returns one list:
-  each file's records concatenated in lexicographic relative-path order — a
-  `.json` file with a list root contributes its elements, any other root
-  contributes the document itself, NDJSON contributes its lines.
+- Discovery (shared by `load` and `search`): every `*.json`/`*.ndjson`/
+  `*.jsonl` under the directory, recursive; extensions matched
+  case-insensitively; hidden files and hidden directories pruned; symlinks
+  **not followed**; ordering is bytewise on the `/`-joined relative path.
+- `load(dirpath)` returns one list: each file's records concatenated in
+  discovery order — a `.json` file with a list root contributes its elements,
+  any other root contributes the document itself, NDJSON contributes its
+  lines. Per-file errors follow `skip_errors` (False → propagate at the point
+  the file is consumed; True → skip the offending file/line).
   `iterator=True` streams records lazily file-by-file; `return_type="cursor"`
   → `ValueError`. Empty directory → `[]`.
 - `dump(records, dirpath, split_by=key_or_keys)` splits a list of dicts into
@@ -61,13 +77,20 @@ newline, mode 0644, truncating; `split_by` with a file path is a `ValueError`.
   `str`). One key → `dirpath/<value>.json`; N keys → nested directories, one
   level per key, file for the last: `dirpath/<v1>/<v2>.json`. Each file is a
   compact JSON array of that group's records (+ trailing newline), preserving
-  input order. Directories are created as needed; colliding files are
-  overwritten; unrelated existing files are untouched. Split values must be
-  `str`/`int`/`bool` scalars; a record missing a split key, or a value whose
-  string form is path-unsafe (empty, `.`, `..`, or containing `/`, `\`, NUL)
-  → `ValueError`; non-list `obj` or non-dict record → `TypeError`.
-- Round-trip law: `dump(records, d, split_by=ks)` followed by `load(d)`
-  returns the same records, grouped in lexicographic key-path order with
+  input order. A directory target without `split_by` → `ValueError`.
+- Split values must be `str`/`int`/`bool` scalars. **Grouping is by the JSON
+  string form**: `str` as-is, `int` as decimal digits, `bool` as
+  `true`/`false`. Distinct raw values whose string forms collide (e.g. `1` vs
+  `"1"`, `True` vs `"true"`), or names differing only by case (case-insensitive
+  filesystems), → `ValueError`. Missing split key, or a string form that is
+  path-unsafe (empty, `.`, `..`, contains `/`, `\`, NUL) → `ValueError`;
+  non-list `obj` or non-dict record → `TypeError`. Empty `records` creates
+  `dirpath` and writes nothing (so `load` → `[]`). Directories are created as
+  needed; colliding files from *previous* runs are overwritten; unrelated
+  existing files are untouched.
+- Round-trip law: for records whose floats are all finite (NaN/±Inf serialize
+  as `null` and lose identity), `dump(records, d, split_by=ks)` followed by
+  `load(d)` returns the same records, grouped in bytewise key-path order with
   intra-group order preserved.
 - Folder mode is **new in the target API** — the previous implementation was
   single-file only, so there is no reference code for it. Per the
@@ -78,22 +101,33 @@ newline, mode 0644, truncating; `split_by` with a file path is a `ValueError`.
 
 ```python
 strata.query(data: dict | list, expression: str | CompiledPath, *, iterator=False) -> list
-strata.search(filepath: str | Path, expression: str | CompiledPath, *, iterator=False) -> list
+strata.search(path: str | Path, expression: str | CompiledPath, *, iterator=False) -> list
 strata.compile(expression: str) -> CompiledPath
 ```
 `query` evaluates directly on Python objects (dict/list/tuple roots only,
-else `TypeError`). `search` operates on files (must end `.json`/`.ndjson`/`.jsonl`,
-else `TypeError`); `.json` uses streaming SAX search (only matches materialized)
-for plain paths — Filter/Slice paths fall back to a full parse of the document,
-and NDJSON search materializes each line. Invalid expressions raise
-`ValueError("Invalid JSONPath expression")`.
+else `TypeError`). `search` operates on a file or a directory. A file must end
+`.json`/`.ndjson`/`.jsonl` (else `TypeError`); `.json` uses streaming SAX
+search (only matches materialized) for plain paths — Filter/Slice paths fall
+back to a full parse of the document, and NDJSON search materializes each
+line. Invalid expressions raise `ValueError("Invalid JSONPath expression")`.
+
+**Folder mode:** `search(dirpath, expr)` uses the folder-discovery rules
+defined under File & folder I/O and concatenates the matches — equivalent to
+running `search` on each discovered file in that order. Per-file semantics
+are unchanged (SAX streaming where the path allows it); the expression is
+compiled once and reused across files. `iterator=True` streams matches lazily
+file-by-file; empty directory → `[]`.
 
 Supported grammar (subset of RFC 9535): `$` (mandatory root), `.field`
 (`[A-Za-z0-9_]+`), `["field"]`/`['field']`, `[n]` (negative ok), `[*]`, `.*`,
 `..field` (recursive descent, identifier only), `[start:end:step]` (positive step
-only), `[?(@.field op value)]` with `== != > >= < <=` (numeric; strings `==`/`!=`
-only). **Not** supported: unions, `&&`/`||`, `$..*`, nested filter paths,
-existence filters, negative slice step (silently returns `[]`).
+only), `[?(@.field op value)]` / `[?(@['field'] op value)]` with
+`== != > >= < <=` (numeric; strings `==`/`!=` only). **Not** supported:
+unions, `&&`/`||`, `$..*`, nested filter paths, existence filters, negative
+slice step (silently returns `[]`). All invalid expressions — including
+unclosed quotes — raise `ValueError` (the previous implementation leaked
+`RuntimeError` for unclosed quotes; do not reproduce). Implementation detail
+and edge cases: `docs/jsonpath/SKILL.md`.
 
 ## Cursor
 
@@ -104,7 +138,10 @@ strata.loads(source, return_type="cursor") -> JsonCursor   # or load(fp, return_
 `get_bool/get_int/get_float/get_str()` (type mismatch → `RuntimeError`),
 `field(key)`, `at(index)`. Missing key → `RuntimeError("field not found")`;
 index out of bounds → `RuntimeError("index out of range")` (raised immediately;
-test-pinned). `CompiledPath.execute(cursor)` runs a compiled path against a cursor.
+test-pinned). The returned `JsonCursor` holds a strong reference to its owning
+document — the C++ document-outlives-cursor invariant is satisfied inside the
+binding, never exposed to the user. `CompiledPath.execute(cursor)` runs a
+compiled path against a cursor.
 
 ## Config
 
@@ -112,9 +149,12 @@ test-pinned). `CompiledPath.execute(cursor)` runs a compiled path against a curs
 strata.config.set(key, value); strata.config.get(key); strata.config.list()
 ```
 - `duplicate_key_policy`: `"first"` (default) | `"last"` | `"error"` | `"warn"`
-- `cycle_policy`: `"warn"` | `"error"` | `"ignore"` — **known bug:** the config
-  map is seeded with `"warn"` but the serializer's actual startup behavior is
-  `ignore` until `config.set("cycle_policy", ...)` is called once.
+- `cycle_policy`: `"warn"` (default, **active from process start** — reported
+  and actual behavior always agree; the previous implementation started on
+  `ignore` while reporting `warn`, do not reproduce) | `"error"` | `"ignore"`.
+  On an actual cycle: `"warn"` emits `null` for the cyclic reference and
+  raises `RuntimeWarning`; `"error"` raises `ValueError`; `"ignore"` emits
+  `null` silently.
 
 Config state is process-global at the map level. `duplicate_key_policy` is
 consumed via a **thread-local** variable — it does not propagate to other

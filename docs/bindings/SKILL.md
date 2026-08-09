@@ -66,11 +66,12 @@ allocation slack, ASan-hostile); `PyUnstable_Long_IsCompact` int extraction.
   Error → parse failure). C++ default: `FirstWins`. **The policy variable is
   thread-local** — `config.set` only affects the calling thread.
 - `cycle_policy` → file-static `g_cycle_policy` in `python_dumps.cpp`.
-  **Known bug:** init seeds the config map with `"warn"` without calling the
-  setter, while `g_cycle_policy` starts as `Ignore` — so `config.get("cycle_policy")`
-  reports "warn" but actual behavior is ignore until the first `config.set`.
-  (Also: a stale comment in `python_loads.cpp` calls LastWins "the default" — it
-  is not.)
+  **Previous-implementation bug — do not reproduce:** init seeded the config
+  map with `"warn"` without calling the setter, while `g_cycle_policy` started
+  as `Ignore` — reported and actual behavior disagreed until the first
+  `config.set`. Target: seed both consistently to `"warn"` (contract:
+  api.md §Config). (Also: a stale comment in `python_loads.cpp` called
+  LastWins "the default" — it was not.)
 
 ## GIL / GC posture
 
@@ -94,9 +95,11 @@ pre-build and pytest post-build (`SKIP_TESTS=1` escape hatch).
 
 ## Known sharp edges & dead code
 
-- `dump`/`search` filepaths are str-only at the C level (Python wrappers coerce
-  `Path` for `load`/`search`). Text arguments parsed with `s#` accept both str
-  and bytes.
+- Previous implementation: `dump`/`search` filepaths were str-only at the C
+  level and only `load`/`search` wrappers coerced `Path`. **Target: the facade
+  coerces `Path` → `str` for all four file entry points** (`load`, `dump`,
+  `search`, and cursor-mode `load`), per api.md. Text arguments parsed with
+  `s#` accept both str and bytes.
 - `JsonCursor.field()`/`at()` on a missing key/index raises `RuntimeError`
   ("field not found" / "index out of range") immediately — the `Py_RETURN_NONE`
   branches in `python_document.cpp` are dead code (the throwing C++ API never
