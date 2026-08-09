@@ -54,4 +54,21 @@ namespace strata::util {
  */
 [[nodiscard]] size_t find_next_escape_scalar(const char* data, size_t len) noexcept;
 
+/**
+ * Copy bytes from @p src to @p dst until the first escape-forcing byte.
+ *
+ * The single-pass form of scan-then-memcpy: the serializer's clean-string
+ * fast path reads each byte once instead of twice. Stops at exactly the byte
+ * @ref find_next_escape would report; bytes at and beyond it are unspecified
+ * in @p dst (the vectorized form stores whole blocks before checking).
+ *
+ * @param dst Must hold at least `len` bytes **rounded up to a full 16-byte
+ *            block** — the caller over-reserves; src is never over-read.
+ * @return Number of clean bytes copied (== `len` when nothing escapes).
+ */
+[[nodiscard]] size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept;
+
+/// The scalar twin of @ref copy_until_escape, checked against it by test.
+[[nodiscard]] size_t copy_until_escape_scalar(const char* src, size_t len, char* dst) noexcept;
+
 } // namespace strata::util

@@ -208,4 +208,41 @@ size_t find_next_escape(const char* data, size_t len) noexcept {
     return pos + find_next_escape_scalar(data + pos, len - pos);
 }
 
+size_t copy_until_escape_scalar(const char* src, size_t len, char* dst) noexcept {
+    for (size_t pos = 0; pos < len; ++pos) {
+        const unsigned char c = static_cast<unsigned char>(src[pos]);
+        if (c == '"' || c == '\\' || c < 0x20)
+            return pos;
+        dst[pos] = src[pos];
+    }
+    return len;
+}
+
+size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept {
+    size_t pos = 0;
+#if defined(STRATA_ESCAPE_SCAN_SIMD)
+    // Whole blocks are stored before the mask is inspected — the contract
+    // gives the destination block-rounded room, so a store past the first
+    // escape byte (or past `len` within the final partial block's rounding)
+    // is scratch the caller never reads.
+    for (; pos + kEscapeBlock <= len; pos += kEscapeBlock) {
+        const size_t hit = first_escape_in_block(src + pos);
+        std::memcpy(dst + pos, src + pos, kEscapeBlock);
+        if (hit != kEscapeBlock)
+            return pos + hit;
+    }
+#endif
+#if defined(STRATA_ESCAPE_SCAN_SWAR)
+    for (; pos + 8 <= len; pos += 8) {
+        uint64_t word;
+        std::memcpy(&word, src + pos, 8);
+        std::memcpy(dst + pos, &word, 8);
+        const uint64_t mask = escape_mask_word(word);
+        if (mask != 0)
+            return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
+    }
+#endif
+    return pos + copy_until_escape_scalar(src + pos, len - pos, dst + pos);
+}
+
 } // namespace strata::util

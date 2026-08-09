@@ -71,6 +71,9 @@ class StagedOutput {
     [[nodiscard]] char* cursor() noexcept { return stage_ + used_; }
     void advance(size_t bytes) noexcept { used_ += bytes; }
 
+    /// Take back @p bytes just written to the stage (never past a flush).
+    void rewind(size_t bytes) noexcept { used_ -= bytes; }
+
     /// One byte, after a covering ensure().
     void put(char c) noexcept { stage_[used_++] = c; }
 
@@ -134,8 +137,20 @@ class SchemaCacheLease {
         std::string blob;                 ///< the prepared bytes, back to back
         std::vector<uint32_t> offsets{0}; ///< blob boundaries, keys.size() + 1
         bool prepared = false;
+        uint32_t divergences = 0;
+        /// A depth whose objects keep changing shape is not record-shaped;
+        /// it stops remembering rather than paying incref churn per object.
+        bool retired = false;
 
         void remember(PyObject* const* other, Py_ssize_t count) {
+            if (++divergences > 16) {
+                for (PyObject* key : keys)
+                    Py_DECREF(key);
+                keys.clear();
+                retired = true;
+                prepared = false;
+                return;
+            }
             for (PyObject* key : keys)
                 Py_DECREF(key);
             keys.assign(other, other + count);
@@ -204,13 +219,30 @@ class Serializer {
         : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(schemas) {}
 
     [[nodiscard]] bool write(PyObject* object) {
+        // Exact types first: one pointer compare instead of a flag load per
+        // candidate, and real data is exact types essentially always.
+        // Subclasses fall to the flag-check chain below, whose one semantic
+        // ordering is bool before int (bool subclasses int and must never
+        // print as a number).
+        PyTypeObject* const type = Py_TYPE(object);
+        if (type == &PyUnicode_Type)
+            return write_string(object);
+        if (type == &PyFloat_Type) {
+            write_double(PyFloat_AS_DOUBLE(object));
+            return true;
+        }
+        if (type == &PyLong_Type)
+            return write_int(object);
+        if (type == &PyDict_Type)
+            return write_mapping(object);
+        if (type == &PyList_Type)
+            return write_sequence(object);
         if (object == Py_None) {
             out_.ensure(4);
             out_.write("null", 4);
             return true;
         }
-        // bool is a subclass of int, so it has to be tested first.
-        if (PyBool_Check(object)) {
+        if (object == Py_True || object == Py_False) {
             out_.ensure(5);
             if (object == Py_True)
                 out_.write("true", 4);
@@ -218,14 +250,15 @@ class Serializer {
                 out_.write("false", 5);
             return true;
         }
-        if (PyLong_Check(object))
-            return write_int(object);
+
+        if (PyUnicode_Check(object))
+            return write_string(object);
         if (PyFloat_Check(object)) {
             write_double(PyFloat_AS_DOUBLE(object));
             return true;
         }
-        if (PyUnicode_Check(object))
-            return write_string(object);
+        if (PyLong_Check(object)) // bools were handled above by identity
+            return write_int(object);
         if (PyList_Check(object) || PyTuple_Check(object))
             return write_sequence(object);
         if (PyDict_Check(object))
@@ -238,14 +271,24 @@ class Serializer {
 
   private:
     [[nodiscard]] bool write_int(PyObject* object) {
+#if PY_VERSION_HEX >= 0x030C0000
+        // A compact int is one machine word inside the object; reading it
+        // directly skips the exported conversion's call and overflow dance.
+        if (PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(object))) {
+            const Py_ssize_t value =
+                PyUnstable_Long_CompactValue(reinterpret_cast<PyLongObject*>(object));
+            out_.ensure(util::kInt64BufferSize);
+            out_.advance(util::format_int64(static_cast<int64_t>(value), out_.cursor()));
+            return true;
+        }
+#endif
         int overflow = 0;
         const long long value = PyLong_AsLongLongAndOverflow(object, &overflow);
         if (overflow == 0) {
             if (value == -1 && PyErr_Occurred())
                 return false;
-            out_.ensure(24);
-            const auto written = std::to_chars(out_.cursor(), out_.cursor() + 24, value);
-            out_.advance(static_cast<size_t>(written.ptr - out_.cursor()));
+            out_.ensure(util::kInt64BufferSize);
+            out_.advance(util::format_int64(value, out_.cursor()));
             return true;
         }
 
@@ -286,24 +329,34 @@ class Serializer {
     }
 
     [[nodiscard]] bool write_string_bytes(const char* data, size_t size) {
+        // Copy while scanning: the clean case reads each byte once. The
+        // stage is over-reserved by a block so the vectorized copy may store
+        // whole blocks before checking them; on a hit nothing is advanced,
+        // so the partial copy is scratch and the core escaper takes over --
+        // it remains the one definition of escaping.
+        if (size + 2 + 16 <= 512) {
+            out_.ensure(size + 2 + 16);
+            out_.put('"');
+            const size_t clean = util::copy_until_escape(data, size, out_.cursor());
+            if (clean == size) {
+                out_.advance(size);
+                out_.put('"');
+                return true;
+            }
+            // Roll back the opening quote; the escaper writes the whole
+            // string, quotes included.
+            out_.rewind(1);
+        }
+
         const size_t clean = util::find_next_escape(data, size);
         if (clean == size) {
-            if (size + 2 <= 512) {
-                out_.ensure(size + 2);
-                out_.put('"');
-                out_.write(data, size);
-                out_.put('"');
-            } else {
-                out_.ensure(1);
-                out_.put('"');
-                out_.write_spanning(data, size);
-                out_.ensure(1);
-                out_.put('"');
-            }
+            out_.ensure(1);
+            out_.put('"');
+            out_.write_spanning(data, size);
+            out_.ensure(1);
+            out_.put('"');
             return true;
         }
-        // Escaping is the rare path; the core escaper is the one definition
-        // of it, and it appends to the sink directly.
         append_escaped_json_string(std::string_view(data, size), out_.direct_sink());
         return true;
     }
@@ -382,6 +435,17 @@ class Serializer {
             // number, and an int subclass may override __repr__.
             if (Py_TYPE(item) != &PyLong_Type)
                 break;
+#if PY_VERSION_HEX >= 0x030C0000
+            if (PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(item))) {
+                out_.ensure(util::kInt64BufferSize + 1);
+                if (index != 0)
+                    out_.put(',');
+                out_.advance(util::format_int64(static_cast<int64_t>(PyUnstable_Long_CompactValue(
+                                                    reinterpret_cast<PyLongObject*>(item))),
+                                                out_.cursor()));
+                continue;
+            }
+#endif
             int overflow = 0;
             const long long value = PyLong_AsLongLongAndOverflow(item, &overflow);
             if (overflow != 0)
@@ -390,11 +454,10 @@ class Serializer {
                 PyErr_Clear();
                 break;
             }
-            out_.ensure(25);
+            out_.ensure(util::kInt64BufferSize + 1);
             if (index != 0)
                 out_.put(',');
-            const auto written = std::to_chars(out_.cursor(), out_.cursor() + 24, value);
-            out_.advance(static_cast<size_t>(written.ptr - out_.cursor()));
+            out_.advance(util::format_int64(value, out_.cursor()));
         }
         return index;
     }
@@ -426,13 +489,20 @@ class Serializer {
                 break;
             const char* data = static_cast<const char*>(PyUnicode_DATA(item));
             const auto length = static_cast<size_t>(PyUnicode_GET_LENGTH(item));
-            if (length > 500 || util::find_next_escape(data, length) != length)
+            if (length > 480)
                 break;
-            out_.ensure(length + 3);
+            out_.ensure(length + 3 + 16); // block-rounded room for the fused copy
+            const size_t before = index != 0 ? 2u : 1u;
             if (index != 0)
                 out_.put(',');
             out_.put('"');
-            out_.write(data, length);
+            if (util::copy_until_escape(data, length, out_.cursor()) != length) {
+                // An escape: undo the separator and quote, end the run, and
+                // let the general path (and the one escaper) handle this one.
+                out_.rewind(before);
+                break;
+            }
+            out_.advance(length);
             out_.put('"');
         }
         return index;
@@ -443,18 +513,18 @@ class Serializer {
     /// Nesting levels that get a schema slot; deeper objects take the plain walk.
     static constexpr size_t kMaxCachedDepth = 64;
 
-    [[nodiscard]] bool write_mapping(PyObject* object) {
-        const Frame frame(*this, object);
-        if (frame.repeated())
-            return frame.handle_cycle();
-        if (!frame.within_depth_limit())
-            return false;
+    /// Exact scalar types cannot recurse, so a dict of them cannot contain
+    /// itself and needs no cycle frame.
+    [[nodiscard]] static bool is_plain_scalar(PyObject* value) noexcept {
+        PyTypeObject* type = Py_TYPE(value);
+        return type == &PyUnicode_Type || type == &PyFloat_Type || type == &PyLong_Type ||
+               type == &PyBool_Type || value == Py_None;
+    }
 
-        // Documents are overwhelmingly made of records that share a schema, so
-        // the same keys get escape-scanned and quoted once per record.
-        // Remembering the previous object's keys turns all of that into one
-        // memcpy per key. The remembered bytes are produced by the very same
-        // escaper, so this is a cache, not a second format.
+    [[nodiscard]] bool write_mapping(PyObject* object) {
+        // One walk collects everything the decisions below need: the keys and
+        // values, whether every value is a plain scalar, and whether the
+        // object is too wide for the schema cache.
         PyObject* keys[kMaxSchemaKeys];
         PyObject* values[kMaxSchemaKeys];
         Py_ssize_t count = 0;
@@ -462,6 +532,7 @@ class Serializer {
         PyObject* key = nullptr;
         PyObject* value = nullptr;
         bool too_many = false;
+        bool all_scalar = true;
 
         while (PyDict_Next(object, &position, &key, &value)) {
             if (!PyUnicode_Check(key)) {
@@ -472,10 +543,28 @@ class Serializer {
                 too_many = true;
                 break;
             }
+            if (all_scalar && !is_plain_scalar(value))
+                all_scalar = false;
             keys[count] = key;
             values[count] = value;
             ++count;
         }
+
+        // The cycle frame exists to recognise this dict if it reappears below
+        // itself -- which can only happen through a container value. A dict
+        // of plain scalars cannot recurse, so the all-scalar majority of
+        // record data skips the frame entirely. The depth guard keeps the
+        // depth-limit contract byte-identical: at the boundary the framed
+        // path runs and raises exactly as before.
+        if (!too_many && count > 0 && all_scalar &&
+            open_.size() < static_cast<size_t>(depth_limit_))
+            return write_mapping_body(object, keys, values, count);
+
+        const Frame frame(*this, object);
+        if (frame.repeated())
+            return frame.handle_cycle();
+        if (!frame.within_depth_limit())
+            return false;
 
         if (too_many)
             return write_mapping_uncached(object);
@@ -487,6 +576,22 @@ class Serializer {
             out_.write("{}", 2);
             return true;
         }
+        return write_mapping_body(object, keys, values, count);
+    }
+
+#if defined(__clang__) || defined(__GNUC__)
+    [[gnu::always_inline]]
+#endif
+    // Inlined into both call sites: as an out-of-line function the call and
+    // register spill cost ~9 ns per object, which erased the frame-elision
+    // win on shallow-dict documents.
+    [[nodiscard]] inline bool write_mapping_body(PyObject* object, PyObject* const* keys,
+                                                 PyObject* const* values, Py_ssize_t count) {
+        // Documents are overwhelmingly made of records that share a schema, so
+        // the same keys get escape-scanned and quoted once per record.
+        // Remembering the previous object's keys turns all of that into one
+        // memcpy per key. The remembered bytes are produced by the very same
+        // escaper, so this is a cache, not a second format.
 
         // One cache slot per nesting depth. A single slot thrashes on real
         // documents: a user holds orders which hold items, so by the time the
@@ -503,14 +608,17 @@ class Serializer {
         // seen once would pay for a cache it never uses — measurably so on
         // documents of one-off shapes. A miss therefore only *remembers the
         // keys* (a pointer copy); the bytes are prepared on the second
-        // sighting, when repetition is established.
+        // sighting, when repetition is established. A depth that keeps
+        // diverging retires and takes the plain path.
         bool prepared = false;
-        if (schemas_[depth].matches(keys, count)) {
-            if (!schemas_[depth].prepared && !build_schema(schemas_[depth]))
-                return false;
-            prepared = true;
-        } else {
-            schemas_[depth].remember(keys, count);
+        if (!schemas_[depth].retired) {
+            if (schemas_[depth].matches(keys, count)) {
+                if (!schemas_[depth].prepared && !build_schema(schemas_[depth]))
+                    return false;
+                prepared = true;
+            } else {
+                schemas_[depth].remember(keys, count);
+            }
         }
 
         out_.ensure(1);

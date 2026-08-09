@@ -23,6 +23,37 @@ namespace strata::util {
 
 namespace {
 
+/// "00" "01" ... "99", so digits are peeled two at a time.
+constexpr char kDigitPairs[] = "00010203040506070809"
+                               "10111213141516171819"
+                               "20212223242526272829"
+                               "30313233343536373839"
+                               "40414243444546474849"
+                               "50515253545556575859"
+                               "60616263646566676869"
+                               "70717273747576777879"
+                               "80818283848586878889"
+                               "90919293949596979899";
+
+/// Fill digits of @p value backwards, ending at @p end; returns the first byte.
+[[nodiscard]] char* fill_u64_backwards(uint64_t value, char* end) noexcept {
+    char* cursor = end;
+    while (value >= 100) {
+        const size_t pair = static_cast<size_t>(value % 100) * 2;
+        value /= 100;
+        *--cursor = kDigitPairs[pair + 1];
+        *--cursor = kDigitPairs[pair];
+    }
+    if (value >= 10) {
+        const size_t pair = static_cast<size_t>(value) * 2;
+        *--cursor = kDigitPairs[pair + 1];
+        *--cursor = kDigitPairs[pair];
+    } else {
+        *--cursor = static_cast<char>('0' + value);
+    }
+    return cursor;
+}
+
 /// Fixed notation holds inside this window; outside it Python goes scientific.
 constexpr double kFixedLowerBound = 1e-4; ///< 1e-5 is scientific, 1e-4 is not
 constexpr double kFixedUpperBound = 1e16; ///< 1e16 is scientific, 1e15 is not
@@ -65,7 +96,7 @@ namespace {
     if (static_cast<double>(scaled) / 1e6 != magnitude)
         return 0;
 
-    int64_t digits = scaled;
+    uint64_t digits = static_cast<uint64_t>(scaled);
     int fraction = 6;
     while (fraction > 0 && digits % 10 == 0) {
         digits /= 10;
@@ -76,27 +107,35 @@ namespace {
     if (value < 0.0)
         out[written++] = '-';
 
-    int64_t divisor = 1;
-    for (int place = 0; place < fraction; ++place)
-        divisor *= 10;
-    const int64_t whole = digits / divisor;
-    const int64_t fractional = digits % divisor;
+    // One digit conversion for the whole number; the point is placed by
+    // splitting the digit string `fraction` places from its end.
+    char stage[24];
+    char* const stage_end = stage + sizeof(stage);
+    const char* const first = fill_u64_backwards(digits, stage_end);
+    const auto total = static_cast<size_t>(stage_end - first);
 
-    const auto whole_end = std::to_chars(out + written, out + written + 12, whole);
-    written = static_cast<size_t>(whole_end.ptr - out);
-    out[written++] = '.';
     if (fraction == 0) {
+        std::memcpy(out + written, first, total);
+        written += total;
+        out[written++] = '.';
         out[written++] = '0';
         return written;
     }
-    // The fraction is zero-padded to its width: 1.05 is digits=105 over 100.
-    char frac_digits[8];
-    const auto frac_end = std::to_chars(frac_digits, frac_digits + sizeof(frac_digits), fractional);
-    const auto frac_len = static_cast<size_t>(frac_end.ptr - frac_digits);
-    for (size_t pad = frac_len; pad < static_cast<size_t>(fraction); ++pad)
+    if (total > static_cast<size_t>(fraction)) {
+        const size_t whole_digits = total - static_cast<size_t>(fraction);
+        std::memcpy(out + written, first, whole_digits);
+        written += whole_digits;
+        out[written++] = '.';
+        std::memcpy(out + written, first + whole_digits, static_cast<size_t>(fraction));
+        return written + static_cast<size_t>(fraction);
+    }
+    // 0.00ddd — every digit is fractional, zero-padded on the left.
+    out[written++] = '0';
+    out[written++] = '.';
+    for (size_t pad = total; pad < static_cast<size_t>(fraction); ++pad)
         out[written++] = '0';
-    std::memcpy(out + written, frac_digits, frac_len);
-    return written + frac_len;
+    std::memcpy(out + written, first, total);
+    return written + total;
 }
 
 } // namespace
@@ -144,6 +183,59 @@ size_t format_double(double value, char* out, size_t capacity) noexcept {
         out[written++] = '0';
     }
     return written;
+}
+
+namespace {
+
+/// Number of decimal digits in @p value (1 for zero).
+[[nodiscard]] size_t decimal_digit_count(uint64_t value) noexcept {
+    if (value == 0)
+        return 1;
+    // floor(log10) from floor(log2): multiply by log10(2) in fixed point,
+    // then correct by comparing against the exact power.
+    static constexpr uint64_t kPow10[20] = {
+        1ULL,
+        10ULL,
+        100ULL,
+        1000ULL,
+        10000ULL,
+        100000ULL,
+        1000000ULL,
+        10000000ULL,
+        100000000ULL,
+        1000000000ULL,
+        10000000000ULL,
+        100000000000ULL,
+        1000000000000ULL,
+        10000000000000ULL,
+        100000000000000ULL,
+        1000000000000000ULL,
+        10000000000000000ULL,
+        100000000000000000ULL,
+        1000000000000000000ULL,
+        10000000000000000000ULL,
+    };
+    const auto bits = static_cast<size_t>(63 - __builtin_clzll(value));
+    size_t digits = (bits * 1233) >> 12;
+    digits += static_cast<size_t>(value >= kPow10[digits + 1 <= 19 ? digits + 1 : 19] &&
+                                  digits + 1 <= 19);
+    return digits + 1;
+}
+
+} // namespace
+
+size_t format_int64(int64_t value, char* out) noexcept {
+    uint64_t magnitude = static_cast<uint64_t>(value);
+    size_t written = 0;
+    if (value < 0) {
+        out[written++] = '-';
+        magnitude = 0 - magnitude; // wraps correctly for INT64_MIN
+    }
+    // Count first, then back-fill in place: the digits land exactly where
+    // they belong and nothing is copied twice.
+    const size_t digits = decimal_digit_count(magnitude);
+    (void)fill_u64_backwards(magnitude, out + written + digits);
+    return written + digits;
 }
 
 } // namespace strata::util

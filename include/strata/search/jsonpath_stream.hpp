@@ -58,7 +58,9 @@ template <typename Sink> class StreamSearchHandler {
         }
     }
 
-    bool on_null() { return value([&] { return sink_.on_null(); }); }
+    bool on_null() {
+        return value([&] { return sink_.on_null(); });
+    }
     bool on_bool(bool v) {
         return value([&] { return sink_.on_bool(v); });
     }
@@ -126,11 +128,11 @@ template <typename Sink> class StreamSearchHandler {
   private:
     /// One open container in the document.
     struct Level {
-        bool on_track;       ///< its children are tested against a selector
+        bool on_track; ///< its children are tested against a selector
         bool is_object;
-        bool child_selected; ///< object child: decided by the preceding key
-        bool field_done;     ///< Field selector already matched in this object
-        int64_t next_index;  ///< array child position, counted at value starts
+        bool child_selected;                ///< object child: decided by the preceding key
+        bool field_done;                    ///< Field selector already matched in this object
+        int64_t next_index;                 ///< array child position, counted at value starts
         std::vector<std::string> seen_keys; ///< Wildcard-over-object dedup
     };
 

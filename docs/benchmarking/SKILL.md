@@ -38,15 +38,15 @@ pysimdjson has no CPython 3.14 wheel and is excluded, which the reports state.
 
 | Category        | #1 rows (small) | #1 rows (medium) | vs best rival |
 | --------------- | --------------- | ---------------- | ------------- |
-| `loads`         | 3/5             | 4/5              | 0.50x – 1.28x |
-| `dumps`         | 0/5             | 0/5              | 1.05x – 1.56x |
+| `loads`         | 3/5             | 4/5              | 0.52x – 1.25x |
+| `dumps`         | 0/5             | 0/5              | 1.01x – 1.32x |
 | `load`          | 3/5             | **5/5**          | 0.49x – 1.15x |
-| `load (ndjson)` | **1/1**         | **1/1**          | 0.71x – 0.74x |
-| `dump`          | 0/5             | 0/5              | 1.08x – 1.39x |
-| `query`         | **3/3**         | **3/3**          | 0.01x – 0.27x |
+| `load (ndjson)` | **1/1**         | **1/1**          | 0.71x – 0.75x |
+| `dump`          | 0/5             | 0/5              | 1.07x – 1.32x |
+| `query`         | **3/3**         | **3/3**          | 0.01x – 0.26x |
 | `search`        | **3/3**         | **3/3**          | 0.05x – 0.35x |
 
-Total: 29/54 rows at #1 (was 8/27 on the small tier before this wave).
+Total: 29/54 rows at #1 (was 8/27 on the small tier before the M10 waves).
 
 **Where strata now leads outright:** every `query` row (4–100×), every
 `search` row (2.9–20× — the streaming SAX evaluator landed this wave; the
@@ -56,15 +56,16 @@ at both tiers (C++ single-read + parse beats read()+parse pipelines), and
 in-memory `loads` on the headline users dataset (0.93–0.94×) plus most
 medium datasets.
 
-**Where it does not:** serialization. `dumps`/`dump` are #2–#3 everywhere,
-1.05×–1.56× behind orjson — down from 1.85×–2.46× at the start of the wave
-(users dumps 7.89 → 3.55 ms). What remains is orjson's fused
-scan-while-copying SIMD string emission and its ~17 ns/value float converter
-against libc++ `to_chars` at ~40 ns for full-precision doubles (the
-micro-decimal tier covers fixed-decimal data but not arbitrary doubles);
-`loads` on small `flat`/`mixed` (1.15–1.28×) is per-object dict/creation
-overhead on documents too small to amortize the caches. Both are the next
-optimization targets; the techniques and negative results are in
+**Where it does not:** serialization. After the third wave `dumps`/`dump`
+are #2 on almost every row at 1.01×–1.32× behind orjson — nested is at
+1.01–1.03× (sub-1 ms difference), users at 1.14–1.20× — down from 1.85×–2.46×
+before the waves (users dumps 7.89 → 3.11 ms). The profiled remainder is
+spread thin: orjson's fused SIMD string emission at wider blocks, its
+~17 ns/value float converter against libc++ `to_chars` at ~40 ns for
+full-precision doubles (the micro-decimal tier covers fixed-decimal data
+only), and dict iteration without `PyDict_Next`. `loads` on small
+`flat`/`mixed` (1.15–1.28×) is per-object creation overhead on documents too
+small to amortize the caches. Techniques tried, adopted and rejected are in
 `docs/performance/SKILL.md`.
 
 ### Cross-session baselines are not comparable on this machine

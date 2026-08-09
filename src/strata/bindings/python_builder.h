@@ -446,6 +446,4 @@ class PythonObjectBuilder {
     KeyCache keys_cache_;
 };
 
-
-
 } // namespace strata::bindings

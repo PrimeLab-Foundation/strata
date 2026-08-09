@@ -18,10 +18,13 @@
  * Style: plain `assert` + `main()`, no framework (docs/context/styleguide.md).
  */
 
+#include "strata/util/dtoa.hpp"
 #include "strata/util/scan.hpp"
 
 #include <cassert>
+#include <charconv>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -108,6 +111,60 @@ void test_dense_matches() {
 
 } // namespace
 
+void test_fused_copy_matches_scan() {
+    // copy_until_escape must stop exactly where find_next_escape stops, and
+    // the bytes before the stop must be a faithful copy. Destination is
+    // block-rounded per the contract.
+    for (const char needle : {'"', '\\', '\0', '\x1f', '\n'}) {
+        for (size_t len = 0; len <= 96; ++len) {
+            for (size_t position = 0; position <= len; ++position) {
+                std::string text(len, 'p');
+                if (position < len)
+                    text[position] = needle;
+                std::vector<char> fused((len + 15) / 16 * 16 + 16, '\xAA');
+                std::vector<char> twin(fused.size(), '\xAA');
+
+                const size_t got = strata::util::copy_until_escape(text.data(), len, fused.data());
+                const size_t want =
+                    strata::util::copy_until_escape_scalar(text.data(), len, twin.data());
+                assert(got == want);
+                assert(got == strata::util::find_next_escape(text.data(), len));
+                assert(std::memcmp(fused.data(), text.data(), got) == 0);
+                assert(std::memcmp(twin.data(), text.data(), got) == 0);
+            }
+        }
+    }
+}
+
+void test_format_int64_matches_to_chars() {
+    const auto check = [](long long value) {
+        char ours[32];
+        char reference[32];
+        const size_t got = strata::util::format_int64(value, ours);
+        const auto converted = std::to_chars(reference, reference + sizeof(reference), value);
+        const auto want = static_cast<size_t>(converted.ptr - reference);
+        assert(got == want);
+        assert(std::memcmp(ours, reference, got) == 0);
+    };
+    check(0);
+    check(-1);
+    check(9223372036854775807LL);
+    check(-9223372036854775807LL - 1); // INT64_MIN
+    for (long long power = 1; power <= 1000000000000000000LL; power *= 10) {
+        check(power - 1);
+        check(power);
+        check(-power);
+        check(-power + 1);
+    }
+    unsigned long long state = 0x9E3779B97F4A7C15ULL;
+    for (int trial = 0; trial < 200000; ++trial) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        check(static_cast<long long>(state));
+    }
+}
+
 int main() {
     test_clean_strings_of_every_length();
     test_match_at_every_position();
@@ -115,6 +172,8 @@ int main() {
     test_unaligned_starts();
     test_multibyte_utf8_is_never_flagged();
     test_dense_matches();
+    test_fused_copy_matches_scan();
+    test_format_int64_matches_to_chars();
 
     std::puts("scan_tests: OK");
     return 0;

@@ -19,6 +19,7 @@
  */
 
 #include <cstddef>
+#include <cstdint>
 
 namespace strata::util {
 
@@ -36,5 +37,21 @@ inline constexpr size_t kDoubleBufferSize = 40;
  * @return Number of bytes written, or 0 if the buffer was too small.
  */
 [[nodiscard]] size_t format_double(double value, char* out, size_t capacity) noexcept;
+
+/// Longest output format_int64() can produce ("-9223372036854775808").
+inline constexpr size_t kInt64BufferSize = 20;
+
+/**
+ * Render @p value as decimal digits into @p out. Not terminated.
+ *
+ * Two digits per step through a 200-byte pair table — the classic itoa that
+ * beats `to_chars`' generic machinery by roughly half on the short integers
+ * JSON is made of. Behaviour is identical to `to_chars`; the digit-for-digit
+ * equivalence is pinned by test over boundaries and a large random sweep.
+ *
+ * @param out Buffer of at least @ref kInt64BufferSize bytes.
+ * @return Number of bytes written.
+ */
+[[nodiscard]] size_t format_int64(int64_t value, char* out) noexcept;
 
 } // namespace strata::util

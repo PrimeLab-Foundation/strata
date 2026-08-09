@@ -237,10 +237,10 @@ void test_invalid_documents_fail_after_matches() {
 void test_streamability_gate() {
     assert(is_streamable(compile_jsonpath("$[*].a").value));
     assert(is_streamable(compile_jsonpath("$.a[0].b").value));
-    assert(!is_streamable(compile_jsonpath("$").value));         // whole document
-    assert(!is_streamable(compile_jsonpath("$[-1]").value));     // needs the end
-    assert(!is_streamable(compile_jsonpath("$..a").value));      // descends into matches
-    assert(!is_streamable(compile_jsonpath("$[0:2]").value));    // sibling knowledge
+    assert(!is_streamable(compile_jsonpath("$").value));      // whole document
+    assert(!is_streamable(compile_jsonpath("$[-1]").value));  // needs the end
+    assert(!is_streamable(compile_jsonpath("$..a").value));   // descends into matches
+    assert(!is_streamable(compile_jsonpath("$[0:2]").value)); // sibling knowledge
     assert(!is_streamable(compile_jsonpath("$[?(@.a > 1)]").value));
 }
 

@@ -35,28 +35,44 @@ are not unknowingly repeated.
 
 All measured with `make bench-small` before and after, on the same host.
 
-| Change                                                                  | Effect (median)                               |
-| ----------------------------------------------------------------------- | --------------------------------------------- |
-| Escape clean runs in bulk instead of byte-at-a-time `push_back`         | part of the dumps 8-24% below                 |
-| Integers via `std::to_chars` into a stack buffer, not `std::to_string`  | (same batch; `to_string` allocated per int)   |
-| Thread-local dumps output buffer, reused across calls                   | dumps -8% to -24% across all datasets         |
-| Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM`  | loads -13% to -22% across all datasets        |
-| Per-document key cache (interned key reuse across records)              | (same batch)                                  |
-| PGO + ThinLTO (`make pgo`), IR-level instrumentation                    | loads -8% to -12%, dumps -11% to -25%         |
-| `to_chars(fixed)` directly instead of scientific-then-relayout (dtoa)   | format_double 77.8 -> 41.2 ns/value           |
-| Homogeneous int/float/bool array runs, batched into a stack chunk       | dumps wide_arrays -40%; bool lists 5.2->1.4x  |
-| Escape-bearing strings built through a stack chunk, one append/chunkful | escaped-string dumps 4.31x -> 2.76x vs orjson |
-| SIMD (NEON/SSE2) escape scan with a checked scalar twin                 | long clean strings 2.1x -> 1.5x vs orjson     |
-| Per-depth prepared-key schema cache for same-shape objects              | dumps users -20%, flat -30%, nested -30%      |
+| Change                                                                    | Effect (median)                                |
+| ------------------------------------------------------------------------- | ---------------------------------------------- |
+| Escape clean runs in bulk instead of byte-at-a-time `push_back`           | part of the dumps 8-24% below                  |
+| Integers via `std::to_chars` into a stack buffer, not `std::to_string`    | (same batch; `to_string` allocated per int)    |
+| Thread-local dumps output buffer, reused across calls                     | dumps -8% to -24% across all datasets          |
+| Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM`    | loads -13% to -22% across all datasets         |
+| Per-document key cache (interned key reuse across records)                | (same batch)                                   |
+| PGO + ThinLTO (`make pgo`), IR-level instrumentation                      | loads -8% to -12%, dumps -11% to -25%          |
+| `to_chars(fixed)` directly instead of scientific-then-relayout (dtoa)     | format_double 77.8 -> 41.2 ns/value            |
+| Homogeneous int/float/bool array runs, batched into a stack chunk         | dumps wide_arrays -40%; bool lists 5.2->1.4x   |
+| Escape-bearing strings built through a stack chunk, one append/chunkful   | escaped-string dumps 4.31x -> 2.76x vs orjson  |
+| SIMD (NEON/SSE2) escape scan with a checked scalar twin                   | long clean strings 2.1x -> 1.5x vs orjson      |
+| Per-depth prepared-key schema cache for same-shape objects                | dumps users -20%, flat -30%, nested -30%       |
+| **Wave 2** (loads + search, same protocol)                                |                                                |
+| Single-scan number conversion + exact-arithmetic double path (Clinger)    | loads wide_arrays -23%, nested -13%, flat -12% |
+| One-lookup dict inserts (`PyDict_SetDefault` under FirstWins)             | loads users -8% (same batch)                   |
+| Speculative key matching (`try_match_key`), divergence-damped             | loads flat -15%, users -5%                     |
+| Thread-leased builder: KeyCache + predictions warm across calls/lines     | part of the above; NDJSON now leads msgspec    |
+| Micro-decimal dtoa tier (n/10^6 exact witness, gated at 4e9)              | 6-decimal float dumps 2.51x -> 1.63x vs orjson |
+| Staged output writer (raw stores, one append per 8KB stageful)            | dumps users -30%, flat -39%, nested -40%       |
+| SWAR 8-byte escape-scan tier (short strings were byte-at-a-time)          | dumps users -4% on top                         |
+| **Streaming SAX search** (fixed-depth subset, FirstWins)                  | search $\[\*\].id 15.7 -> 4.9 ms, 2.9x ahead   |
+| **Wave 3** (dumps)                                                        |                                                |
+| Exact-type pointer dispatch; flag chain kept for subclasses               | (batch below)                                  |
+| Forward-writing pairs itoa (`format_int64`) + compact-long direct read    | int lists 1.40x -> 1.15x vs orjson             |
+| Micro-decimal emission: one digit conversion, point placed by arithmetic  | (same batch)                                   |
+| Cycle-frame elision for all-scalar dicts (cannot recurse => cannot cycle) | leaf-dict lists 1.51x -> 1.36x                 |
+| Fused copy-while-scan strings (`copy_until_escape`, checked twin)         | ~6 ns/string; users 3.79 -> 3.45 ms plain      |
+| Dumps schema-cache retirement after 16 divergences                        | mixed 1.84x -> 1.63x plain                     |
 
-After M10's dumps work the gap to orjson is ~1.9-2.4x on `dumps` (was
-2.4-4.0x). What is still not rebuilt: a custom shortest-float converter
-(`format_double` is now within 2 ns of libc++'s `to_chars`, which is itself
-~40 ns/value against orjson's ~17 ns), the homogeneous *string* array path,
-and the loads-side speculative key matching. The single largest remaining
-item is not a micro-optimization at all: the **SAX streaming JSONPath
-evaluator**, still unbuilt, which is why `search` costs a full parse plus a
-query (see the standings in docs/benchmarking/SKILL.md).
+After the third wave the PGO-headline `dumps` gap to orjson is 1.01x-1.32x
+(was 2.4-4.0x before the first wave): nested sits at 1.01-1.03x, users at
+1.15-1.20x, and every row is #2. The streaming SAX evaluator and speculative
+key matching are built. What remains, profiled rather than guessed: orjson's
+fused SIMD string emission at wider blocks (ours is 16-byte NEON + SWAR), a
+sub-20 ns general-case shortest-float (libc++ `to_chars` is ~40 ns on
+full-precision doubles; the micro-decimal tier only covers fixed-decimal
+data), and dict iteration without `PyDict_Next`. Those are the next wave.
 
 ### PGO, measured (M9)
 
@@ -103,6 +119,11 @@ comparison is meaningful, which is the point of running both orders.
 | Adaptive EMA pre-sizing (`AdaptiveSizeEstimator`)                                | 0.1 branch                                       | Simple last-size-per-depth heuristic won                                                                                                                                |
 | String-value caching/pooling                                                     | 0.1 branch (`441bcc8`)                           | Null result: string creation = 0.92% of runtime, ≤9.7% hit rate                                                                                                         |
 | Front-end instrumentation for PGO (`-fprofile-instr-generate/-use`)              | M9, and the blueprint's `setup.py`               | **~20% slower than plain -O3.** Source-level counters map poorly onto post-inlining IR; that flag pair is for coverage. IR-level `-fprofile-generate/-use` wins instead |
+| Compact-ASCII `PyUnicode_New(len,127)+memcpy` for string values                  | M10 wave 2                                       | Level-to-slightly-worse vs `PyUnicode_FromStringAndSize`: CPython's decoder already takes the same ASCII fast path. Reverted.                                           |
+| Unbounded prediction recording on shape-alternating documents                    | M10 wave 2                                       | 15% loads regression on mixed.json from recorder churn; fixed by retiring a depth after 16 divergences, not by removing the feature.                                    |
+| Micro-decimal dtoa without a magnitude gate                                      | M10 wave 2                                       | 1513 repr() mismatches in 2^35..2^41: above ~4e9 one ulp exceeds the 10^-6 lattice and a non-minimal witness passes the exactness check. Gate, don't trust.             |
+| Back-fill-then-memcpy itoa                                                       | M10 wave 3                                       | Regressed int lists 1.40x -> 1.59x: the staging memcpy costs more than `to_chars`' forward write. Count digits, fill in place.                                          |
+| Out-of-line mapping body in the hot recursive walk                               | M10 wave 3                                       | ~9 ns/object call/spill overhead; `always_inline` into both call sites recovered it.                                                                                    |
 | Compact-ASCII `PyUnicode_New(len,127)+memcpy` for string *values*                | M10                                              | Level-to-slightly-worse vs `PyUnicode_FromStringAndSize`: CPython's decoder already takes an ASCII fast path that is the same scan+copy. Reverted.                      |
 | Unbounded prediction recording on shape-alternating documents                    | M10 (speculative keys, first cut)                | 15% loads regression on mixed.json from recorder churn; fixed by retiring a depth after 16 divergences, not by removing the feature.                                    |
 | Micro-decimal dtoa without a magnitude gate                                      | M10                                              | 1513 repr() mismatches in 2^35..2^41: above ~4e9 one ulp exceeds the 10^-6 lattice and a non-minimal witness passes the exactness check. Gate, don't trust.             |
