@@ -44,7 +44,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── core_sources.txt     # the single core source list, read by CMake and setup.py
 │   ├── json/                # json_parse.cpp (DOM builder), json_serialize.cpp
 │   ├── util/                # scan.cpp, dtoa.cpp
-│   └── bindings/            # CPython layer: module init, loads, dumps, config
+│   └── bindings/            # CPython layer: module, loads, dumps, files, ndjson, cursor
 ├── python/strata/           # thin facade: __init__, serialize (loads/dumps), config
 ├── tests/
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
@@ -52,8 +52,9 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── unit/                # clause-by-clause contract suite
 │   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON); seed corpus at M9
 │
+├── benchmarks/              # harness, datasets and the regression gate
+│
 └── planned — later milestones add these (layout contract in docs/context/convention.md):
-    ├── benchmarks/          # harness vs orjson/msgspec/ujson (M5)
     └── experiments/         # isolated prototypes, never linked into production
 ```
 
@@ -64,9 +65,10 @@ following the documentation in `docs/`, one milestone per session
 (`docs/roadmap/SKILL.md`). Landed so far: M0 (scaffolding — build, both test
 layers, style gates, CI skeleton), M1 (core value model: `JsonValue`,
 `FlatMap`, `Status`/`Result`), M2 (SAX parser, DOM builder, `parse_json`),
-M3 (serializer and shortest round-trip float formatting) and M4 (the binding layer: `loads`, `dumps`,
-`config`). `import strata` now parses and serializes JSON; file and folder I/O,
-cursors and JSONPath are still to come. The rebuild is versioned calver,
+M3 (serializer and shortest round-trip float formatting) M4 (the binding layer: `loads`, `dumps`,
+`config`), M5 (benchmark harness, regression gate and a first performance
+layer) and M6 (file I/O, NDJSON and cursor mode). Folder mode and JSONPath are
+still to come. The rebuild is versioned calver,
 `YYYY.M.D` of release, starting at `2026.8.9` (see `docs/context/api.md`).
 
 The complete previous implementation (v0.2.0, all tests green) is preserved on

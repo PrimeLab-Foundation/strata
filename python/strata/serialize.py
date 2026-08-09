@@ -7,6 +7,8 @@ No parsing, formatting or type dispatch happens in Python
 
 from __future__ import annotations
 
+import os
+
 from . import _strata as _native
 
 
@@ -16,9 +18,11 @@ def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = Fa
     Args:
         source: JSON text. A ``str`` is already valid Unicode; for ``bytes``
             the parser is the only validator, so invalid UTF-8 is rejected.
-        return_type: ``"dict"`` returns the full object tree. ``"cursor"``
-            returns a lazy cursor and is not implemented yet.
-        iterator: Consume the root lazily. Not implemented yet.
+        return_type: ``"dict"`` returns the full object tree; ``"cursor"``
+            returns a lazy :class:`JsonCursor`.
+        iterator: Consume the root lazily. A dict root yields ``(key, value)``
+            pairs, a list root yields elements, and a scalar root is returned
+            unchanged.
 
     Returns:
         The parsed value: ``dict``, ``list``, ``str``, ``int``, ``float``,
@@ -27,7 +31,6 @@ def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = Fa
     Raises:
         ValueError: The text is not valid JSON, or ``return_type`` is unknown.
         TypeError: ``source`` is neither ``str`` nor ``bytes``.
-        NotImplementedError: For ``return_type="cursor"`` or ``iterator=True``.
         RuntimeError: An internal engine error.
         RuntimeWarning: Emitted, not raised, for a duplicate key while
             ``duplicate_key_policy`` is ``"warn"``.
@@ -57,3 +60,57 @@ def dumps(obj, *, return_type: str = "str") -> str | bytes:
             ``cycle_policy`` is ``"warn"``.
     """
     return _native.dumps(obj, return_type=return_type)
+
+
+def load(
+    path: str | os.PathLike,
+    *,
+    return_type: str = "dict",
+    iterator: bool = False,
+    skip_errors: bool = False,
+):
+    """Read JSON or NDJSON from a file.
+
+    Dispatch is by extension: ``.ndjson`` and ``.jsonl`` are line-delimited
+    records, anything else is a single document.
+
+    Args:
+        path: File to read. ``Path`` is accepted and normalized here.
+        return_type: ``"dict"`` for Python objects, ``"cursor"`` for a lazy
+            :class:`JsonCursor`. Cursor mode is not available for NDJSON.
+        iterator: Consume lazily. For NDJSON each line is parsed as it is
+            reached, so a malformed line raises at that line.
+        skip_errors: Drop malformed NDJSON lines instead of raising.
+
+    Returns:
+        The document, a list of records, a cursor, or an iterator.
+
+    Raises:
+        FileNotFoundError: No such file.
+        OSError: The file could not be read.
+        ValueError: Invalid JSON, an empty ``.json`` file, an unknown
+            ``return_type``, or cursor mode on NDJSON.
+    """
+    return _native.load(
+        os.fspath(path),
+        return_type=return_type,
+        iterator=iterator,
+        skip_errors=skip_errors,
+    )
+
+
+def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
+    """Write ``obj`` to a file as compact JSON with a trailing newline.
+
+    Args:
+        obj: The value to serialize; the same types :func:`dumps` accepts.
+        path: Destination file, truncated if it exists. ``Path`` is accepted.
+        split_by: Only meaningful for a directory target, which is a later
+            milestone; with a file target this is an error.
+
+    Raises:
+        OSError: The file could not be written.
+        TypeError: An object of an unsupported type, or a non-``str`` dict key.
+        ValueError: ``split_by`` was given, or serialization failed.
+    """
+    _native.dump(obj, os.fspath(path), split_by=split_by)

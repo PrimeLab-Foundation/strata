@@ -12,6 +12,7 @@
  */
 
 #include "python_types.h"
+#include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
 
 #include <cstring>
@@ -162,6 +163,25 @@ PyObject* strata_config_list(PyObject* /*self*/, PyObject* /*ignored*/) {
 // loads / dumps
 // ---------------------------------------------------------------------------
 
+/// Turn parsed text into whatever shape the caller asked for.
+PyObject* finish_loads(std::string_view text, bool validate_utf8, bool want_cursor, bool iterator) {
+    if (want_cursor) {
+        auto document = strata::JsonDocument::from_string(text);
+        if (!document.ok()) {
+            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+            return nullptr;
+        }
+        return strata::bindings::make_root_cursor(document.value.share());
+    }
+
+    strata::bindings::PyRef value(strata::bindings::loads_to_python(text, validate_utf8));
+    if (!value)
+        return nullptr;
+    if (!iterator)
+        return value.release();
+    return strata::bindings::make_root_iterator(value.get());
+}
+
 PyObject* strata_loads(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
     static const char* keywords[] = {"", "return_type", "iterator", nullptr};
@@ -173,16 +193,9 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
                                      &return_type, &iterator))
         return nullptr;
 
-    if (std::strcmp(return_type, "cursor") == 0) {
-        PyErr_SetString(PyExc_NotImplementedError, "return_type=\"cursor\" is not implemented yet");
-        return nullptr;
-    }
-    if (std::strcmp(return_type, "dict") != 0) {
+    const bool want_cursor = std::strcmp(return_type, "cursor") == 0;
+    if (!want_cursor && std::strcmp(return_type, "dict") != 0) {
         PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
-        return nullptr;
-    }
-    if (iterator) {
-        PyErr_SetString(PyExc_NotImplementedError, "iterator=True is not implemented yet");
         return nullptr;
     }
 
@@ -197,8 +210,8 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
             return nullptr;
         }
         // Already valid UTF-8 by construction, so the parser need not re-check.
-        return strata::bindings::loads_to_python(std::string_view(text, static_cast<size_t>(size)),
-                                                 /*validate_utf8=*/false);
+        return finish_loads(std::string_view(text, static_cast<size_t>(size)),
+                            /*validate_utf8=*/false, want_cursor, iterator != 0);
     }
 
     if (PyBytes_Check(source)) {
@@ -207,8 +220,8 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
         if (PyBytes_AsStringAndSize(source, &data, &size) != 0)
             return nullptr;
         // For bytes the parser is the only validator there is.
-        return strata::bindings::loads_to_python(std::string_view(data, static_cast<size_t>(size)),
-                                                 /*validate_utf8=*/true);
+        return finish_loads(std::string_view(data, static_cast<size_t>(size)),
+                            /*validate_utf8=*/true, want_cursor, iterator != 0);
     }
 
     PyErr_Format(PyExc_TypeError, "loads() expects str or bytes, not %s", Py_TYPE(source)->tp_name);
@@ -240,11 +253,53 @@ PyObject* strata_dumps(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
 /// table stores PyCFunction, and the call site casts back by flag.
 #define STRATA_KEYWORD_FN(fn) reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(fn))
 
+PyObject* strata_load(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    static const char* keywords[] = {"", "return_type", "iterator", "skip_errors", nullptr};
+    const char* path = nullptr;
+    const char* return_type = "dict";
+    int iterator = 0;
+    int skip_errors = 0;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$spp", const_cast<char**>(keywords), &path,
+                                     &return_type, &iterator, &skip_errors))
+        return nullptr;
+
+    return strata::bindings::load_from_file(path, return_type, iterator != 0, skip_errors != 0);
+    STRATA_CPP_CATCH
+}
+
+PyObject* strata_dump(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    static const char* keywords[] = {"", "", "split_by", nullptr};
+    PyObject* object = nullptr;
+    const char* path = nullptr;
+    PyObject* split_by = Py_None;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os|$O", const_cast<char**>(keywords), &object,
+                                     &path, &split_by))
+        return nullptr;
+
+    if (split_by != Py_None) {
+        // Folder mode is a later milestone; with a file target it is an error
+        // either way (docs/context/api.md).
+        PyErr_SetString(PyExc_ValueError, "split_by requires a directory target");
+        return nullptr;
+    }
+
+    return strata::bindings::dump_to_file(object, path);
+    STRATA_CPP_CATCH
+}
+
 PyMethodDef kModuleMethods[] = {
     {"loads", STRATA_KEYWORD_FN(strata_loads), METH_VARARGS | METH_KEYWORDS,
      "loads(source, *, return_type='dict', iterator=False)\n\nParse JSON text."},
     {"dumps", STRATA_KEYWORD_FN(strata_dumps), METH_VARARGS | METH_KEYWORDS,
      "dumps(obj, *, return_type='str')\n\nSerialize an object to JSON."},
+    {"load", STRATA_KEYWORD_FN(strata_load), METH_VARARGS | METH_KEYWORDS,
+     "load(path, *, return_type='dict', iterator=False, skip_errors=False)"},
+    {"dump", STRATA_KEYWORD_FN(strata_dump), METH_VARARGS | METH_KEYWORDS,
+     "dump(obj, path, *, split_by=None)"},
     {"config_set", strata_config_set, METH_VARARGS, "config_set(key, value)\n\nSet a setting."},
     {"config_get", strata_config_get, METH_VARARGS, "config_get(key)\n\nRead a setting."},
     {"config_list", strata_config_list, METH_NOARGS, "config_list()\n\nAll settings."},
@@ -271,5 +326,13 @@ PyMODINIT_FUNC PyInit__strata(void) {
     strata::set_duplicate_key_policy(strata::DuplicateKeyPolicy::FirstWins);
     strata::bindings::set_cycle_policy("warn");
 
-    return PyModule_Create(&kModuleDef);
+    PyObject* module = PyModule_Create(&kModuleDef);
+    if (module == nullptr)
+        return nullptr;
+    if (!strata::bindings::register_cursor_type(module) ||
+        !strata::bindings::register_ndjson_iterator_type(module)) {
+        Py_DECREF(module);
+        return nullptr;
+    }
+    return module;
 }

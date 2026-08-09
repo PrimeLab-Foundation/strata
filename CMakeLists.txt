@@ -75,6 +75,8 @@ strata_add_cpp_test(json_core_tests tests/cpp/test_json_core.cpp)
 strata_add_cpp_test(json_parse_tests tests/cpp/test_json_parse.cpp)
 strata_add_cpp_test(json_serialize_tests tests/cpp/test_json_serialize.cpp)
 strata_add_cpp_test(float_precision_tests tests/cpp/test_float_precision.cpp)
+strata_add_cpp_test(json_cursor_tests tests/cpp/test_json_cursor.cpp)
+strata_add_cpp_test(ndjson_tests tests/cpp/test_ndjson.cpp)
 strata_add_cpp_test(stress_deep_tests tests/cpp/test_stress_deep.cpp)
 
 # The registry is only "the single registry" if nothing can sit outside it: a

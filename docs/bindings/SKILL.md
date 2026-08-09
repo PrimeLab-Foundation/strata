@@ -12,6 +12,27 @@ description: CPython C-API binding layer — KeyCache and speculative key
 "Current state" says what the rebuild has actually built; everything after it is
 blueprint until a milestone makes it real.
 
+## Current state (after M6 — file I/O, NDJSON, cursor mode)
+
+Added since M4: `python_document.cpp` (the `JsonCursor` type),
+`python_ndjson.cpp` (eager and lazy NDJSON), `python_files.cpp` (`load`/`dump`
+in file mode), and `load`/`dump` on the facade.
+
+- **A cursor holds a `shared_ptr` share of the tree**, not a reference to a
+  document object. That makes the document-outlives-cursor invariant hold by
+  construction: nothing the caller drops can leave a cursor dangling, and there
+  is no document type to expose. Navigating hands the same share to the child.
+- **NDJSON parses line by line straight into Python objects.** Routing lines
+  through the C++ DOM would have rounded integers through a double, so
+  `next_line()` exists on the stream to hand the raw line to the same builder
+  `loads` uses.
+- **The NDJSON iterator is a real iterator type** owning the file text, so a
+  malformed line raises when iteration reaches it rather than at load time —
+  which is what "parses lazily line-by-line" has to mean.
+- Static `PyTypeObject`s leave their tail zeroed, as CPython prescribes; the
+  resulting `-Wmissing-field-initializers` is suppressed at those two
+  declarations and nowhere wider.
+
 ## Current state (after M4 — loads, dumps, config)
 
 Real on this branch: four files under `src/strata/bindings/` — `python_types.h`,
@@ -39,13 +60,14 @@ come.
   read the live policy variables rather than a cached map, so the reported
   setting and the actual behaviour cannot drift apart. That is the structural
   fix for the bug recorded below, not merely a corrected initial value.
-- `return_type="cursor"` and `iterator=True` raise `NotImplementedError` until
-  their milestones.
+- `return_type="cursor"` and `iterator=True` raised `NotImplementedError` at
+  this milestone; both are real as of M6, above.
 
-Not built yet: the KeyCache, speculative key matching, the small-int cache,
-presized dicts, the thread-local output buffer and every dumps fast path. All of
-that is the performance milestone, and this build is deliberately the
-straightforward version it will be measured against.
+Since M5 the key cache, flat-vector array building, the thread-local dumps
+buffer and to_chars integer formatting are in place. Still not built: speculative
+key matching, presized dicts, and the dumps fast paths (3-tier dtoa, batch
+same-schema dicts, homogeneous arrays) — which is where the remaining gap to
+orjson lives (docs/benchmarking/SKILL.md).
 
 Extension module `strata._strata` (`PyInit__strata` in `python_module.cpp`),
 hand-written CPython C API — **no pybind11** by policy. Pure-Python facade in

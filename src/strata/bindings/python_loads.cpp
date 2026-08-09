@@ -313,4 +313,18 @@ PyObject* loads_to_python(std::string_view text, bool validate_utf8) {
     return root;
 }
 
+PyObject* make_root_iterator(PyObject* value) {
+    // A mapping iterates as pairs, a sequence as elements, and anything else
+    // has nothing to iterate -- the flag is simply ignored there.
+    if (PyDict_Check(value)) {
+        PyRef items(PyObject_CallMethod(value, "items", nullptr));
+        if (!items)
+            return nullptr;
+        return PyObject_GetIter(items.get());
+    }
+    if (PyList_Check(value))
+        return PyObject_GetIter(value);
+    return Py_NewRef(value);
+}
+
 } // namespace strata::bindings

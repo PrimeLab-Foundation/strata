@@ -133,6 +133,9 @@ BINDING_SOURCES = [
     "src/strata/bindings/python_module.cpp",
     "src/strata/bindings/python_loads.cpp",
     "src/strata/bindings/python_dumps.cpp",
+    "src/strata/bindings/python_document.cpp",
+    "src/strata/bindings/python_ndjson.cpp",
+    "src/strata/bindings/python_files.cpp",
 ]
 
 

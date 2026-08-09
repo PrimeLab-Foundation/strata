@@ -13,7 +13,10 @@
 # Binding sources are NOT listed here: they are CPython-dependent and belong to
 # setup.py alone.
 
+src/strata/json/json_cursor.cpp
+src/strata/json/json_document.cpp
 src/strata/json/json_parse.cpp
 src/strata/json/json_serialize.cpp
+src/strata/json/ndjson_stream.cpp
 src/strata/util/dtoa.cpp
 src/strata/util/scan.cpp

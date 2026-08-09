@@ -17,7 +17,13 @@
 #include <Python.h>
 #include <cstddef>
 #include <exception>
+#include <memory>
+#include <string>
 #include <string_view>
+
+namespace strata {
+struct JsonValue;
+}
 
 namespace strata::bindings {
 
@@ -32,6 +38,32 @@ inline constexpr size_t kDumpsInitialCapacity = 1024;
 
 /// Serialize @p object to JSON as `str`, or as `bytes` when @p as_bytes.
 [[nodiscard]] PyObject* dumps_to_python(PyObject* object, bool as_bytes);
+
+/// Register the JsonCursor type on @p module. False with an error set on failure.
+bool register_cursor_type(PyObject* module);
+
+/// A cursor at the root of a tree, sharing ownership of it.
+[[nodiscard]] PyObject* make_root_cursor(const std::shared_ptr<const JsonValue>& owner);
+
+/// Register the lazy NDJSON iterator type. False with an error set on failure.
+bool register_ndjson_iterator_type(PyObject* module);
+
+/// Every record of @p text as a list, raising unless @p skip_errors.
+[[nodiscard]] PyObject* ndjson_to_list(std::string_view text, bool skip_errors);
+
+/// A lazy iterator that takes ownership of @p text and parses per line.
+[[nodiscard]] PyObject* make_ndjson_iterator(std::string&& text, bool skip_errors);
+
+/// An iterator over a parsed root: dict yields (key, value), list yields
+/// elements, and a scalar is returned unchanged (docs/context/api.md).
+[[nodiscard]] PyObject* make_root_iterator(PyObject* value);
+
+/// `load(path, ...)` in file mode.
+[[nodiscard]] PyObject* load_from_file(const char* path, const char* return_type, bool iterator,
+                                       bool skip_errors);
+
+/// `dump(obj, path)` in file mode.
+[[nodiscard]] PyObject* dump_to_file(PyObject* object, const char* path);
 
 /// What dumps() does when a container contains itself.
 enum class CyclePolicyValue { Warn, Error, Ignore };

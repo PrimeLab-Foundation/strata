@@ -14,7 +14,8 @@ extension was built.
 # (docs/context/convention.md, "No dependency fallbacks").
 from . import _strata as _native  # noqa: F401
 from . import config
-from .serialize import dumps, loads
+from ._strata import JsonCursor
+from .serialize import dump, dumps, load, loads
 
 # Single source of truth for the version (docs/context/api.md § Versioning).
 # pyproject.toml reads this literal dynamically — never add a second copy.
@@ -24,6 +25,11 @@ __all__ = [
     # Parse / serialize
     "loads",
     "dumps",
+    # File I/O
+    "load",
+    "dump",
+    # Cursor
+    "JsonCursor",
     # Settings
     "config",
     # Version

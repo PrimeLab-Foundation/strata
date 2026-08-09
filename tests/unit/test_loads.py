@@ -163,23 +163,31 @@ def test_an_unknown_return_type_raises_value_error():
 
 
 # ---------------------------------------------------------------------------
-# '`return_type="cursor"` returns a lazy JsonCursor'
-# '`iterator=True`: dict root yields (key, value), list root yields elements'
-#
-# Both are contracted but not built yet. Convention rule 1: a capability that
-# is not in C++ raises NotImplementedError rather than being faked in Python.
-# The behavioural tests land with the milestone that implements them.
+# '`return_type="cursor"` returns a lazy `JsonCursor`'
+# '`iterator=True`: dict root yields (key, value), list root yields elements
+#  (eager parse, lazy consumption); scalar roots ignore the flag'
 # ---------------------------------------------------------------------------
 
 
-def test_cursor_mode_is_not_implemented_yet():
-    with pytest.raises(NotImplementedError):
-        strata.loads("{}", return_type="cursor")
+def test_cursor_mode_returns_a_cursor():
+    cursor = strata.loads('{"a": {"b": [1, 2]}}', return_type="cursor")
+    assert isinstance(cursor, strata.JsonCursor)
+    assert cursor.is_object()
+    assert cursor.field("a").field("b").at(1).get_int() == 2
 
 
-def test_iterator_mode_is_not_implemented_yet():
-    with pytest.raises(NotImplementedError):
-        strata.loads("{}", iterator=True)
+def test_iterator_over_a_dict_root_yields_pairs():
+    pairs = list(strata.loads('{"a": 1, "b": 2}', iterator=True))
+    assert pairs == [("a", 1), ("b", 2)]
+
+
+def test_iterator_over_a_list_root_yields_elements():
+    assert list(strata.loads("[1, 2, 3]", iterator=True)) == [1, 2, 3]
+
+
+@pytest.mark.parametrize(("text", "expected"), [("42", 42), ('"s"', "s"), ("null", None)])
+def test_a_scalar_root_ignores_the_iterator_flag(text, expected):
+    assert strata.loads(text, iterator=True) == expected
 
 
 # ---------------------------------------------------------------------------
