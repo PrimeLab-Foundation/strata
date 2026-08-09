@@ -58,6 +58,16 @@ Real on this branch:
   CMake is a dev dependency because `make test` drives ctest — without it the
   documented `make dev && make test` path would need a system CMake that no
   make target can install.
+- `src/strata/core_sources.txt` — the one list of core translation units, read
+  by CMakeLists.txt (suites and fuzz targets) and by setup.py (the extension),
+  and pinned by `tests/unit/test_build_manifest.py`: a core `.cpp` that is not
+  listed, or a listed file that is missing, fails the Python suites. Keep it
+  ASCII — CMake's `file(STRINGS)` treats non-ASCII bytes as separators.
+- `tests/fuzz/` — `fuzz_loads.cpp` plus its own CMakeLists, built only with
+  `-DFUZZ=ON`. It probes for the libFuzzer runtime at configure time and fails
+  with an actionable message when the toolchain lacks one (Apple's clang always
+  does), instead of the blueprint's raw missing-`libclang_rt.fuzzer_osx.a` link
+  error. The seed corpus and the scheduled runs arrive at M9.
 - `CMakeLists.txt` — single registry. One suite is one
   `strata_add_cpp_test(target, source...)` line; default build type is Release,
   tests run with the source tree as their working directory, and test targets

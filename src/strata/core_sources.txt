@@ -1,0 +1,17 @@
+# Core C++ translation units: the single shared list.
+#
+# Read by CMakeLists.txt (test registry and fuzz targets) and by setup.py (the
+# extension), so ctest binaries and the shipped extension can never be built
+# from different sources. The previous implementation kept four hand-maintained
+# copies of this list and they drifted until its coverage build compiled
+# nothing at all.
+#
+# One repository-relative path per line; '#' comments and blank lines ignored.
+# Keep this file ASCII-only: CMake's file(STRINGS) treats non-ASCII bytes as
+# separators and would split a comment line into bogus entries.
+#
+# Binding sources are NOT listed here: they are CPython-dependent and belong to
+# setup.py alone.
+
+src/strata/json/json_parse.cpp
+src/strata/util/scan.cpp

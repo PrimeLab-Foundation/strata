@@ -12,11 +12,43 @@ description: C++ core architecture of strata — hybrid SAX parser, DOM,
 "Current state" below says what the rebuild has actually built; everything after
 it is blueprint until a milestone makes it real.
 
-## Current state (after M1 — core value model)
+## Current state (after M2 — SAX parser core)
 
-`include/strata/json/json_core.hpp` exists and is header-only: `FlatMap`,
-`Status`, `Result<T>` and `JsonValue`, exactly as described under "Value model"
-below, with three deliberate departures from the blueprint:
+Real on this branch: the value model (M1) and the parser (M2). Files:
+`include/strata/json/{json_core,json_sax_handler,json_parser_inline,json_parse}.hpp`,
+`include/strata/util/{scan,fast_parse}.hpp`, `src/strata/json/json_parse.cpp`,
+`src/strata/util/scan.cpp`. Nothing is exposed to Python yet — that starts at M4.
+
+Parser departures from the blueprint:
+
+- **`on_big_int(std::string_view)` replaces `on_uint`.** An integer literal
+  that does not fit `int64_t` is handed to the handler as its raw token, so a
+  handler that can be exact (the Python builder) will be. The blueprint
+  accumulated only the first 19 digits and returned that truncation as the
+  value, which is how it mis-parsed 20-digit integers. `on_uint` was never
+  emitted and the `size_hint` parameters were always 0; neither was rebuilt.
+- **Conversion goes through `std::from_chars`** — correctly rounded, and immune
+  to the process locale, unlike the `strtod` the blueprint fell back to. Values
+  outside the double range saturate to ±inf or 0, matching stdlib `json`.
+- **Scalar, and honestly named.** The scan primitives live in
+  `util/scan.hpp` as `validate_utf8` / `skip_whitespace` / `find_next_escape`;
+  vectorised bodies go behind those same names at M5. The blueprint called them
+  `simd_*` while at least one of them was scalar all along.
+- **No speculative-key hook and no inline array fast path** yet: both are
+  performance work with benchmarks attached (M5), and the parser is correct
+  first.
+- Recursion is still the only depth limit, as the invariant below requires.
+
+Strictness was verified by diffing accept/reject against stdlib `json` over a
+generated corpus of ~1700 documents. The only disagreements are deliberate and
+pinned by test: NaN/Infinity, escaped lone surrogates, CESU-8-encoded
+surrogates, and a leading UTF-8 BOM.
+
+## Value model as built (after M1)
+
+`include/strata/json/json_core.hpp` is header-only: `FlatMap`, `Status`,
+`Result<T>` and `JsonValue`, exactly as described under "Value model" below,
+with three deliberate departures from the blueprint:
 
 - **Dead API not rebuilt.** `Result::unwrap()`, `Result::value_or()` and
   `FlatMap::count()` had zero callers anywhere in the previous implementation.
@@ -31,8 +63,9 @@ below, with three deliberate departures from the blueprint:
   parser's duplicate-key policy depends on `find()` returning the *first* match
   and on the caller doing the uniqueness check.
 
-No core `.cpp` exists yet, so `STRATA_CORE_SOURCES` in CMakeLists.txt is still
-empty and the extension still compiles only the bindings TU. Core purity is
+Core translation units are enumerated once, in `src/strata/core_sources.txt`,
+which both CMakeLists.txt and setup.py read — so the ctest binaries, the fuzz
+targets and the shipped extension are built from the same code. Core purity is
 enforced mechanically by `tests/unit/test_core_purity.py`, which scans
 `include/` and `src/strata/` minus `bindings/` and carries a positive control so
 it cannot pass vacuously.

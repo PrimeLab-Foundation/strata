@@ -124,12 +124,32 @@ def _compile_args() -> list[str]:
     return args
 
 
+CORE_MANIFEST = PROJECT_ROOT / "src" / "strata" / "core_sources.txt"
+
+# CPython-dependent translation units. Core sources are *not* listed here — they
+# come from the shared manifest that CMake reads too, so the test binaries and
+# the extension can never be built from different sources.
+BINDING_SOURCES = [
+    "src/strata/bindings/python_module.cpp",
+]
+
+
+def _core_sources() -> list[str]:
+    entries = []
+    for raw in CORE_MANIFEST.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if not (PROJECT_ROOT / line).exists():
+            raise SystemExit(f"core_sources.txt lists a file that does not exist: {line}")
+        entries.append(line)
+    return entries
+
+
 ext_modules = [
     Extension(
         "strata._strata",
-        sources=[
-            "src/strata/bindings/python_module.cpp",
-        ],
+        sources=[*BINDING_SOURCES, *_core_sources()],
         include_dirs=[
             "include",
             get_paths()["include"],

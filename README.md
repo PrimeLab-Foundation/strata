@@ -5,8 +5,8 @@ a dependency-free C++20 engine with hand-written CPython C-API bindings.
 
 **Rebuild in progress.** The implementation is being rebuilt from scratch, one
 milestone at a time. The build, both test layers, the style gates, a CI skeleton
-and the C++ core value model are in place; parsing starts with the next
-milestone, so there is no working JSON API yet. The docs under [docs/](docs/) are the complete
+and the C++ engine's value model and JSON parser are in place; nothing is
+exposed to Python yet, so there is no working JSON API. The docs under [docs/](docs/) are the complete
 specification: conventions, style, public API contract, architecture,
 benchmarking methodology, the optimization playbook (including negative
 results), and project history.

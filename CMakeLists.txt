@@ -23,9 +23,24 @@ endif()
 
 enable_testing()
 
-# Core translation units linked into every suite. Empty until M1 introduces the
-# value model; keep this list and the source list in setup.py in step.
-set(STRATA_CORE_SOURCES)
+# Core translation units linked into every suite. The list itself lives in one
+# shared manifest that setup.py reads too, so the test binaries and the shipped
+# extension cannot be built from different sources.
+set(STRATA_CORE_MANIFEST ${CMAKE_CURRENT_SOURCE_DIR}/src/strata/core_sources.txt)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${STRATA_CORE_MANIFEST})
+
+file(STRINGS ${STRATA_CORE_MANIFEST} STRATA_CORE_MANIFEST_LINES)
+set(STRATA_CORE_SOURCES "")
+foreach(entry IN LISTS STRATA_CORE_MANIFEST_LINES)
+    string(STRIP "${entry}" entry)
+    if(entry STREQUAL "" OR entry MATCHES "^#")
+        continue()
+    endif()
+    if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${entry})
+        message(FATAL_ERROR "core_sources.txt lists a file that does not exist: ${entry}")
+    endif()
+    list(APPEND STRATA_CORE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${entry})
+endforeach()
 
 set(STRATA_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -57,6 +72,8 @@ endfunction()
 
 strata_add_cpp_test(smoke_tests tests/cpp/test_smoke.cpp)
 strata_add_cpp_test(json_core_tests tests/cpp/test_json_core.cpp)
+strata_add_cpp_test(json_parse_tests tests/cpp/test_json_parse.cpp)
+strata_add_cpp_test(stress_deep_tests tests/cpp/test_stress_deep.cpp)
 
 # The registry is only "the single registry" if nothing can sit outside it: a
 # suite added to tests/cpp/ but never registered would be silently uncompiled,
@@ -71,3 +88,18 @@ foreach(source IN LISTS STRATA_TEST_SOURCES)
                 "in CMakeLists.txt, the single C++ test registry.")
     endif()
 endforeach()
+
+# ---------------------------------------------------------------------------
+# Fuzz targets — opt-in, built with libFuzzer + ASan + UBSan.
+#
+#   cmake -S . -B build/fuzz -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
+#
+# They only have to *compile* at this milestone. Running them needs a committed
+# seed corpus, which lands with the hardening milestone: the previous
+# implementation documented a corpus directory that was never added to git, so
+# libFuzzer failed at startup on every scheduled run.
+# ---------------------------------------------------------------------------
+option(FUZZ "Build libFuzzer fuzz targets (clang only)" OFF)
+if(FUZZ)
+    add_subdirectory(tests/fuzz)
+endif()
