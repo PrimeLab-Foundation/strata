@@ -7,9 +7,11 @@
  * everything that is specific to Python objects: type dispatch, the depth
  * ceiling, and cycle handling.
  *
- * This is the correctness-first build. The thread-local output buffer,
- * homogeneous-list fast paths and batched dict serialization described in
- * docs/bindings/SKILL.md are performance work and land with that milestone.
+ * The fast paths here are accelerators, never second definitions of the
+ * format: the scalar-array runs re-check the element type on every element and
+ * fall back mid-list, and the per-depth schema cache stores bytes produced by
+ * the same escaper the general path uses. Both are measured in
+ * docs/performance/SKILL.md.
  */
 
 #include "python_types.h"
@@ -20,6 +22,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -127,7 +130,14 @@ class Serializer {
         out_.push_back('[');
         const Py_ssize_t size = PySequence_Fast_GET_SIZE(object);
         PyObject** items = PySequence_Fast_ITEMS(object);
-        for (Py_ssize_t index = 0; index < size; ++index) {
+
+        // Arrays of one scalar type are the common shape in real payloads, and
+        // for them the per-element type dispatch and the two buffer appends
+        // (value, then separator) are pure overhead. The scalar runs below
+        // format straight into a stack chunk and append once per chunk.
+        Py_ssize_t index = write_scalar_run(items, size);
+
+        for (; index < size; ++index) {
             if (index != 0)
                 out_.push_back(',');
             if (!write(items[index]))
@@ -137,6 +147,130 @@ class Serializer {
         return true;
     }
 
+    /// How many elements a run formats before flushing its stack chunk.
+    static constexpr Py_ssize_t kChunkElements = 64;
+
+    /**
+     * Serialize the leading run of same-typed scalars, and say where it ended.
+     *
+     * The element type is taken from the first element and then *verified on
+     * every element*: a list that turns out to be mixed simply stops the run
+     * early and the caller's general loop picks up at the returned index. So
+     * this is an accelerator, never a second definition of the format — every
+     * byte it writes is a byte the general path would have written.
+     */
+    [[nodiscard]] Py_ssize_t write_scalar_run(PyObject** items, Py_ssize_t size) {
+        if (size == 0)
+            return 0;
+        PyTypeObject* type = Py_TYPE(items[0]);
+        if (type == &PyFloat_Type)
+            return run_floats(items, size);
+        if (type == &PyLong_Type)
+            return run_ints(items, size);
+        if (type == &PyBool_Type)
+            return run_bools(items, size);
+        return 0;
+    }
+
+    [[nodiscard]] Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
+        char* const chunk = run_chunk_;
+        Py_ssize_t index = 0;
+        while (index < size) {
+            size_t used = 0;
+            const Py_ssize_t limit = std::min(size, index + kChunkElements);
+            Py_ssize_t taken = index;
+            for (; taken < limit; ++taken) {
+                PyObject* item = items[taken];
+                if (Py_TYPE(item) != &PyFloat_Type)
+                    break;
+                if (taken != 0)
+                    chunk[used++] = ',';
+                const double value = PyFloat_AS_DOUBLE(item);
+                if (std::isnan(value) || std::isinf(value)) {
+                    std::memcpy(chunk + used, "null", 4);
+                    used += 4;
+                } else {
+                    used += util::format_double(value, chunk + used, util::kDoubleBufferSize);
+                }
+            }
+            out_.append(chunk, used);
+            if (taken == index)
+                break;
+            index = taken;
+        }
+        return index;
+    }
+
+    [[nodiscard]] Py_ssize_t run_ints(PyObject** items, Py_ssize_t size) {
+        // A long long is at most 20 characters; the separator makes 21.
+        constexpr size_t kIntBytes = 24;
+        char* const chunk = run_chunk_;
+        Py_ssize_t index = 0;
+        while (index < size) {
+            size_t used = 0;
+            const Py_ssize_t limit = std::min(size, index + kChunkElements);
+            Py_ssize_t taken = index;
+            for (; taken < limit; ++taken) {
+                PyObject* item = items[taken];
+                // Not PyLong_Check: bool is a subclass and must not print as
+                // a number, and an int subclass may override __repr__.
+                if (Py_TYPE(item) != &PyLong_Type)
+                    break;
+                int overflow = 0;
+                const long long value = PyLong_AsLongLongAndOverflow(item, &overflow);
+                if (overflow != 0)
+                    break; // the general path renders big ints via their str
+                if (value == -1 && PyErr_Occurred()) {
+                    PyErr_Clear();
+                    break;
+                }
+                if (taken != 0)
+                    chunk[used++] = ',';
+                const auto written = std::to_chars(chunk + used, chunk + used + kIntBytes, value);
+                used = static_cast<size_t>(written.ptr - chunk);
+            }
+            out_.append(chunk, used);
+            if (taken == index)
+                break;
+            index = taken;
+        }
+        return index;
+    }
+
+    [[nodiscard]] Py_ssize_t run_bools(PyObject** items, Py_ssize_t size) {
+        char* const chunk = run_chunk_;
+        Py_ssize_t index = 0;
+        while (index < size) {
+            size_t used = 0;
+            const Py_ssize_t limit = std::min(size, index + kChunkElements);
+            Py_ssize_t taken = index;
+            for (; taken < limit; ++taken) {
+                PyObject* item = items[taken];
+                if (item != Py_True && item != Py_False)
+                    break;
+                if (taken != 0)
+                    chunk[used++] = ',';
+                if (item == Py_True) {
+                    std::memcpy(chunk + used, "true", 4);
+                    used += 4;
+                } else {
+                    std::memcpy(chunk + used, "false", 5);
+                    used += 5;
+                }
+            }
+            out_.append(chunk, used);
+            if (taken == index)
+                break;
+            index = taken;
+        }
+        return index;
+    }
+
+    /// Objects with more keys than this serialize their keys the plain way.
+    static constexpr Py_ssize_t kMaxSchemaKeys = 24;
+    /// Nesting levels that get a schema slot; deeper objects take the plain walk.
+    static constexpr size_t kMaxCachedDepth = 64;
+
     [[nodiscard]] bool write_mapping(PyObject* object) {
         const Frame frame(*this, object);
         if (frame.repeated())
@@ -144,6 +278,146 @@ class Serializer {
         if (!frame.within_depth_limit())
             return false;
 
+        // Documents are overwhelmingly made of records that share a schema, so
+        // the same keys get UTF-8-fetched, escape-scanned and quoted once per
+        // record. Remembering the previous object's keys turns all of that
+        // into one memcpy per key. The remembered bytes are produced by the
+        // very same escaper, so this is a cache, not a second format.
+        PyObject* keys[kMaxSchemaKeys];
+        PyObject* values[kMaxSchemaKeys];
+        Py_ssize_t count = 0;
+        Py_ssize_t position = 0;
+        PyObject* key = nullptr;
+        PyObject* value = nullptr;
+        bool too_many = false;
+
+        while (PyDict_Next(object, &position, &key, &value)) {
+            if (!PyUnicode_Check(key)) {
+                PyErr_Format(PyExc_TypeError, "keys must be str, not %s", Py_TYPE(key)->tp_name);
+                return false;
+            }
+            if (count == kMaxSchemaKeys) {
+                too_many = true;
+                break;
+            }
+            keys[count] = key;
+            values[count] = value;
+            ++count;
+        }
+
+        if (too_many)
+            return write_mapping_uncached(object);
+
+        // An empty object has no keys to prepare, and letting it reach the
+        // schema path would have it "match" a never-built cache.
+        if (count == 0) {
+            out_.append("{}", 2);
+            return true;
+        }
+
+        // One cache slot per nesting depth. A single slot thrashes on real
+        // documents: a user holds orders which hold items, so by the time the
+        // walk returns to the next user the slot describes an item. Keyed by
+        // depth, each level keeps its own schema and sibling records — which
+        // is where the repetition actually is — hit every time.
+        const size_t depth = open_.size();
+        if (depth >= kMaxCachedDepth)
+            return write_mapping_uncached(object);
+        if (schemas_.size() <= depth)
+            schemas_.resize(depth + 1);
+
+        // Preparing the bytes costs about what writing them costs, so a schema
+        // seen once would pay for a cache it never uses — measurably so on
+        // documents of one-off shapes. A miss therefore only *remembers the
+        // keys* (a pointer copy); the bytes are prepared on the second
+        // sighting, when repetition is established.
+        bool prepared = false;
+        if (schemas_[depth].matches(keys, count)) {
+            if (!schemas_[depth].prepared && !build_schema(schemas_[depth]))
+                return false;
+            prepared = true;
+        } else {
+            schemas_[depth].remember(keys, count);
+        }
+
+        out_.push_back('{');
+        for (Py_ssize_t index = 0; index < count; ++index) {
+            if (index != 0)
+                out_.push_back(',');
+            if (prepared) {
+                // `"key":` — quotes, escapes and colon, prepared once.
+                //
+                // Re-indexed every iteration rather than held by reference: a
+                // nested object may grow `schemas_` and move its elements. The
+                // slot's own bytes are never touched by a deeper level, so
+                // indexing afresh is both safe and free.
+                const Schema& schema = schemas_[depth];
+                out_.append(schema.blob.data() + schema.offsets[static_cast<size_t>(index)],
+                            schema.offsets[static_cast<size_t>(index) + 1] -
+                                schema.offsets[static_cast<size_t>(index)]);
+            } else {
+                if (!write_string(keys[index]))
+                    return false;
+                out_.push_back(':');
+            }
+            if (!write(values[index]))
+                return false;
+        }
+        out_.push_back('}');
+        return true;
+    }
+
+    /// Prepared `"key":` bytes for one object shape, plus the keys they came from.
+    struct Schema {
+        std::vector<PyObject*> keys;      ///< borrowed; compared by identity only
+        std::string blob;                 ///< the prepared bytes, back to back
+        std::vector<uint32_t> offsets{0}; ///< blob boundaries, keys.size() + 1 of them
+        bool prepared = false;            ///< whether blob/offsets are built for `keys`
+
+        /// Note these keys without preparing anything (a first sighting).
+        void remember(PyObject* const* other, Py_ssize_t count) {
+            keys.assign(other, other + count);
+            prepared = false;
+        }
+
+        /// Whether this slot is exactly these keys, in this order.
+        [[nodiscard]] bool matches(PyObject* const* other, Py_ssize_t count) const noexcept {
+            if (static_cast<Py_ssize_t>(keys.size()) != count)
+                return false;
+            for (Py_ssize_t index = 0; index < count; ++index) {
+                // Identity, not equality: strata interns the keys it parses and
+                // CPython interns identifier-like literals, so same-schema
+                // records share key objects. A miss costs a rebuild, never a
+                // wrong answer.
+                if (keys[static_cast<size_t>(index)] != other[index])
+                    return false;
+            }
+            return true;
+        }
+    };
+
+    /// Prepare the `"key":` bytes for a schema whose keys are already recorded.
+    [[nodiscard]] bool build_schema(Schema& schema) {
+        schema.blob.clear();
+        schema.offsets.assign(1, 0);
+        for (PyObject* key : schema.keys) {
+            Py_ssize_t size = 0;
+            const char* utf8 = PyUnicode_AsUTF8AndSize(key, &size);
+            if (utf8 == nullptr) {
+                schema.keys.clear(); // never leave a half-built slot cached
+                return false;
+            }
+            append_escaped_json_string(std::string_view(utf8, static_cast<size_t>(size)),
+                                       schema.blob);
+            schema.blob.push_back(':');
+            schema.offsets.push_back(static_cast<uint32_t>(schema.blob.size()));
+        }
+        schema.prepared = true;
+        return true;
+    }
+
+    /// The plain walk, for objects too wide to be worth remembering.
+    [[nodiscard]] bool write_mapping_uncached(PyObject* object) {
         out_.push_back('{');
         Py_ssize_t position = 0;
         PyObject* key = nullptr;
@@ -224,6 +498,15 @@ class Serializer {
     std::string& out_;
     std::vector<PyObject*> open_;
     int depth_limit_;
+
+    // One prepared schema per nesting depth.
+    // Scratch for the scalar runs. A member, not a local: write_sequence
+    // recurses, and a 2.5 KB array on every frame turns a deeply nested
+    // document into a stack overflow. The runs themselves never recurse, so
+    // one buffer serves them all.
+    char run_chunk_[kChunkElements * (util::kDoubleBufferSize + 1)];
+
+    std::vector<Schema> schemas_;
 };
 
 } // namespace

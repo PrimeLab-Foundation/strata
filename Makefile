@@ -124,17 +124,17 @@ bench-data: venv  ## Generate the small, medium and large datasets
 
 bench-small: venv  ## Benchmark the small tier
 	$(BENCH_RUN) --name small --repeat 10 --warmup 2 \
-		$(foreach f,users.json flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/small/$(f)) \
+		$(foreach f,users.json users.ndjson flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/small/$(f)) \
 		--output $(BENCH_REPORTS)/bench_results_small.md
 
 bench-medium: venv  ## Benchmark the medium tier
 	$(BENCH_RUN) --name medium --repeat 10 --warmup 2 \
-		$(foreach f,users.json flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/medium/$(f)) \
+		$(foreach f,users.json users.ndjson flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/medium/$(f)) \
 		--output $(BENCH_REPORTS)/bench_results_medium.md
 
 bench-large: venv  ## Benchmark the large tier
 	$(BENCH_RUN) --name large --repeat 10 --warmup 2 \
-		$(foreach f,users.json flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/large/$(f)) \
+		$(foreach f,users.json users.ndjson flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/large/$(f)) \
 		--output $(BENCH_REPORTS)/bench_results_large.md
 
 bench-all: bench-data bench-small bench-medium bench-large  ## Data plus every tier

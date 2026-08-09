@@ -29,36 +29,50 @@ a dev micro-profiler hard-importing orjson/msgspec. Metrics via `harness.py`:
 min/median/p95 + RSS (psutil). `benchmarks/datasets.py` was orphaned
 (imported by nothing) — don't recreate it.
 
-## Standings of the rebuild (after M5, macOS arm64 / Apple M1 Max, py3.14)
+## Standings of the rebuild (after M10, macOS arm64 / Apple M1 Max, py3.14)
 
 Machine-written reports: `docs/benchmarks/bench_results_{small,medium}.md`.
-Measured on the same host as the pre-reset numbers below, so the two are
-comparable. Only `loads` and `dumps` exist yet; the file, folder and JSONPath
-categories join with their milestones.
-
-**The rebuild is not at the previous implementation's standings.** Ranks are
-out of five libraries (strata, orjson, msgspec, ujson, stdlib json); pysimdjson
+Ranks are out of the libraries that can do the operation natively; pysimdjson
 has no wheel for CPython 3.14 and is excluded, which the reports state.
 
-| Category                  | Rank                | vs orjson                   |
-| ------------------------- | ------------------- | --------------------------- |
-| `loads` users.json        | #3                  | 1.18-1.21x slower           |
-| `loads` nested            | #1 small, #3 medium | 1.28x faster / 1.16x slower |
-| `loads` mixed             | #4 small, #1 medium | 1.57x slower / 1.33x faster |
-| `loads` flat, wide_arrays | #3-#4               | 1.21-1.63x slower           |
-| `dumps` (all)             | #3                  | 2.4-3.9x slower             |
+| Category        | #1 rows (small) | #1 rows (medium) | vs best rival |
+| --------------- | --------------- | ---------------- | ------------- |
+| `loads`         | 1/5             | 1/5              | 0.67x - 1.55x |
+| `dumps`         | 0/5             | 0/5              | 1.85x - 2.61x |
+| `load`          | 2/5             | 3/5              | 0.59x - 1.50x |
+| `load (ndjson)` | 0/1             | 1/1              | 0.93x - 1.06x |
+| `dump`          | 0/5             | 0/5              | 1.62x - 2.19x |
+| `query`         | **3/3**         | **3/3**          | 0.01x - 0.26x |
+| `search`        | 2/3             | 1/3              | 0.06x - 1.12x |
 
-Against the pre-reset targets below, `loads` is within reach and `dumps` is
-the gap that matters: the previous implementation led orjson by ~1.5x there,
-and the rebuild trails by ~3x. What has *not* been rebuilt is exactly what
-closed it — the 3-tier dtoa, batch same-schema dict serialization, and the
-homogeneous-array fast paths (docs/performance/SKILL.md, "What won").
+**strata leads outright on `query`** — 4x to 100x faster than jmespath and
+jsonpath-ng — and on the recursive-descent `search` rows. It trails orjson on
+`dumps`/`dump` by ~2x and on `loads` by up to ~1.5x. **The release criterion
+(#1 in the targeted categories) is therefore not met.**
 
-Measurement note: results are gathered with the libraries **interleaved** one
-round at a time rather than one library at a time. Measured during M5: running
-all repeats of one library before the next let heap growth and cache state land
-on whichever ran late, and made orjson look 4x slower on one dataset than it
-was in isolation. Any future harness change must preserve interleaving.
+The two things that would move it most:
+
+1. **The SAX streaming JSONPath evaluator, still unbuilt.** `search` is
+   defined as `query(load(f))`, so it pays a full parse; the previous
+   implementation streamed and was ~9-10x faster than orjson+jsonpath-ng.
+   This is the single largest gap, and it is a missing feature rather than a
+   slow one.
+2. **The remaining `dumps` distance to orjson**, which is now mostly float
+   formatting: `format_double` sits within 2 ns of libc++'s `to_chars`
+   (~40 ns/value) while orjson's own converter is ~17 ns.
+
+M10's dumps work (float formatting, homogeneous array runs, chunked escaping,
+per-depth prepared-key schemas) moved `dumps` 19-41% on the small tier without
+moving `loads`; details and the negative results are in
+`docs/performance/SKILL.md`.
+
+### Cross-session baselines are not comparable on this machine
+
+Re-running the *unchanged* tree at the start of the M10 session produced
+numbers ~30% above the stored M5 baseline on every row. The regression gate is
+therefore only meaningful for a before/after pair captured in the same session
+on a quiet machine; `benchmarks/results/baseline.json` is refreshed alongside
+each published report rather than treated as a cross-day constant.
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 

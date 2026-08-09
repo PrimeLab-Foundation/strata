@@ -70,8 +70,11 @@ M3 (serializer and shortest round-trip float formatting) M4 (the binding layer: 
 `config`), M5 (benchmark harness, regression gate and a first performance
 layer) M6 (file I/O, NDJSON and cursor
 mode), M7 (JSONPath: `query`, `search`, `compile`) and M8 (folder mode for
-`load`, `dump` and `search`). What remains is hardening and release: fuzzing,
-coverage, PGO, full CI, and the JSONPath streaming evaluator. The rebuild is versioned calver,
+`load`, `dump` and `search`), M9 (fuzzing with a committed corpus, coverage,
+PGO+LTO, full CI) and the M10 performance and benchmark-evidence work. What
+remains before release: the JSONPath streaming evaluator, and closing the
+remaining `dumps`/`loads` gap to orjson — see the standings in
+`docs/benchmarking/SKILL.md`. The rebuild is versioned calver,
 `YYYY.M.D` of release, starting at `2026.8.9` (see `docs/context/api.md`).
 
 The complete previous implementation (v0.2.0, all tests green) is preserved on

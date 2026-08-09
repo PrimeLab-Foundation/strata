@@ -32,6 +32,11 @@ DEFAULT_WARMUP = 1
 SECTIONS = (
     ("loads", "loads (in-memory parsing)"),
     ("dumps", "dumps (in-memory serialization)"),
+    ("load", "load (file to tree)"),
+    ("load (ndjson)", "load (NDJSON file to records)"),
+    ("dump", "dump (tree to file)"),
+    ("query", "query (JSONPath over an in-memory tree)"),
+    ("search", "search (JSONPath over a file)"),
 )
 
 COLUMNS = ("dataset", "library", "min_ms", "median_ms", "p95_ms", "rss_mb", "speedup_vs_strata")
@@ -182,6 +187,16 @@ def _format_cell(value: float | None) -> str:
 
 
 def render_report(report: Report) -> str:
+    # A section with no entry here would be measured and then silently dropped
+    # from the report -- the exact writer/reader drift this module exists to
+    # prevent. Fail instead.
+    known = {key for key, _ in SECTIONS}
+    unknown = sorted({m.section for m in report.measurements} - known)
+    if unknown:
+        raise ValueError(
+            f"measurements in unknown section(s) {unknown}; add them to harness.SECTIONS"
+        )
+
     lines = [f"# Benchmark results - {report.name}", ""]
     lines.append("Machine-written by `make bench-*`. Do not hand-edit.")
     lines.append("")

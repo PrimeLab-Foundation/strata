@@ -64,10 +64,13 @@ come.
   this milestone; both are real as of M6, above.
 
 Since M5 the key cache, flat-vector array building, the thread-local dumps
-buffer and to_chars integer formatting are in place. Still not built: speculative
-key matching, presized dicts, and the dumps fast paths (3-tier dtoa, batch
-same-schema dicts, homogeneous arrays) — which is where the remaining gap to
-orjson lives (docs/benchmarking/SKILL.md).
+buffer and to_chars integer formatting are in place. M10 added the dumps fast
+paths: homogeneous int/float/bool array runs batched through a stack chunk,
+and prepared `"key":` bytes cached **per nesting depth** and built on a
+schema's second sighting. Still not built: speculative key matching, presized
+dicts, a homogeneous *string* array path, and a custom shortest-float
+converter — which is where the remaining gap to orjson lives
+(docs/benchmarking/SKILL.md).
 
 Extension module `strata._strata` (`PyInit__strata` in `python_module.cpp`),
 hand-written CPython C API — **no pybind11** by policy. Pure-Python facade in

@@ -43,4 +43,15 @@ namespace strata::util {
  */
 [[nodiscard]] size_t find_next_escape(const char* data, size_t len) noexcept;
 
+/**
+ * The scalar definition of @ref find_next_escape.
+ *
+ * `find_next_escape` uses SIMD where the target has it, and the styleguide
+ * requires every such function to keep a scalar twin with identical
+ * observable behaviour. Exposed so that requirement is *checked* rather than
+ * asserted: `tests/cpp/test_scan.cpp` runs the two against each other over
+ * every alignment and every byte value.
+ */
+[[nodiscard]] size_t find_next_escape_scalar(const char* data, size_t len) noexcept;
+
 } // namespace strata::util

@@ -1,52 +1,137 @@
 {
   "bench_results_small.md|dumps|flat.json": {
-    "median_ms": 0.606,
-    "p95_ms": 0.642,
-    "rss_mb": 57.531
+    "median_ms": 0.555,
+    "p95_ms": 0.593,
+    "rss_mb": 69.297
   },
   "bench_results_small.md|dumps|mixed.json": {
-    "median_ms": 0.104,
-    "p95_ms": 0.112,
-    "rss_mb": 57.641
+    "median_ms": 0.138,
+    "p95_ms": 0.149,
+    "rss_mb": 64.078
   },
   "bench_results_small.md|dumps|nested.json": {
-    "median_ms": 0.554,
-    "p95_ms": 0.601,
-    "rss_mb": 57.625
+    "median_ms": 0.507,
+    "p95_ms": 0.518,
+    "rss_mb": 69.312
   },
   "bench_results_small.md|dumps|users.json": {
-    "median_ms": 5.986,
-    "p95_ms": 6.072,
-    "rss_mb": 59.609
+    "median_ms": 6.351,
+    "p95_ms": 6.429,
+    "rss_mb": 58.578
   },
   "bench_results_small.md|dumps|wide_arrays.json": {
-    "median_ms": 4.321,
-    "p95_ms": 4.461,
-    "rss_mb": 57.641
+    "median_ms": 3.405,
+    "p95_ms": 3.517,
+    "rss_mb": 69.328
+  },
+  "bench_results_small.md|dump|flat.json": {
+    "median_ms": 0.755,
+    "p95_ms": 0.923,
+    "rss_mb": 69.312
+  },
+  "bench_results_small.md|dump|mixed.json": {
+    "median_ms": 0.318,
+    "p95_ms": 0.461,
+    "rss_mb": 64.109
+  },
+  "bench_results_small.md|dump|nested.json": {
+    "median_ms": 0.694,
+    "p95_ms": 0.708,
+    "rss_mb": 69.328
+  },
+  "bench_results_small.md|dump|users.json": {
+    "median_ms": 6.791,
+    "p95_ms": 6.947,
+    "rss_mb": 68.812
+  },
+  "bench_results_small.md|dump|wide_arrays.json": {
+    "median_ms": 3.773,
+    "p95_ms": 3.827,
+    "rss_mb": 69.328
+  },
+  "bench_results_small.md|load (ndjson)|users.ndjson": {
+    "median_ms": 14.106,
+    "p95_ms": 14.42,
+    "rss_mb": 68.391
   },
   "bench_results_small.md|loads|flat.json": {
-    "median_ms": 1.041,
-    "p95_ms": 1.096,
-    "rss_mb": 57.484
+    "median_ms": 1.304,
+    "p95_ms": 1.367,
+    "rss_mb": 69.25
   },
   "bench_results_small.md|loads|mixed.json": {
-    "median_ms": 0.203,
-    "p95_ms": 0.215,
-    "rss_mb": 57.641
+    "median_ms": 0.261,
+    "p95_ms": 0.296,
+    "rss_mb": 64.078
   },
   "bench_results_small.md|loads|nested.json": {
-    "median_ms": 0.85,
-    "p95_ms": 0.882,
-    "rss_mb": 57.547
+    "median_ms": 1.053,
+    "p95_ms": 1.153,
+    "rss_mb": 69.312
   },
   "bench_results_small.md|loads|users.json": {
-    "median_ms": 10.121,
-    "p95_ms": 10.37,
-    "rss_mb": 51.391
+    "median_ms": 12.65,
+    "p95_ms": 13.11,
+    "rss_mb": 51.062
   },
   "bench_results_small.md|loads|wide_arrays.json": {
-    "median_ms": 4.94,
-    "p95_ms": 5.182,
-    "rss_mb": 57.625
+    "median_ms": 6.319,
+    "p95_ms": 6.408,
+    "rss_mb": 69.328
+  },
+  "bench_results_small.md|load|flat.json": {
+    "median_ms": 1.406,
+    "p95_ms": 1.511,
+    "rss_mb": 69.297
+  },
+  "bench_results_small.md|load|mixed.json": {
+    "median_ms": 0.311,
+    "p95_ms": 0.33,
+    "rss_mb": 64.078
+  },
+  "bench_results_small.md|load|nested.json": {
+    "median_ms": 1.157,
+    "p95_ms": 1.318,
+    "rss_mb": 69.312
+  },
+  "bench_results_small.md|load|users.json": {
+    "median_ms": 13.063,
+    "p95_ms": 13.358,
+    "rss_mb": 72.75
+  },
+  "bench_results_small.md|load|wide_arrays.json": {
+    "median_ms": 6.612,
+    "p95_ms": 6.672,
+    "rss_mb": 69.328
+  },
+  "bench_results_small.md|query|users.json $..total": {
+    "median_ms": 1.809,
+    "p95_ms": 1.841,
+    "rss_mb": 71.484
+  },
+  "bench_results_small.md|query|users.json $[*].id": {
+    "median_ms": 0.073,
+    "p95_ms": 0.09,
+    "rss_mb": 69.031
+  },
+  "bench_results_small.md|query|users.json $[*].orders[*].total": {
+    "median_ms": 0.433,
+    "p95_ms": 0.544,
+    "rss_mb": 69.406
+  },
+  "bench_results_small.md|search|users.json $..total": {
+    "median_ms": 17.573,
+    "p95_ms": 18.284,
+    "rss_mb": 71.484
+  },
+  "bench_results_small.md|search|users.json $[*].id": {
+    "median_ms": 15.56,
+    "p95_ms": 16.176,
+    "rss_mb": 69.109
+  },
+  "bench_results_small.md|search|users.json $[*].orders[*].total": {
+    "median_ms": 16.138,
+    "p95_ms": 16.719,
+    "rss_mb": 71.469
   }
 }

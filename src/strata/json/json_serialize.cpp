@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <string_view>
 
 namespace strata {
@@ -26,62 +27,106 @@ void serialize_value(const JsonValue& value, std::string& out);
 } // namespace
 
 void append_escaped_json_string(std::string_view text, std::string& out) {
-    out.push_back('"');
-
-    // Most strings need no escaping at all, and most that do are mostly clean.
-    // Copy each clean run in one go rather than a byte at a time; the scan that
-    // finds the next interesting byte is the same one the parser uses.
     const char* cursor = text.data();
     size_t remaining = text.size();
+
+    // Almost every string in almost every document escapes nothing, so that
+    // case gets its own exit: one scan and one copy, with no per-byte work.
+    const size_t leading_clean = util::find_next_escape(cursor, remaining);
+    if (leading_clean == remaining) {
+        out.reserve(out.size() + remaining + 2);
+        out.push_back('"');
+        out.append(cursor, remaining);
+        out.push_back('"');
+        return;
+    }
+
+    out.push_back('"');
+    out.append(cursor, leading_clean);
+    cursor += leading_clean;
+    remaining -= leading_clean;
+
+    // The rest of the string escapes something. Emitting it straight into the
+    // output would cost two appends per escape plus one per clean run, and
+    // each append re-checks capacity; a string of a dozen escapes spent more
+    // time in std::string bookkeeping than in the escaping itself. Building
+    // through a stack chunk makes that one append per chunkful.
+    char chunk[512];
+    size_t used = 0;
+    const auto flush = [&] {
+        out.append(chunk, used);
+        used = 0;
+    };
+    // The longest thing one iteration writes is a six-byte \u00xx escape.
+    constexpr size_t kMaxEscapeBytes = 6;
+
     while (remaining > 0) {
-        const size_t clean = util::find_next_escape(cursor, remaining);
-        if (clean > 0) {
-            out.append(cursor, clean);
-            cursor += clean;
-            remaining -= clean;
-            if (remaining == 0)
-                break;
-        }
+        if (used + kMaxEscapeBytes > sizeof(chunk))
+            flush();
 
         const char c = *cursor;
         ++cursor;
         --remaining;
         switch (c) {
         case '"':
-            out.append("\\\"");
+            std::memcpy(chunk + used, "\\\"", 2);
+            used += 2;
             break;
         case '\\':
-            out.append("\\\\");
+            std::memcpy(chunk + used, "\\\\", 2);
+            used += 2;
             break;
         case '\b':
-            out.append("\\b");
+            std::memcpy(chunk + used, "\\b", 2);
+            used += 2;
             break;
         case '\f':
-            out.append("\\f");
+            std::memcpy(chunk + used, "\\f", 2);
+            used += 2;
             break;
         case '\n':
-            out.append("\\n");
+            std::memcpy(chunk + used, "\\n", 2);
+            used += 2;
             break;
         case '\r':
-            out.append("\\r");
+            std::memcpy(chunk + used, "\\r", 2);
+            used += 2;
             break;
         case '\t':
-            out.append("\\t");
+            std::memcpy(chunk + used, "\\t", 2);
+            used += 2;
             break;
         default: {
             // find_next_escape stops on exactly quote, backslash and bytes
             // below 0x20, so anything reaching here is a control character
-            // with no short escape. Everything else was copied in the clean
-            // run above, which is how UTF-8 passes through untouched.
+            // with no short escape. Everything else travels in the clean runs
+            // below, which is how UTF-8 passes through untouched.
             const auto byte = static_cast<unsigned char>(c);
-            out.append("\\u00");
-            out.push_back(kHexDigits[byte >> 4]);
-            out.push_back(kHexDigits[byte & 0x0F]);
+            std::memcpy(chunk + used, "\\u00", 4);
+            used += 4;
+            chunk[used++] = kHexDigits[byte >> 4];
+            chunk[used++] = kHexDigits[byte & 0x0F];
             break;
         }
         }
+
+        const size_t clean = util::find_next_escape(cursor, remaining);
+        if (clean == 0)
+            continue;
+        if (clean > sizeof(chunk) - used) {
+            // A long clean run is worth an append of its own rather than
+            // several trips through the chunk.
+            flush();
+            out.append(cursor, clean);
+        } else {
+            std::memcpy(chunk + used, cursor, clean);
+            used += clean;
+        }
+        cursor += clean;
+        remaining -= clean;
     }
 
+    flush();
     out.push_back('"');
 }
 

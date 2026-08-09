@@ -17,14 +17,23 @@ repos:
     rev: v6.0.0
     hooks:
       # .editorconfig applies these to every file type, not just Python.
+      #
+      # The fuzz corpus is excluded from all three: those files are byte
+      # fixtures, not source. Left alone, these hooks appended a newline to
+      # `ndjson/no_final_newline` and stripped the leading and trailing spaces
+      # from `loads/whitespace` — deleting the very property each seed exists
+      # to carry, quietly, because a reformatted seed still parses.
       - id: end-of-file-fixer
+        exclude: ^tests/fuzz/corpus/
       - id: trailing-whitespace
         # Markdown is mdformat's alone: it re-emits YAML frontmatter with a
         # trailing space that this hook would strip and mdformat would restore,
         # so the two never converge. mdformat already trims and LF-terminates.
-        exclude: \.md$
+        exclude: (\.md$|^tests/fuzz/corpus/)
       - id: mixed-line-ending
         args: ["--fix=lf"]
+        # ...and `ndjson/crlf` is a CRLF fixture on purpose.
+        exclude: ^tests/fuzz/corpus/
       - id: check-yaml
       - id: check-toml
 

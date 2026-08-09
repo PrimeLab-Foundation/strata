@@ -35,18 +35,28 @@ are not unknowingly repeated.
 
 All measured with `make bench-small` before and after, on the same host.
 
-| Change                                                                 | Effect (median)                             |
-| ---------------------------------------------------------------------- | ------------------------------------------- |
-| Escape clean runs in bulk instead of byte-at-a-time `push_back`        | part of the dumps 8-24% below               |
-| Integers via `std::to_chars` into a stack buffer, not `std::to_string` | (same batch; `to_string` allocated per int) |
-| Thread-local dumps output buffer, reused across calls                  | dumps -8% to -24% across all datasets       |
-| Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM` | loads -13% to -22% across all datasets      |
-| Per-document key cache (interned key reuse across records)             | (same batch)                                |
-| PGO + ThinLTO (`make pgo`), IR-level instrumentation                   | loads -8% to -12%, dumps -11% to -25%       |
+| Change                                                                  | Effect (median)                               |
+| ----------------------------------------------------------------------- | --------------------------------------------- |
+| Escape clean runs in bulk instead of byte-at-a-time `push_back`         | part of the dumps 8-24% below                 |
+| Integers via `std::to_chars` into a stack buffer, not `std::to_string`  | (same batch; `to_string` allocated per int)   |
+| Thread-local dumps output buffer, reused across calls                   | dumps -8% to -24% across all datasets         |
+| Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM`  | loads -13% to -22% across all datasets        |
+| Per-document key cache (interned key reuse across records)              | (same batch)                                  |
+| PGO + ThinLTO (`make pgo`), IR-level instrumentation                    | loads -8% to -12%, dumps -11% to -25%         |
+| `to_chars(fixed)` directly instead of scientific-then-relayout (dtoa)   | format_double 77.8 -> 41.2 ns/value           |
+| Homogeneous int/float/bool array runs, batched into a stack chunk       | dumps wide_arrays -40%; bool lists 5.2->1.4x  |
+| Escape-bearing strings built through a stack chunk, one append/chunkful | escaped-string dumps 4.31x -> 2.76x vs orjson |
+| SIMD (NEON/SSE2) escape scan with a checked scalar twin                 | long clean strings 2.1x -> 1.5x vs orjson     |
+| Per-depth prepared-key schema cache for same-shape objects              | dumps users -20%, flat -30%, nested -30%      |
 
-Not yet rebuilt, and the reason `dumps` still trails orjson ~3x: the 3-tier
-dtoa, batch same-schema dict serialization, and the homogeneous int/float/
-str/bool array fast paths.
+After M10's dumps work the gap to orjson is ~1.9-2.4x on `dumps` (was
+2.4-4.0x). What is still not rebuilt: a custom shortest-float converter
+(`format_double` is now within 2 ns of libc++'s `to_chars`, which is itself
+~40 ns/value against orjson's ~17 ns), the homogeneous *string* array path,
+and the loads-side speculative key matching. The single largest remaining
+item is not a micro-optimization at all: the **SAX streaming JSONPath
+evaluator**, still unbuilt, which is why `search` costs a full parse plus a
+query (see the standings in docs/benchmarking/SKILL.md).
 
 ### PGO, measured (M9)
 
@@ -71,10 +81,13 @@ comparison is meaningful, which is the point of running both orders.
 
 ### Measured non-wins in the rebuild
 
-| Idea                                     | Verdict                                                                                                                                                                    |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Module-lifetime small-int cache (0..256) | Not built: CPython already caches small ints internally, so `PyLong_FromLongLong` returns the shared object. The blueprint's cache duplicated a cache that already exists. |
-| Presized dicts via `_PyDict_NewPresized` | Not built: the API is CPython-internal and the architecture notes already flag it as version-sensitive. Deferred until it can be measured against a portable alternative.  |
+| Idea                                                                         | Verdict                                                                                                                                                                           |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KeyCache slots storing the key bytes + digest, to keep probes out of CPython | Reverted: no measurable change (loads users 12.55 vs 12.51 ms, flat 1.293 vs 1.301 ms). `PyUnicode_AsUTF8AndSize` on a compact-ASCII key already just returns the inline pointer. |
+| Single-slot (most-recent) prepared-key schema cache                          | Superseded by one slot *per depth*: a single slot thrashes on nested documents (user -> orders -> items), and users.json saw no gain until the cache was keyed by depth.          |
+| Preparing a schema on first sighting                                         | Superseded by preparing on the *second*: preparing costs about what writing costs, so documents of one-off shapes paid for a cache they never used (mixed.json +20%).             |
+| Module-lifetime small-int cache (0..256)                                     | Not built: CPython already caches small ints internally, so `PyLong_FromLongLong` returns the shared object. The blueprint's cache duplicated a cache that already exists.        |
+| Presized dicts via `_PyDict_NewPresized`                                     | Not built: the API is CPython-internal and the architecture notes already flag it as version-sensitive. Deferred until it can be measured against a portable alternative.         |
 
 ## Negative results — do not retry without new evidence
 
