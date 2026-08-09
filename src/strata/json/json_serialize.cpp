@@ -22,8 +22,9 @@ constexpr char kHexDigits[] = "0123456789abcdef";
 
 void serialize_value(const JsonValue& value, std::string& out);
 
-/// Append @p text as a quoted, escaped JSON string.
-void append_escaped(std::string_view text, std::string& out) {
+} // namespace
+
+void append_escaped_json_string(std::string_view text, std::string& out) {
     out.push_back('"');
     for (const char c : text) {
         switch (c) {
@@ -66,6 +67,8 @@ void append_escaped(std::string_view text, std::string& out) {
     out.push_back('"');
 }
 
+namespace {
+
 void append_number(double value, std::string& out) {
     if (std::isnan(value) || std::isinf(value)) {
         out.append("null"); // JSON has no way to spell either
@@ -84,7 +87,7 @@ void serialize_value(const JsonValue& value, std::string& out) {
     } else if (value.is_number()) {
         append_number(value.as_number(), out);
     } else if (value.is_string()) {
-        append_escaped(value.as_string(), out);
+        append_escaped_json_string(value.as_string(), out);
     } else if (value.is_array()) {
         out.push_back('[');
         bool first = true;
@@ -102,7 +105,7 @@ void serialize_value(const JsonValue& value, std::string& out) {
             if (!first)
                 out.push_back(',');
             first = false;
-            append_escaped(key, out);
+            append_escaped_json_string(key, out);
             out.push_back(':');
             serialize_value(member, out);
         }

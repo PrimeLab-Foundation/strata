@@ -4,12 +4,21 @@ Fast JSON for Python: parsing, serialization, and JSONPath querying powered by
 a dependency-free C++20 engine with hand-written CPython C-API bindings.
 
 **Rebuild in progress.** The implementation is being rebuilt from scratch, one
-milestone at a time. The build, both test layers, the style gates, a CI skeleton
-and the C++ engine's value model and JSON parser are in place; nothing is
-exposed to Python yet, so there is no working JSON API. The docs under [docs/](docs/) are the complete
+milestone at a time. Parsing and serialization work today — `strata.loads`,
+`strata.dumps` and `strata.config`. File and folder I/O, cursor mode, JSONPath
+and the performance layer are still to come, so this is not yet a drop-in
+replacement for the previous release. The docs under [docs/](docs/) are the complete
 specification: conventions, style, public API contract, architecture,
 benchmarking methodology, the optimization playbook (including negative
 results), and project history.
+
+```python
+import strata
+
+strata.loads('{"n": 12345678901234567890}')   # {'n': 12345678901234567890} - exact
+strata.dumps({"a": [1, 2.5, None]})           # '{"a":[1,2.5,null]}'
+strata.config.set("duplicate_key_policy", "last")
+```
 
 ```bash
 make dev      # virtualenv, dev dependencies, pre-commit hooks

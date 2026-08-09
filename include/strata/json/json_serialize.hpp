@@ -22,8 +22,21 @@
 #include "strata/json/json_core.hpp"
 
 #include <string>
+#include <string_view>
 
 namespace strata {
+
+/**
+ * Append @p text to @p out as a quoted, escaped JSON string.
+ *
+ * Escapes exactly what RFC 8259 requires: the quote, the backslash, the five
+ * short escapes, and any remaining byte below 0x20 as `\u00xx`. Everything
+ * else is copied verbatim, so UTF-8 passes through unchanged.
+ *
+ * Shared with the binding layer, which escapes Python strings against the same
+ * table rather than keeping a second copy of it.
+ */
+void append_escaped_json_string(std::string_view text, std::string& out);
 
 /// Serialize @p value to a new string.
 [[nodiscard]] std::string serialize_json(const JsonValue& value);

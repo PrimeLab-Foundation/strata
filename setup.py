@@ -131,6 +131,8 @@ CORE_MANIFEST = PROJECT_ROOT / "src" / "strata" / "core_sources.txt"
 # the extension can never be built from different sources.
 BINDING_SOURCES = [
     "src/strata/bindings/python_module.cpp",
+    "src/strata/bindings/python_loads.cpp",
+    "src/strata/bindings/python_dumps.cpp",
 ]
 
 

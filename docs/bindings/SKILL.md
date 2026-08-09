@@ -8,6 +8,45 @@ description: CPython C-API binding layer — KeyCache and speculative key
 
 # Python Bindings
 
+**Framing:** this doc describes the *previous implementation* as the blueprint.
+"Current state" says what the rebuild has actually built; everything after it is
+blueprint until a milestone makes it real.
+
+## Current state (after M4 — loads, dumps, config)
+
+Real on this branch: four files under `src/strata/bindings/` — `python_types.h`,
+`python_module.cpp`, `python_loads.cpp`, `python_dumps.cpp` — and the facade
+`python/strata/`: `__init__.py`, `serialize.py`, `config.py`. `strata.loads`,
+`strata.dumps` and `strata.config` work; everything else in api.md is still to
+come.
+
+- `python_types.h` carries the shared plumbing — `PyRef` (owning reference),
+  `GcPause`, `STRATA_CPP_TRY/CATCH` — plus the declarations the other two
+  translation units share, so nothing is redeclared `extern` at a use site.
+- `PythonObjectBuilder` (python_loads.cpp) is a duck-typed SAX handler, not a
+  `JsonSaxHandler` subclass, so `parse_sax_inline` instantiates on the concrete
+  type and inlines every callback. Integers arrive exact at any size:
+  `on_big_int` hands the raw token to `PyLong_FromString`.
+- UTF-8 is validated up front for `bytes` input only; a `str` is already valid
+  Unicode, so its encoded form needs no second pass.
+- `dumps` (python_dumps.cpp) is a plain recursive walk that borrows the core's
+  escape table and float formatter. `bool` is tested before `int` because it is
+  a subclass of one. The depth ceiling is `Py_GetRecursionLimit()`.
+- **Cycle detection runs under every policy.** `"ignore"` still has to emit
+  `null`, so it cannot skip tracking — the blueprint's untracked fast path for
+  `ignore` recursed to the depth limit and raised instead.
+- **`cycle_policy` is Warn from process start**, and `config.get`/`config.list`
+  read the live policy variables rather than a cached map, so the reported
+  setting and the actual behaviour cannot drift apart. That is the structural
+  fix for the bug recorded below, not merely a corrected initial value.
+- `return_type="cursor"` and `iterator=True` raise `NotImplementedError` until
+  their milestones.
+
+Not built yet: the KeyCache, speculative key matching, the small-int cache,
+presized dicts, the thread-local output buffer and every dumps fast path. All of
+that is the performance milestone, and this build is deliberately the
+straightforward version it will be measured against.
+
 Extension module `strata._strata` (`PyInit__strata` in `python_module.cpp`),
 hand-written CPython C API — **no pybind11** by policy. Pure-Python facade in
 `python/strata/`. Shared headers: `python_types.h` (`PyObjectPtr`,
