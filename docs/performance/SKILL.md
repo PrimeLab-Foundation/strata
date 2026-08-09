@@ -35,51 +35,56 @@ are not unknowingly repeated.
 
 All measured with `make bench-small` before and after, on the same host.
 
-| Change                                                                    | Effect (median)                                                                                                |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Escape clean runs in bulk instead of byte-at-a-time `push_back`           | part of the dumps 8-24% below                                                                                  |
-| Integers via `std::to_chars` into a stack buffer, not `std::to_string`    | (same batch; `to_string` allocated per int)                                                                    |
-| Thread-local dumps output buffer, reused across calls                     | dumps -8% to -24% across all datasets                                                                          |
-| Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM`    | loads -13% to -22% across all datasets                                                                         |
-| Per-document key cache (interned key reuse across records)                | (same batch)                                                                                                   |
-| PGO + ThinLTO (`make pgo`), IR-level instrumentation                      | loads -8% to -12%, dumps -11% to -25%                                                                          |
-| `to_chars(fixed)` directly instead of scientific-then-relayout (dtoa)     | format_double 77.8 -> 41.2 ns/value                                                                            |
-| Homogeneous int/float/bool array runs, batched into a stack chunk         | dumps wide_arrays -40%; bool lists 5.2->1.4x                                                                   |
-| Escape-bearing strings built through a stack chunk, one append/chunkful   | escaped-string dumps 4.31x -> 2.76x vs orjson                                                                  |
-| SIMD (NEON/SSE2) escape scan with a checked scalar twin                   | long clean strings 2.1x -> 1.5x vs orjson                                                                      |
-| Per-depth prepared-key schema cache for same-shape objects                | dumps users -20%, flat -30%, nested -30%                                                                       |
-| **Wave 2** (loads + search, same protocol)                                |                                                                                                                |
-| Single-scan number conversion + exact-arithmetic double path (Clinger)    | loads wide_arrays -23%, nested -13%, flat -12%                                                                 |
-| One-lookup dict inserts (`PyDict_SetDefault` under FirstWins)             | loads users -8% (same batch)                                                                                   |
-| Speculative key matching (`try_match_key`), divergence-damped             | loads flat -15%, users -5%                                                                                     |
-| Thread-leased builder: KeyCache + predictions warm across calls/lines     | part of the above; NDJSON now leads msgspec                                                                    |
-| Micro-decimal dtoa tier (n/10^6 exact witness, gated at 4e9)              | 6-decimal float dumps 2.51x -> 1.63x vs orjson                                                                 |
-| Staged output writer (raw stores, one append per 8KB stageful)            | dumps users -30%, flat -39%, nested -40%                                                                       |
-| SWAR 8-byte escape-scan tier (short strings were byte-at-a-time)          | dumps users -4% on top                                                                                         |
-| **Streaming SAX search** (fixed-depth subset, FirstWins)                  | search $\[\*\].id 15.7 -> 4.9 ms, 2.9x ahead                                                                   |
-| **Wave 3** (dumps)                                                        |                                                                                                                |
-| Exact-type pointer dispatch; flag chain kept for subclasses               | (batch below)                                                                                                  |
-| Forward-writing pairs itoa (`format_int64`) + compact-long direct read    | int lists 1.40x -> 1.15x vs orjson                                                                             |
-| Micro-decimal emission: one digit conversion, point placed by arithmetic  | (same batch)                                                                                                   |
-| Cycle-frame elision for all-scalar dicts (cannot recurse => cannot cycle) | leaf-dict lists 1.51x -> 1.36x                                                                                 |
-| Fused copy-while-scan strings (`copy_until_escape`, checked twin)         | ~6 ns/string; users 3.79 -> 3.45 ms plain                                                                      |
-| Dumps schema-cache retirement after 16 divergences                        | mixed 1.84x -> 1.63x plain                                                                                     |
-| **Wave 4** (Ryu floats + wider scans)                                     |                                                                                                                |
-| Ryu d2d port (reference tables verbatim; own repr-exact layout)           | format_double general case 57 -> 51 ns; full-precision float lists 2.45x -> 2.24x                              |
-| 8-digit u32 digit groups + constant-16 memmove point insertion            | (what made Ryu pay: variable-length memcpy and serial divides had eaten it)                                    |
-| 32-byte scan blocks + overlapped final block/word (no scalar tail >= 8B)  | dumps users -2%; loads long-string spans                                                                       |
-| **Wave 5** (dispatch, PyDict_Next, per-string / per-copy overhead)        |                                                                                                                |
-| Raw dict-entry walk (layout mirrored 3.11-3.14, runtime-proved, fallback) | dumps users 1.33x -> 1.21x plain interleaved                                                                   |
-| Direct-to-PyBytes output + last-size hint (one document copy, not two)    | (same batch; the hint is the load-bearing part)                                                                |
-| Header-inlined `copy_until_escape`/`find_next_escape`                     | (same batch)                                                                                                   |
-| Per-slot value-kind speculation on the schema cache                       | (same batch; marginal alone)                                                                                   |
-| Lazy sequence frames (push only before the first container element)       | (same batch)                                                                                                   |
-| **Net after wave 5 (PGO headline)**                                       | dumps nested **#1 both tiers** (0.88x); dump users/nested **#1 medium**; users/flat within 5%; 33/54 rows #1   |
-| **Wave 6** (wide_arrays + mixed)                                          |                                                                                                                |
-| Micro-tier emission via write_digits_fixed + shift16 (no variable memcpy) | 6-decimal float lists 1.46x -> 1.10x                                                                           |
-| Fused ",true"/",false" eight-byte constant stores in bool runs            | bool lists 1.38x -> 1.28x                                                                                      |
-| Four schema ways per depth, scanned in place, round-robin replacement     | rotate-4 shapes 1.61x -> 1.10x; mixed 1.55x -> 1.25x plain                                                     |
-| **Net after wave 6 (PGO headline)**                                       | 38/54 rows #1; dumps nested 0.78x, flat 0.95-0.97x, wide_arrays 0.97x medium; dump users/nested/flat #1 medium |
+| Change                                                                    | Effect (median)                                                                                                              |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Escape clean runs in bulk instead of byte-at-a-time `push_back`           | part of the dumps 8-24% below                                                                                                |
+| Integers via `std::to_chars` into a stack buffer, not `std::to_string`    | (same batch; `to_string` allocated per int)                                                                                  |
+| Thread-local dumps output buffer, reused across calls                     | dumps -8% to -24% across all datasets                                                                                        |
+| Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM`    | loads -13% to -22% across all datasets                                                                                       |
+| Per-document key cache (interned key reuse across records)                | (same batch)                                                                                                                 |
+| PGO + ThinLTO (`make pgo`), IR-level instrumentation                      | loads -8% to -12%, dumps -11% to -25%                                                                                        |
+| `to_chars(fixed)` directly instead of scientific-then-relayout (dtoa)     | format_double 77.8 -> 41.2 ns/value                                                                                          |
+| Homogeneous int/float/bool array runs, batched into a stack chunk         | dumps wide_arrays -40%; bool lists 5.2->1.4x                                                                                 |
+| Escape-bearing strings built through a stack chunk, one append/chunkful   | escaped-string dumps 4.31x -> 2.76x vs orjson                                                                                |
+| SIMD (NEON/SSE2) escape scan with a checked scalar twin                   | long clean strings 2.1x -> 1.5x vs orjson                                                                                    |
+| Per-depth prepared-key schema cache for same-shape objects                | dumps users -20%, flat -30%, nested -30%                                                                                     |
+| **Wave 2** (loads + search, same protocol)                                |                                                                                                                              |
+| Single-scan number conversion + exact-arithmetic double path (Clinger)    | loads wide_arrays -23%, nested -13%, flat -12%                                                                               |
+| One-lookup dict inserts (`PyDict_SetDefault` under FirstWins)             | loads users -8% (same batch)                                                                                                 |
+| Speculative key matching (`try_match_key`), divergence-damped             | loads flat -15%, users -5%                                                                                                   |
+| Thread-leased builder: KeyCache + predictions warm across calls/lines     | part of the above; NDJSON now leads msgspec                                                                                  |
+| Micro-decimal dtoa tier (n/10^6 exact witness, gated at 4e9)              | 6-decimal float dumps 2.51x -> 1.63x vs orjson                                                                               |
+| Staged output writer (raw stores, one append per 8KB stageful)            | dumps users -30%, flat -39%, nested -40%                                                                                     |
+| SWAR 8-byte escape-scan tier (short strings were byte-at-a-time)          | dumps users -4% on top                                                                                                       |
+| **Streaming SAX search** (fixed-depth subset, FirstWins)                  | search $\[\*\].id 15.7 -> 4.9 ms, 2.9x ahead                                                                                 |
+| **Wave 3** (dumps)                                                        |                                                                                                                              |
+| Exact-type pointer dispatch; flag chain kept for subclasses               | (batch below)                                                                                                                |
+| Forward-writing pairs itoa (`format_int64`) + compact-long direct read    | int lists 1.40x -> 1.15x vs orjson                                                                                           |
+| Micro-decimal emission: one digit conversion, point placed by arithmetic  | (same batch)                                                                                                                 |
+| Cycle-frame elision for all-scalar dicts (cannot recurse => cannot cycle) | leaf-dict lists 1.51x -> 1.36x                                                                                               |
+| Fused copy-while-scan strings (`copy_until_escape`, checked twin)         | ~6 ns/string; users 3.79 -> 3.45 ms plain                                                                                    |
+| Dumps schema-cache retirement after 16 divergences                        | mixed 1.84x -> 1.63x plain                                                                                                   |
+| **Wave 4** (Ryu floats + wider scans)                                     |                                                                                                                              |
+| Ryu d2d port (reference tables verbatim; own repr-exact layout)           | format_double general case 57 -> 51 ns; full-precision float lists 2.45x -> 2.24x                                            |
+| 8-digit u32 digit groups + constant-16 memmove point insertion            | (what made Ryu pay: variable-length memcpy and serial divides had eaten it)                                                  |
+| 32-byte scan blocks + overlapped final block/word (no scalar tail >= 8B)  | dumps users -2%; loads long-string spans                                                                                     |
+| **Wave 5** (dispatch, PyDict_Next, per-string / per-copy overhead)        |                                                                                                                              |
+| Raw dict-entry walk (layout mirrored 3.11-3.14, runtime-proved, fallback) | dumps users 1.33x -> 1.21x plain interleaved                                                                                 |
+| Direct-to-PyBytes output + last-size hint (one document copy, not two)    | (same batch; the hint is the load-bearing part)                                                                              |
+| Header-inlined `copy_until_escape`/`find_next_escape`                     | (same batch)                                                                                                                 |
+| Per-slot value-kind speculation on the schema cache                       | (same batch; marginal alone)                                                                                                 |
+| Lazy sequence frames (push only before the first container element)       | (same batch)                                                                                                                 |
+| **Net after wave 5 (PGO headline)**                                       | dumps nested **#1 both tiers** (0.88x); dump users/nested **#1 medium**; users/flat within 5%; 33/54 rows #1                 |
+| **Wave 6** (wide_arrays + mixed)                                          |                                                                                                                              |
+| Micro-tier emission via write_digits_fixed + shift16 (no variable memcpy) | 6-decimal float lists 1.46x -> 1.10x                                                                                         |
+| Fused ",true"/",false" eight-byte constant stores in bool runs            | bool lists 1.38x -> 1.28x                                                                                                    |
+| Four schema ways per depth, scanned in place, round-robin replacement     | rotate-4 shapes 1.61x -> 1.10x; mixed 1.55x -> 1.25x plain                                                                   |
+| **Net after wave 6 (PGO headline)**                                       | 38/54 rows #1; dumps nested 0.78x, flat 0.95-0.97x, wide_arrays 0.97x medium; dump users/nested/flat #1 medium               |
+| **Wave 7** (the last serialization rows)                                  |                                                                                                                              |
+| Branch-free unified writer: base\_/capacity\_ shared by both output modes | recovered a 6-8% whole-serializer regression the per-write mode select had cost                                              |
+| Direct-into-PyBytes generation (no stage copy at all in bytes mode)       | the stage->bytes memcpy was 10% of users.json                                                                                |
+| 4-byte SWAR tier for 4..7-byte strings (head + overlapped tail words)     | short keys/values no longer byte-walked                                                                                      |
+| **Net after wave 7 (PGO headline)**                                       | **41/54 rows #1** — dumps AND dump users #1 at both tiers (0.95-0.99x); medium dumps 4/5 #1; mixed converged to 1.03x medium |
 
 After the third wave the PGO-headline `dumps` gap to orjson is 1.01x-1.32x
 (was 2.4-4.0x before the first wave): nested sits at 1.01-1.03x, users at
@@ -146,6 +151,7 @@ comparison is meaningful, which is the point of running both orders.
 | Per-slot kind speculation as a standalone lever                                  | M10 wave 5                                       | Marginal: the exact-type dispatch chain already resolves strings (the most common kind) in one compare. Kept because it rides the schema hit for free.                                                                   |
 | Integrality-only membership test in the micro-decimal tier                       | M10 wave 6                                       | Round-trip oracle caught it immediately: an integral product admits values near n/10^6 that are not its nearest double (binade-boundary slack breaks the half-ulp argument). The exact-division check is not negotiable. |
 | Move-to-front (LRU) ordering for the schema ways                                 | M10 wave 6                                       | Round-robin shape rotation is LRU's worst case: every hit lands on the deepest way and pays a full three-schema shuffle (~45 ns/object). Scan in place; replace round-robin.                                             |
+| Per-write output-mode select (`direct_ ? bytes : stage`)                         | M10 wave 7                                       | 6-8% across the whole serializer: every put/cursor traded a constant stack base for a loaded pointer plus a select. Unify the modes behind one base/capacity pair; dispatch only in the cold overflow path.              |
 | Compact-ASCII `PyUnicode_New(len,127)+memcpy` for string *values*                | M10                                              | Level-to-slightly-worse vs `PyUnicode_FromStringAndSize`: CPython's decoder already takes an ASCII fast path that is the same scan+copy. Reverted.                                                                       |
 | Unbounded prediction recording on shape-alternating documents                    | M10 (speculative keys, first cut)                | 15% loads regression on mixed.json from recorder churn; fixed by retiring a depth after 16 divergences, not by removing the feature.                                                                                     |
 | Micro-decimal dtoa without a magnitude gate                                      | M10                                              | 1513 repr() mismatches in 2^35..2^41: above ~4e9 one ulp exceeds the 10^-6 lattice and a non-minimal witness passes the exactness check. Gate, don't trust.                                                              |

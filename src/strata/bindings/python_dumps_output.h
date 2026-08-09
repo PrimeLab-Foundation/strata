@@ -38,28 +38,41 @@ namespace strata::bindings {
  */
 class StagedOutput {
   public:
-    explicit StagedOutput(std::string& sink) : str_sink_(&sink) {}
+    explicit StagedOutput(std::string& sink)
+        : str_sink_(&sink), base_(stage_), capacity_(sizeof(stage_)) {}
 
-    /// Bytes mode: stagefuls land directly in a growing PyBytes, so the
-    /// output is copied once (stage -> bytes) instead of twice (stage ->
-    /// string -> bytes). The two whole-document copies were 12% of a
-    /// users.json dump. Failure is remembered and reported at take_bytes().
+    /**
+     * Bytes mode: the serializer writes *directly into the PyBytes buffer* —
+     * generated once, copied never. Str mode stages through the stack and
+     * flushes into the string.
+     *
+     * Both modes share one branch-free hot path: `base_`/`capacity_` always
+     * describe the current write region, so put/write/cursor are a load and
+     * a store with no mode test. (A per-write `direct_` select was measured
+     * as a 6–8% whole-serializer regression — the mode check lives only in
+     * the cold overflow path.)
+     */
     StagedOutput() = default;
 
     ~StagedOutput() { Py_XDECREF(bytes_); }
 
     [[nodiscard]] bool init_bytes(size_t initial) {
+        if (initial < 64)
+            initial = 64;
         bytes_ = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(initial));
-        bytes_capacity_ = initial;
-        return bytes_ != nullptr;
+        if (bytes_ == nullptr)
+            return false;
+        base_ = PyBytes_AS_STRING(bytes_);
+        capacity_ = initial;
+        used_ = 0;
+        return true;
     }
 
     /// Finish bytes mode: exact-size the object and hand it over.
     [[nodiscard]] PyObject* take_bytes() {
-        flush();
         if (failed_ || bytes_ == nullptr)
             return PyErr_NoMemory();
-        if (_PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(bytes_length_)) != 0)
+        if (_PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(used_)) != 0)
             return nullptr; // bytes_ already cleared by the resize
         PyObject* result = bytes_;
         bytes_ = nullptr;
@@ -69,94 +82,106 @@ class StagedOutput {
     StagedOutput(const StagedOutput&) = delete;
     StagedOutput& operator=(const StagedOutput&) = delete;
 
-    /// Make room for @p bytes of upcoming raw writes. @p bytes ≤ stage size.
+    /// Make room for @p bytes of upcoming raw writes. Str mode: @p bytes must
+    /// fit the stage (every caller asks for a small constant). Bytes mode:
+    /// any size.
     void ensure(size_t bytes) {
-        if (used_ + bytes > sizeof(stage_))
-            flush();
+        if (used_ + bytes > capacity_)
+            overflow(bytes);
     }
 
-    [[nodiscard]] char* cursor() noexcept { return stage_ + used_; }
+    [[nodiscard]] char* cursor() noexcept { return base_ + used_; }
     void advance(size_t bytes) noexcept { used_ += bytes; }
 
-    /// Take back @p bytes just written to the stage (never past a flush).
+    /// Take back @p bytes just written (never past an overflow).
     void rewind(size_t bytes) noexcept { used_ -= bytes; }
 
     /// One byte, after a covering ensure().
-    void put(char c) noexcept { stage_[used_++] = c; }
+    void put(char c) noexcept { base_[used_++] = c; }
 
     /// @p len bytes, after a covering ensure().
     void write(const char* data, size_t len) noexcept {
-        std::memcpy(stage_ + used_, data, len);
+        std::memcpy(base_ + used_, data, len);
         used_ += len;
     }
 
-    /// Any length; spills to the sink when the stage cannot hold it.
+    /// Any length, no prior ensure needed.
     void write_spanning(const char* data, size_t len) {
-        if (used_ + len <= sizeof(stage_)) {
-            std::memcpy(stage_ + used_, data, len);
+        if (used_ + len <= capacity_) {
+            std::memcpy(base_ + used_, data, len);
             used_ += len;
             return;
         }
-        flush();
-        if (len >= sizeof(stage_) / 2) {
-            sink_write(data, len);
+        if (str_sink_ != nullptr) {
+            flush();
+            if (len >= sizeof(stage_) / 2) {
+                str_sink_->append(data, len);
+                return;
+            }
+            std::memcpy(stage_, data, len);
+            used_ = len;
             return;
         }
-        std::memcpy(stage_, data, len);
-        used_ = len;
+        overflow(len);
+        std::memcpy(base_ + used_, data, len);
+        used_ += len;
     }
 
     /// A string sink for the rare escaped-string path, flushed first. In
     /// bytes mode this is a per-thread scratch the caller then spans in.
     [[nodiscard]] std::string& direct_sink() {
-        flush();
-        if (str_sink_ != nullptr)
+        if (str_sink_ != nullptr) {
+            flush();
             return *str_sink_;
+        }
         static thread_local std::string scratch;
         scratch.clear();
         return scratch;
     }
 
     /// Bytes mode only: true when direct_sink() handed out the scratch that
-    /// still has to be written through the stage.
+    /// still has to be written through write_spanning.
     [[nodiscard]] bool sink_is_scratch() const noexcept { return str_sink_ == nullptr; }
 
     void flush() {
-        if (used_ != 0) {
-            sink_write(stage_, used_);
+        if (str_sink_ != nullptr && used_ != 0) {
+            str_sink_->append(stage_, used_);
             used_ = 0;
         }
     }
 
   private:
-    void sink_write(const char* data, size_t len) {
+    /// The cold path: str mode flushes the stage, bytes mode grows the object.
+    void overflow(size_t needed) {
         if (str_sink_ != nullptr) {
-            str_sink_->append(data, len);
+            flush();
             return;
         }
-        if (failed_)
+        if (failed_) {
+            used_ = 0; // absorb writes safely in the scratch region
             return;
-        if (bytes_length_ + len > bytes_capacity_) {
-            size_t grown = bytes_capacity_ * 2;
-            while (grown < bytes_length_ + len)
-                grown *= 2;
-            if (_PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(grown)) != 0) {
-                // bytes_ is cleared on failure; remember and report later so
-                // the writers stay branch-free.
-                PyErr_Clear();
-                failed_ = true;
-                return;
-            }
-            bytes_capacity_ = grown;
         }
-        std::memcpy(PyBytes_AS_STRING(bytes_) + bytes_length_, data, len);
-        bytes_length_ += len;
+        size_t grown = capacity_ * 2;
+        while (grown < used_ + needed)
+            grown *= 2;
+        if (_PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(grown)) != 0) {
+            PyErr_Clear();
+            failed_ = true;
+            // bytes_ was cleared by the failed resize; write into the stage
+            // as scratch so raw stores stay in bounds.
+            base_ = stage_;
+            capacity_ = sizeof(stage_);
+            used_ = 0;
+            return;
+        }
+        base_ = PyBytes_AS_STRING(bytes_);
+        capacity_ = grown;
     }
 
     std::string* str_sink_ = nullptr;
     PyObject* bytes_ = nullptr;
-    size_t bytes_length_ = 0;
-    size_t bytes_capacity_ = 0;
+    char* base_ = nullptr;
+    size_t capacity_ = 0;
     bool failed_ = false;
     size_t used_ = 0;
     char stage_[8192];

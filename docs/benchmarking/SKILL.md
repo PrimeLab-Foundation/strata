@@ -38,15 +38,15 @@ pysimdjson has no CPython 3.14 wheel and is excluded, which the reports state.
 
 | Category        | #1 rows (small) | #1 rows (medium) | vs best rival |
 | --------------- | --------------- | ---------------- | ------------- |
-| `loads`         | 3/5             | 4/5              | 0.50x – 1.27x |
-| `dumps`         | 2/5             | 3/5              | 0.78x – 1.14x |
-| `load`          | 3/5             | **5/5**          | 0.49x – 1.19x |
-| `load (ndjson)` | **1/1**         | **1/1**          | 0.72x – 0.74x |
-| `dump`          | 1/5             | 3/5              | 0.83x – 1.27x |
+| `loads`         | 3/5             | 4/5              | 0.51x – 1.27x |
+| `dumps`         | 3/5             | 4/5              | 0.78x – 1.05x |
+| `load`          | 3/5             | 4/5              | 0.49x – 1.19x |
+| `load (ndjson)` | **1/1**         | **1/1**          | 0.71x – 0.75x |
+| `dump`          | 2/5             | 4/5              | 0.87x – 1.19x |
 | `query`         | **3/3**         | **3/3**          | 0.01x – 0.26x |
 | `search`        | **3/3**         | **3/3**          | 0.05x – 0.36x |
 
-Total: 38/54 rows at #1 (was 8/27 on the small tier before the M10 waves).
+Total: 41/54 rows at #1 (was 8/27 on the small tier before the M10 waves).
 
 **Where strata now leads outright:** every `query` row (4–100×), every
 `search` row (2.9–20× — the streaming SAX evaluator landed this wave; the
@@ -56,15 +56,15 @@ at both tiers (C++ single-read + parse beats read()+parse pipelines), and
 in-memory `loads` on the headline users dataset (0.93–0.94×) plus most
 medium datasets.
 
-**Where it does not, and how close it is:** after wave 6 serialization
-leads on most rows — `dumps` is #1 on nested (0.78×), flat and, at medium,
-wide_arrays; `dump` is #1 on users, nested and flat at medium. What remains
-behind: `mixed` (1.06×–1.27×: a small document where per-call floor and
-per-value dispatch dominate), `dumps users` (1.01×–1.04× — inside this
-machine's run-to-run variance), and the small-tier `wide_arrays`/`dump`
-rows at 1.01×–1.04×. `loads` on small `flat`/`mixed` (1.2×–1.5×) remains
-per-object creation overhead on documents too small to amortize the caches.
-Techniques tried, adopted and rejected are in `docs/performance/SKILL.md`.
+**Where it does not, and how close it is:** after wave 7, serialization
+leads on the headline dataset outright — `dumps users` and `dump users` are
+first at both tiers (0.95×–0.99×) — and the medium tier is 4/5 first in both
+serialization categories. The stragglers are `mixed` (1.03× medium — a
+converged coin-flip — and 1.05×–1.19× small, where a 30 KB document keeps
+per-call costs visible) and a small-tier band at 1.00×–1.03× that trades
+places with orjson run to run. `loads` on small `flat`/`mixed` (1.2×–1.5×)
+remains per-object creation overhead. Techniques tried, adopted and rejected
+are in `docs/performance/SKILL.md`.
 
 ### Cross-session baselines are not comparable on this machine
 

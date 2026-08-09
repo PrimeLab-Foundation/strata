@@ -162,6 +162,19 @@ inline constexpr size_t kEscapeBlock = 16;
     return quote_mask | backslash_mask | control_mask;
 }
 
+/// The same exact formulas, four bytes wide — the tier for 4..7-byte strings,
+/// which are common as keys and short values and were walked byte-by-byte.
+[[nodiscard]] inline uint32_t escape_mask_word32(uint32_t word) noexcept {
+    constexpr uint32_t kOnes = 0x01010101U;
+    constexpr uint32_t kHighs = 0x80808080U;
+    const uint32_t quotes = (word ^ (kOnes * '"'));
+    const uint32_t backslashes = (word ^ (kOnes * '\\'));
+    const uint32_t quote_mask = (quotes - kOnes) & ~quotes & kHighs;
+    const uint32_t backslash_mask = (backslashes - kOnes) & ~backslashes & kHighs;
+    const uint32_t control_mask = (word - (kOnes * 0x20)) & ~word & kHighs;
+    return quote_mask | backslash_mask | control_mask;
+}
+
 #endif
 
 } // namespace detail
@@ -210,6 +223,19 @@ inline size_t find_next_escape(const char* data, size_t len) noexcept {
         std::memcpy(&word, data + len - 8, 8);
         const uint64_t mask = detail::escape_mask_word(word);
         return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
+    }
+    // ...and one size further down, for 4..7-byte strings.
+    if (len >= 4 && pos < len) {
+        uint32_t head;
+        std::memcpy(&head, data, 4);
+        const uint32_t head_mask = detail::escape_mask_word32(head);
+        if (head_mask != 0)
+            return static_cast<size_t>(__builtin_ctz(head_mask)) >> 3;
+        uint32_t tail;
+        std::memcpy(&tail, data + len - 4, 4);
+        const uint32_t tail_mask = detail::escape_mask_word32(tail);
+        return tail_mask != 0 ? (len - 4) + (static_cast<size_t>(__builtin_ctz(tail_mask)) >> 3)
+                              : len;
     }
 #endif
     // Under eight bytes; the twin finishes the job. Reading past the end to
@@ -268,6 +294,20 @@ inline size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept
         std::memcpy(dst + len - 8, &word, 8);
         const uint64_t mask = detail::escape_mask_word(word);
         return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
+    }
+    if (len >= 4 && pos < len) {
+        uint32_t head;
+        std::memcpy(&head, src, 4);
+        std::memcpy(dst, &head, 4);
+        const uint32_t head_mask = detail::escape_mask_word32(head);
+        if (head_mask != 0)
+            return static_cast<size_t>(__builtin_ctz(head_mask)) >> 3;
+        uint32_t tail;
+        std::memcpy(&tail, src + len - 4, 4);
+        std::memcpy(dst + len - 4, &tail, 4);
+        const uint32_t tail_mask = detail::escape_mask_word32(tail);
+        return tail_mask != 0 ? (len - 4) + (static_cast<size_t>(__builtin_ctz(tail_mask)) >> 3)
+                              : len;
     }
 #endif
     return pos + copy_until_escape_scalar(src + pos, len - pos, dst + pos);
