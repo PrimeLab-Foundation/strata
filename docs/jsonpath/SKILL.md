@@ -8,6 +8,33 @@ description: JSONPath subsystem — supported grammar, compile/eval architecture
 
 # JSONPath / Search
 
+**Framing:** this doc describes the *previous implementation* as the blueprint.
+"Current state" says what the rebuild has built.
+
+## Current state (after M7)
+
+Real: `include/strata/search/jsonpath.hpp`, `src/strata/search/{jsonpath_compile, jsonpath_eval}.cpp`, `src/strata/bindings/python_jsonpath.cpp`, and
+`python/strata/jsonpath.py`. `strata.query`, `strata.search`, `strata.compile`
+and `CompiledPath.execute` all work over the documented grammar.
+
+- **`search` is defined as `query(load(f), e)`.** The law the milestone
+  requires is therefore not a property two implementations have to maintain --
+  it is how search is built. Verified anyway over 22,080 randomised
+  expression/document pairs, JSON and NDJSON: zero mismatches.
+- **Recursive descent descends into its own matches**, in both evaluators, so
+  `$..a` returns an `a` nested inside an `a`. That resolves the divergence
+  recorded below in favour of query semantics.
+- Two evaluators, not four: PyObject-native (`query`, and so `search`) and C++
+  DOM (`CompiledPath.execute`). The blueprint's ~500 lines of dead pre-SAX
+  evaluator were not rebuilt.
+- **The SAX streaming evaluator is not built.** `is_streamable()` is there and
+  gates Slice, Filter and RecursiveDescent, but nothing uses it yet: streaming
+  is the headline *throughput* feature and needs a benchmark behind it, and a
+  streaming path that captures a subtree must keep matching inside it or the
+  law breaks again. This is the main gap left in the subsystem.
+- Filter comparisons treat `bool` as not-a-number in both evaluators, so
+  `query()` and `execute()` cannot disagree.
+
 ## Grammar (subset of RFC 9535)
 
 The canonical contract summary (supported set, error types) is

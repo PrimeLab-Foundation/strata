@@ -190,4 +190,19 @@ PyObject* make_root_cursor(const std::shared_ptr<const JsonValue>& owner) {
     return make_cursor(owner, JsonCursor(owner.get()));
 }
 
+const JsonValue* cursor_value(PyObject* object) {
+    if (!Py_IS_TYPE(object, &kCursorType))
+        return nullptr;
+    return reinterpret_cast<CursorObject*>(object)->cursor.raw();
+}
+
+PyObject* cursor_child(PyObject* object, const JsonValue* value) {
+    if (!Py_IS_TYPE(object, &kCursorType)) {
+        PyErr_SetString(PyExc_TypeError, "expected a JsonCursor");
+        return nullptr;
+    }
+    // The child shares the parent's tree, so it keeps it alive on its own.
+    return make_cursor(*reinterpret_cast<CursorObject*>(object)->owner, JsonCursor(value));
+}
+
 } // namespace strata::bindings

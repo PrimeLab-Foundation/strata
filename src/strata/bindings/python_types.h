@@ -65,6 +65,24 @@ bool register_ndjson_iterator_type(PyObject* module);
 /// `dump(obj, path)` in file mode.
 [[nodiscard]] PyObject* dump_to_file(PyObject* object, const char* path);
 
+/// Register the CompiledPath type. False with an error set on failure.
+bool register_jsonpath_types(PyObject* module);
+
+/// Compile @p expression (str or CompiledPath) into a CompiledPath object.
+[[nodiscard]] PyObject* compile_expression(PyObject* expression);
+
+/// Evaluate @p expression over Python objects.
+[[nodiscard]] PyObject* query_object(PyObject* data, PyObject* expression);
+
+/// The tree node a JsonCursor points at, or nullptr if not a cursor.
+[[nodiscard]] const JsonValue* cursor_value(PyObject* object);
+
+/// A cursor at @p value, sharing the tree that @p object holds.
+[[nodiscard]] PyObject* cursor_child(PyObject* object, const JsonValue* value);
+
+/// `search(path, expression)` over one file.
+[[nodiscard]] PyObject* search_file(const char* path, PyObject* expression);
+
 /// What dumps() does when a container contains itself.
 enum class CyclePolicyValue { Warn, Error, Ignore };
 

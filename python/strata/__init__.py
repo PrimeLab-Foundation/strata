@@ -14,7 +14,8 @@ extension was built.
 # (docs/context/convention.md, "No dependency fallbacks").
 from . import _strata as _native  # noqa: F401
 from . import config
-from ._strata import JsonCursor
+from ._strata import CompiledPath, JsonCursor
+from .jsonpath import compile, query, search
 from .serialize import dump, dumps, load, loads
 
 # Single source of truth for the version (docs/context/api.md § Versioning).
@@ -28,8 +29,13 @@ __all__ = [
     # File I/O
     "load",
     "dump",
+    # JSONPath
+    "search",
+    "query",
+    "compile",
     # Cursor
     "JsonCursor",
+    "CompiledPath",
     # Settings
     "config",
     # Version

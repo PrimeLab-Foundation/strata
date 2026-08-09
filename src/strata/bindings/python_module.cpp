@@ -291,6 +291,51 @@ PyObject* strata_dump(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_CATCH
 }
 
+PyObject* strata_compile(PyObject* /*self*/, PyObject* args) {
+    STRATA_CPP_TRY
+    PyObject* expression = nullptr;
+    if (!PyArg_ParseTuple(args, "O", &expression))
+        return nullptr;
+    return strata::bindings::compile_expression(expression);
+    STRATA_CPP_CATCH
+}
+
+PyObject* strata_query(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    static const char* keywords[] = {"", "", "iterator", nullptr};
+    PyObject* data = nullptr;
+    PyObject* expression = nullptr;
+    int iterator = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$p", const_cast<char**>(keywords), &data,
+                                     &expression, &iterator))
+        return nullptr;
+
+    strata::bindings::PyRef matches(strata::bindings::query_object(data, expression));
+    if (!matches)
+        return nullptr;
+    // Eager evaluate, lazy consume: the flag changes how results are handed
+    // back, not when the work happens (docs/context/api.md).
+    return iterator ? PyObject_GetIter(matches.get()) : matches.release();
+    STRATA_CPP_CATCH
+}
+
+PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    static const char* keywords[] = {"", "", "iterator", nullptr};
+    const char* path = nullptr;
+    PyObject* expression = nullptr;
+    int iterator = 0;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|$p", const_cast<char**>(keywords), &path,
+                                     &expression, &iterator))
+        return nullptr;
+
+    strata::bindings::PyRef matches(strata::bindings::search_file(path, expression));
+    if (!matches)
+        return nullptr;
+    return iterator ? PyObject_GetIter(matches.get()) : matches.release();
+    STRATA_CPP_CATCH
+}
+
 PyMethodDef kModuleMethods[] = {
     {"loads", STRATA_KEYWORD_FN(strata_loads), METH_VARARGS | METH_KEYWORDS,
      "loads(source, *, return_type='dict', iterator=False)\n\nParse JSON text."},
@@ -300,6 +345,11 @@ PyMethodDef kModuleMethods[] = {
      "load(path, *, return_type='dict', iterator=False, skip_errors=False)"},
     {"dump", STRATA_KEYWORD_FN(strata_dump), METH_VARARGS | METH_KEYWORDS,
      "dump(obj, path, *, split_by=None)"},
+    {"compile", strata_compile, METH_VARARGS, "compile(expression) -> CompiledPath"},
+    {"query", STRATA_KEYWORD_FN(strata_query), METH_VARARGS | METH_KEYWORDS,
+     "query(data, expression, *, iterator=False) -> list"},
+    {"search", STRATA_KEYWORD_FN(strata_search), METH_VARARGS | METH_KEYWORDS,
+     "search(path, expression, *, iterator=False) -> list"},
     {"config_set", strata_config_set, METH_VARARGS, "config_set(key, value)\n\nSet a setting."},
     {"config_get", strata_config_get, METH_VARARGS, "config_get(key)\n\nRead a setting."},
     {"config_list", strata_config_list, METH_NOARGS, "config_list()\n\nAll settings."},
@@ -330,7 +380,8 @@ PyMODINIT_FUNC PyInit__strata(void) {
     if (module == nullptr)
         return nullptr;
     if (!strata::bindings::register_cursor_type(module) ||
-        !strata::bindings::register_ndjson_iterator_type(module)) {
+        !strata::bindings::register_ndjson_iterator_type(module) ||
+        !strata::bindings::register_jsonpath_types(module)) {
         Py_DECREF(module);
         return nullptr;
     }

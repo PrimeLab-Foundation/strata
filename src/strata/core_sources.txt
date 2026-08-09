@@ -18,5 +18,7 @@ src/strata/json/json_document.cpp
 src/strata/json/json_parse.cpp
 src/strata/json/json_serialize.cpp
 src/strata/json/ndjson_stream.cpp
+src/strata/search/jsonpath_compile.cpp
+src/strata/search/jsonpath_eval.cpp
 src/strata/util/dtoa.cpp
 src/strata/util/scan.cpp
