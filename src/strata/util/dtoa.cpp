@@ -142,6 +142,19 @@ void write_digits_fixed(uint64_t value, char* out, size_t len) noexcept {
         out[0] = static_cast<char>('0' + rest % 10);
 }
 
+/// Shift sixteen bytes right by @p gap places (loads before stores, so the
+/// ranges may overlap). Spelled as two u64 moves because a `memmove` call --
+/// which is what the extension build turned the "constant-size" form into --
+/// profiled at 12% of users.json serialization.
+inline void shift16_right(char* from, size_t gap) noexcept {
+    uint64_t low;
+    uint64_t high;
+    std::memcpy(&low, from, 8);
+    std::memcpy(&high, from + 8, 8);
+    std::memcpy(from + gap, &low, 8);
+    std::memcpy(from + gap + 8, &high, 8);
+}
+
 /// The exponent suffix digits: two for 0..99, three above (`e+05`, `e+308`).
 [[nodiscard]] char* write_exponent(int value, char* out) noexcept {
     if (value >= 100) {
@@ -477,7 +490,7 @@ size_t format_double(double value, char* out, size_t capacity) noexcept {
         // moves and covers the longest possible fraction. Bytes shuffled
         // beyond the reported length are scratch inside the 40-byte buffer.
         write_digits_fixed(digits, out + written, length);
-        std::memmove(out + written + point + 1, out + written + point, 16);
+        shift16_right(out + written + point, 1);
         out[written + point] = '.';
         return written + length + 1;
     }
@@ -488,7 +501,7 @@ size_t format_double(double value, char* out, size_t capacity) noexcept {
     } else {
         // Same constant-size gap trick as the fixed split above.
         write_digits_fixed(digits, out + written, length);
-        std::memmove(out + written + 2, out + written + 1, 16);
+        shift16_right(out + written + 1, 1);
         out[written + 1] = '.';
         written += length + 1;
     }

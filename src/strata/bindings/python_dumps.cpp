@@ -16,6 +16,7 @@
  * All of them are measured in docs/performance/SKILL.md.
  */
 
+#include "python_dumps_output.h"
 #include "python_types.h"
 #include "strata/json/json_serialize.hpp"
 #include "strata/util/dtoa.hpp"
@@ -24,7 +25,9 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <new>
 #include <string>
@@ -46,174 +49,11 @@ namespace {
  */
 CyclePolicyValue g_cycle_policy = CyclePolicyValue::Warn;
 
-/**
- * A staging buffer between the serializer and the output string.
- *
- * `ensure(n)` guarantees `n` writable bytes at `cursor()`; everything the
- * serializer emits is then raw stores and memcpys, and the output string is
- * touched once per stageful. Reservations must fit the stage — every caller
- * here reserves a small constant — while `write_spanning` takes any size and
- * routes oversized payloads straight to the string.
- */
-class StagedOutput {
-  public:
-    explicit StagedOutput(std::string& sink) : sink_(sink) {}
-
-    StagedOutput(const StagedOutput&) = delete;
-    StagedOutput& operator=(const StagedOutput&) = delete;
-
-    /// Make room for @p bytes of upcoming raw writes. @p bytes ≤ stage size.
-    void ensure(size_t bytes) {
-        if (used_ + bytes > sizeof(stage_))
-            flush();
-    }
-
-    [[nodiscard]] char* cursor() noexcept { return stage_ + used_; }
-    void advance(size_t bytes) noexcept { used_ += bytes; }
-
-    /// Take back @p bytes just written to the stage (never past a flush).
-    void rewind(size_t bytes) noexcept { used_ -= bytes; }
-
-    /// One byte, after a covering ensure().
-    void put(char c) noexcept { stage_[used_++] = c; }
-
-    /// @p len bytes, after a covering ensure().
-    void write(const char* data, size_t len) noexcept {
-        std::memcpy(stage_ + used_, data, len);
-        used_ += len;
-    }
-
-    /// Any length; spills to the sink when the stage cannot hold it.
-    void write_spanning(const char* data, size_t len) {
-        if (used_ + len <= sizeof(stage_)) {
-            std::memcpy(stage_ + used_, data, len);
-            used_ += len;
-            return;
-        }
-        flush();
-        if (len >= sizeof(stage_) / 2) {
-            sink_.append(data, len);
-            return;
-        }
-        std::memcpy(stage_, data, len);
-        used_ = len;
-    }
-
-    /// The sink, flushed first — for the rare paths that append directly.
-    [[nodiscard]] std::string& direct_sink() {
-        flush();
-        return sink_;
-    }
-
-    void flush() {
-        if (used_ != 0) {
-            sink_.append(stage_, used_);
-            used_ = 0;
-        }
-    }
-
-  private:
-    std::string& sink_;
-    size_t used_ = 0;
-    char stage_[8192];
-};
-
-/**
- * The per-thread schema cache, shared across dumps() calls.
- *
- * Sharing is what lets repeated serialization of same-shaped payloads skip
- * key preparation entirely after the first call. The keys are *owned*
- * references: identity comparison is only sound while the objects live, and
- * a borrowed pointer could be freed between calls and reincarnated as a
- * different key. The busy flag covers re-entrancy -- a cycle warning can run
- * arbitrary Python, which can call dumps() again mid-walk; the nested call
- * pays for a private, empty cache instead.
- */
-class SchemaCacheLease {
-  public:
-    /// Prepared `"key":` bytes for one object shape at one depth.
-    struct Schema {
-        std::vector<PyObject*> keys;      ///< owned references
-        std::string blob;                 ///< the prepared bytes, back to back
-        std::vector<uint32_t> offsets{0}; ///< blob boundaries, keys.size() + 1
-        bool prepared = false;
-        uint32_t divergences = 0;
-        /// A depth whose objects keep changing shape is not record-shaped;
-        /// it stops remembering rather than paying incref churn per object.
-        bool retired = false;
-
-        void remember(PyObject* const* other, Py_ssize_t count) {
-            if (++divergences > 16) {
-                for (PyObject* key : keys)
-                    Py_DECREF(key);
-                keys.clear();
-                retired = true;
-                prepared = false;
-                return;
-            }
-            for (PyObject* key : keys)
-                Py_DECREF(key);
-            keys.assign(other, other + count);
-            for (PyObject* key : keys)
-                Py_INCREF(key);
-            prepared = false;
-        }
-
-        [[nodiscard]] bool matches(PyObject* const* other, Py_ssize_t count) const noexcept {
-            if (static_cast<Py_ssize_t>(keys.size()) != count)
-                return false;
-            for (Py_ssize_t index = 0; index < count; ++index) {
-                // Identity, not equality: strata interns the keys it parses
-                // and CPython interns identifier-like literals, so same-schema
-                // records share key objects. A miss costs a rebuild, never a
-                // wrong answer.
-                if (keys[static_cast<size_t>(index)] != other[index])
-                    return false;
-            }
-            return true;
-        }
-    };
-
-    SchemaCacheLease() {
-        if (!busy_ && shared() != nullptr) {
-            busy_ = true;
-            slots_ = shared();
-            owns_flag_ = true;
-        } else {
-            slots_ = &fallback_;
-        }
-    }
-
-    ~SchemaCacheLease() {
-        if (owns_flag_)
-            busy_ = false;
-    }
-
-    SchemaCacheLease(const SchemaCacheLease&) = delete;
-    SchemaCacheLease& operator=(const SchemaCacheLease&) = delete;
-
-    [[nodiscard]] std::vector<Schema>& slots() noexcept { return *slots_; }
-
-  private:
-    [[nodiscard]] static std::vector<Schema>* shared() {
-        // Deliberately leaked: a destructor after interpreter shutdown could
-        // not legally Py_DECREF the owned keys anyway.
-        static thread_local std::vector<Schema>* instance =
-            new (std::nothrow) std::vector<Schema>();
-        return instance;
-    }
-
-    static thread_local bool busy_;
-
-    std::vector<Schema>* slots_;
-    std::vector<Schema> fallback_;
-    bool owns_flag_ = false;
-};
-
-thread_local bool SchemaCacheLease::busy_ = false;
-
 /// Walks a Python object graph, appending JSON through the staged buffer.
 class Serializer {
+    using Schema = SchemaCacheLease::Schema;
+    using ValueKind = SchemaCacheLease::ValueKind;
+
   public:
     Serializer(StagedOutput& out, std::vector<SchemaCacheLease::Schema>& schemas)
         : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(schemas) {}
@@ -357,16 +197,34 @@ class Serializer {
             out_.put('"');
             return true;
         }
-        append_escaped_json_string(std::string_view(data, size), out_.direct_sink());
+        std::string& sink = out_.direct_sink();
+        if (!out_.sink_is_scratch()) {
+            append_escaped_json_string(std::string_view(data, size), sink);
+            return true;
+        }
+        append_escaped_json_string(std::string_view(data, size), sink);
+        out_.write_spanning(sink.data(), sink.size());
         return true;
     }
 
     [[nodiscard]] bool write_sequence(PyObject* object) {
-        const Frame frame(*this, object);
-        if (frame.repeated())
-            return frame.handle_cycle();
-        if (!frame.within_depth_limit())
-            return false;
+        // The frame answers two questions -- "is this list already open above
+        // me?" and "is the nesting too deep?" -- and only descending into a
+        // container child can make either matter for the *next* level. So the
+        // cycle probe runs up front, the boundary case keeps the framed path
+        // (its depth error must stay byte-identical), and the push is
+        // deferred until the first container element. All-scalar lists -- the
+        // overwhelming majority -- never touch the open_ vector at all.
+        if (std::find(open_.begin(), open_.end(), object) != open_.end())
+            return emit_cycle_placeholder();
+        if (open_.size() >= static_cast<size_t>(depth_limit_)) {
+            const Frame frame(*this, object);
+            if (frame.repeated())
+                return frame.handle_cycle();
+            if (!frame.within_depth_limit())
+                return false;
+            return write_sequence_body(object);
+        }
 
         out_.ensure(1);
         out_.put('[');
@@ -380,6 +238,37 @@ class Serializer {
         // the general loop below picks up exactly where it stopped.
         Py_ssize_t index = write_scalar_run(items, size);
 
+        bool pushed = false;
+        for (; index < size; ++index) {
+            if (index != 0) {
+                out_.ensure(1);
+                out_.put(',');
+            }
+            PyObject* item = items[index];
+            if (!pushed && !is_plain_scalar(item)) {
+                open_.push_back(object);
+                pushed = true;
+            }
+            if (!write(item)) {
+                if (pushed)
+                    open_.pop_back();
+                return false;
+            }
+        }
+        if (pushed)
+            open_.pop_back();
+        out_.ensure(1);
+        out_.put(']');
+        return true;
+    }
+
+    /// The framed emit loop, for sequences at the depth boundary.
+    [[nodiscard]] bool write_sequence_body(PyObject* object) {
+        out_.ensure(1);
+        out_.put('[');
+        const Py_ssize_t size = PySequence_Fast_GET_SIZE(object);
+        PyObject** items = PySequence_Fast_ITEMS(object);
+        Py_ssize_t index = write_scalar_run(items, size);
         for (; index < size; ++index) {
             if (index != 0) {
                 out_.ensure(1);
@@ -390,6 +279,22 @@ class Serializer {
         }
         out_.ensure(1);
         out_.put(']');
+        return true;
+    }
+
+    /// The cycle placeholder the policy calls for, outside any frame.
+    [[nodiscard]] bool emit_cycle_placeholder() {
+        if (g_cycle_policy == CyclePolicyValue::Error) {
+            PyErr_SetString(PyExc_ValueError, "Circular reference detected");
+            return false;
+        }
+        out_.ensure(4);
+        out_.write("null", 4);
+        if (g_cycle_policy == CyclePolicyValue::Warn) {
+            // A warning filter set to "error" raises here, which stops the
+            // serialization rather than being swallowed.
+            return PyErr_WarnEx(PyExc_RuntimeWarning, "Circular reference detected", 1) == 0;
+        }
         return true;
     }
 
@@ -513,6 +418,25 @@ class Serializer {
     /// Nesting levels that get a schema slot; deeper objects take the plain walk.
     static constexpr size_t kMaxCachedDepth = 64;
 
+    [[nodiscard]] static ValueKind classify_value(PyObject* value) noexcept {
+        PyTypeObject* const type = Py_TYPE(value);
+        if (type == &PyUnicode_Type)
+            return ValueKind::Str;
+        if (type == &PyFloat_Type)
+            return ValueKind::Float;
+        if (type == &PyLong_Type)
+            return ValueKind::Int;
+        if (value == Py_None)
+            return ValueKind::None;
+        if (value == Py_True || value == Py_False)
+            return ValueKind::Bool;
+        if (type == &PyList_Type)
+            return ValueKind::List;
+        if (type == &PyDict_Type)
+            return ValueKind::Dict;
+        return ValueKind::Unknown; // subclasses and errors stay on write()
+    }
+
     /// Exact scalar types cannot recurse, so a dict of them cannot contain
     /// itself and needs no cycle frame.
     [[nodiscard]] static bool is_plain_scalar(PyObject* value) noexcept {
@@ -528,26 +452,63 @@ class Serializer {
         PyObject* keys[kMaxSchemaKeys];
         PyObject* values[kMaxSchemaKeys];
         Py_ssize_t count = 0;
-        Py_ssize_t position = 0;
-        PyObject* key = nullptr;
-        PyObject* value = nullptr;
         bool too_many = false;
         bool all_scalar = true;
 
-        while (PyDict_Next(object, &position, &key, &value)) {
-            if (!PyUnicode_Check(key)) {
-                PyErr_Format(PyExc_TypeError, "keys must be str, not %s", Py_TYPE(key)->tp_name);
-                return false;
+#if defined(STRATA_RAW_DICT_WALK)
+        Py_ssize_t entry_count = 0;
+        const rawdict::UnicodeEntry* entries =
+            rawdict::available() ? rawdict::entry_array(object, &entry_count) : nullptr;
+        if (entries != nullptr) {
+            for (Py_ssize_t index = 0; index < entry_count; ++index) {
+                PyObject* value = entries[index].me_value;
+                if (value == nullptr)
+                    continue; // deleted slot
+                PyObject* key = entries[index].me_key;
+                if (!PyUnicode_Check(key)) {
+                    PyErr_Format(PyExc_TypeError, "keys must be str, not %s",
+                                 Py_TYPE(key)->tp_name);
+                    return false;
+                }
+                if (count == kMaxSchemaKeys) {
+                    too_many = true;
+                    break;
+                }
+                if (all_scalar && !is_plain_scalar(value))
+                    all_scalar = false;
+                keys[count] = key;
+                values[count] = value;
+                ++count;
             }
-            if (count == kMaxSchemaKeys) {
-                too_many = true;
-                break;
+            if (!too_many && count != PyDict_GET_SIZE(object)) {
+                // The table disagreed with the size — walk the safe way.
+                count = 0;
+                all_scalar = true;
+                entries = nullptr;
             }
-            if (all_scalar && !is_plain_scalar(value))
-                all_scalar = false;
-            keys[count] = key;
-            values[count] = value;
-            ++count;
+        }
+        if (entries == nullptr)
+#endif
+        {
+            Py_ssize_t position = 0;
+            PyObject* key = nullptr;
+            PyObject* value = nullptr;
+            while (PyDict_Next(object, &position, &key, &value)) {
+                if (!PyUnicode_Check(key)) {
+                    PyErr_Format(PyExc_TypeError, "keys must be str, not %s",
+                                 Py_TYPE(key)->tp_name);
+                    return false;
+                }
+                if (count == kMaxSchemaKeys) {
+                    too_many = true;
+                    break;
+                }
+                if (all_scalar && !is_plain_scalar(value))
+                    all_scalar = false;
+                keys[count] = key;
+                values[count] = value;
+                ++count;
+            }
         }
 
         // The cycle frame exists to recognise this dict if it reappears below
@@ -652,8 +613,6 @@ class Serializer {
         out_.put('}');
         return true;
     }
-
-    using Schema = SchemaCacheLease::Schema;
 
     /// Prepare the `"key":` bytes for a schema whose keys are already recorded.
     [[nodiscard]] bool build_schema(Schema& schema) {
@@ -786,6 +745,27 @@ bool set_cycle_policy(std::string_view name) noexcept {
 }
 
 PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
+    SchemaCacheLease schemas;
+
+    if (as_bytes) {
+        // Sized from the previous document on this thread: growth doubling
+        // would otherwise copy roughly one document's worth of bytes on the
+        // way up, cancelling the copy this mode exists to save. Repeated
+        // dumps of similar payloads -- the workload that matters -- allocate
+        // exactly once.
+        static thread_local size_t size_hint = kDumpsInitialCapacity;
+        StagedOutput staged;
+        if (!staged.init_bytes(size_hint + size_hint / 8 + 64))
+            return PyErr_NoMemory();
+        Serializer serializer(staged, schemas.slots());
+        if (!serializer.write(object))
+            return nullptr;
+        PyObject* result = staged.take_bytes();
+        if (result != nullptr)
+            size_hint = static_cast<size_t>(PyBytes_GET_SIZE(result));
+        return result;
+    }
+
     // Reused across calls on this thread: after the first few documents the
     // buffer has grown to size and stops allocating entirely. Thread-local
     // rather than global because the GIL is held but the buffer outlives the
@@ -796,14 +776,10 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         out.reserve(kDumpsInitialCapacity);
 
     StagedOutput staged(out);
-    SchemaCacheLease schemas;
     Serializer serializer(staged, schemas.slots());
     if (!serializer.write(object))
         return nullptr;
     staged.flush();
-
-    if (as_bytes)
-        return PyBytes_FromStringAndSize(out.data(), static_cast<Py_ssize_t>(out.size()));
     return PyUnicode_FromStringAndSize(out.data(), static_cast<Py_ssize_t>(out.size()));
 }
 

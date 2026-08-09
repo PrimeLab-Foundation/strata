@@ -38,15 +38,15 @@ pysimdjson has no CPython 3.14 wheel and is excluded, which the reports state.
 
 | Category        | #1 rows (small) | #1 rows (medium) | vs best rival |
 | --------------- | --------------- | ---------------- | ------------- |
-| `loads`         | 3/5             | 4/5              | 0.52x – 1.25x |
-| `dumps`         | 0/5             | 0/5              | 1.01x – 1.32x |
-| `load`          | 3/5             | **5/5**          | 0.49x – 1.15x |
+| `loads`         | 3/5             | 4/5              | 0.51x – 1.26x |
+| `dumps`         | 1/5             | 1/5              | 0.88x – 1.29x |
+| `load`          | 3/5             | **5/5**          | 0.49x – 1.17x |
 | `load (ndjson)` | **1/1**         | **1/1**          | 0.71x – 0.75x |
-| `dump`          | 0/5             | 0/5              | 1.07x – 1.32x |
+| `dump`          | 0/5             | 2/5              | 0.93x – 1.24x |
 | `query`         | **3/3**         | **3/3**          | 0.01x – 0.26x |
-| `search`        | **3/3**         | **3/3**          | 0.05x – 0.35x |
+| `search`        | **3/3**         | **3/3**          | 0.05x – 0.36x |
 
-Total: 29/54 rows at #1 (was 8/27 on the small tier before the M10 waves).
+Total: 33/54 rows at #1 (was 8/27 on the small tier before the M10 waves).
 
 **Where strata now leads outright:** every `query` row (4–100×), every
 `search` row (2.9–20× — the streaming SAX evaluator landed this wave; the
@@ -56,19 +56,15 @@ at both tiers (C++ single-read + parse beats read()+parse pipelines), and
 in-memory `loads` on the headline users dataset (0.93–0.94×) plus most
 medium datasets.
 
-**Where it does not:** serialization. After the third wave `dumps`/`dump`
-are #2 on almost every row at 1.04×–1.34× behind orjson — nested at
-1.04–1.06×, users at 1.13–1.18× — down from 1.85×–2.46× before the waves
-(users dumps 7.89 → 3.05 ms). Wave 4 added the Ryu float converter (general
-case 51 ns, repr-exact, 20M-value oracle) and 32-byte scan blocks; neither
-flipped a row, because the corpus floats are 6-decimal (the micro tier
-already owned them) and record strings are bounded by per-string overhead,
-not scan width. The profiled remainder is orjson's Rust fundamentals spread
-across dispatch, dict iteration (`PyDict_Next`), and per-string setup, each
-a single-digit share. `loads` on small
-`flat`/`mixed` (1.15–1.28×) is per-object creation overhead on documents too
-small to amortize the caches. Techniques tried, adopted and rejected are in
-`docs/performance/SKILL.md`.
+**Where it does not, and how close it is:** after wave 5 serialization has
+its first #1 rows — `dumps nested` leads at both tiers (0.88×, 11% ahead of
+orjson) and `dump nested`/`dump users` lead at medium — while users and flat
+sit within 5% (1.02×–1.07×). The two rows still clearly behind are
+`wide_arrays` (1.21×–1.29×: homogeneous scalar arrays are orjson's single
+best case) and `mixed` (1.14×–1.22×: shape churn defeats every cache).
+`loads` on small `flat`/`mixed` (1.2×–1.5×) remains per-object creation
+overhead on documents too small to amortize the caches. Techniques tried,
+adopted and rejected are in `docs/performance/SKILL.md`.
 
 ### Cross-session baselines are not comparable on this machine
 

@@ -12,17 +12,6 @@
 #include <cstdint>
 #include <cstring>
 
-// Compile-time SIMD selection (docs/context/styleguide.md). There is no
-// runtime dispatch: the extension is built with -march=native, and a wheel
-// built for a baseline target simply uses the scalar twin.
-#if defined(__ARM_NEON)
-#include <arm_neon.h>
-#define STRATA_ESCAPE_SCAN_SIMD 1
-#elif defined(__SSE2__)
-#include <emmintrin.h>
-#define STRATA_ESCAPE_SCAN_SIMD 1
-#endif
-
 namespace strata::util {
 
 namespace {
@@ -30,49 +19,6 @@ namespace {
 [[nodiscard]] inline bool is_continuation(unsigned char byte) noexcept {
     return (byte & 0xC0) == 0x80;
 }
-
-#if defined(STRATA_ESCAPE_SCAN_SIMD)
-
-/// Bytes examined per SIMD step.
-constexpr size_t kEscapeBlock = 16;
-
-/**
- * Offset of the first byte in a 16-byte block that a JSON string cannot carry
- * verbatim, or kEscapeBlock if the whole block is clean.
- *
- * "Cannot carry verbatim" is exactly the scalar twin's rule: a quote, a
- * backslash, or a control byte below 0x20. UTF-8 continuation bytes are all
- * >= 0x80 and so are never flagged, which is what lets multi-byte text be
- * copied through untouched.
- */
-[[nodiscard]] inline size_t first_escape_in_block(const char* data) noexcept {
-#if defined(__ARM_NEON)
-    const uint8x16_t block = vld1q_u8(reinterpret_cast<const uint8_t*>(data));
-    const uint8x16_t interesting =
-        vorrq_u8(vorrq_u8(vceqq_u8(block, vdupq_n_u8('"')), vceqq_u8(block, vdupq_n_u8('\\'))),
-                 vcltq_u8(block, vdupq_n_u8(0x20)));
-    // NEON has no movemask. Narrowing each 16-bit lane by 4 leaves one nibble
-    // per input byte, so the whole block fits in a 64-bit word and the first
-    // match is a count-trailing-zeros away.
-    const uint64_t mask =
-        vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(interesting), 4)), 0);
-    if (mask == 0)
-        return kEscapeBlock;
-    return static_cast<size_t>(__builtin_ctzll(mask)) >> 2;
-#else
-    const __m128i block = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
-    const __m128i quote = _mm_cmpeq_epi8(block, _mm_set1_epi8('"'));
-    const __m128i backslash = _mm_cmpeq_epi8(block, _mm_set1_epi8('\\'));
-    // No unsigned compare before SSE4, so: min(b, 0x1F) == b iff b <= 0x1F.
-    const __m128i control = _mm_cmpeq_epi8(_mm_min_epu8(block, _mm_set1_epi8(0x1F)), block);
-    const int mask = _mm_movemask_epi8(_mm_or_si128(_mm_or_si128(quote, backslash), control));
-    if (mask == 0)
-        return kEscapeBlock;
-    return static_cast<size_t>(__builtin_ctz(static_cast<unsigned>(mask)));
-#endif
-}
-
-#endif // STRATA_ESCAPE_SCAN_SIMD
 
 } // namespace
 
@@ -150,91 +96,6 @@ size_t find_next_escape_scalar(const char* data, size_t len) noexcept {
     return len;
 }
 
-#if defined(__LITTLE_ENDIAN__) || defined(_WIN32) ||                                               \
-    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-#define STRATA_ESCAPE_SCAN_SWAR 1
-
-namespace {
-
-/**
- * Eight bytes at a time, in a register — the tier between the 16-byte SIMD
- * block and the byte loop. Most JSON strings are shorter than one SIMD block
- * (keys, names, identifiers), so without this the common case was scanned a
- * byte at a time.
- *
- * The formulas are the classic exact ones: `haszero` marks 0x80 in each byte
- * that is zero, never elsewhere; XOR against a repeated constant turns
- * has-this-value into has-zero; the borrow trick marks bytes below 0x20.
- * Little-endian only, where the first matching byte is the lowest set 0x80
- * and one count-trailing-zeros finds it.
- */
-[[nodiscard]] inline uint64_t escape_mask_word(uint64_t word) noexcept {
-    constexpr uint64_t kOnes = 0x0101010101010101ULL;
-    constexpr uint64_t kHighs = 0x8080808080808080ULL;
-    const uint64_t quotes = (word ^ (kOnes * '"'));
-    const uint64_t backslashes = (word ^ (kOnes * '\\'));
-    const uint64_t quote_mask = (quotes - kOnes) & ~quotes & kHighs;
-    const uint64_t backslash_mask = (backslashes - kOnes) & ~backslashes & kHighs;
-    const uint64_t control_mask = (word - (kOnes * 0x20)) & ~word & kHighs;
-    return quote_mask | backslash_mask | control_mask;
-}
-
-} // namespace
-#endif
-
-size_t find_next_escape(const char* data, size_t len) noexcept {
-    size_t pos = 0;
-#if defined(STRATA_ESCAPE_SCAN_SIMD)
-    // Two blocks per iteration halves the loop overhead on long spans — the
-    // parser scans the whole remaining input through here.
-    while (pos + 2 * kEscapeBlock <= len) {
-        const size_t first = first_escape_in_block(data + pos);
-        if (first != kEscapeBlock)
-            return pos + first;
-        const size_t second = first_escape_in_block(data + pos + kEscapeBlock);
-        if (second != kEscapeBlock)
-            return pos + kEscapeBlock + second;
-        pos += 2 * kEscapeBlock;
-    }
-    if (pos + kEscapeBlock <= len) {
-        const size_t hit = first_escape_in_block(data + pos);
-        if (hit != kEscapeBlock)
-            return pos + hit;
-        pos += kEscapeBlock;
-    }
-    // Overlapped final block: everything before `pos` is proven clean, so a
-    // block re-reading those bytes reports its first hit at an index >= pos
-    // automatically. One vector op replaces the word-and-byte tail — without
-    // ever reading past the end (the block ends exactly at `len`).
-    if (len >= kEscapeBlock && pos < len) {
-        const size_t base = len - kEscapeBlock;
-        const size_t hit = first_escape_in_block(data + base);
-        return hit != kEscapeBlock ? base + hit : len;
-    }
-#endif
-#if defined(STRATA_ESCAPE_SCAN_SWAR)
-    for (; pos + 8 <= len; pos += 8) {
-        uint64_t word;
-        std::memcpy(&word, data + pos, 8); // the only sanctioned type pun
-        const uint64_t mask = escape_mask_word(word);
-        if (mask != 0)
-            return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
-    }
-    // The same overlap trick one size down, for 8..15-byte strings.
-    if (len >= 8 && pos < len) {
-        uint64_t word;
-        std::memcpy(&word, data + len - 8, 8);
-        const uint64_t mask = escape_mask_word(word);
-        return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
-    }
-#endif
-    // Under eight bytes; the twin finishes the job. Reading past the end to
-    // fill a block would be faster and is what the previous implementation
-    // did — it relied on CPython's allocation slack, which is a promise
-    // CPython never made and which ASan rightly flags.
-    return pos + find_next_escape_scalar(data + pos, len - pos);
-}
-
 size_t copy_until_escape_scalar(const char* src, size_t len, char* dst) noexcept {
     for (size_t pos = 0; pos < len; ++pos) {
         const unsigned char c = static_cast<unsigned char>(src[pos]);
@@ -243,59 +104,6 @@ size_t copy_until_escape_scalar(const char* src, size_t len, char* dst) noexcept
         dst[pos] = src[pos];
     }
     return len;
-}
-
-size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept {
-    size_t pos = 0;
-#if defined(STRATA_ESCAPE_SCAN_SIMD)
-    // Whole blocks are stored before the mask is inspected — the contract
-    // gives the destination block-rounded room, so a store past the first
-    // escape byte is scratch the caller never reads. Two blocks per
-    // iteration; then one plain block; then an overlapped final block, whose
-    // re-read bytes are proven clean and whose re-stored bytes are identical.
-    while (pos + 2 * kEscapeBlock <= len) {
-        const size_t first = first_escape_in_block(src + pos);
-        std::memcpy(dst + pos, src + pos, kEscapeBlock);
-        if (first != kEscapeBlock)
-            return pos + first;
-        const size_t second = first_escape_in_block(src + pos + kEscapeBlock);
-        std::memcpy(dst + pos + kEscapeBlock, src + pos + kEscapeBlock, kEscapeBlock);
-        if (second != kEscapeBlock)
-            return pos + kEscapeBlock + second;
-        pos += 2 * kEscapeBlock;
-    }
-    if (pos + kEscapeBlock <= len) {
-        const size_t hit = first_escape_in_block(src + pos);
-        std::memcpy(dst + pos, src + pos, kEscapeBlock);
-        if (hit != kEscapeBlock)
-            return pos + hit;
-        pos += kEscapeBlock;
-    }
-    if (len >= kEscapeBlock && pos < len) {
-        const size_t base = len - kEscapeBlock;
-        const size_t hit = first_escape_in_block(src + base);
-        std::memcpy(dst + base, src + base, kEscapeBlock);
-        return hit != kEscapeBlock ? base + hit : len;
-    }
-#endif
-#if defined(STRATA_ESCAPE_SCAN_SWAR)
-    for (; pos + 8 <= len; pos += 8) {
-        uint64_t word;
-        std::memcpy(&word, src + pos, 8);
-        std::memcpy(dst + pos, &word, 8);
-        const uint64_t mask = escape_mask_word(word);
-        if (mask != 0)
-            return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
-    }
-    if (len >= 8 && pos < len) {
-        uint64_t word;
-        std::memcpy(&word, src + len - 8, 8);
-        std::memcpy(dst + len - 8, &word, 8);
-        const uint64_t mask = escape_mask_word(word);
-        return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
-    }
-#endif
-    return pos + copy_until_escape_scalar(src + pos, len - pos, dst + pos);
 }
 
 } // namespace strata::util
