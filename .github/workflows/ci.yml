@@ -1,0 +1,76 @@
+name: CI
+
+# Skeleton workflow for the rebuild: the test-gated install is the gate, plus
+# an explicit ctest leg and a style leg. The full cross-platform matrix
+# (3.10–3.14 × Linux/macOS/Windows) and the benchmark, fuzz and PGO workflows
+# land with milestone M9.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Floor and ceiling of the supported range, plus one macOS leg.
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: ubuntu-latest
+            python: "3.14"
+          - os: macos-latest
+            python: "3.12"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Upgrade packaging tools
+        run: python -m pip install -U pip setuptools wheel
+
+      - name: Run the C++ suite
+        run: python scripts/cpp_tests.py
+
+      # The install is itself the gate: it runs the C++ suite before compiling
+      # and both Python suites after. SKIP_TESTS=1 is banned here.
+      - name: Install strata (test-gated build)
+        run: python -m pip install -e '.[dev]'
+
+      - name: Run the Python suites
+        run: python scripts/py_tests.py
+
+  style:
+    name: lint / format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install style tools
+        run: python -m pip install -U 'ruff>=0.5' 'clang-format>=21,<22'
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format --check
+        run: ruff format --check .
+
+      - name: clang-format --dry-run --Werror
+        run: |
+          git ls-files -z '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' \
+            | xargs -0 --no-run-if-empty clang-format --dry-run --Werror

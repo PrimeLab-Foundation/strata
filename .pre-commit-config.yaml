@@ -1,0 +1,55 @@
+# Style gates (docs/context/styleguide.md). `make pre-commit-check` runs them
+# over the whole tree; `make dev` installs them as git hooks.
+#
+# docs/benchmarks/ is excluded everywhere: it holds machine-written benchmark
+# results that must never be hand-edited or reformatted.
+exclude: ^docs/benchmarks/
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.2
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # .editorconfig applies these to every file type, not just Python.
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        # Markdown is mdformat's alone: it re-emits YAML frontmatter with a
+        # trailing space that this hook would strip and mdformat would restore,
+        # so the two never converge. mdformat already trims and LF-terminates.
+        exclude: \.md$
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: check-yaml
+      - id: check-toml
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.5
+    hooks:
+      # Covers include/ and src/: the previous implementation excluded exactly
+      # the directories that hold C++ code, so the hook formatted nothing.
+      - id: clang-format
+        files: \.(c|cc|cpp|cxx|h|hh|hpp)$
+
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        # --number keeps ordered lists numbered 1., 2., 3. — the docs are read
+        # as instructions and step numbers carry meaning.
+        args: ["--number"]
+        additional_dependencies:
+          - mdformat-gfm==0.3.7
+          - mdformat-frontmatter==0.4.1
+        files: \.md$
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.19.0
+    hooks:
+      - id: markdownlint-cli2
+        files: \.md$

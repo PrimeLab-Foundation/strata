@@ -1,0 +1,13 @@
+include README.md
+include LICENSE
+include CMakeLists.txt
+include Makefile
+include .pre-commit-config.yaml
+include .clang-format
+include .ruff.toml
+
+recursive-include include *.h *.hpp
+recursive-include src *.c *.cc *.cpp *.cxx *.h *.hpp
+recursive-include python *.py
+recursive-include scripts *.py *.sh
+recursive-include tests *.py *.cpp *.h *.hpp *.json *.txt

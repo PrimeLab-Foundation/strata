@@ -1,0 +1,73 @@
+[build-system]
+requires = [
+  "setuptools>=77",
+  "wheel",
+  # The build gates run the C++ suite (cmake/ctest) and the Python suites
+  # (pytest) — both must exist inside an isolated build environment.
+  "cmake>=3.20",
+  "pytest>=7",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "strata"
+dynamic = ["version"]
+description = "Fast JSON for Python: parsing, serialization and JSONPath querying on a dependency-free C++20 engine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Strata Authors" }]
+keywords = ["json", "jsonpath", "parser", "ndjson", "strata"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+]
+
+[project.optional-dependencies]
+dev = [
+  # `make test` drives ctest, so the C++ suite must be runnable from a plain
+  # `make dev` without a system CMake — and the same pinned binary then serves
+  # both the local runs and the install gate.
+  "cmake>=3.20",
+  "pytest>=7",
+  "pytest-cov>=4",
+  "ruff>=0.5",
+  "pre-commit>=3.5",
+  # Pinned to the same major as the pre-commit clang-format hook so `make fmt`
+  # and the hook cannot disagree about formatting.
+  "clang-format>=21,<22",
+]
+
+[project.urls]
+Homepage = "https://github.com/PrimeLab-Foundation/strata"
+Repository = "https://github.com/PrimeLab-Foundation/strata"
+
+[tool.setuptools]
+package-dir = { "" = "python" }
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["strata*"]
+
+# Single source of truth for the version: the literal in
+# python/strata/__init__.py (docs/context/api.md § Versioning).
+[tool.setuptools.dynamic]
+version = { attr = "strata.__version__" }
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+testpaths = [
+  "tests/py",
+  "tests/unit",
+]
+markers = [
+  "stress: long-running or memory-heavy tests (exclude with -m 'not stress')",
+]
