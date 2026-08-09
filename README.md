@@ -5,9 +5,9 @@ a dependency-free C++20 engine with hand-written CPython C-API bindings.
 
 **Rebuild in progress.** The implementation is being rebuilt from scratch, one
 milestone at a time. Working today: `loads`, `dumps`, `load`, `dump`, cursor
-mode, JSONPath (`query`, `search`, `compile`) and `config`, over JSON and
-NDJSON. Folder mode is still to come, and the performance layer is only partly
-rebuilt, so this is not yet a
+mode, JSONPath (`query`, `search`, `compile`) and `config`, over single files,
+NDJSON and whole directories. What remains is hardening and release work, and
+the performance layer is only partly rebuilt, so this is not yet a
 drop-in replacement for the previous release. The docs under [docs/](docs/) are the complete
 specification: conventions, style, public API contract, architecture,
 benchmarking methodology, the optimization playbook (including negative
@@ -26,6 +26,10 @@ cursor.field("users").at(0).field("name").get_str()  # nothing else parsed
 
 strata.query(data, "$.users[?(@.age > 30)].name")   # JSONPath over objects
 strata.search("data.json", "$..price")              # ...or over a file
+
+strata.dump(records, "out/", split_by=["region", "team"])  # out/eu/red.json, ...
+strata.load("out/")                                        # every record back
+strata.search("out/", "$..price")                          # across the tree
 ```
 
 ```bash

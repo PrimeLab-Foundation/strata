@@ -83,6 +83,19 @@ bool register_jsonpath_types(PyObject* module);
 /// `search(path, expression)` over one file.
 [[nodiscard]] PyObject* search_file(const char* path, PyObject* expression);
 
+/// `load(dirpath, ...)` in folder mode.
+[[nodiscard]] PyObject* load_from_folder(const char* directory, bool iterator, bool skip_errors);
+
+/// `dump(records, dirpath, split_by=...)` in folder mode.
+[[nodiscard]] PyObject* dump_to_folder(PyObject* records, const char* directory,
+                                       PyObject* split_by);
+
+/// `search(dirpath, expression)` in folder mode.
+[[nodiscard]] PyObject* search_folder(const char* directory, PyObject* expression, bool iterator);
+
+/// Register the lazy folder iterator type.
+bool register_folder_iterator_type(PyObject* module);
+
 /// What dumps() does when a container contains itself.
 enum class CyclePolicyValue { Warn, Error, Ignore };
 

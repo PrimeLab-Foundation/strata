@@ -105,12 +105,18 @@ def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
     Args:
         obj: The value to serialize; the same types :func:`dumps` accepts.
         path: Destination file, truncated if it exists. ``Path`` is accepted.
-        split_by: Only meaningful for a directory target, which is a later
-            milestone; with a file target this is an error.
+        split_by: For a directory target, the key or keys whose values group
+            the records into files. One key writes ``dir/<value>.json``; N keys
+            nest one directory per key. Required for a directory, and an error
+            for a file.
 
     Raises:
-        OSError: The file could not be written.
-        TypeError: An object of an unsupported type, or a non-``str`` dict key.
-        ValueError: ``split_by`` was given, or serialization failed.
+        OSError: The file or directory could not be written.
+        TypeError: An unsupported type, a non-``str`` dict key, or -- in folder
+            mode -- a non-list ``obj`` or a record that is not a dict.
+        ValueError: ``split_by`` given for a file or missing for a directory, a
+            record missing a split key, a split value that is not a
+            ``str``/``int``/``bool``, or one that is unusable or ambiguous as a
+            file name.
     """
     _native.dump(obj, os.fspath(path), split_by=split_by)

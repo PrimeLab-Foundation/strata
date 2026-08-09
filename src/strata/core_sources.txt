@@ -21,4 +21,5 @@ src/strata/json/ndjson_stream.cpp
 src/strata/search/jsonpath_compile.cpp
 src/strata/search/jsonpath_eval.cpp
 src/strata/util/dtoa.cpp
+src/strata/util/folder.cpp
 src/strata/util/scan.cpp

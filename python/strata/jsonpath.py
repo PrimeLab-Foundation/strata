@@ -60,6 +60,8 @@ def search(path: str | os.PathLike, expression, *, iterator: bool = False):
         ValueError: Invalid JSON, or an invalid expression.
     """
     text = os.fspath(path)
-    if not str(text).lower().endswith(VALID_SUFFIXES):
+    # A directory is searched by discovery, so the extension rule applies to
+    # files only (docs/context/api.md § JSONPath, folder mode).
+    if not os.path.isdir(text) and not str(text).lower().endswith(VALID_SUFFIXES):
         raise TypeError(f"search() expects a .json, .ndjson or .jsonl path, got {text!r}")
     return _native.search(text, expression, iterator=iterator)

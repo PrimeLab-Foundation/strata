@@ -134,9 +134,12 @@ def test_a_missing_file_raises_file_not_found(tmp_path):
         strata.load(tmp_path / "absent.json")
 
 
-def test_a_directory_in_place_of_a_file_raises_os_error(tmp_path):
-    with pytest.raises(OSError):
-        strata.load(tmp_path)
+def test_a_directory_is_folder_mode_not_an_error(tmp_path):
+    """A directory is not a malformed file argument; it selects folder mode.
+
+    The folder-mode contract lives in tests/unit/test_folder.py.
+    """
+    assert strata.load(tmp_path) == []
 
 
 def test_an_empty_json_file_raises_value_error(files):
@@ -189,8 +192,12 @@ def test_dump_writes_mode_0644(tmp_path):
 
 
 def test_split_by_with_a_file_target_is_rejected(tmp_path):
+    # An *existing* file is unambiguously a file target. A path that does not
+    # exist yet is a directory to be created, because dump creates dirpath.
+    target = tmp_path / "out.json"
+    target.write_text("[]", encoding="utf-8")
     with pytest.raises(ValueError, match="split_by"):
-        strata.dump([{"k": "v"}], tmp_path / "out.json", split_by="k")
+        strata.dump([{"k": "v"}], target, split_by="k")
 
 
 def test_dump_rejects_what_dumps_rejects(tmp_path):

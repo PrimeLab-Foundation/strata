@@ -44,7 +44,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── core_sources.txt     # the single core source list, read by CMake and setup.py
 │   ├── json/                # json_parse.cpp (DOM builder), json_serialize.cpp
 │   ├── search/              # jsonpath_compile.cpp, jsonpath_eval.cpp
-│   ├── util/                # scan.cpp, dtoa.cpp
+│   ├── util/                # scan.cpp, dtoa.cpp, folder.cpp
 │   └── bindings/            # CPython layer: module, loads, dumps, files, ndjson, cursor
 ├── python/strata/           # thin facade: __init__, serialize (loads/dumps), config
 ├── tests/
@@ -69,8 +69,9 @@ layers, style gates, CI skeleton), M1 (core value model: `JsonValue`,
 M3 (serializer and shortest round-trip float formatting) M4 (the binding layer: `loads`, `dumps`,
 `config`), M5 (benchmark harness, regression gate and a first performance
 layer) M6 (file I/O, NDJSON and cursor
-mode) and M7 (JSONPath: `query`, `search`, `compile`). Folder mode is still to
-come, as is the JSONPath streaming evaluator. The rebuild is versioned calver,
+mode), M7 (JSONPath: `query`, `search`, `compile`) and M8 (folder mode for
+`load`, `dump` and `search`). What remains is hardening and release: fuzzing,
+coverage, PGO, full CI, and the JSONPath streaming evaluator. The rebuild is versioned calver,
 `YYYY.M.D` of release, starting at `2026.8.9` (see `docs/context/api.md`).
 
 The complete previous implementation (v0.2.0, all tests green) is preserved on

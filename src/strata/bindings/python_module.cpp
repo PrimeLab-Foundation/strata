@@ -14,6 +14,7 @@
 #include "python_types.h"
 #include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/util/folder.hpp"
 
 #include <cstring>
 #include <string>
@@ -265,6 +266,18 @@ PyObject* strata_load(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
                                      &return_type, &iterator, &skip_errors))
         return nullptr;
 
+    if (strata::util::is_directory(path)) {
+        if (std::strcmp(return_type, "cursor") == 0) {
+            PyErr_SetString(PyExc_ValueError,
+                            "return_type=\"cursor\" is not supported for a directory");
+            return nullptr;
+        }
+        if (std::strcmp(return_type, "dict") != 0) {
+            PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
+            return nullptr;
+        }
+        return strata::bindings::load_from_folder(path, iterator != 0, skip_errors != 0);
+    }
     return strata::bindings::load_from_file(path, return_type, iterator != 0, skip_errors != 0);
     STRATA_CPP_CATCH
 }
@@ -280,13 +293,24 @@ PyObject* strata_dump(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
                                      &path, &split_by))
         return nullptr;
 
+    // An existing directory is folder mode. A path that does not exist yet is
+    // folder mode too when split_by says so -- api.md has dump create
+    // directories as needed, so the target need not exist first.
+    const bool to_directory = strata::util::is_directory(path) ||
+                              (split_by != Py_None && !strata::util::path_exists(path));
+    if (to_directory) {
+        if (split_by == Py_None) {
+            PyErr_SetString(PyExc_ValueError, "a directory target requires split_by");
+            return nullptr;
+        }
+        return strata::bindings::dump_to_folder(object, path, split_by);
+    }
     if (split_by != Py_None) {
-        // Folder mode is a later milestone; with a file target it is an error
-        // either way (docs/context/api.md).
+        // split_by only means something for a directory; silently writing one
+        // file instead would lose data the caller expected to be split.
         PyErr_SetString(PyExc_ValueError, "split_by requires a directory target");
         return nullptr;
     }
-
     return strata::bindings::dump_to_file(object, path);
     STRATA_CPP_CATCH
 }
@@ -329,9 +353,14 @@ PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
                                      &expression, &iterator))
         return nullptr;
 
-    strata::bindings::PyRef matches(strata::bindings::search_file(path, expression));
+    strata::bindings::PyRef matches(
+        strata::util::is_directory(path)
+            ? strata::bindings::search_folder(path, expression, iterator != 0)
+            : strata::bindings::search_file(path, expression));
     if (!matches)
         return nullptr;
+    if (strata::util::is_directory(path))
+        return matches.release(); // already an iterator when one was asked for
     return iterator ? PyObject_GetIter(matches.get()) : matches.release();
     STRATA_CPP_CATCH
 }
@@ -381,7 +410,8 @@ PyMODINIT_FUNC PyInit__strata(void) {
         return nullptr;
     if (!strata::bindings::register_cursor_type(module) ||
         !strata::bindings::register_ndjson_iterator_type(module) ||
-        !strata::bindings::register_jsonpath_types(module)) {
+        !strata::bindings::register_jsonpath_types(module) ||
+        !strata::bindings::register_folder_iterator_type(module)) {
         Py_DECREF(module);
         return nullptr;
     }
