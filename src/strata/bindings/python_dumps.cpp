@@ -55,7 +55,7 @@ class Serializer {
     using ValueKind = SchemaCacheLease::ValueKind;
 
   public:
-    Serializer(StagedOutput& out, std::vector<SchemaCacheLease::Schema>& schemas)
+    Serializer(StagedOutput& out, std::vector<SchemaCacheLease::DepthSchemas>& schemas)
         : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(schemas) {}
 
     [[nodiscard]] bool write(PyObject* object) {
@@ -282,6 +282,18 @@ class Serializer {
         return true;
     }
 
+    /// Counts dict nesting for the schema cache, framed or not.
+    class MappingDepth {
+      public:
+        explicit MappingDepth(size_t& counter) : counter_(counter) { ++counter_; }
+        ~MappingDepth() { --counter_; }
+        MappingDepth(const MappingDepth&) = delete;
+        MappingDepth& operator=(const MappingDepth&) = delete;
+
+      private:
+        size_t& counter_;
+    };
+
     /// The cycle placeholder the policy calls for, outside any frame.
     [[nodiscard]] bool emit_cycle_placeholder() {
         if (g_cycle_policy == CyclePolicyValue::Error) {
@@ -368,18 +380,31 @@ class Serializer {
     }
 
     [[nodiscard]] Py_ssize_t run_bools(PyObject** items, Py_ssize_t size) {
-        Py_ssize_t index = 0;
+        if (size == 0 || (items[0] != Py_True && items[0] != Py_False))
+            return 0;
+        // First element bare, the rest as one eight-byte constant store each
+        // (",true" / ",false" plus slack the next write overwrites) — two
+        // branches and one store per element instead of separate separator
+        // and literal writes.
+        out_.ensure(8);
+        if (items[0] == Py_True) {
+            out_.write("true", 4);
+        } else {
+            out_.write("false", 5);
+        }
+        Py_ssize_t index = 1;
         for (; index < size; ++index) {
             PyObject* item = items[index];
             if (item != Py_True && item != Py_False)
                 break;
-            out_.ensure(6);
-            if (index != 0)
-                out_.put(',');
-            if (item == Py_True)
-                out_.write("true", 4);
-            else
-                out_.write("false", 5);
+            out_.ensure(8);
+            if (item == Py_True) {
+                std::memcpy(out_.cursor(), ",true\0\0\0", 8);
+                out_.advance(5);
+            } else {
+                std::memcpy(out_.cursor(), ",false\0\0", 8);
+                out_.advance(6);
+            }
         }
         return index;
     }
@@ -446,6 +471,16 @@ class Serializer {
     }
 
     [[nodiscard]] bool write_mapping(PyObject* object) {
+        // The schema cache is keyed by *dict nesting level*, counted here
+        // explicitly. open_.size() cannot be the key: frame elision keeps
+        // all-scalar dicts off that stack, so a child could share its
+        // parent's depth — and a same-depth select() reorders the ways the
+        // parent is mid-way through emitting from. That was a latent
+        // silent-corruption bug even with one way per depth (a rebuilt blob
+        // under the parent's offsets); the four-way swap turned it into a
+        // crash, which is how it was found.
+        const MappingDepth level(map_depth_);
+
         // One walk collects everything the decisions below need: the keys and
         // values, whether every value is a plain scalar, and whether the
         // object is too wide for the schema cache.
@@ -559,7 +594,7 @@ class Serializer {
         // walk returns to the next user the slot describes an item. Keyed by
         // depth, each level keeps its own schema and sibling records — which
         // is where the repetition actually is — hit every time.
-        const size_t depth = open_.size();
+        const size_t depth = map_depth_;
         if (depth >= kMaxCachedDepth)
             return write_mapping_uncached(object);
         if (schemas_.size() <= depth)
@@ -569,17 +604,16 @@ class Serializer {
         // seen once would pay for a cache it never uses — measurably so on
         // documents of one-off shapes. A miss therefore only *remembers the
         // keys* (a pointer copy); the bytes are prepared on the second
-        // sighting, when repetition is established. A depth that keeps
-        // diverging retires and takes the plain path.
+        // sighting, when repetition is established. Four ways per depth
+        // absorb documents that rotate several record shapes; true churn
+        // retires the depth.
         bool prepared = false;
-        if (!schemas_[depth].retired) {
-            if (schemas_[depth].matches(keys, count)) {
-                if (!schemas_[depth].prepared && !build_schema(schemas_[depth]))
-                    return false;
-                prepared = true;
-            } else {
-                schemas_[depth].remember(keys, count);
-            }
+        const size_t way = schemas_[depth].select(keys, count);
+        if (way != SchemaCacheLease::DepthSchemas::kMiss) {
+            Schema& selected = schemas_[depth].ways[way];
+            if (!selected.prepared && !build_schema(selected))
+                return false;
+            prepared = true;
         }
 
         out_.ensure(1);
@@ -596,7 +630,7 @@ class Serializer {
                 // nested object may grow `schemas_` and move its elements. The
                 // slot's own bytes are never touched by a deeper level, so
                 // indexing afresh is both safe and free.
-                const Schema& schema = schemas_[depth];
+                const Schema& schema = schemas_[depth].ways[way];
                 out_.write_spanning(schema.blob.data() + schema.offsets[static_cast<size_t>(index)],
                                     schema.offsets[static_cast<size_t>(index) + 1] -
                                         schema.offsets[static_cast<size_t>(index)]);
@@ -721,10 +755,11 @@ class Serializer {
 
     StagedOutput& out_;
     std::vector<PyObject*> open_;
+    size_t map_depth_ = 0; ///< dict nesting, independent of frame elision
     int depth_limit_;
 
     // One prepared schema per nesting depth; leased, so it survives the call.
-    std::vector<Schema>& schemas_;
+    std::vector<SchemaCacheLease::DepthSchemas>& schemas_;
 };
 
 } // namespace

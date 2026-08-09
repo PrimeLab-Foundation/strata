@@ -185,25 +185,14 @@ class SchemaCacheLease {
         std::vector<uint32_t> offsets{0}; ///< blob boundaries, keys.size() + 1
         uint8_t kinds[24] = {};           ///< ValueKind per slot, adaptively learned
         bool prepared = false;
-        uint32_t divergences = 0;
-        /// A depth whose objects keep changing shape is not record-shaped;
-        /// it stops remembering rather than paying incref churn per object.
-        bool retired = false;
 
         void remember(PyObject* const* other, Py_ssize_t count) {
-            if (++divergences > 16) {
-                for (PyObject* key : keys)
-                    Py_DECREF(key);
-                keys.clear();
-                retired = true;
-                prepared = false;
-                return;
-            }
             for (PyObject* key : keys)
                 Py_DECREF(key);
             keys.assign(other, other + count);
             for (PyObject* key : keys)
                 Py_INCREF(key);
+            std::memset(kinds, 0, sizeof(kinds));
             prepared = false;
         }
 
@@ -240,21 +229,70 @@ class SchemaCacheLease {
     SchemaCacheLease(const SchemaCacheLease&) = delete;
     SchemaCacheLease& operator=(const SchemaCacheLease&) = delete;
 
-    [[nodiscard]] std::vector<Schema>& slots() noexcept { return *slots_; }
+    /**
+     * One depth's schema set: four ways, scanned in place.
+     *
+     * A single slot per depth has a 0% hit rate on documents that rotate a
+     * few record shapes -- mixed.json cycles four schemas round-robin and
+     * missed every single object. Four ways cover that; the ways are *not*
+     * reordered on a hit, because round-robin access is LRU's worst case:
+     * move-to-front put every hit at the deepest way and paid a full
+     * three-schema shuffle per object (a measured 45 ns regression before
+     * this was flattened). A scan of up to four count-compares is near-free;
+     * replacement just walks a round-robin cursor.
+     *
+     * `select` returns the matching way's index, or `kMiss` after
+     * remembering the shape in the next victim way.
+     */
+    struct DepthSchemas {
+        static constexpr size_t kWays = 4;
+        static constexpr size_t kMiss = kWays;
+
+        Schema ways[kWays];
+        uint8_t victim = 0;
+        uint32_t misses = 0;
+        /// True churn -- shapes that never repeat -- retires the depth so it
+        /// stops paying remember()'s reference traffic.
+        bool retired = false;
+
+        [[nodiscard]] size_t select(PyObject* const* keys, Py_ssize_t count) {
+            if (retired)
+                return kMiss;
+            for (size_t way = 0; way < kWays; ++way) {
+                if (ways[way].matches(keys, count))
+                    return way;
+            }
+            if (++misses > 64) {
+                for (Schema& schema : ways) {
+                    for (PyObject* key : schema.keys)
+                        Py_DECREF(key);
+                    schema.keys.clear();
+                    schema.prepared = false;
+                }
+                retired = true;
+                return kMiss;
+            }
+            ways[victim].remember(keys, count);
+            victim = static_cast<uint8_t>((victim + 1) % kWays);
+            return kMiss;
+        }
+    };
+
+    [[nodiscard]] std::vector<DepthSchemas>& slots() noexcept { return *slots_; }
 
   private:
-    [[nodiscard]] static std::vector<Schema>* shared() {
+    [[nodiscard]] static std::vector<DepthSchemas>* shared() {
         // Deliberately leaked: a destructor after interpreter shutdown could
         // not legally Py_DECREF the owned keys anyway.
-        static thread_local std::vector<Schema>* instance =
-            new (std::nothrow) std::vector<Schema>();
+        static thread_local std::vector<DepthSchemas>* instance =
+            new (std::nothrow) std::vector<DepthSchemas>();
         return instance;
     }
 
     static thread_local bool busy_;
 
-    std::vector<Schema>* slots_;
-    std::vector<Schema> fallback_;
+    std::vector<DepthSchemas>* slots_;
+    std::vector<DepthSchemas> fallback_;
     bool owns_flag_ = false;
 };
 
@@ -362,6 +400,5 @@ constexpr uint8_t kKindUnicode = 1; // DICT_KEYS_UNICODE
 
 } // namespace rawdict
 #endif // STRATA_RAW_DICT_WALK
-
 
 } // namespace strata::bindings

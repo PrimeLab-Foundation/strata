@@ -377,12 +377,17 @@ inline Decimal d2d(uint64_t ieeeMantissa, uint32_t ieeeExponent) {
     // soundness bound, not an overflow one: the digits are only *the*
     // shortest form while one ulp stays below the 10^-6 lattice spacing, so
     // that at most one 6-decimal value can round-trip. Above ~4e9 an ulp
-    // exceeds 1e-6 and a non-minimal witness can pass the equality check --
+    // exceeds 1e-6 and a non-minimal witness can pass the exactness check --
     // measured as 1513 repr() mismatches in the 2^35..2^41 range before this
     // gate was tightened.
     if (!(magnitude >= 1e-4 && magnitude < 4.0e9))
         return 0;
 
+    // The divide is the membership proof and is not negotiable: an integral
+    // product alone admits values that are *near* n/10^6 without being its
+    // nearest double (caught by the round-trip oracle when tried — the
+    // binade-boundary slack breaks the half-ulp argument). Division of two
+    // exact values is correctly rounded, so equality here is exact.
     const auto scaled = static_cast<int64_t>(std::llround(magnitude * 1e6));
     if (static_cast<double>(scaled) / 1e6 != magnitude)
         return 0;
@@ -398,35 +403,34 @@ inline Decimal d2d(uint64_t ieeeMantissa, uint32_t ieeeExponent) {
     if (value < 0.0)
         out[written++] = '-';
 
-    // One digit conversion for the whole number; the point is placed by
-    // splitting the digit string `fraction` places from its end.
-    char stage[24];
-    char* const stage_end = stage + sizeof(stage);
-    const char* const first = fill_u64_backwards(digits, stage_end);
-    const auto total = static_cast<size_t>(stage_end - first);
+    const size_t length = decimal_digit_count(digits);
 
     if (fraction == 0) {
-        std::memcpy(out + written, first, total);
-        written += total;
+        // Integral: digits then the fraction that keeps it a float.
+        write_digits_fixed(digits, out + written, length);
+        written += length;
         out[written++] = '.';
         out[written++] = '0';
         return written;
     }
-    if (total > static_cast<size_t>(fraction)) {
-        const size_t whole_digits = total - static_cast<size_t>(fraction);
-        std::memcpy(out + written, first, whole_digits);
-        written += whole_digits;
-        out[written++] = '.';
-        std::memcpy(out + written, first + whole_digits, static_cast<size_t>(fraction));
-        return written + static_cast<size_t>(fraction);
-    }
-    // 0.00ddd — every digit is fractional, zero-padded on the left.
-    out[written++] = '0';
-    out[written++] = '.';
-    for (size_t pad = total; pad < static_cast<size_t>(fraction); ++pad)
+
+    const int point = static_cast<int>(length) - fraction;
+    if (point <= 0) {
+        // 0.00ddd — at most three leading zeros under the 1e-4 gate.
         out[written++] = '0';
-    std::memcpy(out + written, first, total);
-    return written + total;
+        out[written++] = '.';
+        for (int pad = 0; pad < -point; ++pad)
+            out[written++] = '0';
+        write_digits_fixed(digits, out + written, length);
+        return written + length;
+    }
+
+    // dd.ddd — digits straight into place, constant-size shift for the point
+    // (a variable-length copy here compiles to a libc call; see shift16_right).
+    write_digits_fixed(digits, out + written, length);
+    shift16_right(out + written + static_cast<size_t>(point), 1);
+    out[written + static_cast<size_t>(point)] = '.';
+    return written + length + 1;
 }
 
 } // namespace

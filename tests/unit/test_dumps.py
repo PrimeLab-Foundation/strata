@@ -202,3 +202,45 @@ def test_round_trip_through_loads():
     value = {"s": "café \n\t\"quoted\"", "n": [1, -2.5, 10**30], "b": [True, None]}
     assert strata.loads(strata.dumps(value)) == value
     assert json.loads(strata.dumps(value)) == value
+
+
+# ---------------------------------------------------------------------------
+# Schema-cache isolation across nesting (regression)
+#
+# The prepared-key cache is keyed by dict nesting level, counted explicitly.
+# When it was keyed by the cycle stack's size, frame elision let an all-scalar
+# child dict share its framed parent's slot: the child's cache update could
+# rewrite the very blob the parent was mid-way through emitting — silent
+# corruption with one way per slot, a crash once the ways rotated. These
+# shapes are the distilled trigger.
+# ---------------------------------------------------------------------------
+
+
+def test_nested_scalar_dicts_do_not_disturb_parent_schema():
+    # Parent has container values (framed); children are all-scalar dicts
+    # (frameless) whose shapes repeat so their schemas prepare mid-parent.
+    record = {
+        "alpha": {"x": 1, "y": 2},
+        "beta": {"x": 3, "y": 4},
+        "gamma": {"x": 5, "y": 6},
+        "tail": 7,
+    }
+    docs = [record] * 8
+    assert strata.dumps(docs) == json.dumps(docs, separators=(",", ":"))
+    assert (
+        strata.dumps(docs, return_type="bytes") == json.dumps(docs, separators=(",", ":")).encode()
+    )
+
+
+def test_rotating_schemas_at_one_level_stay_isolated():
+    # Several distinct shapes rotating at the same level, nested under a
+    # framed parent — exercises way rotation while an outer emit is live.
+    shapes = [
+        {"kind": "a", "id": 1, "value": 2},
+        {"type": "b", "payload": "x", "n": 3},
+        {"label": "c", "items": [1, 2]},
+        {"w": 1.5, "h": 2.5},
+    ]
+    doc = [{"wrap": shapes[i % 4], "seq": i} for i in range(64)]
+    assert strata.dumps(doc) == json.dumps(doc, separators=(",", ":"))
+    assert strata.dumps(doc, return_type="bytes") == json.dumps(doc, separators=(",", ":")).encode()
