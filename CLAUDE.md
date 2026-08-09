@@ -38,12 +38,12 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 ├── Makefile                 # the single user-facing interface; targets forward to scripts/
 ├── scripts/                 # automation: cpp_tests.py, py_tests.py, fmt.sh, lint.sh, gate.sh
 ├── include/strata/          # public C++ headers (core; never CPython)
-│   ├── json/                # value model, SAX handler, parser template, parse API
-│   └── util/                # scan.hpp (utf-8, whitespace, escapes), fast_parse.hpp (numbers)
+│   ├── json/                # value model, SAX handler, parser, parse + serialize API
+│   └── util/                # scan.hpp (utf-8/whitespace/escapes), fast_parse.hpp, dtoa.hpp
 ├── src/strata/
 │   ├── core_sources.txt     # the single core source list, read by CMake and setup.py
-│   ├── json/                # json_parse.cpp — DOM builder + parse entry points
-│   ├── util/                # scan.cpp
+│   ├── json/                # json_parse.cpp (DOM builder), json_serialize.cpp
+│   ├── util/                # scan.cpp, dtoa.cpp
 │   └── bindings/            # CPython layer (the only place Python.h may appear)
 ├── python/strata/           # thin Python facade
 ├── tests/
@@ -63,9 +63,10 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 following the documentation in `docs/`, one milestone per session
 (`docs/roadmap/SKILL.md`). Landed so far: M0 (scaffolding — build, both test
 layers, style gates, CI skeleton), M1 (core value model: `JsonValue`,
-`FlatMap`, `Status`/`Result`) and M2 (SAX parser, DOM builder, `parse_json`).
-The engine parses, but nothing is exposed to Python until the binding
-milestone, so there is no public JSON API yet. The rebuild is versioned calver,
+`FlatMap`, `Status`/`Result`), M2 (SAX parser, DOM builder, `parse_json`)
+and M3 (serializer and shortest round-trip float formatting). The engine parses
+and serializes, but nothing is exposed to Python until the binding milestone,
+so there is no public JSON API yet. The rebuild is versioned calver,
 `YYYY.M.D` of release, starting at `2026.8.9` (see `docs/context/api.md`).
 
 The complete previous implementation (v0.2.0, all tests green) is preserved on

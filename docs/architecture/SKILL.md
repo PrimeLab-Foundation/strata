@@ -12,12 +12,34 @@ description: C++ core architecture of strata — hybrid SAX parser, DOM,
 "Current state" below says what the rebuild has actually built; everything after
 it is blueprint until a milestone makes it real.
 
-## Current state (after M2 — SAX parser core)
+## Current state (after M3 — serializer and dtoa)
 
-Real on this branch: the value model (M1) and the parser (M2). Files:
-`include/strata/json/{json_core,json_sax_handler,json_parser_inline,json_parse}.hpp`,
-`include/strata/util/{scan,fast_parse}.hpp`, `src/strata/json/json_parse.cpp`,
-`src/strata/util/scan.cpp`. Nothing is exposed to Python yet — that starts at M4.
+Real on this branch: the value model (M1), the parser (M2) and the serializer
+(M3). Files: `include/strata/json/{json_core,json_sax_handler,json_parser_inline,json_parse,json_serialize}.hpp`,
+`include/strata/util/{scan,fast_parse,dtoa}.hpp`, and under `src/strata/`:
+`json/{json_parse,json_serialize}.cpp`, `util/{scan,dtoa}.cpp`. Nothing is
+exposed to Python yet — that starts at M4.
+
+Serializer departures from the blueprint:
+
+- **One converter, `util::format_double`**, built on `std::to_chars` for the
+  shortest correctly-rounded digits and then laid out to match CPython's
+  `repr(float)`: fixed while the decimal point sits in (-4, 16\], scientific
+  outside it, always with a fraction so a float never reads back as an integer.
+  Checked against Python over 152,640 doubles with no divergence. Vendoring
+  reference Dragonbox is a *performance* question deferred to M5.
+- **Non-finite policy lives in the serializer.** `format_double` is never handed
+  a NaN or an infinity; `serialize_json` writes `null` for both. The blueprint
+  checked in two places, one of them inside the converter.
+- Object keys come out in insertion order. The blueprint's header claimed they
+  were sorted through a `std::map`; they never were, and now the doc comment
+  says what the code does.
+- `serialize_json_to` clears its buffer but keeps the capacity, so repeated
+  calls stop allocating.
+
+Parse and serialize were checked together end to end: 6,000 generated documents
+parsed, serialized and re-read, with every value matching stdlib `json` after
+normalising ints to doubles and non-finite values to null.
 
 Parser departures from the blueprint:
 

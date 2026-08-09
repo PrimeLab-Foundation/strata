@@ -58,7 +58,10 @@ are not unknowingly repeated.
    past current main): vendors reference Dragonbox + fast_float, superseding the
    ~400-line custom Ryu-based `dragonbox.cpp` d2s (the `ryu_*` files remain
    in-tree as dead code even on that branch); measured dumps lead extended.
-   The natural next step for this repo.
+   The natural next step for this repo. **Status after M3:** not taken. The
+   rebuild's dtoa is `std::to_chars` plus a layout pass, which is already exact
+   and correctly rounded, so Dragonbox is now purely a throughput question and
+   needs a benchmark before it lands (docs/decisions.md).
 2. **Escape-mask odd-carry fix** — `949c575` (prompt-4): genuine correctness fix
    for backslash-run detection, relevant if a structural indexer ever returns.
 3. **`5e04a18`** (do-nothing branch): LastWins duplicate-key default (matches
