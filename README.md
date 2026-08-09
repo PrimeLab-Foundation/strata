@@ -5,13 +5,14 @@ a dependency-free C++20 engine with hand-written CPython C-API bindings.
 
 **Rebuild in progress.** The implementation is being rebuilt from scratch, one
 milestone at a time. Working today: `loads`, `dumps`, `load`, `dump`, cursor
-mode, JSONPath (`query`, `search`, `compile`) and `config`, over single files,
-NDJSON and whole directories, with fuzzing, coverage and a PGO+LTO build in
-place. What remains is release work: strata leads every `query` row by 4-100x
-against jmespath and jsonpath-ng, but still trails orjson by ~2x on
-serialization and up to ~1.5x on parsing, and the streaming JSONPath search
-evaluator is not rebuilt yet — so this is not yet a drop-in replacement for
-the previous release. The docs under [docs/](docs/) are the complete specification:
+mode, JSONPath (`query`, `search`, `compile` — including the streaming SAX
+search evaluator) and `config`, over single files, NDJSON and whole
+directories, with fuzzing, coverage and a PGO+LTO build in place. On the
+benchmark suite strata leads every `query` and `search` row (3–100× against
+jmespath/jsonpath-ng pipelines), NDJSON loading (~1.3× ahead of msgspec), and
+file/in-memory parsing on most datasets including the headline one;
+serialization still trails orjson by ~1.1–1.6×, which is the remaining gap
+before release. The docs under [docs/](docs/) are the complete specification:
 conventions, style, public API contract, architecture, benchmarking
 methodology, the optimization playbook (including negative results), and
 project history.

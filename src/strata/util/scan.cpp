@@ -9,6 +9,9 @@
 
 #include "strata/util/scan.hpp"
 
+#include <cstdint>
+#include <cstring>
+
 // Compile-time SIMD selection (docs/context/styleguide.md). There is no
 // runtime dispatch: the extension is built with -march=native, and a wheel
 // built for a baseline target simply uses the scalar twin.
@@ -147,23 +150,62 @@ size_t find_next_escape_scalar(const char* data, size_t len) noexcept {
     return len;
 }
 
+#if defined(__LITTLE_ENDIAN__) || defined(_WIN32) ||                                               \
+    (defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define STRATA_ESCAPE_SCAN_SWAR 1
+
+namespace {
+
+/**
+ * Eight bytes at a time, in a register — the tier between the 16-byte SIMD
+ * block and the byte loop. Most JSON strings are shorter than one SIMD block
+ * (keys, names, identifiers), so without this the common case was scanned a
+ * byte at a time.
+ *
+ * The formulas are the classic exact ones: `haszero` marks 0x80 in each byte
+ * that is zero, never elsewhere; XOR against a repeated constant turns
+ * has-this-value into has-zero; the borrow trick marks bytes below 0x20.
+ * Little-endian only, where the first matching byte is the lowest set 0x80
+ * and one count-trailing-zeros finds it.
+ */
+[[nodiscard]] inline uint64_t escape_mask_word(uint64_t word) noexcept {
+    constexpr uint64_t kOnes = 0x0101010101010101ULL;
+    constexpr uint64_t kHighs = 0x8080808080808080ULL;
+    const uint64_t quotes = (word ^ (kOnes * '"'));
+    const uint64_t backslashes = (word ^ (kOnes * '\\'));
+    const uint64_t quote_mask = (quotes - kOnes) & ~quotes & kHighs;
+    const uint64_t backslash_mask = (backslashes - kOnes) & ~backslashes & kHighs;
+    const uint64_t control_mask = (word - (kOnes * 0x20)) & ~word & kHighs;
+    return quote_mask | backslash_mask | control_mask;
+}
+
+} // namespace
+#endif
+
 size_t find_next_escape(const char* data, size_t len) noexcept {
-#if defined(STRATA_ESCAPE_SCAN_SIMD)
     size_t pos = 0;
+#if defined(STRATA_ESCAPE_SCAN_SIMD)
     for (; pos + kEscapeBlock <= len; pos += kEscapeBlock) {
         const size_t hit = first_escape_in_block(data + pos);
         if (hit != kEscapeBlock)
             return pos + hit;
     }
-    // The tail is shorter than a block, so the twin finishes the job. Reading
-    // past the end to fill one more block would be faster and is what the
-    // previous implementation did for short strings — it relied on CPython's
-    // allocation slack, which is a promise CPython never made and which ASan
-    // rightly flags.
-    return pos + find_next_escape_scalar(data + pos, len - pos);
-#else
-    return find_next_escape_scalar(data, len);
 #endif
+#if defined(STRATA_ESCAPE_SCAN_SWAR)
+    for (; pos + 8 <= len; pos += 8) {
+        uint64_t word;
+        std::memcpy(&word, data + pos, 8); // the only sanctioned type pun
+        const uint64_t mask = escape_mask_word(word);
+        if (mask != 0)
+            return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
+    }
+#endif
+    // Whatever remains is shorter than a word; the twin finishes the job.
+    // Reading past the end to fill one more block would be faster and is what
+    // the previous implementation did for short strings — it relied on
+    // CPython's allocation slack, which is a promise CPython never made and
+    // which ASan rightly flags.
+    return pos + find_next_escape_scalar(data + pos, len - pos);
 }
 
 } // namespace strata::util

@@ -83,6 +83,12 @@ bool register_jsonpath_types(PyObject* module);
 /// `search(path, expression)` over one file.
 [[nodiscard]] PyObject* search_file(const char* path, PyObject* expression);
 
+/// Whether @p path names an NDJSON file by extension (case-insensitive).
+[[nodiscard]] bool file_is_ndjson(const char* path);
+
+/// Read a whole file, mapping failures onto the documented exceptions.
+[[nodiscard]] bool read_file_to_string(const char* path, std::string& out);
+
 /// `load(dirpath, ...)` in folder mode.
 [[nodiscard]] PyObject* load_from_folder(const char* directory, bool iterator, bool skip_errors);
 

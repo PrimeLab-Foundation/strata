@@ -363,12 +363,22 @@ Result<CompiledPath> compile_jsonpath(std::string_view expression) {
 }
 
 bool is_streamable(const CompiledPath& path) noexcept {
+    size_t selectors = 0;
     for (const PathStep& step : path) {
         if (step.op == PathOp::Slice || step.op == PathOp::Filter ||
             step.op == PathOp::RecursiveDescent)
             return false;
+        // A negative index counts from the end, and a stream does not know
+        // the end until the array is over -- resolving it means buffering,
+        // which is exactly what streaming exists to avoid.
+        if (step.op == PathOp::Index && step.index < 0)
+            return false;
+        if (step.op != PathOp::Root)
+            ++selectors;
     }
-    return true;
+    // Bare `$` selects the whole document; "streaming" it would build the
+    // full tree anyway, which is just load() with extra steps.
+    return selectors > 0;
 }
 
 } // namespace strata

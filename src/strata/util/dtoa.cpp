@@ -16,6 +16,7 @@
 
 #include <charconv>
 #include <cmath>
+#include <cstring>
 #include <system_error>
 
 namespace strata::util {
@@ -28,9 +29,84 @@ constexpr double kFixedUpperBound = 1e16; ///< 1e16 is scientific, 1e15 is not
 
 } // namespace
 
+namespace {
+
+/**
+ * The micro-decimal tier: values that are exactly a 6-decimal fixed number.
+ *
+ * Real-world floats are overwhelmingly short decimals (prices, scores,
+ * coordinates), and for them the general shortest-round-trip machinery is
+ * overkill. If `value` equals `n / 10^6` for some integer `n` -- checked with
+ * one exact division, since both `n` and `10^6` are exactly representable --
+ * then the digits of `n` with trailing zeros stripped ARE the shortest form:
+ * within the fixed-notation window a half-ulp is astronomically smaller than
+ * the 10^-6 gap to any other 6-decimal value, so no shorter decimal can
+ * round-trip, and no equal-length one can either.
+ *
+ * Bytes are provably identical to the general path; the equality gate is what
+ * makes that a theorem rather than a hope, and the whole-bit-space oracle
+ * diff against CPython repr() checks it anyway.
+ *
+ * @return Bytes written, or 0 when the value is not of this shape.
+ */
+[[nodiscard]] size_t format_micro_decimal(double value, char* out) noexcept {
+    const double magnitude = std::fabs(value);
+    // Below 1e-4 Python switches to scientific layout. The upper gate is a
+    // soundness bound, not an overflow one: the digits are only *the*
+    // shortest form while one ulp stays below the 10^-6 lattice spacing, so
+    // that at most one 6-decimal value can round-trip. Above ~4e9 an ulp
+    // exceeds 1e-6 and a non-minimal witness can pass the equality check --
+    // measured as 1513 repr() mismatches in the 2^35..2^41 range before this
+    // gate was tightened.
+    if (!(magnitude >= 1e-4 && magnitude < 4.0e9))
+        return 0;
+
+    const auto scaled = static_cast<int64_t>(std::llround(magnitude * 1e6));
+    if (static_cast<double>(scaled) / 1e6 != magnitude)
+        return 0;
+
+    int64_t digits = scaled;
+    int fraction = 6;
+    while (fraction > 0 && digits % 10 == 0) {
+        digits /= 10;
+        --fraction;
+    }
+
+    size_t written = 0;
+    if (value < 0.0)
+        out[written++] = '-';
+
+    int64_t divisor = 1;
+    for (int place = 0; place < fraction; ++place)
+        divisor *= 10;
+    const int64_t whole = digits / divisor;
+    const int64_t fractional = digits % divisor;
+
+    const auto whole_end = std::to_chars(out + written, out + written + 12, whole);
+    written = static_cast<size_t>(whole_end.ptr - out);
+    out[written++] = '.';
+    if (fraction == 0) {
+        out[written++] = '0';
+        return written;
+    }
+    // The fraction is zero-padded to its width: 1.05 is digits=105 over 100.
+    char frac_digits[8];
+    const auto frac_end = std::to_chars(frac_digits, frac_digits + sizeof(frac_digits), fractional);
+    const auto frac_len = static_cast<size_t>(frac_end.ptr - frac_digits);
+    for (size_t pad = frac_len; pad < static_cast<size_t>(fraction); ++pad)
+        out[written++] = '0';
+    std::memcpy(out + written, frac_digits, frac_len);
+    return written + frac_len;
+}
+
+} // namespace
+
 size_t format_double(double value, char* out, size_t capacity) noexcept {
     if (capacity < kDoubleBufferSize)
         return 0;
+
+    if (const size_t fast = format_micro_decimal(value, out); fast != 0)
+        return fast;
 
     // Which layout Python uses is decided by magnitude alone, so two
     // comparisons answer it — no conversion needed to find out.

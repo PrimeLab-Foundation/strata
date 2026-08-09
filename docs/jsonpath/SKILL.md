@@ -11,27 +11,37 @@ description: JSONPath subsystem — supported grammar, compile/eval architecture
 **Framing:** this doc describes the *previous implementation* as the blueprint.
 "Current state" says what the rebuild has built.
 
-## Current state (after M7)
+## Current state (after M10)
 
 Real: `include/strata/search/jsonpath.hpp`, `src/strata/search/{jsonpath_compile, jsonpath_eval}.cpp`, `src/strata/bindings/python_jsonpath.cpp`, and
 `python/strata/jsonpath.py`. `strata.query`, `strata.search`, `strata.compile`
 and `CompiledPath.execute` all work over the documented grammar.
 
-- **`search` is defined as `query(load(f), e)`.** The law the milestone
-  requires is therefore not a property two implementations have to maintain --
-  it is how search is built. Verified anyway over 22,080 randomised
-  expression/document pairs, JSON and NDJSON: zero mismatches.
+- **`search` obeys `search(f, e) == query(load(f), e)` by two routes.** The
+  fallback route *is* load-then-query (definitionally exact); the streaming
+  route (below) is a second implementation of the same law for the
+  fixed-depth subset, and it is verified against the definition over
+  randomised expression/document corpora at both layers, plus pinned
+  duplicate-key and error-contract cases.
 - **Recursive descent descends into its own matches**, in both evaluators, so
   `$..a` returns an `a` nested inside an `a`. That resolves the divergence
   recorded below in favour of query semantics.
 - Two evaluators, not four: PyObject-native (`query`, and so `search`) and C++
   DOM (`CompiledPath.execute`). The blueprint's ~500 lines of dead pre-SAX
   evaluator were not rebuilt.
-- **The SAX streaming evaluator is not built.** `is_streamable()` is there and
-  gates Slice, Filter and RecursiveDescent, but nothing uses it yet: streaming
-  is the headline *throughput* feature and needs a benchmark behind it, and a
-  streaming path that captures a subtree must keep matching inside it or the
-  law breaks again. This is the main gap left in the subsystem.
+- **The SAX streaming evaluator is built** (`include/strata/search/jsonpath_stream.hpp`,
+  M10): `search()` on a `.json` file with a plain path — Field / Wildcard /
+  non-negative Index — evaluates during the parse and materializes only the
+  matches, through the same `PythonObjectBuilder` that `load` uses.
+  `is_streamable()` gates it (also rejecting negative indices and bare `$`),
+  and it runs only under the default FirstWins duplicate-key policy, which it
+  implements: first occurrence per Field, per-key dedup under a Wildcard,
+  policy-collapsed captures. Everything else — recursive descent, slices,
+  filters, other policies, NDJSON — falls back to load-then-query, so the law
+  holds by construction on the fallback and by the pinned suites on the
+  stream (`tests/cpp/test_jsonpath_stream.cpp`, `tests/unit/test_search_stream.py`).
+  Measured: `search users.json $[*].id` 15.7 → 5.0 ms, ~2.2× ahead of
+  orjson+jmespath; recursive descent stays full-parse and still leads ~20×.
 - Filter comparisons treat `bool` as not-a-number in both evaluators, so
   `query()` and `execute()` cannot disagree.
 
@@ -87,10 +97,11 @@ Slower legacy pipeline; candidate for the same SAX treatment.
 
 ## Known semantic divergences
 
-- `$..a` when a matched object contains another `"a"` inside it: DOM/PyObject
-  eval returns both (nested recursion); the SAX capture path swallows the nested
-  occurrence inside the captured subtree — `search()` vs `query()` can disagree.
-  Only the query() behavior is test-pinned (`test_recursive_descent_nested_same_field`).
+- `$..a` when a matched object contains another `"a"` inside it: the previous
+  implementation's SAX capture swallowed the nested occurrence and `search()`
+  disagreed with `query()`. The rebuild's streaming evaluator excludes
+  recursive descent entirely, so the divergence cannot arise: `$..` always
+  takes the full-parse path, which recurses into matches.
 - PyObject filter eval coerces Python bools to 1.0/0.0 in numeric comparisons;
   the C++ DOM path requires an actual number.
 - `compile` errors are the generic `ValueError("Invalid JSONPath expression")`

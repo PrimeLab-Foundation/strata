@@ -29,50 +29,50 @@ a dev micro-profiler hard-importing orjson/msgspec. Metrics via `harness.py`:
 min/median/p95 + RSS (psutil). `benchmarks/datasets.py` was orphaned
 (imported by nothing) — don't recreate it.
 
-## Standings of the rebuild (after M10, macOS arm64 / Apple M1 Max, py3.14)
+## Standings of the rebuild (M10 second wave, macOS arm64 / Apple M1 Max, py3.14)
 
-Machine-written reports: `docs/benchmarks/bench_results_{small,medium}.md`.
-Ranks are out of the libraries that can do the operation natively; pysimdjson
-has no wheel for CPython 3.14 and is excluded, which the reports state.
+Machine-written reports: `docs/benchmarks/bench_results_{small,medium}.md`,
+**PGO+LTO build** (the protocol's headline configuration; the reports record
+the flags). Ranks are out of the libraries that natively do the operation;
+pysimdjson has no CPython 3.14 wheel and is excluded, which the reports state.
 
 | Category        | #1 rows (small) | #1 rows (medium) | vs best rival |
 | --------------- | --------------- | ---------------- | ------------- |
-| `loads`         | 1/5             | 1/5              | 0.67x - 1.55x |
-| `dumps`         | 0/5             | 0/5              | 1.85x - 2.61x |
-| `load`          | 2/5             | 3/5              | 0.59x - 1.50x |
-| `load (ndjson)` | 0/1             | 1/1              | 0.93x - 1.06x |
-| `dump`          | 0/5             | 0/5              | 1.62x - 2.19x |
-| `query`         | **3/3**         | **3/3**          | 0.01x - 0.26x |
-| `search`        | 2/3             | 1/3              | 0.06x - 1.12x |
+| `loads`         | 3/5             | 4/5              | 0.50x – 1.28x |
+| `dumps`         | 0/5             | 0/5              | 1.05x – 1.56x |
+| `load`          | 3/5             | **5/5**          | 0.49x – 1.15x |
+| `load (ndjson)` | **1/1**         | **1/1**          | 0.71x – 0.74x |
+| `dump`          | 0/5             | 0/5              | 1.08x – 1.39x |
+| `query`         | **3/3**         | **3/3**          | 0.01x – 0.27x |
+| `search`        | **3/3**         | **3/3**          | 0.05x – 0.35x |
 
-**strata leads outright on `query`** — 4x to 100x faster than jmespath and
-jsonpath-ng — and on the recursive-descent `search` rows. It trails orjson on
-`dumps`/`dump` by ~2x and on `loads` by up to ~1.5x. **The release criterion
-(#1 in the targeted categories) is therefore not met.**
+Total: 29/54 rows at #1 (was 8/27 on the small tier before this wave).
 
-The two things that would move it most:
+**Where strata now leads outright:** every `query` row (4–100×), every
+`search` row (2.9–20× — the streaming SAX evaluator landed this wave; the
+`$[*].id` row went 15.7 → 4.9 ms), NDJSON file loading (26–29% ahead of
+msgspec), file `load` on every medium dataset and the headline users dataset
+at both tiers (C++ single-read + parse beats read()+parse pipelines), and
+in-memory `loads` on the headline users dataset (0.93–0.94×) plus most
+medium datasets.
 
-1. **The SAX streaming JSONPath evaluator, still unbuilt.** `search` is
-   defined as `query(load(f))`, so it pays a full parse; the previous
-   implementation streamed and was ~9-10x faster than orjson+jsonpath-ng.
-   This is the single largest gap, and it is a missing feature rather than a
-   slow one.
-2. **The remaining `dumps` distance to orjson**, which is now mostly float
-   formatting: `format_double` sits within 2 ns of libc++'s `to_chars`
-   (~40 ns/value) while orjson's own converter is ~17 ns.
-
-M10's dumps work (float formatting, homogeneous array runs, chunked escaping,
-per-depth prepared-key schemas) moved `dumps` 19-41% on the small tier without
-moving `loads`; details and the negative results are in
+**Where it does not:** serialization. `dumps`/`dump` are #2–#3 everywhere,
+1.05×–1.56× behind orjson — down from 1.85×–2.46× at the start of the wave
+(users dumps 7.89 → 3.55 ms). What remains is orjson's fused
+scan-while-copying SIMD string emission and its ~17 ns/value float converter
+against libc++ `to_chars` at ~40 ns for full-precision doubles (the
+micro-decimal tier covers fixed-decimal data but not arbitrary doubles);
+`loads` on small `flat`/`mixed` (1.15–1.28×) is per-object dict/creation
+overhead on documents too small to amortize the caches. Both are the next
+optimization targets; the techniques and negative results are in
 `docs/performance/SKILL.md`.
 
 ### Cross-session baselines are not comparable on this machine
 
-Re-running the *unchanged* tree at the start of the M10 session produced
-numbers ~30% above the stored M5 baseline on every row. The regression gate is
-therefore only meaningful for a before/after pair captured in the same session
-on a quiet machine; `benchmarks/results/baseline.json` is refreshed alongside
-each published report rather than treated as a cross-day constant.
+Re-running an *unchanged* tree across sessions has measured ~30% apart on
+every row. The regression gate is a same-session before/after instrument;
+`benchmarks/results/baseline.json` is refreshed alongside each published
+report rather than treated as a cross-day constant.
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 

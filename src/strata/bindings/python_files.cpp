@@ -31,7 +31,7 @@ namespace strata::bindings {
 namespace {
 
 /// Case-insensitive suffix test, so `.NDJSON` reads like `.ndjson`.
-[[nodiscard]] bool has_suffix(std::string_view path, std::string_view suffix) {
+[[nodiscard]] bool has_suffix_impl(std::string_view path, std::string_view suffix) {
     if (path.size() < suffix.size())
         return false;
     const size_t offset = path.size() - suffix.size();
@@ -45,14 +45,38 @@ namespace {
     return true;
 }
 
+} // namespace
+
+bool file_is_ndjson(const char* path) {
+    return has_suffix_impl(path, ".ndjson") || has_suffix_impl(path, ".jsonl");
+}
+
 /// Read a whole file, mapping failures onto the documented exceptions.
-[[nodiscard]] bool read_file(const char* path, std::string& out) {
+bool read_file_to_string(const char* path, std::string& out) {
     std::FILE* handle = std::fopen(path, "rb");
     if (handle == nullptr) {
         PyErr_SetFromErrnoWithFilename(errno == ENOENT ? PyExc_FileNotFoundError : PyExc_OSError,
                                        path);
         return false;
     }
+
+    // One sized read: stat tells the size, so the chunked append-and-grow
+    // dance (and its repeated copies) is only kept as the fallback for the
+    // rare stream that will not stat.
+#ifndef _WIN32
+    struct stat status{};
+    if (::fstat(fileno(handle), &status) == 0 && S_ISREG(status.st_mode) && status.st_size > 0) {
+        out.resize(static_cast<size_t>(status.st_size));
+        const size_t got = std::fread(out.data(), 1, out.size(), handle);
+        out.resize(got);
+        if (std::ferror(handle) != 0) {
+            std::fclose(handle);
+            PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+            return false;
+        }
+        // Anything appended between stat and read is picked up below.
+    }
+#endif
 
     char chunk[65536];
     size_t read = 0;
@@ -68,11 +92,9 @@ namespace {
     return true;
 }
 
-} // namespace
-
 PyObject* load_from_file(const char* path, const char* return_type, bool iterator,
                          bool skip_errors) {
-    const bool is_ndjson = has_suffix(path, ".ndjson") || has_suffix(path, ".jsonl");
+    const bool is_ndjson = file_is_ndjson(path);
     const bool want_cursor = std::string_view(return_type) == "cursor";
 
     if (is_ndjson && want_cursor) {
@@ -85,7 +107,7 @@ PyObject* load_from_file(const char* path, const char* return_type, bool iterato
     }
 
     std::string text;
-    if (!read_file(path, text))
+    if (!read_file_to_string(path, text))
         return nullptr;
 
     if (is_ndjson) {

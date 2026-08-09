@@ -29,6 +29,27 @@
 namespace strata {
 
 /**
+ * Detects an optional handler capability: speculative key matching.
+ *
+ * `size_t try_match_key(const char* after_quote, size_t remaining)` lets a
+ * handler predict the next object key from schema repetition. A non-zero
+ * return means the handler recognised the raw bytes (up to and including the
+ * closing quote), consumed them, and performed everything `on_key` would have
+ * -- so the parser skips the escape scan and the key decode entirely. Zero
+ * means no prediction; the parser takes the ordinary path and the handler
+ * sees a normal `on_key`.
+ *
+ * Handlers without the method (the DOM builder, the NDJSON stream) compile to
+ * exactly the code they compiled to before this hook existed.
+ */
+template <typename T, typename = void> struct has_try_match_key : std::false_type {};
+
+template <typename T>
+struct has_try_match_key<T, std::void_t<decltype(std::declval<T&>().try_match_key(
+                                std::declval<const char*>(), std::declval<size_t>()))>>
+    : std::true_type {};
+
+/**
  * Recursive-descent SAX parser.
  *
  * @tparam Handler Concrete handler type providing the JsonSaxHandler
@@ -299,6 +320,20 @@ template <typename Handler> struct ParserInline {
         }
     }
 
+    /// One memcmp against the handler's predicted raw key bytes; see
+    /// has_try_match_key. `i` sits on the opening quote and, on a hit, lands
+    /// just past the closing one.
+    bool try_predicted_key() {
+        if constexpr (has_try_match_key<Handler>::value) {
+            const size_t consumed = handler.try_match_key(data + i + 1, len - i - 1);
+            if (consumed > 0) {
+                i += 1 + consumed;
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool parse_object() {
         if (!consume('{'))
             return false;
@@ -317,7 +352,7 @@ template <typename Handler> struct ParserInline {
             skip_ws();
             if (peek() != '"')
                 return false;
-            if (!parse_string(true))
+            if (!try_predicted_key() && !parse_string(true))
                 return false;
             if (!consume(':'))
                 return false;

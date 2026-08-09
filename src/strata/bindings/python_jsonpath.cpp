@@ -15,9 +15,12 @@
  * (docs/decisions.md).
  */
 
+#include "python_builder.h"
 #include "python_types.h"
 #include "strata/json/json_cursor.hpp"
+#include "strata/json/json_parser_inline.hpp"
 #include "strata/search/jsonpath.hpp"
+#include "strata/search/jsonpath_stream.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -359,6 +362,8 @@ PyObject* compile_expression(PyObject* expression) {
     return reinterpret_cast<PyObject*>(self);
 }
 
+PyObject* query_compiled(PyObject* data, const CompiledPath& path);
+
 PyObject* query_object(PyObject* data, PyObject* expression) {
     if (!PyDict_Check(data) && !PyList_Check(data) && !PyTuple_Check(data)) {
         PyErr_Format(PyExc_TypeError, "query() expects dict, list or tuple, not %s",
@@ -369,7 +374,10 @@ PyObject* query_object(PyObject* data, PyObject* expression) {
     CompiledPath path;
     if (!resolve_path(expression, path))
         return nullptr;
+    return query_compiled(data, path);
+}
 
+PyObject* query_compiled(PyObject* data, const CompiledPath& path) {
     Matches current{data};
     Matches next;
     for (const PathStep& step : path) {
@@ -391,13 +399,106 @@ PyObject* query_object(PyObject* data, PyObject* expression) {
     return results;
 }
 
+/**
+ * Sink for the streaming evaluator: matches become Python values through the
+ * same builder `load` uses, so a captured object obeys the duplicate-key
+ * policy exactly as a loaded one would -- which is what keeps the law intact
+ * on documents with repeated keys inside a match.
+ */
+class PythonMatchSink {
+  public:
+    ~PythonMatchSink() { Py_XDECREF(results_); }
+
+    [[nodiscard]] bool init() {
+        results_ = PyList_New(0);
+        return results_ != nullptr;
+    }
+
+    bool on_null() { return builder_.on_null(); }
+    bool on_bool(bool value) { return builder_.on_bool(value); }
+    bool on_int(int64_t value) { return builder_.on_int(value); }
+    bool on_big_int(std::string_view text) { return builder_.on_big_int(text); }
+    bool on_double(double value) { return builder_.on_double(value); }
+    bool on_string(std::string_view value) { return builder_.on_string(value); }
+    bool on_key(std::string_view key) { return builder_.on_key(key); }
+    bool on_start_object() { return builder_.on_start_object(); }
+    bool on_end_object() { return builder_.on_end_object(); }
+    bool on_start_array() { return builder_.on_start_array(); }
+    bool on_end_array() { return builder_.on_end_array(); }
+
+    [[nodiscard]] bool finish_value() {
+        PyObject* value = builder_.take_root();
+        if (value == nullptr) {
+            if (!PyErr_Occurred())
+                PyErr_SetString(PyExc_RuntimeError, "streaming capture produced no value");
+            return false;
+        }
+        const int failed = PyList_Append(results_, value);
+        Py_DECREF(value);
+        return failed == 0;
+    }
+
+    [[nodiscard]] PyObject* take_results() noexcept {
+        PyObject* results = results_;
+        results_ = nullptr;
+        return results;
+    }
+
+  private:
+    PythonObjectBuilder builder_;
+    PyObject* results_ = nullptr;
+};
+
+/// The streaming leg of search: one validating scan, only matches built.
+PyObject* search_file_streaming(const char* path, const CompiledPath& compiled) {
+    std::string text;
+    if (!read_file_to_string(path, text))
+        return nullptr;
+    if (text.empty()) {
+        // Identical to load()'s contract for an empty .json file.
+        PyErr_SetString(PyExc_ValueError, "Empty file");
+        return nullptr;
+    }
+
+    PythonMatchSink sink;
+    if (!sink.init())
+        return nullptr;
+    StreamSearchHandler<PythonMatchSink> handler(compiled, sink);
+
+    Status status;
+    {
+        GcPause pause;
+        status = parse_sax_inline(std::string_view(text), handler, /*validate_utf8=*/true);
+    }
+    if (status != Status::Ok) {
+        // The document must be wholly valid for the law to hold: query(load)
+        // would have raised, so search raises too, matches notwithstanding.
+        if (!PyErr_Occurred())
+            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+        return nullptr;
+    }
+    return sink.take_results();
+}
+
 PyObject* search_file(const char* path, PyObject* expression) {
-    // The law `search(f, e) == query(load(f), e)` is not a property to be
-    // maintained by two implementations agreeing; it is how search is defined.
+    // The law `search(f, e) == query(load(f), e)` defines search. The
+    // streaming evaluator is an implementation of that same law for the
+    // fixed-depth subset (see jsonpath_stream.hpp): it only runs where its
+    // answers are provably the load-then-query answers -- plain paths, .json
+    // files, and the default FirstWins duplicate-key policy, which is the one
+    // policy a stream can replay without buffering whole objects.
+    CompiledPath compiled;
+    if (!resolve_path(expression, compiled))
+        return nullptr;
+
+    if (!file_is_ndjson(path) && is_streamable(compiled) &&
+        get_duplicate_key_policy() == DuplicateKeyPolicy::FirstWins)
+        return search_file_streaming(path, compiled);
+
     PyRef data(load_from_file(path, "dict", /*iterator=*/false, /*skip_errors=*/false));
     if (!data)
         return nullptr;
-    return query_object(data.get(), expression);
+    return query_compiled(data.get(), compiled);
 }
 
 } // namespace strata::bindings

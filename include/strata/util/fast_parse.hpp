@@ -67,11 +67,21 @@ namespace detail {
         return false;
 
     size_t pos = 0;
-    if (str[pos] == '-')
+    const bool negative = str[0] == '-';
+    if (negative)
         ++pos;
 
     if (pos >= len || !is_digit(str[pos]))
         return false;
+
+    // The validation scan doubles as the conversion: significant digits
+    // accumulate into `mantissa` as they are checked, so the common cases
+    // below never re-read the span. `from_chars` re-scanning the token was
+    // the previous conversion strategy, and on number-dense documents that
+    // second pass was a measurable share of the whole parse.
+    uint64_t mantissa = 0;
+    size_t significant = 0; // digits accumulated into `mantissa`
+    bool truncated = false; // more significant digits than fit; fall back
 
     // Integer part. A leading zero may only stand alone.
     const size_t int_start = pos;
@@ -80,26 +90,38 @@ namespace detail {
         if (pos < len && is_digit(str[pos]))
             return false;
     } else {
-        while (pos < len && is_digit(str[pos]))
+        while (pos < len && is_digit(str[pos])) {
+            if (significant < 19) {
+                mantissa = mantissa * 10 + static_cast<uint64_t>(str[pos] - '0');
+                ++significant;
+            } else {
+                truncated = true;
+            }
             ++pos;
+        }
     }
     const size_t int_digits = pos - int_start;
     const bool int_part_is_zero = (int_digits == 1 && str[int_start] == '0');
 
     bool is_double = false;
+    size_t fraction_digits = 0;
     size_t fraction_leading_zeros = 0;
-    bool fraction_has_nonzero = false;
 
     if (pos < len && str[pos] == '.') {
         ++pos;
         if (pos >= len || !is_digit(str[pos]))
             return false;
         while (pos < len && is_digit(str[pos])) {
-            if (!fraction_has_nonzero) {
-                if (str[pos] == '0')
-                    ++fraction_leading_zeros;
-                else
-                    fraction_has_nonzero = true;
+            ++fraction_digits;
+            if (mantissa == 0 && str[pos] == '0') {
+                // Leading zeros carry no significance; they only shift the
+                // exponent, which `fraction_digits` already records.
+                ++fraction_leading_zeros;
+            } else if (significant < 19) {
+                mantissa = mantissa * 10 + static_cast<uint64_t>(str[pos] - '0');
+                ++significant;
+            } else {
+                truncated = true;
             }
             ++pos;
         }
@@ -131,6 +153,15 @@ namespace detail {
     const char* const last = str + pos;
 
     if (!is_double) {
+        // Up to 18 digits always fit int64 (999999999999999999 < 2^63); the
+        // 19-digit boundary cases go to from_chars, which also classifies
+        // anything larger as BigInt.
+        if (!truncated && significant <= 18) {
+            out.kind = NumberKind::Int64;
+            out.int_value =
+                negative ? -static_cast<int64_t>(mantissa) : static_cast<int64_t>(mantissa);
+            return true;
+        }
         const auto result = std::from_chars(first, last, out.int_value);
         if (result.ec == std::errc::result_out_of_range) {
             out.kind = NumberKind::BigInt;
@@ -144,6 +175,27 @@ namespace detail {
     }
 
     out.kind = NumberKind::Double;
+
+    // Exact-arithmetic fast path (Clinger): when the mantissa is exactly
+    // representable (<= 2^53) and the scale is a power of ten that is itself
+    // exact (10^0..10^22 -- 5^22 < 2^53), one IEEE multiply or divide of two
+    // exact operands is correctly rounded by definition. This covers every
+    // ordinary decimal ("-750.347674"); the digit-heavy and huge-exponent
+    // remainder falls through to from_chars, which is exact everywhere.
+    const long effective_exponent = exponent - static_cast<long>(fraction_digits);
+    if (!truncated && mantissa <= (uint64_t{1} << 53) && effective_exponent >= -22 &&
+        effective_exponent <= 22) {
+        static constexpr double kPow10[23] = {
+            1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
+            1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+        };
+        const double magnitude = static_cast<double>(mantissa);
+        const double value = effective_exponent < 0 ? magnitude / kPow10[-effective_exponent]
+                                                    : magnitude * kPow10[effective_exponent];
+        out.double_value = negative ? -value : value;
+        return true;
+    }
+
     const auto result = std::from_chars(first, last, out.double_value);
     if (result.ec == std::errc::result_out_of_range) {
         // Outside the representable range in one direction or the other.
@@ -154,7 +206,7 @@ namespace detail {
                                                  : static_cast<long>(int_digits)) +
                                exponent;
         out.double_value = magnitude > 0 ? std::numeric_limits<double>::infinity() : 0.0;
-        if (str[0] == '-')
+        if (negative)
             out.double_value = -out.double_value;
         return true;
     }

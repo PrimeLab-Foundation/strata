@@ -12,7 +12,7 @@ description: CPython C-API binding layer — KeyCache and speculative key
 "Current state" says what the rebuild has actually built; everything after it is
 blueprint until a milestone makes it real.
 
-## Current state (after M6 — file I/O, NDJSON, cursor mode)
+## Current state (after M10 — performance and streaming search)
 
 Added since M4: `python_document.cpp` (the `JsonCursor` type),
 `python_ndjson.cpp` (eager and lazy NDJSON), `python_files.cpp` (`load`/`dump`
@@ -64,13 +64,21 @@ come.
   this milestone; both are real as of M6, above.
 
 Since M5 the key cache, flat-vector array building, the thread-local dumps
-buffer and to_chars integer formatting are in place. M10 added the dumps fast
-paths: homogeneous int/float/bool array runs batched through a stack chunk,
-and prepared `"key":` bytes cached **per nesting depth** and built on a
-schema's second sighting. Still not built: speculative key matching, presized
-dicts, a homogeneous *string* array path, and a custom shortest-float
-converter — which is where the remaining gap to orjson lives
-(docs/benchmarking/SKILL.md).
+buffer and to_chars integer formatting are in place. M10 added, on the dumps
+side: the staged output buffer (raw stores, one string append per 8KB), the
+homogeneous int/float/bool/str array runs, the micro-decimal dtoa tier, the
+SWAR escape-scan tier, and the per-depth schema cache — thread-local, leased
+across calls, keys owned. On the loads side: single-scan number conversion
+with the exact-arithmetic double path, one-lookup dict inserts
+(`PyDict_SetDefault` for FirstWins), **speculative key matching**
+(`try_match_key` through the parser hook, per-depth predictions owning their
+raw bytes, divergence-damped), and a per-thread builder lease that keeps the
+KeyCache and predictions warm across calls and NDJSON lines.
+`PythonObjectBuilder` itself moved to `python_builder.h`, shared with the
+streaming-search capture sink so captured matches obey the duplicate-key
+policy identically. Still not built: presized dicts (unstable API, deferred);
+a faster general-case shortest-float (libc++ `to_chars` remains ~2× orjson's
+converter on full-precision doubles).
 
 Extension module `strata._strata` (`PyInit__strata` in `python_module.cpp`),
 hand-written CPython C API — **no pybind11** by policy. Pure-Python facade in
@@ -84,7 +92,8 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 | File                                      | Responsibility                                                                             |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `python_module.cpp`                       | Init, method table, `load`/`dump`, config store                                            |
-| `python_loads.cpp`                        | `loads`, NDJSON direct parse, `PythonObjectBuilder`, `KeyCache`                            |
+| `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition  |
+| `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                      |
 | `python_dumps.cpp`                        | `dumps` + all serialization fast paths                                                     |
 | `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
 | `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                   |
