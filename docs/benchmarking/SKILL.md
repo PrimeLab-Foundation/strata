@@ -29,49 +29,48 @@ a dev micro-profiler hard-importing orjson/msgspec. Metrics via `harness.py`:
 min/median/p95 + RSS (psutil). `benchmarks/datasets.py` was orphaned
 (imported by nothing) — don't recreate it.
 
-## Standings of the rebuild (M10 second wave, macOS arm64 / Apple M1 Max, py3.14)
+## Standings of the rebuild (quiet-machine sweep, macOS arm64 / Apple M1 Max, py3.14)
 
-Machine-written reports: `docs/benchmarks/bench_results_{small,medium}.md`,
-**PGO+LTO build** (the protocol's headline configuration; the reports record
-the flags). Ranks are out of the libraries that natively do the operation;
-pysimdjson has no CPython 3.14 wheel and is excluded, which the reports state.
+The deciding evidence run: PGO+LTO headline build, AC power, Low Power Mode
+off, caffeinated, repeats 30/20/10 by tier — machine-written to
+`docs/benchmarks/bench_results_{small,medium,large}.md` with the flags and
+repeat counts recorded. Ranks are out of the libraries that natively do the
+operation; pysimdjson has no CPython 3.14 wheel and is excluded.
 
-| Category        | #1 rows (small) | #1 rows (medium) | vs best rival |
-| --------------- | --------------- | ---------------- | ------------- |
-| `loads`         | 3/5             | 4/5              | 0.51x – 1.27x |
-| `dumps`         | 3/5             | 4/5              | 0.78x – 1.05x |
-| `load`          | 3/5             | 4/5              | 0.49x – 1.19x |
-| `load (ndjson)` | **1/1**         | **1/1**          | 0.71x – 0.75x |
-| `dump`          | 2/5             | 4/5              | 0.87x – 1.19x |
-| `query`         | **3/3**         | **3/3**          | 0.01x – 0.26x |
-| `search`        | **3/3**         | **3/3**          | 0.05x – 0.36x |
+| Category        | small (r30) | medium (r20) | large (r10) | vs best rival |
+| --------------- | ----------- | ------------ | ----------- | ------------- |
+| `loads`         | 3/5         | 4/5          | 4/5         | 0.50x – 1.26x |
+| `dumps`         | 4/5         | 4/5          | 2/5         | 0.78x – 1.12x |
+| `load`          | 3/5         | **5/5**      | **5/5**     | 0.47x – 1.15x |
+| `load (ndjson)` | **1/1**     | **1/1**      | **1/1**     | 0.65x – 0.74x |
+| `dump`          | 2/5         | 3/5          | 3/5         | 0.81x – 1.18x |
+| `query`         | **3/3**     | **3/3**      | **3/3**     | 0.01x – 0.37x |
+| `search`        | **3/3**     | **3/3**      | **3/3**     | 0.05x – 0.34x |
 
-Total: 41/54 rows at #1 (was 8/27 on the small tier before the M10 waves).
+**Total: 63/81 rows at #1** (8/27 on one tier before the M10 waves).
 
-**Where strata now leads outright:** every `query` row (4–100×), every
-`search` row (2.9–20× — the streaming SAX evaluator landed this wave; the
-`$[*].id` row went 15.7 → 4.9 ms), NDJSON file loading (26–29% ahead of
-msgspec), file `load` on every medium dataset and the headline users dataset
-at both tiers (C++ single-read + parse beats read()+parse pipelines), and
-in-memory `loads` on the headline users dataset (0.93–0.94×) plus most
-medium datasets.
+**The headline dataset (users) is #1 in every category at every tier** with
+one exception: `dumps` at large, a 1.00× tie decided against us in the third
+decimal. Category sweeps: `query` 9/9 (3–100×), `search` 9/9 (2.9–20×),
+NDJSON `load` 3/3 (1.3–1.5× ahead), file `load` 13/15 including 5/5 at both
+medium and large. In-memory `loads` leads users at all tiers (0.90–0.94×)
+and flat/mixed decisively at medium and large (down to 0.54×).
 
-**Where it does not, and how close it is:** after wave 7, serialization
-leads on the headline dataset outright — `dumps users` and `dump users` are
-first at both tiers (0.95×–0.99×) — and the medium tier is 4/5 first in both
-serialization categories. The stragglers are `mixed` (1.03× medium — a
-converged coin-flip — and 1.05×–1.19× small, where a 30 KB document keeps
-per-call costs visible) and a small-tier band at 1.00×–1.03× that trades
-places with orjson run to run. `loads` on small `flat`/`mixed` (1.2×–1.5×)
-remains per-object creation overhead. Techniques tried, adopted and rejected
-are in `docs/performance/SKILL.md`.
+**The 18 rows still behind, all explained:** small-tier `flat`/`mixed`
+`loads`/`load` (1.15–1.26×: per-object creation overhead on documents too
+small to amortize the caches), `mixed` serialization (1.02–1.18×: per-call
+floor on a 30 KB document), `wide_arrays` `loads` at medium/large
+(1.08–1.12×: orjson's homogeneous-array parsing), and the large-tier
+`dumps` users/wide ties at 1.00–1.08×. Techniques tried, adopted and
+rejected: `docs/performance/SKILL.md`.
 
 ### Cross-session baselines are not comparable on this machine
 
 Re-running an *unchanged* tree across sessions has measured ~30% apart on
-every row. The regression gate is a same-session before/after instrument;
-`benchmarks/results/baseline.json` is refreshed alongside each published
-report rather than treated as a cross-day constant.
+every row — and Low Power Mode alone explains a large share (the deciding
+sweep was gated on power state for exactly this reason). The regression gate
+is a same-session before/after instrument; `benchmarks/results/baseline.json`
+is refreshed alongside each published report.
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 
