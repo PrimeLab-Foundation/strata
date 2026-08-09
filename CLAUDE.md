@@ -37,7 +37,9 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 ├── MANIFEST.in              # sdist contents
 ├── Makefile                 # the single user-facing interface; targets forward to scripts/
 ├── scripts/                 # automation: cpp_tests.py, py_tests.py, fmt.sh, lint.sh, gate.sh
-├── src/strata/              # C++ engine — so far only bindings/ (CPython); json/, search/, util/ from M1
+├── include/strata/          # public C++ headers (core; never CPython)
+│   └── json/                # json_core.hpp — JsonValue, FlatMap, Status/Result
+├── src/strata/              # C++ engine — so far only bindings/ (CPython); json/, search/, util/ from M2
 ├── python/strata/           # thin Python facade
 ├── tests/
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
@@ -45,7 +47,6 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   └── unit/                # contract mirrors
 │
 └── planned — later milestones add these (layout contract in docs/context/convention.md):
-    ├── include/strata/      # public C++ headers
     ├── tests/fuzz/          # libFuzzer targets + committed seed corpus (M9)
     ├── benchmarks/          # harness vs orjson/msgspec/ujson (M5)
     └── experiments/         # isolated prototypes, never linked into production
@@ -55,10 +56,11 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 
 **The implementation was deliberately removed and is being rebuilt from scratch**
 following the documentation in `docs/`, one milestone per session
-(`docs/roadmap/SKILL.md`). Milestone M0 (scaffolding) has landed: the build,
-both test layers, the style gates and a CI skeleton exist; the engine itself
-starts at M1. The rebuild is versioned calver, `YYYY.M.D` of release, starting
-at `2026.8.9` (see `docs/context/api.md`).
+(`docs/roadmap/SKILL.md`). Landed so far: M0 (scaffolding — build, both test
+layers, style gates, CI skeleton) and M1 (core value model: `JsonValue`,
+`FlatMap`, `Status`/`Result`). Parsing starts at M2, so there is no public JSON
+API yet. The rebuild is versioned calver, `YYYY.M.D` of release, starting at
+`2026.8.9` (see `docs/context/api.md`).
 
 The complete previous implementation (v0.2.0, all tests green) is preserved on
 branch `backup/pre-reset-main` and in `../archive/` — file paths, line numbers,

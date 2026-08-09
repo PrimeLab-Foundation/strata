@@ -56,6 +56,7 @@ function(strata_add_cpp_test target)
 endfunction()
 
 strata_add_cpp_test(smoke_tests tests/cpp/test_smoke.cpp)
+strata_add_cpp_test(json_core_tests tests/cpp/test_json_core.cpp)
 
 # The registry is only "the single registry" if nothing can sit outside it: a
 # suite added to tests/cpp/ but never registered would be silently uncompiled,

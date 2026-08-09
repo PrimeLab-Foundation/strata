@@ -8,6 +8,35 @@ description: C++ core architecture of strata — hybrid SAX parser, DOM,
 
 # Core Architecture
 
+**Framing:** this doc describes the *previous implementation* as the blueprint.
+"Current state" below says what the rebuild has actually built; everything after
+it is blueprint until a milestone makes it real.
+
+## Current state (after M1 — core value model)
+
+`include/strata/json/json_core.hpp` exists and is header-only: `FlatMap`,
+`Status`, `Result<T>` and `JsonValue`, exactly as described under "Value model"
+below, with three deliberate departures from the blueprint:
+
+- **Dead API not rebuilt.** `Result::unwrap()`, `Result::value_or()` and
+  `FlatMap::count()` had zero callers anywhere in the previous implementation.
+  They are omitted until a caller exists; consumers check `ok()` and read or
+  `std::move()` the `value` member, which is what every blueprint call site did.
+- **`Result` initialises both members** (`status = Status::Ok`, `value{}`), so
+  `Result<T>{Status::KeyNotFound}` carries a default-constructed `T` rather than
+  an indeterminate one, and `ok()` is `constexpr`. The blueprint left `value`
+  uninitialised.
+- **`FlatMap::emplace()` appends without a duplicate check** — unchanged
+  behaviour, now documented as a contract and pinned by test, because the
+  parser's duplicate-key policy depends on `find()` returning the *first* match
+  and on the caller doing the uniqueness check.
+
+No core `.cpp` exists yet, so `STRATA_CORE_SOURCES` in CMakeLists.txt is still
+empty and the extension still compiles only the bindings TU. Core purity is
+enforced mechanically by `tests/unit/test_core_purity.py`, which scans
+`include/` and `src/strata/` minus `bindings/` and carries a positive control so
+it cannot pass vacuously.
+
 ## Value model
 
 `include/strata/json/json_core.hpp`: `JsonValue` is

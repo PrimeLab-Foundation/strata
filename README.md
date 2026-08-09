@@ -4,9 +4,9 @@ Fast JSON for Python: parsing, serialization, and JSONPath querying powered by
 a dependency-free C++20 engine with hand-written CPython C-API bindings.
 
 **Rebuild in progress.** The implementation is being rebuilt from scratch, one
-milestone at a time. The build, both test layers, the style gates and a CI
-skeleton are in place; the engine itself starts with the next milestone, so
-there is no working JSON API yet. The docs under [docs/](docs/) are the complete
+milestone at a time. The build, both test layers, the style gates, a CI skeleton
+and the C++ core value model are in place; parsing starts with the next
+milestone, so there is no working JSON API yet. The docs under [docs/](docs/) are the complete
 specification: conventions, style, public API contract, architecture,
 benchmarking methodology, the optimization playbook (including negative
 results), and project history.
