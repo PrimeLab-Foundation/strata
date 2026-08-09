@@ -18,6 +18,7 @@
 #include "strata/json/json_parser_inline.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -37,12 +38,101 @@ namespace {
  * which aborts the parse; loads() then reports that exception rather than
  * overwriting it with a generic parse error.
  */
+/**
+ * Reuses the `PyObject*` for a key across every record that repeats it.
+ *
+ * Documents are overwhelmingly arrays of same-shaped records, so the same
+ * handful of key strings recur once per record. Creating each one afresh means
+ * a decode, an allocation and a hash on every occurrence; here the first
+ * occurrence pays for all of them.
+ *
+ * Open addressing over a fixed table, FNV-1a over the raw bytes, and a short
+ * probe budget: a key that cannot find a slot is simply created uncached, so a
+ * pathological document degrades to the previous behaviour rather than growing
+ * an unbounded table.
+ */
+class KeyCache {
+  public:
+    KeyCache() = default;
+    KeyCache(const KeyCache&) = delete;
+    KeyCache& operator=(const KeyCache&) = delete;
+
+    ~KeyCache() {
+        for (PyObject* key : slots_)
+            Py_XDECREF(key);
+    }
+
+    /// A new reference to the interned key, or nullptr with an error set.
+    [[nodiscard]] PyObject* intern(std::string_view text) {
+        size_t slot = hash(text) & (kSlots - 1);
+        for (size_t probe = 0; probe < kMaxProbes; ++probe) {
+            PyObject*& candidate = slots_[slot];
+            if (candidate == nullptr) {
+                PyObject* created = make(text);
+                if (created == nullptr)
+                    return nullptr;
+                candidate = Py_NewRef(created);
+                return created;
+            }
+            if (matches(candidate, text))
+                return Py_NewRef(candidate);
+            slot = (slot + 1) & (kSlots - 1);
+        }
+        return make(text); // table crowded here: create without caching
+    }
+
+  private:
+    static constexpr size_t kSlots = 512; // power of two, so the mask works
+    static constexpr size_t kMaxProbes = 8;
+
+    [[nodiscard]] static PyObject* make(std::string_view text) {
+        return PyUnicode_FromStringAndSize(text.data(), static_cast<Py_ssize_t>(text.size()));
+    }
+
+    [[nodiscard]] static bool matches(PyObject* key, std::string_view text) {
+        Py_ssize_t size = 0;
+        const char* utf8 = PyUnicode_AsUTF8AndSize(key, &size);
+        if (utf8 == nullptr) {
+            PyErr_Clear();
+            return false;
+        }
+        return static_cast<size_t>(size) == text.size() &&
+               std::memcmp(utf8, text.data(), text.size()) == 0;
+    }
+
+    [[nodiscard]] static size_t hash(std::string_view text) noexcept {
+        size_t value = 1469598103934665603ULL; // FNV-1a offset basis
+        for (const char c : text) {
+            value ^= static_cast<unsigned char>(c);
+            value *= 1099511628211ULL;
+        }
+        return value;
+    }
+
+    PyObject* slots_[kSlots] = {};
+};
+
+/**
+ * Builds Python objects directly from parser events.
+ *
+ * Finished values accumulate in one flat `values_` vector; `frames_` records
+ * where each open container started. An array is created once, at its closing
+ * bracket, with its final size already known — so there is no repeated list
+ * growth and no per-element refcount churn, because PyList_SET_ITEM steals the
+ * references the vector was holding.
+ *
+ * Every callback returns false on failure with a Python exception already set,
+ * which aborts the parse; loads() then reports that exception rather than
+ * overwriting it with a generic parse error.
+ */
 class PythonObjectBuilder {
   public:
     ~PythonObjectBuilder() {
         Py_XDECREF(root_);
-        for (PyObject* container : stack_)
-            Py_XDECREF(container);
+        for (PyObject* value : values_)
+            Py_XDECREF(value);
+        for (const Frame& frame : frames_)
+            Py_XDECREF(frame.mapping);
         for (PyObject* key : keys_)
             Py_XDECREF(key);
     }
@@ -61,23 +151,58 @@ class PythonObjectBuilder {
 
     bool on_double(double value) { return push(PyFloat_FromDouble(value)); }
 
-    bool on_string(std::string_view value) { return push(make_string(value)); }
+    bool on_string(std::string_view value) {
+        return push(
+            PyUnicode_FromStringAndSize(value.data(), static_cast<Py_ssize_t>(value.size())));
+    }
 
-    bool on_start_object() { return open(PyDict_New()); }
+    bool on_start_object() {
+        PyObject* mapping = PyDict_New();
+        if (mapping == nullptr)
+            return false;
+        frames_.push_back(Frame{mapping, values_.size()});
+        return true;
+    }
 
+    /// Keys come from the cache, so a repeated key costs one comparison.
     bool on_key(std::string_view key) {
-        PyObject* object = make_string(key);
+        PyObject* object = keys_cache_.intern(key);
         if (object == nullptr)
             return false;
         keys_.push_back(object);
         return true;
     }
 
-    bool on_end_object() { return close(); }
+    bool on_end_object() {
+        if (frames_.empty())
+            return false;
+        PyObject* mapping = frames_.back().mapping;
+        frames_.pop_back();
+        return push(mapping);
+    }
 
-    bool on_start_array() { return open(PyList_New(0)); }
+    bool on_start_array() {
+        frames_.push_back(Frame{nullptr, values_.size()});
+        return true;
+    }
 
-    bool on_end_array() { return close(); }
+    bool on_end_array() {
+        if (frames_.empty() || frames_.back().mapping != nullptr)
+            return false;
+        const size_t start = frames_.back().start;
+        frames_.pop_back();
+
+        const size_t count = values_.size() - start;
+        PyObject* list = PyList_New(static_cast<Py_ssize_t>(count));
+        if (list == nullptr)
+            return false;
+        for (size_t index = 0; index < count; ++index) {
+            // SET_ITEM steals the reference the vector was holding.
+            PyList_SET_ITEM(list, static_cast<Py_ssize_t>(index), values_[start + index]);
+        }
+        values_.resize(start);
+        return push(list);
+    }
 
     /// Hand the finished tree to the caller.
     [[nodiscard]] PyObject* take_root() noexcept {
@@ -87,44 +212,27 @@ class PythonObjectBuilder {
     }
 
   private:
-    /// PyUnicode validates UTF-8 as it decodes, so invalid bytes surface here.
-    [[nodiscard]] static PyObject* make_string(std::string_view text) {
-        return PyUnicode_FromStringAndSize(text.data(), static_cast<Py_ssize_t>(text.size()));
-    }
-
-    bool open(PyObject* container) {
-        if (container == nullptr)
-            return false;
-        stack_.push_back(container);
-        return true;
-    }
-
-    bool close() {
-        if (stack_.empty())
-            return false;
-        PyObject* container = stack_.back();
-        stack_.pop_back();
-        return push(container); // push takes the reference
-    }
+    /// An open container: a dict, or an array holding from `start` in values_.
+    struct Frame {
+        PyObject* mapping;
+        size_t start;
+    };
 
     /// Consume one reference to @p value, placing it where it belongs.
     bool push(PyObject* value) {
         if (value == nullptr)
             return false;
 
-        if (stack_.empty()) {
+        if (frames_.empty()) {
             Py_XDECREF(root_);
             root_ = value;
             return true;
         }
-
-        PyObject* container = stack_.back();
-        if (PyList_CheckExact(container)) {
-            const int failed = PyList_Append(container, value);
-            Py_DECREF(value);
-            return failed == 0;
+        if (frames_.back().mapping == nullptr) {
+            values_.push_back(value); // the vector now owns it
+            return true;
         }
-        return insert_into_object(container, value);
+        return insert_into_object(frames_.back().mapping, value);
     }
 
     bool insert_into_object(PyObject* object, PyObject* value) {
@@ -175,8 +283,10 @@ class PythonObjectBuilder {
     }
 
     PyObject* root_ = nullptr;
-    std::vector<PyObject*> stack_;
+    std::vector<Frame> frames_;
+    std::vector<PyObject*> values_;
     std::vector<PyObject*> keys_;
+    KeyCache keys_cache_;
 };
 
 } // namespace

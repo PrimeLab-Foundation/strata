@@ -17,6 +17,7 @@
 #include "strata/util/dtoa.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -78,7 +79,11 @@ class Serializer {
         if (overflow == 0) {
             if (value == -1 && PyErr_Occurred())
                 return false;
-            out_.append(std::to_string(value));
+            // std::to_string allocates a string per integer; to_chars writes
+            // into the stack and the digits are copied once.
+            char digits[24];
+            const auto written = std::to_chars(digits, digits + sizeof(digits), value);
+            out_.append(digits, static_cast<size_t>(written.ptr - digits));
             return true;
         }
 
@@ -239,8 +244,14 @@ bool set_cycle_policy(std::string_view name) noexcept {
 }
 
 PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
-    std::string out;
-    out.reserve(kDumpsInitialCapacity);
+    // Reused across calls on this thread: after the first few documents the
+    // buffer has grown to size and stops allocating entirely. Thread-local
+    // rather than global because the GIL is held but the buffer outlives the
+    // call, and other threads must not share it.
+    static thread_local std::string out;
+    out.clear();
+    if (out.capacity() < kDumpsInitialCapacity)
+        out.reserve(kDumpsInitialCapacity);
 
     Serializer serializer(out);
     if (!serializer.write(object))

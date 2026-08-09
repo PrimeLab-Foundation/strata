@@ -46,6 +46,19 @@ dev = [
   "clang-format>=21,<22",
 ]
 
+bench = [
+  # The competitor set from docs/context/benchmarks.md. pysimdjson has no
+  # wheels for the newest CPython, so it is excluded there and the report says
+  # so rather than silently comparing fewer libraries.
+  "orjson",
+  "msgspec",
+  "ujson",
+  "pysimdjson; platform_system != 'Windows' and python_version < '3.14'",
+  "jmespath",
+  "jsonpath-ng",
+  "psutil>=5",
+]
+
 [project.urls]
 Homepage = "https://github.com/PrimeLab-Foundation/strata"
 Repository = "https://github.com/PrimeLab-Foundation/strata"

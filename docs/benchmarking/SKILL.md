@@ -29,6 +29,37 @@ a dev micro-profiler hard-importing orjson/msgspec. Metrics via `harness.py`:
 min/median/p95 + RSS (psutil). `benchmarks/datasets.py` was orphaned
 (imported by nothing) — don't recreate it.
 
+## Standings of the rebuild (after M5, macOS arm64 / Apple M1 Max, py3.14)
+
+Machine-written reports: `docs/benchmarks/bench_results_{small,medium}.md`.
+Measured on the same host as the pre-reset numbers below, so the two are
+comparable. Only `loads` and `dumps` exist yet; the file, folder and JSONPath
+categories join with their milestones.
+
+**The rebuild is not at the previous implementation's standings.** Ranks are
+out of five libraries (strata, orjson, msgspec, ujson, stdlib json); pysimdjson
+has no wheel for CPython 3.14 and is excluded, which the reports state.
+
+| Category                  | Rank                | vs orjson                   |
+| ------------------------- | ------------------- | --------------------------- |
+| `loads` users.json        | #3                  | 1.18-1.21x slower           |
+| `loads` nested            | #1 small, #3 medium | 1.28x faster / 1.16x slower |
+| `loads` mixed             | #4 small, #1 medium | 1.57x slower / 1.33x faster |
+| `loads` flat, wide_arrays | #3-#4               | 1.21-1.63x slower           |
+| `dumps` (all)             | #3                  | 2.4-3.9x slower             |
+
+Against the pre-reset targets below, `loads` is within reach and `dumps` is
+the gap that matters: the previous implementation led orjson by ~1.5x there,
+and the rebuild trails by ~3x. What has *not* been rebuilt is exactly what
+closed it — the 3-tier dtoa, batch same-schema dict serialization, and the
+homogeneous-array fast paths (docs/performance/SKILL.md, "What won").
+
+Measurement note: results are gathered with the libraries **interleaved** one
+round at a time rather than one library at a time. Measured during M5: running
+all repeats of one library before the next let heap growth and cache state land
+on whichever ran late, and made orjson look 4x slower on one dataset than it
+was in isolation. Any future harness change must preserve interleaving.
+
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 
 These are the numbers the previous implementation achieved — the rebuild's

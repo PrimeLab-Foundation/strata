@@ -31,6 +31,29 @@ are not unknowingly repeated.
 | `efd00fd`/`c0e3b5a`  | KeyCache: 75% load cap; FNV-1a 8-byte hashing; precomputed `Py_hash_t` + `_PyDict_SetItem_KnownHash`                       | Final parsing-lead commits                                                        |
 | dumps side           | 3-tier dtoa (int-valued / 2-decimal / Ryu), batch same-schema dict serialization, `serialize_*_t<Tracking>` template split | Flipped dumps from behind-orjson (Mar 14) to ahead (Mar 17)                       |
 
+## What won in the rebuild (measured, small tier, interleaved)
+
+All measured with `make bench-small` before and after, on the same host.
+
+| Change                                                                 | Effect (median)                             |
+| ---------------------------------------------------------------------- | ------------------------------------------- |
+| Escape clean runs in bulk instead of byte-at-a-time `push_back`        | part of the dumps 8-24% below               |
+| Integers via `std::to_chars` into a stack buffer, not `std::to_string` | (same batch; `to_string` allocated per int) |
+| Thread-local dumps output buffer, reused across calls                  | dumps -8% to -24% across all datasets       |
+| Arrays built into a flat vector, then one `PyList_New(n)` + `SET_ITEM` | loads -13% to -22% across all datasets      |
+| Per-document key cache (interned key reuse across records)             | (same batch)                                |
+
+Not yet rebuilt, and the reason `dumps` still trails orjson ~3x: the 3-tier
+dtoa, batch same-schema dict serialization, and the homogeneous int/float/
+str/bool array fast paths.
+
+### Measured non-wins in the rebuild
+
+| Idea                                     | Verdict                                                                                                                                                                    |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module-lifetime small-int cache (0..256) | Not built: CPython already caches small ints internally, so `PyLong_FromLongLong` returns the shared object. The blueprint's cache duplicated a cache that already exists. |
+| Presized dicts via `_PyDict_NewPresized` | Not built: the API is CPython-internal and the architecture notes already flag it as version-sensitive. Deferred until it can be measured against a portable alternative.  |
+
 ## Negative results — do not retry without new evidence
 
 | Idea                                                                             | Where tried                                      | Verdict                                                                                     |

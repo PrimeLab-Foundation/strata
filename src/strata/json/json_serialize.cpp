@@ -6,6 +6,7 @@
 #include "strata/json/json_serialize.hpp"
 
 #include "strata/util/dtoa.hpp"
+#include "strata/util/scan.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -26,7 +27,25 @@ void serialize_value(const JsonValue& value, std::string& out);
 
 void append_escaped_json_string(std::string_view text, std::string& out) {
     out.push_back('"');
-    for (const char c : text) {
+
+    // Most strings need no escaping at all, and most that do are mostly clean.
+    // Copy each clean run in one go rather than a byte at a time; the scan that
+    // finds the next interesting byte is the same one the parser uses.
+    const char* cursor = text.data();
+    size_t remaining = text.size();
+    while (remaining > 0) {
+        const size_t clean = util::find_next_escape(cursor, remaining);
+        if (clean > 0) {
+            out.append(cursor, clean);
+            cursor += clean;
+            remaining -= clean;
+            if (remaining == 0)
+                break;
+        }
+
+        const char c = *cursor;
+        ++cursor;
+        --remaining;
         switch (c) {
         case '"':
             out.append("\\\"");
@@ -50,20 +69,19 @@ void append_escaped_json_string(std::string_view text, std::string& out) {
             out.append("\\t");
             break;
         default: {
+            // find_next_escape stops on exactly quote, backslash and bytes
+            // below 0x20, so anything reaching here is a control character
+            // with no short escape. Everything else was copied in the clean
+            // run above, which is how UTF-8 passes through untouched.
             const auto byte = static_cast<unsigned char>(c);
-            if (byte < 0x20) {
-                // The only remaining characters JSON forbids raw. Everything
-                // above stays as-is, so UTF-8 passes through untouched.
-                out.append("\\u00");
-                out.push_back(kHexDigits[byte >> 4]);
-                out.push_back(kHexDigits[byte & 0x0F]);
-            } else {
-                out.push_back(c);
-            }
+            out.append("\\u00");
+            out.push_back(kHexDigits[byte >> 4]);
+            out.push_back(kHexDigits[byte & 0x0F]);
             break;
         }
         }
     }
+
     out.push_back('"');
 }
 

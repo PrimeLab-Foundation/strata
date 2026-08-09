@@ -9,8 +9,9 @@ PYTHON ?= python3
 VENV ?= .venv
 VPY := $(VENV)/bin/python
 
-.PHONY: all venv dev install install-dev install-skip-tests build cpp-build \
+.PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
         test test-py test-cpp fmt lint pre-commit-check gate \
+        bench-data bench-small bench-medium bench-large bench-all bench-baseline \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -34,6 +35,9 @@ install: venv  ## Editable install; C++ tests gate the build, Python tests gate 
 
 install-dev: venv  ## Editable install with the dev extras
 	$(VPY) -m pip install -e '.[dev]'
+
+install-bench: venv  ## Editable install with the benchmark competitors
+	$(VPY) -m pip install -e '.[dev,bench]'
 
 install-skip-tests: venv  ## Ungated install — strongly discouraged, banned in CI and releases
 	@echo "WARNING: SKIP_TESTS=1 — this build is not release-ready."
@@ -64,6 +68,44 @@ test-py: venv  ## Run tests/py (integration) and tests/unit (contract)
 
 gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests
 	@bash scripts/gate.sh
+
+# ---------------------------------------------------------------------------
+# Benchmarks
+#
+# Datasets are generated, gitignored and deterministic (seed 42). Reports are
+# machine-written to docs/benchmarks/ and must never be hand-edited.
+# ---------------------------------------------------------------------------
+
+BENCH_DIR := benchmarks/data/generated
+BENCH_REPORTS := docs/benchmarks
+BENCH_RUN := PYTHONPATH=. $(VPY) -m benchmarks.bench_main
+BENCH_GEN := PYTHONPATH=. $(VPY) -m benchmarks.data.generate_bench_data
+
+bench-data: venv  ## Generate the small, medium and large datasets
+	$(BENCH_GEN) --out-dir $(BENCH_DIR)/small  --num-users 1000 --max-orders 10 --max-items 5  --records 500
+	$(BENCH_GEN) --out-dir $(BENCH_DIR)/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
+	$(BENCH_GEN) --out-dir $(BENCH_DIR)/large  --num-users 4000 --max-orders 40 --max-items 20 --records 5000
+
+bench-small: venv  ## Benchmark the small tier
+	$(BENCH_RUN) --name small --repeat 10 --warmup 2 \
+		$(foreach f,users.json flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/small/$(f)) \
+		--output $(BENCH_REPORTS)/bench_results_small.md
+
+bench-medium: venv  ## Benchmark the medium tier
+	$(BENCH_RUN) --name medium --repeat 10 --warmup 2 \
+		$(foreach f,users.json flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/medium/$(f)) \
+		--output $(BENCH_REPORTS)/bench_results_medium.md
+
+bench-large: venv  ## Benchmark the large tier
+	$(BENCH_RUN) --name large --repeat 10 --warmup 2 \
+		$(foreach f,users.json flat.json nested.json wide_arrays.json mixed.json,--dataset $(BENCH_DIR)/large/$(f)) \
+		--output $(BENCH_REPORTS)/bench_results_large.md
+
+bench-all: bench-data bench-small bench-medium bench-large  ## Data plus every tier
+
+bench-baseline: venv  ## Record the small tier as the regression baseline
+	PYTHONPATH=. $(VPY) -m benchmarks.regression_check \
+		$(BENCH_REPORTS)/bench_results_small.md --save-baseline
 
 # ---------------------------------------------------------------------------
 # Lint / format
