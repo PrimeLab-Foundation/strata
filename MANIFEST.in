@@ -7,7 +7,12 @@ include .clang-format
 include .ruff.toml
 
 recursive-include include *.h *.hpp
-recursive-include src *.c *.cc *.cpp *.cxx *.h *.hpp
+# *.txt carries src/strata/core_sources.txt (setup.py refuses to build without
+# it) and *.inc the Ryu tables — an sdist missing either cannot compile.
+recursive-include src *.c *.cc *.cpp *.cxx *.h *.hpp *.inc *.txt
 recursive-include python *.py
 recursive-include scripts *.py *.sh
 recursive-include tests *.py *.cpp *.h *.hpp *.json *.txt
+# The fuzz seeds are extensionless byte fixtures; the corpus-replay suite
+# fails the test-gated build when they are absent.
+graft tests/fuzz/corpus

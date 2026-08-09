@@ -57,13 +57,15 @@ in-memory `loads` on the headline users dataset (0.93–0.94×) plus most
 medium datasets.
 
 **Where it does not:** serialization. After the third wave `dumps`/`dump`
-are #2 on almost every row at 1.01×–1.32× behind orjson — nested is at
-1.01–1.03× (sub-1 ms difference), users at 1.14–1.20× — down from 1.85×–2.46×
-before the waves (users dumps 7.89 → 3.11 ms). The profiled remainder is
-spread thin: orjson's fused SIMD string emission at wider blocks, its
-~17 ns/value float converter against libc++ `to_chars` at ~40 ns for
-full-precision doubles (the micro-decimal tier covers fixed-decimal data
-only), and dict iteration without `PyDict_Next`. `loads` on small
+are #2 on almost every row at 1.04×–1.34× behind orjson — nested at
+1.04–1.06×, users at 1.13–1.18× — down from 1.85×–2.46× before the waves
+(users dumps 7.89 → 3.05 ms). Wave 4 added the Ryu float converter (general
+case 51 ns, repr-exact, 20M-value oracle) and 32-byte scan blocks; neither
+flipped a row, because the corpus floats are 6-decimal (the micro tier
+already owned them) and record strings are bounded by per-string overhead,
+not scan width. The profiled remainder is orjson's Rust fundamentals spread
+across dispatch, dict iteration (`PyDict_Next`), and per-string setup, each
+a single-digit share. `loads` on small
 `flat`/`mixed` (1.15–1.28×) is per-object creation overhead on documents too
 small to amortize the caches. Techniques tried, adopted and rejected are in
 `docs/performance/SKILL.md`.

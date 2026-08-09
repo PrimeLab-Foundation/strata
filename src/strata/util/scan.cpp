@@ -185,10 +185,31 @@ namespace {
 size_t find_next_escape(const char* data, size_t len) noexcept {
     size_t pos = 0;
 #if defined(STRATA_ESCAPE_SCAN_SIMD)
-    for (; pos + kEscapeBlock <= len; pos += kEscapeBlock) {
+    // Two blocks per iteration halves the loop overhead on long spans — the
+    // parser scans the whole remaining input through here.
+    while (pos + 2 * kEscapeBlock <= len) {
+        const size_t first = first_escape_in_block(data + pos);
+        if (first != kEscapeBlock)
+            return pos + first;
+        const size_t second = first_escape_in_block(data + pos + kEscapeBlock);
+        if (second != kEscapeBlock)
+            return pos + kEscapeBlock + second;
+        pos += 2 * kEscapeBlock;
+    }
+    if (pos + kEscapeBlock <= len) {
         const size_t hit = first_escape_in_block(data + pos);
         if (hit != kEscapeBlock)
             return pos + hit;
+        pos += kEscapeBlock;
+    }
+    // Overlapped final block: everything before `pos` is proven clean, so a
+    // block re-reading those bytes reports its first hit at an index >= pos
+    // automatically. One vector op replaces the word-and-byte tail — without
+    // ever reading past the end (the block ends exactly at `len`).
+    if (len >= kEscapeBlock && pos < len) {
+        const size_t base = len - kEscapeBlock;
+        const size_t hit = first_escape_in_block(data + base);
+        return hit != kEscapeBlock ? base + hit : len;
     }
 #endif
 #if defined(STRATA_ESCAPE_SCAN_SWAR)
@@ -199,12 +220,18 @@ size_t find_next_escape(const char* data, size_t len) noexcept {
         if (mask != 0)
             return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
     }
+    // The same overlap trick one size down, for 8..15-byte strings.
+    if (len >= 8 && pos < len) {
+        uint64_t word;
+        std::memcpy(&word, data + len - 8, 8);
+        const uint64_t mask = escape_mask_word(word);
+        return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
+    }
 #endif
-    // Whatever remains is shorter than a word; the twin finishes the job.
-    // Reading past the end to fill one more block would be faster and is what
-    // the previous implementation did for short strings — it relied on
-    // CPython's allocation slack, which is a promise CPython never made and
-    // which ASan rightly flags.
+    // Under eight bytes; the twin finishes the job. Reading past the end to
+    // fill a block would be faster and is what the previous implementation
+    // did — it relied on CPython's allocation slack, which is a promise
+    // CPython never made and which ASan rightly flags.
     return pos + find_next_escape_scalar(data + pos, len - pos);
 }
 
@@ -223,13 +250,32 @@ size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept {
 #if defined(STRATA_ESCAPE_SCAN_SIMD)
     // Whole blocks are stored before the mask is inspected — the contract
     // gives the destination block-rounded room, so a store past the first
-    // escape byte (or past `len` within the final partial block's rounding)
-    // is scratch the caller never reads.
-    for (; pos + kEscapeBlock <= len; pos += kEscapeBlock) {
+    // escape byte is scratch the caller never reads. Two blocks per
+    // iteration; then one plain block; then an overlapped final block, whose
+    // re-read bytes are proven clean and whose re-stored bytes are identical.
+    while (pos + 2 * kEscapeBlock <= len) {
+        const size_t first = first_escape_in_block(src + pos);
+        std::memcpy(dst + pos, src + pos, kEscapeBlock);
+        if (first != kEscapeBlock)
+            return pos + first;
+        const size_t second = first_escape_in_block(src + pos + kEscapeBlock);
+        std::memcpy(dst + pos + kEscapeBlock, src + pos + kEscapeBlock, kEscapeBlock);
+        if (second != kEscapeBlock)
+            return pos + kEscapeBlock + second;
+        pos += 2 * kEscapeBlock;
+    }
+    if (pos + kEscapeBlock <= len) {
         const size_t hit = first_escape_in_block(src + pos);
         std::memcpy(dst + pos, src + pos, kEscapeBlock);
         if (hit != kEscapeBlock)
             return pos + hit;
+        pos += kEscapeBlock;
+    }
+    if (len >= kEscapeBlock && pos < len) {
+        const size_t base = len - kEscapeBlock;
+        const size_t hit = first_escape_in_block(src + base);
+        std::memcpy(dst + base, src + base, kEscapeBlock);
+        return hit != kEscapeBlock ? base + hit : len;
     }
 #endif
 #if defined(STRATA_ESCAPE_SCAN_SWAR)
@@ -240,6 +286,13 @@ size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept {
         const uint64_t mask = escape_mask_word(word);
         if (mask != 0)
             return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
+    }
+    if (len >= 8 && pos < len) {
+        uint64_t word;
+        std::memcpy(&word, src + len - 8, 8);
+        std::memcpy(dst + len - 8, &word, 8);
+        const uint64_t mask = escape_mask_word(word);
+        return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
     }
 #endif
     return pos + copy_until_escape_scalar(src + pos, len - pos, dst + pos);

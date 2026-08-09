@@ -202,6 +202,111 @@ void test_short_buffer_is_refused() {
     assert(format_double(1.0, small, sizeof(small)) == 0);
 }
 
+/**
+ * The Ryu path against an independent reference over millions of doubles.
+ *
+ * The reference reimplements the layout from primitives this file does not
+ * share with dtoa.cpp: `to_chars` produces the shortest digits and the fixed
+ * or scientific body, and the reference only appends the `.0` an integral
+ * value needs. Any byte of disagreement -- digits, rounding, layout window,
+ * exponent form -- fails with the offending bit pattern printed.
+ */
+[[nodiscard]] size_t reference_format(double value, char* out, size_t capacity) {
+    const double magnitude = std::fabs(value);
+    const bool scientific = magnitude != 0.0 && (magnitude < 1e-4 || magnitude >= 1e16);
+    const auto converted =
+        std::to_chars(out, out + capacity, value,
+                      scientific ? std::chars_format::scientific : std::chars_format::fixed);
+    assert(converted.ec == std::errc{});
+    auto written = static_cast<size_t>(converted.ptr - out);
+    if (!scientific && value == std::trunc(value)) {
+        out[written++] = '.';
+        out[written++] = '0';
+    }
+    return written;
+}
+
+void check_against_reference(double value) {
+    if (std::isnan(value) || std::isinf(value))
+        return;
+    char ours[64];
+    char reference[64];
+    const size_t got = format_double(value, ours, sizeof(ours));
+    const size_t want = reference_format(value, reference, sizeof(reference));
+    if (got != want || std::memcmp(ours, reference, want) != 0) {
+        uint64_t bits;
+        std::memcpy(&bits, &value, sizeof(bits));
+        std::printf("dtoa mismatch for bits %016llx: got %.*s want %.*s\n",
+                    static_cast<unsigned long long>(bits), static_cast<int>(got), ours,
+                    static_cast<int>(want), reference);
+        assert(false);
+    }
+}
+
+void test_ryu_matches_reference_exhaustively() {
+    // Boundary pins first: the layout window edges, subnormals, extremes,
+    // and the tie-breaking cases shortest-round-trip is known to get wrong
+    // when the acceptance bounds are mishandled.
+    for (const double pinned : {0.0,
+                                -0.0,
+                                1.0,
+                                -1.0,
+                                0.5,
+                                1e-4,
+                                9.999999999999999e-5,
+                                1e-5,
+                                1e15,
+                                9.999999999999998e15,
+                                1e16,
+                                1e17,
+                                5e-324,
+                                4.9e-324,
+                                2.2250738585072014e-308,
+                                2.225073858507201e-308,
+                                1.7976931348623157e308,
+                                0.1,
+                                0.2,
+                                0.3,
+                                1.0 / 3.0,
+                                2.0 / 3.0,
+                                9007199254740992.0,
+                                9007199254740993.0,
+                                0.30000000000000004,
+                                3.141592653589793,
+                                2.718281828459045,
+                                1.2345678901234567e22,
+                                8.98846567431158e307,
+                                5.960464477539063e-8,
+                                1.262177448e-29,
+                                5.9604644775390625e-8})
+        check_against_reference(pinned);
+
+    // The whole bit space, deterministically.
+    uint64_t state = 0x853C49E6748FEA9BULL;
+    for (int trial = 0; trial < 20000000; ++trial) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        double value;
+        std::memcpy(&value, &state, sizeof(value));
+        check_against_reference(value);
+    }
+
+    // Adversarial bands: every exponent, small mantissa perturbations around
+    // powers of ten and of two, where rounding boundaries cluster.
+    for (int exponent = 0; exponent < 2047; ++exponent) {
+        for (const uint64_t mantissa :
+             {0ULL, 1ULL, 2ULL, 0xFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFEULL, 0x8000000000000ULL,
+              0x5555555555555ULL, 0xAAAAAAAAAAAAAULL}) {
+            const uint64_t bits = (static_cast<uint64_t>(exponent) << 52) | mantissa;
+            double value;
+            std::memcpy(&value, &bits, sizeof(value));
+            check_against_reference(value);
+            check_against_reference(-value);
+        }
+    }
+}
+
 } // namespace
 
 int main() {
@@ -212,6 +317,7 @@ int main() {
     test_common_decimal_values_round_trip();
     test_non_finite_values_serialize_as_null();
     test_short_buffer_is_refused();
+    test_ryu_matches_reference_exhaustively();
 
     std::puts("float_precision_tests: OK");
     return 0;
