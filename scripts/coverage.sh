@@ -15,6 +15,9 @@ cd "$ROOT_DIR"
 
 VENV="${VENV:-.venv}"
 VPY="$VENV/bin/python"
+# CI installs into the runner's interpreter and has no .venv (the missing
+# fallback failed the coverage job's Python half).
+[ -x "$VPY" ] || VPY="$(command -v python3)"
 BUILD_DIR="${COVERAGE_BUILD_DIR:-build/coverage}"
 REPORT_DIR="${COVERAGE_REPORT_DIR:-build/coverage/report}"
 
@@ -102,8 +105,8 @@ cov_cpp() {
 }
 
 cov_py() {
-    if [[ ! -x "$VPY" ]]; then
-        echo "Error: $VPY not found. Run: make dev" >&2
+    if [[ -z "$VPY" || ! -x "$VPY" ]]; then
+        echo "Error: no usable python found. Run: make dev" >&2
         exit 1
     fi
     echo "==> coverage: Python suites"

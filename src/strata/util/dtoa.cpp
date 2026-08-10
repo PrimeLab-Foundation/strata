@@ -31,6 +31,21 @@
 #include <intrin.h>
 #endif
 
+namespace {
+
+/// Index of the highest set bit. Precondition: @p value != 0.
+[[nodiscard]] inline unsigned highest_set_bit(uint64_t value) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long index = 0;
+    _BitScanReverse64(&index, value);
+    return static_cast<unsigned>(index);
+#else
+    return static_cast<unsigned>(63 - __builtin_clzll(value));
+#endif
+}
+
+} // namespace
+
 namespace strata::util {
 
 namespace {
@@ -95,7 +110,7 @@ constexpr uint64_t kPow10[20] = {
         return 1;
     // floor(log10) from floor(log2): multiply by log10(2) in fixed point,
     // then correct by comparing against the exact power.
-    const auto bits = static_cast<size_t>(63 - __builtin_clzll(value));
+    const auto bits = static_cast<size_t>(highest_set_bit(value));
     size_t digits = (bits * 1233) >> 12;
     digits += static_cast<size_t>(digits + 1 <= 19 && value >= kPow10[digits + 1]);
     return digits + 1;

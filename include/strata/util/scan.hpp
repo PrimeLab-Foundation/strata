@@ -22,9 +22,14 @@
 #if defined(__ARM_NEON)
 #include <arm_neon.h>
 #define STRATA_ESCAPE_SCAN_SIMD 1
-#elif defined(__SSE2__)
+#elif defined(__SSE2__) || defined(_M_X64) || defined(_M_AMD64)
+// MSVC never defines __SSE2__; x64 implies it.
 #include <emmintrin.h>
 #define STRATA_ESCAPE_SCAN_SIMD 1
+#endif
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h>
 #endif
 
 namespace strata::util {
@@ -92,6 +97,28 @@ namespace strata::util {
 
 namespace detail {
 
+/// Index of the lowest set bit. Precondition: @p value != 0.
+/// MSVC has no __builtin_ctz*; the intrinsic pair is its spelling.
+[[nodiscard]] inline unsigned trailing_zeros64(uint64_t value) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long index = 0;
+    _BitScanForward64(&index, value);
+    return static_cast<unsigned>(index);
+#else
+    return static_cast<unsigned>(__builtin_ctzll(value));
+#endif
+}
+
+[[nodiscard]] inline unsigned trailing_zeros32(uint32_t value) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    unsigned long index = 0;
+    _BitScanForward(&index, value);
+    return static_cast<unsigned>(index);
+#else
+    return static_cast<unsigned>(__builtin_ctz(value));
+#endif
+}
+
 #if defined(STRATA_ESCAPE_SCAN_SIMD)
 
 /// Bytes examined per SIMD step.
@@ -119,7 +146,7 @@ inline constexpr size_t kEscapeBlock = 16;
         vget_lane_u64(vreinterpret_u64_u8(vshrn_n_u16(vreinterpretq_u16_u8(interesting), 4)), 0);
     if (mask == 0)
         return detail::kEscapeBlock;
-    return static_cast<size_t>(__builtin_ctzll(mask)) >> 2;
+    return static_cast<size_t>(detail::trailing_zeros64(mask)) >> 2;
 #else
     const __m128i block = _mm_loadu_si128(reinterpret_cast<const __m128i*>(data));
     const __m128i quote = _mm_cmpeq_epi8(block, _mm_set1_epi8('"'));
@@ -129,7 +156,7 @@ inline constexpr size_t kEscapeBlock = 16;
     const int mask = _mm_movemask_epi8(_mm_or_si128(_mm_or_si128(quote, backslash), control));
     if (mask == 0)
         return detail::kEscapeBlock;
-    return static_cast<size_t>(__builtin_ctz(static_cast<unsigned>(mask)));
+    return static_cast<size_t>(trailing_zeros32(static_cast<uint32_t>(mask)));
 #endif
 }
 
@@ -215,14 +242,15 @@ inline size_t find_next_escape(const char* data, size_t len) noexcept {
         std::memcpy(&word, data + pos, 8); // the only sanctioned type pun
         const uint64_t mask = detail::escape_mask_word(word);
         if (mask != 0)
-            return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
+            return pos + (static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3);
     }
     // The same overlap trick one size down, for 8..15-byte strings.
     if (len >= 8 && pos < len) {
         uint64_t word;
         std::memcpy(&word, data + len - 8, 8);
         const uint64_t mask = detail::escape_mask_word(word);
-        return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
+        return mask != 0 ? (len - 8) + (static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3)
+                         : len;
     }
     // ...and one size further down, for 4..7-byte strings.
     if (len >= 4 && pos < len) {
@@ -230,12 +258,13 @@ inline size_t find_next_escape(const char* data, size_t len) noexcept {
         std::memcpy(&head, data, 4);
         const uint32_t head_mask = detail::escape_mask_word32(head);
         if (head_mask != 0)
-            return static_cast<size_t>(__builtin_ctz(head_mask)) >> 3;
+            return static_cast<size_t>(detail::trailing_zeros32(head_mask)) >> 3;
         uint32_t tail;
         std::memcpy(&tail, data + len - 4, 4);
         const uint32_t tail_mask = detail::escape_mask_word32(tail);
-        return tail_mask != 0 ? (len - 4) + (static_cast<size_t>(__builtin_ctz(tail_mask)) >> 3)
-                              : len;
+        return tail_mask != 0
+                   ? (len - 4) + (static_cast<size_t>(detail::trailing_zeros32(tail_mask)) >> 3)
+                   : len;
     }
 #endif
     // Under eight bytes; the twin finishes the job. Reading past the end to
@@ -286,14 +315,15 @@ inline size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept
         std::memcpy(dst + pos, &word, 8);
         const uint64_t mask = detail::escape_mask_word(word);
         if (mask != 0)
-            return pos + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3);
+            return pos + (static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3);
     }
     if (len >= 8 && pos < len) {
         uint64_t word;
         std::memcpy(&word, src + len - 8, 8);
         std::memcpy(dst + len - 8, &word, 8);
         const uint64_t mask = detail::escape_mask_word(word);
-        return mask != 0 ? (len - 8) + (static_cast<size_t>(__builtin_ctzll(mask)) >> 3) : len;
+        return mask != 0 ? (len - 8) + (static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3)
+                         : len;
     }
     if (len >= 4 && pos < len) {
         uint32_t head;
@@ -301,13 +331,14 @@ inline size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept
         std::memcpy(dst, &head, 4);
         const uint32_t head_mask = detail::escape_mask_word32(head);
         if (head_mask != 0)
-            return static_cast<size_t>(__builtin_ctz(head_mask)) >> 3;
+            return static_cast<size_t>(detail::trailing_zeros32(head_mask)) >> 3;
         uint32_t tail;
         std::memcpy(&tail, src + len - 4, 4);
         std::memcpy(dst + len - 4, &tail, 4);
         const uint32_t tail_mask = detail::escape_mask_word32(tail);
-        return tail_mask != 0 ? (len - 4) + (static_cast<size_t>(__builtin_ctz(tail_mask)) >> 3)
-                              : len;
+        return tail_mask != 0
+                   ? (len - 4) + (static_cast<size_t>(detail::trailing_zeros32(tail_mask)) >> 3)
+                   : len;
     }
 #endif
     return pos + copy_until_escape_scalar(src + pos, len - pos, dst + pos);
