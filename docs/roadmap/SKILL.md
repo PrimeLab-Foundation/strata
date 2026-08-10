@@ -100,8 +100,17 @@ PGO pipeline, full CI workflows, README usage refresh.
 coverage reports generate on both layers; `make pgo` completes with gates
 green.
 
-## M10 — Release readiness
+## M10 — Release readiness ✓ (released 2026-08-10 as `2026.8.10`)
 
 Per convention: #1 rank in targeted categories with a reproducible evidence
 report under `docs/benchmarks/`, docs current, version bumped to release
 date.
+
+**Closed on the quiet-machine standings sweep** (AC power, Low Power Mode
+off, PGO+LTO, repeats 30/20/10): 63/81 rows #1; the users dataset leads every
+category at every tier except one 1.00× large-tier dumps tie; `query` and
+`search` 9/9 each, NDJSON `load` 3/3, file `load` 13/15. Evidence:
+`docs/benchmarks/bench_results_{small,medium,large}.md`. The 18 rows still
+behind are enumerated in `docs/benchmarking/SKILL.md` — small-document parse
+overhead, the `mixed` per-call floor, and `wide_arrays` parsing at scale —
+and are the post-release optimization backlog.

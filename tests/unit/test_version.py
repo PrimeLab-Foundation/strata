@@ -2,8 +2,8 @@
 
 Pins docs/context/api.md § Versioning:
 
-    "Versioning is calver (`YYYY.M.D` of release ...). The rebuild starts at
-     `__version__ = "2026.8.9"` ... Single source of truth: the literal in
+    "Versioning is calver (`YYYY.M.D` of release ...). The rebuild started at
+     `2026.8.9` and released as `2026.8.10` ... Single source of truth: the literal in
      `python/strata/__init__.py`; pyproject reads it dynamically — no second
      copy anywhere (the previous implementation drifted across three
      locations)."
@@ -20,8 +20,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BUILD_FILES = ("pyproject.toml", "setup.py", "Makefile", "CMakeLists.txt")
 
 
-def test_version_is_the_documented_calver_start():
-    assert strata.__version__ == "2026.8.9"
+def test_version_is_the_documented_release():
+    assert strata.__version__ == "2026.8.10"
 
 
 def test_version_is_pep440_calver():

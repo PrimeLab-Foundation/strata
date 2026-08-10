@@ -10,7 +10,8 @@ and `parse_ndjson` are dropped — cursors come from
 `loads`/`load` with `return_type="cursor"`, and NDJSON goes through `load`.
 
 Versioning is calver (`YYYY.M.D` of release — orders correctly under
-PEP 440). The rebuild starts at `__version__ = "2026.8.9"`, bumped at release
+PEP 440). The rebuild started at `__version__ = "2026.8.9"` and released as
+`2026.8.10` on the quiet-machine standings sweep, bumped at release
 time only. Single source of truth: the literal in
 `python/strata/__init__.py`; pyproject reads it dynamically — no second copy
 anywhere (the previous implementation drifted across three locations).

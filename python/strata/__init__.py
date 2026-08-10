@@ -20,7 +20,7 @@ from .serialize import dump, dumps, load, loads
 
 # Single source of truth for the version (docs/context/api.md § Versioning).
 # pyproject.toml reads this literal dynamically — never add a second copy.
-__version__ = "2026.8.9"
+__version__ = "2026.8.10"
 
 __all__ = [
     # Parse / serialize

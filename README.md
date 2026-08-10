@@ -3,16 +3,18 @@
 Fast JSON for Python: parsing, serialization, and JSONPath querying powered by
 a dependency-free C++20 engine with hand-written CPython C-API bindings.
 
-**Rebuild in progress.** The implementation is being rebuilt from scratch, one
-milestone at a time. Working today: `loads`, `dumps`, `load`, `dump`, cursor
-mode, JSONPath (`query`, `search`, `compile` — including the streaming SAX
-search evaluator) and `config`, over single files, NDJSON and whole
-directories, with fuzzing, coverage and a PGO+LTO build in place. On the
-benchmark suite strata leads every `query` and `search` row (3–100× against
-jmespath/jsonpath-ng pipelines), NDJSON loading (~1.3× ahead of msgspec), and
-file/in-memory parsing on most datasets including the headline one;
-serialization still trails orjson by ~1.1–1.6×, which is the remaining gap
-before release. The docs under [docs/](docs/) are the complete specification:
+**Version 2026.8.10.** The ground-up rebuild is complete: `loads`, `dumps`,
+`load`, `dump`, cursor mode, JSONPath (`query`, `search`, `compile` — with a
+streaming SAX search evaluator) and `config`, over single files, NDJSON and
+whole directories, backed by fuzzing, two-layer coverage, and a PGO+LTO
+release build. On the benchmark suite (vs orjson, msgspec, ujson, stdlib —
+evidence under [docs/benchmarks/](docs/benchmarks/)) strata is **#1 in 63 of
+81 rows**: every `query` and `search` row (3–100× ahead of
+jmespath/jsonpath-ng pipelines), every NDJSON-loading row (~1.4×), file
+loading on 13 of 15 rows, and both parsing and serialization on the headline
+dataset at effectively every tier. The rows still behind — small-document
+parsing and a few 1.0–1.2× serialization ties — are enumerated honestly in
+[docs/benchmarking/SKILL.md](docs/benchmarking/SKILL.md). The docs under [docs/](docs/) are the complete specification:
 conventions, style, public API contract, architecture, benchmarking
 methodology, the optimization playbook (including negative results), and
 project history.

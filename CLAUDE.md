@@ -71,13 +71,15 @@ M3 (serializer and shortest round-trip float formatting) M4 (the binding layer: 
 layer) M6 (file I/O, NDJSON and cursor
 mode), M7 (JSONPath: `query`, `search`, `compile`) and M8 (folder mode for
 `load`, `dump` and `search`), M9 (fuzzing with a committed corpus, coverage,
-PGO+LTO, full CI) and two M10 performance waves — the second added the
-streaming JSONPath search evaluator, speculative key matching, single-scan
-number conversion and the staged dumps writer, taking strata to #1 in every
-`query`/`search` row, NDJSON loading, and most parse rows. What remains
-before release: the serialization gap to orjson (~1.1–1.6×) — see the
-standings in `docs/benchmarking/SKILL.md`. The rebuild is versioned calver,
-`YYYY.M.D` of release, starting at `2026.8.9` (see `docs/context/api.md`).
+PGO+LTO, full CI) and the M10 performance waves, closed by the quiet-machine
+standings sweep: **63/81 benchmark rows #1**, the headline dataset leading
+every category at every tier bar one 1.00× tie, and the release version bumped
+to `2026.8.10`. The rebuild is complete; what remains is the post-release
+backlog in `docs/benchmarking/SKILL.md` (small-document overhead, the mixed
+per-call floor, wide_arrays parsing) and the deferred JSONPath grammar
+extensions. The rebuild is versioned calver,
+`YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
+(see `docs/context/api.md`).
 
 The complete previous implementation (v0.2.0, all tests green) is preserved on
 branch `backup/pre-reset-main` and in `../archive/` — file paths, line numbers,
