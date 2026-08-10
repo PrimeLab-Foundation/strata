@@ -88,12 +88,12 @@ Real on this branch:
   mdformat re-emits YAML frontmatter with a trailing space that the whitespace
   hook would strip and mdformat would restore, so the pair never converges.
 - `.github/workflows/` — `ci.yml` (push + PR): a `test` matrix of ubuntu
-  3.10–3.14, macos-13 (x86_64), macos-latest (arm64) and windows-latest, each
+  3.10–3.14, macos-15-intel (x86_64), macos-latest (arm64) and windows-latest, each
   running ctest → the test-gated install → the Python suites; a `coverage` job
   (both layers, report uploaded); a `style` job; and a `corpus` job that
   replays the fuzz corpus under ASan+UBSan on every push. `fuzz.yml` (weekly
   Tue 04:00 UTC), `benchmark.yml` (weekly Mon 02:00 UTC: the cross-platform
-  supportability pipeline — the same suite on ubuntu x86_64, macos-13 x86_64,
+  supportability pipeline — the same suite on ubuntu x86_64, macos-15-intel x86_64,
   macos-latest arm64 and Windows/MSVC, so both CPU architectures run the
   tripwire — gated by `benchmarks/supportability_check.py` on ERROR rows,
   category coverage and a loose strata-vs-best-rival ratio bound; absolute

@@ -12,6 +12,9 @@ project(strata LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# MSVC keeps __cplusplus at 199711L unless told otherwise, which fails the
+# smoke test's "strata requires C++20" static_assert.
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 

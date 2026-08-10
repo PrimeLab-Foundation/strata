@@ -35,12 +35,12 @@ jobs:
             python: "3.13"
           - os: ubuntu-latest
             python: "3.14"
-          # ... plus both macOS architectures (macos-13 is x86_64,
+          # ... plus both macOS architectures (macos-15-intel is x86_64,
           # macos-latest is arm64) and Windows, so the SIMD dispatch and the
           # MSVC branch of setup.py are both exercised. arm64 Linux is the
           # separate job below: its hosted runner exists for public repos
           # only, and a matrix leg with no matching runner queues forever.
-          - os: macos-13
+          - os: macos-15-intel
             python: "3.12"
           - os: macos-latest
             python: "3.12"

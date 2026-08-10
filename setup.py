@@ -183,7 +183,9 @@ def _optimization_args() -> tuple[list[str], list[str]]:
 
 def _compile_args() -> list[str]:
     if sys.platform == "win32":
-        args = ["/std:c++20", "/O2"]
+        # /Zc:__cplusplus: MSVC otherwise reports __cplusplus as 199711L and
+        # the C++20 guards in the headers misfire.
+        args = ["/std:c++20", "/O2", "/Zc:__cplusplus"]
         if platform.machine() in ("AMD64", "x86_64"):
             args.append("/arch:AVX2")
         return args
