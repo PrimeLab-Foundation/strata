@@ -85,7 +85,16 @@ North star: correctness first, then performance, then maintainability.
   (x86_64), on CPython 3.10–3.14. Every one of these has a leg in the CI test
   matrix; a platform is not "supported" because the code looks portable, but
   because CI builds and passes both suites on it.
-- **Portable by construction.** Every platform-specific fast path — SIMD
+- **Architectures are a first-class axis, not a platform detail.** Support
+  spans both mainstream CPU architectures — x86_64 and arm64 — and every
+  SIMD path must be *proven where it is live*: the NEON paths build, pass the
+  scalar-twin equivalence suites, and run the benchmark tripwire on arm64
+  legs; the SSE2/SWAR paths do the same on x86_64 legs. A SIMD path that CI
+  only ever compiles out is unsupported by definition. (arm64 Linux hosted
+  runners exist for public repositories only; while the repo is private that
+  combination is covered by the arm64 macOS leg and by the visibility-guarded
+  `test-linux-arm` job, which activates the moment the repo goes public.)
+- **Portable by construction.** Every architecture-specific fast path — SIMD
   (NEON/SSE2), SWAR, MSVC intrinsics, CPython-version-gated internals — must
   have a portable fallback with identical observable behavior, selected at
   compile time or proven by a runtime probe, never assumed. The scalar-twin

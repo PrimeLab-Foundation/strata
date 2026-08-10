@@ -35,14 +35,11 @@ jobs:
             python: "3.13"
           - os: ubuntu-latest
             python: "3.14"
-          # ... plus arm64 Linux (NEON outside macOS), both macOS
-          # architectures (macos-13 is x86_64, macos-latest is arm64) and
-          # Windows, so every supported platform of
-          # docs/context/convention.md § Platform supportability has a leg,
-          # and the SIMD dispatch and the MSVC branch of setup.py are both
-          # exercised.
-          - os: ubuntu-24.04-arm
-            python: "3.12"
+          # ... plus both macOS architectures (macos-13 is x86_64,
+          # macos-latest is arm64) and Windows, so the SIMD dispatch and the
+          # MSVC branch of setup.py are both exercised. arm64 Linux is the
+          # separate job below: its hosted runner exists for public repos
+          # only, and a matrix leg with no matching runner queues forever.
           - os: macos-13
             python: "3.12"
           - os: macos-latest
@@ -56,6 +53,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+
+      - name: Upgrade packaging tools
+        run: python -m pip install -U pip setuptools wheel
+
+      - name: Run the C++ suite
+        run: python scripts/cpp_tests.py
+
+      - name: Install strata (test-gated build)
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run the Python suites
+        run: python scripts/py_tests.py
+
+  # NEON on Linux (docs/context/convention.md § Platform supportability).
+  # GitHub's `ubuntu-24.04-arm` hosted runners serve public repositories
+  # only; on a private repository this job skips cleanly instead of queuing
+  # until GitHub cancels it. While the repo is private, arm64 Linux is
+  # covered by the macos-latest leg (same NEON paths, different OS) — making
+  # this job real requires going public or attaching an arm64 larger runner.
+  test-linux-arm:
+    name: ubuntu-24.04-arm / py3.12
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Upgrade packaging tools
         run: python -m pip install -U pip setuptools wheel

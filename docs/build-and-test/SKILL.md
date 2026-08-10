@@ -93,13 +93,15 @@ Real on this branch:
   (both layers, report uploaded); a `style` job; and a `corpus` job that
   replays the fuzz corpus under ASan+UBSan on every push. `fuzz.yml` (weekly
   Tue 04:00 UTC), `benchmark.yml` (weekly Mon 02:00 UTC: the cross-platform
-  supportability pipeline — the same suite on ubuntu x86_64, macos-13 x86_64
-  and Windows/MSVC, gated by `benchmarks/supportability_check.py` on ERROR
-  rows, category coverage and a loose strata-vs-best-rival ratio bound;
-  absolute times are never compared across machines), `pgo.yml` (weekly Mon
-  03:00 UTC, uploads a PGO+LTO wheel). The test matrix also carries an
-  ubuntu-24.04-arm leg, so every supported platform in
-  docs/context/convention.md builds and tests in CI.
+  supportability pipeline — the same suite on ubuntu x86_64, macos-13 x86_64,
+  macos-latest arm64 and Windows/MSVC, so both CPU architectures run the
+  tripwire — gated by `benchmarks/supportability_check.py` on ERROR rows,
+  category coverage and a loose strata-vs-best-rival ratio bound; absolute
+  times are never compared across machines), `pgo.yml` (weekly Mon 03:00 UTC,
+  uploads a PGO+LTO wheel). A visibility-guarded `test-linux-arm` job covers
+  NEON-on-Linux; it skips cleanly while the repo is private (GitHub's arm64
+  Linux hosted runners serve public repos only) and activates on going
+  public.
 
 Not built yet, by milestone: release/tag tooling (M10). `make gate` runs the
 C++ tests → force reinstall → Python suites → both coverage reports. No step

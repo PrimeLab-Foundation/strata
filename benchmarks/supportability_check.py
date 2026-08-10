@@ -58,9 +58,9 @@ def main(argv: list[str] | None = None) -> int:
         if measurement.library == "strata":
             sections_with_strata.add(measurement.section)
         if measurement.median_ms:
-            rows.setdefault((measurement.section, measurement.dataset), {})[
-                measurement.library
-            ] = measurement.median_ms
+            rows.setdefault((measurement.section, measurement.dataset), {})[measurement.library] = (
+                measurement.median_ms
+            )
 
     all_sections = {m.section for m in report.measurements}
     for section in sorted(all_sections - sections_with_strata):
