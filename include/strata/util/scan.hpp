@@ -16,6 +16,17 @@
 #include <cstdint>
 #include <cstring>
 
+// Compile-time SIMD selection (docs/context/styleguide.md). There is no
+// runtime dispatch: the extension is built with -march=native, and a wheel
+// built for a baseline target simply uses the scalar twin.
+#if defined(__ARM_NEON)
+#include <arm_neon.h>
+#define STRATA_ESCAPE_SCAN_SIMD 1
+#elif defined(__SSE2__)
+#include <emmintrin.h>
+#define STRATA_ESCAPE_SCAN_SIMD 1
+#endif
+
 namespace strata::util {
 
 /**
@@ -78,17 +89,6 @@ namespace strata::util {
 // The scalar twins stay in scan.cpp as the out-of-line reference the
 // equivalence suite runs against.
 // ---------------------------------------------------------------------------
-
-// Compile-time SIMD selection (docs/context/styleguide.md). There is no
-// runtime dispatch: the extension is built with -march=native, and a wheel
-// built for a baseline target simply uses the scalar twin.
-#if defined(__ARM_NEON)
-#include <arm_neon.h>
-#define STRATA_ESCAPE_SCAN_SIMD 1
-#elif defined(__SSE2__)
-#include <emmintrin.h>
-#define STRATA_ESCAPE_SCAN_SIMD 1
-#endif
 
 namespace detail {
 

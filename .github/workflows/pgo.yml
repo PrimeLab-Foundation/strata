@@ -29,6 +29,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang llvm cmake
 
+      # pgo_build.sh drives everything through .venv and its gate needs the
+      # dev and bench extras (pytest, cmake, the competitor set for the
+      # verification benchmarks) — the scheduled run failed without them.
+      - name: Install strata with dev and bench extras (test-gated build)
+        env:
+          CC: clang
+          CXX: clang++
+        run: make install-bench
+
       - name: Run the PGO workflow
         env:
           PYTHON: python
