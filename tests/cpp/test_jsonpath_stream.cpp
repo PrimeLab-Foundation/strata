@@ -22,9 +22,9 @@
 #include "strata/json/json_serialize.hpp"
 #include "strata/search/jsonpath.hpp"
 #include "strata/search/jsonpath_stream.hpp"
+#include "strata/util/fast_parse.hpp"
 
 #include <cassert>
-#include <charconv>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -56,7 +56,7 @@ class DomSink {
     bool on_big_int(std::string_view text) {
         // The DOM builder widens big integers through the double path too.
         double widened = 0.0;
-        std::from_chars(text.data(), text.data() + text.size(), widened);
+        (void)strata::util::from_chars_double(text.data(), text.data() + text.size(), widened);
         return push(JsonValue(JsonValue::Variant(widened)));
     }
     bool on_double(double value) { return push(JsonValue(JsonValue::Variant(value))); }

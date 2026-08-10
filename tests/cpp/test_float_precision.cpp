@@ -17,9 +17,9 @@
 
 #include "strata/json/json_serialize.hpp"
 #include "strata/util/dtoa.hpp"
+#include "strata/util/fast_parse.hpp"
 
 #include <cassert>
-#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -44,9 +44,13 @@ namespace {
 }
 
 /// Parse text back to a double, requiring the whole span to be consumed.
+/// from_chars_double keeps this oracle independent of the scanner under test
+/// on every platform: std::from_chars where the library has it, the system
+/// strtod_l on Apple SDKs that lack the floating-point overload.
 [[nodiscard]] double reparse(const std::string& text) {
     double value = 0.0;
-    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+    const auto result =
+        strata::util::from_chars_double(text.data(), text.data() + text.size(), value);
     assert(result.ec == std::errc{});
     assert(result.ptr == text.data() + text.size());
     return value;
