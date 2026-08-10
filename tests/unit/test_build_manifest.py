@@ -25,8 +25,10 @@ def _entries() -> list[str]:
 
 
 def _core_translation_units() -> set[str]:
+    # as_posix(): the manifest uses forward slashes; str(Path) would compare
+    # backslashed paths on Windows and report every source as missing.
     return {
-        str(p.relative_to(PROJECT_ROOT))
+        p.relative_to(PROJECT_ROOT).as_posix()
         for p in CORE_DIR.rglob("*.cpp")
         if BINDINGS_DIR not in p.parents
     }

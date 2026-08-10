@@ -8,6 +8,7 @@
  */
 
 #include "strata/search/jsonpath.hpp"
+#include "strata/util/fast_parse.hpp"
 
 #include <charconv>
 #include <cstddef>
@@ -340,7 +341,8 @@ class PathParser {
             ++position_;
         if (position_ == start)
             return false;
-        const auto result = std::from_chars(text_.data() + start, text_.data() + position_, out);
+        const auto result =
+            util::from_chars_double(text_.data() + start, text_.data() + position_, out);
         if (result.ec != std::errc{} || result.ptr != text_.data() + position_) {
             position_ = start;
             return false;

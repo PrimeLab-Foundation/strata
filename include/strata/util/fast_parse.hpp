@@ -16,7 +16,9 @@
  * (docs/context/api.md: "do not reproduce").
  *
  * Conversion uses `std::from_chars`, which is correctly rounded and, unlike
- * `strtod`, immune to the process locale's decimal separator.
+ * `strtod`, immune to the process locale's decimal separator. Where the
+ * standard library lacks the floating-point overload, @ref from_chars_double
+ * provides a strtod_l twin with identical observable behavior.
  */
 
 #include <charconv>
@@ -24,6 +26,30 @@
 #include <cstdint>
 #include <limits>
 #include <system_error>
+
+// Floating-point std::from_chars reached libc++ only at LLVM 20; Apple SDKs
+// through Xcode 16 ship the integral overloads alone, so those builds take
+// the strtod_l twin below. STRATA_FORCE_STRTOD_FALLBACK compiles the twin on
+// a machine whose library does have from_chars, so both branches run under
+// the same suites locally (the scalar-twin rule applied to a library gap).
+#if !defined(STRATA_FORCE_STRTOD_FALLBACK) && defined(__cpp_lib_to_chars) &&                       \
+    __cpp_lib_to_chars >= 201611L
+#define STRATA_HAS_FP_FROM_CHARS 1
+#else
+#define STRATA_HAS_FP_FROM_CHARS 0
+#endif
+
+#if !STRATA_HAS_FP_FROM_CHARS
+#if !defined(__APPLE__)
+#error "no floating-point std::from_chars and no Apple strtod_l fallback for this toolchain"
+#endif
+#include <cerrno>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <xlocale.h>
+#endif
 
 namespace strata::util {
 
@@ -46,7 +72,83 @@ namespace detail {
 
 [[nodiscard]] constexpr bool is_digit(char c) noexcept { return c >= '0' && c <= '9'; }
 
+#if !STRATA_HAS_FP_FROM_CHARS
+/// Process-lifetime "C" locale for strtod_l; never freed by design. Darwin
+/// treats a null locale_t as the C locale, so even a failed newlocale still
+/// parses correctly.
+[[nodiscard]] inline locale_t c_locale() noexcept {
+    static const locale_t locale = newlocale(LC_ALL_MASK, "C", static_cast<locale_t>(nullptr));
+    return locale;
+}
+#endif
+
 } // namespace detail
+
+/// The two std::from_chars_result fields the number call sites consume.
+struct FromCharsResult {
+    const char* ptr;
+    std::errc ec;
+};
+
+#if STRATA_HAS_FP_FROM_CHARS
+
+/// Correctly rounded text→double over [first, last), via std::from_chars.
+[[nodiscard]] inline FromCharsResult from_chars_double(const char* first, const char* last,
+                                                       double& value) noexcept {
+    const auto result = std::from_chars(first, last, value);
+    return {result.ptr, result.ec};
+}
+
+#else
+
+/**
+ * strtod_l twin of the from_chars branch, observably identical.
+ *
+ * Each difference strtod would introduce is neutralized: leading whitespace
+ * and '+' are rejected up front (strtod accepts both, from_chars neither);
+ * the token is copied and NUL-terminated so the parse can never read past
+ * @p last (the input need not be NUL-terminated); the "C" locale is passed
+ * explicitly so the process locale's decimal separator cannot leak in; and
+ * ERANGE is folded to from_chars semantics — a denormal result (flagged by
+ * some libcs) is a representable value and therefore success, only ±infinity
+ * and total underflow report result_out_of_range. Hex floats and inf/nan
+ * words cannot arise: every caller hands over a span already scanned as
+ * sign/digits/point/exponent only. Allocation failure on an oversized token
+ * reports not_enough_memory — an error, never a fabricated value.
+ */
+[[nodiscard]] inline FromCharsResult from_chars_double(const char* first, const char* last,
+                                                       double& value) noexcept {
+    if (first == last || *first == '+' || *first == ' ' || (*first >= '\t' && *first <= '\r'))
+        return {first, std::errc::invalid_argument};
+
+    constexpr size_t kStackCapacity = 127;
+    char stack_buffer[kStackCapacity + 1];
+    std::unique_ptr<char, void (*)(void*)> heap_buffer(nullptr, std::free);
+    const size_t length = static_cast<size_t>(last - first);
+    char* token = stack_buffer;
+    if (length > kStackCapacity) {
+        heap_buffer.reset(static_cast<char*>(std::malloc(length + 1)));
+        if (heap_buffer == nullptr)
+            return {first, std::errc::not_enough_memory};
+        token = heap_buffer.get();
+    }
+    std::memcpy(token, first, length);
+    token[length] = '\0';
+
+    errno = 0;
+    char* token_end = nullptr;
+    const double parsed = strtod_l(token, &token_end, detail::c_locale());
+    if (token_end == token)
+        return {first, std::errc::invalid_argument};
+
+    const char* const ptr = first + (token_end - token);
+    if (errno == ERANGE && (parsed == HUGE_VAL || parsed == -HUGE_VAL || parsed == 0.0))
+        return {ptr, std::errc::result_out_of_range};
+    value = parsed;
+    return {ptr, std::errc{}};
+}
+
+#endif
 
 /**
  * Validate and convert one JSON number at the start of @p str.
@@ -196,7 +298,7 @@ namespace detail {
         return true;
     }
 
-    const auto result = std::from_chars(first, last, out.double_value);
+    const auto result = from_chars_double(first, last, out.double_value);
     if (result.ec == std::errc::result_out_of_range) {
         // Outside the representable range in one direction or the other.
         // Decide which from the decimal magnitude: a value only overflows once

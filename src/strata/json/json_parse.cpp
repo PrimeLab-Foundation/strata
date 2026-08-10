@@ -14,8 +14,8 @@
 #include "strata/json/json_parse.hpp"
 
 #include "strata/json/json_parser_inline.hpp"
+#include "strata/util/fast_parse.hpp"
 
-#include <charconv>
 #include <limits>
 #include <string>
 #include <system_error>
@@ -32,8 +32,12 @@ thread_local std::vector<std::string> g_parse_warnings;
 /// Widen an integer literal that outgrew int64_t into the DOM's double.
 [[nodiscard]] double big_int_to_double(std::string_view text) noexcept {
     double value = 0.0;
-    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
-    if (result.ec == std::errc::result_out_of_range) {
+    const auto result = util::from_chars_double(text.data(), text.data() + text.size(), value);
+    if (result.ec != std::errc{}) {
+        // Out of double's range — or, on the strtod twin only, the token copy
+        // failed to allocate. Saturate in the literal's direction either way:
+        // any BigInt is far above int64, so ±infinity is the honest bound and
+        // a fabricated zero would be silently wrong.
         value = std::numeric_limits<double>::infinity();
         if (!text.empty() && text.front() == '-')
             value = -value;

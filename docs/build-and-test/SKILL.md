@@ -103,6 +103,16 @@ Real on this branch:
   Linux hosted runners serve public repos only) and activates on going
   public.
 
+Toolchain floor for number conversion: floating-point `std::from_chars`
+(MSVC 2017+, libstdc++ 11+, libc++ 20+). Apple SDKs through Xcode 16 ship the
+integral overloads only, so `util::from_chars_double` (fast_parse.hpp) gates
+on `__cpp_lib_to_chars` and falls back to an observably identical `strtod_l`
+twin there — copied NUL-terminated token, explicit "C" locale, ERANGE folded
+to from_chars semantics. Compile with `-DSTRATA_FORCE_STRTOD_FALLBACK` to run
+the suites over the twin on a machine whose library has the real thing; any
+other platform without FP from_chars fails the build with `#error` rather
+than guessing.
+
 Not built yet, by milestone: release/tag tooling (M10). `make gate` runs the
 C++ tests → force reinstall → Python suites → both coverage reports. No step
 is suffixed with `|| true`.
