@@ -35,9 +35,14 @@ jobs:
             python: "3.13"
           - os: ubuntu-latest
             python: "3.14"
-          # ... plus both macOS architectures (macos-13 is x86_64,
-          # macos-latest is arm64) and Windows, so the SIMD dispatch and the
-          # MSVC branch of setup.py are both exercised.
+          # ... plus arm64 Linux (NEON outside macOS), both macOS
+          # architectures (macos-13 is x86_64, macos-latest is arm64) and
+          # Windows, so every supported platform of
+          # docs/context/convention.md § Platform supportability has a leg,
+          # and the SIMD dispatch and the MSVC branch of setup.py are both
+          # exercised.
+          - os: ubuntu-24.04-arm
+            python: "3.12"
           - os: macos-13
             python: "3.12"
           - os: macos-latest

@@ -78,6 +78,35 @@ North star: correctness first, then performance, then maintainability.
   Read the negative-results table there before re-attempting an old idea —
   several plausible techniques have already lost on measurement.
 
+## Platform supportability
+
+- **Supported platforms** — strata is supportable on all main desktop
+  platforms: Linux (x86_64 and arm64), macOS (arm64 and x86_64), and Windows
+  (x86_64), on CPython 3.10–3.14. Every one of these has a leg in the CI test
+  matrix; a platform is not "supported" because the code looks portable, but
+  because CI builds and passes both suites on it.
+- **Portable by construction.** Every platform-specific fast path — SIMD
+  (NEON/SSE2), SWAR, MSVC intrinsics, CPython-version-gated internals — must
+  have a portable fallback with identical observable behavior, selected at
+  compile time or proven by a runtime probe, never assumed. The scalar-twin
+  test rule (styleguide) and the raw-dict runtime proof are this convention
+  applied; new fast paths follow the same shape.
+- **Cross-platform benchmark pipeline.** CI runs the *same* benchmark suite
+  (same datasets, same harness, same fairness rules) on platforms other than
+  the primary development machine — at minimum one non-matching OS *and* one
+  non-matching CPU architecture. Its gate is a **supportability tripwire**,
+  not a standings claim: the run must produce no ERROR rows, strata must
+  complete every category, and no row may fall behind the best rival by more
+  than the documented bound (`benchmarks/supportability_check.py`). The bound
+  is deliberately loose — it exists to catch a broken or accidentally-scalar
+  fast path on hardware the dev machine cannot exercise, not shared-runner
+  noise.
+- **Absolute times never cross platforms.** The committed regression baseline
+  is same-machine, same-session evidence only (see
+  `docs/context/benchmarks.md`); CI must not compare its runs against it, and
+  headline standings come exclusively from the documented quiet-machine
+  protocol. CI benchmark reports are uploaded as artifacts for human reading.
+
 ## Automation
 
 - All automation is a script in `scripts/`; the root `Makefile` is the single

@@ -1,13 +1,19 @@
 name: Benchmarks
 
-# Weekly benchmark run plus the regression gate.
+# The cross-platform benchmark pipeline (docs/context/convention.md,
+# "Platform supportability"): the same suite, datasets and fairness rules as
+# the local run, on platforms the development machine cannot exercise —
+# x86_64 Linux (SSE2/SWAR paths), x86_64 macOS, and Windows/MSVC (the
+# _umul128 Ryu path). The gate is the supportability tripwire: no ERROR rows,
+# every category present, no row past the ratio bound. Absolute times are
+# NEVER compared across machines — an earlier revision of this workflow gated
+# CI runs against the committed same-machine baseline, which is meaningless
+# off that machine; the tripwire replaced it. Headline standings come only
+# from the documented quiet-machine protocol.
 #
-# Two defects from the previous implementation are deliberately not repeated:
-# its dataset paths omitted the tier directory (so every run failed on a
-# missing file), and its gate ran at --threshold 5 while the contract in
-# docs/context/benchmarks.md is 2% on median/p95. The thresholds now live in
-# benchmarks/regression_check.py, which also refuses a report containing
-# ERROR rows rather than gating on partial data.
+# Steps invoke the benchmarks.* modules directly rather than Make targets:
+# the Windows runner has no make, and the modules are the single
+# implementation the Make targets forward to.
 
 on:
   schedule:
@@ -16,37 +22,56 @@ on:
 
 jobs:
   bench:
-    name: benchmark (ubuntu)
-    runs-on: ubuntu-latest
+    name: supportability (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-13, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.12"
 
       - name: Install strata and the competitor set (test-gated build)
+        shell: bash
         run: |
           python -m pip install -U pip setuptools wheel
           python -m pip install -e ".[dev,bench]"
 
-      - name: Generate datasets
-        run: make bench-data
-
-      # A shared CI runner is noisy; the report records the environment, and
-      # the gate below is what decides pass or fail.
-      - name: Run the small tier
-        run: make bench-small
-
-      - name: Regression gate (>2% median or p95, >5% RSS)
+      - name: Generate the small-tier datasets
+        shell: bash
         run: |
-          PYTHONPATH=. python -m benchmarks.regression_check \
-            docs/benchmarks/bench_results_small.md
+          PYTHONPATH=. python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      - name: Run the benchmark suite
+        shell: bash
+        run: |
+          PYTHONPATH=. python -m benchmarks.bench_main --name "ci-${{ matrix.os }}" \
+            --repeat 10 --warmup 2 \
+            --dataset benchmarks/data/generated/small/users.json \
+            --dataset benchmarks/data/generated/small/users.ndjson \
+            --dataset benchmarks/data/generated/small/flat.json \
+            --dataset benchmarks/data/generated/small/nested.json \
+            --dataset benchmarks/data/generated/small/wide_arrays.json \
+            --dataset benchmarks/data/generated/small/mixed.json \
+            --output "bench_ci_${{ matrix.os }}.md"
+
+      - name: Supportability tripwire
+        shell: bash
+        run: |
+          PYTHONPATH=. python -m benchmarks.supportability_check \
+            "bench_ci_${{ matrix.os }}.md"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: benchmark-results
-          path: docs/benchmarks/
+          name: benchmark-${{ matrix.os }}
+          path: bench_ci_*.md
+          if-no-files-found: ignore
