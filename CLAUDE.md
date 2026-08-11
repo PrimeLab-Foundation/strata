@@ -27,7 +27,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── benchmarking/        # skill doc: benchmark suite, gating, standings
 │   ├── performance/         # skill doc: optimization playbook + negative results
 │   ├── history/             # skill doc: project lineage and ../archive/ map
-│   └── benchmarks/          # machine-written benchmark results (generated; no folder until then)
+│   └── benchmarks/          # machine-written results: tier reports, ci/ per platform-arch, ci_summary.md
 ├── .clang-format / .ruff.toml / .editorconfig / .markdownlint.yaml   # style configs
 ├── .pre-commit-config.yaml  # style gates: ruff, clang-format, mdformat, markdownlint
 ├── .github/workflows/       # ci.yml (matrix, coverage, style, corpus) + fuzz/benchmark/pgo
@@ -53,7 +53,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── unit/                # clause-by-clause contract suite
 │   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON) + committed seed corpus/
 │
-├── benchmarks/              # harness, datasets and the regression gate
+├── benchmarks/              # harness, datasets, regression gate and the CI fetch/summary tools
 │
 └── planned — later milestones add these (layout contract in docs/context/convention.md):
     └── experiments/         # isolated prototypes, never linked into production

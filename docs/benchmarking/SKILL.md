@@ -72,6 +72,46 @@ sweep was gated on power state for exactly this reason). The regression gate
 is a same-session before/after instrument; `benchmarks/results/baseline.json`
 is refreshed alongside each published report.
 
+## CI standings by platform and architecture (`make bench-ci`)
+
+The goal on this axis: **strata #1 in every row on every supported platform
+and architecture**, tracked in-tree rather than left in CI logs.
+
+- `benchmark.yml` runs the small tier (repeat 10, warmup 2, CPython 3.12) on
+  every supported leg — linux-x86_64, macos-x86_64, macos-arm64,
+  windows-x86_64, plus a visibility-guarded linux-arm64 leg that activates
+  when the repo goes public — and uploads one report artifact per leg,
+  named `benchmark-<os>-<arch>`.
+- `make bench-ci` (`benchmarks/ci_fetch.py`) pulls the latest completed
+  run's reports into `docs/benchmarks/ci/bench_results_<os>-<arch>.md` plus
+  `run_info.json` (run id, sha, date, artifact map). os/arch come from each
+  report's own environment header, never from runner labels, so artifacts
+  from before the per-platform artifact names fetch identically. A fetch
+  replaces the previous one wholesale — the directory holds one run's
+  evidence, never a mix of runs. `--run <id>` fetches a specific run.
+- `benchmarks/ci_summary.py` (second step of `make bench-ci`; alone via
+  `make bench-ci-summary`) writes `docs/benchmarks/ci_summary.md`: per
+  platform-arch, #1 rows per category, and every row still behind with its
+  rank, gap and fastest rival. A report with ERROR rows is marked INVALID
+  and excluded from the counts rather than published as partial standings.
+
+Reading the numbers: a rank is computed within one report — one machine, one
+interleaved round — which is the same-machine comparison the contract
+allows; absolute times never cross platforms, the supportability tripwire
+stays the CI gate, and headline standings come only from the quiet-machine
+protocol. Two systematic offsets vs the headline numbers: CI measures the
+plain `-O3 -march=native` build (the install step does no PGO/LTO), and
+shared runners are noisy — treat a single-run rank decided inside ~1.05x as
+a coin flip and re-run before acting on it.
+
+First fetch (run 31392004866, 2026-08-10, commit `16b0a58`): **44/108 rows
+at #1** — query 12/12, search 12/12, NDJSON `load` 4/4 on every leg, but the
+small-tier `loads`/`dumps`/`load`/`dump` rows trail everywhere off the dev
+machine: linux-x86_64 7/27, windows-x86_64 8/27, macos-x86_64 13/27,
+macos-arm64 16/27 (matching the local small-tier picture). Closing the
+small-document overhead per platform is the cross-platform face of the
+post-release backlog.
+
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 
 These are the numbers the previous implementation achieved — the rebuild's
@@ -124,6 +164,8 @@ wheel. Training data/workload: `scripts/pgo_training_data.py` (TARGET_MB=10)
 ## Result-path contract (writers and readers must agree)
 
 `docs/benchmarks/bench_results{,_small,_medium,_large}.md` written by
-bench_main/Makefile/CI; `benchmarks/results/baseline.json` by
+bench_main/Makefile/CI; `docs/benchmarks/ci/bench_results_<os>-<arch>.md` +
+`run_info.json` and `docs/benchmarks/ci_summary.md` by `make bench-ci`
+(ci_fetch → ci_summary); `benchmarks/results/baseline.json` by
 regression_check; `build/pgo/bench_results_pgo.md` by the PGO pipeline.
 Generated data under `benchmarks/data/generated/` stays gitignored.

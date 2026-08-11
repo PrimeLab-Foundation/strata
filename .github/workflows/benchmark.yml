@@ -2,16 +2,23 @@ name: Benchmarks
 
 # The cross-platform benchmark pipeline (docs/context/convention.md,
 # "Platform supportability"): the same suite, datasets and fairness rules as
-# the local run, on platforms the development machine cannot exercise —
-# both CPU architectures and three OSes: x86_64 Linux (SSE2/SWAR paths),
-# x86_64 macOS, Windows/MSVC (the _umul128 Ryu path), and arm64 macOS (the
-# NEON paths on a machine that is not the development box). The gate is the
-# supportability tripwire: no ERROR rows,
-# every category present, no row past the ratio bound. Absolute times are
-# NEVER compared across machines — an earlier revision of this workflow gated
-# CI runs against the committed same-machine baseline, which is meaningless
-# off that machine; the tripwire replaced it. Headline standings come only
-# from the documented quiet-machine protocol.
+# the local run, on every supported platform/architecture leg — x86_64 Linux
+# (SSE2/SWAR paths), x86_64 macOS, Windows/MSVC (the _umul128 Ryu path),
+# arm64 macOS (the NEON paths on a machine that is not the development box),
+# and — once the repo is public — arm64 Linux. The gate is the
+# supportability tripwire: no ERROR rows, every category present, no row
+# past the ratio bound. Absolute times are NEVER compared across machines —
+# an earlier revision of this workflow gated CI runs against the committed
+# same-machine baseline, which is meaningless off that machine; the tripwire
+# replaced it. Headline standings come only from the documented
+# quiet-machine protocol.
+#
+# Reports and artifacts are named by platform-architecture, never by runner
+# label: one `benchmark-<os>-<arch>` artifact per leg. `make bench-ci`
+# (benchmarks/ci_fetch.py) pulls the latest run's reports into
+# docs/benchmarks/ci/ and rebuilds docs/benchmarks/ci_summary.md — the
+# per-platform standings that track the goal of strata #1 on every platform
+# and architecture (docs/benchmarking/SKILL.md).
 #
 # Steps invoke the benchmarks.* modules directly rather than Make targets:
 # the Windows runner has no make, and the modules are the single
@@ -24,13 +31,21 @@ on:
 
 jobs:
   bench:
-    name: supportability (${{ matrix.os }})
+    name: supportability (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15-intel, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-15-intel
+            platform: macos-x86_64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-x86_64
 
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +70,7 @@ jobs:
       - name: Run the benchmark suite
         shell: bash
         run: |
-          PYTHONPATH=. python -m benchmarks.bench_main --name "ci-${{ matrix.os }}" \
+          PYTHONPATH=. python -m benchmarks.bench_main --name "ci-${{ matrix.platform }}" \
             --repeat 10 --warmup 2 \
             --dataset benchmarks/data/generated/small/users.json \
             --dataset benchmarks/data/generated/small/users.ndjson \
@@ -63,17 +78,72 @@ jobs:
             --dataset benchmarks/data/generated/small/nested.json \
             --dataset benchmarks/data/generated/small/wide_arrays.json \
             --dataset benchmarks/data/generated/small/mixed.json \
-            --output "bench_ci_${{ matrix.os }}.md"
+            --output "bench_ci_${{ matrix.platform }}.md"
 
       - name: Supportability tripwire
         shell: bash
         run: |
           PYTHONPATH=. python -m benchmarks.supportability_check \
-            "bench_ci_${{ matrix.os }}.md"
+            "bench_ci_${{ matrix.platform }}.md"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: benchmark-${{ matrix.os }}
+          name: benchmark-${{ matrix.platform }}
+          path: bench_ci_*.md
+          if-no-files-found: ignore
+
+  # NEON on Linux (mirrors ci.yml's test-linux-arm): GitHub's arm64 Linux
+  # hosted runners serve public repositories only, so this leg skips cleanly
+  # on private hosting and completes the platform matrix the moment the repo
+  # goes public. Until then arm64 is benchmarked by the macos-arm64 leg.
+  bench-linux-arm:
+    name: supportability (linux-arm64)
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install strata and the competitor set (test-gated build)
+        shell: bash
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install -e ".[dev,bench]"
+
+      - name: Generate the small-tier datasets
+        shell: bash
+        run: |
+          PYTHONPATH=. python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      - name: Run the benchmark suite
+        shell: bash
+        run: |
+          PYTHONPATH=. python -m benchmarks.bench_main --name "ci-linux-arm64" \
+            --repeat 10 --warmup 2 \
+            --dataset benchmarks/data/generated/small/users.json \
+            --dataset benchmarks/data/generated/small/users.ndjson \
+            --dataset benchmarks/data/generated/small/flat.json \
+            --dataset benchmarks/data/generated/small/nested.json \
+            --dataset benchmarks/data/generated/small/wide_arrays.json \
+            --dataset benchmarks/data/generated/small/mixed.json \
+            --output "bench_ci_linux-arm64.md"
+
+      - name: Supportability tripwire
+        shell: bash
+        run: |
+          PYTHONPATH=. python -m benchmarks.supportability_check \
+            "bench_ci_linux-arm64.md"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-linux-arm64
           path: bench_ci_*.md
           if-no-files-found: ignore

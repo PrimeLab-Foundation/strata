@@ -12,6 +12,7 @@ VPY := $(VENV)/bin/python
         test test-py test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline \
+        bench-ci bench-ci-summary \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -142,6 +143,13 @@ bench-all: bench-data bench-small bench-medium bench-large  ## Data plus every t
 bench-baseline: venv  ## Record the small tier as the regression baseline
 	PYTHONPATH=. $(VPY) -m benchmarks.regression_check \
 		$(BENCH_REPORTS)/bench_results_small.md --save-baseline
+
+bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+
+bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
 
 # ---------------------------------------------------------------------------
 # Lint / format

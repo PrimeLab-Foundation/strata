@@ -93,15 +93,18 @@ Real on this branch:
   (both layers, report uploaded); a `style` job; and a `corpus` job that
   replays the fuzz corpus under ASan+UBSan on every push. `fuzz.yml` (weekly
   Tue 04:00 UTC), `benchmark.yml` (weekly Mon 02:00 UTC: the cross-platform
-  supportability pipeline — the same suite on ubuntu x86_64, macos-15-intel x86_64,
-  macos-latest arm64 and Windows/MSVC, so both CPU architectures run the
+  supportability pipeline — the same suite on linux-x86_64, macos-x86_64,
+  macos-arm64 and windows-x86_64/MSVC, so both CPU architectures run the
   tripwire — gated by `benchmarks/supportability_check.py` on ERROR rows,
   category coverage and a loose strata-vs-best-rival ratio bound; absolute
-  times are never compared across machines), `pgo.yml` (weekly Mon 03:00 UTC,
-  uploads a PGO+LTO wheel). A visibility-guarded `test-linux-arm` job covers
-  NEON-on-Linux; it skips cleanly while the repo is private (GitHub's arm64
-  Linux hosted runners serve public repos only) and activates on going
-  public.
+  times are never compared across machines. One report artifact per leg,
+  named `benchmark-<os>-<arch>`; `make bench-ci` fetches the latest run into
+  `docs/benchmarks/ci/` and rebuilds the per-platform standings summary —
+  see `docs/benchmarking/SKILL.md`), `pgo.yml` (weekly Mon 03:00 UTC,
+  uploads a PGO+LTO wheel). Visibility-guarded `test-linux-arm` (ci.yml) and
+  `bench-linux-arm` (benchmark.yml) jobs cover NEON-on-Linux; they skip
+  cleanly while the repo is private (GitHub's arm64 Linux hosted runners
+  serve public repos only) and activate on going public.
 
 Toolchain floor for number conversion: floating-point `std::from_chars`
 (MSVC 2017+, libstdc++ 11+, libc++ 20+). Apple SDKs through Xcode 16 ship the
@@ -125,7 +128,7 @@ is suffixed with `|| true`.
 | Build    | `build` (sdist+wheel), `cpp-build` (CMake)                                                                                                                                                                                                                     |
 | Test     | `test` = `test-py` + `test-cpp`. **Target change:** rebuilt `test-py` runs `tests/py` *and* `tests/unit` (the previous one ran `tests/py` only, so `make test` skipped the contract mirrors); rebuilt `test-cpp` drives ctest. `gate` (5-step compliance gate) |
 | Coverage | `coverage`, `coverage-cpp` (llvm-cov over the CMake registry — the previous impl's had its own drifted source list, see below), `coverage-py` (pytest-cov)                                                                                                     |
-| Bench    | `bench-data`, `bench-small/-medium/-large`, `bench-all`                                                                                                                                                                                                        |
+| Bench    | `bench-data`, `bench-small/-medium/-large`, `bench-all`, `bench-baseline`, `bench-ci` (fetch CI reports + summary), `bench-ci-summary`                                                                                                                         |
 | Fuzz/PGO | `fuzz-build`, `fuzz-run`, `fuzz` (→ `scripts/fuzz.sh`), `pgo` (→ `scripts/pgo_build.sh`)                                                                                                                                                                       |
 | Lint     | `fmt` (ruff format + clang-format), `lint` (ruff check), `pre-commit-check`                                                                                                                                                                                    |
 | Misc     | `clean`, `clean-venv`, `tag-create/-delete/-update`, `help`                                                                                                                                                                                                    |

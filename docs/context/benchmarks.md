@@ -41,6 +41,7 @@ make bench-small     # → docs/benchmarks/bench_results_small.md
 make bench-medium    # → docs/benchmarks/bench_results_medium.md
 make bench-large     # → docs/benchmarks/bench_results_large.md
 make bench-all       # data + all tiers
+make bench-ci        # fetch the latest CI run → docs/benchmarks/ci/ + ci_summary.md
 ```
 
 Protocol, per run:
@@ -68,3 +69,15 @@ Before optimizing: capture baseline. After: compare against
 `benchmarks/results/baseline.json`. Median or p95 worse by **>2%** in a
 touched category, or RSS worse by **>5%** ⇒ fix or revert. Refresh the
 baseline (`--save-baseline`) only after an accepted improvement.
+
+## CI standings by platform and architecture
+
+The weekly `benchmark.yml` workflow runs this same suite on every supported
+platform/architecture leg. `make bench-ci` fetches the latest completed run
+into `docs/benchmarks/ci/bench_results_<os>-<arch>.md` and rebuilds
+`docs/benchmarks/ci_summary.md` — strata's rank in every row on each leg,
+the rows still behind, and the verdict against the goal: **#1 in every row
+on every platform and architecture**. Ranks are within-run comparisons only;
+absolute times never cross platforms, the supportability tripwire remains
+the CI gate, and headline standings still come exclusively from the
+quiet-machine protocol. Detail: `docs/benchmarking/SKILL.md`.
