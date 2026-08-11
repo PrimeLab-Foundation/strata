@@ -76,9 +76,19 @@ raw bytes, divergence-damped), and a per-thread builder lease that keeps the
 KeyCache and predictions warm across calls and NDJSON lines.
 `PythonObjectBuilder` itself moved to `python_builder.h`, shared with the
 streaming-search capture sink so captured matches obey the duplicate-key
-policy identically. Still not built: presized dicts (unstable API, deferred);
-a faster general-case shortest-float (libc++ `to_chars` remains ~2× orjson's
-converter on full-precision doubles).
+policy identically.
+
+The post-release wave added, loads side (measured in
+`docs/performance/SKILL.md`): **predictions are four ways per depth** —
+probe-at-position with branch-on-divergence, so interleaved schemas (and
+schemas sharing a leading tag key) each keep their own remembered shape
+instead of thrashing one slot to retirement, mirroring the dumps schema
+cache's four-way design; **presized dicts** via `_PyDict_NewPresized` and a
+fixed per-depth last-size array (the deferred item, now measured: hints above
+five members skip the resize cascade; a vector first cut cost +3% on nested
+and was flattened to a bounded store). Still not built: a faster
+general-case shortest-float on the dumps side (libc++ `to_chars` remains
+~2× orjson's converter on full-precision doubles).
 
 Extension module `strata._strata` (`PyInit__strata` in `python_module.cpp`),
 hand-written CPython C API — **no pybind11** by policy. Pure-Python facade in

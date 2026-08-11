@@ -32,8 +32,11 @@ echo "+ $RUFF format ."
 # committed yet must be formatted too, otherwise new code escapes the formatter
 # until the commit that introduces it has already landed.
 cxx_sources() {
+    # third_party is vendored verbatim so it can be diffed against upstream
+    # byte-for-byte; formatting it would destroy that property.
     git ls-files -z --cached --others --exclude-standard \
-        '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp'
+        '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hpp' \
+        ':!include/strata/third_party/**'
 }
 
 # Source discovery goes through git, so a non-checkout must fail loudly: inside

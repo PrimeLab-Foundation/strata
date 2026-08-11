@@ -42,8 +42,10 @@ repos:
     hooks:
       # Covers include/ and src/: the previous implementation excluded exactly
       # the directories that hold C++ code, so the hook formatted nothing.
+      # third_party stays verbatim so it can be diffed against upstream.
       - id: clang-format
         files: \.(c|cc|cpp|cxx|h|hh|hpp)$
+        exclude: ^include/strata/third_party/
 
   - repo: https://github.com/executablebooks/mdformat
     rev: 0.7.17

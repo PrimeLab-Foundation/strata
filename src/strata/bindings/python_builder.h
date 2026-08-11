@@ -27,6 +27,16 @@
 #include <string_view>
 #include <vector>
 
+// _PyDict_NewPresized is CPython-internal but exported on every supported
+// version (3.10–3.14; audit on each new one — docs/bindings/SKILL.md). A dict
+// created at its final size skips the resize cascade PyDict_New pays as a
+// record fills in: a 21-key record otherwise reallocates and rehashes its
+// table twice, once per size doubling past 5 and 10 entries.
+#if PY_VERSION_HEX < 0x030F0000
+extern "C" PyObject* _PyDict_NewPresized(Py_ssize_t minused);
+#define STRATA_HAVE_DICT_PRESIZED 1
+#endif
+
 namespace strata::bindings {
 
 /**
@@ -130,6 +140,10 @@ class PythonObjectBuilder {
      * `begin_input` invalidates the moment the input buffer changes.
      */
     void reset() noexcept {
+        // Latched here as well as in begin_input and at construction, so no
+        // entry path — loads, an NDJSON line, a fresh search capture sink —
+        // can build under a stale policy.
+        policy_ = get_duplicate_key_policy();
         Py_XDECREF(root_);
         root_ = nullptr;
         for (PyObject* value : values_)
@@ -155,6 +169,12 @@ class PythonObjectBuilder {
     void begin_input(const char* begin, const char* end) noexcept {
         input_begin_ = begin;
         input_end_ = end;
+        // One thread-local read per parse instead of per dict member: the
+        // getter is an out-of-line call, and users.json inserts ~150k keys.
+        // A parse therefore runs under the policy it started with — the only
+        // way to observe a difference is a Warn-policy warning filter calling
+        // config.set mid-parse (docs/decisions.md).
+        policy_ = get_duplicate_key_policy();
     }
 
     /**
@@ -173,13 +193,38 @@ class PythonObjectBuilder {
         const size_t depth = frames_.size();
         if (depth >= predicted_.size())
             return 0;
-        Schema& schema_slot = predicted_[depth];
-        if (schema_slot.retired)
+        Schema& schema = predicted_[depth];
+        if (schema.retired)
             return 0;
-        auto& schema = schema_slot.keys;
-        if (frame.cursor >= schema.size())
+
+        if (frame.way == kWayUnresolved) {
+            // First key of this object: the way whose leading key matches the
+            // input is the shape this record follows. Interleaved schemas
+            // (kind-tagged records, event streams) alternate at one depth, so
+            // a single remembered shape thrashed and retired on exactly those
+            // documents; probing at most four leading keys keeps every
+            // recurring shape predictable — the same design the dumps schema
+            // cache settled on (docs/performance/SKILL.md, wave 6).
+            for (uint8_t way_index = 0; way_index < schema.way_count; ++way_index) {
+                const auto& keys = schema.ways[way_index].keys;
+                if (keys.empty())
+                    continue;
+                const PredictedKey& entry = keys.front();
+                if (entry.raw.size() <= remaining &&
+                    std::memcmp(after_quote, entry.raw.data(), entry.raw.size()) == 0) {
+                    keys_.push_back(Py_NewRef(entry.object));
+                    frame.way = way_index;
+                    frame.cursor = 1;
+                    return entry.raw.size();
+                }
+            }
             return 0;
-        const PredictedKey& entry = schema[frame.cursor];
+        }
+
+        const auto& keys = schema.ways[frame.way].keys;
+        if (frame.cursor >= keys.size())
+            return 0;
+        const PredictedKey& entry = keys[frame.cursor];
         if (entry.raw.size() > remaining ||
             std::memcmp(after_quote, entry.raw.data(), entry.raw.size()) != 0)
             return 0;
@@ -208,10 +253,10 @@ class PythonObjectBuilder {
     }
 
     bool on_start_object() {
-        PyObject* mapping = PyDict_New();
+        PyObject* mapping = new_mapping(frames_.size());
         if (mapping == nullptr)
             return false;
-        frames_.push_back(Frame{mapping, values_.size(), 0});
+        frames_.push_back(Frame{mapping, values_.size(), 0, kWayUnresolved});
         return true;
     }
 
@@ -230,12 +275,18 @@ class PythonObjectBuilder {
         if (frames_.empty())
             return false;
         PyObject* mapping = frames_.back().mapping;
+        const size_t depth = frames_.size() - 1;
         frames_.pop_back();
+        if (mapping != nullptr && depth < kMaxSizedDepth) {
+            // Teach the depth its size, so the next object there starts life
+            // at the right capacity (see new_mapping).
+            depth_sizes_[depth] = static_cast<uint32_t>(PyDict_GET_SIZE(mapping));
+        }
         return push(mapping);
     }
 
     bool on_start_array() {
-        frames_.push_back(Frame{nullptr, values_.size()});
+        frames_.push_back(Frame{nullptr, values_.size(), 0, kWayUnresolved});
         return true;
     }
 
@@ -269,8 +320,12 @@ class PythonObjectBuilder {
     struct Frame {
         PyObject* mapping;
         size_t start;
-        uint32_t cursor; ///< next prediction slot for this object's depth
+        uint32_t cursor; ///< next prediction slot within the adopted way
+        uint8_t way;     ///< adopted prediction way, or kWayUnresolved
     };
+
+    /// A dict frame starts with no adopted way; its first key picks one.
+    static constexpr uint8_t kWayUnresolved = 0xFF;
 
     /// One remembered key: its raw bytes (through the closing quote) and its
     /// interned object. The bytes are owned -- typical keys sit in the small-
@@ -290,9 +345,22 @@ class PythonObjectBuilder {
     /// Shape changes tolerated at one depth before it stops predicting.
     static constexpr uint32_t kMaxDivergences = 16;
 
-    /// The prediction state of one nesting depth.
-    struct Schema {
+    /// One remembered shape at one depth: its keys, in order.
+    struct PredictionWay {
         std::vector<PredictedKey> keys;
+    };
+
+    /// The prediction state of one nesting depth: up to four shapes, because
+    /// interleaved-schema documents alternate a small set of record shapes at
+    /// one depth, and a single slot thrashed on exactly those (the dumps
+    /// schema cache went through the same evolution — four ways, scanned in
+    /// place, round-robin replacement).
+    struct Schema {
+        static constexpr size_t kWays = 4;
+
+        PredictionWay ways[kWays];
+        uint8_t way_count = 0;
+        uint8_t next_replace = 0;
         uint32_t divergences = 0;
         /// Set once the depth has proven shape-unstable: objects there keep
         /// disagreeing, so recording would only churn allocations -- measured
@@ -300,10 +368,23 @@ class PythonObjectBuilder {
         bool retired = false;
     };
 
+    static void release_way(PredictionWay& way) noexcept {
+        for (PredictedKey& entry : way.keys)
+            Py_DECREF(entry.object);
+        way.keys.clear();
+    }
+
+    static void retire(Schema& schema) noexcept {
+        for (PredictionWay& way : schema.ways)
+            release_way(way);
+        schema.way_count = 0;
+        schema.retired = true;
+    }
+
     void clear_predictions() noexcept {
         for (Schema& schema : predicted_)
-            for (PredictedKey& entry : schema.keys)
-                Py_DECREF(entry.object);
+            for (PredictionWay& way : schema.ways)
+                release_way(way);
         predicted_.clear();
         input_begin_ = nullptr;
         input_end_ = nullptr;
@@ -323,33 +404,71 @@ class PythonObjectBuilder {
 
         if (predicted_.size() <= depth)
             predicted_.resize(depth + 1);
-        Schema& schema_slot = predicted_[depth];
-        if (schema_slot.retired)
+        Schema& schema = predicted_[depth];
+        if (schema.retired)
             return;
-        auto& schema = schema_slot.keys;
         Frame& frame = frames_.back();
         if (frame.cursor >= kMaxPredictedKeys)
             return;
+
+        if (frame.way == kWayUnresolved) {
+            // try_match_key already probed every way's leading key against
+            // the raw input and missed, so this first key opens a shape no
+            // way holds: claim an empty way, or replace the oldest. (A first
+            // key that needed decoding could still belong to a known way;
+            // being zero-copy-only here just costs that record its
+            // predictions, never correctness.)
+            if (schema.way_count < Schema::kWays) {
+                frame.way = schema.way_count++;
+            } else {
+                if (++schema.divergences > kMaxDivergences) {
+                    retire(schema);
+                    return;
+                }
+                frame.way = schema.next_replace;
+                schema.next_replace =
+                    static_cast<uint8_t>((schema.next_replace + 1) % Schema::kWays);
+                release_way(schema.ways[frame.way]);
+            }
+        }
+
+        auto& keys = schema.ways[frame.way].keys;
 
         // The shape diverged at this position: drop the stale tail. The next
         // record either follows the new shape (and now predicts it) or pays
         // one more miss here. A depth that keeps diverging is not
         // record-shaped at all; it retires rather than churning forever.
-        if (frame.cursor < schema.size()) {
-            if (++schema_slot.divergences > kMaxDivergences) {
-                for (PredictedKey& entry : schema)
-                    Py_DECREF(entry.object);
-                schema.clear();
-                schema_slot.retired = true;
+        if (frame.cursor < keys.size()) {
+            if (++schema.divergences > kMaxDivergences) {
+                retire(schema);
                 return;
             }
-            for (size_t index = frame.cursor; index < schema.size(); ++index)
-                Py_DECREF(schema[index].object);
-            schema.resize(frame.cursor);
+            for (size_t index = frame.cursor; index < keys.size(); ++index)
+                Py_DECREF(keys[index].object);
+            keys.resize(frame.cursor);
         }
 
-        schema.push_back(PredictedKey{std::string(begin, key.size() + 1), Py_NewRef(object)});
+        keys.push_back(PredictedKey{std::string(begin, key.size() + 1), Py_NewRef(object)});
         ++frame.cursor;
+    }
+
+    /// A dict for an object opening at @p depth, presized to the size the
+    /// previous object at that depth reached. Same-schema records repeat per
+    /// depth, so the last size is almost always the next size; a wrong hint
+    /// costs a briefly-oversized or resized-anyway table, never correctness.
+    /// At five members or fewer the default 8-slot table already fits and
+    /// PyDict_New is the cheaper constructor. The hints are plain integers
+    /// with no lifetime — they survive reset() with the KeyCache, which is
+    /// what makes them pay across the calls of a leased builder.
+    [[nodiscard]] PyObject* new_mapping(size_t depth) {
+#if defined(STRATA_HAVE_DICT_PRESIZED)
+        if (depth < kMaxSizedDepth) {
+            const uint32_t hint = depth_sizes_[depth];
+            if (hint > 5)
+                return _PyDict_NewPresized(static_cast<Py_ssize_t>(hint));
+        }
+#endif
+        return PyDict_New();
     }
 
     /// Consume one reference to @p value, placing it where it belongs.
@@ -383,7 +502,7 @@ class PythonObjectBuilder {
         // the FirstWins semantics and the duplicate probe in one operation;
         // the Contains-then-SetItem shape this replaces paid two lookups on
         // every single member.
-        const DuplicateKeyPolicy policy = get_duplicate_key_policy();
+        const DuplicateKeyPolicy policy = policy_;
         if (policy == DuplicateKeyPolicy::FirstWins) {
             PyObject* settled = PyDict_SetDefault(object, key.get(), value);
             Py_DECREF(value);
@@ -410,7 +529,7 @@ class PythonObjectBuilder {
         }
 
         // The key is already there; the policy decides what that means.
-        switch (get_duplicate_key_policy()) {
+        switch (policy) {
         case DuplicateKeyPolicy::FirstWins:
             Py_DECREF(value);
             return true;
@@ -440,7 +559,14 @@ class PythonObjectBuilder {
     std::vector<Frame> frames_;
     std::vector<PyObject*> values_;
     std::vector<PyObject*> keys_;
-    std::vector<Schema> predicted_; ///< indexed by depth
+    /// Depths whose object sizes are remembered; deeper objects are not
+    /// record-shaped and just take PyDict_New. Fixed storage: the hot path
+    /// does one bounded store, never a vector grow.
+    static constexpr size_t kMaxSizedDepth = 64;
+
+    std::vector<Schema> predicted_;                          ///< indexed by depth
+    uint32_t depth_sizes_[kMaxSizedDepth] = {};              ///< last object size per depth
+    DuplicateKeyPolicy policy_ = get_duplicate_key_policy(); ///< latched per parse
     const char* input_begin_ = nullptr;
     const char* input_end_ = nullptr;
     KeyCache keys_cache_;

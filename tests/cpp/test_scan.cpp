@@ -136,6 +136,107 @@ void test_fused_copy_matches_scan() {
     }
 }
 
+void check_utf8(const std::string& text) {
+    const bool fast = strata::util::validate_utf8(text.data(), text.size());
+    const bool twin = strata::util::validate_utf8_scalar(text.data(), text.size());
+    if (fast != twin) {
+        std::printf("utf8 disagreement at len=%zu: fast=%d twin=%d\n", text.size(), fast, twin);
+        assert(false);
+    }
+}
+
+void test_utf8_ascii_runs_every_length() {
+    // The bulk-ASCII tier's block/word/byte boundaries, from every offset, so
+    // no step size may assume alignment or a minimum remaining length.
+    std::string text(200, 'a');
+    for (size_t len = 0; len <= text.size(); ++len) {
+        check_utf8(text.substr(0, len));
+        assert(strata::util::validate_utf8(text.data(), len));
+    }
+    for (size_t offset = 0; offset < 64; ++offset)
+        assert(strata::util::validate_utf8(text.data() + offset, text.size() - offset));
+}
+
+void test_utf8_non_ascii_at_every_position() {
+    // A valid two-byte sequence, a lone continuation and a truncated lead,
+    // planted at every offset of a 96-byte buffer: the fast path must hand
+    // over to the precise check at exactly the right byte, wherever the block
+    // scan finds it.
+    for (size_t position = 0; position + 1 < 96; ++position) {
+        std::string valid(96, 'x');
+        valid[position] = '\xc3';
+        valid[position + 1] = '\xa9'; // é
+        check_utf8(valid);
+        assert(strata::util::validate_utf8(valid.data(), valid.size()));
+
+        std::string lone(96, 'x');
+        lone[position] = '\x80'; // continuation with no lead
+        check_utf8(lone);
+        assert(!strata::util::validate_utf8(lone.data(), lone.size()));
+
+        std::string truncated(96, 'x');
+        truncated[position] = '\xc3'; // lead followed by ASCII
+        check_utf8(truncated);
+        assert(!strata::util::validate_utf8(truncated.data(), truncated.size()));
+    }
+}
+
+void test_utf8_sequence_rules_survive_the_fast_path() {
+    // The rejection contract (overlongs, surrogates, range, truncation) after
+    // enough leading ASCII to engage every bulk tier first.
+    const std::string prefixes[] = {"",
+                                    "a",
+                                    std::string(7, 'a'),
+                                    std::string(8, 'a'),
+                                    std::string(15, 'a'),
+                                    std::string(16, 'a'),
+                                    std::string(33, 'a'),
+                                    std::string(64, 'a')};
+    const struct {
+        const char* bytes;
+        bool valid;
+    } cases[] = {
+        {"\xc3\xa9", true},          // é
+        {"\xe6\xbc\xa2", true},      // 漢
+        {"\xf0\x9f\x8c\x8d", true},  // 🌍
+        {"\xc0\xaf", false},         // overlong '/'
+        {"\xc1\x81", false},         // overlong
+        {"\xe0\x80\x80", false},     // overlong E0
+        {"\xe0\x9f\xbf", false},     // overlong E0 boundary
+        {"\xed\xa0\x80", false},     // surrogate half
+        {"\xf0\x80\x80\x80", false}, // overlong F0
+        {"\xf4\x90\x80\x80", false}, // above U+10FFFF
+        {"\xf5\x80\x80\x80", false}, // lead past U+10FFFF
+        {"\xc3", false},             // truncated at end of input
+        {"\xe6\xbc", false},         // truncated three-byte
+        {"\xf0\x9f\x8c", false},     // truncated four-byte
+    };
+    for (const std::string& prefix : prefixes) {
+        for (const auto& item : cases) {
+            const std::string text = prefix + item.bytes;
+            check_utf8(text);
+            assert(strata::util::validate_utf8(text.data(), text.size()) == item.valid);
+            // ...and with an ASCII tail, so the sequence sits mid-input and
+            // the fast path has to resume bulk scanning after it.
+            const std::string framed = prefix + item.bytes + std::string(20, 'z');
+            check_utf8(framed);
+            assert(strata::util::validate_utf8(framed.data(), framed.size()) == item.valid);
+        }
+    }
+}
+
+void test_utf8_every_lead_byte() {
+    // Every byte value as the first non-ASCII candidate after one block of
+    // ASCII — the twin decides which are valid single-byte, which start a
+    // sequence, and which can never appear.
+    for (int value = 0; value < 256; ++value) {
+        std::string text(16, 'a');
+        text.push_back(static_cast<char>(value));
+        text.append("\xbf\xbf\xbf"); // plausible continuations behind it
+        check_utf8(text);
+    }
+}
+
 void test_format_int64_matches_to_chars() {
     const auto check = [](long long value) {
         char ours[32];
@@ -173,6 +274,10 @@ int main() {
     test_multibyte_utf8_is_never_flagged();
     test_dense_matches();
     test_fused_copy_matches_scan();
+    test_utf8_ascii_runs_every_length();
+    test_utf8_non_ascii_at_every_position();
+    test_utf8_sequence_rules_survive_the_fast_path();
+    test_utf8_every_lead_byte();
     test_format_int64_matches_to_chars();
 
     std::puts("scan_tests: OK");

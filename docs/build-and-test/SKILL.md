@@ -97,14 +97,19 @@ Real on this branch:
   macos-arm64 and windows-x86_64/MSVC, so both CPU architectures run the
   tripwire — gated by `benchmarks/supportability_check.py` on ERROR rows,
   category coverage and a loose strata-vs-best-rival ratio bound; absolute
-  times are never compared across machines. One report artifact per leg,
-  named `benchmark-<os>-<arch>`; `make bench-ci` fetches the latest run into
-  `docs/benchmarks/ci/` and rebuilds the per-platform standings summary —
-  see `docs/benchmarking/SKILL.md`), `pgo.yml` (weekly Mon 03:00 UTC,
-  uploads a PGO+LTO wheel). Visibility-guarded `test-linux-arm` (ci.yml) and
-  `bench-linux-arm` (benchmark.yml) jobs cover NEON-on-Linux; they skip
-  cleanly while the repo is private (GitHub's arm64 Linux hosted runners
-  serve public repos only) and activate on going public.
+  times are never compared across machines. The POSIX legs run `make pgo`
+  first and so benchmark the PGO+LTO build — the build the release wheel
+  ships — against the competitors' released wheels; the Windows leg stays a
+  plain /O2 build because setup.py refuses PGO/LTO under MSVC, and each
+  report's compiler_flags line records which build its leg measured. One
+  report artifact per leg, named `benchmark-<os>-<arch>`; `make bench-ci`
+  fetches the latest run into `docs/benchmarks/ci/` and rebuilds the
+  per-platform standings summary — see `docs/benchmarking/SKILL.md`),
+  `pgo.yml` (weekly Mon 03:00 UTC, uploads a PGO+LTO wheel).
+  Visibility-guarded `test-linux-arm` (ci.yml) and `bench-linux-arm`
+  (benchmark.yml) jobs cover NEON-on-Linux; they skip cleanly while the repo
+  is private (GitHub's arm64 Linux hosted runners serve public repos only)
+  and activate on going public.
 
 Toolchain floor for number conversion: floating-point `std::from_chars`
 (MSVC 2017+, libstdc++ 11+, libc++ 20+). Apple SDKs through Xcode 16 ship the

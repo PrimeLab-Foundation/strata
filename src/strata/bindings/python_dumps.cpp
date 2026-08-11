@@ -325,20 +325,29 @@ class Serializer {
         return 0;
     }
 
+    /// Elements per covering reserve in the scalar runs: one capacity branch
+    /// per block instead of one per element, at a worst-case cost of a few
+    /// kilobytes of slack in the stage.
+    static constexpr Py_ssize_t kScalarRunBlock = 64;
+
     [[nodiscard]] Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
-        for (; index < size; ++index) {
-            PyObject* item = items[index];
-            if (Py_TYPE(item) != &PyFloat_Type)
-                break;
-            out_.ensure(util::kDoubleBufferSize + 1);
-            if (index != 0)
-                out_.put(',');
-            const double value = PyFloat_AS_DOUBLE(item);
-            if (std::isnan(value) || std::isinf(value)) {
-                out_.write("null", 4);
-            } else {
-                out_.advance(util::format_double(value, out_.cursor(), util::kDoubleBufferSize));
+        while (index < size) {
+            const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
+            out_.ensure(static_cast<size_t>(block_end - index) * (util::kDoubleBufferSize + 1));
+            for (; index < block_end; ++index) {
+                PyObject* item = items[index];
+                if (Py_TYPE(item) != &PyFloat_Type)
+                    return index;
+                if (index != 0)
+                    out_.put(',');
+                const double value = PyFloat_AS_DOUBLE(item);
+                if (std::isnan(value) || std::isinf(value)) {
+                    out_.write("null", 4);
+                } else {
+                    out_.advance(
+                        util::format_double(value, out_.cursor(), util::kDoubleBufferSize));
+                }
             }
         }
         return index;
@@ -346,35 +355,37 @@ class Serializer {
 
     [[nodiscard]] Py_ssize_t run_ints(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
-        for (; index < size; ++index) {
-            PyObject* item = items[index];
-            // Not PyLong_Check: bool is a subclass and must not print as a
-            // number, and an int subclass may override __repr__.
-            if (Py_TYPE(item) != &PyLong_Type)
-                break;
+        while (index < size) {
+            const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
+            out_.ensure(static_cast<size_t>(block_end - index) * (util::kInt64BufferSize + 1));
+            for (; index < block_end; ++index) {
+                PyObject* item = items[index];
+                // Not PyLong_Check: bool is a subclass and must not print as a
+                // number, and an int subclass may override __repr__.
+                if (Py_TYPE(item) != &PyLong_Type)
+                    return index;
+                int64_t value;
 #if PY_VERSION_HEX >= 0x030C0000
-            if (PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(item))) {
-                out_.ensure(util::kInt64BufferSize + 1);
+                if (PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(item))) {
+                    value = static_cast<int64_t>(
+                        PyUnstable_Long_CompactValue(reinterpret_cast<PyLongObject*>(item)));
+                } else
+#endif
+                {
+                    int overflow = 0;
+                    const long long wide = PyLong_AsLongLongAndOverflow(item, &overflow);
+                    if (overflow != 0)
+                        return index; // the general path renders big ints via their str
+                    if (wide == -1 && PyErr_Occurred()) {
+                        PyErr_Clear();
+                        return index;
+                    }
+                    value = static_cast<int64_t>(wide);
+                }
                 if (index != 0)
                     out_.put(',');
-                out_.advance(util::format_int64(static_cast<int64_t>(PyUnstable_Long_CompactValue(
-                                                    reinterpret_cast<PyLongObject*>(item))),
-                                                out_.cursor()));
-                continue;
+                out_.advance(util::format_int64(value, out_.cursor()));
             }
-#endif
-            int overflow = 0;
-            const long long value = PyLong_AsLongLongAndOverflow(item, &overflow);
-            if (overflow != 0)
-                break; // the general path renders big ints via their str
-            if (value == -1 && PyErr_Occurred()) {
-                PyErr_Clear();
-                break;
-            }
-            out_.ensure(util::kInt64BufferSize + 1);
-            if (index != 0)
-                out_.put(',');
-            out_.advance(util::format_int64(value, out_.cursor()));
         }
         return index;
     }
@@ -393,17 +404,23 @@ class Serializer {
             out_.write("false", 5);
         }
         Py_ssize_t index = 1;
-        for (; index < size; ++index) {
-            PyObject* item = items[index];
-            if (item != Py_True && item != Py_False)
-                break;
-            out_.ensure(8);
-            if (item == Py_True) {
-                std::memcpy(out_.cursor(), ",true\0\0\0", 8);
-                out_.advance(5);
-            } else {
-                std::memcpy(out_.cursor(), ",false\0\0", 8);
-                out_.advance(6);
+        while (index < size) {
+            // Eight bytes per element covers the widest store window: the
+            // last element's 8-byte store reaches at most (block-1)*6+8
+            // bytes past the reserve base, which 8*block always contains.
+            const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
+            out_.ensure(static_cast<size_t>(block_end - index) * 8);
+            for (; index < block_end; ++index) {
+                PyObject* item = items[index];
+                if (item != Py_True && item != Py_False)
+                    return index;
+                if (item == Py_True) {
+                    std::memcpy(out_.cursor(), ",true\0\0\0", 8);
+                    out_.advance(5);
+                } else {
+                    std::memcpy(out_.cursor(), ",false\0\0", 8);
+                    out_.advance(6);
+                }
             }
         }
         return index;

@@ -45,6 +45,14 @@ namespace strata::util {
 [[nodiscard]] bool validate_utf8(const char* data, size_t len) noexcept;
 
 /**
+ * The scalar twin of @ref validate_utf8 (docs/context/styleguide.md): one
+ * byte at a time, no bulk-ASCII tier. `tests/cpp/test_scan.cpp` checks the
+ * two agree over adversarial inputs. The multi-byte sequence rules are one
+ * shared definition inside scan.cpp, so only the ASCII traversal can differ.
+ */
+[[nodiscard]] bool validate_utf8_scalar(const char* data, size_t len) noexcept;
+
+/**
  * Advance past JSON whitespace (space, tab, CR, LF) starting at @p pos.
  *
  * @return Index of the first non-whitespace byte, or @p len at end of input.

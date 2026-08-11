@@ -247,7 +247,7 @@ void check_against_reference(double value) {
     }
 }
 
-void test_ryu_matches_reference_exhaustively() {
+void test_shortest_form_matches_reference_exhaustively() {
     // Boundary pins first: the layout window edges, subnormals, extremes,
     // and the tie-breaking cases shortest-round-trip is known to get wrong
     // when the acceptance bounds are mishandled.
@@ -311,6 +311,116 @@ void test_ryu_matches_reference_exhaustively() {
     }
 }
 
+/// Parse @p text through the full number pipeline (Clinger, Eisel–Lemire,
+/// from_chars fallback), requiring the whole span to be consumed.
+[[nodiscard]] double parse_pipeline(const std::string& text) {
+    strata::util::ParsedNumber number;
+    const bool ok = strata::util::parse_number_unified(text.data(), text.size(), number);
+    assert(ok);
+    assert(number.consumed == text.size());
+    assert(number.kind == strata::util::NumberKind::Double);
+    return number.double_value;
+}
+
+void test_parse_pipeline_matches_from_chars_on_edges() {
+    // The published torture values plus every boundary the Eisel–Lemire
+    // bail-outs guard: subnormals, the normal/subnormal edge, overflow,
+    // and the halfway family. The pipeline must agree with the library
+    // conversion bit for bit — including which side of an even boundary a
+    // halfway literal rounds to.
+    const char* cases[] = {
+        "0.0",
+        "-0.0",
+        "1.5",
+        "0.1",
+        "0.2",
+        "0.30000000000000004",
+        "0.11133106816568039",
+        "0.7415504997598329",
+        "1.7976931348623157e308",  // DBL_MAX
+        "1.7976931348623158e308",  // rounds to DBL_MAX
+        "2.2250738585072014e-308", // min normal
+        "2.2250738585072011e-308", // the strtod-killer, just below min normal
+        "2.2250738585072012e-308",
+        "4.9406564584124654e-324", // min subnormal
+        "5e-324",
+        "3e-324",
+        "1e-325",
+        "2e-324",
+        "9007199254740993.0",    // 2^53 + 1 as a double literal
+        "5.9604644775390625e-8", // exactly representable half
+        "1.1920928955078125e-07",
+        "6.9294956446009195e15",
+        "3.7455744005952583e15",
+        "17976931348623157e292",
+        "1.00000000000000011102230246251565404236316680908203125",
+        "0.500000000000000166533453693773481063544750213623046875",
+        "2e15",
+        "9e15",
+        "123456789012345678901234567890.0",
+        "3.1415926535897932384626433832795028841971",
+        "1e308",
+        "1e-308",
+        "1e309",
+        "1e-309",
+        "1e-348",
+        "1e-347",
+        "1e347",
+    };
+    for (const char* text : cases) {
+        strata::util::ParsedNumber number;
+        const std::string token(text);
+        const bool ok = strata::util::parse_number_unified(token.data(), token.size(), number);
+        assert(ok);
+        assert(number.consumed == token.size());
+
+        double reference = 0.0;
+        const auto result =
+            strata::util::from_chars_double(token.data(), token.data() + token.size(), reference);
+        if (result.ec == std::errc{}) {
+            assert(same_bits(number.double_value, reference));
+        } else {
+            // Out of range either way: the pipeline maps it to ±inf / ±0.0.
+            assert(result.ec == std::errc::result_out_of_range);
+            assert(std::isinf(number.double_value) || number.double_value == 0.0);
+        }
+    }
+}
+
+void test_parse_pipeline_matches_from_chars_randomly() {
+    // Uniformly random bit patterns, printed at 17 significant digits (the
+    // round-trip precision) and re-parsed: the pipeline and the library
+    // conversion must agree bit for bit. This is the differential oracle for
+    // the Eisel–Lemire port — any rounding defect in the multiply, the table
+    // or a bail-out shows up as a one-ulp disagreement here.
+    uint64_t state = 0x9E3779B97F4A7C15ULL;
+    int doubles_checked = 0;
+    while (doubles_checked < 300000) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        double value;
+        std::memcpy(&value, &state, sizeof(value));
+        if (!std::isfinite(value))
+            continue;
+        ++doubles_checked;
+
+        char buffer[64];
+        const int length = std::snprintf(buffer, sizeof(buffer), "%.17g", value);
+        assert(length > 0);
+        std::string text(buffer, static_cast<size_t>(length));
+        if (text.find_first_of(".eE") == std::string::npos)
+            text += ".0"; // integral rendering would take the int path; same value
+        const double reparsed = parse_pipeline(text);
+        const double reference = reparse(text);
+        if (!same_bits(reparsed, reference)) {
+            std::printf("pipeline mismatch on %s: %.17g vs %.17g\n", text.c_str(), reparsed,
+                        reference);
+            assert(false);
+        }
+    }
+}
+
 } // namespace
 
 int main() {
@@ -321,7 +431,9 @@ int main() {
     test_common_decimal_values_round_trip();
     test_non_finite_values_serialize_as_null();
     test_short_buffer_is_refused();
-    test_ryu_matches_reference_exhaustively();
+    test_shortest_form_matches_reference_exhaustively();
+    test_parse_pipeline_matches_from_chars_on_edges();
+    test_parse_pipeline_matches_from_chars_randomly();
 
     std::puts("float_precision_tests: OK");
     return 0;

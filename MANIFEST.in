@@ -6,9 +6,11 @@ include .pre-commit-config.yaml
 include .clang-format
 include .ruff.toml
 
-recursive-include include *.h *.hpp
-# *.txt carries src/strata/core_sources.txt (setup.py refuses to build without
-# it) and *.inc the Ryu tables — an sdist missing either cannot compile.
+# *.inc carries the generated Eisel-Lemire power table included by
+# fast_parse.hpp — an sdist missing it cannot compile.
+recursive-include include *.h *.hpp *.inc
+# *.txt carries src/strata/core_sources.txt (setup.py refuses to build
+# without it) — an sdist missing it cannot compile.
 recursive-include src *.c *.cc *.cpp *.cxx *.h *.hpp *.inc *.txt
 recursive-include python *.py
 recursive-include scripts *.py *.sh

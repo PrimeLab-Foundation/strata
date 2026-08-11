@@ -75,8 +75,9 @@ PGO+LTO, full CI) and the M10 performance waves, closed by the quiet-machine
 standings sweep: **63/81 benchmark rows #1**, the headline dataset leading
 every category at every tier bar one 1.00× tie, and the release version bumped
 to `2026.8.10`. The rebuild is complete; what remains is the post-release
-backlog in `docs/benchmarking/SKILL.md` (small-document overhead, the mixed
-per-call floor, wide_arrays parsing) and the deferred JSONPath grammar
+backlog in `docs/benchmarking/SKILL.md` (mixed serialization and the
+1.00–1.08× serialization ties — the wave-8 parse work closed the
+small-document and wide_arrays parse gaps) and the deferred JSONPath grammar
 extensions. The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
 (see `docs/context/api.md`).

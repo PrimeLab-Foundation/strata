@@ -18,7 +18,9 @@
 
 #include <cerrno>
 #ifndef _WIN32
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #endif
 #include <cstdio>
 #include <memory>
@@ -151,6 +153,57 @@ PyObject* dump_to_file(PyObject* object, const char* path) {
     if (PyBytes_AsStringAndSize(text.get(), &data, &size) != 0)
         return nullptr;
 
+#ifndef _WIN32
+    // Raw descriptor I/O: the stdio route paid a buffer copy, a separate
+    // flush write for the newline, and an unconditional path-resolving chmod
+    // on every call — fixed per-call costs that decide the small-document
+    // dump rows (and folder dump multiplies them per group file). The
+    // documented exact 0644 (api.md) survives as an fd-based fstat that
+    // escalates to fchmod only when the mode actually differs: open()'s mode
+    // argument applies on creation only and is filtered by the umask, so
+    // neither it nor creation alone can be trusted.
+    constexpr mode_t kDocumentedMode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+    const int fd = ::open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, kDocumentedMode);
+    if (fd < 0) {
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+        return nullptr;
+    }
+
+    const char* cursor = data;
+    size_t remaining = static_cast<size_t>(size);
+    while (remaining > 0) {
+        const ssize_t wrote = ::write(fd, cursor, remaining);
+        if (wrote <= 0) {
+            if (wrote < 0 && errno == EINTR)
+                continue;
+            PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+            ::close(fd);
+            return nullptr;
+        }
+        cursor += wrote;
+        remaining -= static_cast<size_t>(wrote);
+    }
+    while (::write(fd, "\n", 1) != 1) { // documented trailing newline
+        if (errno == EINTR)
+            continue;
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+        ::close(fd);
+        return nullptr;
+    }
+
+    struct stat status;
+    if (::fstat(fd, &status) != 0 || (status.st_mode & 07777) != kDocumentedMode) {
+        if (::fchmod(fd, kDocumentedMode) != 0) {
+            PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+            ::close(fd);
+            return nullptr;
+        }
+    }
+    if (::close(fd) != 0) {
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+        return nullptr;
+    }
+#else
     std::FILE* handle = std::fopen(path, "wb");
     if (handle == nullptr) {
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
@@ -161,13 +214,6 @@ PyObject* dump_to_file(PyObject* object, const char* path) {
         std::fputc('\n', handle) != EOF; // documented trailing newline
     const bool closed = std::fclose(handle) == 0;
     if (!wrote || !closed) {
-        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
-        return nullptr;
-    }
-
-#ifndef _WIN32
-    // The documented mode is 0644; fopen would otherwise leave it to the umask.
-    if (::chmod(path, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) != 0) {
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
         return nullptr;
     }

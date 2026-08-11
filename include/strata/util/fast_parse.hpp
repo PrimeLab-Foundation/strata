@@ -21,11 +21,16 @@
  * provides a strtod_l twin with identical observable behavior.
  */
 
+#include <bit>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <system_error>
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <intrin.h> // _umul128: MSVC's spelling of the 64x64->128 multiply
+#endif
 
 // Floating-point std::from_chars reached libc++ only at LLVM 20; Apple SDKs
 // through Xcode 16 ship the integral overloads alone, so those builds take
@@ -71,6 +76,109 @@ struct ParsedNumber {
 namespace detail {
 
 [[nodiscard]] constexpr bool is_digit(char c) noexcept { return c >= '0' && c <= '9'; }
+
+/// 64x64 -> 128 multiply, spelled per compiler.
+struct U64Pair {
+    uint64_t hi;
+    uint64_t lo;
+};
+
+[[nodiscard]] inline U64Pair mul_128(uint64_t a, uint64_t b) noexcept {
+#if defined(_MSC_VER) && !defined(__clang__)
+    U64Pair result;
+    result.lo = _umul128(a, b, &result.hi);
+    return result;
+#else
+    const auto product = static_cast<unsigned __int128>(a) * b;
+    return {static_cast<uint64_t>(product >> 64), static_cast<uint64_t>(product)};
+#endif
+}
+
+inline constexpr long kEiselLemireMinExp10 = -348;
+inline constexpr long kEiselLemireMaxExp10 = 347;
+
+#include "eisel_lemire_table.inc"
+
+/**
+ * Eisel–Lemire: the correctly rounded double for mantissa × 10^exp10, or
+ * false when only the slow path can decide.
+ *
+ * One (sometimes two) 64×64 multiplies of the normalized mantissa against a
+ * 128-bit power of ten give enough product bits to read the rounded result
+ * directly — the insight of Eisel and Lemire ("Number parsing at a gigabyte
+ * per second"); the structure here follows Go strconv's port, whose table
+ * convention the generated .inc matches. Every ambiguity refuses rather than
+ * guesses: a truncated table entry that could flip the round bit, an exact
+ * halfway needing round-to-even, and any subnormal or out-of-range result
+ * all return false, and the caller's from_chars fallback — exact everywhere,
+ * merely slower — settles them. So a true return is provably the same bits
+ * from_chars would produce, which is what keeps this a pure fast path rather
+ * than a semantics change.
+ *
+ * Preconditions: @p mantissa is non-zero and holds every significant digit
+ * (the caller skips this path for tokens past 19 digits).
+ */
+[[nodiscard]] inline bool eisel_lemire_double(uint64_t mantissa, long exp10, bool negative,
+                                              double& out) noexcept {
+    if (exp10 < kEiselLemireMinExp10 || exp10 > kEiselLemireMaxExp10)
+        return false;
+
+    const int shift = std::countl_zero(mantissa);
+    const uint64_t w = mantissa << shift;
+    const uint64_t* power = kEiselLemirePow10[exp10 - kEiselLemireMinExp10];
+
+    // 217706/2^16 approximates log2(10); with |exp10| <= 348 the estimate is
+    // exact for the whole table. 1087 = IEEE bias 1023 + the 64 bits the
+    // product's high word sits above the binary point.
+    uint64_t exp2 =
+        static_cast<uint64_t>((217706 * exp10 >> 16) + 1087) - static_cast<uint64_t>(shift);
+
+    U64Pair x = mul_128(w, power[0]);
+    if ((x.hi & 0x1FF) == 0x1FF && x.lo + w < w) {
+        // The truncated high product cannot separate the round bit from a
+        // carry out of the discarded low half: widen with the second table
+        // word before giving up.
+        const U64Pair y = mul_128(w, power[1]);
+        uint64_t merged_hi = x.hi;
+        uint64_t merged_lo = x.lo + y.hi;
+        if (merged_lo < x.lo)
+            ++merged_hi;
+        if ((merged_hi & 0x1FF) == 0x1FF && merged_lo + 1 == 0 && y.lo + w < w)
+            return false;
+        x.hi = merged_hi;
+        x.lo = merged_lo;
+    }
+
+    // The product's high word carries the answer in its top bits; keep 54 of
+    // them (53 mantissa + 1 round bit), from bit 63 or 62 depending on
+    // whether the multiply of two normalized operands stayed normalized.
+    const uint64_t msb = x.hi >> 63;
+    uint64_t out_mantissa = x.hi >> (msb + 9);
+    exp2 -= 1 ^ msb;
+
+    if (x.lo == 0 && (x.hi & 0x1FF) == 0 && (out_mantissa & 3) == 1) {
+        // Exactly halfway between two doubles: round-to-even needs digits
+        // the product no longer has.
+        return false;
+    }
+
+    out_mantissa = (out_mantissa + (out_mantissa & 1)) >> 1; // round to nearest
+    if ((out_mantissa >> 53) > 0) {
+        out_mantissa >>= 1;
+        ++exp2;
+    }
+
+    // Rejects biased exponents 0 (subnormal territory — exactness there needs
+    // the slow path) and 0x7FF (infinity), including the wrapped negatives.
+    if (exp2 - 1 >= 0x7FF - 1)
+        return false;
+
+    uint64_t bits = (exp2 << 52) | (out_mantissa & 0xFFFFFFFFFFFFFULL);
+    if (negative)
+        bits |= 0x8000000000000000ULL;
+    out = std::bit_cast<double>(bits);
+    return true;
+}
 
 #if !STRATA_HAS_FP_FROM_CHARS
 /// Process-lifetime "C" locale for strtod_l; never freed by design. Darwin
@@ -278,6 +386,14 @@ struct FromCharsResult {
 
     out.kind = NumberKind::Double;
 
+    // A zero mantissa is exactly ±0.0 whatever the exponent says; settling
+    // it here keeps the fast paths below free of the one input that breaks
+    // their normalization (countl_zero of zero, a full-width shift).
+    if (!truncated && mantissa == 0) {
+        out.double_value = negative ? -0.0 : 0.0;
+        return true;
+    }
+
     // Exact-arithmetic fast path (Clinger): when the mantissa is exactly
     // representable (<= 2^53) and the scale is a power of ten that is itself
     // exact (10^0..10^22 -- 5^22 < 2^53), one IEEE multiply or divide of two
@@ -297,6 +413,14 @@ struct FromCharsResult {
         out.double_value = negative ? -value : value;
         return true;
     }
+
+    // Eisel–Lemire covers what Clinger's exact window cannot — above all the
+    // full-precision 17-digit doubles real data is full of — with a provably
+    // correct refuse-don't-guess contract (see eisel_lemire_double). What it
+    // refuses falls through to from_chars, exact everywhere.
+    if (!truncated &&
+        detail::eisel_lemire_double(mantissa, effective_exponent, negative, out.double_value))
+        return true;
 
     const auto result = from_chars_double(first, last, out.double_value);
     if (result.ec == std::errc::result_out_of_range) {

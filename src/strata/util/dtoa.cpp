@@ -6,23 +6,25 @@
  *
  *   1. The micro-decimal tier: values that are exactly n/10^6 emit n's digits
  *      directly (most real-world floats — prices, scores, coordinates).
- *   2. Ryu: the shortest correctly-rounded digit string for everything else,
- *      ported from the reference implementation (github.com/ulfjack/ryu,
- *      Ulf Adams; Apache License 2.0 / Boost Software License 1.0) via this
- *      project's previous implementation. Roughly twice as fast as libc++'s
- *      `to_chars` machinery for the same digits.
+ *   2. Dragonbox: the shortest correctly-rounded digit string for everything
+ *      else, via the vendored reference implementation (Junekey Jeon,
+ *      include/strata/third_party/dragonbox/, Apache-2.0 with LLVM exceptions
+ *      / BSL-1.0). It replaces the Ryu d2d port this file previously carried:
+ *      same unique shortest output, measurably faster digit generation.
  *   3. This file's own layout, applied to both: fixed notation while the
  *      scientific exponent sits in [-4, 15], scientific outside it — exactly
  *      CPython's `repr(float)` rule, so strata renders a float byte-for-byte
  *      as the standard library would. The equivalence is pinned by test
  *      against a `to_chars`-based reference over tens of millions of values.
  *
- * The Ryu core keeps the reference implementation's names and shape so it can
- * be audited line-by-line against upstream — a deliberate exception to the
- * project naming style, confined to the `ryu` namespace.
+ * The vendored Dragonbox header keeps upstream's exact text so it can be
+ * audited (and updated) against its repository byte-for-byte; it is excluded
+ * from clang-format for the same reason.
  */
 
 #include "strata/util/dtoa.hpp"
+
+#include "strata/third_party/dragonbox/dragonbox.h"
 
 #include <cmath>
 #include <cstring>
@@ -180,199 +182,6 @@ inline void shift16_right(char* from, size_t gap) noexcept {
     return out + 2;
 }
 
-// ---------------------------------------------------------------------------
-// Ryu d2d: IEEE double -> shortest (mantissa, exponent-of-ten).
-// Reference implementation's names and structure, for auditability.
-// ---------------------------------------------------------------------------
-namespace ryu {
-
-constexpr int MANTISSA_BITS = 52;
-constexpr int EXPONENT_BITS = 11;
-constexpr int BIAS = 1023;
-constexpr uint64_t MANTISSA_MASK = (1ULL << MANTISSA_BITS) - 1;
-constexpr int POW5_INV_BITCOUNT = 125;
-constexpr int POW5_BITCOUNT = 125;
-
-inline int log10Pow2(int e) {
-    return static_cast<int>(
-        (static_cast<uint64_t>(static_cast<uint32_t>(e)) * 169464822037455ULL) >> 49);
-}
-
-inline int log10Pow5(int e) {
-    return static_cast<int>(
-        (static_cast<uint64_t>(static_cast<uint32_t>(e)) * 196742565691928ULL) >> 48);
-}
-
-inline int pow5bits(int e) {
-    return static_cast<int>((static_cast<uint64_t>(static_cast<uint32_t>(e)) * 1217359) >> 19) + 1;
-}
-
-inline bool multipleOfPow5(uint64_t v, int p) {
-    for (int i = 0; i < p; ++i) {
-        if (v % 5 != 0)
-            return false;
-        v /= 5;
-    }
-    return true;
-}
-
-inline bool multipleOfPow2(uint64_t v, int p) { return (v & ((1ULL << p) - 1)) == 0; }
-
-#if defined(_MSC_VER) && !defined(__clang__)
-inline uint64_t mulShift64(uint64_t m, const uint64_t* mul, int j) {
-    // ((m * mul[0]) >> 64 + m * mul[1]) >> (j - 64), without __uint128_t.
-    uint64_t high0 = 0;
-    (void)_umul128(m, mul[0], &high0);
-    uint64_t high1 = 0;
-    const uint64_t low1 = _umul128(m, mul[1], &high1);
-    const uint64_t sum_low = low1 + high0;
-    high1 += (sum_low < low1) ? 1 : 0;
-    const int shift = j - 64; // always in (0, 64) for the table exponents
-    return (sum_low >> shift) | (high1 << (64 - shift));
-}
-#else
-inline uint64_t mulShift64(uint64_t m, const uint64_t* mul, int j) {
-    const __uint128_t b0 = static_cast<__uint128_t>(m) * mul[0];
-    const __uint128_t b1 = static_cast<__uint128_t>(m) * mul[1];
-    const __uint128_t mid = (b0 >> 64) + b1;
-    return static_cast<uint64_t>(mid >> (j - 64));
-}
-#endif
-
-inline uint64_t mulShiftAll64(uint64_t m, const uint64_t* mul, int j, uint64_t* vp, uint64_t* vm,
-                              uint32_t mmShift) {
-    *vp = mulShift64(4 * m + 2, mul, j);
-    *vm = mulShift64(4 * m - 1 - mmShift, mul, j);
-    return mulShift64(4 * m, mul, j);
-}
-
-#include "ryu_tables.inc"
-
-struct Decimal {
-    uint64_t mantissa;
-    int32_t exponent;
-};
-
-inline Decimal d2d(uint64_t ieeeMantissa, uint32_t ieeeExponent) {
-    int32_t e2;
-    uint64_t m2;
-    if (ieeeExponent == 0) {
-        e2 = 1 - BIAS - MANTISSA_BITS - 2;
-        m2 = ieeeMantissa;
-    } else {
-        e2 = static_cast<int32_t>(ieeeExponent) - BIAS - MANTISSA_BITS - 2;
-        m2 = (1ULL << MANTISSA_BITS) | ieeeMantissa;
-    }
-
-    const bool even = (m2 & 1) == 0;
-    const bool acceptBounds = even;
-    const uint64_t mv = 4 * m2;
-    const uint32_t mmShift = (ieeeMantissa != 0 || ieeeExponent <= 1) ? 1 : 0;
-
-    uint64_t vr, vp, vm;
-    int32_t e10;
-    bool vmTZ = false, vrTZ = false;
-
-    if (e2 >= 0) {
-        const int32_t q = log10Pow2(e2) - (e2 > 3 ? 1 : 0);
-        e10 = q;
-        const int32_t k = pow5bits(q) - 1 + POW5_INV_BITCOUNT;
-        const int32_t i = -e2 + q + k;
-        vr = mulShiftAll64(m2, DOUBLE_POW5_INV_SPLIT[q], i, &vp, &vm, mmShift);
-        if (q <= 21) {
-            if (mv % 5 == 0) {
-                vrTZ = multipleOfPow5(mv, q);
-            } else if (acceptBounds) {
-                vmTZ = multipleOfPow5(mv - 1 - mmShift, q);
-            } else {
-                vp -= multipleOfPow5(mv + 2, q) ? 1 : 0;
-            }
-        }
-    } else {
-        const int32_t q = log10Pow5(-e2) - (-e2 > 1 ? 1 : 0);
-        e10 = q + e2;
-        const int32_t i = -e2 - q;
-        const int32_t k = pow5bits(i) - POW5_BITCOUNT;
-        const int32_t j = q - k;
-        vr = mulShiftAll64(m2, DOUBLE_POW5_SPLIT[i], j, &vp, &vm, mmShift);
-        if (q <= 1) {
-            vrTZ = true;
-            if (acceptBounds)
-                vmTZ = mmShift == 1;
-            else
-                --vp;
-        } else if (q < 63) {
-            vrTZ = multipleOfPow2(mv, q - 1);
-        }
-    }
-
-    int32_t removed = 0;
-    uint64_t lastRemoved = 0;
-    uint64_t output;
-
-    if (vmTZ || vrTZ) {
-        for (;;) {
-            const uint64_t vpD = vp / 10, vmD = vm / 10;
-            if (vpD <= vmD)
-                break;
-            const uint64_t vmM = vm - 10 * vmD;
-            const uint64_t vrD = vr / 10, vrM = vr - 10 * vrD;
-            vmTZ &= (vmM == 0);
-            vrTZ &= (lastRemoved == 0);
-            lastRemoved = vrM;
-            vr = vrD;
-            vp = vpD;
-            vm = vmD;
-            ++removed;
-        }
-        if (vmTZ) {
-            for (;;) {
-                const uint64_t vmD = vm / 10, vmM = vm - 10 * vmD;
-                if (vmM != 0)
-                    break;
-                const uint64_t vpD = vp / 10;
-                const uint64_t vrD = vr / 10, vrM = vr - 10 * vrD;
-                vrTZ &= (lastRemoved == 0);
-                lastRemoved = vrM;
-                vr = vrD;
-                vp = vpD;
-                vm = vmD;
-                ++removed;
-            }
-        }
-        if (vrTZ && lastRemoved == 5 && vr % 2 == 0)
-            lastRemoved = 4;
-        output = vr + (((vr == vm && (!acceptBounds || !vmTZ)) || lastRemoved >= 5) ? 1 : 0);
-    } else {
-        bool roundUp = false;
-        const uint64_t vpD100 = vp / 100, vmD100 = vm / 100;
-        if (vpD100 > vmD100) {
-            const uint64_t vrD100 = vr / 100, vrM100 = vr - 100 * vrD100;
-            roundUp = vrM100 >= 50;
-            vr = vrD100;
-            vp = vpD100;
-            vm = vmD100;
-            removed += 2;
-        }
-        for (;;) {
-            const uint64_t vpD = vp / 10, vmD = vm / 10;
-            if (vpD <= vmD)
-                break;
-            const uint64_t vrD = vr / 10, vrM = vr - 10 * vrD;
-            roundUp = vrM >= 5;
-            vr = vrD;
-            vp = vpD;
-            vm = vmD;
-            ++removed;
-        }
-        output = vr + ((vr == vm || roundUp) ? 1 : 0);
-    }
-
-    return {output, e10 + removed};
-}
-
-} // namespace ryu
-
 /**
  * The micro-decimal tier: values that are exactly a 6-decimal fixed number.
  *
@@ -467,14 +276,13 @@ size_t format_double(double value, char* out, size_t capacity) noexcept {
         return written;
     }
 
-    uint64_t bits;
-    std::memcpy(&bits, &value, sizeof(bits));
-    const uint64_t ieee_mantissa = bits & ryu::MANTISSA_MASK;
-    const auto ieee_exponent =
-        static_cast<uint32_t>((bits >> ryu::MANTISSA_BITS) & ((1U << ryu::EXPONENT_BITS) - 1));
-
-    const ryu::Decimal decimal = ryu::d2d(ieee_mantissa, ieee_exponent);
-    const uint64_t digits = decimal.mantissa;
+    // Dragonbox: IEEE double -> shortest correctly-rounded (digits, 10^exp),
+    // trailing zeros already removed — the same unique output the Ryu d2d it
+    // replaced produced, from measurably faster digit generation. Sign and
+    // zero were handled above, which is exactly this call's precondition.
+    const auto decimal = jkj::dragonbox::to_decimal(value, jkj::dragonbox::policy::sign::ignore,
+                                                    jkj::dragonbox::policy::trailing_zero::remove);
+    const uint64_t digits = decimal.significand;
     const auto length = decimal_digit_count(digits);
     // value = digits * 10^exponent; the scientific exponent is where the
     // leading digit sits.

@@ -81,7 +81,11 @@ and architecture**, tracked in-tree rather than left in CI logs.
   every supported leg — linux-x86_64, macos-x86_64, macos-arm64,
   windows-x86_64, plus a visibility-guarded linux-arm64 leg that activates
   when the repo goes public — and uploads one report artifact per leg,
-  named `benchmark-<os>-<arch>`.
+  named `benchmark-<os>-<arch>`. The POSIX legs benchmark the **PGO+LTO
+  build** (`make pgo` — the build the release wheel ships, worth −8..−25%),
+  since the competitors are their released wheels; the Windows leg stays a
+  plain /O2 build (setup.py refuses PGO/LTO under MSVC), and each report's
+  compiler_flags line says which build its leg measured.
 - `make bench-ci` (`benchmarks/ci_fetch.py`) pulls the latest completed
   run's reports into `docs/benchmarks/ci/bench_results_<os>-<arch>.md` plus
   `run_info.json` (run id, sha, date, artifact map). os/arch come from each
@@ -99,8 +103,8 @@ Reading the numbers: a rank is computed within one report — one machine, one
 interleaved round — which is the same-machine comparison the contract
 allows; absolute times never cross platforms, the supportability tripwire
 stays the CI gate, and headline standings come only from the quiet-machine
-protocol. Two systematic offsets vs the headline numbers: CI measures the
-plain `-O3 -march=native` build (the install step does no PGO/LTO), and
+protocol. Systematic offsets vs the headline numbers: the Windows leg
+measures a plain /O2 build (MSVC PGO refused; the POSIX legs build PGO), and
 shared runners are noisy — treat a single-run rank decided inside ~1.05x as
 a coin flip and re-run before acting on it.
 
@@ -108,9 +112,41 @@ First fetch (run 31392004866, 2026-08-10, commit `16b0a58`): **44/108 rows
 at #1** — query 12/12, search 12/12, NDJSON `load` 4/4 on every leg, but the
 small-tier `loads`/`dumps`/`load`/`dump` rows trail everywhere off the dev
 machine: linux-x86_64 7/27, windows-x86_64 8/27, macos-x86_64 13/27,
-macos-arm64 16/27 (matching the local small-tier picture). Closing the
-small-document overhead per platform is the cross-platform face of the
-post-release backlog.
+macos-arm64 16/27 (matching the local small-tier picture). **That run
+predates two changes aimed squarely at it**: the CI legs measured plain
+non-PGO builds (POSIX legs now run `make pgo` first), and it ran before the
+wave-8 parse work (bulk-ASCII validation, presized dicts, four-way
+predictions, Eisel–Lemire — `docs/performance/SKILL.md`). Re-dispatch the
+workflow and `make bench-ci` to refresh the standings against both.
+
+### Remaining to #1-everywhere (the row-by-row backlog)
+
+Post-wave-8 state, all rows and their known leads:
+
+- **Coin-flip band** (1.00–1.03x, every leg): decided by machine state, not
+  code — four consecutive deciding sweeps flipped these rows' signs with no
+  change between runs. Only the gated quiet-machine protocol settles them.
+- **`loads mixed` small, ~1.06x (arm64)**: the tiny-record per-call floor.
+  Leads, in order: the `LightweightBuilder` salvage item
+  (docs/performance/SKILL.md, ranked 4th — ~30% claim on exactly this
+  shape); a small-int cache extended past CPython's 256 (the recorded
+  non-win only covered duplicating 0..256); KnownHash inserts are blocked by
+  the FirstWins default contract.
+- **wide_arrays serialization large, 1.05–1.07x median under load (1.01x
+  standalone)**: the residue is int-run emission (1.12x standalone) and
+  bool-run (1.08x) — next leads are fused comma+digit pair emission and a
+  two-element unroll; the negative-results table already rules out
+  back-fill itoa.
+- **Windows dumps rows**: the one structural gap — setup.py refuses MSVC
+  PGO, so that leg benchmarks /O2 while POSIX legs benchmark PGO. Wiring
+  MSVC LTCG profile-guided flags (/GL, /GENPROFILE → /USEPROFILE) is the
+  fix; until then Windows serialization rows carry a known ~10–25% handicap
+  the other legs no longer have.
+- **The five-leg verdict**: push wave 8, `gh workflow run benchmark.yml`,
+  `make bench-ci`. Four legs were pre-verified locally post-wave (Rosetta
+  x86_64, Docker linux-arm64/x86_64, native arm64 — docs/decisions.md,
+  2026-08-11): 82–83/108 measured rows #1 on plain builds vs the committed
+  pre-wave 44/108, with parse categories swept on three of four.
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 
