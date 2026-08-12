@@ -382,9 +382,14 @@ class Serializer {
                     }
                     value = static_cast<int64_t>(wide);
                 }
-                if (index != 0)
-                    out_.put(',');
-                out_.advance(util::format_int64(value, out_.cursor()));
+                // Fused separator: the comma is stored unconditionally and the
+                // digits land one byte past it — except for the very first
+                // element, whose digits simply overwrite the comma. One store
+                // and one size update per element, no separator branch.
+                char* cursor = out_.cursor();
+                *cursor = ',';
+                const auto skip = static_cast<size_t>(index != 0);
+                out_.advance(skip + util::format_int64(value, cursor + skip));
             }
         }
         return index;
@@ -394,9 +399,15 @@ class Serializer {
         if (size == 0 || (items[0] != Py_True && items[0] != Py_False))
             return 0;
         // First element bare, the rest as one eight-byte constant store each
-        // (",true" / ",false" plus slack the next write overwrites) — two
-        // branches and one store per element instead of separate separator
-        // and literal writes.
+        // (",true" / ",false" plus slack the next write overwrites). The
+        // store is *selected, not branched*: real flag data is close to
+        // random, so a taken/not-taken branch per element mispredicts about
+        // half the time — the two literal words sit in registers and a
+        // conditional move picks one.
+        uint64_t true_word;
+        uint64_t false_word;
+        std::memcpy(&true_word, ",true\0\0", 8);
+        std::memcpy(&false_word, ",false\0", 8);
         out_.ensure(8);
         if (items[0] == Py_True) {
             out_.write("true", 4);
@@ -412,15 +423,12 @@ class Serializer {
             out_.ensure(static_cast<size_t>(block_end - index) * 8);
             for (; index < block_end; ++index) {
                 PyObject* item = items[index];
-                if (item != Py_True && item != Py_False)
+                const bool truth = item == Py_True;
+                if (!truth && item != Py_False)
                     return index;
-                if (item == Py_True) {
-                    std::memcpy(out_.cursor(), ",true\0\0\0", 8);
-                    out_.advance(5);
-                } else {
-                    std::memcpy(out_.cursor(), ",false\0\0", 8);
-                    out_.advance(6);
-                }
+                const uint64_t word = truth ? true_word : false_word;
+                std::memcpy(out_.cursor(), &word, 8);
+                out_.advance(6 - static_cast<size_t>(truth));
             }
         }
         return index;

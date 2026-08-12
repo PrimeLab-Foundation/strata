@@ -132,17 +132,28 @@ Post-wave-8 state, all rows and their known leads:
   shape); a small-int cache extended past CPython's 256 (the recorded
   non-win only covered duplicating 0..256); KnownHash inserts are blocked by
   the FirstWins default contract.
-- **wide_arrays serialization large, 1.05–1.07x median under load (1.01x
-  standalone)**: the residue is int-run emission (1.12x standalone) and
-  bool-run (1.08x) — next leads are fused comma+digit pair emission and a
-  two-element unroll; the negative-results table already rules out
-  back-fill itoa.
+- **wide_arrays serialization large**: worked by wave 9 (header-inline
+  itoa + fused comma in the int run). Isolated, the row now leads on both
+  builds — 0.92x plain, 0.92–0.96x across a three-build PGO bracket — and
+  short-int lists went 1.22x → 1.00–1.03x, the wave's headline win; dumps
+  mixed followed (1.26x → 1.23x plain, 1.04x → 1.01x PGO). What remains is
+  the *under-load* number: inside the full interleaved tier harness the row
+  still reads 1.06–1.10x (69/81 refresh) while leading isolated — cache and
+  predictor pressure, not a code gap a profiler has yet named. The 9–10-digit
+  int micro reads +3.5% under PGO (flips no row); the bool run sits at
+  1.07x inside run-to-run noise. The itoa restructuring leads (grouped
+  fixed-width write, digit-count-switched tree, two-element unroll) are all
+  measured or reasoned dead — negative-results table.
 - **Windows dumps rows**: the one structural gap — setup.py refuses MSVC
   PGO, so that leg benchmarks /O2 while POSIX legs benchmark PGO. Wiring
   MSVC LTCG profile-guided flags (/GL, /GENPROFILE → /USEPROFILE) is the
   fix; until then Windows serialization rows carry a known ~10–25% handicap
   the other legs no longer have.
-- **The five-leg verdict**: push wave 8, `gh workflow run benchmark.yml`,
+- **The five-leg verdict**: wave 8 is pushed, but every `benchmark.yml`
+  dispatch since 2026-08-11 — and the wave-8 push's own ci.yml run — was
+  refused by GitHub in seconds: "recent account payments have failed or
+  your spending limit needs to be increased". Unblocking is a billing fix
+  in the org settings (human-only); then `gh workflow run benchmark.yml` +
   `make bench-ci`. Four legs were pre-verified locally post-wave (Rosetta
   x86_64, Docker linux-arm64/x86_64, native arm64 — docs/decisions.md,
   2026-08-11): 82–83/108 measured rows #1 on plain builds vs the committed

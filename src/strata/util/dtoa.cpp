@@ -29,135 +29,16 @@
 #include <cmath>
 #include <cstring>
 
-#if defined(_MSC_VER) && !defined(__clang__)
-#include <intrin.h>
-#endif
-
-namespace {
-
-/// Index of the highest set bit. Precondition: @p value != 0.
-[[nodiscard]] inline unsigned highest_set_bit(uint64_t value) noexcept {
-#if defined(_MSC_VER) && !defined(__clang__)
-    unsigned long index = 0;
-    _BitScanReverse64(&index, value);
-    return static_cast<unsigned>(index);
-#else
-    return static_cast<unsigned>(63 - __builtin_clzll(value));
-#endif
-}
-
-} // namespace
-
 namespace strata::util {
 
 namespace {
 
-/// "00" "01" ... "99", so digits are peeled two at a time.
-constexpr char kDigitPairs[] = "00010203040506070809"
-                               "10111213141516171819"
-                               "20212223242526272829"
-                               "30313233343536373839"
-                               "40414243444546474849"
-                               "50515253545556575859"
-                               "60616263646566676869"
-                               "70717273747576777879"
-                               "80818283848586878889"
-                               "90919293949596979899";
-
-constexpr uint64_t kPow10[20] = {
-    1ULL,
-    10ULL,
-    100ULL,
-    1000ULL,
-    10000ULL,
-    100000ULL,
-    1000000ULL,
-    10000000ULL,
-    100000000ULL,
-    1000000000ULL,
-    10000000000ULL,
-    100000000000ULL,
-    1000000000000ULL,
-    10000000000000ULL,
-    100000000000000ULL,
-    1000000000000000ULL,
-    10000000000000000ULL,
-    100000000000000000ULL,
-    1000000000000000000ULL,
-    10000000000000000000ULL,
-};
-
-/// Fill digits of @p value backwards, ending at @p end; returns the first byte.
-[[nodiscard]] char* fill_u64_backwards(uint64_t value, char* end) noexcept {
-    char* cursor = end;
-    while (value >= 100) {
-        const size_t pair = static_cast<size_t>(value % 100) * 2;
-        value /= 100;
-        *--cursor = kDigitPairs[pair + 1];
-        *--cursor = kDigitPairs[pair];
-    }
-    if (value >= 10) {
-        const size_t pair = static_cast<size_t>(value) * 2;
-        *--cursor = kDigitPairs[pair + 1];
-        *--cursor = kDigitPairs[pair];
-    } else {
-        *--cursor = static_cast<char>('0' + value);
-    }
-    return cursor;
-}
-
-/// Number of decimal digits in @p value (1 for zero).
-[[nodiscard]] size_t decimal_digit_count(uint64_t value) noexcept {
-    if (value == 0)
-        return 1;
-    // floor(log10) from floor(log2): multiply by log10(2) in fixed point,
-    // then correct by comparing against the exact power.
-    const auto bits = static_cast<size_t>(highest_set_bit(value));
-    size_t digits = (bits * 1233) >> 12;
-    digits += static_cast<size_t>(digits + 1 <= 19 && value >= kPow10[digits + 1]);
-    return digits + 1;
-}
-
-/// Exactly eight digits of @p value (< 10^8), zero-padded.
-inline void write_8_digits(uint32_t value, char* out) noexcept {
-    const uint32_t high = value / 10000;
-    const uint32_t low = value % 10000;
-    const uint32_t pair0 = (high / 100) * 2;
-    const uint32_t pair1 = (high % 100) * 2;
-    const uint32_t pair2 = (low / 100) * 2;
-    const uint32_t pair3 = (low % 100) * 2;
-    std::memcpy(out + 0, kDigitPairs + pair0, 2);
-    std::memcpy(out + 2, kDigitPairs + pair1, 2);
-    std::memcpy(out + 4, kDigitPairs + pair2, 2);
-    std::memcpy(out + 6, kDigitPairs + pair3, 2);
-}
-
-/// Exactly @p len digits of @p value, zero-padded on the left.
-///
-/// Peels eight digits at a time into 32-bit groups: the divides become
-/// multiply-shifts, the groups' four pair lookups are independent, and a
-/// 17-digit mantissa costs two groups plus one odd digit instead of a
-/// seventeen-step serial divide chain.
-void write_digits_fixed(uint64_t value, char* out, size_t len) noexcept {
-    while (len >= 8) {
-        const uint64_t high = value / 100000000;
-        const auto low = static_cast<uint32_t>(value - high * 100000000);
-        write_8_digits(low, out + len - 8);
-        value = high;
-        len -= 8;
-    }
-    auto rest = static_cast<uint32_t>(value);
-    size_t index = len;
-    while (index >= 2) {
-        const uint32_t pair = (rest % 100) * 2;
-        rest /= 100;
-        out[index - 1] = kDigitPairs[pair + 1];
-        out[index - 2] = kDigitPairs[pair];
-        index -= 2;
-    }
-    if (index == 1)
-        out[0] = static_cast<char>('0' + rest % 10);
-}
+// The digit machinery — pair table, digit count, grouped fixed-width write —
+// lives in dtoa.hpp's detail namespace, shared with the header-inline
+// format_int64.
+using detail::decimal_digit_count;
+using detail::kDigitPairs;
+using detail::write_digits_fixed;
 
 /// Shift sixteen bytes right by @p gap places (loads before stores, so the
 /// ranges may overlap). Spelled as two u64 moves because a `memmove` call --
@@ -336,20 +217,6 @@ size_t format_double(double value, char* out, size_t capacity) noexcept {
     out[written++] = scientific_exponent >= 0 ? '+' : '-';
     const int magnitude = scientific_exponent >= 0 ? scientific_exponent : -scientific_exponent;
     return static_cast<size_t>(write_exponent(magnitude, out + written) - out);
-}
-
-size_t format_int64(int64_t value, char* out) noexcept {
-    uint64_t magnitude = static_cast<uint64_t>(value);
-    size_t written = 0;
-    if (value < 0) {
-        out[written++] = '-';
-        magnitude = 0 - magnitude; // wraps correctly for INT64_MIN
-    }
-    // Count first, then back-fill in place: the digits land exactly where
-    // they belong and nothing is copied twice.
-    const size_t digits = decimal_digit_count(magnitude);
-    (void)fill_u64_backwards(magnitude, out + written + digits);
-    return written + digits;
 }
 
 } // namespace strata::util
