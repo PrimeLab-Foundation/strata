@@ -21,6 +21,8 @@
  * and by `format_int64`, which lives here in the header: the serializer's
  * scalar-array runs call it once per element, and on builds without LTO an
  * out-of-line itoa was a cross-TU call in the hottest loop the dumps side has.
+ * `format_double` deliberately does NOT follow it into the header — see its
+ * declaration below for the measured reason.
  */
 
 #include <cstddef>
@@ -35,18 +37,6 @@ namespace strata::util {
 
 /// Longest output format_double() can produce, plus room to spare.
 inline constexpr size_t kDoubleBufferSize = 40;
-
-/**
- * Render @p value into @p out as shortest round-trip JSON text.
- *
- * Non-finite values are *not* handled here: JSON has no NaN or infinity, and
- * choosing what to emit in their place is the serializer's policy, not this
- * function's. Callers must filter them first.
- *
- * @param out Buffer of at least @ref kDoubleBufferSize bytes. Not terminated.
- * @return Number of bytes written, or 0 if the buffer was too small.
- */
-[[nodiscard]] size_t format_double(double value, char* out, size_t capacity) noexcept;
 
 /// Longest output format_int64() can produce ("-9223372036854775808").
 inline constexpr size_t kInt64BufferSize = 20;
@@ -171,7 +161,40 @@ inline void write_digits_fixed(uint64_t value, char* out, size_t len) noexcept {
     return cursor;
 }
 
+/// Shift sixteen bytes right by @p gap places (loads before stores, so the
+/// ranges may overlap). Spelled as two u64 moves because a `memmove` call --
+/// which is what the extension build turned the "constant-size" form into --
+/// profiled at 12% of users.json serialization.
+inline void shift16_right(char* from, size_t gap) noexcept {
+    uint64_t low;
+    uint64_t high;
+    std::memcpy(&low, from, 8);
+    std::memcpy(&high, from + 8, 8);
+    std::memcpy(from + gap, &low, 8);
+    std::memcpy(from + gap + 8, &high, 8);
+}
+
 } // namespace detail
+
+/**
+ * Render @p value into @p out as shortest round-trip JSON text.
+ *
+ * Non-finite values are *not* handled here: JSON has no NaN or infinity, and
+ * choosing what to emit in their place is the serializer's policy, not this
+ * function's. Callers must filter them first.
+ *
+ * Deliberately out of line, unlike `format_int64`: a header-inline variant
+ * with the micro-decimal tier at the call site was measured 6% *slower* on
+ * arrays mixing short and long-form floats — the tier's hit-or-miss branch
+ * is data-random there and mispredicts at the call site, where the single
+ * out-of-line call is perfectly predictable (docs/performance/SKILL.md,
+ * wave 10 negative result). LTO/PGO builds — every benchmarked build —
+ * still inline it where the profile says it pays.
+ *
+ * @param out Buffer of at least @ref kDoubleBufferSize bytes. Not terminated.
+ * @return Number of bytes written, or 0 if the buffer was too small.
+ */
+[[nodiscard]] size_t format_double(double value, char* out, size_t capacity) noexcept;
 
 /**
  * Render @p value as decimal digits into @p out. Not terminated.

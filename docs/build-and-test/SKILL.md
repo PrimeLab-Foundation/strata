@@ -53,8 +53,16 @@ Real on this branch:
   those, `STRATA_ENABLE_LTO=1` adds `-flto=thin` (gcc: `-flto`) and
   `PGO_MODE=generate|use` adds **IR-level** `-fprofile-generate` /
   `-fprofile-use=$STRATA_PGO_PROFILE` to both compile and link. `use` with a
-  missing or unset profile is a hard error, not a silent plain build, and
-  LTO/PGO with MSVC is refused rather than ignored.
+  missing or unset profile is a hard error, not a silent plain build. Under
+  MSVC the same knobs speak LTCG: LTO is `/GL`+`/LTCG`, and PGO_MODE links
+  `/GENPROFILE:PGD=$STRATA_PGO_PROFILE` → `/USEPROFILE:PGD=...` (the profile
+  is the `.pgd` both phases share; PGO implies LTCG, and the /USEPROFILE
+  link merges the training `.pgc` files itself — no pgomgr step).
+  `scripts/pgo_build_msvc.py` orchestrates the two phases on Windows —
+  training, gates and verification mirroring `pgo_build.sh` — and stages
+  pgort140.dll beside python.exe first, because the instrumented extension
+  depends on it and Python 3.8+ does not consult PATH for extension-module
+  dependencies.
 - `pyproject.toml` — version is `dynamic`, read via
   `[tool.setuptools.dynamic] version = {attr = "strata.__version__"}`. Only the
   `dev` extra exists (cmake, pytest, pytest-cov, ruff, pre-commit, clang-format
@@ -97,11 +105,11 @@ Real on this branch:
   macos-arm64 and windows-x86_64/MSVC, so both CPU architectures run the
   tripwire — gated by `benchmarks/supportability_check.py` on ERROR rows,
   category coverage and a loose strata-vs-best-rival ratio bound; absolute
-  times are never compared across machines. The POSIX legs run `make pgo`
-  first and so benchmark the PGO+LTO build — the build the release wheel
-  ships — against the competitors' released wheels; the Windows leg stays a
-  plain /O2 build because setup.py refuses PGO/LTO under MSVC, and each
-  report's compiler_flags line records which build its leg measured. One
+  times are never compared across machines. Every leg benchmarks the PGO
+  build — the build the release wheel ships — against the competitors'
+  released wheels: the POSIX legs run `make pgo` first, the Windows leg
+  runs `scripts/pgo_build_msvc.py` (the LTCG twin), and each report's
+  compiler_flags line records which build its leg measured. One
   report artifact per leg, named `benchmark-<os>-<arch>`; `make bench-ci`
   fetches the latest run into `docs/benchmarks/ci/` and rebuilds the
   per-platform standings summary — see `docs/benchmarking/SKILL.md`),

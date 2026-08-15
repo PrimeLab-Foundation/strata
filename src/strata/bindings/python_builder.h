@@ -210,8 +210,7 @@ class PythonObjectBuilder {
                 if (keys.empty())
                     continue;
                 const PredictedKey& entry = keys.front();
-                if (entry.raw.size() <= remaining &&
-                    std::memcmp(after_quote, entry.raw.data(), entry.raw.size()) == 0) {
+                if (prediction_hits(entry, after_quote, remaining)) {
                     keys_.push_back(Py_NewRef(entry.object));
                     frame.way = way_index;
                     frame.cursor = 1;
@@ -225,8 +224,7 @@ class PythonObjectBuilder {
         if (frame.cursor >= keys.size())
             return 0;
         const PredictedKey& entry = keys[frame.cursor];
-        if (entry.raw.size() > remaining ||
-            std::memcmp(after_quote, entry.raw.data(), entry.raw.size()) != 0)
+        if (!prediction_hits(entry, after_quote, remaining))
             return 0;
         keys_.push_back(Py_NewRef(entry.object));
         ++frame.cursor;
@@ -248,8 +246,23 @@ class PythonObjectBuilder {
     bool on_double(double value) { return push(PyFloat_FromDouble(value)); }
 
     bool on_string(std::string_view value) {
-        return push(
-            PyUnicode_FromStringAndSize(value.data(), static_cast<Py_ssize_t>(value.size())));
+        // The bytes are parser-validated UTF-8 already, so for the
+        // overwhelmingly common all-ASCII case the compact-ASCII object is
+        // built directly: one word-wise scan plus a memcpy, instead of the
+        // decoder's own re-scan and writer setup (find_first_nonascii +
+        // unicode_decode_utf8 profiled at ~5% of a string-heavy parse).
+        // Zero- and one-byte strings stay on the decoder: CPython hands
+        // those out from its empty and latin-1 singleton caches, which a
+        // fresh PyUnicode_New would replace with an allocation per value.
+        const auto size = static_cast<Py_ssize_t>(value.size());
+        if (size > 1 && all_ascii(value.data(), value.size())) {
+            PyObject* object = PyUnicode_New(size, 127);
+            if (object == nullptr)
+                return push(nullptr);
+            std::memcpy(PyUnicode_DATA(object), value.data(), value.size());
+            return push(object);
+        }
+        return push(PyUnicode_FromStringAndSize(value.data(), size));
     }
 
     bool on_start_object() {
@@ -316,6 +329,26 @@ class PythonObjectBuilder {
     }
 
   private:
+    /// No byte with the high bit set, a word at a time (tail via a padded
+    /// word). The parser has already validated UTF-8; this only picks the
+    /// construction path, so a false negative costs the decoder call, never
+    /// correctness.
+    [[nodiscard]] static bool all_ascii(const char* data, size_t len) noexcept {
+        uint64_t accumulated = 0;
+        size_t pos = 0;
+        for (; pos + 8 <= len; pos += 8) {
+            uint64_t word;
+            std::memcpy(&word, data + pos, 8);
+            accumulated |= word;
+        }
+        if (pos < len) {
+            uint64_t word = 0;
+            std::memcpy(&word, data + pos, len - pos);
+            accumulated |= word;
+        }
+        return (accumulated & 0x8080808080808080ULL) == 0;
+    }
+
     /// An open container: a dict, or an array holding from `start` in values_.
     struct Frame {
         PyObject* mapping;
@@ -332,10 +365,54 @@ class PythonObjectBuilder {
     /// string buffer -- so a prediction never dangles, whatever happened to
     /// the buffer it was learned from, and by construction the object's text
     /// is always those bytes minus the quote.
+    ///
+    /// Keys of sixteen raw bytes or fewer -- essentially all of them -- also
+    /// keep a zero-padded two-word copy plus byte masks, so the per-key probe
+    /// compares two registers instead of calling memcmp (profiled at ~5% of a
+    /// prediction-heavy parse). Byte order note: the masks select the *first*
+    /// `len` bytes on a little-endian target, which every supported platform
+    /// is; the memcmp fallback remains the definition of a match.
     struct PredictedKey {
         std::string raw;
         PyObject* object;
+        uint64_t word0 = 0;
+        uint64_t word1 = 0;
+        uint64_t mask0 = 0;
+        uint64_t mask1 = 0;
+
+        void fill_words() noexcept {
+            const size_t len = raw.size();
+            if (len > 16)
+                return; // masks stay zero: the probe takes the memcmp path
+            unsigned char padded[16] = {};
+            std::memcpy(padded, raw.data(), len);
+            std::memcpy(&word0, padded, 8);
+            std::memcpy(&word1, padded + 8, 8);
+            const size_t low = len < 8 ? len : 8;
+            mask0 = low == 8 ? ~0ULL : ((1ULL << (low * 8)) - 1);
+            const size_t high = len > 8 ? len - 8 : 0;
+            mask1 = high == 8 ? ~0ULL : high == 0 ? 0 : ((1ULL << (high * 8)) - 1);
+        }
     };
+
+    /// Does the raw input at @p in continue with this predicted key?
+    [[nodiscard]] static bool prediction_hits(const PredictedKey& entry, const char* in,
+                                              size_t remaining) noexcept {
+        const size_t len = entry.raw.size();
+        if (len > remaining)
+            return false;
+        if (entry.mask0 != 0 && remaining >= 16) {
+            // Two overlapping-window loads are safe: sixteen readable bytes
+            // were just checked, and the masks blank everything past the key.
+            uint64_t in0;
+            uint64_t in1;
+            std::memcpy(&in0, in, 8);
+            std::memcpy(&in1, in + 8, 8);
+            return ((in0 ^ entry.word0) & entry.mask0) == 0 &&
+                   ((in1 ^ entry.word1) & entry.mask1) == 0;
+        }
+        return std::memcmp(in, entry.raw.data(), len) == 0;
+    }
 
     /// Depths beyond this predict nothing; documents this deep are not
     /// record-shaped and the table would only churn.
@@ -449,6 +526,7 @@ class PythonObjectBuilder {
         }
 
         keys.push_back(PredictedKey{std::string(begin, key.size() + 1), Py_NewRef(object)});
+        keys.back().fill_words();
         ++frame.cursor;
     }
 

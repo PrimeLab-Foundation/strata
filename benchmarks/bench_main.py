@@ -39,23 +39,29 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # The compiler flags the extension is built with (setup.py). Recorded so a
 # result can be traced back to the build that produced it.
 BASE_COMPILER_FLAGS = "-std=c++20 -O3 -march=native"
+BASE_COMPILER_FLAGS_MSVC = "/std:c++20 /O2 /arch:AVX2"
 
 
 def _compiler_flags() -> str:
-    """Describe the build actually being measured.
+    """Describe the build actually being measured, in its compiler's spelling.
 
-    A hardcoded string would report plain -O3 for a PGO+LTO run and quietly
-    make two incomparable reports look comparable — exactly the kind of
-    mismatch the fairness rules in docs/context/benchmarks.md exist to stop.
+    A hardcoded string would report plain -O3 for a PGO+LTO run — or GCC
+    spellings for an MSVC build — and quietly make two incomparable reports
+    look comparable; exactly the kind of mismatch the fairness rules in
+    docs/context/benchmarks.md exist to stop.
     """
-    flags = [BASE_COMPILER_FLAGS]
+    msvc = sys.platform == "win32"
+    flags = [BASE_COMPILER_FLAGS_MSVC if msvc else BASE_COMPILER_FLAGS]
     if os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1":
-        flags.append("-flto")
+        flags.append("/GL /LTCG" if msvc else "-flto")
     mode = os.environ.get("PGO_MODE", "").strip().lower()
     if mode == "generate":
-        flags.append("-fprofile-generate (instrumented; not a performance build)")
+        flags.append(
+            ("/GENPROFILE" if msvc else "-fprofile-generate")
+            + " (instrumented; not a performance build)"
+        )
     elif mode == "use":
-        flags.append("-fprofile-use (PGO)")
+        flags.append("/USEPROFILE (PGO)" if msvc else "-fprofile-use (PGO)")
     return " ".join(flags)
 
 

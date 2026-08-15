@@ -20,6 +20,7 @@
 #ifndef _WIN32
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <unistd.h>
 #endif
 #include <cstdio>
@@ -169,10 +170,20 @@ PyObject* dump_to_file(PyObject* object, const char* path) {
         return nullptr;
     }
 
-    const char* cursor = data;
-    size_t remaining = static_cast<size_t>(size);
-    while (remaining > 0) {
-        const ssize_t wrote = ::write(fd, cursor, remaining);
+    // One vectored write covers the document and the documented trailing
+    // newline: the newline cannot be appended to the exact-sized immutable
+    // bytes object, and a second write() syscall for one byte was a
+    // measurable share of the per-call floor that decides the small-document
+    // dump rows (folder dump repeats it per group file).
+    char newline = '\n';
+    struct iovec parts[2];
+    parts[0].iov_base = data;
+    parts[0].iov_len = static_cast<size_t>(size);
+    parts[1].iov_base = &newline;
+    parts[1].iov_len = 1;
+    int active = 0;
+    while (active < 2) {
+        const ssize_t wrote = ::writev(fd, parts + active, 2 - active);
         if (wrote <= 0) {
             if (wrote < 0 && errno == EINTR)
                 continue;
@@ -180,15 +191,15 @@ PyObject* dump_to_file(PyObject* object, const char* path) {
             ::close(fd);
             return nullptr;
         }
-        cursor += wrote;
-        remaining -= static_cast<size_t>(wrote);
-    }
-    while (::write(fd, "\n", 1) != 1) { // documented trailing newline
-        if (errno == EINTR)
-            continue;
-        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
-        ::close(fd);
-        return nullptr;
+        auto consumed = static_cast<size_t>(wrote);
+        while (active < 2 && consumed >= parts[active].iov_len) {
+            consumed -= parts[active].iov_len;
+            ++active;
+        }
+        if (active < 2 && consumed != 0) {
+            parts[active].iov_base = static_cast<char*>(parts[active].iov_base) + consumed;
+            parts[active].iov_len -= consumed;
+        }
     }
 
     struct stat status;

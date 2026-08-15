@@ -200,15 +200,11 @@ class StagedOutput {
  */
 class SchemaCacheLease {
   public:
-    /// What one schema slot's value was last time; verified before use.
-    enum class ValueKind : uint8_t { Unknown, Str, Float, Int, Bool, None, List, Dict };
-
     /// Prepared `"key":` bytes for one object shape at one depth.
     struct Schema {
         std::vector<PyObject*> keys;      ///< owned references
         std::string blob;                 ///< the prepared bytes, back to back
         std::vector<uint32_t> offsets{0}; ///< blob boundaries, keys.size() + 1
-        uint8_t kinds[24] = {};           ///< ValueKind per slot, adaptively learned
         bool prepared = false;
 
         void remember(PyObject* const* other, Py_ssize_t count) {
@@ -217,18 +213,17 @@ class SchemaCacheLease {
             keys.assign(other, other + count);
             for (PyObject* key : keys)
                 Py_INCREF(key);
-            std::memset(kinds, 0, sizeof(kinds));
             prepared = false;
         }
 
-        [[nodiscard]] bool matches(PyObject* const* other, Py_ssize_t count) const noexcept {
-            if (static_cast<Py_ssize_t>(keys.size()) != count)
-                return false;
-            for (Py_ssize_t index = 0; index < count; ++index) {
-                // Identity, not equality: strata interns the keys it parses
-                // and CPython interns identifier-like literals, so same-schema
-                // records share key objects. A miss costs a rebuild, never a
-                // wrong answer.
+        /// Keys past the first, by identity. `select` has already matched the
+        /// count and the first key from its inline arrays; only a plausible
+        /// hit pays for touching this vector's heap storage. Identity, not
+        /// equality: strata interns the keys it parses and CPython interns
+        /// identifier-like literals, so same-schema records share key
+        /// objects. A miss costs a rebuild, never a wrong answer.
+        [[nodiscard]] bool matches_tail(PyObject* const* other, Py_ssize_t count) const noexcept {
+            for (Py_ssize_t index = 1; index < count; ++index) {
                 if (keys[static_cast<size_t>(index)] != other[index])
                     return false;
             }
@@ -273,6 +268,13 @@ class SchemaCacheLease {
         static constexpr size_t kWays = 4;
         static constexpr size_t kMiss = kWays;
 
+        /// Scanned in place of the ways' own storage: each way's key count
+        /// and first key, inline. A rejected way costs two loads from this
+        /// cache line instead of a pointer chase into its `keys` vector --
+        /// the scan is the per-object cost on shape-rotating documents, and
+        /// with four ways it ran once per record on mixed.json.
+        Py_ssize_t counts[kWays] = {-1, -1, -1, -1};
+        PyObject* first_keys[kWays] = {nullptr, nullptr, nullptr, nullptr};
         Schema ways[kWays];
         uint8_t victim = 0;
         uint32_t misses = 0;
@@ -283,8 +285,10 @@ class SchemaCacheLease {
         [[nodiscard]] size_t select(PyObject* const* keys, Py_ssize_t count) {
             if (retired)
                 return kMiss;
+            PyObject* const first = keys[0]; // callers guarantee count >= 1
             for (size_t way = 0; way < kWays; ++way) {
-                if (ways[way].matches(keys, count))
+                if (counts[way] == count && first_keys[way] == first &&
+                    ways[way].matches_tail(keys, count))
                     return way;
             }
             if (++misses > 64) {
@@ -294,10 +298,16 @@ class SchemaCacheLease {
                     schema.keys.clear();
                     schema.prepared = false;
                 }
+                for (size_t way = 0; way < kWays; ++way) {
+                    counts[way] = -1;
+                    first_keys[way] = nullptr;
+                }
                 retired = true;
                 return kMiss;
             }
             ways[victim].remember(keys, count);
+            counts[victim] = count;
+            first_keys[victim] = first;
             victim = static_cast<uint8_t>((victim + 1) % kWays);
             return kMiss;
         }

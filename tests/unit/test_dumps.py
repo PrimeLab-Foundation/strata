@@ -59,6 +59,48 @@ def test_a_tuple_serializes_as_an_array():
     assert strata.dumps({"t": (1, 2)}) == strata.dumps({"t": [1, 2]})
 
 
+# ---------------------------------------------------------------------------
+# Scalar-run fast paths: homogeneous prefixes, and fallbacks mid-list.
+# The runs re-check every element's type, so a mixed list must produce
+# exactly what the general walk would.
+# ---------------------------------------------------------------------------
+
+
+def test_null_runs_and_their_fallbacks():
+    assert strata.dumps([None] * 200) == "[" + ",".join(["null"] * 200) + "]"
+    assert strata.dumps([None, None, 1, None]) == "[null,null,1,null]"
+    assert strata.dumps([None, True, "x"]) == '[null,true,"x"]'
+
+
+def test_float_runs_with_nonfinite_holes():
+    data = [1.5, float("nan"), 2.25, float("inf"), -0.125, float("-inf")]
+    assert strata.dumps(data) == "[1.5,null,2.25,null,-0.125,null]"
+
+
+def test_schema_keys_wider_than_the_copy_window():
+    # Prepared `"key":` spans past 16 bytes take the spanning path; repeated
+    # records exercise the prepared-schema emit on both sides of that split.
+    wide = "k" * 40
+    records = [{wide: index, "s": "v", "m" * 17: index * 0.5} for index in range(8)]
+    assert strata.dumps(records) == json.dumps(records, separators=(",", ":"))
+
+
+def test_micro_decimal_gate_boundaries():
+    values = [
+        9.9999e-05,  # below the 1e-4 gate: scientific layout
+        1e-4,
+        0.100001,
+        123456789.123456,
+        3999999999.999999,  # just inside the 4e9 gate
+        4.0e9,  # at the gate: general path
+        4000000000.5,
+        12345678901.25,  # above the gate
+    ]
+    out = strata.dumps(values)
+    assert out == json.dumps(values, separators=(",", ":"))
+    assert json.loads(out) == values
+
+
 def test_bool_is_not_serialized_as_an_integer():
     """bool subclasses int, so order of type checks matters."""
     assert strata.dumps([True, False, 1, 0]) == "[true,false,1,0]"

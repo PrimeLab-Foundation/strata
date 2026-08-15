@@ -5,7 +5,9 @@
  * Three layers, fastest first:
  *
  *   1. The micro-decimal tier: values that are exactly n/10^6 emit n's digits
- *      directly (most real-world floats — prices, scores, coordinates).
+ *      directly (most real-world floats — prices, scores, coordinates), with
+ *      an integral-product pre-filter so long-form data rejects without the
+ *      membership divide.
  *   2. Dragonbox: the shortest correctly-rounded digit string for everything
  *      else, via the vendored reference implementation (Junekey Jeon,
  *      include/strata/third_party/dragonbox/, Apache-2.0 with LLVM exceptions
@@ -16,6 +18,13 @@
  *      CPython's `repr(float)` rule, so strata renders a float byte-for-byte
  *      as the standard library would. The equivalence is pinned by test
  *      against a `to_chars`-based reference over tens of millions of values.
+ *
+ * The whole pipeline is out of line on purpose: a header-inline variant with
+ * the micro tier at the call site measured 6% slower on mixed short/long
+ * float arrays — the tier's branch is data-random there and mispredicts at
+ * every call site, while the single call is predictable (the wave-10
+ * negative result in docs/performance/SKILL.md). LTO/PGO builds still
+ * inline across the boundary where the profile says it pays.
  *
  * The vendored Dragonbox header keeps upstream's exact text so it can be
  * audited (and updated) against its repository byte-for-byte; it is excluded
@@ -33,25 +42,13 @@ namespace strata::util {
 
 namespace {
 
-// The digit machinery — pair table, digit count, grouped fixed-width write —
-// lives in dtoa.hpp's detail namespace, shared with the header-inline
-// format_int64.
+// The digit machinery — pair table, digit count, grouped fixed-width write,
+// the 16-byte gap shift — lives in dtoa.hpp's detail namespace, shared with
+// the header-inline format_int64.
 using detail::decimal_digit_count;
 using detail::kDigitPairs;
+using detail::shift16_right;
 using detail::write_digits_fixed;
-
-/// Shift sixteen bytes right by @p gap places (loads before stores, so the
-/// ranges may overlap). Spelled as two u64 moves because a `memmove` call --
-/// which is what the extension build turned the "constant-size" form into --
-/// profiled at 12% of users.json serialization.
-inline void shift16_right(char* from, size_t gap) noexcept {
-    uint64_t low;
-    uint64_t high;
-    std::memcpy(&low, from, 8);
-    std::memcpy(&high, from + 8, 8);
-    std::memcpy(from + gap, &low, 8);
-    std::memcpy(from + gap + 8, &high, 8);
-}
 
 /// The exponent suffix digits: two for 0..99, three above (`e+05`, `e+308`).
 [[nodiscard]] char* write_exponent(int value, char* out) noexcept {
@@ -67,7 +64,7 @@ inline void shift16_right(char* from, size_t gap) noexcept {
  * The micro-decimal tier: values that are exactly a 6-decimal fixed number.
  *
  * Real-world floats are overwhelmingly short decimals (prices, scores,
- * coordinates), and for them even Ryu is overkill. If `value` equals
+ * coordinates), and for them even Dragonbox is overkill. If `value` equals
  * `n / 10^6` for some integer `n` -- checked with one exact division, since
  * both `n` and `10^6` are exactly representable -- then the digits of `n`
  * with trailing zeros stripped ARE the shortest form: within the gate below
@@ -88,12 +85,25 @@ inline void shift16_right(char* from, size_t gap) noexcept {
     if (!(magnitude >= 1e-4 && magnitude < 4.0e9))
         return 0;
 
+    // Integral-product pre-filter: for every member this tier serves, the
+    // product below is *exactly* the integer n (the relative error of one
+    // multiply stays under half a unit throughout the gated range), so a
+    // non-integral product rejects without paying the divide — which is the
+    // whole cost of running this tier over long-form float data. Truncation
+    // rather than llround: llround is one instruction on arm64 but a libc
+    // call on x86-64, and a mis-rounded borderline here merely fails the
+    // membership check below and takes the general path — correctness never
+    // rests on this rounding.
+    const double product = magnitude * 1e6;
+    const auto scaled = static_cast<int64_t>(product + 0.5);
+    if (static_cast<double>(scaled) != product)
+        return 0;
+
     // The divide is the membership proof and is not negotiable: an integral
     // product alone admits values that are *near* n/10^6 without being its
     // nearest double (caught by the round-trip oracle when tried — the
     // binade-boundary slack breaks the half-ulp argument). Division of two
     // exact values is correctly rounded, so equality here is exact.
-    const auto scaled = static_cast<int64_t>(std::llround(magnitude * 1e6));
     if (static_cast<double>(scaled) / 1e6 != magnitude)
         return 0;
 

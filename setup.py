@@ -124,16 +124,46 @@ def _compiler_kind() -> str:
     return "clang" if sys.platform == "darwin" else "gcc"
 
 
+def _msvc_optimization_args(mode: str) -> tuple[list[str], list[str]]:
+    """MSVC spelling: LTO is /GL + /LTCG; PGO rides on LTCG via /GENPROFILE → /USEPROFILE.
+
+    `STRATA_PGO_PROFILE` names the .pgd both phases share: the instrumented
+    link creates it, the training runs drop `strata!N.pgc` beside it, and the
+    /USEPROFILE link merges those automatically — no separate pgomgr step
+    (VS2015+). PGO implies LTCG, so /GL+/LTCG are on whenever anything here is
+    requested. The instrumented extension needs pgort140.dll resolvable at
+    import — Python 3.8+ does not consult PATH for extension-module
+    dependencies, so scripts/pgo_build_msvc.py stages it beside python.exe.
+    """
+    compile_args = ["/GL"]
+    link_args = ["/LTCG"]
+    if mode:
+        profile = os.environ.get("STRATA_PGO_PROFILE", "").strip()
+        if not profile:
+            raise SystemExit(f"PGO_MODE={mode} requires STRATA_PGO_PROFILE (a .pgd path) on MSVC.")
+        if mode == "generate":
+            link_args.append(f"/GENPROFILE:PGD={profile}")
+        else:
+            if not Path(profile).exists():
+                raise SystemExit(f"STRATA_PGO_PROFILE does not exist: {profile}")
+            link_args.append(f"/USEPROFILE:PGD={profile}")
+    return compile_args, link_args
+
+
 def _optimization_args() -> tuple[list[str], list[str]]:
     """(compile, link) flags for LTO and PGO, driven by the environment.
 
-    `make pgo` (scripts/pgo_build.sh) sets these; a plain `make install`
-    leaves them unset and gets an ordinary -O3 build.
+    `make pgo` (scripts/pgo_build.sh) sets these on POSIX and
+    `scripts/pgo_build_msvc.py` does on Windows; a plain `make install`
+    leaves them unset and gets an ordinary -O3 / /O2 build.
 
     - `STRATA_ENABLE_LTO=1`   — link-time optimization.
-    - `PGO_MODE=generate`     — instrument; the runtime writes .profraw files
-                                to wherever `LLVM_PROFILE_FILE`/`GCOV_PREFIX` point.
-    - `PGO_MODE=use`          — optimize against `STRATA_PGO_PROFILE`.
+    - `PGO_MODE=generate`     — instrument; clang/gcc write .profraw/.gcda to
+                                wherever `LLVM_PROFILE_FILE`/`GCOV_PREFIX`
+                                point, MSVC writes .pgc beside the .pgd named
+                                by `STRATA_PGO_PROFILE`.
+    - `PGO_MODE=use`          — optimize against `STRATA_PGO_PROFILE`
+                                (clang .profdata / gcc .gcda tree / MSVC .pgd).
     """
     mode = os.environ.get("PGO_MODE", "").strip().lower()
     lto = os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1"
@@ -145,9 +175,7 @@ def _optimization_args() -> tuple[list[str], list[str]]:
 
     kind = _compiler_kind()
     if kind == "msvc":
-        # MSVC PGO needs /GL + /LTCG:PGINSTRUMENT and a separate pgomgr step.
-        # Refuse rather than silently produce an unoptimized build.
-        raise SystemExit("STRATA_ENABLE_LTO/PGO_MODE are not supported with MSVC.")
+        return _msvc_optimization_args(mode)
 
     compile_args: list[str] = []
     link_args: list[str] = []
@@ -188,6 +216,7 @@ def _compile_args() -> list[str]:
         args = ["/std:c++20", "/O2", "/Zc:__cplusplus"]
         if platform.machine() in ("AMD64", "x86_64"):
             args.append("/arch:AVX2")
+        args.extend(_optimization_args()[0])
         return args
     args = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
     # -march=native tunes for the build host; a universal2 wheel targets two
@@ -199,8 +228,6 @@ def _compile_args() -> list[str]:
 
 
 def _link_args() -> list[str]:
-    if sys.platform == "win32":
-        return []
     return _optimization_args()[1]
 
 

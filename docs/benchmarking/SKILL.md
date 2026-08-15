@@ -81,11 +81,12 @@ and architecture**, tracked in-tree rather than left in CI logs.
   every supported leg — linux-x86_64, macos-x86_64, macos-arm64,
   windows-x86_64, plus a visibility-guarded linux-arm64 leg that activates
   when the repo goes public — and uploads one report artifact per leg,
-  named `benchmark-<os>-<arch>`. The POSIX legs benchmark the **PGO+LTO
-  build** (`make pgo` — the build the release wheel ships, worth −8..−25%),
-  since the competitors are their released wheels; the Windows leg stays a
-  plain /O2 build (setup.py refuses PGO/LTO under MSVC), and each report's
-  compiler_flags line says which build its leg measured.
+  named `benchmark-<os>-<arch>`. Every leg benchmarks the **PGO build**
+  (the build the release wheel ships, worth −8..−25%), since the
+  competitors are their released wheels: the POSIX legs run `make pgo`, the
+  Windows leg runs `scripts/pgo_build_msvc.py` (MSVC's LTCG spelling:
+  `/GL`, `/GENPROFILE` → `/USEPROFILE`), and each report's compiler_flags
+  line says which build its leg measured.
 - `make bench-ci` (`benchmarks/ci_fetch.py`) pulls the latest completed
   run's reports into `docs/benchmarks/ci/bench_results_<os>-<arch>.md` plus
   `run_info.json` (run id, sha, date, artifact map). os/arch come from each
@@ -103,61 +104,59 @@ Reading the numbers: a rank is computed within one report — one machine, one
 interleaved round — which is the same-machine comparison the contract
 allows; absolute times never cross platforms, the supportability tripwire
 stays the CI gate, and headline standings come only from the quiet-machine
-protocol. Systematic offsets vs the headline numbers: the Windows leg
-measures a plain /O2 build (MSVC PGO refused; the POSIX legs build PGO), and
-shared runners are noisy — treat a single-run rank decided inside ~1.05x as
-a coin flip and re-run before acting on it.
+protocol. Shared runners are noisy — treat a single-run rank decided inside
+~1.05x as a coin flip and re-run before acting on it.
 
 First fetch (run 31392004866, 2026-08-10, commit `16b0a58`): **44/108 rows
-at #1** — query 12/12, search 12/12, NDJSON `load` 4/4 on every leg, but the
-small-tier `loads`/`dumps`/`load`/`dump` rows trail everywhere off the dev
-machine: linux-x86_64 7/27, windows-x86_64 8/27, macos-x86_64 13/27,
-macos-arm64 16/27 (matching the local small-tier picture). **That run
-predates two changes aimed squarely at it**: the CI legs measured plain
-non-PGO builds (POSIX legs now run `make pgo` first), and it ran before the
-wave-8 parse work (bulk-ASCII validation, presized dicts, four-way
-predictions, Eisel–Lemire — `docs/performance/SKILL.md`). Re-dispatch the
-workflow and `make bench-ci` to refresh the standings against both.
+at #1** — that run measured plain non-PGO builds and predated the wave-8/9
+work. After billing was fixed (2026-08-15), two same-commit runs on wave-9
+main scored **81/108 and 78/108**: parse categories (loads/load/NDJSON/
+query/search) swept on the POSIX legs, macos-arm64 26/27. Cross-tabulating
+the two runs separates signal from runner noise — rows behind in *both*:
+dumps mixed on every leg (1.13–1.51x, worst on macos-x86_64), dumps/dump
+users-nested-flat on the x86_64 legs (1.01–1.25x), and the whole Windows
+serialization block (still an /O2 leg in those runs; the MSVC PGO wiring
+landed after). Rows flipping between runs (1.00–1.09x) are the coin-flip
+band. Wave 10 (schema-emit — `docs/performance/SKILL.md`) targets the
+stable dumps residue; re-dispatch and `make bench-ci` for the post-wave
+verdict.
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
-Post-wave-8 state, all rows and their known leads:
+Post-wave-10 state (2026-08-15), all rows and their known leads:
 
 - **Coin-flip band** (1.00–1.03x, every leg): decided by machine state, not
   code — four consecutive deciding sweeps flipped these rows' signs with no
   change between runs. Only the gated quiet-machine protocol settles them.
-- **`loads mixed` small, ~1.06x (arm64)**: the tiny-record per-call floor.
-  Leads, in order: the `LightweightBuilder` salvage item
-  (docs/performance/SKILL.md, ranked 4th — ~30% claim on exactly this
-  shape); a small-int cache extended past CPython's 256 (the recorded
-  non-win only covered duplicating 0..256); KnownHash inserts are blocked by
-  the FirstWins default contract.
-- **wide_arrays serialization large**: worked by wave 9 (header-inline
-  itoa + fused comma in the int run). Isolated, the row now leads on both
-  builds — 0.92x plain, 0.92–0.96x across a three-build PGO bracket — and
-  short-int lists went 1.22x → 1.00–1.03x, the wave's headline win; dumps
-  mixed followed (1.26x → 1.23x plain, 1.04x → 1.01x PGO). What remains is
-  the *under-load* number: inside the full interleaved tier harness the row
-  still reads 1.06–1.10x (69/81 refresh) while leading isolated — cache and
-  predictor pressure, not a code gap a profiler has yet named. The 9–10-digit
-  int micro reads +3.5% under PGO (flips no row); the bool run sits at
-  1.07x inside run-to-run noise. The itoa restructuring leads (grouped
-  fixed-width write, digit-count-switched tree, two-element unroll) are all
-  measured or reasoned dead — negative-results table.
-- **Windows dumps rows**: the one structural gap — setup.py refuses MSVC
-  PGO, so that leg benchmarks /O2 while POSIX legs benchmark PGO. Wiring
-  MSVC LTCG profile-guided flags (/GL, /GENPROFILE → /USEPROFILE) is the
-  fix; until then Windows serialization rows carry a known ~10–25% handicap
-  the other legs no longer have.
-- **The five-leg verdict**: wave 8 is pushed, but every `benchmark.yml`
-  dispatch since 2026-08-11 — and the wave-8 push's own ci.yml run — was
-  refused by GitHub in seconds: "recent account payments have failed or
-  your spending limit needs to be increased". Unblocking is a billing fix
-  in the org settings (human-only); then `gh workflow run benchmark.yml` +
-  `make bench-ci`. Four legs were pre-verified locally post-wave (Rosetta
-  x86_64, Docker linux-arm64/x86_64, native arm64 — docs/decisions.md,
-  2026-08-11): 82–83/108 measured rows #1 on plain builds vs the committed
-  pre-wave 44/108, with parse categories swept on three of four.
+  Today's instance: `dump mixed` at 1.01x on small/medium in one tier run
+  and #1 (0.96x) at large in the next.
+- **`loads mixed`/`loads flat` small**: closed by the wave-10 loads pass
+  (prediction-probe word compares + builder-side compact-ASCII
+  construction — docs/performance/SKILL.md): every small-tier loads row is
+  #1 in the post-wave tier refresh. The `LightweightBuilder` salvage item
+  stays unspent; the 17%-of-profile `_tlv_get_addr` under CPython 3.14's
+  own allocator on macOS is recorded as non-differential — do not chase it.
+- **wide_arrays serialization large**: the one standing residue. Wave 9
+  closed the isolated gap; wave-10's decomposition acquits every scalar run
+  individually (floats 1.01x, ints 0.97x, strings 0.73x vs orjson on
+  exactly wide's data — and orjson's parts sum *slower* than its whole).
+  The assembled document still reads 1.03x isolated / 1.05–1.08x
+  interleaved on today's PGO roll, oscillating with each profile build:
+  run-switching churn across 20k 64-element lists, still not a code gap a
+  profiler names. The itoa restructuring leads remain dead
+  (negative-results table).
+- **Windows rows**: was the one structural gap — that leg benchmarked /O2
+  while POSIX legs benchmark PGO. Closed 2026-08-15: setup.py now maps the
+  same env knobs to MSVC LTCG PGO (/GL, /GENPROFILE → /USEPROFILE) and
+  `scripts/pgo_build_msvc.py` drives the two phases on the CI leg, so
+  Windows serialization rows shed their ~10–25% build handicap. Awaiting a
+  post-change benchmark.yml run for the measured verdict.
+- **The five-leg verdict**: billing was fixed 2026-08-15 and two same-commit
+  wave-9 runs scored 81/108 and 78/108 (from the committed pre-wave
+  44/108). The wave-10 code (schema-emit + loads pass) and the MSVC PGO
+  wiring are in-tree awaiting the human push; then
+  `gh workflow run benchmark.yml` + `make bench-ci` deliver the verdict on
+  all four active legs (linux-arm64 activates when the repo goes public).
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 

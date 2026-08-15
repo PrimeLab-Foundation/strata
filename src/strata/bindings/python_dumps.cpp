@@ -52,7 +52,6 @@ CyclePolicyValue g_cycle_policy = CyclePolicyValue::Warn;
 /// Walks a Python object graph, appending JSON through the staged buffer.
 class Serializer {
     using Schema = SchemaCacheLease::Schema;
-    using ValueKind = SchemaCacheLease::ValueKind;
 
   public:
     Serializer(StagedOutput& out, std::vector<SchemaCacheLease::DepthSchemas>& schemas)
@@ -322,6 +321,8 @@ class Serializer {
             return run_bools(items, size);
         if (type == &PyUnicode_Type)
             return run_strings(items, size);
+        if (items[0] == Py_None)
+            return run_nones(items, size);
         return 0;
     }
 
@@ -339,14 +340,19 @@ class Serializer {
                 PyObject* item = items[index];
                 if (Py_TYPE(item) != &PyFloat_Type)
                     return index;
-                if (index != 0)
-                    out_.put(',');
+                // Fused separator, as in the int run: the comma is stored
+                // unconditionally and the payload lands one byte past it,
+                // overwriting it for the very first element.
+                char* cursor = out_.cursor();
+                *cursor = ',';
+                const auto skip = static_cast<size_t>(index != 0);
                 const double value = PyFloat_AS_DOUBLE(item);
-                if (std::isnan(value) || std::isinf(value)) {
-                    out_.write("null", 4);
+                if (!std::isfinite(value)) { // NaN or ±Inf: JSON cannot spell either
+                    std::memcpy(cursor + skip, "null", 4);
+                    out_.advance(skip + 4);
                 } else {
                     out_.advance(
-                        util::format_double(value, out_.cursor(), util::kDoubleBufferSize));
+                        skip + util::format_double(value, cursor + skip, util::kDoubleBufferSize));
                 }
             }
         }
@@ -434,6 +440,27 @@ class Serializer {
         return index;
     }
 
+    [[nodiscard]] Py_ssize_t run_nones(PyObject** items, Py_ssize_t size) {
+        // First element bare, then one eight-byte constant store per element
+        // (",null" plus slack the next write overwrites). Same store-window
+        // proof as the bool run: the last store reaches (block-1)*5+8 bytes
+        // past the reserve base, which 8*block always contains.
+        out_.ensure(8);
+        out_.write("null", 4);
+        Py_ssize_t index = 1;
+        while (index < size) {
+            const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
+            out_.ensure(static_cast<size_t>(block_end - index) * 8);
+            for (; index < block_end; ++index) {
+                if (items[index] != Py_None)
+                    return index;
+                std::memcpy(out_.cursor(), ",null\0\0", 8);
+                out_.advance(5);
+            }
+        }
+        return index;
+    }
+
     /// Clean short ASCII strings, quoted straight into the stage. The first
     /// element needing escapes, non-ASCII text, or real length ends the run.
     [[nodiscard]] Py_ssize_t run_strings(PyObject** items, Py_ssize_t size) {
@@ -467,25 +494,6 @@ class Serializer {
     static constexpr Py_ssize_t kMaxSchemaKeys = 24;
     /// Nesting levels that get a schema slot; deeper objects take the plain walk.
     static constexpr size_t kMaxCachedDepth = 64;
-
-    [[nodiscard]] static ValueKind classify_value(PyObject* value) noexcept {
-        PyTypeObject* const type = Py_TYPE(value);
-        if (type == &PyUnicode_Type)
-            return ValueKind::Str;
-        if (type == &PyFloat_Type)
-            return ValueKind::Float;
-        if (type == &PyLong_Type)
-            return ValueKind::Int;
-        if (value == Py_None)
-            return ValueKind::None;
-        if (value == Py_True || value == Py_False)
-            return ValueKind::Bool;
-        if (type == &PyList_Type)
-            return ValueKind::List;
-        if (type == &PyDict_Type)
-            return ValueKind::Dict;
-        return ValueKind::Unknown; // subclasses and errors stay on write()
-    }
 
     /// Exact scalar types cannot recurse, so a dict of them cannot contain
     /// itself and needs no cycle frame.
@@ -605,7 +613,9 @@ class Serializer {
 #endif
     // Inlined into both call sites: as an out-of-line function the call and
     // register spill cost ~9 ns per object, which erased the frame-elision
-    // win on shallow-dict documents.
+    // win on shallow-dict documents. Re-measured after wave 10 fattened the
+    // body: dropping this changed the interleaved wide_arrays row by nothing
+    // and cost ~1% on record rows — the attribute stays.
     [[nodiscard]] inline bool write_mapping_body(PyObject* object, PyObject* const* keys,
                                                  PyObject* const* values, Py_ssize_t count) {
         // Documents are overwhelmingly made of records that share a schema, so
@@ -643,12 +653,8 @@ class Serializer {
 
         out_.ensure(1);
         out_.put('{');
-        for (Py_ssize_t index = 0; index < count; ++index) {
-            if (index != 0) {
-                out_.ensure(1);
-                out_.put(',');
-            }
-            if (prepared) {
+        if (prepared) {
+            for (Py_ssize_t index = 0; index < count; ++index) {
                 // `"key":` — quotes, escapes and colon, prepared once.
                 //
                 // Re-indexed every iteration rather than held by reference: a
@@ -656,17 +662,40 @@ class Serializer {
                 // slot's own bytes are never touched by a deeper level, so
                 // indexing afresh is both safe and free.
                 const Schema& schema = schemas_[depth].ways[way];
-                out_.write_spanning(schema.blob.data() + schema.offsets[static_cast<size_t>(index)],
-                                    schema.offsets[static_cast<size_t>(index) + 1] -
-                                        schema.offsets[static_cast<size_t>(index)]);
-            } else {
+                const uint32_t offset = schema.offsets[static_cast<size_t>(index)];
+                const uint32_t span = schema.offsets[static_cast<size_t>(index) + 1] - offset;
+                // Fused comma plus one fixed 16-byte copy: real keys are
+                // short, and a length-dispatched copy of 6–12 bytes was a
+                // libc memmove call per key — measured at a tenth of dumps
+                // mixed. The blob carries 16 bytes of slack so the copy may
+                // always store the full window; span > 16 falls back.
+                out_.ensure(17);
+                char* cursor = out_.cursor();
+                *cursor = ',';
+                const auto skip = static_cast<size_t>(index != 0);
+                if (span <= 16) {
+                    std::memcpy(cursor + skip, schema.blob.data() + offset, 16);
+                    out_.advance(skip + span);
+                } else {
+                    out_.advance(skip);
+                    out_.write_spanning(schema.blob.data() + offset, span);
+                }
+                if (!write(values[index]))
+                    return false;
+            }
+        } else {
+            for (Py_ssize_t index = 0; index < count; ++index) {
+                if (index != 0) {
+                    out_.ensure(1);
+                    out_.put(',');
+                }
                 if (!write_string(keys[index]))
                     return false;
                 out_.ensure(1);
                 out_.put(':');
+                if (!write(values[index]))
+                    return false;
             }
-            if (!write(values[index]))
-                return false;
         }
         out_.ensure(1);
         out_.put('}');
@@ -689,6 +718,9 @@ class Serializer {
             schema.blob.push_back(':');
             schema.offsets.push_back(static_cast<uint32_t>(schema.blob.size()));
         }
+        // Slack for the emit loop's fixed 16-byte key copy: every span with
+        // offset + 16 in bounds can be stored without a length dispatch.
+        schema.blob.append(16, '\0');
         schema.prepared = true;
         return true;
     }

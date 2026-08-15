@@ -13,13 +13,13 @@ name: Benchmarks
 # replaced it. Headline standings come only from the documented
 # quiet-machine protocol.
 #
-# The POSIX legs benchmark the PGO+LTO build (`make pgo` — the build the
-# release wheel ships and the headline protocol measures); competitors are
-# their released wheels, so anything else undersells strata systematically
-# (PGO is worth -8..-25% — docs/performance/SKILL.md). The Windows leg stays
-# a plain /O2 build: setup.py refuses PGO/LTO under MSVC rather than
-# pretending, and the report's compiler_flags line records exactly which
-# build each leg measured.
+# Every leg benchmarks the PGO build — the build the release wheel ships and
+# the headline protocol measures; competitors are their released wheels, so
+# anything else undersells strata systematically (PGO is worth -8..-25% —
+# docs/performance/SKILL.md). The POSIX legs run `make pgo` (clang/gcc
+# two-phase profile + LTO); the Windows leg runs scripts/pgo_build_msvc.py
+# (the LTCG twin: /GL, /GENPROFILE -> /USEPROFILE). Each report's
+# compiler_flags line records exactly which build its leg measured.
 #
 # Reports and artifacts are named by platform-architecture, never by runner
 # label: one `benchmark-<os>-<arch>` artifact per leg. `make bench-ci`
@@ -193,13 +193,14 @@ jobs:
           path: bench_ci_*.md
           if-no-files-found: ignore
 
-  # MSVC has no PGO here by policy (setup.py refuses PGO/LTO under MSVC
-  # rather than silently ignoring them), so this leg measures the plain /O2
-  # build — the report's compiler_flags line says so.
+  # MSVC PGO is spelled LTCG: scripts/pgo_build_msvc.py compiles /GL and
+  # links /GENPROFILE -> /USEPROFILE around the same training workload the
+  # POSIX `make pgo` uses, so this leg measures the same class of build the
+  # others do — the report's compiler_flags line says so.
   bench-windows:
     name: supportability (windows-x86_64)
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -213,6 +214,10 @@ jobs:
           python -m pip install -U pip setuptools wheel
           python -m pip install -e ".[dev,bench]"
 
+      - name: PGO+LTCG build (gate tests on both phases)
+        shell: bash
+        run: python scripts/pgo_build_msvc.py
+
       - name: Generate the small-tier datasets
         shell: bash
         run: |
@@ -220,8 +225,13 @@ jobs:
             --out-dir benchmarks/data/generated/small \
             --num-users 1000 --max-orders 10 --max-items 5 --records 500
 
+      # PGO_MODE/STRATA_ENABLE_LTO only inform the report's compiler_flags
+      # line here — the installed extension is already the PGO+LTCG build.
       - name: Run the benchmark suite
         shell: bash
+        env:
+          PGO_MODE: use
+          STRATA_ENABLE_LTO: "1"
         run: |
           PYTHONPATH=. python -m benchmarks.bench_main --name "ci-windows-x86_64" \
             --repeat 10 --warmup 2 \
