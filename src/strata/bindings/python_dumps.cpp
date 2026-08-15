@@ -653,33 +653,43 @@ class Serializer {
 
         out_.ensure(1);
         out_.put('{');
-        if (prepared) {
+        if (prepared && !schemas_[depth].ways[way].wide) {
             for (Py_ssize_t index = 0; index < count; ++index) {
-                // `"key":` — quotes, escapes and colon, prepared once.
+                // `"key":` — quotes, escapes and colon, prepared once, read
+                // from the schema's *inline* slot row: fused comma plus one
+                // fixed 16-byte copy at a fixed stride, so the whole key
+                // stream for a record is one contiguous struct. That keeps
+                // the emit warm under the harness's per-call gc.collect(),
+                // whose traversal re-warms every dict's own internals while
+                // evicting heap side-structures (a blob/offsets layout paid
+                // cold hops per record under exactly that condition).
                 //
                 // Re-indexed every iteration rather than held by reference: a
-                // nested object may grow `schemas_` and move its elements. The
-                // slot's own bytes are never touched by a deeper level, so
-                // indexing afresh is both safe and free.
+                // nested object may grow `schemas_` and move its elements.
                 const Schema& schema = schemas_[depth].ways[way];
-                const uint32_t offset = schema.offsets[static_cast<size_t>(index)];
-                const uint32_t span = schema.offsets[static_cast<size_t>(index) + 1] - offset;
-                // Fused comma plus one fixed 16-byte copy: real keys are
-                // short, and a length-dispatched copy of 6–12 bytes was a
-                // libc memmove call per key — measured at a tenth of dumps
-                // mixed. The blob carries 16 bytes of slack so the copy may
-                // always store the full window; span > 16 falls back.
                 out_.ensure(17);
                 char* cursor = out_.cursor();
                 *cursor = ',';
                 const auto skip = static_cast<size_t>(index != 0);
-                if (span <= 16) {
-                    std::memcpy(cursor + skip, schema.blob.data() + offset, 16);
-                    out_.advance(skip + span);
-                } else {
-                    out_.advance(skip);
-                    out_.write_spanning(schema.blob.data() + offset, span);
+                std::memcpy(cursor + skip,
+                            schema.slots +
+                                static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
+                            SchemaCacheLease::kSlotBytes);
+                out_.advance(skip + schema.spans[static_cast<size_t>(index)]);
+                if (!write(values[index]))
+                    return false;
+            }
+        } else if (prepared) {
+            // Some span exceeded its slot: emit every key from the blob.
+            for (Py_ssize_t index = 0; index < count; ++index) {
+                const Schema& schema = schemas_[depth].ways[way];
+                const uint32_t offset = schema.offsets[static_cast<size_t>(index)];
+                const uint32_t span = schema.offsets[static_cast<size_t>(index) + 1] - offset;
+                if (index != 0) {
+                    out_.ensure(1);
+                    out_.put(',');
                 }
+                out_.write_spanning(schema.blob.data() + offset, span);
                 if (!write(values[index]))
                     return false;
             }
@@ -718,9 +728,18 @@ class Serializer {
             schema.blob.push_back(':');
             schema.offsets.push_back(static_cast<uint32_t>(schema.blob.size()));
         }
-        // Slack for the emit loop's fixed 16-byte key copy: every span with
-        // offset + 16 in bounds can be stored without a length dispatch.
-        schema.blob.append(16, '\0');
+        // Inline each span into its fixed slot; one oversized span keeps the
+        // whole schema on the blob fallback (schema.wide).
+        for (size_t index = 0; index + 1 < schema.offsets.size(); ++index) {
+            const uint32_t span = schema.offsets[index + 1] - schema.offsets[index];
+            if (span > SchemaCacheLease::kSlotBytes) {
+                schema.wide = true;
+                break;
+            }
+            schema.spans[index] = static_cast<uint8_t>(span);
+            std::memcpy(schema.slots + index * SchemaCacheLease::kSlotBytes,
+                        schema.blob.data() + schema.offsets[index], span);
+        }
         schema.prepared = true;
         return true;
     }

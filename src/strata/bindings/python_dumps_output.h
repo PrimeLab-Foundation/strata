@@ -200,12 +200,30 @@ class StagedOutput {
  */
 class SchemaCacheLease {
   public:
+    /// Keys per schema slot row; object width past this takes the plain walk.
+    static constexpr size_t kSchemaSlots = 24;
+    /// Bytes per inline `"key":` slot; a wider span falls back to heap spans.
+    static constexpr size_t kSlotBytes = 16;
+
     /// Prepared `"key":` bytes for one object shape at one depth.
+    ///
+    /// The prepared bytes live *inline*, one fixed 16-byte slot per key, so
+    /// the emit loop's whole read stream is this contiguous struct. The
+    /// benchmark harness runs a full gc.collect() before every timed call,
+    /// and the collector's traversal re-warms every dict's own internals —
+    /// the memory a direct-walk serializer reads — while evicting side
+    /// structures; with blob/offsets as separate heap allocations the emit
+    /// path paid three cold hops per record under exactly that condition
+    /// (parity isolated, behind under the harness, on every x86 leg).
+    /// Spans wider than a slot keep the heap blob as the fallback.
     struct Schema {
-        std::vector<PyObject*> keys;      ///< owned references
-        std::string blob;                 ///< the prepared bytes, back to back
-        std::vector<uint32_t> offsets{0}; ///< blob boundaries, keys.size() + 1
+        std::vector<PyObject*> keys;                ///< owned references
+        std::string blob;                           ///< fallback bytes for wide spans only
+        std::vector<uint32_t> offsets{0};           ///< fallback boundaries, keys.size() + 1
+        uint8_t spans[kSchemaSlots] = {};           ///< inline `"key":` length per slot
+        char slots[kSchemaSlots * kSlotBytes] = {}; ///< the inline bytes
         bool prepared = false;
+        bool wide = false; ///< some span exceeded a slot: emit from the blob
 
         void remember(PyObject* const* other, Py_ssize_t count) {
             for (PyObject* key : keys)
@@ -214,6 +232,7 @@ class SchemaCacheLease {
             for (PyObject* key : keys)
                 Py_INCREF(key);
             prepared = false;
+            wide = false;
         }
 
         /// Keys past the first, by identity. `select` has already matched the
