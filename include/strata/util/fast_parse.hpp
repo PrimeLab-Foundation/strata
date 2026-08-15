@@ -25,6 +25,7 @@
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <system_error>
 

@@ -22,6 +22,10 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#else
+#include <fcntl.h>
+#include <io.h>
+#include <sys/stat.h>
 #endif
 #include <cstdio>
 #include <memory>
@@ -215,16 +219,38 @@ PyObject* dump_to_file(PyObject* object, const char* path) {
         return nullptr;
     }
 #else
-    std::FILE* handle = std::fopen(path, "wb");
-    if (handle == nullptr) {
+    // Same raw-descriptor shape as the POSIX branch, in CRT spelling: stdio's
+    // fwrite pays a buffer copy and a FILE lock per call, and dropping it was
+    // the dominant share of the small-document dump win on the POSIX side
+    // (dump mixed 1.25x -> 1.03x there). Windows has no writev, so the
+    // documented trailing newline is a second _write; there is no mode
+    // enforcement here — the exact-0644 contract is POSIX-only (api.md).
+    const int fd = ::_open(path, _O_WRONLY | _O_CREAT | _O_TRUNC | _O_BINARY | _O_NOINHERIT,
+                           _S_IREAD | _S_IWRITE);
+    if (fd < 0) {
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
         return nullptr;
     }
-    const bool wrote =
-        std::fwrite(data, 1, static_cast<size_t>(size), handle) == static_cast<size_t>(size) &&
-        std::fputc('\n', handle) != EOF; // documented trailing newline
-    const bool closed = std::fclose(handle) == 0;
-    if (!wrote || !closed) {
+    const char* cursor = data;
+    size_t remaining = static_cast<size_t>(size);
+    while (remaining > 0) {
+        const unsigned int chunk =
+            remaining > (1u << 30) ? (1u << 30) : static_cast<unsigned int>(remaining);
+        const int wrote = ::_write(fd, cursor, chunk);
+        if (wrote <= 0) {
+            PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+            ::_close(fd);
+            return nullptr;
+        }
+        cursor += wrote;
+        remaining -= static_cast<size_t>(wrote);
+    }
+    if (::_write(fd, "\n", 1) != 1) { // documented trailing newline
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+        ::_close(fd);
+        return nullptr;
+    }
+    if (::_close(fd) != 0) {
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
         return nullptr;
     }
