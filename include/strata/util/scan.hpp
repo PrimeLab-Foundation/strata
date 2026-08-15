@@ -55,9 +55,23 @@ namespace strata::util {
 /**
  * Advance past JSON whitespace (space, tab, CR, LF) starting at @p pos.
  *
+ * Header-inline: the tokenizer calls this between every pair of tokens, and
+ * the byte at @p pos is usually already non-whitespace (compact JSON) or one
+ * single space (pretty separators) — an out-of-line version made that a
+ * cross-TU call per token, profiled at ~5% of a numbers-heavy parse. The
+ * body is four compares; there is nothing to vectorize.
+ *
  * @return Index of the first non-whitespace byte, or @p len at end of input.
  */
-[[nodiscard]] size_t skip_whitespace(const char* data, size_t len, size_t pos) noexcept;
+[[nodiscard]] inline size_t skip_whitespace(const char* data, size_t len, size_t pos) noexcept {
+    while (pos < len) {
+        const char c = data[pos];
+        if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
+            break;
+        ++pos;
+    }
+    return pos;
+}
 
 /**
  * Find the first byte that ends a string's "plain" run.

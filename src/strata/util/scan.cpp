@@ -140,16 +140,6 @@ bool validate_utf8_scalar(const char* data, size_t len) noexcept {
     return true;
 }
 
-size_t skip_whitespace(const char* data, size_t len, size_t pos) noexcept {
-    while (pos < len) {
-        const char c = data[pos];
-        if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
-            break;
-        ++pos;
-    }
-    return pos;
-}
-
 size_t find_next_escape_scalar(const char* data, size_t len) noexcept {
     for (size_t pos = 0; pos < len; ++pos) {
         const unsigned char c = static_cast<unsigned char>(data[pos]);

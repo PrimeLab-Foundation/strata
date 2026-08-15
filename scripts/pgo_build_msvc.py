@@ -127,15 +127,67 @@ def _install(mode: str) -> None:
     )
 
 
-def _pgc_files() -> list[Path]:
-    return sorted(PGO_DIR.glob("strata!*.pgc"))
+def _extension_dir() -> Path | None:
+    probe = subprocess.run(
+        [sys.executable, "-c", "import strata._strata as m; print(m.__file__)"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if probe.returncode != 0:
+        return None
+    return Path(probe.stdout.strip()).resolve().parent
+
+
+def _found_pgc() -> list[Path]:
+    """Every count file the instrumented runs dropped, wherever it fell.
+
+    The PGO runtime names them `<pgd-base>!N.pgc`; the documentation says
+    they land beside the .pgd, but in practice they can appear beside the
+    instrumented binary or in the process working directory depending on the
+    toolset. Search every plausible home; phase 2 consumes them from the
+    .pgd's directory.
+    """
+    seen: dict[Path, Path] = {}
+    for pgc in PROJECT_ROOT.rglob("strata!*.pgc"):
+        seen[pgc.resolve()] = pgc
+    module_dir = _extension_dir()
+    if module_dir is not None:
+        for pgc in module_dir.glob("strata!*.pgc"):
+            seen[pgc.resolve()] = pgc
+    return sorted(seen)
+
+
+def _collect_pgc() -> None:
+    """Gather the training profiles beside the .pgd, or fail with a diagnosis."""
+    found = _found_pgc()
+    moved = 0
+    for pgc in found:
+        if pgc.parent != PGO_DIR:
+            shutil.move(str(pgc), PGO_DIR / pgc.name)
+            moved += 1
+    if not found:
+        print(f"    strata.pgd exists: {PGD_FILE.exists()}", flush=True)
+        for base in (PGO_DIR, PROJECT_ROOT):
+            names = sorted(entry.name for entry in base.glob("*"))[:40]
+            print(f"    {base}: {names}", flush=True)
+        if not PGD_FILE.exists():
+            raise SystemExit(
+                "No .pgc profiles and no .pgd — /GENPROFILE never reached the "
+                "link; the build was not instrumented.",
+            )
+        raise SystemExit(
+            "No .pgc profiles found anywhere despite an instrumented link "
+            "(strata.pgd exists) — the PGO runtime did not flush.",
+        )
+    print(f"    {len(found)} profile(s), {moved} moved beside the pgd", flush=True)
 
 
 def _assert_not_instrumented() -> None:
     """Prove phase 2 swapped the build: an instrumented import writes a .pgc."""
-    before = len(_pgc_files())
+    before = len(_found_pgc())
     _run([sys.executable, "-c", "import strata; strata.loads('{}')"])
-    if len(_pgc_files()) != before:
+    if len(_found_pgc()) != before:
         raise SystemExit(
             "The phase-2 build still writes .pgc profiles — the /USEPROFILE "
             "relink did not replace the instrumented extension.",
@@ -176,8 +228,8 @@ def main() -> int:
     print("==> PGO: gate tests on the instrumented build", flush=True)
     _gate_tests()
 
-    if not _pgc_files():
-        raise SystemExit("No .pgc profiles were written — the build was not instrumented.")
+    print("==> PGO: collecting .pgc profiles", flush=True)
+    _collect_pgc()
 
     print("==> PGO phase 2: optimized build (/LTCG /USEPROFILE)", flush=True)
     _install("use")

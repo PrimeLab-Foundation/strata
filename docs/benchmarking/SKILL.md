@@ -121,6 +121,32 @@ band. Wave 10 (schema-emit — `docs/performance/SKILL.md`) targets the
 stable dumps residue; re-dispatch and `make bench-ci` for the post-wave
 verdict.
 
+### The cross-platform iteration loop (how rows actually get closed)
+
+The working cycle that took the legs from 44/108 to 77/81+, one round per
+push:
+
+1. **Push (human).** Commits and pushes are made by the human only; the
+   agent prepares the change set and a ready-to-use message. CI measures
+   pushed refs, so iteration cadence is bounded by pushes — batch every
+   ready fix into each round.
+2. **Dispatch**: `gh workflow run benchmark.yml --ref main`.
+3. **Fetch**: `make bench-ci` — replaces `docs/benchmarks/ci/` with that
+   run's per-leg reports and rebuilds `ci_summary.md`.
+4. **Classify before chasing.** With two same-commit runs, cross-tabulate
+   the behind rows: behind in *both* runs = a real gap; flipping between
+   runs (1.00–1.09x) = the coin band, which code cannot settle. For
+   sub-0.1 ms rows measure locally with in-process repeat rounds —
+   separate-process micros swing ±60% with core placement.
+5. **Fix profile-first, prove by A/B.** `sample` a spin loop of the exact
+   row, change the named sink, attribute with a stash A/B on a plain
+   build, gate both suites, and record the outcome — wins in the measured
+   table, losses in the negative-results table — plus a decisions.md line.
+   Check the negative-results table *before* attempting an idea.
+6. **Repeat from 1.** A Windows-leg failure prints its own diagnosis:
+   `pgo_build_msvc.py` distinguishes "never instrumented" from "runtime
+   did not flush" and lists the directories it searched.
+
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
 Post-wave-10 state (2026-08-15), all rows and their known leads:

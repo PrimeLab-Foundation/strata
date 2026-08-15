@@ -11,7 +11,7 @@
  *    path) or a growing PyBytes (the bytes path -- one document copy, not
  *    two).
  *  - SchemaCacheLease: the per-thread prepared-key cache with owned key
- *    references and per-slot value-kind predictions.
+ *    references.
  *  - rawdict: the runtime-proved direct walk over a dict's entry array.
  */
 

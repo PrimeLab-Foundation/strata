@@ -47,19 +47,31 @@ jobs:
       matrix:
         include:
           # cc/cxx are explicit so the Linux leg gets clang (matching
-          # llvm-profdata) and the macOS legs their system clang.
+          # llvm-profdata) and the macOS legs their system clang. archflags
+          # pins the macOS legs to their own architecture: setup-python's
+          # macOS builds are universal2, whose sysconfig CFLAGS carry both
+          # -arch flags — without the pin the extension builds as a fat
+          # binary and setup.py (correctly) drops -march=native, so those
+          # legs measured a generic-tuned build. Measured cost of that on
+          # dumps mixed: 1.43x -> 1.21x plain once single-arch.
           - os: ubuntu-latest
             platform: linux-x86_64
             cc: clang
             cxx: clang++
+            archflags: ""
           - os: macos-15-intel
             platform: macos-x86_64
             cc: cc
             cxx: c++
+            archflags: "-arch x86_64"
           - os: macos-latest
             platform: macos-arm64
             cc: cc
             cxx: c++
+            archflags: "-arch arm64"
+
+    env:
+      ARCHFLAGS: ${{ matrix.archflags }}
 
     steps:
       - uses: actions/checkout@v4
