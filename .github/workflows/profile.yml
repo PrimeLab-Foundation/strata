@@ -70,6 +70,19 @@ jobs:
           $PERF report --stdio -i strata.perf.data 2>/dev/null | head -120 > perf_report_strata.txt
           cat perf_report_strata.txt
 
+      # The harness ranks come from a five-library round-robin, and the row
+      # under study measures at parity isolated — so the interesting record
+      # is taken under the interleave itself. Comparing strata's *relative*
+      # frame shares between the two reports names the code that pays for
+      # the condition: the frame whose share grows is the victim.
+      - name: Hot-spot record under interleave (perf record, five libraries)
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf | head -1 || echo perf)
+          PYTHONPATH=. $PERF record -F 1999 -g --call-graph fp -o interleaved.perf.data -- \
+            .venv/bin/python benchmarks/profile_interleaved.py 800
+          $PERF report --stdio -i interleaved.perf.data 2>/dev/null | head -200 > perf_report_interleaved.txt
+          grep -E "strata|Serializer|Overhead|Samples" perf_report_interleaved.txt | head -40
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -77,4 +90,5 @@ jobs:
           path: |
             perf_stat_*.txt
             perf_report_strata.txt
+            perf_report_interleaved.txt
           if-no-files-found: ignore
