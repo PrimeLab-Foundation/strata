@@ -222,6 +222,7 @@ class SchemaCacheLease {
         std::vector<uint32_t> offsets{0};           ///< fallback boundaries, keys.size() + 1
         uint8_t spans[kSchemaSlots] = {};           ///< inline `"key":` length per slot
         char slots[kSchemaSlots * kSlotBytes] = {}; ///< the inline bytes
+        PyObject* key_row[kSchemaSlots] = {};       ///< borrowed copies for the verify scan
         bool prepared = false;
         bool wide = false; ///< some span exceeded a slot: emit from the blob
 
@@ -231,6 +232,11 @@ class SchemaCacheLease {
             keys.assign(other, other + count);
             for (PyObject* key : keys)
                 Py_INCREF(key);
+            // Borrowed duplicates of the owned vector, inline: the per-record
+            // verify scan reads this row instead of chasing the vector's heap
+            // storage (cold after the harness's per-call gc.collect()).
+            for (Py_ssize_t index = 0; index < count; ++index)
+                key_row[static_cast<size_t>(index)] = other[index];
             prepared = false;
             wide = false;
         }
@@ -243,7 +249,7 @@ class SchemaCacheLease {
         /// objects. A miss costs a rebuild, never a wrong answer.
         [[nodiscard]] bool matches_tail(PyObject* const* other, Py_ssize_t count) const noexcept {
             for (Py_ssize_t index = 1; index < count; ++index) {
-                if (keys[static_cast<size_t>(index)] != other[index])
+                if (key_row[static_cast<size_t>(index)] != other[index])
                     return false;
             }
             return true;
