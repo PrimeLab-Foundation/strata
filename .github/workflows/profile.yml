@@ -1,0 +1,80 @@
+name: Profile
+
+# One-off perf instrumentation for the row the benchmark legs cannot explain
+# from ranks alone: `dumps mixed` reads at parity on arm64 but 1.02-1.16x
+# behind orjson on the x86 runners, and the development machine is arm64 —
+# the only place the gap exists is this hardware, so this is where the
+# counters have to come from. `perf stat` needs no symbols and delivers the
+# differential that names a gap: instructions per cycle, branch misses and
+# cache misses for strata and orjson driving the identical workload. The
+# report is an uploaded artifact for human (and agent) reading; nothing here
+# gates anything.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  profile-linux:
+    name: perf (linux-x86_64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang, LLVM and perf
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
+          # Runner images ship a paranoid setting that blocks even user-space
+          # counters; this job owns the whole VM, so relax it.
+          sudo sysctl -w kernel.perf_event_paranoid=1
+
+      - name: Install strata with the dev and bench extras (test-gated build)
+        env:
+          CC: clang
+          CXX: clang++
+        run: make install-bench
+
+      - name: PGO+LTO build (the build the benchmark legs measure)
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+        run: make pgo
+
+      - name: Generate the small-tier datasets
+        run: |
+          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      - name: Counter comparison (perf stat, strata vs orjson)
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf | head -1 || echo perf)
+          for lib in strata orjson; do
+            PYTHONPATH=. $PERF stat -ddd -o "perf_stat_${lib}.txt" -- \
+              .venv/bin/python benchmarks/profile_dumps_mixed.py "$lib" 4000
+          done
+          echo "=== strata ==="; cat perf_stat_strata.txt
+          echo "=== orjson ==="; cat perf_stat_orjson.txt
+
+      - name: Hot-spot record (perf record, strata)
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf | head -1 || echo perf)
+          PYTHONPATH=. $PERF record -F 1999 -g --call-graph fp -o strata.perf.data -- \
+            .venv/bin/python benchmarks/profile_dumps_mixed.py strata 6000
+          $PERF report --stdio -i strata.perf.data 2>/dev/null | head -120 > perf_report_strata.txt
+          cat perf_report_strata.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-linux-x86_64
+          path: |
+            perf_stat_*.txt
+            perf_report_strata.txt
+          if-no-files-found: ignore
