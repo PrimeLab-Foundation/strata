@@ -205,6 +205,19 @@ def _optimization_args() -> tuple[list[str], list[str]]:
         if kind == "gcc":
             # gcc errors out on a counter mismatch after an edit; clang warns.
             compile_args.append("-fprofile-correction")
+        if (
+            kind == "clang"
+            and sys.platform.startswith("linux")
+            and platform.machine() in ("x86_64", "AMD64")
+        ):
+            # Machine function splitting (ELF x86-64 only): the profile moves
+            # each function's cold blocks out of the hot text. The benchmark
+            # harness interleaves five JSON engines per round, and x86 cores
+            # carry a fraction of Apple-silicon's L1I — the serializer reads
+            # at parity isolated and behind interleaved on exactly the legs
+            # where instruction footprint has to refault per call.
+            compile_args.append("-fsplit-machine-functions")
+            link_args.append("-fsplit-machine-functions")
 
     return compile_args, link_args
 

@@ -38,6 +38,18 @@ namespace strata::bindings {
 
 namespace {
 
+// Cold-path annotation: keeps rare paths out of the serializer's hot text.
+// The benchmark condition interleaves five engines per round; on x86's small
+// L1I every byte of hot footprint refaults per call, and these functions run
+// once per schema, once per cycle, or never.
+#if defined(__clang__) || defined(__GNUC__)
+#define STRATA_COLD_FN __attribute__((noinline, cold))
+#elif defined(_MSC_VER)
+#define STRATA_COLD_FN __declspec(noinline)
+#else
+#define STRATA_COLD_FN
+#endif
+
 /**
  * What to do when a container contains itself.
  *
@@ -294,7 +306,7 @@ class Serializer {
     };
 
     /// The cycle placeholder the policy calls for, outside any frame.
-    [[nodiscard]] bool emit_cycle_placeholder() {
+    [[nodiscard]] STRATA_COLD_FN bool emit_cycle_placeholder() {
         if (g_cycle_policy == CyclePolicyValue::Error) {
             PyErr_SetString(PyExc_ValueError, "Circular reference detected");
             return false;
@@ -713,7 +725,7 @@ class Serializer {
     }
 
     /// Prepare the `"key":` bytes for a schema whose keys are already recorded.
-    [[nodiscard]] bool build_schema(Schema& schema) {
+    [[nodiscard]] STRATA_COLD_FN bool build_schema(Schema& schema) {
         schema.blob.clear();
         schema.offsets.assign(1, 0);
         for (PyObject* key : schema.keys) {
@@ -745,7 +757,7 @@ class Serializer {
     }
 
     /// The plain walk, for objects too wide to be worth remembering.
-    [[nodiscard]] bool write_mapping_uncached(PyObject* object) {
+    [[nodiscard]] STRATA_COLD_FN bool write_mapping_uncached(PyObject* object) {
         out_.ensure(1);
         out_.put('{');
         Py_ssize_t position = 0;
@@ -809,7 +821,7 @@ class Serializer {
         }
 
         /// Emit the placeholder the policy calls for, and say whether to go on.
-        [[nodiscard]] bool handle_cycle() const {
+        [[nodiscard]] STRATA_COLD_FN bool handle_cycle() const {
             if (g_cycle_policy == CyclePolicyValue::Error) {
                 PyErr_SetString(PyExc_ValueError, "Circular reference detected");
                 return false;
