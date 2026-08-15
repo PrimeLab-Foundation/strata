@@ -190,6 +190,34 @@ inline constexpr long kEiselLemireMaxExp10 = 347;
 }
 #endif
 
+/// Are the eight bytes at @p p all ASCII digits? One word, two adds, a mask
+/// (the fast_float/simdjson check): adding 0x46 carries into bit 7 exactly
+/// for bytes above '9', and subtracting 0x30 borrows for bytes below '0'.
+[[nodiscard]] inline bool eight_digits_at(const char* p) noexcept {
+    uint64_t chunk;
+    std::memcpy(&chunk, p, 8);
+    return (((chunk + 0x4646464646464646ULL) | (chunk - 0x3030303030303030ULL)) &
+            0x8080808080808080ULL) == 0;
+}
+
+/// The numeric value of eight ASCII digits at @p p, in three multiplies
+/// instead of eight serial multiply-adds (fast_float's in-register
+/// reduction). Byte order note: the pair/quad folding below assumes the
+/// first digit sits in the low byte — little-endian targets, which every
+/// supported platform is; the per-digit loops beside the call sites remain
+/// the definition and the fallback.
+[[nodiscard]] inline uint32_t parse_eight_digits(const char* p) noexcept {
+    uint64_t chunk;
+    std::memcpy(&chunk, p, 8);
+    constexpr uint64_t kMask = 0x000000FF000000FFULL;
+    constexpr uint64_t kMul1 = 100 + (1000000ULL << 32);
+    constexpr uint64_t kMul2 = 1 + (10000ULL << 32);
+    chunk -= 0x3030303030303030ULL;
+    chunk = (chunk * 10) + (chunk >> 8);
+    chunk = (((chunk & kMask) * kMul1) + (((chunk >> 16) & kMask) * kMul2)) >> 32;
+    return static_cast<uint32_t>(chunk);
+}
+
 } // namespace detail
 
 /// The two std::from_chars_result fields the number call sites consume.
@@ -300,6 +328,15 @@ struct FromCharsResult {
         if (pos < len && is_digit(str[pos]))
             return false;
     } else {
+        // Eight digits per step while they last: the per-digit multiply-add
+        // chain is serial, and real integer columns are 8-10 digits wide.
+        // The accumulation is exactly the scalar loop's (same first-19-digit
+        // prefix, same counters), so every consumer below is unaffected.
+        while (pos + 8 <= len && significant + 8 <= 19 && detail::eight_digits_at(str + pos)) {
+            mantissa = mantissa * 100000000 + detail::parse_eight_digits(str + pos);
+            significant += 8;
+            pos += 8;
+        }
         while (pos < len && is_digit(str[pos])) {
             if (significant < 19) {
                 mantissa = mantissa * 10 + static_cast<uint64_t>(str[pos] - '0');
@@ -322,6 +359,18 @@ struct FromCharsResult {
         if (pos >= len || !is_digit(str[pos]))
             return false;
         while (pos < len && is_digit(str[pos])) {
+            // Same eight-digit step as the integer part, once significance
+            // has begun (full-precision doubles carry ~16 fraction digits).
+            // While the mantissa is still zero the scalar body below owns
+            // the leading-zero bookkeeping.
+            if (mantissa != 0 && significant + 8 <= 19 && pos + 8 <= len &&
+                detail::eight_digits_at(str + pos)) {
+                mantissa = mantissa * 100000000 + detail::parse_eight_digits(str + pos);
+                significant += 8;
+                fraction_digits += 8;
+                pos += 8;
+                continue;
+            }
             ++fraction_digits;
             if (mantissa == 0 && str[pos] == '0') {
                 // Leading zeros carry no significance; they only shift the

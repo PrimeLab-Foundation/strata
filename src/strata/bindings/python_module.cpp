@@ -183,16 +183,50 @@ PyObject* finish_loads(std::string_view text, bool validate_utf8, bool want_curs
     return strata::bindings::make_root_iterator(value.get());
 }
 
-PyObject* strata_loads(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+/// Keyword-only string option from a FASTCALL kwnames tuple, by exact name.
+[[nodiscard]] const char* fastcall_str_option(PyObject* name, PyObject* value) {
+    if (!PyUnicode_Check(value)) {
+        PyErr_Format(PyExc_TypeError, "%U must be str, not %s", name, Py_TYPE(value)->tp_name);
+        return nullptr;
+    }
+    return PyUnicode_AsUTF8(value);
+}
+
+// loads and dumps use METH_FASTCALL: they are called once per benchmark-row
+// operation and often with tiny documents, where VARARGS' argument tuple and
+// PyArg_ParseTupleAndKeywords' format-string machinery are a measurable slice
+// of the per-call floor. The hand parse mirrors the old signature exactly —
+// one positional argument, keyword-only options.
+PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nargs,
+                       PyObject* kwnames) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "return_type", "iterator", nullptr};
-    PyObject* source = nullptr;
+    if (nargs != 1) {
+        PyErr_Format(PyExc_TypeError, "loads() takes exactly 1 positional argument (%zd given)",
+                     nargs);
+        return nullptr;
+    }
+    PyObject* source = args[0];
     const char* return_type = "dict";
     int iterator = 0;
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$sp", const_cast<char**>(keywords), &source,
-                                     &return_type, &iterator))
-        return nullptr;
+    if (kwnames != nullptr) {
+        for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
+            PyObject* name = PyTuple_GET_ITEM(kwnames, index);
+            PyObject* value = args[nargs + index];
+            if (PyUnicode_CompareWithASCIIString(name, "return_type") == 0) {
+                return_type = fastcall_str_option(name, value);
+                if (return_type == nullptr)
+                    return nullptr;
+            } else if (PyUnicode_CompareWithASCIIString(name, "iterator") == 0) {
+                iterator = PyObject_IsTrue(value);
+                if (iterator < 0)
+                    return nullptr;
+            } else {
+                PyErr_Format(PyExc_TypeError, "loads() got an unexpected keyword argument '%U'",
+                             name);
+                return nullptr;
+            }
+        }
+    }
 
     const bool want_cursor = std::strcmp(return_type, "cursor") == 0;
     if (!want_cursor && std::strcmp(return_type, "dict") != 0) {
@@ -230,15 +264,29 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_CATCH
 }
 
-PyObject* strata_dumps(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+PyObject* strata_dumps(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nargs,
+                       PyObject* kwnames) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "return_type", nullptr};
-    PyObject* object = nullptr;
-    const char* return_type = "str";
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|$s", const_cast<char**>(keywords), &object,
-                                     &return_type))
+    if (nargs != 1) {
+        PyErr_Format(PyExc_TypeError, "dumps() takes exactly 1 positional argument (%zd given)",
+                     nargs);
         return nullptr;
+    }
+    PyObject* object = args[0];
+    const char* return_type = "str";
+    if (kwnames != nullptr) {
+        for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
+            PyObject* name = PyTuple_GET_ITEM(kwnames, index);
+            if (PyUnicode_CompareWithASCIIString(name, "return_type") != 0) {
+                PyErr_Format(PyExc_TypeError, "dumps() got an unexpected keyword argument '%U'",
+                             name);
+                return nullptr;
+            }
+            return_type = fastcall_str_option(name, args[nargs + index]);
+            if (return_type == nullptr)
+                return nullptr;
+        }
+    }
 
     const bool as_bytes = std::strcmp(return_type, "bytes") == 0;
     if (!as_bytes && std::strcmp(return_type, "str") != 0) {
@@ -250,8 +298,9 @@ PyObject* strata_dumps(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_CATCH
 }
 
-/// CPython's documented spelling for a METH_KEYWORDS function pointer: the
-/// table stores PyCFunction, and the call site casts back by flag.
+/// CPython's documented spelling for METH_KEYWORDS and METH_FASTCALL function
+/// pointers: the table stores PyCFunction, and the call site casts back by
+/// the method flags.
 #define STRATA_KEYWORD_FN(fn) reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(fn))
 
 PyObject* strata_load(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
@@ -366,9 +415,9 @@ PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
 }
 
 PyMethodDef kModuleMethods[] = {
-    {"loads", STRATA_KEYWORD_FN(strata_loads), METH_VARARGS | METH_KEYWORDS,
+    {"loads", STRATA_KEYWORD_FN(strata_loads), METH_FASTCALL | METH_KEYWORDS,
      "loads(source, *, return_type='dict', iterator=False)\n\nParse JSON text."},
-    {"dumps", STRATA_KEYWORD_FN(strata_dumps), METH_VARARGS | METH_KEYWORDS,
+    {"dumps", STRATA_KEYWORD_FN(strata_dumps), METH_FASTCALL | METH_KEYWORDS,
      "dumps(obj, *, return_type='str')\n\nSerialize an object to JSON."},
     {"load", STRATA_KEYWORD_FN(strata_load), METH_VARARGS | METH_KEYWORDS,
      "load(path, *, return_type='dict', iterator=False, skip_errors=False)"},
