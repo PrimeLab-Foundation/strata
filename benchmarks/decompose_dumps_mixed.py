@@ -108,6 +108,24 @@ def main() -> int:
             f"bucket {name:14s} n={len(bucket):6d}  strata {s:.4f}  orjson {o:.4f}  "
             f"ratio {s / o:.3f}x"
         )
+
+    # Float buckets split the formatter's tiers: 2dp rides the micro-decimal
+    # fast tier, 17-digit is pure Dragonbox + fixed layout, integral is the
+    # trailing-".0" layout, scientific the exponent layout. mixed's floats
+    # are 100% the 17-digit shape.
+    fbuckets = {
+        "float-2dp": [round(i * 0.37 + 0.1, 2) for i in range(4000)],
+        "float-17dig": [i * 0.1234567890123 + 0.1 for i in range(4000)],
+        "float-integral": [float(i % 100000) for i in range(4000)],
+        "float-sci": [1.5e-7 * (i + 1) for i in range(4000)],
+    }
+    for name, bucket in fbuckets.items():
+        s = median_call(lambda: strata.dumps(bucket, return_type="bytes"))
+        o = median_call(lambda: orjson.dumps(bucket))
+        print(
+            f"fbucket {name:14s} n={len(bucket):5d}  strata {s:.4f}  orjson {o:.4f}  "
+            f"ratio {s / o:.3f}x"
+        )
     return 0
 
 

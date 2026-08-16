@@ -122,12 +122,31 @@ inline void write_8_digits(uint32_t value, char* out) noexcept {
 /// 17-digit mantissa costs two groups plus one odd digit instead of a
 /// seventeen-step serial divide chain.
 inline void write_digits_fixed(uint64_t value, char* out, size_t len) noexcept {
-    while (len >= 8) {
+    // One 64-bit split at most: a double's significand is at most 17 digits,
+    // so after peeling the low eight the rest always fits 32 bits, where the
+    // constant divisions are materially cheaper — this function was 29% of a
+    // pure 17-digit float dump before the narrowing, rivalling Dragonbox
+    // itself. (Values past 16 digits with a >32-bit remainder — possible for
+    // arbitrary u64 input, not for our callers — take a second 64-bit peel.)
+    if (len > 8) {
         const uint64_t high = value / 100000000;
         const auto low = static_cast<uint32_t>(value - high * 100000000);
         write_8_digits(low, out + len - 8);
-        value = high;
         len -= 8;
+        if (high > 0xFFFFFFFFULL) {
+            const uint64_t top = high / 100000000;
+            write_8_digits(static_cast<uint32_t>(high - top * 100000000), out + len - 8);
+            len -= 8;
+            value = top;
+        } else if (len > 8) {
+            const auto high32 = static_cast<uint32_t>(high);
+            const uint32_t top = high32 / 100000000;
+            write_8_digits(high32 - top * 100000000, out + len - 8);
+            len -= 8;
+            value = top;
+        } else {
+            value = high;
+        }
     }
     auto rest = static_cast<uint32_t>(value);
     size_t index = len;
