@@ -92,3 +92,38 @@ jobs:
             perf_report_strata.txt
             perf_report_interleaved.txt
           if-no-files-found: ignore
+
+  # Windows carries the goal's last rows and no perf; the decomposition
+  # technique that named every POSIX mechanism is pure Python timing, so it
+  # runs anywhere. The output is the job log itself.
+  decompose-windows:
+    name: decompose (windows-x86_64)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install strata and the competitor set (test-gated build)
+        shell: bash
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install -e ".[dev,bench]"
+
+      - name: PGO+LTCG build (the build the benchmark leg measures)
+        shell: bash
+        run: python scripts/pgo_build_msvc.py
+
+      - name: Generate the small-tier datasets
+        shell: bash
+        run: |
+          PYTHONPATH=. python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      - name: Decompose dumps mixed on this leg
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
