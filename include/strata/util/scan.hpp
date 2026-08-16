@@ -238,19 +238,6 @@ inline constexpr size_t kEscapeBlockWide = 32;
     return quote_mask | backslash_mask | control_mask;
 }
 
-/// The same exact formulas, four bytes wide — the tier for 4..7-byte strings,
-/// which are common as keys and short values and were walked byte-by-byte.
-[[nodiscard]] inline uint32_t escape_mask_word32(uint32_t word) noexcept {
-    constexpr uint32_t kOnes = 0x01010101U;
-    constexpr uint32_t kHighs = 0x80808080U;
-    const uint32_t quotes = (word ^ (kOnes * '"'));
-    const uint32_t backslashes = (word ^ (kOnes * '\\'));
-    const uint32_t quote_mask = (quotes - kOnes) & ~quotes & kHighs;
-    const uint32_t backslash_mask = (backslashes - kOnes) & ~backslashes & kHighs;
-    const uint32_t control_mask = (word - (kOnes * 0x20)) & ~word & kHighs;
-    return quote_mask | backslash_mask | control_mask;
-}
-
 #endif
 
 } // namespace detail
@@ -313,17 +300,22 @@ inline size_t find_next_escape(const char* data, size_t len) noexcept {
     }
     // ...and one size further down, for 4..7-byte strings.
     if (len >= 4 && pos < len) {
+        // Head and tail words fused into one 64-bit mask pass: the pair of
+        // 32-bit passes compiled poorly under MSVC (the 4-byte bucket read
+        // 1.28x behind while every neighbour crushed), and one pass is fewer
+        // operations everywhere. Byte k of the combined word is offset k
+        // below four and len-8+k above; the overlap region appears twice and
+        // the lowest set bit is always the first escape.
         uint32_t head;
-        std::memcpy(&head, data, 4);
-        const uint32_t head_mask = detail::escape_mask_word32(head);
-        if (head_mask != 0)
-            return static_cast<size_t>(detail::trailing_zeros32(head_mask)) >> 3;
         uint32_t tail;
+        std::memcpy(&head, data, 4);
         std::memcpy(&tail, data + len - 4, 4);
-        const uint32_t tail_mask = detail::escape_mask_word32(tail);
-        return tail_mask != 0
-                   ? (len - 4) + (static_cast<size_t>(detail::trailing_zeros32(tail_mask)) >> 3)
-                   : len;
+        const uint64_t combined = static_cast<uint64_t>(head) | (static_cast<uint64_t>(tail) << 32);
+        const uint64_t mask = detail::escape_mask_word(combined);
+        if (mask == 0)
+            return len;
+        const size_t index = static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3;
+        return index < 4 ? index : len - 8 + index;
     }
 #endif
     // Under eight bytes; the twin finishes the job. Reading past the end to
@@ -397,19 +389,20 @@ inline size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept
                          : len;
     }
     if (len >= 4 && pos < len) {
+        // Same fused head+tail pass as find_next_escape; the copies land
+        // before the mask is inspected, exactly like the block tiers.
         uint32_t head;
+        uint32_t tail;
         std::memcpy(&head, src, 4);
         std::memcpy(dst, &head, 4);
-        const uint32_t head_mask = detail::escape_mask_word32(head);
-        if (head_mask != 0)
-            return static_cast<size_t>(detail::trailing_zeros32(head_mask)) >> 3;
-        uint32_t tail;
         std::memcpy(&tail, src + len - 4, 4);
         std::memcpy(dst + len - 4, &tail, 4);
-        const uint32_t tail_mask = detail::escape_mask_word32(tail);
-        return tail_mask != 0
-                   ? (len - 4) + (static_cast<size_t>(detail::trailing_zeros32(tail_mask)) >> 3)
-                   : len;
+        const uint64_t combined = static_cast<uint64_t>(head) | (static_cast<uint64_t>(tail) << 32);
+        const uint64_t mask = detail::escape_mask_word(combined);
+        if (mask == 0)
+            return len;
+        const size_t index = static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3;
+        return index < 4 ? index : len - 8 + index;
     }
 #endif
     return pos + copy_until_escape_scalar(src + pos, len - pos, dst + pos);
