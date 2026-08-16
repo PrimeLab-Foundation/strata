@@ -88,6 +88,26 @@ def main() -> int:
             f"subset {name:14s} n={len(subset):6d}  strata {s:.4f}  orjson {o:.4f}  "
             f"ratio {s / o:.3f}x"
         )
+
+    # Length buckets isolate which string tier the leg's compiler mistreats:
+    # 1–7 bytes ride the SWAR words, 8–15 the word pair, 16+ the vector
+    # blocks, 32+ the AVX2 wide tier, 480+ leaves the scalar-run fast path.
+    buckets = {
+        "str-1ch": ["a"] * 4000,
+        "str-4ch": ["abcd"] * 4000,
+        "str-8ch": ["abcdefgh"] * 4000,
+        "str-15ch": ["abcdefghijklmno"] * 4000,
+        "str-36ch": ["0123456789abcdef0123456789abcdef0123"] * 4000,
+        "str-200ch": ["x" * 200] * 800,
+        "str-600ch": ["y" * 600] * 400,
+    }
+    for name, bucket in buckets.items():
+        s = median_call(lambda: strata.dumps(bucket, return_type="bytes"))
+        o = median_call(lambda: orjson.dumps(bucket))
+        print(
+            f"bucket {name:14s} n={len(bucket):6d}  strata {s:.4f}  orjson {o:.4f}  "
+            f"ratio {s / o:.3f}x"
+        )
     return 0
 
 
