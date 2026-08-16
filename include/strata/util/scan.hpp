@@ -26,6 +26,14 @@
 // MSVC never defines __SSE2__; x64 implies it.
 #include <emmintrin.h>
 #define STRATA_ESCAPE_SCAN_SIMD 1
+#if defined(__AVX2__)
+// Every benchmark leg's x86 build enables AVX2 (-march=native on hardware
+// that has it; /arch:AVX2 on MSVC), and 32-byte blocks halve the vector-op
+// count per string — instructions weigh double under the interleaved
+// harness's cold-cache condition, which is where the x86 legs trail.
+#include <immintrin.h>
+#define STRATA_ESCAPE_SCAN_AVX2 1
+#endif
 #endif
 
 #if defined(_MSC_VER) && !defined(__clang__)
@@ -146,6 +154,25 @@ namespace detail {
 /// Bytes examined per SIMD step.
 inline constexpr size_t kEscapeBlock = 16;
 
+#if defined(STRATA_ESCAPE_SCAN_AVX2)
+/// Bytes per AVX2 step: the wide tier ahead of the 16-byte machinery.
+inline constexpr size_t kEscapeBlockWide = 32;
+
+/// The 32-byte twin of @ref first_escape_in_block — same rule, one load.
+[[nodiscard]] inline size_t first_escape_in_block32(const char* data) noexcept {
+    const __m256i block = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(data));
+    const __m256i quote = _mm256_cmpeq_epi8(block, _mm256_set1_epi8('"'));
+    const __m256i backslash = _mm256_cmpeq_epi8(block, _mm256_set1_epi8('\\'));
+    const __m256i control =
+        _mm256_cmpeq_epi8(_mm256_min_epu8(block, _mm256_set1_epi8(0x1F)), block);
+    const auto mask = static_cast<uint32_t>(
+        _mm256_movemask_epi8(_mm256_or_si256(_mm256_or_si256(quote, backslash), control)));
+    if (mask == 0)
+        return kEscapeBlockWide;
+    return static_cast<size_t>(trailing_zeros32(mask));
+}
+#endif
+
 /**
  * Offset of the first byte in a 16-byte block that a JSON string cannot carry
  * verbatim, or detail::kEscapeBlock if the whole block is clean.
@@ -230,6 +257,16 @@ inline constexpr size_t kEscapeBlock = 16;
 
 inline size_t find_next_escape(const char* data, size_t len) noexcept {
     size_t pos = 0;
+#if defined(STRATA_ESCAPE_SCAN_AVX2)
+    // The wide tier first: one 32-byte op where the machinery below needs
+    // two. The 16-byte logic handles whatever tail remains.
+    while (pos + detail::kEscapeBlockWide <= len) {
+        const size_t hit = detail::first_escape_in_block32(data + pos);
+        if (hit != detail::kEscapeBlockWide)
+            return pos + hit;
+        pos += detail::kEscapeBlockWide;
+    }
+#endif
 #if defined(STRATA_ESCAPE_SCAN_SIMD)
     // Two blocks per iteration halves the loop overhead on long spans — the
     // parser scans the whole remaining input through here.
@@ -298,6 +335,18 @@ inline size_t find_next_escape(const char* data, size_t len) noexcept {
 
 inline size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept {
     size_t pos = 0;
+#if defined(STRATA_ESCAPE_SCAN_AVX2)
+    // Wide tier, stores strictly inside len: copy the block, then check it —
+    // on a hit nothing was advanced, so the copied tail is scratch exactly
+    // as in the 16-byte machinery below.
+    while (pos + detail::kEscapeBlockWide <= len) {
+        const size_t hit = detail::first_escape_in_block32(src + pos);
+        std::memcpy(dst + pos, src + pos, detail::kEscapeBlockWide);
+        if (hit != detail::kEscapeBlockWide)
+            return pos + hit;
+        pos += detail::kEscapeBlockWide;
+    }
+#endif
 #if defined(STRATA_ESCAPE_SCAN_SIMD)
     // Whole blocks are stored before the mask is inspected — the contract
     // gives the destination block-rounded room, so a store past the first
