@@ -260,7 +260,11 @@ class Serializer {
                 open_.push_back(object);
                 pushed = true;
             }
-            if (!write(item)) {
+            // Array-of-records is the shape the certified rows are made of
+            // (docs/architecture/fused_record_writer.md): exact dicts take
+            // the one-pass emit, everything else the general dispatch.
+            const bool ok = Py_TYPE(item) == &PyDict_Type ? write_record_fused(item) : write(item);
+            if (!ok) {
                 if (pushed)
                     open_.pop_back();
                 return false;
@@ -513,6 +517,97 @@ class Serializer {
         PyTypeObject* type = Py_TYPE(value);
         return type == &PyUnicode_Type || type == &PyFloat_Type || type == &PyLong_Type ||
                type == &PyBool_Type || value == Py_None;
+    }
+
+    /**
+     * One-pass emit for a record inside an array-of-records
+     * (docs/architecture/fused_record_writer.md): the entry array is walked
+     * once, the schema way resolves from the first key, keys emit from the
+     * inline slot row and values dispatch as visited — no staging arrays, no
+     * second walk. Verification of the whole key row completes before any
+     * output byte, so every deviation — split table, holes, width, way miss,
+     * unprepared or wide schema, retired depth, the depth boundary — falls
+     * back to write_mapping with nothing to undo. The general path stays the
+     * single definition of behavior; a miss here also lets it remember the
+     * shape, which is what makes the next sibling hit.
+     */
+    [[nodiscard]] bool write_record_fused(PyObject* object) {
+#if defined(STRATA_RAW_DICT_WALK)
+        if (!rawdict::available())
+            return write_mapping(object);
+        Py_ssize_t entry_count = 0;
+        const rawdict::UnicodeEntry* entries = rawdict::entry_array(object, &entry_count);
+        if (entries == nullptr)
+            return write_mapping(object);
+        const Py_ssize_t size = PyDict_GET_SIZE(object);
+        if (size == 0 || size > kMaxSchemaKeys || entry_count != size)
+            return write_mapping(object);
+        const size_t depth = map_depth_ + 1; // what MappingDepth will make it
+        if (depth >= kMaxCachedDepth || open_.size() >= static_cast<size_t>(depth_limit_))
+            return write_mapping(object);
+        if (schemas_.size() <= depth)
+            schemas_.resize(depth + 1);
+        auto& depth_schemas = schemas_[depth];
+        if (depth_schemas.retired || entries[0].me_value == nullptr)
+            return write_mapping(object);
+
+        PyObject* const first_key = entries[0].me_key;
+        size_t way = SchemaCacheLease::DepthSchemas::kMiss;
+        for (size_t candidate = 0; candidate < SchemaCacheLease::DepthSchemas::kWays; ++candidate) {
+            if (depth_schemas.counts[candidate] == size &&
+                depth_schemas.first_keys[candidate] == first_key) {
+                way = candidate;
+                break;
+            }
+        }
+        if (way == SchemaCacheLease::DepthSchemas::kMiss)
+            return write_mapping(object);
+        Schema& schema = depth_schemas.ways[way];
+        if (!schema.prepared || schema.wide)
+            return write_mapping(object);
+        for (Py_ssize_t index = 0; index < size; ++index) {
+            if (entries[index].me_value == nullptr ||
+                schema.key_row[static_cast<size_t>(index)] != entries[index].me_key)
+                return write_mapping(object);
+        }
+
+        const MappingDepth level(map_depth_);
+        out_.ensure(1);
+        out_.put('{');
+        bool pushed = false;
+        for (Py_ssize_t index = 0; index < size; ++index) {
+            // Re-indexed per iteration: a nested object may grow schemas_
+            // and move its elements (the write_mapping_body hazard).
+            const Schema& slot_row = schemas_[depth].ways[way];
+            out_.ensure(17);
+            char* cursor = out_.cursor();
+            *cursor = ',';
+            const auto skip = static_cast<size_t>(index != 0);
+            std::memcpy(cursor + skip,
+                        slot_row.slots + static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
+                        SchemaCacheLease::kSlotBytes);
+            out_.advance(skip + slot_row.spans[static_cast<size_t>(index)]);
+            PyObject* const value = entries[index].me_value;
+            if (!pushed && !is_plain_scalar(value)) {
+                // Same deferred cycle frame as the sequence loop: this dict
+                // must be findable in open_ while a container child walks.
+                open_.push_back(object);
+                pushed = true;
+            }
+            if (!write(value)) {
+                if (pushed)
+                    open_.pop_back();
+                return false;
+            }
+        }
+        if (pushed)
+            open_.pop_back();
+        out_.ensure(1);
+        out_.put('}');
+        return true;
+#else
+        return write_mapping(object);
+#endif
     }
 
     [[nodiscard]] bool write_mapping(PyObject* object) {

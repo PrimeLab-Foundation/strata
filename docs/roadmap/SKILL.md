@@ -114,3 +114,18 @@ category at every tier except one 1.00× large-tier dumps tie; `query` and
 behind are enumerated in `docs/benchmarking/SKILL.md` — small-document parse
 overhead, the `mixed` per-call floor, and `wide_arrays` parsing at scale —
 and are the post-release optimization backlog.
+
+## M11 — The fused record writer (in progress, opened 2026-08-16)
+
+Serializer redesign targeting the rows certified resistant to iteration in
+`docs/decisions.md` (2026-08-15/16): `dumps mixed` on the x86 CI legs (an
+engine-versus-engine gap against orjson's 3.12 wheel, ~1.07–1.09x median
+under the interleaved harness, parity isolated) and the wide_arrays
+serialization family. Design: `docs/architecture/fused_record_writer.md` —
+one-pass emit for array-of-records documents, eliminating the collect/emit
+two-pass and its staging arrays; the current path remains the fallback and
+the single definition of behavior.
+**Done when:** dumps mixed ranks #1 in the majority of ≥ 4 same-code CI
+samples on linux-x86_64 *and* macos-x86_64; no row regresses on any leg
+(classification-pair verified); both suites green; byte-identity pinned by
+the round-trip oracle suites.
