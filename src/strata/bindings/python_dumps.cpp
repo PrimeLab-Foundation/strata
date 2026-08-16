@@ -185,7 +185,13 @@ class Serializer {
         // whole blocks before checking them; on a hit nothing is advanced,
         // so the partial copy is scratch and the core escaper takes over --
         // it remains the one definition of escaping.
-        if (size + 2 + 16 <= 512) {
+        // The cap bounds stage usage in str mode (the stage is 8 KB); it was
+        // 512, which sent longer strings to the spanning path — measured
+        // catastrophic under MSVC (600-char strings 7.5x behind orjson while
+        // 200-char ones, inside the cap, ran 1.1x). Four kilobytes keeps the
+        // same safety margin and keeps real-world long values on the proven
+        // copy-while-scanning path.
+        if (size + 2 + 16 <= 4096) {
             out_.ensure(size + 2 + 16);
             out_.put('"');
             const size_t clean = util::copy_until_escape(data, size, out_.cursor());
@@ -487,7 +493,7 @@ class Serializer {
                 break;
             const char* data = static_cast<const char*>(PyUnicode_DATA(item));
             const auto length = static_cast<size_t>(PyUnicode_GET_LENGTH(item));
-            if (length > 480)
+            if (length > 4064)
                 break;
             out_.ensure(length + 3 + 16); // block-rounded room for the fused copy
             const size_t before = index != 0 ? 2u : 1u;
