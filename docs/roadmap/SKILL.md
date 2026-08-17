@@ -115,7 +115,7 @@ behind are enumerated in `docs/benchmarking/SKILL.md` — small-document parse
 overhead, the `mixed` per-call floor, and `wide_arrays` parsing at scale —
 and are the post-release optimization backlog.
 
-## M11 — The fused record writer (in progress, opened 2026-08-16)
+## M11 — The fused record writer (in progress, opened 2026-08-16; POSIX x86 criteria met same day)
 
 Serializer redesign targeting the rows certified resistant to iteration in
 `docs/decisions.md` (2026-08-15/16): `dumps mixed` on the x86 CI legs (an
@@ -129,3 +129,14 @@ the single definition of behavior.
 samples on linux-x86_64 *and* macos-x86_64; no row regresses on any leg
 (classification-pair verified); both suites green; byte-identity pinned by
 the round-trip oracle suites.
+**Status 2026-08-16:** linux met (eight sweeps of twelve, then routine);
+macos-x86_64 met in practice (official 27/27 sweeps, including a
+double-sweep pair; dumps mixed #1 in both samples of later pairs). The
+tracker records "Goal met on 3/4 platforms" and the milestone's live
+frontier is Windows: its anchor crossed (dumps mixed #1 officially,
+0.704x isolated after the string fixes and digit-writer narrowing) and
+every remaining row is flip-band — the leg's first full sweep awaits a
+healthy-runner sample. Remaining engineering candidate on file: the
+17-digit float tier (universal 1.6x vs orjson's printer; Dragonbox
+digit-gen is 41% of it and near-optimal — upstream's to_chars printer
+adaptation is the recorded next idea, expected value modest).
