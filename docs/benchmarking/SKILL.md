@@ -149,7 +149,7 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
-Post-wave-10 state (2026-08-15), all rows and their known leads:
+Post-wave-11 state (2026-09-02), all rows and their known leads:
 
 - **Coin-flip band** (1.00–1.03x, every leg): decided by machine state, not
   code — four consecutive deciding sweeps flipped these rows' signs with no
@@ -162,27 +162,42 @@ Post-wave-10 state (2026-08-15), all rows and their known leads:
   #1 in the post-wave tier refresh. The `LightweightBuilder` salvage item
   stays unspent; the 17%-of-profile `_tlv_get_addr` under CPython 3.14's
   own allocator on macOS is recorded as non-differential — do not chase it.
-- **wide_arrays serialization large**: the one standing residue. Wave 9
-  closed the isolated gap; wave-10's decomposition acquits every scalar run
-  individually (floats 1.01x, ints 0.97x, strings 0.73x vs orjson on
-  exactly wide's data — and orjson's parts sum *slower* than its whole).
-  The assembled document still reads 1.03x isolated / 1.05–1.08x
-  interleaved on today's PGO roll, oscillating with each profile build:
-  run-switching churn across 20k 64-element lists, still not a code gap a
-  profiler names. The itoa restructuring leads remain dead
-  (negative-results table).
-- **Windows rows**: was the one structural gap — that leg benchmarked /O2
-  while POSIX legs benchmark PGO. Closed 2026-08-15: setup.py now maps the
-  same env knobs to MSVC LTCG PGO (/GL, /GENPROFILE → /USEPROFILE) and
-  `scripts/pgo_build_msvc.py` drives the two phases on the CI leg, so
-  Windows serialization rows shed their ~10–25% build handicap. Awaiting a
-  post-change benchmark.yml run for the measured verdict.
+- **wide_arrays serialization large**: the residue has a reproduced
+  mechanism (docs/decisions.md, 2026-09-02): the same harness reads the row
+  0.85x on wide_arrays alone and 1.06–1.09x when users.json ran first —
+  strata +1.4 ms and orjson −1.3 ms on identical code, partly the
+  allocator's large cache no longer handing strata back its resident output
+  block (168 re-faulted pages per call after the users phase, 2 fresh),
+  partly measurement order acting on the rivals. The answer taken is
+  margin: wave 11 (SWAR digit word + branch-free micro-decimal emission,
+  `docs/performance/SKILL.md`) moves the row from 0.92x to 0.85x
+  in-process, past the ~12% order effect, and 6-decimal float lists from
+  1.09x behind to 0.83x ahead. The itoa restructuring leads remain dead
+  (negative-results table, now including the nine-digit word split).
+- **Windows rows**: the /O2-vs-PGO build handicap closed 2026-08-15 (MSVC
+  LTCG PGO via `scripts/pgo_build_msvc.py`), and the leg's anchor row
+  (dumps mixed) first crossed on 2026-08-16. Two further findings from the
+  2026-09-02 sample: (1) the file reader had no sized read on Windows —
+  every `load` there went through a 64 KB append-and-grow loop, which the
+  leg's numbers showed as `load` trailing `loads` by 1.3–2.6 ms on 1–2 MB
+  files while rivals' `read_bytes` cost 0.1–1 ms; the reader is now raw
+  descriptor I/O with one sized read on both platforms (awaiting the next
+  Windows sample for the load-row verdict). (2) Windows runners are not one
+  machine: the 104/108 sample ran on EPYC Genoa (`Family 25 Model 17`), the
+  102/108 sample on Milan (`Model 1`), and loads flat swung 0.86x → 1.10x
+  between them with no code change — read every Windows row against the
+  report's processor line before chasing it.
 - **The five-leg verdict**: billing was fixed 2026-08-15 and two same-commit
-  wave-9 runs scored 81/108 and 78/108 (from the committed pre-wave
-  44/108). The wave-10 code (schema-emit + loads pass) and the MSVC PGO
-  wiring are in-tree awaiting the human push; then
-  `gh workflow run benchmark.yml` + `make bench-ci` deliver the verdict on
-  all four active legs (linux-arm64 activates when the repo goes public).
+  wave-9 runs scored 81/108 and 78/108; the M11 fused record writer then
+  carried the tracker to 104/108 (2026-08-16, all three POSIX legs 27/27,
+  dumps mixed #1 on MSVC). CI was dark again from 2026-08-17 (payments
+  failed on the GitHub account; every workflow died in seconds) until
+  2026-09-01; the first sample after (run 33593729167, 2026-09-02) reads
+  102/108 — linux and arm64 27/27, macos-x86_64 26/27 (dumps mixed 1.04x),
+  Windows 22/27 on a Milan runner. The wave-11 code and the reader fix are
+  in-tree awaiting the human push; then `gh workflow run benchmark.yml` +
+  `make bench-ci` deliver the next verdict on all four active legs
+  (linux-arm64 activates when the repo goes public).
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 

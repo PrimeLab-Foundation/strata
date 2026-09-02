@@ -223,6 +223,22 @@ def test_dump_then_load_round_trips(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == value
 
 
+@pytest.mark.parametrize("suffix", [".json", ".ndjson"])
+def test_files_larger_than_the_read_chunk_load_whole(tmp_path, suffix):
+    # The reader sizes one read from fstat and only then drains a 64 KB
+    # chunk loop for anything the size did not cover; a file several chunks
+    # long must come back byte-complete either way (the whole content
+    # round-trips through stdlib json as the oracle).
+    records = [{"i": index, "text": "x" * 40} for index in range(4000)]
+    path = tmp_path / f"big{suffix}"
+    if suffix == ".json":
+        path.write_text(json.dumps(records), encoding="utf-8")
+    else:
+        path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+    assert path.stat().st_size > 3 * 65536
+    assert strata.load(path) == records
+
+
 def test_big_integers_survive_ndjson(tmp_path):
     path = tmp_path / "big.ndjson"
     path.write_text('{"n": 123456789012345678901234567890}\n', encoding="utf-8")

@@ -27,7 +27,7 @@
 #include <io.h>
 #include <sys/stat.h>
 #endif
-#include <cstdio>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -58,41 +58,110 @@ bool file_is_ndjson(const char* path) {
     return has_suffix_impl(path, ".ndjson") || has_suffix_impl(path, ".jsonl");
 }
 
+namespace {
+
+/// One read(2) into @p buffer, retried on EINTR; -1 with errno on failure.
+/// Capped at 1 GB per call: past that the kernels disagree (Linux clamps,
+/// macOS rejects with EINVAL, `_read` takes an unsigned int), so the caller
+/// loops in slices instead.
+[[nodiscard]] std::ptrdiff_t read_some(int fd, char* buffer, size_t count) noexcept {
+    constexpr size_t kMaxSlice = size_t{1} << 30;
+    const size_t slice = count > kMaxSlice ? kMaxSlice : count;
+#ifndef _WIN32
+    for (;;) {
+        const ssize_t got = ::read(fd, buffer, slice);
+        if (got < 0 && errno == EINTR)
+            continue;
+        return got;
+    }
+#else
+    return ::_read(fd, buffer, static_cast<unsigned int>(slice));
+#endif
+}
+
+[[nodiscard]] int close_descriptor(int fd) noexcept {
+#ifndef _WIN32
+    return ::close(fd);
+#else
+    return ::_close(fd);
+#endif
+}
+
+} // namespace
+
 /// Read a whole file, mapping failures onto the documented exceptions.
+///
+/// Raw descriptor I/O on both platforms, the same shape as dump_to_file:
+/// one open, one fstat for the size, one sized read straight into the
+/// string, one close. The stdio route paid a FILE allocation with its own
+/// buffer and a lock per call — and on Windows the sized read was missing
+/// altogether, so every file there went through the 64 KB append-and-grow
+/// loop, copying itself on each capacity doubling: the one leg whose `load`
+/// rows trailed their `loads` rows by more than the read itself. Anything
+/// past the stat'd size (a file growing under us, or a stream that will not
+/// stat) still arrives through the chunk loop.
 bool read_file_to_string(const char* path, std::string& out) {
-    std::FILE* handle = std::fopen(path, "rb");
-    if (handle == nullptr) {
+#ifndef _WIN32
+    const int fd = ::open(path, O_RDONLY | O_CLOEXEC);
+#else
+    const int fd = ::_open(path, _O_RDONLY | _O_BINARY | _O_NOINHERIT);
+#endif
+    if (fd < 0) {
         PyErr_SetFromErrnoWithFilename(errno == ENOENT ? PyExc_FileNotFoundError : PyExc_OSError,
                                        path);
         return false;
     }
 
-    // One sized read: stat tells the size, so the chunked append-and-grow
-    // dance (and its repeated copies) is only kept as the fallback for the
-    // rare stream that will not stat.
+    size_t expected = 0;
 #ifndef _WIN32
     struct stat status{};
-    if (::fstat(fileno(handle), &status) == 0 && S_ISREG(status.st_mode) && status.st_size > 0) {
-        out.resize(static_cast<size_t>(status.st_size));
-        const size_t got = std::fread(out.data(), 1, out.size(), handle);
-        out.resize(got);
-        if (std::ferror(handle) != 0) {
-            std::fclose(handle);
-            PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
-            return false;
-        }
-        // Anything appended between stat and read is picked up below.
-    }
+    if (::fstat(fd, &status) == 0 && S_ISREG(status.st_mode) && status.st_size > 0)
+        expected = static_cast<size_t>(status.st_size);
+#else
+    struct _stat64 status{};
+    if (::_fstat64(fd, &status) == 0 && (status.st_mode & _S_IFREG) != 0 && status.st_size > 0)
+        expected = static_cast<size_t>(status.st_size);
 #endif
 
-    char chunk[65536];
-    size_t read = 0;
-    while ((read = std::fread(chunk, 1, sizeof(chunk), handle)) > 0)
-        out.append(chunk, read);
+    bool failed = false;
+    if (expected > 0) {
+        out.resize(expected);
+        size_t filled = 0;
+        while (filled < expected) {
+            const std::ptrdiff_t got = read_some(fd, out.data() + filled, expected - filled);
+            if (got < 0) {
+                failed = true;
+                break;
+            }
+            if (got == 0)
+                break;
+            filled += static_cast<size_t>(got);
+        }
+        out.resize(filled);
+    }
 
-    const bool failed = std::ferror(handle) != 0;
-    std::fclose(handle);
+    if (!failed) {
+        char chunk[65536];
+        for (;;) {
+            const std::ptrdiff_t got = read_some(fd, chunk, sizeof(chunk));
+            if (got < 0) {
+                failed = true;
+                break;
+            }
+            if (got == 0)
+                break;
+            out.append(chunk, static_cast<size_t>(got));
+        }
+    }
+
     if (failed) {
+        const int saved = errno;
+        (void)close_descriptor(fd);
+        errno = saved;
+        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+        return false;
+    }
+    if (close_descriptor(fd) != 0) {
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
         return false;
     }

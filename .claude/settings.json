@@ -1,5 +1,9 @@
 {
-  "permissions": {
-    "defaultMode": "bypassPermissions"
-  }
+    "model": "claude-fable-5",
+    "env": {
+        "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-5"
+    },
+    "permissions": {
+        "defaultMode": "bypassPermissions"
+    }
 }

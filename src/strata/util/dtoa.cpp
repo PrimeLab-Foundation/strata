@@ -107,45 +107,45 @@ using detail::write_digits_fixed;
     if (static_cast<double>(scaled) / 1e6 != magnitude)
         return 0;
 
-    uint64_t digits = static_cast<uint64_t>(scaled);
-    int fraction = 6;
-    while (fraction > 0 && digits % 10 == 0) {
-        digits /= 10;
-        --fraction;
-    }
+    // Emission is two digit words and no data-dependent branch: the whole
+    // part as one eight-digit word shifted down to its own length, the point,
+    // then the six fraction digits as one word whose trailing zeros are
+    // measured rather than looped away. The earlier shape — strip zeros in a
+    // loop, count, write the digits as one run, open a gap for the point —
+    // mispredicted on the strip and the length tests (both random on real
+    // data) and reloaded, sixteen bytes wide, digits just stored two bytes
+    // at a time, which no store buffer forwards; this reads no byte it wrote.
+    const auto n = static_cast<uint64_t>(scaled);
+    const uint64_t whole = n / 1000000;
+    const auto fraction = static_cast<uint32_t>(n - whole * 1000000);
+    if (whole >= 100000000)
+        return 0; // nine or more whole digits: the general path, rarely reached
 
     size_t written = 0;
     if (value < 0.0)
         out[written++] = '-';
 
-    const size_t length = decimal_digit_count(digits);
+    // Whole part: byte k of the word is the k-th digit from the left, so
+    // dropping the leading zero bytes is a shift by their count (0..7 bytes
+    // — never the full width). The store spills scratch past the length,
+    // overwritten by the point and fraction below; all of it sits inside the
+    // 40-byte buffer the contract demands.
+    const size_t whole_length = decimal_digit_count(whole);
+    detail::store_digit_word(out + written,
+                             detail::eight_digits_word(static_cast<uint32_t>(whole)) >>
+                                 ((8 - whole_length) * 8));
+    written += whole_length;
+    out[written++] = '.';
 
-    if (fraction == 0) {
-        // Integral: digits then the fraction that keeps it a float.
-        write_digits_fixed(digits, out + written, length);
-        written += length;
-        out[written++] = '.';
-        out[written++] = '0';
-        return written;
-    }
-
-    const int point = static_cast<int>(length) - fraction;
-    if (point <= 0) {
-        // 0.00ddd — at most three leading zeros under the 1e-4 gate.
-        out[written++] = '0';
-        out[written++] = '.';
-        for (int pad = 0; pad < -point; ++pad)
-            out[written++] = '0';
-        write_digits_fixed(digits, out + written, length);
-        return written + length;
-    }
-
-    // dd.ddd — digits straight into place, constant-size shift for the point
-    // (a variable-length copy here compiles to a libc call; see shift16_right).
-    write_digits_fixed(digits, out + written, length);
-    shift16_right(out + written + static_cast<size_t>(point), 1);
-    out[written + static_cast<size_t>(point)] = '.';
-    return written + length + 1;
+    // Fraction: "dddddd00" — the six digits lead the word. A digit byte
+    // differs from '0' exactly when its digit is non-zero, so the highest
+    // such byte among the six is the last digit to keep; `| 1` makes an
+    // all-zero fraction keep its first digit, the ".0" that marks a float.
+    const uint64_t fraction_word = detail::eight_digits_word(fraction * 100);
+    detail::store_digit_word(out + written, fraction_word);
+    const uint64_t non_zero = (fraction_word ^ 0x3030303030303030ULL) & 0x0000FFFFFFFFFFFFULL;
+    const size_t kept = (detail::highest_set_bit(non_zero | 1) >> 3) + 1;
+    return written + kept;
 }
 
 } // namespace

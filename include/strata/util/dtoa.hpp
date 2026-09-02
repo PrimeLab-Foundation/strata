@@ -25,12 +25,14 @@
  * declaration below for the measured reason.
  */
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h>
+#include <stdlib.h> // _byteswap_uint64
 #endif
 
 namespace strata::util {
@@ -101,8 +103,52 @@ inline constexpr uint64_t kPow10[20] = {
     return digits + 1;
 }
 
-/// Exactly eight digits of @p value (< 10^8), zero-padded.
-inline void write_8_digits(uint32_t value, char* out) noexcept {
+/// Store a digit word: byte k of @p word (bits 8k..8k+7) lands at out[k].
+/// The digit-word helpers below build their words in that fixed layout, so
+/// a big-endian target swaps once here and every byte-index computation on
+/// the word stays the same on both.
+inline void store_digit_word(char* out, uint64_t word) noexcept {
+    if constexpr (std::endian::native == std::endian::big) {
+#if defined(_MSC_VER) && !defined(__clang__)
+        word = _byteswap_uint64(word);
+#else
+        word = __builtin_bswap64(word);
+#endif
+    }
+    std::memcpy(out, &word, 8);
+}
+
+/// Exactly eight digits of @p value (< 10^8), zero-padded, as one word:
+/// byte k holds the k-th digit from the left, as ASCII.
+///
+/// SWAR, no table: the value splits into two 4-digit halves in two 32-bit
+/// lanes, each lane into its 2-digit pairs in 16-bit lanes, and each pair
+/// into its digits in bytes — three multiply-shift steps on the whole word
+/// at once, ending in one OR with '0' bytes. The reciprocal constants are
+/// exact over their lane ranges: `(n * 10486) >> 20 == n / 100` for
+/// n < 10000 and `(n * 103) >> 10 == n / 10` for n < 100, and no lane's
+/// product reaches its neighbour (10486 * 9999 < 2^27, 103 * 99 < 2^14).
+/// Beyond the op count, the point is *one* 8-byte store where the pair
+/// table needed four 2-byte ones: a following wide load (the point
+/// insertion shift, the trailing-zero scan) cannot forward from several
+/// narrow stores and stalled until they retired. The pair-table body stays
+/// as `eight_digits_scalar`, the twin the exhaustive test pins this to.
+[[nodiscard]] inline uint64_t eight_digits_word(uint32_t value) noexcept {
+    const uint64_t high = value / 10000;       // the four leading digits
+    const uint64_t low = value - high * 10000; // the four trailing digits
+    uint64_t lanes = high | (low << 32);       // two 4-digit lanes, leading first
+    const uint64_t hundreds = ((lanes * 10486) >> 20) & 0x0000007F0000007FULL;
+    const uint64_t units = lanes - hundreds * 100;
+    lanes = hundreds | (units << 16); // four 2-digit lanes, in digit order
+    const uint64_t tens = ((lanes * 103) >> 10) & 0x000F000F000F000FULL;
+    const uint64_t ones = lanes - tens * 10;
+    return (tens | (ones << 8)) | 0x3030303030303030ULL;
+}
+
+/// The pair-table twin of @ref eight_digits_word: same eight ASCII digits,
+/// via the divide-by-hundred chain. Reference only — `tests/cpp` runs the
+/// two against each other over every value below 10^8.
+inline void eight_digits_scalar(uint32_t value, char* out) noexcept {
     const uint32_t high = value / 10000;
     const uint32_t low = value % 10000;
     const uint32_t pair0 = (high / 100) * 2;
@@ -113,6 +159,11 @@ inline void write_8_digits(uint32_t value, char* out) noexcept {
     std::memcpy(out + 2, kDigitPairs + pair1, 2);
     std::memcpy(out + 4, kDigitPairs + pair2, 2);
     std::memcpy(out + 6, kDigitPairs + pair3, 2);
+}
+
+/// Exactly eight digits of @p value (< 10^8), zero-padded.
+inline void write_8_digits(uint32_t value, char* out) noexcept {
+    store_digit_word(out, eight_digits_word(value));
 }
 
 /// Exactly @p len digits of @p value, zero-padded on the left.
@@ -225,7 +276,12 @@ inline void shift16_right(char* from, size_t gap) noexcept {
  * fixed-width write via `detail::write_digits_fixed` was measured against
  * this body and lost on every length that matters — +24% on 1–4 digit
  * values, +4% at 9–10 digits — winning only past 14 digits, which JSON
- * integers essentially never have.) Behaviour is identical to `to_chars`;
+ * integers essentially never have. Splitting nine-plus-digit values into a
+ * back-filled head and the low eight as one `eight_digits_word` store was
+ * measured too, and also lost: 9–10-digit lists 8.8 -> 9.0 ns per element,
+ * short lists +5% for the extra branch — the divider hides the pair chain
+ * at these widths, and the word's ~18 ops are not cheaper than five pair
+ * steps.) Behaviour is identical to `to_chars`;
  * the digit-for-digit equivalence is pinned by test over boundaries and a
  * large random sweep.
  *

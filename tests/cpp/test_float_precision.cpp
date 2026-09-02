@@ -423,7 +423,54 @@ void test_parse_pipeline_matches_from_chars_randomly() {
 
 } // namespace
 
+/**
+ * The SWAR eight-digit word against its pair-table twin, every value below
+ * 10^8 (docs/context/styleguide.md: a SWAR path and its scalar twin must be
+ * observably identical, and here that is checked rather than asserted).
+ */
+void test_eight_digit_word_matches_pair_table_exhaustively() {
+    char swar[8];
+    char pairs[8];
+    for (uint32_t value = 0; value < 100000000u; ++value) {
+        strata::util::detail::store_digit_word(swar,
+                                               strata::util::detail::eight_digits_word(value));
+        strata::util::detail::eight_digits_scalar(value, pairs);
+        if (std::memcmp(swar, pairs, 8) != 0) {
+            std::printf("eight_digits_word(%u) = %.8s, pair table %.8s\n", value, swar, pairs);
+            assert(false);
+        }
+    }
+}
+
+/**
+ * The micro-decimal tier's own shapes, each against the reference: whole
+ * parts of every width it emits itself (one to eight digits) and the nine-
+ * digit width it hands to the general path, fractions with every count of
+ * trailing zeros including none left, integral values, and both signs.
+ */
+void test_micro_decimal_shapes_match_reference() {
+    for (const double whole : {0.0, 7.0, 42.0, 999.0, 12345.0, 9999999.0, 12345678.0, 99999999.0,
+                               123456789.0, 3999999999.0}) {
+        for (const double fraction : {0.0, 0.5, 0.25, 0.125, 0.1, 0.01, 0.001, 0.0001, 0.00001,
+                                      0.000001, 0.123456, 0.100001, 0.000009, 0.999999}) {
+            check_against_reference(whole + fraction);
+            check_against_reference(-(whole + fraction));
+        }
+    }
+    // Every six-decimal value below one, and the whole-part shift at each
+    // width through the sweep of powers: exhaustive where it is cheap.
+    for (uint32_t micro = 100; micro < 1000000u; ++micro)
+        check_against_reference(static_cast<double>(micro) / 1e6);
+    for (uint64_t scaled = 1; scaled < 100000000000000000ULL; scaled *= 10) {
+        check_against_reference(static_cast<double>(scaled) / 1e6);
+        check_against_reference(static_cast<double>(scaled + 1) / 1e6);
+        check_against_reference(static_cast<double>(scaled - 1) / 1e6);
+    }
+}
+
 int main() {
+    test_eight_digit_word_matches_pair_table_exhaustively();
+    test_micro_decimal_shapes_match_reference();
     test_exact_renderings();
     test_integral_values_keep_a_fraction();
     test_scientific_notation_boundaries();

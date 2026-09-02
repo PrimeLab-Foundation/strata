@@ -140,3 +140,12 @@ healthy-runner sample. Remaining engineering candidate on file: the
 17-digit float tier (universal 1.6x vs orjson's printer; Dragonbox
 digit-gen is 41% of it and near-optimal — upstream's to_chars printer
 adaptation is the recorded next idea, expected value modest).
+**Status 2026-09-02:** CI was dark 2026-08-17 → 2026-09-01 (account
+billing); the first sample after reads 102/108 on a Milan Windows runner
+(the 104/108 sample ran on Genoa — Windows rows carry a runner-generation
+axis, docs/benchmarking/SKILL.md). Wave 11 landed in-tree: the eight-digit
+SWAR word plus a branch-free micro-decimal emission (6-decimal float lists
+1.09x behind → 0.83x ahead of orjson; dumps wide_arrays large 0.92x →
+0.85x in-process), and the raw-descriptor file reader that gives Windows
+the sized read it never had (its `load` rows trailed `loads` by 1.3–2.6 ms
+on 1–2 MB files). Awaiting the human push and the next four-leg sample.

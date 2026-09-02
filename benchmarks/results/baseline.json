@@ -1,137 +1,137 @@
 {
   "bench_results_small.md|dumps|flat.json": {
-    "median_ms": 0.184,
-    "p95_ms": 0.223,
-    "rss_mb": 69.312
+    "median_ms": 0.216,
+    "p95_ms": 0.232,
+    "rss_mb": 73.219
   },
   "bench_results_small.md|dumps|mixed.json": {
-    "median_ms": 0.047,
-    "p95_ms": 0.057,
-    "rss_mb": 69.453
+    "median_ms": 0.042,
+    "p95_ms": 0.054,
+    "rss_mb": 74.375
   },
   "bench_results_small.md|dumps|nested.json": {
-    "median_ms": 0.133,
-    "p95_ms": 0.141,
-    "rss_mb": 69.328
+    "median_ms": 0.154,
+    "p95_ms": 0.196,
+    "rss_mb": 73.281
   },
   "bench_results_small.md|dumps|users.json": {
-    "median_ms": 1.53,
-    "p95_ms": 1.61,
-    "rss_mb": 56.938
+    "median_ms": 1.742,
+    "p95_ms": 1.853,
+    "rss_mb": 55.984
   },
   "bench_results_small.md|dumps|wide_arrays.json": {
-    "median_ms": 1.178,
-    "p95_ms": 1.203,
-    "rss_mb": 69.453
+    "median_ms": 1.014,
+    "p95_ms": 1.155,
+    "rss_mb": 74.328
   },
   "bench_results_small.md|dump|flat.json": {
-    "median_ms": 0.343,
-    "p95_ms": 0.389,
-    "rss_mb": 69.328
+    "median_ms": 0.399,
+    "p95_ms": 0.466,
+    "rss_mb": 73.219
   },
   "bench_results_small.md|dump|mixed.json": {
-    "median_ms": 0.158,
-    "p95_ms": 0.238,
-    "rss_mb": 69.484
+    "median_ms": 0.18,
+    "p95_ms": 0.203,
+    "rss_mb": 74.406
   },
   "bench_results_small.md|dump|nested.json": {
-    "median_ms": 0.272,
-    "p95_ms": 0.31,
-    "rss_mb": 69.328
+    "median_ms": 0.345,
+    "p95_ms": 0.525,
+    "rss_mb": 73.281
   },
   "bench_results_small.md|dump|users.json": {
-    "median_ms": 1.975,
-    "p95_ms": 11.525,
-    "rss_mb": 67.625
+    "median_ms": 2.141,
+    "p95_ms": 8.781,
+    "rss_mb": 70.188
   },
   "bench_results_small.md|dump|wide_arrays.json": {
-    "median_ms": 1.459,
-    "p95_ms": 1.738,
-    "rss_mb": 69.453
+    "median_ms": 1.423,
+    "p95_ms": 1.857,
+    "rss_mb": 74.328
   },
   "bench_results_small.md|load (ndjson)|users.ndjson": {
-    "median_ms": 7.391,
-    "p95_ms": 7.546,
-    "rss_mb": 68.453
+    "median_ms": 8.326,
+    "p95_ms": 8.439,
+    "rss_mb": 72.344
   },
   "bench_results_small.md|loads|flat.json": {
-    "median_ms": 0.663,
-    "p95_ms": 0.693,
-    "rss_mb": 69.312
+    "median_ms": 0.696,
+    "p95_ms": 0.746,
+    "rss_mb": 73.203
   },
   "bench_results_small.md|loads|mixed.json": {
-    "median_ms": 0.134,
-    "p95_ms": 0.145,
-    "rss_mb": 69.453
+    "median_ms": 0.153,
+    "p95_ms": 0.188,
+    "rss_mb": 74.328
   },
   "bench_results_small.md|loads|nested.json": {
-    "median_ms": 0.548,
-    "p95_ms": 0.71,
-    "rss_mb": 69.328
+    "median_ms": 0.625,
+    "p95_ms": 0.682,
+    "rss_mb": 73.219
   },
   "bench_results_small.md|loads|users.json": {
-    "median_ms": 7.041,
-    "p95_ms": 7.371,
-    "rss_mb": 52.953
+    "median_ms": 7.609,
+    "p95_ms": 7.906,
+    "rss_mb": 52.547
   },
   "bench_results_small.md|loads|wide_arrays.json": {
-    "median_ms": 3.342,
-    "p95_ms": 3.674,
-    "rss_mb": 69.328
+    "median_ms": 3.478,
+    "p95_ms": 3.803,
+    "rss_mb": 74.312
   },
   "bench_results_small.md|load|flat.json": {
-    "median_ms": 0.746,
-    "p95_ms": 0.813,
-    "rss_mb": 69.312
+    "median_ms": 0.819,
+    "p95_ms": 0.881,
+    "rss_mb": 73.219
   },
   "bench_results_small.md|load|mixed.json": {
-    "median_ms": 0.193,
-    "p95_ms": 0.256,
-    "rss_mb": 69.453
+    "median_ms": 0.235,
+    "p95_ms": 0.271,
+    "rss_mb": 74.375
   },
   "bench_results_small.md|load|nested.json": {
-    "median_ms": 0.617,
-    "p95_ms": 0.667,
-    "rss_mb": 69.328
+    "median_ms": 0.755,
+    "p95_ms": 0.802,
+    "rss_mb": 73.281
   },
   "bench_results_small.md|load|users.json": {
-    "median_ms": 7.249,
-    "p95_ms": 7.497,
-    "rss_mb": 70.578
+    "median_ms": 7.875,
+    "p95_ms": 8.024,
+    "rss_mb": 71.188
   },
   "bench_results_small.md|load|wide_arrays.json": {
-    "median_ms": 3.579,
-    "p95_ms": 3.724,
-    "rss_mb": 69.453
+    "median_ms": 3.737,
+    "p95_ms": 3.878,
+    "rss_mb": 74.328
   },
   "bench_results_small.md|query|users.json $..total": {
-    "median_ms": 1.372,
-    "p95_ms": 1.449,
-    "rss_mb": 70.562
+    "median_ms": 1.484,
+    "p95_ms": 1.543,
+    "rss_mb": 72.438
   },
   "bench_results_small.md|query|users.json $[*].id": {
-    "median_ms": 0.065,
-    "p95_ms": 0.082,
-    "rss_mb": 67.906
+    "median_ms": 0.06,
+    "p95_ms": 0.14,
+    "rss_mb": 70.375
   },
   "bench_results_small.md|query|users.json $[*].orders[*].total": {
-    "median_ms": 0.374,
-    "p95_ms": 0.393,
-    "rss_mb": 68.297
+    "median_ms": 0.431,
+    "p95_ms": 0.649,
+    "rss_mb": 70.594
   },
   "bench_results_small.md|search|users.json $..total": {
-    "median_ms": 10.938,
-    "p95_ms": 11.59,
-    "rss_mb": 70.547
+    "median_ms": 9.544,
+    "p95_ms": 9.65,
+    "rss_mb": 72.438
   },
   "bench_results_small.md|search|users.json $[*].id": {
-    "median_ms": 3.336,
-    "p95_ms": 3.498,
-    "rss_mb": 68.016
+    "median_ms": 3.565,
+    "p95_ms": 3.682,
+    "rss_mb": 70.453
   },
   "bench_results_small.md|search|users.json $[*].orders[*].total": {
-    "median_ms": 3.426,
-    "p95_ms": 3.573,
-    "rss_mb": 70.5
+    "median_ms": 3.638,
+    "p95_ms": 3.751,
+    "rss_mb": 72.266
   }
 }
