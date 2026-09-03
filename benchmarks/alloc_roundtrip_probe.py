@@ -144,6 +144,7 @@ def main() -> int:
     rows = [
         Row("dumps strata bytes", lambda: strata.dumps(data, return_type="bytes")),
         Row("dumps strata str", lambda: strata.dumps(data)),
+        Row("dumps strata str + bytes copy", lambda: strata.dumps(data).encode()),
         Row("dumps orjson", lambda: orjson.dumps(data)),
         Row("dumps msgspec", lambda: encode(data)),
         Row(f"bytes({size})", lambda: bytes(size)),

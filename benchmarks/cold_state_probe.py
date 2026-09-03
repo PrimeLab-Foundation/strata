@@ -85,6 +85,15 @@ def main() -> int:
             "orjson": lambda: orjson.dumps(data),
             "msgspec": lambda: encode(data),
         },
+        # str mode plus one copy into a fresh bytes object: the shape a
+        # copying bytes mode would have. On one Windows runner family bytes
+        # mode's direct writes into its fresh block read 30-45 us slower hot
+        # than str mode with the same allocation round trip; if this row
+        # reads like str mode there, the copy is the remedy for that leg.
+        "dumps mixed (str mode + bytes copy)": {
+            "strata": lambda: strata.dumps(data).encode(),
+            "orjson": lambda: orjson.dumps(data),
+        },
         "dumps 10 records": {
             "strata": lambda: strata.dumps(ten, return_type="bytes"),
             "orjson": lambda: orjson.dumps(ten),

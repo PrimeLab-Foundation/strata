@@ -73,6 +73,8 @@ def _windows_compiler_override() -> str | None:
         raise SystemExit(
             "STRATA_WIN_COMPILER is a plain build; unset PGO_MODE and STRATA_ENABLE_LTO."
         )
+    if wanted == "cl":
+        return "cl"  # MSVCCompiler resolves cl.exe itself; it is not on the shell's PATH
     found = shutil.which(wanted) or shutil.which(wanted, path=r"C:\Program Files\LLVM\bin")
     if not found:
         raise SystemExit(f"STRATA_WIN_COMPILER={wanted} but {wanted}.exe is not on PATH.")
@@ -91,7 +93,8 @@ class TestGatedBuildExt(build_ext):
             # and take LTCG out of both halves so the build is plainly /O2.
             if not self.compiler.initialized:
                 self.compiler.initialize()
-            self.compiler.cc = override
+            if override != "cl":
+                self.compiler.cc = override
             self.compiler.compile_options = [
                 flag for flag in self.compiler.compile_options if flag != "/GL"
             ]
@@ -100,7 +103,7 @@ class TestGatedBuildExt(build_ext):
                     flags = getattr(self.compiler, name)
                     if isinstance(flags, list):
                         setattr(self.compiler, name, [flag for flag in flags if flag != "/LTCG"])
-            print(f"+ compiling with {override}, plain /O2 (no LTCG)", flush=True)
+            print(f"+ compiling with {self.compiler.cc}, plain /O2 (no LTCG)", flush=True)
         super().build_extensions()
 
     def run(self) -> None:
