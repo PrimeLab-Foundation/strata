@@ -154,9 +154,10 @@ push:
 **Status 2026-09-03 (end of the wave-15–18 day).** Fourteen clean CI samples on
 the day's code line read 101–106/108; the last six have Linux and both macOS
 legs at 27/27 on their clean draws and every row behind inside its leg's coin
-band. The one family still flipping is Windows `dumps mixed`: 1.02x and 1.19x
-on two Genoa draws of the clang-cl PGO build (1.06–1.25x under MSVC PGO),
-0.82x isolated on the same build — the runner's band, not the code's. The
+band. The one family still flipping is Windows `dumps mixed`: six draws of the
+clang-cl PGO build read 1.02x, 1.19x, 1.06x, 0.99x, 1.01x and 0.98x (1.06–1.25x
+under MSVC PGO), 0.82x isolated on the same build — a coin flip centred on
+parity, the runner's band and not the code's. The
 Windows leg builds with clang-cl's PGO since wave 18 (`scripts/pgo_build_clang_cl.py`);
 the profile job's three-arm blocks (clang-cl PGO, plain MSVC, plain clang-cl)
 and the allocation, cold-state and decomposition probes are the instruments
