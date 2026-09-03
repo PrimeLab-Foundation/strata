@@ -84,8 +84,10 @@ and architecture**, tracked in-tree rather than left in CI logs.
   named `benchmark-<os>-<arch>`. Every leg benchmarks the **PGO build**
   (the build the release wheel ships, worth −8..−25%), since the
   competitors are their released wheels: the POSIX legs run `make pgo`, the
-  Windows leg runs `scripts/pgo_build_msvc.py` (MSVC's LTCG spelling:
-  `/GL`, `/GENPROFILE` → `/USEPROFILE`), and each report's compiler_flags
+  Windows leg runs `scripts/pgo_build_clang_cl.py` (clang's PGO under
+  clang-cl — `-fprofile-generate` → llvm-profdata → `-fprofile-use`, the
+  MSVC linker, no LTO yet; the MSVC twin `scripts/pgo_build_msvc.py` stays
+  for the LTCG build — wave 18), and each report's compiler_flags
   line says which build its leg measured.
 - `make bench-ci` (`benchmarks/ci_fetch.py`) pulls the latest completed
   run's reports into `docs/benchmarks/ci/bench_results_<os>-<arch>.md` plus
@@ -144,8 +146,8 @@ push:
    table, losses in the negative-results table — plus a decisions.md line.
    Check the negative-results table *before* attempting an idea.
 6. **Repeat from 1.** A Windows-leg failure prints its own diagnosis:
-   `pgo_build_msvc.py` distinguishes "never instrumented" from "runtime
-   did not flush" and lists the directories it searched.
+   `pgo_build_clang_cl.py` (and the MSVC twin) distinguishes "never
+   instrumented" from "runtime did not flush" and lists where it searched.
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
@@ -193,7 +195,8 @@ Post-wave-11 state (2026-09-02), all rows and their known leads:
   1.09x behind to 0.83x ahead. The itoa restructuring leads remain dead
   (negative-results table, now including the nine-digit word split).
 - **Windows rows**: the /O2-vs-PGO build handicap closed 2026-08-15 (MSVC
-  LTCG PGO via `scripts/pgo_build_msvc.py`), and the leg's anchor row
+  LTCG PGO via `scripts/pgo_build_msvc.py`; superseded 2026-09-03 by the
+  clang-cl PGO build the leg measures now), and the leg's anchor row
   (dumps mixed) first crossed on 2026-08-16. Two further findings from the
   2026-09-02 sample: (1) the file reader had no sized read on Windows —
   every `load` there went through a 64 KB append-and-grow loop, which the

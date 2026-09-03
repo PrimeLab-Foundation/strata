@@ -168,9 +168,11 @@ jobs:
           python -m pip install -U pip setuptools wheel
           python -m pip install -e ".[dev,bench]"
 
-      - name: PGO+LTCG build (the build the benchmark leg measures)
+      - name: clang-cl PGO build (the build the benchmark leg measures)
         shell: bash
-        run: python scripts/pgo_build_msvc.py
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          python scripts/pgo_build_clang_cl.py
 
       - name: Generate the small-tier datasets
         shell: bash
@@ -200,14 +202,11 @@ jobs:
         shell: bash
         run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
 
-      # The toolchain question, asked on the same commit: the serializer's
-      # per-element paths read 1.3-1.9x behind orjson on this leg and at
-      # parity or ahead under clang everywhere else, and orjson's Windows
-      # wheel is LLVM-built. Two more builds of the extension replace the
-      # MSVC PGO build in place, each the same class of build -- plain /O2,
+      # The toolchain controls, on the same commit: two more builds of the
+      # extension replace the clang-cl PGO build in place, each plain /O2,
       # no LTCG, no PGO (setuptools hardcodes /GL and /LTCG; the override
-      # strips them) -- so the compilers differ and nothing else: MSVC as
-      # the control, then clang-cl. Each rebuild is forced (setuptools'
+      # strips them) -- plain MSVC, then plain clang-cl -- so the three
+      # blocks of this job differ in compiler and profile and nothing else. Each rebuild is forced (setuptools'
       # up-to-date check would otherwise skip it silently and the probes
       # would re-measure the previous binary) and its own line in the log
       # proves which compiler ran; the Python suites gate each build (the
@@ -237,7 +236,11 @@ jobs:
         shell: bash
         run: |
           export PATH="/c/Program Files/LLVM/bin:$PATH"
-          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc -I include experiments/itoa/itoa_bench.cpp /o itoa_bench.exe
+          # Git Bash rewrites slash-led arguments into Windows paths (/O2
+          # reached the linker as C:\Program Files\Git\O2.obj); the
+          # exclusion keeps clang-cl's own spellings intact.
+          export MSYS2_ARG_CONV_EXCL="*"
+          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc -I include experiments/itoa/itoa_bench.cpp /Fe:itoa_bench.exe
           ./itoa_bench.exe
 
       - name: clang-cl /O2 build of the same commit (gated)

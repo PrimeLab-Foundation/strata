@@ -62,7 +62,21 @@ Real on this branch:
   training, gates and verification mirroring `pgo_build.sh` — and stages
   pgort140.dll beside python.exe first, because the instrumented extension
   depends on it and Python 3.8+ does not consult PATH for extension-module
-  dependencies.
+  dependencies. **The Windows build the benchmark leg measures is clang-cl,
+  not MSVC:** `STRATA_WIN_COMPILER=clang-cl` makes setup.py compile with
+  clang-cl (same command line, the MSVC linker, LTCG stripped) and spell
+  PGO with clang's own flags behind `/clang:` — `-fprofile-generate`, with
+  clang's runtime directory (`clang -print-runtime-dir`) on the link line
+  so link.exe finds the profile runtime every instrumented object names
+  itself, then `-fprofile-use` against the llvm-profdata merge — and
+  `scripts/pgo_build_clang_cl.py` drives the two phases exactly as
+  `pgo_build.sh` does (no DLL staging: clang's profile runtime is a static
+  library, unlike pgort140.dll). Measured on one commit with three
+  toolchains (docs/decisions.md, 2026-09-03), MSVC compiles the
+  serializer's record and float paths 20–30% slower than clang-cl, which
+  reads them at parity with the LLVM-built rivals; MSVC stays a tested
+  compiler in the CI matrix so both remain green. No LTO with clang-cl
+  yet: its bitcode objects need lld-link, which setuptools does not drive.
 - `pyproject.toml` — version is `dynamic`, read via
   `[tool.setuptools.dynamic] version = {attr = "strata.__version__"}`. Only the
   `dev` extra exists (cmake, pytest, pytest-cov, ruff, pre-commit, clang-format
@@ -108,8 +122,9 @@ Real on this branch:
   times are never compared across machines. Every leg benchmarks the PGO
   build — the build the release wheel ships — against the competitors'
   released wheels: the POSIX legs run `make pgo` first, the Windows leg
-  runs `scripts/pgo_build_msvc.py` (the LTCG twin), and each report's
-  compiler_flags line records which build its leg measured. One
+  runs `scripts/pgo_build_clang_cl.py` (clang's PGO under clang-cl; the
+  MSVC twin `scripts/pgo_build_msvc.py` remains for the LTCG build), and
+  each report's compiler_flags line records which build its leg measured. One
   report artifact per leg, named `benchmark-<os>-<arch>`; `make bench-ci`
   fetches the latest run into `docs/benchmarks/ci/` and rebuilds the
   per-platform standings summary — see `docs/benchmarking/SKILL.md`),

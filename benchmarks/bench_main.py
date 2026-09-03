@@ -50,8 +50,13 @@ def _compiler_flags() -> str:
     look comparable; exactly the kind of mismatch the fairness rules in
     docs/context/benchmarks.md exist to stop.
     """
-    msvc = sys.platform == "win32"
-    flags = [BASE_COMPILER_FLAGS_MSVC if msvc else BASE_COMPILER_FLAGS]
+    windows = sys.platform == "win32"
+    clang_cl = windows and os.environ.get("STRATA_WIN_COMPILER", "").strip().lower() == "clang-cl"
+    msvc = windows and not clang_cl
+    if clang_cl:
+        flags = ["clang-cl " + BASE_COMPILER_FLAGS_MSVC]
+    else:
+        flags = [BASE_COMPILER_FLAGS_MSVC if msvc else BASE_COMPILER_FLAGS]
     if os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1":
         flags.append("/GL /LTCG" if msvc else "-flto")
     mode = os.environ.get("PGO_MODE", "").strip().lower()

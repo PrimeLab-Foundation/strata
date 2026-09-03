@@ -15,6 +15,7 @@ definition of "the test suite".
 
 from __future__ import annotations
 
+import functools
 import os
 import platform
 import shutil
@@ -46,21 +47,23 @@ def _banner(text: str) -> None:
 
 
 def _windows_compiler_override() -> str | None:
-    """`STRATA_WIN_COMPILER=cl|clang-cl`: a plain /O2 build with the named compiler.
+    """`STRATA_WIN_COMPILER=cl|clang-cl`: build with the named compiler, no LTCG.
 
     Windows builds are MSVC with the LTCG that setuptools hardcodes (/GL on
     the compile, /LTCG on the link) and, under scripts/pgo_build_msvc.py,
     PGO on top. This override strips LTCG and swaps the compile step's
-    executable, so the two toolchains can be measured on the same commit
-    as the same class of build: `cl` is the plain-MSVC control, `clang-cl`
+    executable: `cl` is the plain-MSVC control (no PGO, no LTO); `clang-cl`
     takes the same command line (the /O2, /arch:AVX2 and /std:c++20
-    spellings above; it ignores /GL) and links with the MSVC linker. The
-    headers guard their MSVC paths with `_MSC_VER && !__clang__`, so
-    clang-cl takes their GNU branches. Used by the profile workflow, where
-    MSVC's codegen of the serializer's per-element paths reads well behind
-    the LLVM-built rivals (docs/decisions.md 2026-09-03). Fails loudly when
-    the compiler is asked for but not installed, and refuses to combine
-    with PGO_MODE / STRATA_ENABLE_LTO, whose MSVC spellings assume /GL.
+    spellings above; it ignores /GL), links with the MSVC linker, and
+    carries clang's own profile flags when PGO_MODE asks
+    (scripts/pgo_build_clang_cl.py). The headers guard their MSVC paths
+    with `_MSC_VER && !__clang__`, so clang-cl takes their GNU branches.
+    The profile workflow measured the toolchains on one commit: MSVC
+    compiles the serializer's record and float paths 20-30% slower than
+    clang-cl, which reads them at parity with the LLVM-built rivals
+    (docs/decisions.md 2026-09-03), so the benchmark leg measures the
+    clang-cl build and MSVC stays a tested compiler in the CI matrix.
+    Fails loudly when the compiler is asked for but not installed.
     """
     wanted = os.environ.get("STRATA_WIN_COMPILER", "").strip().lower()
     if not wanted:
@@ -69,9 +72,11 @@ def _windows_compiler_override() -> str | None:
         raise SystemExit(
             f"STRATA_WIN_COMPILER={wanted!r}: only 'cl' or 'clang-cl', and only on Windows."
         )
-    if os.environ.get("PGO_MODE") or os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1":
+    if wanted == "cl" and (
+        os.environ.get("PGO_MODE") or os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1"
+    ):
         raise SystemExit(
-            "STRATA_WIN_COMPILER is a plain build; unset PGO_MODE and STRATA_ENABLE_LTO."
+            "STRATA_WIN_COMPILER=cl is a plain build; unset PGO_MODE and STRATA_ENABLE_LTO."
         )
     if wanted == "cl":
         return "cl"  # MSVCCompiler resolves cl.exe itself; it is not on the shell's PATH
@@ -98,11 +103,14 @@ class TestGatedBuildExt(build_ext):
             self.compiler.compile_options = [
                 flag for flag in self.compiler.compile_options if flag != "/GL"
             ]
+            # In place: initialize() keeps its own table of references to
+            # these very lists and link() reads that table, so a rebound
+            # attribute would leave /LTCG on the link line.
             for name in dir(self.compiler):
                 if name.startswith("ldflags"):
                     flags = getattr(self.compiler, name)
                     if isinstance(flags, list):
-                        setattr(self.compiler, name, [flag for flag in flags if flag != "/LTCG"])
+                        flags[:] = [flag for flag in flags if flag != "/LTCG"]
             print(f"+ compiling with {self.compiler.cc}, plain /O2 (no LTCG)", flush=True)
         super().build_extensions()
 
@@ -169,9 +177,10 @@ def _is_universal_build() -> bool:
 
 
 def _compiler_kind() -> str:
-    """'clang', 'gcc' or 'msvc' — PGO and LTO spell everything differently."""
+    """'clang', 'gcc', 'msvc' or 'clang-cl' — PGO and LTO spell everything differently."""
     if sys.platform == "win32":
-        return "msvc"
+        wanted = os.environ.get("STRATA_WIN_COMPILER", "").strip().lower()
+        return "clang-cl" if wanted == "clang-cl" else "msvc"
     name = " ".join(filter(None, (os.environ.get("CXX"), get_config_var("CC"), ""))).lower()
     if "clang" in name:
         return "clang"
@@ -208,6 +217,70 @@ def _msvc_optimization_args(mode: str) -> tuple[list[str], list[str]]:
     return compile_args, link_args
 
 
+@functools.lru_cache(maxsize=1)
+def _clang_runtime_dir() -> Path:
+    """The directory holding clang's runtime libraries (the profile runtime).
+
+    clang.exe sits beside clang-cl.exe and answers -print-runtime-dir in
+    either layout LLVM ships (per-target `lib/x86_64-pc-windows-msvc` or the
+    older `lib/windows`); it exits 0 with a placeholder line when the
+    directory is absent, so the answer is checked as a directory and the
+    older layout under -print-resource-dir is the fallback. Cached: setup.py
+    is imported several times per pip invocation (lru_cache).
+    """
+    clang_cl = shutil.which("clang-cl") or shutil.which(
+        "clang-cl", path=r"C:\Program Files\LLVM\bin"
+    )
+    if not clang_cl:
+        raise SystemExit("STRATA_WIN_COMPILER=clang-cl but clang-cl.exe is not on PATH.")
+    clang = Path(clang_cl).with_name("clang.exe")
+
+    def probe(flag: str) -> str:
+        completed = subprocess.run([str(clang), flag], capture_output=True, text=True, check=False)
+        if completed.returncode != 0:
+            raise SystemExit(f"{clang} {flag} failed: {completed.stderr.strip()}")
+        return completed.stdout.strip()
+
+    runtime_dir = Path(probe("-print-runtime-dir"))
+    if not runtime_dir.is_dir():
+        runtime_dir = Path(probe("-print-resource-dir")) / "lib" / "windows"
+    if not runtime_dir.is_dir():
+        raise SystemExit(f"clang's runtime directory was not found ({runtime_dir}).")
+    return runtime_dir
+
+
+def _clang_cl_optimization_args(mode: str, lto: bool) -> tuple[list[str], list[str]]:
+    """clang-cl spelling: clang's own PGO flags behind /clang:, the MSVC linker.
+
+    IR-level instrumentation (-fprofile-generate), as on POSIX: the profile
+    runtime writes .profraw wherever LLVM_PROFILE_FILE points when the
+    interpreter exits, and llvm-profdata merges them for the -fprofile-use
+    phase (scripts/pgo_build_clang_cl.py). Every instrumented object names
+    the profile runtime library itself (a /DEFAULTLIB directive in its
+    .drectve, spelled for whichever layout is installed) and references
+    the runtime hook that pulls it from the archive; what link.exe cannot
+    know is where that library lives, so its directory goes on the link
+    line. LTO would need lld-link for the bitcode objects and is not
+    spelled here yet -- a plain clang-cl build already measured ahead of
+    MSVC's PGO+LTCG on the serializer (docs/decisions.md 2026-09-03).
+    """
+    if lto:
+        raise SystemExit("STRATA_ENABLE_LTO=1 is not supported with clang-cl yet (needs lld-link).")
+    compile_args: list[str] = []
+    link_args: list[str] = []
+    if mode == "generate":
+        compile_args.append("/clang:-fprofile-generate")
+        link_args.append(f"/LIBPATH:{_clang_runtime_dir()}")
+    elif mode == "use":
+        profile = os.environ.get("STRATA_PGO_PROFILE", "").strip()
+        if not profile:
+            raise SystemExit("PGO_MODE=use requires STRATA_PGO_PROFILE.")
+        if not Path(profile).exists():
+            raise SystemExit(f"STRATA_PGO_PROFILE does not exist: {profile}")
+        compile_args.append(f"/clang:-fprofile-use={profile}")
+    return compile_args, link_args
+
+
 def _optimization_args() -> tuple[list[str], list[str]]:
     """(compile, link) flags for LTO and PGO, driven by the environment.
 
@@ -234,6 +307,8 @@ def _optimization_args() -> tuple[list[str], list[str]]:
     kind = _compiler_kind()
     if kind == "msvc":
         return _msvc_optimization_args(mode)
+    if kind == "clang-cl":
+        return _clang_cl_optimization_args(mode, lto)
 
     compile_args: list[str] = []
     link_args: list[str] = []

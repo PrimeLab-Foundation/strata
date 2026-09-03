@@ -3,7 +3,9 @@ name: Benchmarks
 # The cross-platform benchmark pipeline (docs/context/convention.md,
 # "Platform supportability"): the same suite, datasets and fairness rules as
 # the local run, on every supported platform/architecture leg — x86_64 Linux
-# (SSE2/SWAR paths), x86_64 macOS, Windows/MSVC (the _umul128 Ryu path),
+# (SSE2/SWAR paths), x86_64 macOS, Windows under clang-cl (the MSVC
+# intrinsic paths are proven correct by ci.yml's MSVC leg and sampled
+# for speed by profile.yml's plain-MSVC control arm),
 # arm64 macOS (the NEON paths on a machine that is not the development box),
 # and — once the repo is public — arm64 Linux. The gate is the
 # supportability tripwire: no ERROR rows, every category present, no row
@@ -17,8 +19,8 @@ name: Benchmarks
 # the headline protocol measures; competitors are their released wheels, so
 # anything else undersells strata systematically (PGO is worth -8..-25% —
 # docs/performance/SKILL.md). The POSIX legs run `make pgo` (clang/gcc
-# two-phase profile + LTO); the Windows leg runs scripts/pgo_build_msvc.py
-# (the LTCG twin: /GL, /GENPROFILE -> /USEPROFILE). Each report's
+# two-phase profile + LTO); the Windows leg runs scripts/pgo_build_clang_cl.py
+# (clang's PGO under clang-cl; the MSVC twin stays for the LTCG build). Each report's
 # compiler_flags line records exactly which build its leg measured.
 #
 # Reports and artifacts are named by platform-architecture, never by runner
@@ -205,10 +207,14 @@ jobs:
           path: bench_ci_*.md
           if-no-files-found: ignore
 
-  # MSVC PGO is spelled LTCG: scripts/pgo_build_msvc.py compiles /GL and
-  # links /GENPROFILE -> /USEPROFILE around the same training workload the
-  # POSIX `make pgo` uses, so this leg measures the same class of build the
-  # others do — the report's compiler_flags line says so.
+  # The Windows build this leg measures is clang-cl with clang's own PGO
+  # (scripts/pgo_build_clang_cl.py: -fprofile-generate -> llvm-profdata ->
+  # -fprofile-use around the same training workload the POSIX `make pgo`
+  # uses). Measured on one commit with three toolchains, MSVC compiles the
+  # serializer's record and float paths 20-30% slower than clang-cl, which
+  # reads them at parity with the LLVM-built rivals; MSVC stays a tested
+  # compiler in the CI matrix and scripts/pgo_build_msvc.py stays its PGO
+  # twin. No LTO here yet (clang-cl's bitcode needs lld-link).
   bench-windows:
     name: supportability (windows-x86_64)
     runs-on: windows-latest
@@ -226,9 +232,11 @@ jobs:
           python -m pip install -U pip setuptools wheel
           python -m pip install -e ".[dev,bench]"
 
-      - name: PGO+LTCG build (gate tests on both phases)
+      - name: clang-cl PGO build (gate tests on both phases)
         shell: bash
-        run: python scripts/pgo_build_msvc.py
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          python scripts/pgo_build_clang_cl.py
 
       - name: Generate the small-tier datasets
         shell: bash
@@ -237,13 +245,13 @@ jobs:
             --out-dir benchmarks/data/generated/small \
             --num-users 1000 --max-orders 10 --max-items 5 --records 500
 
-      # PGO_MODE/STRATA_ENABLE_LTO only inform the report's compiler_flags
-      # line here — the installed extension is already the PGO+LTCG build.
+      # PGO_MODE/STRATA_WIN_COMPILER only inform the report's compiler_flags
+      # line here — the installed extension is already the clang-cl PGO build.
       - name: Run the benchmark suite
         shell: bash
         env:
           PGO_MODE: use
-          STRATA_ENABLE_LTO: "1"
+          STRATA_WIN_COMPILER: clang-cl
         run: |
           PYTHONPATH=. python -m benchmarks.bench_main --name "ci-windows-x86_64" \
             --repeat 10 --warmup 2 \
