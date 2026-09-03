@@ -17,7 +17,9 @@ import sys
 
 ENGINE_PATTERNS = {
     "strata": re.compile(r"^(strata::|jkj::dragonbox|PyInit__strata|strata_)"),
-    "orjson": re.compile(r"^(orjson::|_ZN6orjson|<orjson|core::|alloc::|std::|itoa|ryu|yyjson|_?orjson)"),
+    "orjson": re.compile(
+        r"^(orjson::|_ZN6orjson|<orjson|core::|alloc::|std::|itoa|ryu|yyjson|_?orjson)"
+    ),
     "msgspec": re.compile(r"^(json_|ms_|mpack_|Encoder|Decoder|msgspec|_msgspec|Raw|Struct|Ext_)"),
 }
 
@@ -29,6 +31,7 @@ def main() -> int:
     totals: list[int] = []
     engine_sums: list[int] = []
     per_function: dict[str, list[int]] = {}
+    all_functions: dict[str, list[int]] = {}
     current = None
     with open(path, encoding="utf-8", errors="replace") as handle:
         for line in handle:
@@ -52,6 +55,9 @@ def main() -> int:
                 continue
             for index, cost in enumerate(costs):
                 totals[index] += cost
+            overall = all_functions.setdefault(current, [0] * len(events))
+            for index, cost in enumerate(costs):
+                overall[index] += cost
             if pattern.search(current):
                 for index, cost in enumerate(costs):
                     engine_sums[index] += cost
@@ -74,6 +80,15 @@ def main() -> int:
         print(f"-- top {engine} functions by {key}")
         ranked = sorted(per_function.items(), key=lambda item: item[1][column], reverse=True)
         for name, costs in ranked[:12]:
+            print(f"   {costs[column]:>10,}  {name[:110]}")
+    # The process's top functions by first-level instruction misses, whatever
+    # they belong to: the check that the engine's name pattern caught its
+    # functions (a rival whose symbols mangle differently shows up here).
+    if "I1mr" in events:
+        column = events.index("I1mr")
+        print("-- top functions by I1mr, whole process")
+        ranked = sorted(all_functions.items(), key=lambda item: item[1][column], reverse=True)
+        for name, costs in ranked[:25]:
             print(f"   {costs[column]:>10,}  {name[:110]}")
     return 0
 
