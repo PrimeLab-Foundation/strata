@@ -151,6 +151,15 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-04, later (wave 21).** The builder's one-pass string copy
+(`copy_if_ascii`) moved the parse-side rows the coin band had held: in the
+same-venv A/B users.json −6.5%, wide_arrays −2.5% and mixed −2 to −4%;
+the small tier's roll on that build reads 26/27 at load 5–6 — `loads users` 0.80x,
+`loads wide_arrays` 0.95x, `load mixed` 0.97x, and `loads mixed` 1.01x at
+0.128 ms against orjson's 0.127; the baseline is not refreshed under that
+load. The CI
+block is unchanged.
+
 **Status 2026-09-04 (wave 20, runners still refusing jobs).** The local
 small tier's last row behind, `loads mixed`, reads 1.01x after the number
 head's long-fraction step (0.130 ms against orjson's 0.129; `load mixed`
@@ -158,8 +167,12 @@ head's long-fraction step (0.130 ms against orjson's 0.129; `load mixed`
 and one percent deep. The CI standings still stand at the 060bd7b sample
 (105/108): every dispatched and auto-triggered run since 2026-09-03 22:08
 UTC has failed within seconds with zero steps, GitHub Actions refusing to
-schedule hosted runners for the repository; the wave-19 (1fb880b) and
-wave-20 builds have no CI sample yet.
+schedule hosted runners for the repository — the organization's Actions
+spending limit is exhausted (September 2026 through the org usage endpoint:
+1,833 Linux, 917 Windows and 932 macOS 3-core minutes, about $60 net past
+the included allowance, macOS at its 10x multiplier most of it), so runs
+resume only when the limit is raised or the billing month resets; the
+wave-19 (1fb880b) and wave-20 builds have no CI sample yet.
 
 **Status 2026-09-03 (end of the wave-15–18 day).** Fourteen clean CI samples on
 the day's code line read 101–106/108; the last six have Linux and both macOS

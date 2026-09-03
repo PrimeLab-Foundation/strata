@@ -539,3 +539,49 @@ def test_arrays_abort_cleanly_after_elements():
             strata.loads(doc)
     after = (sys.getrefcount(None), sys.getrefcount(True))
     assert after == before
+
+
+# ---------------------------------------------------------------------------
+# Strings: the builder's speculative compact-ASCII construction
+# ---------------------------------------------------------------------------
+
+
+def test_strings_of_every_width_and_every_high_byte_position_decode():
+    """api.md: strings decode to str.
+
+    The builder copies a string's bytes into a compact ASCII object while it
+    checks them, a word at a time with an overlapping last word, and hands
+    the string to the decoder the moment a high byte shows -- turning the
+    speculation off for the rest of the document. Every width across the
+    word boundaries, a non-ASCII character at every position, ASCII strings
+    before and after a non-ASCII one in one document, escapes, and strings at
+    the very end of the input must all equal stdlib's.
+    """
+    alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+    for width in range(0, 41):
+        text = (alphabet * 2)[:width]
+        doc = json.dumps(text)
+        assert strata.loads(doc) == text
+        assert strata.loads(doc.encode()) == text
+        assert strata.loads("[" + doc + "]") == [text]
+        for position in range(width):
+            mixed = text[:position] + "\u00e9" + text[position + 1 :]
+            doc = json.dumps(mixed, ensure_ascii=False)
+            assert strata.loads(doc) == mixed, (width, position)
+            assert strata.loads(doc.encode()) == mixed, (width, position)
+            wide = text[:position] + "\U0001f600" + text[position + 1 :]
+            doc = json.dumps(wide, ensure_ascii=False)
+            assert strata.loads(doc) == wide, (width, position)
+    # A document that turns the speculation off part-way keeps decoding
+    # ASCII and non-ASCII strings alike, escaped or not.
+    values = ["plain", "caf\u00e9", "after", "z\u00fcrich", "tail-ascii-string", "x", "", "\u00e9"]
+    doc = json.dumps(values, ensure_ascii=False)
+    assert strata.loads(doc) == values
+    doc = json.dumps(values, ensure_ascii=True)
+    assert strata.loads(doc) == values
+    doc = json.dumps({"k" + str(i): v for i, v in enumerate(values)}, ensure_ascii=False)
+    assert strata.loads(doc) == json.loads(doc)
+    # Escapes decode through the scratch buffer, whatever the width.
+    for width in range(1, 20):
+        text = "a" * width + "\n" + "b" * width
+        assert strata.loads(json.dumps(text)) == text

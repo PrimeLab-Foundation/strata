@@ -172,6 +172,7 @@ class PythonObjectBuilder {
      * different document.
      */
     void begin_input(const char* begin, const char* end) noexcept {
+        ascii_expected_ = true;
         input_begin_ = begin;
         input_end_ = end;
         // One thread-local read per parse instead of per dict member: the
@@ -283,12 +284,30 @@ class PythonObjectBuilder {
         // those out from its empty and latin-1 singleton caches, which a
         // fresh PyUnicode_New would replace with an allocation per value.
         const auto size = static_cast<Py_ssize_t>(value.size());
-        if (size > 1 && all_ascii(value.data(), value.size())) {
-            PyObject* object = PyUnicode_New(size, 127);
-            if (object == nullptr)
-                return push(nullptr);
-            std::memcpy(PyUnicode_DATA(object), value.data(), value.size());
-            return push(object);
+        if (size > 1) {
+            if (ascii_expected_) {
+                // Speculate ASCII: the compact object is allocated first and
+                // the bytes are copied into it while the high bits are
+                // checked -- one pass in place of the scan and the memcpy.
+                // A high byte hands the string to the decoder and turns the
+                // speculation off for the rest of the document, so a
+                // non-ASCII document wastes one allocation, not one per
+                // string.
+                PyObject* object = PyUnicode_New(size, 127);
+                if (object == nullptr)
+                    return push(nullptr);
+                if (copy_if_ascii(static_cast<char*>(PyUnicode_DATA(object)), value.data(),
+                                  value.size()))
+                    return push(object);
+                Py_DECREF(object);
+                ascii_expected_ = false;
+            } else if (all_ascii(value.data(), value.size())) {
+                PyObject* object = PyUnicode_New(size, 127);
+                if (object == nullptr)
+                    return push(nullptr);
+                std::memcpy(PyUnicode_DATA(object), value.data(), value.size());
+                return push(object);
+            }
         }
         return push(PyUnicode_FromStringAndSize(value.data(), size));
     }
@@ -373,6 +392,39 @@ class PythonObjectBuilder {
             uint64_t word = 0;
             std::memcpy(&word, data + pos, len - pos);
             accumulated |= word;
+        }
+        return (accumulated & 0x8080808080808080ULL) == 0;
+    }
+
+    /// Copy @p len (at least two) bytes to @p dst while accumulating their
+    /// high bits: the ASCII check and the copy in one pass. A word at a
+    /// time; a tail of a string of eight bytes or more is the string's last
+    /// word, loaded and stored overlapping the previous one (both ends hold
+    /// those bytes already), a shorter string's tail goes byte by byte.
+    /// Returns false when a byte has its high bit set -- @p dst is then
+    /// partly written and the caller discards it.
+    [[nodiscard]] static bool copy_if_ascii(char* dst, const char* src, size_t len) noexcept {
+        uint64_t accumulated = 0;
+        size_t pos = 0;
+        for (; pos + 8 <= len; pos += 8) {
+            uint64_t word;
+            std::memcpy(&word, src + pos, 8);
+            std::memcpy(dst + pos, &word, 8);
+            accumulated |= word;
+        }
+        if (pos < len) {
+            if (len >= 8) {
+                uint64_t word;
+                std::memcpy(&word, src + len - 8, 8);
+                std::memcpy(dst + len - 8, &word, 8);
+                accumulated |= word;
+            } else {
+                for (; pos < len; ++pos) {
+                    const char byte = src[pos];
+                    dst[pos] = byte;
+                    accumulated |= static_cast<unsigned char>(byte);
+                }
+            }
         }
         return (accumulated & 0x8080808080808080ULL) == 0;
     }
@@ -697,8 +749,11 @@ class PythonObjectBuilder {
     /// does one bounded store, never a vector grow.
     static constexpr size_t kMaxSizedDepth = 64;
 
-    std::vector<Schema> predicted_;                          ///< indexed by depth
-    uint32_t depth_sizes_[kMaxSizedDepth] = {};              ///< last object size per depth
+    std::vector<Schema> predicted_;             ///< indexed by depth
+    uint32_t depth_sizes_[kMaxSizedDepth] = {}; ///< last object size per depth
+    /// Strings are built as compact ASCII speculatively until the document
+    /// shows a high byte (see on_string); reset per input.
+    bool ascii_expected_ = true;
     DuplicateKeyPolicy policy_ = get_duplicate_key_policy(); ///< latched per parse
     const char* input_begin_ = nullptr;
     const char* input_end_ = nullptr;
