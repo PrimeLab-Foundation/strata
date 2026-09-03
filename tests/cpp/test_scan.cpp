@@ -134,6 +134,27 @@ void test_fused_copy_matches_scan() {
             }
         }
     }
+    // The short tiers (under one SIMD block) pad and overlap their words;
+    // bytes at or above 0x80 -- UTF-8 lead and continuation bytes -- must
+    // pass through them unflagged at every length and position, with an
+    // escape anywhere still found first.
+    for (const char filler : {'\x80', '\xff', '\xc3', '\x20', '\x7f'}) {
+        for (size_t len = 0; len <= 40; ++len) {
+            for (size_t position = 0; position <= len; ++position) {
+                std::string text(len, filler);
+                if (position < len)
+                    text[position] = '\\';
+                std::vector<char> fused((len + 15) / 16 * 16 + 16, '\xAA');
+                std::vector<char> twin(fused.size(), '\xAA');
+                const size_t got = strata::util::copy_until_escape(text.data(), len, fused.data());
+                const size_t want =
+                    strata::util::copy_until_escape_scalar(text.data(), len, twin.data());
+                assert(got == want);
+                assert(got == strata::util::find_next_escape(text.data(), len));
+                assert(std::memcmp(fused.data(), text.data(), got) == 0);
+            }
+        }
+    }
 }
 
 void check_utf8(const std::string& text) {

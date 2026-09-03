@@ -85,6 +85,10 @@ jobs:
 
       - name: Cold-state probe on this leg
         run: PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
+      # The same per-bucket decomposition the Windows leg reads, so the two
+      # x86 legs' serializer buckets can be read side by side.
+      - name: Decompose dumps mixed on this leg
+        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
       - name: Allocation round trips, hot, harness style
         run: PYTHONPATH=. .venv/bin/python benchmarks/alloc_roundtrip_probe.py
 

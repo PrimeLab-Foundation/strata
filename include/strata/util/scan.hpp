@@ -327,6 +327,66 @@ inline size_t find_next_escape(const char* data, size_t len) noexcept {
 
 inline size_t copy_until_escape(const char* src, size_t len, char* dst) noexcept {
     size_t pos = 0;
+#if defined(STRATA_ESCAPE_SCAN_SWAR)
+    // Short strings first. Keys, names and identifiers are mostly under one
+    // SIMD block, and the block tiers below charged that case five failed
+    // compares and a call into the byte loop for one to three bytes -- the
+    // per-string cost the serializer's short-string buckets read behind
+    // orjson on x86. One branch routes them here: two overlapped words for
+    // 8..15 bytes, the fused head-and-tail pass for 4..7, and 1..3 bytes
+    // padded with spaces (a clean byte) into one word for a single mask
+    // pass. Every store lands before its mask is inspected, exactly like
+    // the block tiers: the contract gives the destination block-rounded
+    // room, so the bytes past the first escape are scratch.
+    if (len < 16) {
+        if (len >= 8) {
+            uint64_t head;
+            uint64_t tail;
+            std::memcpy(&head, src, 8);
+            std::memcpy(dst, &head, 8);
+            std::memcpy(&tail, src + len - 8, 8);
+            std::memcpy(dst + len - 8, &tail, 8);
+            const uint64_t head_mask = detail::escape_mask_word(head);
+            if (head_mask != 0)
+                return static_cast<size_t>(detail::trailing_zeros64(head_mask)) >> 3;
+            const uint64_t tail_mask = detail::escape_mask_word(tail);
+            if (tail_mask != 0)
+                return (len - 8) + (static_cast<size_t>(detail::trailing_zeros64(tail_mask)) >> 3);
+            return len;
+        }
+        if (len >= 4) {
+            uint32_t head;
+            uint32_t tail;
+            std::memcpy(&head, src, 4);
+            std::memcpy(dst, &head, 4);
+            std::memcpy(&tail, src + len - 4, 4);
+            std::memcpy(dst + len - 4, &tail, 4);
+            const uint64_t combined =
+                static_cast<uint64_t>(head) | (static_cast<uint64_t>(tail) << 32);
+            const uint64_t mask = detail::escape_mask_word(combined);
+            if (mask == 0)
+                return len;
+            const size_t index = static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3;
+            return index < 4 ? index : len - 8 + index;
+        }
+        if (len == 0)
+            return 0;
+        unsigned char bytes[4] = {0x20, 0x20, 0x20, 0x20};
+        bytes[0] = static_cast<unsigned char>(src[0]);
+        if (len > 1)
+            bytes[1] = static_cast<unsigned char>(src[1]);
+        if (len > 2)
+            bytes[2] = static_cast<unsigned char>(src[2]);
+        std::memcpy(dst, bytes, 4);
+        uint32_t word;
+        std::memcpy(&word, bytes, 4);
+        const uint64_t mask =
+            detail::escape_mask_word(static_cast<uint64_t>(word) | 0x2020202000000000ULL);
+        if (mask == 0)
+            return len;
+        return static_cast<size_t>(detail::trailing_zeros64(mask)) >> 3;
+    }
+#endif
 #if defined(STRATA_ESCAPE_SCAN_AVX2)
     // Wide tier, stores strictly inside len: copy the block, then check it —
     // on a hit nothing was advanced, so the copied tail is scratch exactly
