@@ -45,8 +45,63 @@ def _banner(text: str) -> None:
     print(f"\n{RULE}\n{text}\n{RULE}", flush=True)
 
 
+def _windows_compiler_override() -> str | None:
+    """`STRATA_WIN_COMPILER=cl|clang-cl`: a plain /O2 build with the named compiler.
+
+    Windows builds are MSVC with the LTCG that setuptools hardcodes (/GL on
+    the compile, /LTCG on the link) and, under scripts/pgo_build_msvc.py,
+    PGO on top. This override strips LTCG and swaps the compile step's
+    executable, so the two toolchains can be measured on the same commit
+    as the same class of build: `cl` is the plain-MSVC control, `clang-cl`
+    takes the same command line (the /O2, /arch:AVX2 and /std:c++20
+    spellings above; it ignores /GL) and links with the MSVC linker. The
+    headers guard their MSVC paths with `_MSC_VER && !__clang__`, so
+    clang-cl takes their GNU branches. Used by the profile workflow, where
+    MSVC's codegen of the serializer's per-element paths reads well behind
+    the LLVM-built rivals (docs/decisions.md 2026-09-03). Fails loudly when
+    the compiler is asked for but not installed, and refuses to combine
+    with PGO_MODE / STRATA_ENABLE_LTO, whose MSVC spellings assume /GL.
+    """
+    wanted = os.environ.get("STRATA_WIN_COMPILER", "").strip().lower()
+    if not wanted:
+        return None
+    if sys.platform != "win32" or wanted not in ("cl", "clang-cl"):
+        raise SystemExit(
+            f"STRATA_WIN_COMPILER={wanted!r}: only 'cl' or 'clang-cl', and only on Windows."
+        )
+    if os.environ.get("PGO_MODE") or os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1":
+        raise SystemExit(
+            "STRATA_WIN_COMPILER is a plain build; unset PGO_MODE and STRATA_ENABLE_LTO."
+        )
+    found = shutil.which(wanted) or shutil.which(wanted, path=r"C:\Program Files\LLVM\bin")
+    if not found:
+        raise SystemExit(f"STRATA_WIN_COMPILER={wanted} but {wanted}.exe is not on PATH.")
+    return found
+
+
 class TestGatedBuildExt(build_ext):
     """`build_ext` wrapped in the pre-build C++ gate and post-build Python gate."""
+
+    def build_extensions(self) -> None:
+        override = _windows_compiler_override()
+        if override:
+            # MSVCCompiler resolves its toolchain lazily in initialize() and
+            # asserts against a second call (a cross build has already made
+            # it); resolve it, then point the compile step at the override
+            # and take LTCG out of both halves so the build is plainly /O2.
+            if not self.compiler.initialized:
+                self.compiler.initialize()
+            self.compiler.cc = override
+            self.compiler.compile_options = [
+                flag for flag in self.compiler.compile_options if flag != "/GL"
+            ]
+            for name in dir(self.compiler):
+                if name.startswith("ldflags"):
+                    flags = getattr(self.compiler, name)
+                    if isinstance(flags, list):
+                        setattr(self.compiler, name, [flag for flag in flags if flag != "/LTCG"])
+            print(f"+ compiling with {override}, plain /O2 (no LTCG)", flush=True)
+        super().build_extensions()
 
     def run(self) -> None:
         if SKIP_TESTS:

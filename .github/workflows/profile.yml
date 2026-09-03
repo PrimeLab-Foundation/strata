@@ -188,3 +188,54 @@ jobs:
       - name: Allocation round trips, hot, harness style
         shell: bash
         run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
+
+      # The toolchain question, asked on the same commit: the serializer's
+      # per-element paths read 1.3-1.9x behind orjson on this leg and at
+      # parity or ahead under clang everywhere else, and orjson's Windows
+      # wheel is LLVM-built. Two more builds of the extension replace the
+      # MSVC PGO build in place, each the same class of build -- plain /O2,
+      # no LTCG, no PGO (setuptools hardcodes /GL and /LTCG; the override
+      # strips them) -- so the compilers differ and nothing else: MSVC as
+      # the control, then clang-cl. Each rebuild is forced (setuptools'
+      # up-to-date check would otherwise skip it silently and the probes
+      # would re-measure the previous binary) and its own line in the log
+      # proves which compiler ran; the Python suites gate each build (the
+      # C++ gate is CMake's own MSVC build and does not see the override).
+      # Read the three blocks of this job side by side.
+      - name: Plain MSVC /O2 build (the control, gated)
+        shell: bash
+        run: |
+          STRATA_WIN_COMPILER=cl python setup.py build_ext --inplace --force | tee build_cl.log
+          grep -q "compiling with" build_cl.log
+      - name: Decompose dumps mixed on the plain MSVC build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
+      - name: Decompose loads flat on the plain MSVC build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/decompose_loads_flat.py
+      - name: Cold-state probe on the plain MSVC build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/cold_state_probe.py
+      - name: Allocation round trips on the plain MSVC build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
+
+      - name: clang-cl /O2 build of the same commit (gated)
+        shell: bash
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          clang-cl --version
+          STRATA_WIN_COMPILER=clang-cl python setup.py build_ext --inplace --force | tee build_clang.log
+          grep -q "compiling with" build_clang.log
+      - name: Decompose dumps mixed on the clang-cl build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
+      - name: Decompose loads flat on the clang-cl build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/decompose_loads_flat.py
+      - name: Cold-state probe on the clang-cl build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/cold_state_probe.py
+      - name: Allocation round trips on the clang-cl build
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
