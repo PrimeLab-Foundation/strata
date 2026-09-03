@@ -44,10 +44,13 @@ namespace {
 // once per schema, once per cycle, or never.
 #if defined(__clang__) || defined(__GNUC__)
 #define STRATA_COLD_FN __attribute__((noinline, cold))
+#define STRATA_NOINLINE_HOT __attribute__((noinline))
 #elif defined(_MSC_VER)
 #define STRATA_COLD_FN __declspec(noinline)
+#define STRATA_NOINLINE_HOT __declspec(noinline)
 #else
 #define STRATA_COLD_FN
+#define STRATA_NOINLINE_HOT
 #endif
 
 /**
@@ -721,16 +724,18 @@ class Serializer {
         return write_mapping_body(object, keys, values, count);
     }
 
-#if defined(__clang__) || defined(__GNUC__)
-    [[gnu::always_inline]]
-#endif
-    // Inlined into both call sites: as an out-of-line function the call and
-    // register spill cost ~9 ns per object, which erased the frame-elision
-    // win on shallow-dict documents. Re-measured after wave 10 fattened the
-    // body: dropping this changed the interleaved wide_arrays row by nothing
-    // and cost ~1% on record rows — the attribute stays.
-    [[nodiscard]] inline bool write_mapping_body(PyObject* object, PyObject* const* keys,
-                                                 PyObject* const* values, Py_ssize_t count) {
+    // One out-of-line copy, deliberately. It was force-inlined into both call
+    // sites (measured worth ~9 ns per object hot on shallow-dict documents),
+    // but the cold-state probe (docs/decisions.md, 2026-09-03) showed the
+    // x86 legs pay for the serializer's *entry footprint*: entering dumps cold
+    // on one record costs 18.6 µs on Windows against orjson's 10.6, and the
+    // interleaved harness hands every call a cold cache. Two inlined copies
+    // of this body plus the fused writer's own loop were three copies of the
+    // key-emit machinery in hot text; this keeps one.
+    [[nodiscard]] STRATA_NOINLINE_HOT bool write_mapping_body(PyObject* object,
+                                                              PyObject* const* keys,
+                                                              PyObject* const* values,
+                                                              Py_ssize_t count) {
         // Documents are overwhelmingly made of records that share a schema, so
         // the same keys get escape-scanned and quoted once per record.
         // Remembering the previous object's keys turns all of that into one
