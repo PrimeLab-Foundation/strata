@@ -307,11 +307,14 @@ void test_short_number_head_matches_full_scanner() {
         bool on_end_array() { return true; }
     };
     uint64_t state = 0x1234567887654321ULL;
-    const char* tails[] = {", 1", "]", "}", " ", "e5", "E-2", ".5", "x"};
+    const char* tails[] = {", 1", "]", "}", " ", "e5", "E-2", ".5", "x", ""};
     // Integer widths through 17: the head's first word covers 1..7 digits,
     // its second word 8..15, and 16 and 17 prove the hand-off to the scanner.
+    // Fraction widths through 24: the head's fraction word covers 1..7, its
+    // long-fraction step 8..19 (16..19 behind a lone zero only), and the
+    // widths past each bound prove the hand-off.
     for (size_t int_len = 1; int_len <= 17; ++int_len) {
-        for (size_t frac_len = 0; frac_len <= 17; ++frac_len) {
+        for (size_t frac_len = 0; frac_len <= 24; ++frac_len) {
             for (int trial = 0; trial < 12; ++trial) {
                 std::string text = digits_of(state, int_len, 0, false);
                 if (trial % 4 == 1)
@@ -322,39 +325,45 @@ void test_short_number_head_matches_full_scanner() {
                     text += "." + digits_of(state, frac_len, trial % 3, trial % 5 == 0);
                 for (const bool negative : {false, true}) {
                     for (const char* tail : tails) {
-                        const std::string number = (negative ? "-" : "") + text;
-                        // Room past the number: the head needs eight readable
-                        // bytes from a run's first digit, so without padding
-                        // the short widths would never enter it and the
-                        // comparison would be trivially true for them. Both
-                        // parsers stop at the number; the padding is never
-                        // consumed.
-                        const std::string input = number + tail + std::string(9, 'x');
-                        // The head, through the real parser entry.
-                        Handler handler;
-                        strata::ParserInline<Handler> parser{input.data(), input.size(), handler};
-                        const bool head_ok = parser.parse_number();
-                        // The full scanner alone.
-                        strata::util::ParsedNumber number_out;
-                        const bool full_ok = strata::util::parse_number_unified(
-                            input.data(), input.size(), number_out);
-                        assert(head_ok == full_ok);
-                        if (!full_ok)
-                            continue;
-                        assert(parser.i == number_out.consumed);
-                        if (number_out.kind == strata::util::NumberKind::Int64) {
-                            assert(handler.kind == 1 && handler.last_int == number_out.int_value);
-                        } else if (number_out.kind == strata::util::NumberKind::Double) {
-                            uint64_t got;
-                            uint64_t want;
-                            std::memcpy(&got, &handler.last_double, sizeof(got));
-                            std::memcpy(&want, &number_out.double_value, sizeof(want));
-                            if (handler.kind != 2 || got != want) {
-                                std::printf("head/scanner mismatch on %s\n", input.c_str());
-                                assert(false);
+                        for (const size_t padding : {size_t{0}, size_t{9}, size_t{24}}) {
+                            const std::string number = (negative ? "-" : "") + text;
+                            // Room past the number: the head needs eight readable
+                            // bytes from a run's first digit and the long-fraction
+                            // step twenty-four from its first fraction digit, so
+                            // without padding the short widths would never enter
+                            // them and the comparison would be trivially true for
+                            // them -- and with padding alone the near-end hand-off
+                            // to the scanner would never run. Both parsers stop at
+                            // the number; the padding is never consumed.
+                            const std::string input = number + tail + std::string(padding, 'x');
+                            // The head, through the real parser entry.
+                            Handler handler;
+                            strata::ParserInline<Handler> parser{input.data(), input.size(),
+                                                                 handler};
+                            const bool head_ok = parser.parse_number();
+                            // The full scanner alone.
+                            strata::util::ParsedNumber number_out;
+                            const bool full_ok = strata::util::parse_number_unified(
+                                input.data(), input.size(), number_out);
+                            assert(head_ok == full_ok);
+                            if (!full_ok)
+                                continue;
+                            assert(parser.i == number_out.consumed);
+                            if (number_out.kind == strata::util::NumberKind::Int64) {
+                                assert(handler.kind == 1 &&
+                                       handler.last_int == number_out.int_value);
+                            } else if (number_out.kind == strata::util::NumberKind::Double) {
+                                uint64_t got;
+                                uint64_t want;
+                                std::memcpy(&got, &handler.last_double, sizeof(got));
+                                std::memcpy(&want, &number_out.double_value, sizeof(want));
+                                if (handler.kind != 2 || got != want) {
+                                    std::printf("head/scanner mismatch on %s\n", input.c_str());
+                                    assert(false);
+                                }
+                            } else {
+                                assert(handler.kind == 3);
                             }
-                        } else {
-                            assert(handler.kind == 3);
                         }
                     }
                 }
@@ -375,7 +384,6 @@ namespace {
 struct IntCollector {
     std::vector<int64_t> ints;
     std::vector<double> doubles;
-    bool failed = false;
     bool on_null() { return true; }
     bool on_bool(bool) { return true; }
     bool on_int(int64_t value) {
@@ -397,7 +405,114 @@ struct IntCollector {
 
 } // namespace
 
+// The long-fraction step's contract, pinned on the helper itself: what it
+// declines (too little input, an exponent, more than nineteen significant
+// digits) and that what it accepts is the scanner's double, bit for bit.
+void test_long_fraction_step_contract() {
+    using strata::util::detail::parse_long_fraction;
+    const auto scanner_bits = [](const std::string& text) {
+        strata::util::ParsedNumber number;
+        assert(strata::util::parse_number_unified(text.data(), text.size(), number));
+        assert(number.kind == strata::util::NumberKind::Double);
+        uint64_t bits;
+        std::memcpy(&bits, &number.double_value, sizeof(bits));
+        return bits;
+    };
+    const auto step = [](const std::string& fraction, size_t available, uint32_t int_value,
+                         unsigned int_digits, bool negative, double& out, size_t& digits) {
+        std::string buffer = fraction + std::string(40, ']');
+        uint64_t first_word;
+        std::memcpy(&first_word, buffer.data(), 8);
+        return parse_long_fraction(buffer.data(), available, first_word, int_value, int_digits,
+                                   negative, out, digits);
+    };
+    double out = 0.0;
+    size_t digits = 0;
+    // Fewer than twenty-four readable bytes: declined whatever the digits.
+    assert(!step("12345678", 23, 1, 1, false, out, digits));
+    assert(step("12345678", 24, 1, 1, false, out, digits) && digits == 8);
+    {
+        uint64_t bits;
+        std::memcpy(&bits, &out, sizeof(bits));
+        assert(bits == scanner_bits("1.12345678"));
+    }
+    // An exponent behind the run: the scanner's.
+    assert(!step("12345678e", 40, 1, 1, false, out, digits));
+    assert(!step("1234567890123456E", 40, 0, 1, false, out, digits));
+    // The significant-digit bound: nineteen in all, a lone zero counting none.
+    assert(step("1234567890123456789", 40, 0, 1, true, out, digits) && digits == 19);
+    {
+        uint64_t bits;
+        std::memcpy(&bits, &out, sizeof(bits));
+        assert(bits == scanner_bits("-0.1234567890123456789"));
+    }
+    assert(!step("12345678901234567890", 40, 0, 1, false, out, digits));
+    assert(step("123456789012345678", 40, 7, 1, false, out, digits) && digits == 18);
+    assert(!step("1234567890123456789", 40, 7, 1, false, out, digits));
+    assert(step("123456789012", 40, 1234567, 7, false, out, digits) && digits == 12);
+    {
+        uint64_t bits;
+        std::memcpy(&bits, &out, sizeof(bits));
+        assert(bits == scanner_bits("1234567.123456789012"));
+    }
+    assert(!step("1234567890123", 40, 1234567, 7, false, out, digits));
+    // Twenty-three fraction digits: a third word ends the run, the bound declines.
+    assert(!step("12345678901234567890123", 40, 0, 1, false, out, digits));
+    // Zero mantissas keep the sign, as the scanner's do.
+    assert(step("00000000", 40, 0, 1, true, out, digits) && std::signbit(out) && out == 0.0);
+    // Hard doubles through the real entry: halfway and near-halfway
+    // mantissas, trailing zeros, the largest and smallest normal magnitudes
+    // the step can see -- each the scanner's bits, whichever path decided.
+    for (const char* text :
+         {"0.9007199254740993", "0.90071992547409930", "1.0000000000000002", "0.30000000000000004",
+          "2.2250738585072014", "1.7976931348623157", "0.1000000000000000055", "0.000000001",
+          "0.00000000000000001", "0.1234567890123456789", "1234567.123456789012",
+          "-0.6390313938546974", "-9.9999999999999999", "0.99999999999999999", "5.0000000000000001",
+          "0.50000000000000001", "0.49999999999999999", "0.12345678", "0.123456789012345"}) {
+        struct Handler {
+            double value = 0.0;
+            int kind = 0;
+            bool on_null() { return true; }
+            bool on_bool(bool) { return true; }
+            bool on_int(int64_t) {
+                kind = 1;
+                return true;
+            }
+            bool on_big_int(std::string_view) {
+                kind = 3;
+                return true;
+            }
+            bool on_double(double got) {
+                value = got;
+                kind = 2;
+                return true;
+            }
+            bool on_string(std::string_view) { return true; }
+            bool on_key(std::string_view) { return true; }
+            bool on_start_object() { return true; }
+            bool on_end_object() { return true; }
+            bool on_start_array() { return true; }
+            bool on_end_array() { return true; }
+        };
+        const std::string input = std::string(text) + "," + std::string(30, '0');
+        Handler handler;
+        strata::ParserInline<Handler> parser{input.data(), input.size(), handler};
+        assert(parser.parse_number());
+        assert(handler.kind == 2);
+        uint64_t got;
+        std::memcpy(&got, &handler.value, sizeof(got));
+        assert(got == scanner_bits(text));
+        assert(parser.i == std::strlen(text));
+    }
+}
+
 void test_tiny_int_dispatch_matches_the_scanner() {
+    // Minus zero is an integer zero (api.md), through the inline path too.
+    for (const char* doc : {"-0", "[-0,0,0,0]", "{\"k\":-0}", "[-0]"}) {
+        IntCollector got;
+        assert(strata::parse_sax_inline(doc, got, true) == strata::Status::Ok);
+        assert(!got.ints.empty() && got.ints[0] == 0 && got.doubles.empty());
+    }
     for (int value = -999; value <= 999; ++value) {
         const std::string digits = std::to_string(value);
         // The inline path needs four readable bytes from the number's first
@@ -437,16 +552,49 @@ void test_tiny_int_dispatch_matches_the_scanner() {
         assert(exponent.ints.empty() && exponent.doubles.size() == 1);
         assert(exponent.doubles[0] == static_cast<double>(value) * 10.0);
     }
-    for (const char* bad : {"01", "[01]", "[1.]", "[1e]", "[1x]", "[-]", "[--1]", "[12", "[007]",
-                            "[1.e5]", "[+1]", "[01,0,0,0]", "[-01,0,0,0]", "[1x,0,0,0]",
-                            "[12.,0,0]", "[-,0,0,0,0]", "[-a,0,0,0]", "[1e,0,0,0]"}) {
+    for (const char* bad :
+         {"01",          "[01]",       "[1.]",        "[1e]",       "[1x]",       "[-]",
+          "[--1]",       "[12",        "[007]",       "[1.e5]",     "[+1]",       "[01,0,0,0]",
+          "[-01,0,0,0]", "[1x,0,0,0]", "[12x,0,0,0]", "[123x,0,0]", "[-12x,0,0]", "[12.,0,0]",
+          "[-,0,0,0,0]", "[-a,0,0,0]", "[1e,0,0,0]"}) {
         IntCollector got;
         assert(strata::parse_sax_inline(bad, got, true) != strata::Status::Ok);
+    }
+    // Every byte as the terminator behind one, two and three digits of either
+    // sign: the inline path's whole grammar is "any byte that is not a digit,
+    // a point or an exponent ends the run", so the document's outcome must be
+    // the scanner's -- the number it consumes, and then the array's own rule
+    // for what may follow (blanks, then the comma).
+    for (const int value : {5, 42, 123, -7, -42, -123, 0}) {
+        const std::string digits = std::to_string(value);
+        for (int byte = 0; byte < 256; ++byte) {
+            const std::string doc = "[" + digits + static_cast<char>(byte) + ",0]";
+            strata::util::ParsedNumber number;
+            const bool scanned =
+                strata::util::parse_number_unified(doc.data() + 1, doc.size() - 1, number);
+            bool expected = scanned;
+            if (scanned) {
+                std::string_view rest(doc.data() + 1 + number.consumed,
+                                      doc.size() - 1 - number.consumed);
+                while (!rest.empty() && (rest.front() == ' ' || rest.front() == '\t' ||
+                                         rest.front() == '\n' || rest.front() == '\r'))
+                    rest.remove_prefix(1);
+                expected = rest == ",0]";
+            }
+            IntCollector got;
+            const bool ok = strata::parse_sax_inline(doc, got, true) == strata::Status::Ok;
+            assert(ok == expected);
+            if (ok) {
+                assert(number.kind == strata::util::NumberKind::Int64);
+                assert(got.ints.size() == 2 && got.ints[0] == number.int_value);
+            }
+        }
     }
 }
 
 int main() {
     test_tiny_int_dispatch_matches_the_scanner();
+    test_long_fraction_step_contract();
     test_short_number_head_matches_full_scanner();
     test_word_run_matches_scalar_twin();
     test_integers_of_every_width_match_from_chars();

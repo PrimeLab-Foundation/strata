@@ -151,6 +151,16 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-04 (wave 20, runners still refusing jobs).** The local
+small tier's last row behind, `loads mixed`, reads 1.01x after the number
+head's long-fraction step (0.130 ms against orjson's 0.129; `load mixed`
+1.00x; 1.03x and 0.98x on a second roll; a same-venv A/B against the previous build reads the row −0.5%, inside noise) — the parse-side coin band is now one row wide
+and one percent deep. The CI standings still stand at the 060bd7b sample
+(105/108): every dispatched and auto-triggered run since 2026-09-03 22:08
+UTC has failed within seconds with zero steps, GitHub Actions refusing to
+schedule hosted runners for the repository; the wave-19 (1fb880b) and
+wave-20 builds have no CI sample yet.
+
 **Status 2026-09-03 (end of the wave-15–18 day).** Fourteen clean CI samples on
 the day's code line read 101–106/108; the last six have Linux and both macOS
 legs at 27/27 on their clean draws and every row behind inside its leg's coin

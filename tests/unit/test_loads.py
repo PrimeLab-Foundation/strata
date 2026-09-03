@@ -7,6 +7,7 @@ docs/decisions.md move together.
 
 import json
 import math
+import random
 import warnings
 
 import pytest
@@ -379,3 +380,80 @@ def test_deeply_nested_input_parses():
     for _ in range(depth):
         parsed = parsed[0]
     assert parsed == 1
+
+
+# ---------------------------------------------------------------------------
+# Numbers: the long-fraction step of the number head
+# ---------------------------------------------------------------------------
+
+
+def test_long_fraction_floats_match_stdlib():
+    """api.md: floats parse to the correctly rounded double.
+
+    The number head settles fractions of 8..19 digits from up to three words
+    (16..19 behind a lone zero only) and hands the rest to the full scanner;
+    every width across both bounds, either sign, at every position a number
+    can sit in a document -- including the near-end positions where the
+    head declines for want of readable bytes -- must give stdlib's bits.
+    """
+    rng = random.Random(20260904)
+    texts = []
+    for _ in range(400):
+        width = rng.randint(1, 24)
+        int_part = rng.choice(["0", "0", str(rng.randint(1, 9999999)), str(rng.randint(1, 10**15))])
+        digits = "".join(rng.choice("0123456789") for _ in range(width))
+        if rng.random() < 0.2:
+            digits = digits[:-1] + "0"
+        texts.append(("-" if rng.random() < 0.5 else "") + int_part + "." + digits)
+    texts += [
+        "0.9007199254740993",
+        "0.90071992547409930",
+        "1.0000000000000002",
+        "0.30000000000000004",
+        "2.2250738585072014",
+        "1.7976931348623157",
+        "0.1000000000000000055",
+        "0.00000000000000001",
+        "0.1234567890123456789",
+        "0.12345678901234567890123",
+        "-0.00000000",
+        "0.000000000000000000",
+        "1234567.123456789012",
+        "1234567.1234567890123",
+        "0.6390313938546974",
+        "-0.99999999999999999",
+        "0.49999999999999999",
+    ]
+    for text in texts:
+        forms = (
+            text,
+            f"[{text}]",
+            f"[{text},0]",
+            f'{{"k":{text}}}',
+            f"[{text},0,0,0,0,0,0,0,0,0,0,0,0]",
+            f"[{text}e2,0,0,0,0,0,0,0,0,0,0]",
+            f"[{text}E-3,0,0,0,0,0,0,0,0,0,0]",
+        )
+        for doc in forms:
+            expected = json.loads(doc)
+            got = strata.loads(doc)
+            assert got == expected, doc
+            # Bit identity: the shortest round-trip text of a finite double is
+            # unique, and -0.0 keeps its sign in it.
+            assert json.dumps(got) == json.dumps(expected), doc
+            assert strata.loads(doc.encode()) == expected, doc
+
+
+def test_long_fraction_floats_reject_malformed_neighbours():
+    """api.md: invalid JSON is a ValueError -- the head's declines included."""
+    for doc in (
+        "[0.12345678e,0,0,0,0,0,0,0,0,0,0]",
+        "[0.1234567890123456.5,0,0,0,0,0,0,0]",
+        "[0.12345678901234567x,0,0,0,0,0,0]",
+        "[00.12345678901234567,0,0,0,0,0,0]",
+        "[0.,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]",
+        "[-.12345678901234567,0,0,0,0,0,0,0]",
+        "[0.12345678901234567",
+    ):
+        with pytest.raises(ValueError, match="^Invalid JSON$"):
+            strata.loads(doc)

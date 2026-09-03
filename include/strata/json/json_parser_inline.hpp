@@ -27,14 +27,6 @@
 #include <string>
 #include <string_view>
 
-#if defined(_MSC_VER) && !defined(__clang__)
-#define STRATA_NOINLINE __declspec(noinline)
-#elif defined(__clang__) || defined(__GNUC__)
-#define STRATA_NOINLINE [[gnu::noinline]]
-#else
-#define STRATA_NOINLINE
-#endif
-
 namespace strata {
 
 /**
@@ -169,14 +161,22 @@ template <typename Handler> struct ParserInline {
             // the out-of-line number path, whose word head costs a call, an
             // 8-byte load, a digit mask, a count and a multiply chain
             // (measured in the SAX core at 10-11 ns per such number against
-            // 3.9 for a null; 3.5-4.5 here). Exit first: a number whose next
+            // 3.9 for a null; 6.3-7.0 here). Exit first: a number whose next
             // three bytes are all digits or points is long or a float and
-            // takes parse_number on one predictable branch, so long integers
-            // and floats pay three byte loads and nothing else. What remains
+            // takes parse_number on one predictable branch. The filter may
+            // over-approximate -- handing a number to parse_number is always
+            // right, keeping one is right only once it is proven short -- and
+            // that is the invariant to keep when editing it. What remains
             // has one to three digits and a terminator; the lone-zero rule
             // holds ("01" is not taken here and is rejected by the full
             // path), and a point or an exponent after the digits still
-            // takes the full path.
+            // takes the full path. The classes that take neither path pay
+            // for the code in this function: 4-digit integers about 6%,
+            // 6-decimal floats 4% and 17-digit floats 6% in the core (a
+            // one-word SWAR range filter in place of the four byte loads
+            // recovers none of it -- the cost is the branch, not the loads);
+            // every repository dataset still gains, from 1% on flat to 12%
+            // on wide_arrays.
             const size_t sign = static_cast<size_t>(c == '-');
             const size_t start = i + sign;
             if (start + 4 <= len) {
@@ -193,7 +193,7 @@ template <typename Handler> struct ParserInline {
                     const auto ends = [](char byte) noexcept {
                         return byte != '.' && byte != 'e' && byte != 'E';
                     };
-                    int64_t value = -1;
+                    int64_t value = 0;
                     size_t width = 0;
                     if (!digit(b1)) {
                         if (ends(b1)) {
@@ -278,10 +278,12 @@ template <typename Handler> struct ParserInline {
                 // word -- from a second word: the leading count of its digits
                 // extends the first word's value by a power of ten, and the
                 // byte after them proves the run ends without a fraction or
-                // an exponent (measured before this: every such integer took
-                // the full scanner at about 30 ns against 12 through the
-                // head). Sixteen digits and up, and every fractional or
-                // exponent shape, take the full path unchanged.
+                // an exponent (measured in the core: 9-15-digit integers
+                // 19 -> 12 ns; the code it adds to this non-inlined head
+                // taxes 5-7-digit integers about 4% and 16-digit ones 3-4%,
+                // which neither reordering the branches nor likelihood hints
+                // recover). Sixteen digits and up, and every exponent shape,
+                // take the full path unchanged.
                 uint64_t tail_chunk;
                 std::memcpy(&tail_chunk, data + digits + 8, 8);
                 const unsigned tail_count = util::detail::leading_digit_count(tail_chunk);
@@ -325,6 +327,20 @@ template <typename Handler> struct ParserInline {
                                                      util::detail::kClingerPow10[fraction_count];
                             i = after + 1 + fraction_count;
                             return handler.on_double(negative ? -magnitude : magnitude);
+                        }
+                    } else if (fraction_count == 8) {
+                        // Eight fraction digits and counting -- full-precision
+                        // doubles -- resolve out of line from up to two more
+                        // words (see parse_long_fraction); what it declines
+                        // takes the full path unchanged.
+                        double value;
+                        size_t fraction_digits;
+                        if (util::detail::parse_long_fraction(
+                                data + after + 1, len - (after + 1), fraction_chunk,
+                                util::detail::leading_digit_value(chunk, count), count, negative,
+                                value, fraction_digits)) {
+                            i = after + 1 + fraction_digits;
+                            return handler.on_double(value);
                         }
                     }
                 }

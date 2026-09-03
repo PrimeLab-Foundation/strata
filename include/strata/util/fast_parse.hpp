@@ -30,6 +30,15 @@
 #include <limits>
 #include <system_error>
 
+/// Keeps a function out of its callers: the hot heads that must stay small.
+#if defined(_MSC_VER) && !defined(__clang__)
+#define STRATA_NOINLINE __declspec(noinline)
+#elif defined(__clang__) || defined(__GNUC__)
+#define STRATA_NOINLINE [[gnu::noinline]]
+#else
+#define STRATA_NOINLINE
+#endif
+
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h> // _umul128: MSVC's spelling of the 64x64->128 multiply
 #endif
@@ -277,6 +286,78 @@ inline constexpr double kClingerPow10[23] = {
 
 /// Significant digits a number keeps exactly; the rest only set `truncated`.
 inline constexpr size_t kMaxSignificant = 19;
+
+/**
+ * The short-number head's long-fraction step: the double for
+ * `int_value . <8..19 fraction digits>` when it can be settled without the
+ * full scanner, or false when the scanner must decide.
+ *
+ * @p fraction points at the first fraction digit and @p first_word holds
+ * the eight bytes there, which the caller proved are all digits; @p available
+ * is the byte count from @p fraction to the end of input. Up to two more
+ * words extend the run: a second word with fewer than eight leading digits
+ * ends it (8..15 fraction digits); a full second word and a third with
+ * fewer than eight end it at 16..23, of which the significant-digit bound
+ * of 19 (kMaxSignificant -- the accumulator's own limit, so the mantissa
+ * holds every digit and is never truncated) keeps 16..19 for a fraction
+ * behind a lone zero. The conversion is the scanner's own, step for step:
+ * a mantissa at or below 2^53 divides by an exact power of ten (Clinger),
+ * anything larger goes through Eisel-Lemire, whose refusals fall back to the
+ * scanner along with an exponent behind the digits -- so a true return is
+ * bit-identical to parse_number_unified on the same bytes. Twenty-four
+ * readable bytes are required past @p fraction: the three words, and the
+ * byte after any run they can end.
+ *
+ * Out of line on purpose: the head is a hot, non-inlined function whose
+ * every added byte of code taxes the integers that take neither branch
+ * (measured on the second integer word: +2-4% on 5-7-digit integers), and
+ * these fractions are the rarest shape it serves.
+ */
+[[nodiscard]] STRATA_NOINLINE inline bool
+parse_long_fraction(const char* fraction, size_t available, uint64_t first_word, uint32_t int_value,
+                    unsigned int_digits, bool negative, double& out,
+                    size_t& fraction_digits) noexcept {
+    if (available < 24)
+        return false;
+    uint64_t second_word;
+    std::memcpy(&second_word, fraction + 8, 8);
+    const unsigned second_count = leading_digit_count(second_word);
+    // A lone zero before the point is not a significant digit.
+    const unsigned significant = int_value == 0 ? 0u : int_digits;
+    uint64_t mantissa = int_value * kRunPow10[8] + leading_digit_value(first_word, 8);
+    size_t digits;
+    if (second_count < 8) {
+        digits = 8 + second_count;
+        if (second_count != 0) {
+            mantissa =
+                mantissa * kRunPow10[second_count] + leading_digit_value(second_word, second_count);
+        }
+    } else {
+        uint64_t third_word;
+        std::memcpy(&third_word, fraction + 16, 8);
+        const unsigned third_count = leading_digit_count(third_word);
+        if (third_count == 8)
+            return false;
+        digits = 16 + third_count;
+        mantissa = mantissa * kRunPow10[8] + leading_digit_value(second_word, 8);
+        if (third_count != 0) {
+            mantissa =
+                mantissa * kRunPow10[third_count] + leading_digit_value(third_word, third_count);
+        }
+    }
+    if (significant + digits > kMaxSignificant)
+        return false;
+    const char next = fraction[digits];
+    if (next == 'e' || next == 'E')
+        return false;
+    fraction_digits = digits;
+    if (mantissa <= (uint64_t{1} << 53)) {
+        const double magnitude = static_cast<double>(mantissa) / kClingerPow10[digits];
+        out = negative ? -magnitude : magnitude;
+        return true;
+    }
+    return eisel_lemire_double(mantissa, -static_cast<long>(digits), negative, out);
+}
 
 /// The digit accumulator shared by the integer and fraction parts: the first
 /// nineteen significant digits, how many were kept, the zeros seen before the
