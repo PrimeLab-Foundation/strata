@@ -480,3 +480,62 @@ def test_singletons_keep_their_reference_counts():
         del parsed, nested
     after = (sys.getrefcount(None), sys.getrefcount(True), sys.getrefcount(False))
     assert after == before
+
+
+# ---------------------------------------------------------------------------
+# Arrays: the builder fills each list in place, presized from its depth
+# ---------------------------------------------------------------------------
+
+
+def test_arrays_of_every_size_at_one_depth_round_trip():
+    """api.md: a JSON array is a list of its elements, in order.
+
+    The builder presizes an array from the last array it closed at the same
+    depth and appends past that hint, so sizes that grow, shrink and jump at
+    one depth -- and empty arrays after long ones -- must all come back exact,
+    with no null tail and no element lost.
+    """
+    sizes = [0, 1, 5, 300, 2, 0, 17, 1000, 3, 256, 257, 255, 1, 0, 64, 65, 63, 4000, 1]
+    docs = ["[" + ",".join(str(k) for k in range(n)) + "]" for n in sizes]
+    for doc, n in zip(docs, sizes, strict=True):
+        parsed = strata.loads(doc)
+        assert parsed == list(range(n)), n
+        assert type(parsed) is list
+    # Every size inside one document, at one depth, in one parse.
+    doc = "[" + ",".join(d for d in docs) + "]"
+    assert strata.loads(doc) == [list(range(n)) for n in sizes]
+    # Nested: each depth keeps its own memory.
+    doc = "[[[1,2,3],[4]],[[5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]],[[]],[]]"
+    assert strata.loads(doc) == json.loads(doc)
+    deep = json.dumps([[list(range(n)) for n in (40, 1, 0, 300)] for _ in range(6)])
+    assert strata.loads(deep) == json.loads(deep)
+
+
+def test_short_arrays_after_long_ones_keep_no_tail():
+    """A short array closed at a depth that last held a long one is rebuilt
+    exactly: its allocation must not carry the long array's tail."""
+    doc = "[" + ",".join(str(k) for k in range(2000)) + "],[1,2,3]"
+    parsed = strata.loads("[" + doc + "]")
+    assert parsed[1] == [1, 2, 3]
+    assert sys.getsizeof(parsed[1]) <= sys.getsizeof([1, 2, 3]) + 8 * 8
+    again = strata.loads("[[1,2,3]]")
+    assert sys.getsizeof(again[0]) <= sys.getsizeof([1, 2, 3]) + 8 * 8
+
+
+def test_arrays_abort_cleanly_after_elements():
+    """api.md: invalid JSON is a ValueError -- with any partly built array
+    released, leaving the interpreter's singletons' counts untouched."""
+    before = (sys.getrefcount(None), sys.getrefcount(True))
+    for doc in (
+        "[1,2,3,",
+        "[1,2,3,x]",
+        "[" + ",".join(["null", "true"] * 300) + ",",
+        "[[1,2],[3,4",
+        "[[[[1]]],[2],",
+        '{"k":[1,2,3,null,true,',
+        "[" + ",".join(str(k) for k in range(500)) + "]]",
+    ):
+        with pytest.raises(ValueError, match="^Invalid JSON$"):
+            strata.loads(doc)
+    after = (sys.getrefcount(None), sys.getrefcount(True))
+    assert after == before
