@@ -222,8 +222,7 @@ std::vector<Bucket> buckets() {
     return out;
 }
 
-template <typename Fn>
-double median_ns(const std::vector<double>& values, Fn&& fn) {
+template <typename Fn> double median_ns(const std::vector<double>& values, Fn&& fn) {
     std::vector<double> rounds;
     for (int round = 0; round < 30; ++round) {
         const auto start = std::chrono::steady_clock::now();
@@ -245,8 +244,8 @@ double median_ns(const std::vector<double>& values, Fn&& fn) {
 
 int main() {
     char buffer[64];
-    std::printf("%-16s %10s %10s %10s %10s %10s   (ns per value, median of 30 rounds)\n",
-                "bucket", "format", "no_probe", "tree", "dragonbox", "to_chars");
+    std::printf("%-16s %10s %10s %10s %10s %10s   (ns per value, median of 30 rounds)\n", "bucket",
+                "format", "no_probe", "tree", "dragonbox", "to_chars");
     for (const Bucket& bucket : buckets()) {
         // Correctness: the writer's bytes must round-trip and match to_chars'.
         for (const double value : bucket.values) {
@@ -257,7 +256,8 @@ int main() {
             double back = 0.0;
             std::from_chars(ours, ours + n, back);
             if (back != value) {
-                std::printf("ROUND-TRIP FAILURE on %.17g: %.*s\n", value, static_cast<int>(n), ours);
+                std::printf("ROUND-TRIP FAILURE on %.17g: %.*s\n", value, static_cast<int>(n),
+                            ours);
                 return 1;
             }
             (void)res;
@@ -287,12 +287,10 @@ int main() {
                 return 1;
             }
         }
-        const double no_probe = median_ns(bucket.values, [&](double value) {
-            return write_no_probe(value, buffer);
-        });
-        const double tree = median_ns(bucket.values, [&](double value) {
-            return write_tree(value, buffer);
-        });
+        const double no_probe =
+            median_ns(bucket.values, [&](double value) { return write_no_probe(value, buffer); });
+        const double tree =
+            median_ns(bucket.values, [&](double value) { return write_tree(value, buffer); });
         const double dragonbox = median_ns(bucket.values, [&](double value) {
             const Decimal d = to_decimal(value);
             return static_cast<size_t>(d.significand & 1) + static_cast<size_t>(d.exponent & 1);
