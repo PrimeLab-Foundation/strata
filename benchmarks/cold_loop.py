@@ -1,17 +1,17 @@
 """Cold calls of one engine, for hardware counters.
 
-A whole-process counter (cachegrind's simulated caches — the hosted runners
-expose no hardware PMU, every `perf stat` event reads "not supported")
-needs a process that does one thing: the same cache-evicting sweep the
-cold-state probe uses, then one dumps call, N times, for the engine named
-on the command line. The sweep's own counts are the same for every engine;
-the difference between two runs is the engine's cold footprint —
-instruction-cache misses say whether it is code, data-cache misses whether
-it is data, the instruction count whether it is work. Used by
-.github/workflows/profile.yml on the Linux leg (the Windows leg has no such
-tool and reads the Linux answer). Under cachegrind the sweep is the
-expensive part, so the sweep size is an argument (its simulated last-level
-cache is far smaller than 64 MB).
+cachegrind's simulated caches (the hosted runners expose no hardware PMU;
+every `perf stat` event reads "not supported") count a whole process, and
+its per-function output (cg_annotate) attributes the counts to the engine's
+own shared object. This script keeps the process to one thing: the same
+cache-evicting sweep the cold-state probe uses, then one dumps call, N
+times, for the engine named on the command line. Read per object, the
+engine's instruction-cache misses say whether its cold footprint is code,
+its data-cache misses whether it is data, its instruction count whether it
+is work. Used by .github/workflows/profile.yml on the Linux leg (the
+Windows leg has no such tool and reads the Linux answer). Under cachegrind
+the sweep is the expensive part, so its size is an argument (the simulated
+last-level cache is far smaller than 64 MB).
 
 usage: cold_loop.py <strata|orjson|msgspec> [calls] [sweep_mb]
 """
@@ -43,11 +43,16 @@ def main() -> int:
     else:
         raise SystemExit(f"unknown engine {engine}")
     sweep = bytearray(sweep_mb * 1024 * 1024)
+    # One byte per cache line, written by a single C-level slice assignment:
+    # a Python-level loop over a million offsets was three billion
+    # interpreter instructions per run, which drowned the engine's own
+    # counts in the process totals.
+    stride = memoryview(sweep)[::64]
+    ones = b"\x01" * len(stride)
     call()
     for _ in range(calls):
         gc.collect()
-        for offset in range(0, len(sweep), 64):
-            sweep[offset] = 1
+        stride[:] = ones
         call()
     return 0
 

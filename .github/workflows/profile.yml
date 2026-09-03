@@ -105,9 +105,14 @@ jobs:
           STRATA_MARCH=x86-64-v3 .venv/bin/python setup.py build_ext --inplace
           for engine in strata orjson msgspec; do
             echo "=== $engine"
-            PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes --cachegrind-out-file=/dev/null \
+            PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes --cachegrind-out-file=cg.$engine.out \
               .venv/bin/python benchmarks/cold_loop.py $engine 20 16 2>&1 \
               | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses|unhandled|SIGILL|terminating|Error|Traceback" || true
+            # The engine's own object: every function cg_annotate attributes
+            # to its shared object, summed — the counts that are the engine's
+            # and not the interpreter's or the sweep's.
+            cg_annotate --show=Ir,I1mr,ILmr,Dr,D1mr,DLmr,Dw,D1mw,DLmw cg.$engine.out 2>/dev/null \
+              | awk -v so="$engine" 'BEGIN{IGNORECASE=1} /\.so/ && $0 ~ so { for (i=1;i<=9;i++) { gsub(",","",$i); sum[i]+=$i } n++ } END { printf "%s object: functions %d  Ir %d  I1mr %d  ILmr %d  Dr %d  D1mr %d  DLmr %d  Dw %d  D1mw %d  DLmw %d\n", so, n, sum[1], sum[2], sum[3], sum[4], sum[5], sum[6], sum[7], sum[8], sum[9] }'
           done
 
       - uses: actions/upload-artifact@v4
