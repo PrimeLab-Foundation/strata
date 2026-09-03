@@ -217,11 +217,15 @@ Post-wave-11 state (2026-09-02), all rows and their known leads:
   digit runs by word, the short-number head, the frame-owned key cursor)
   took the tracker to **106/108 on 37a96fb** — linux, arm64 and macos-x86_64
   all 27/27 in one run, Windows 25/27 with every parse row #1 and only
-  dumps/dump mixed behind (1.11x/1.06x, Genoa). Across three samples of the
-  wave-13 code the only row family behind in every draw is dumps mixed
-  under MSVC; the next verdict is `gh workflow run benchmark.yml` +
-  `make bench-ci` per push, read as same-CPU pairs (linux-arm64 activates
-  when the repo goes public).
+  dumps/dump mixed behind (1.11x/1.06x, Genoa). The cold-state probe then
+  named that row's mechanism (the serializer's larger cache-cold entry
+  footprint on x86) and wave 14's single mapping body took it: on b294ccd
+  (105/108) Windows' whole `dumps` category reads #1 on a Milan runner for
+  the first time, with only the file-write pair (dump flat 1.11x, dump
+  mixed 1.05x) and macOS x86_64 dumps mixed (1.02x) in the coin band. The
+  next verdict is `gh workflow run benchmark.yml` + `make bench-ci` per
+  push, read as same-CPU pairs (linux-arm64 activates when the repo goes
+  public).
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 

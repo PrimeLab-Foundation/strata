@@ -174,3 +174,11 @@ Windows serializer's mixed pair (dumps 1.11x, dump 1.06x under MSVC): the
 per-record machinery, the 17-digit float tier and the short-string tiers
 that the Windows decomposition names — an MSVC-side increment, validated
 one profile run per push.
+**Status 2026-09-03, evening:** the cold-state probe named the x86 row's
+mechanism (the serializer's larger cache-cold entry footprint; the parser's
+is equal to orjson's), wave 14 kept one out-of-line mapping body, and the
+b294ccd sample reads **105/108** with Windows' `dumps` category at #1 for
+the first time; the local quiet roll on the same build reads 79/81 (large
+and medium 27/27). Remaining rows are coin-band on both axes; cachegrind
+counts on the Linux profile job are the next instrument for what is left
+of the serializer's footprint.
