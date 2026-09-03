@@ -285,6 +285,21 @@ void test_format_int64_matches_to_chars() {
         state ^= state << 17;
         check(static_cast<long long>(state));
     }
+    // Random 64-bit values are almost all 19 or 20 characters; the writer's
+    // tiers turn on digit count, so every width from 1 to 19 digits gets its
+    // own random sweep, both signs.
+    unsigned long long width_limit = 10;
+    for (int digits = 1; digits <= 19; ++digits, width_limit *= 10) {
+        const unsigned long long low = width_limit / 10;
+        for (int trial = 0; trial < 4000; ++trial) {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            const unsigned long long magnitude = low + state % (width_limit - low);
+            check(static_cast<long long>(magnitude));
+            check(-static_cast<long long>(magnitude));
+        }
+    }
 }
 
 int main() {

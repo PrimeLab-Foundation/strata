@@ -137,6 +137,12 @@ def main() -> int:
         "int-9-10dig": [100000000 + (i * 104729) % 9900000000 for i in range(4000)],
         "int-neg-7dig": [-(1000000 + (i * 7919) % 9000000) for i in range(4000)],
         "int-19dig": [1000000000000000000 + i for i in range(4000)],
+        # Mixed widths, as real data has them: the digit loop's trip count
+        # changes per element, which the same-width buckets never show.
+        "int-mixed-1-7": [
+            ((i * 2654435761) & 0x7FFFFFFF) // 7 % 10 ** ((((i * 2654435761) & 0x7FFFFFFF) % 7) + 1)
+            for i in range(4000)
+        ],
     }
     for name, bucket in ibuckets.items():
         s = median_call(lambda: strata.dumps(bucket, return_type="bytes"))

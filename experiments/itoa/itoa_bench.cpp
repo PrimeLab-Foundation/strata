@@ -196,6 +196,76 @@ size_t write_switch(int64_t value, char* out) noexcept {
     return written + 10;
 }
 
+// E: two word tiers under nine digits -- a four-digit word (two pair lookups,
+// one 4-byte store) for 1..4 digits and the eight-digit word for 5..8 -- so a
+// value's digit count selects one of two straight-line shapes instead of a
+// loop trip count; the loop above 10^8.
+size_t write_tiers(int64_t value, char* out) noexcept {
+    auto magnitude = static_cast<uint64_t>(value);
+    size_t written = 0;
+    if (value < 0) {
+        out[written++] = '-';
+        magnitude = 0 - magnitude;
+    }
+    const size_t digits = decimal_digit_count(magnitude);
+    char* cursor = out + written;
+    if (digits <= 4) {
+        const auto v = static_cast<uint32_t>(magnitude);
+        const uint32_t hi = v / 100;
+        const uint32_t lo = v - hi * 100;
+        uint32_t word;
+        char pairs[4];
+        std::memcpy(pairs, &kDigitPairs[hi * 2], 2);
+        std::memcpy(pairs + 2, &kDigitPairs[lo * 2], 2);
+        std::memcpy(&word, pairs, 4);
+        word >>= (4 - digits) * 8;
+        std::memcpy(cursor, &word, 4);
+        return written + digits;
+    }
+    if (digits <= 8) {
+        const uint64_t word = eight_digits_word(static_cast<uint32_t>(magnitude));
+        store_digit_word(cursor, word >> ((8 - digits) * 8));
+        return written + digits;
+    }
+    (void)strata::util::detail::fill_u64_backwards(magnitude, cursor + digits);
+    return written + digits;
+}
+
+// F: the tiers with the nine-plus-digit test first, so the loop path pays
+// one compare instead of the digit count plus two.
+size_t write_tiers2(int64_t value, char* out) noexcept {
+    auto magnitude = static_cast<uint64_t>(value);
+    size_t written = 0;
+    if (value < 0) {
+        out[written++] = '-';
+        magnitude = 0 - magnitude;
+    }
+    char* cursor = out + written;
+    if (magnitude >= 100000000ULL) {
+        const size_t digits = decimal_digit_count(magnitude);
+        (void)strata::util::detail::fill_u64_backwards(magnitude, cursor + digits);
+        return written + digits;
+    }
+    const auto v = static_cast<uint32_t>(magnitude);
+    if (v < 10000) {
+        const size_t digits = v >= 1000 ? 4 : v >= 100 ? 3 : v >= 10 ? 2 : 1;
+        const uint32_t high = v / 100;
+        const uint32_t low = v - high * 100;
+        char pairs[4];
+        std::memcpy(pairs, &kDigitPairs[high * 2], 2);
+        std::memcpy(pairs + 2, &kDigitPairs[low * 2], 2);
+        uint32_t word;
+        std::memcpy(&word, pairs, 4);
+        word >>= (4 - digits) * 8;
+        std::memcpy(cursor, &word, 4);
+        return written + digits;
+    }
+    const size_t digits = decimal_digit_count(v);
+    const uint64_t word = eight_digits_word(v);
+    store_digit_word(cursor, word >> ((8 - digits) * 8));
+    return written + digits;
+}
+
 using Writer = size_t (*)(int64_t, char*);
 
 struct Variant {
@@ -223,6 +293,18 @@ std::vector<Bucket> buckets() {
     make("int-9-10dig", [](int64_t i) { return 100000000 + (i * 104729) % 9900000000LL; });
     make("int-neg-7dig", [](int64_t i) { return -(1000000 + (i * 7919) % 9000000); });
     make("int-19dig", [](int64_t i) { return 1000000000000000000LL + i; });
+    // Mixed widths, the shape real data has: mixed.json's ints are indexes,
+    // randint(0, 10**6) values and small counts side by side, so the pair
+    // loop's trip count changes from one element to the next and its exit
+    // branch mispredicts -- which the same-width buckets above never show.
+    make("int-mixed-1-7", [](int64_t i) {
+        const int64_t h = (i * 2654435761LL) & 0x7fffffff;
+        const int width = static_cast<int>(h % 7) + 1;
+        int64_t limit = 1;
+        for (int d = 0; d < width; ++d)
+            limit *= 10;
+        return (h / 7) % limit;
+    });
     return out;
 }
 
@@ -230,10 +312,8 @@ std::vector<Bucket> buckets() {
 
 int main() {
     const Variant variants[] = {
-        {"current", write_current},
-        {"narrow32", write_narrow},
-        {"words", write_words},
-        {"switch", write_switch},
+        {"current", write_current}, {"narrow32", write_narrow}, {"words", write_words},
+        {"switch", write_switch},   {"tiers", write_tiers},     {"tiers2", write_tiers2},
     };
     std::vector<char> sink(4000 * 24);
     // Correctness first: every variant must produce the current writer's bytes.

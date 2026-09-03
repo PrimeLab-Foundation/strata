@@ -295,8 +295,39 @@ inline void shift16_right(char* from, size_t gap) noexcept {
         out[written++] = '-';
         magnitude = 0 - magnitude; // wraps correctly for INT64_MIN
     }
-    const size_t digits = detail::decimal_digit_count(magnitude);
-    (void)detail::fill_u64_backwards(magnitude, out + written + digits);
+    char* cursor = out + written;
+    // Nine digits and up take the backwards pair loop; under that, two
+    // straight-line word tiers. Real integer data mixes widths from one
+    // element to the next (indexes, counts and values side by side), and the
+    // loop's trip count then changes per element and its exit branch
+    // mispredicts; a value's magnitude selecting one of two fixed shapes
+    // does not. Measured in experiments/itoa (ns per value, arm64): mixed
+    // 1-7-digit lists 3.13 -> 2.59, 9-10 digits 4.48 -> 3.81, one to three
+    // digits 2.24 -> 2.12, the rest level; on x86 the eight-digit word reads
+    // flat at 3.05 ns from one to eight digits where the loop climbs from
+    // 1.96 to 3.34. Both tiers store a whole word -- four or eight bytes --
+    // past the digits, inside the kInt64BufferSize the contract gives.
+    if (magnitude >= 100000000ULL) {
+        const size_t digits = detail::decimal_digit_count(magnitude);
+        (void)detail::fill_u64_backwards(magnitude, cursor + digits);
+        return written + digits;
+    }
+    const auto v = static_cast<uint32_t>(magnitude);
+    if (v < 10000) {
+        const size_t digits = v >= 1000 ? 4 : v >= 100 ? 3 : v >= 10 ? 2 : 1;
+        const uint32_t high = v / 100;
+        const uint32_t low = v - high * 100;
+        char pairs[4];
+        std::memcpy(pairs, &detail::kDigitPairs[high * 2], 2);
+        std::memcpy(pairs + 2, &detail::kDigitPairs[low * 2], 2);
+        uint32_t word;
+        std::memcpy(&word, pairs, 4);
+        word >>= (4 - digits) * 8;
+        std::memcpy(cursor, &word, 4);
+        return written + digits;
+    }
+    const size_t digits = detail::decimal_digit_count(v);
+    detail::store_digit_word(cursor, detail::eight_digits_word(v) >> ((8 - digits) * 8));
     return written + digits;
 }
 

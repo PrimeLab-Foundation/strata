@@ -236,7 +236,7 @@ jobs:
         shell: bash
         run: |
           export PATH="/c/Program Files/LLVM/bin:$PATH"
-          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc /I include experiments/itoa/itoa_bench.cpp /o itoa_bench.exe
+          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc -I include experiments/itoa/itoa_bench.cpp /o itoa_bench.exe
           ./itoa_bench.exe
 
       - name: clang-cl /O2 build of the same commit (gated)
