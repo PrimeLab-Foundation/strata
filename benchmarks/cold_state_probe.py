@@ -64,16 +64,43 @@ def main() -> int:
         for offset in range(0, len(sweep), stride):
             sweep[offset] = 1
 
+    # Cold floors: the same calls on one record and on ten, so the fixed
+    # cost of entering each engine cold (its code, thread-local state and
+    # caches) separates from the per-record cost the document amortizes.
+    one = data[:1]
+    ten = data[:10]
+    one_payload = json.dumps(one).encode()
+    ten_payload = json.dumps(ten).encode()
     rows = {
         "dumps mixed": {
             "strata": lambda: strata.dumps(data, return_type="bytes"),
             "orjson": lambda: orjson.dumps(data),
             "msgspec": lambda: encode(data),
         },
+        "dumps 10 records": {
+            "strata": lambda: strata.dumps(ten, return_type="bytes"),
+            "orjson": lambda: orjson.dumps(ten),
+            "msgspec": lambda: encode(ten),
+        },
+        "dumps 1 record": {
+            "strata": lambda: strata.dumps(one, return_type="bytes"),
+            "orjson": lambda: orjson.dumps(one),
+            "msgspec": lambda: encode(one),
+        },
         "loads mixed": {
             "strata": lambda: strata.loads(payload),
             "orjson": lambda: orjson.loads(payload),
             "msgspec": lambda: decode(payload),
+        },
+        "loads 10 records": {
+            "strata": lambda: strata.loads(ten_payload),
+            "orjson": lambda: orjson.loads(ten_payload),
+            "msgspec": lambda: decode(ten_payload),
+        },
+        "loads 1 record": {
+            "strata": lambda: strata.loads(one_payload),
+            "orjson": lambda: orjson.loads(one_payload),
+            "msgspec": lambda: decode(one_payload),
         },
     }
     for row, calls in rows.items():
