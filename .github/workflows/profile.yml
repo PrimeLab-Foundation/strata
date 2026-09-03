@@ -90,14 +90,22 @@ jobs:
       # serializer's extra cold cost is code (I1/LLi misses) or data (D1/LLd).
       # The hosted runners expose no hardware PMU (perf stat reads every
       # event as "not supported"), so cachegrind's simulation is the count.
+      # valgrind emulates AVX2 but not AVX-512, and -march=native on these
+      # runners emits AVX-512, so the extension is rebuilt in place for the
+      # simulation as a plain x86-64-v3 build (the perf steps above already
+      # measured the PGO build). Errors are printed, not filtered away.
       - name: Cold-call cache simulation per engine
+        env:
+          CC: clang
+          CXX: clang++
         run: |
           sudo apt-get install -y valgrind
+          STRATA_MARCH=x86-64-v3 SKIP_TESTS=1 .venv/bin/python setup.py build_ext --inplace
           for engine in strata orjson msgspec; do
             echo "=== $engine"
             PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes --cachegrind-out-file=/dev/null \
               .venv/bin/python benchmarks/cold_loop.py $engine 20 16 2>&1 \
-              | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses" || true
+              | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses|unhandled|SIGILL|terminating|Error|Traceback" || true
           done
 
       - uses: actions/upload-artifact@v4

@@ -233,8 +233,14 @@ def _compile_args() -> list[str]:
         return args
     args = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
     # -march=native tunes for the build host; a universal2 wheel targets two
-    # architectures at once and cannot use it.
-    if not _is_universal_build():
+    # architectures at once and cannot use it. STRATA_MARCH names a target
+    # explicitly (e.g. x86-64-v3 for a build a cache simulator can run: the
+    # hosted x86 runners' native set includes AVX-512, which valgrind does
+    # not emulate); the caller owns its validity for the host.
+    march = os.environ.get("STRATA_MARCH", "").strip()
+    if march:
+        args.append(f"-march={march}")
+    elif not _is_universal_build():
         args.append("-march=native")
     args.extend(_optimization_args()[0])
     return args
