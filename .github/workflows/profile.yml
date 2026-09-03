@@ -86,6 +86,17 @@ jobs:
       - name: Cold-state probe on this leg
         run: PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
 
+      # Hardware counts of one engine's cold calls: whether the serializer's
+      # extra cold cost is code (instruction-cache, iTLB misses) or data.
+      - name: Cold-call hardware counters per engine
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf | head -1 || echo perf)
+          for engine in strata orjson msgspec; do
+            echo "=== $engine"
+            PYTHONPATH=. $PERF stat -e instructions,L1-icache-load-misses,iTLB-load-misses,L1-dcache-load-misses,dTLB-load-misses \
+              -- .venv/bin/python benchmarks/cold_loop.py $engine 200 2>&1 | grep -E "instructions|misses|elapsed" || true
+          done
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
