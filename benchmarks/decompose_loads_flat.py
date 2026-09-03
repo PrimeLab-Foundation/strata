@@ -114,7 +114,12 @@ def main() -> int:
     # Homogeneous lists per scalar kind: the value parsers in isolation.
     lists = {
         "list int-1-3dig": [rng.randint(0, 999) for _ in range(10000)],
+        "list int-4-6dig": [rng.randint(1000, 999999) for _ in range(10000)],
         "list int-7dig": [rng.randint(1000000, 9999999) for _ in range(10000)],
+        "list int-8dig": [rng.randint(10000000, 99999999) for _ in range(10000)],
+        "list int-9-10dig": [rng.randint(100000000, 9999999999) for _ in range(10000)],
+        "list int-neg-7dig": [-rng.randint(1000000, 9999999) for _ in range(10000)],
+        "list float-2dp": [round(rng.uniform(-1e3, 1e3), 2) for _ in range(10000)],
         "list float-5dp": [round(rng.uniform(-1e3, 1e3), 5) for _ in range(10000)],
         "list float-17dig": [rng.random() for _ in range(10000)],
         "list str-10ch": [f"value-{rng.randint(1000, 9999)}" for _ in range(10000)],

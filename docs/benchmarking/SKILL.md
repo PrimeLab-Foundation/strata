@@ -167,7 +167,13 @@ Post-wave-11 state (2026-09-02), all rows and their known leads:
   with PyDict_SetDefault's own lookup and the four-way first-key probe as
   the remaining per-key cost. Follow-ups on file:
   the token-loop re-scans and single-pass strings (the 17-digit head
-  extension was tried and measured flat — negative-results table).
+  extension and the inline lead-key words were tried and measured flat —
+  negative-results table). On the Windows leg the first loads decomposition
+  (2026-09-03) reads flat at parity and names MSVC's parse-side sinks by
+  kind: 7-digit int lists 1.31x behind msgspec while 1–3-digit lead, 5dp
+  floats 1.14x, bools/nulls/short strings 1.06–1.13x behind msgspec — the
+  per-width int buckets now in `decompose_loads_flat.py` localize the
+  first of these on the next profile run.
 - **`loads mixed`/`loads flat` small (wave 10)**: closed by the wave-10 loads pass
   (prediction-probe word compares + builder-side compact-ASCII
   construction — docs/performance/SKILL.md): every small-tier loads row is

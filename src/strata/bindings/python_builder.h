@@ -226,27 +226,11 @@ class PythonObjectBuilder {
             // recurring shape predictable — the same design the dumps schema
             // cache settled on (docs/performance/SKILL.md, wave 6).
             for (uint8_t way_index = 0; way_index < schema.way_count; ++way_index) {
-                const LeadKey& lead = schema.leads[way_index];
                 const auto& keys = schema.ways[way_index].keys;
-                bool hit;
-                if (lead.present) {
-                    // The inline words first: no entry is touched on a miss.
-                    if (lead.raw_size > remaining || remaining < 16) {
-                        hit = !keys.empty() &&
-                              prediction_hits(keys.front(), after_quote, remaining);
-                    } else {
-                        uint64_t in0;
-                        uint64_t in1;
-                        std::memcpy(&in0, after_quote, 8);
-                        std::memcpy(&in1, after_quote + 8, 8);
-                        hit = ((in0 ^ lead.word0) & lead.mask0) == 0 &&
-                              ((in1 ^ lead.word1) & lead.mask1) == 0;
-                    }
-                } else {
-                    hit = !keys.empty() && prediction_hits(keys.front(), after_quote, remaining);
-                }
-                if (hit) {
-                    const PredictedKey& entry = keys.front();
+                if (keys.empty())
+                    continue;
+                const PredictedKey& entry = keys.front();
+                if (prediction_hits(entry, after_quote, remaining)) {
                     keys_.push_back(Py_NewRef(entry.object));
                     frame.way = way_index;
                     frame.cursor = 1;
@@ -487,25 +471,10 @@ class PythonObjectBuilder {
     /// one depth, and a single slot thrashed on exactly those (the dumps
     /// schema cache went through the same evolution — four ways, scanned in
     /// place, round-robin replacement).
-    /// A way's leading key, inline in the Schema: the words and masks the
-    /// probe compares (keys of sixteen raw bytes or fewer; a longer lead key
-    /// leaves `present` false and takes the entry-chasing path), so the
-    /// first-key select of a record touches one cache line for all four
-    /// ways instead of four heap vectors.
-    struct LeadKey {
-        uint64_t word0 = 0;
-        uint64_t word1 = 0;
-        uint64_t mask0 = 0;
-        uint64_t mask1 = 0;
-        uint32_t raw_size = 0;
-        bool present = false;
-    };
-
     struct Schema {
         static constexpr size_t kWays = 4;
 
         PredictionWay ways[kWays];
-        LeadKey leads[kWays];
         uint8_t way_count = 0;
         uint8_t next_replace = 0;
         uint32_t divergences = 0;
@@ -521,32 +490,9 @@ class PythonObjectBuilder {
         way.keys.clear();
     }
 
-    /// Release way @p index of @p schema and forget its inline lead.
-    static void release_way(Schema& schema, size_t index) noexcept {
-        release_way(schema.ways[index]);
-        schema.leads[index] = LeadKey{};
-    }
-
-    /// Copy way @p index's first entry into the inline lead (or clear it).
-    static void refresh_lead(Schema& schema, size_t index) noexcept {
-        LeadKey& lead = schema.leads[index];
-        const auto& keys = schema.ways[index].keys;
-        if (keys.empty() || keys.front().mask0 == 0) {
-            lead = LeadKey{}; // absent, or too long for the word compare
-            return;
-        }
-        const PredictedKey& first = keys.front();
-        lead.word0 = first.word0;
-        lead.word1 = first.word1;
-        lead.mask0 = first.mask0;
-        lead.mask1 = first.mask1;
-        lead.raw_size = first.raw_size;
-        lead.present = true;
-    }
-
     static void retire(Schema& schema) noexcept {
-        for (size_t index = 0; index < Schema::kWays; ++index)
-            release_way(schema, index);
+        for (PredictionWay& way : schema.ways)
+            release_way(way);
         schema.way_count = 0;
         schema.retired = true;
     }
@@ -599,7 +545,7 @@ class PythonObjectBuilder {
                 frame.way = schema.next_replace;
                 schema.next_replace =
                     static_cast<uint8_t>((schema.next_replace + 1) % Schema::kWays);
-                release_way(schema, frame.way);
+                release_way(schema.ways[frame.way]);
             }
         }
 
@@ -618,16 +564,12 @@ class PythonObjectBuilder {
             for (size_t index = frame.cursor; index < keys.size(); ++index)
                 Py_DECREF(keys[index].object);
             keys.resize(frame.cursor);
-            if (keys.empty())
-                refresh_lead(schema, frame.way);
         }
 
         keys.push_back(PredictedKey{std::string(begin, key.size() + 1), Py_NewRef(object)});
         keys.back().fill_words();
         ++frame.cursor;
         refresh_cursor(frame, schema); // push_back may have moved the entries
-        if (keys.size() == 1)
-            refresh_lead(schema, frame.way); // a new leading key for this way
     }
 
     /// A dict for an object opening at @p depth, presized to the size the
