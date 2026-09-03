@@ -7,9 +7,10 @@
  * Split from python_dumps.cpp for the ~800-line rule; included only there.
  * Three pieces live here:
  *
- *  - StagedOutput: an 8KB stage flushed into either a std::string (the str
- *    path) or a growing PyBytes (the bytes path -- one document copy, not
- *    two).
+ *  - StagedOutput: an 8KB stage flushed into a std::string (the str path),
+ *    or a PyBytes written directly, sized to the previous document, with
+ *    the stage holding the tail that its last reservation could not fit
+ *    (the bytes path -- one document copy at most, usually none).
  *  - SchemaCacheLease: the per-thread prepared-key cache with owned key
  *    references.
  *  - rawdict: the runtime-proved direct walk over a dict's entry array.
@@ -38,6 +39,15 @@ namespace strata::bindings {
  */
 class StagedOutput {
   public:
+    /// The widest single reservation any writer makes (python_dumps.cpp
+    /// guards its string paths with it). An exact repeat never grows its
+    /// block only while the stage can hold the tail one such reservation
+    /// leaves behind plus the next one — pinned below.
+    static constexpr size_t kMaxReservation = 4096;
+    static constexpr size_t kStageBytes = 8192;
+    static_assert(2 * kMaxReservation <= kStageBytes,
+                  "the stage must hold two of the widest reservation, or exact repeats resize");
+
     explicit StagedOutput(std::string& sink)
         : str_sink_(&sink), base_(stage_), capacity_(sizeof(stage_)) {}
 
@@ -51,29 +61,56 @@ class StagedOutput {
      * a store with no mode test. (A per-write `direct_` select was measured
      * as a 6–8% whole-serializer regression — the mode check lives only in
      * the cold overflow path.)
+     *
+     * The block is sized to the previous document exactly (see
+     * dumps_to_python), so on a repeated document the *last* reservation —
+     * every writer reserves a small constant before it writes — no longer
+     * fits the block although the content does. That reservation, and
+     * everything after it, goes to the stage; take_bytes() copies the tail
+     * into the block when the content fits, and only a document that really
+     * outgrew the block pays a resize. The alternative, a block with
+     * headroom shrunk in place, was measured to cost 13 µs per call on the
+     * Windows runners and on macOS against 2 µs for an exact-fit block
+     * (docs/decisions.md 2026-09-03).
      */
     StagedOutput() = default;
 
     ~StagedOutput() { Py_XDECREF(bytes_); }
 
     [[nodiscard]] bool init_bytes(size_t initial) {
-        if (initial < 64)
-            initial = 64;
+        if (initial == 0)
+            initial = 1; // never the shared empty singleton, which cannot be resized
         bytes_ = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(initial));
         if (bytes_ == nullptr)
             return false;
         base_ = PyBytes_AS_STRING(bytes_);
         capacity_ = initial;
+        block_capacity_ = initial;
+        block_used_ = 0;
+        staged_ = false;
         used_ = 0;
         return true;
     }
 
-    /// Finish bytes mode: exact-size the object and hand it over.
+    /// Finish bytes mode: land the staged tail, exact-size the object, hand
+    /// it over. A block that already has the document's size is not resized.
     [[nodiscard]] PyObject* take_bytes() {
         if (failed_ || bytes_ == nullptr)
             return PyErr_NoMemory();
-        if (_PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(used_)) != 0)
-            return nullptr; // bytes_ already cleared by the resize
+        size_t total = used_;
+        if (staged_) {
+            total = block_used_ + used_;
+            if (total > block_capacity_) {
+                if (_PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(total)) != 0)
+                    return nullptr; // bytes_ already cleared by the resize
+                block_capacity_ = total;
+            }
+            std::memcpy(PyBytes_AS_STRING(bytes_) + block_used_, stage_, used_);
+            staged_ = false;
+        }
+        if (total != block_capacity_ &&
+            _PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(total)) != 0)
+            return nullptr;
         PyObject* result = bytes_;
         bytes_ = nullptr;
         return result;
@@ -113,7 +150,7 @@ class StagedOutput {
             return;
         }
         if (str_sink_ != nullptr) {
-            flush();
+            flush_str();
             if (len >= sizeof(stage_) / 2) {
                 str_sink_->append(data, len);
                 return;
@@ -123,6 +160,8 @@ class StagedOutput {
             return;
         }
         overflow(len);
+        if (used_ + len > capacity_)
+            return; // a failed grow: absorb the write, take_bytes() reports
         std::memcpy(base_ + used_, data, len);
         used_ += len;
     }
@@ -131,7 +170,7 @@ class StagedOutput {
     /// bytes mode this is a per-thread scratch the caller then spans in.
     [[nodiscard]] std::string& direct_sink() {
         if (str_sink_ != nullptr) {
-            flush();
+            flush_str();
             return *str_sink_;
         }
         static thread_local std::string scratch;
@@ -143,7 +182,9 @@ class StagedOutput {
     /// still has to be written through write_spanning.
     [[nodiscard]] bool sink_is_scratch() const noexcept { return str_sink_ == nullptr; }
 
-    void flush() {
+    /// Str mode only: land the stage in the string. In bytes mode the stage
+    /// holds live document bytes that only take_bytes() may move.
+    void flush_str() {
         if (str_sink_ != nullptr && used_ != 0) {
             str_sink_->append(stage_, used_);
             used_ = 0;
@@ -151,40 +192,76 @@ class StagedOutput {
     }
 
   private:
-    /// The cold path: str mode flushes the stage, bytes mode grows the object.
+    /// The cold path: str mode flushes the stage; bytes mode stages the
+    /// reservation that did not fit the block, and grows the block only
+    /// once the stage is full too (or for a reservation wider than it).
     void overflow(size_t needed) {
         if (str_sink_ != nullptr) {
-            flush();
+            flush_str();
             return;
         }
         if (failed_) {
             used_ = 0; // absorb writes safely in the scratch region
             return;
         }
-        size_t grown = capacity_ * 2;
-        while (grown < used_ + needed)
-            grown *= 2;
+        if (!staged_) {
+            if (needed <= sizeof(stage_)) {
+                block_used_ = used_;
+                base_ = stage_;
+                capacity_ = sizeof(stage_);
+                used_ = 0;
+                staged_ = true;
+                return;
+            }
+            grow_block(used_ + needed);
+            return;
+        }
+        // The stage is full: the document outgrew the block. Grow it, move
+        // the stage in, and resume direct writes.
+        const size_t total = block_used_ + used_;
+        const size_t staged = used_;
+        if (!grow_block(total + needed))
+            return; // the stage is scratch now; nothing to move
+        std::memcpy(base_ + block_used_, stage_, staged);
+        used_ = total;
+        staged_ = false;
+    }
+
+    /// Grow the block by half until it holds @p minimum (the block starts
+    /// at the previous document's exact size, so doubling would spike a
+    /// document that grew by a few kilobytes to twice its footprint); on
+    /// failure the stage becomes scratch so raw stores stay in bounds and
+    /// take_bytes() reports.
+    bool grow_block(size_t minimum) {
+        size_t grown = block_capacity_ + block_capacity_ / 2 + 1;
+        while (grown < minimum)
+            grown += grown / 2 + 1;
         if (_PyBytes_Resize(&bytes_, static_cast<Py_ssize_t>(grown)) != 0) {
             PyErr_Clear();
             failed_ = true;
-            // bytes_ was cleared by the failed resize; write into the stage
-            // as scratch so raw stores stay in bounds.
+            // bytes_ was cleared by the failed resize.
             base_ = stage_;
             capacity_ = sizeof(stage_);
             used_ = 0;
-            return;
+            staged_ = false;
+            return false;
         }
         base_ = PyBytes_AS_STRING(bytes_);
         capacity_ = grown;
+        block_capacity_ = grown;
+        return true;
     }
 
     std::string* str_sink_ = nullptr;
     PyObject* bytes_ = nullptr;
     char* base_ = nullptr;
     size_t capacity_ = 0;
+    size_t block_capacity_ = 0; ///< bytes mode: the block's size, whichever region is live
+    size_t block_used_ = 0;     ///< bytes mode: bytes committed to the block before staging
+    bool staged_ = false;       ///< bytes mode: the live region is the stage
     bool failed_ = false;
     size_t used_ = 0;
-    char stage_[8192];
+    char stage_[kStageBytes];
 };
 
 /**

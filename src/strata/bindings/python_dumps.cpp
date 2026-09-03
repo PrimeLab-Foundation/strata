@@ -194,7 +194,7 @@ class Serializer {
         // 200-char ones, inside the cap, ran 1.1x). Four kilobytes keeps the
         // same safety margin and keeps real-world long values on the proven
         // copy-while-scanning path.
-        if (size + 2 + 16 <= 4096) {
+        if (size + 2 + 16 <= StagedOutput::kMaxReservation) {
             out_.ensure(size + 2 + 16);
             out_.put('"');
             const size_t clean = util::copy_until_escape(data, size, out_.cursor());
@@ -355,6 +355,8 @@ class Serializer {
     /// per block instead of one per element, at a worst-case cost of a few
     /// kilobytes of slack in the stage.
     static constexpr Py_ssize_t kScalarRunBlock = 64;
+    static_assert(kScalarRunBlock * (util::kDoubleBufferSize + 1) <= StagedOutput::kMaxReservation,
+                  "a scalar-run block must fit one reservation");
 
     [[nodiscard]] Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
@@ -496,7 +498,7 @@ class Serializer {
                 break;
             const char* data = static_cast<const char*>(PyUnicode_DATA(item));
             const auto length = static_cast<size_t>(PyUnicode_GET_LENGTH(item));
-            if (length > 4064)
+            if (length + 3 + 16 > StagedOutput::kMaxReservation)
                 break;
             out_.ensure(length + 3 + 16); // block-rounded room for the fused copy
             const size_t before = index != 0 ? 2u : 1u;
@@ -982,9 +984,11 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         // bytes on the way up, cancelling the copy this mode exists to
         // save, and a repeated document -- the workload that matters --
         // then allocates once, needs no resize, and asks the allocator for
-        // the very block the previous call freed. A hint with headroom
-        // (previously +12.5%) put the block in a larger size class than the
-        // document and shrank it in place; measured in the harness's window
+        // the very block the previous call freed. Its last reservation,
+        // which the exact block cannot take, lands on StagedOutput's stage
+        // and is copied in at the end. A hint with headroom (previously
+        // +12.5%) put the block in a larger size class than the document
+        // and shrank it in place; measured in the harness's window
         // (gc.collect() before the call, the result freed inside it) that
         // round trip cost 13 us on the Windows runners and 13 us on macOS
         // against 2 us for an exact-fit block (benchmarks/
@@ -1005,8 +1009,24 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
     // Reused across calls on this thread: after the first few documents the
     // buffer has grown to size and stops allocating entirely. Thread-local
     // rather than global because the GIL is held but the buffer outlives the
-    // call, and other threads must not share it.
-    static thread_local std::string out;
+    // call, and other threads must not share it. A nested call -- a cycle
+    // warning or a big int's __str__ can run arbitrary Python mid-walk --
+    // must not clear the outer call's buffer, so it serializes into a
+    // private one while the shared buffer is busy.
+    static thread_local std::string shared_out;
+    static thread_local bool shared_busy = false;
+    std::string private_out;
+    const bool owns_shared = !shared_busy;
+    std::string& out = owns_shared ? shared_out : private_out;
+    if (owns_shared)
+        shared_busy = true;
+    struct Release {
+        bool owns;
+        ~Release() {
+            if (owns)
+                shared_busy = false;
+        }
+    } release{owns_shared};
     out.clear();
     if (out.capacity() < kDumpsInitialCapacity)
         out.reserve(kDumpsInitialCapacity);
@@ -1015,7 +1035,7 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
     Serializer serializer(staged, schemas.slots());
     if (!serializer.write(object))
         return nullptr;
-    staged.flush();
+    staged.flush_str();
     return PyUnicode_FromStringAndSize(out.data(), static_cast<Py_ssize_t>(out.size()));
 }
 

@@ -286,3 +286,76 @@ def test_rotating_schemas_at_one_level_stay_isolated():
     doc = [{"wrap": shapes[i % 4], "seq": i} for i in range(64)]
     assert strata.dumps(doc) == json.dumps(doc, separators=(",", ":"))
     assert strata.dumps(doc, return_type="bytes") == json.dumps(doc, separators=(",", ":")).encode()
+
+
+def _compact(obj):
+    return json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def _both_modes(doc):
+    out = strata.dumps(doc, return_type="bytes")
+    assert out == _compact(doc)
+    assert strata.dumps(doc).encode() == out
+    return out
+
+
+def test_bytes_mode_block_sizing_boundaries():
+    """api.md 'dumps ... return_type="bytes"': bytes mode sizes its output block
+    to the previous document on the thread and stages the tail its last
+    reservation cannot take; the output must not depend on that history.
+    The sequence below walks the block's transitions relative to the document
+    before: exact repeats (the tail staged and copied in), growth by a few
+    bytes (the tail staged, then the block resized to the exact total), a
+    spanning tail narrower than the stage (staged) and wider (the block grown
+    directly), growth far beyond the stage, a shrink back, tiny documents
+    (the block floor), scalar runs first in the document (the run writers'
+    block-wide reservations), and an escaped tail (the scratch-and-span
+    path)."""
+    base = [{"id": index, "name": "n" * 20, "value": index * 1.5} for index in range(400)]
+    for _ in range(3):
+        _both_modes(base)
+    for extra in (0, 1, 2, 40, 4000, 8100, 8200, 20000, 70000):
+        _both_modes([*base, "x" * extra])
+    _both_modes(base)
+    _both_modes(base)
+    for tiny in (123, "", [], {}, "ab", [1]):
+        for _ in range(3):
+            _both_modes(tiny)
+    runs = [*range(1000, 1300), *(index * 0.25 for index in range(300)), *base]
+    for _ in range(2):
+        _both_modes(runs)
+    escaped = [*base, 'quote"and\\backslash\n' * 300]
+    for _ in range(2):
+        _both_modes(escaped)
+    _both_modes(base)
+
+
+def test_str_mode_survives_a_nested_dumps_call():
+    """api.md cycle_policy 'warn' and dumps of big ints: a nested dumps call
+    from the cycle warning's handler or from an int subclass's __str__ must
+    not disturb the outer call's output (str mode shares a per-thread buffer
+    across calls)."""
+    import warnings
+
+    nested = []
+
+    class Big(int):
+        def __str__(self):
+            nested.append(strata.dumps({"inner": [1, 2, 3]}))
+            return int.__str__(self)
+
+    big = Big(2**70)
+    assert (
+        strata.dumps([big, {"k": big}]) == "[1180591620717411303424,{\"k\":1180591620717411303424}]"
+    )
+    assert nested == ['{"inner":[1,2,3]}'] * 2
+
+    cyclic = {"a": [1, 2]}
+    cyclic["a"].append(cyclic)
+    seen = []
+    with warnings.catch_warnings():
+        warnings.simplefilter("always")
+        warnings.showwarning = lambda *args, **kwargs: seen.append(strata.dumps({"w": "x" * 50}))
+        out = strata.dumps(cyclic)
+    assert out == '{"a":[1,2,null]}'
+    assert seen == ['{"w":"' + "x" * 50 + '"}']
