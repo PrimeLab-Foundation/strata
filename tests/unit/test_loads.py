@@ -151,6 +151,58 @@ def test_malformed_short_numbers_are_rejected_at_every_input_distance(literal):
             strata.loads(text)
 
 
+# The prediction table's per-frame cursor points into a way's entries; every
+# path that moves those entries while an object is open (recording keys one
+# by one on a wide record's first sighting, dropping a diverged tail, way
+# replacement, retiring a churning depth) must refresh it. These documents
+# drive each of those paths with predictions in flight and check the result
+# against stdlib json.
+def _rotating_records(shapes, count):
+    return [dict(shapes[index % len(shapes)], n=index) for index in range(count)]
+
+
+@pytest.mark.parametrize(
+    "records",
+    [
+        # A wide record seen twice: the way's storage grows key by key while
+        # the first record is open, then predicts every key of the second.
+        [{f"key_{index}": index for index in range(64)}] * 2,
+        # Wider than the recorder keeps (64 keys): the tail is never recorded.
+        [{f"key_{index}": index for index in range(80)}] * 3,
+        # Four shapes rotating at one depth: every way is adopted in turn.
+        _rotating_records([{"a": 1}, {"b": 2, "c": 3}, {"d": [1, 2]}, {"e": {"f": 4}}], 40),
+        # More shapes than ways, and shapes that share a first key and
+        # diverge later: replacement and tail-dropping with cursors live.
+        _rotating_records(
+            [
+                {"id": 1, "x": 1},
+                {"id": 2, "y": 2},
+                {"id": 3, "x": 3, "z": 3},
+                {"id": 4},
+                {"q": 5},
+                {"r": 6, "id": 6},
+            ],
+            60,
+        ),
+        # A depth that never repeats a shape: it retires mid-document.
+        [{f"only_{index}": index, "shared": index} for index in range(40)],
+        # Nested records so several depths hold cursors at once.
+        [
+            {"outer": {"inner": {"leaf": index, "list": [{"k": index}] * 3}}, "n": index}
+            for index in range(30)
+        ],
+    ],
+)
+def test_prediction_cursors_survive_every_way_mutation(records):
+    text = json.dumps(records)
+    assert strata.loads(text) == json.loads(text)
+    assert strata.loads(text.encode()) == json.loads(text)
+    # And under the other policies, which take the duplicate-aware inserts.
+    for policy in ("last", "error", "warn"):
+        strata.config.set("duplicate_key_policy", policy)
+        assert strata.loads(text) == json.loads(text)
+
+
 def test_a_twenty_digit_integer_is_not_truncated_to_nineteen():
     """The exact defect api.md calls out: 19 digits accumulated, the rest dropped."""
     assert strata.loads("12345678901234567890") != 1234567890123456789

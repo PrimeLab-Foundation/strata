@@ -357,8 +357,9 @@ template <typename Handler> struct ParserInline {
     }
 
     bool parse_array() {
-        if (!consume('['))
-            return false;
+        // Only reached through parse_value, which dispatched on this byte:
+        // the opening bracket is consumed without re-scanning for it.
+        ++i;
         if (!handler.on_start_array())
             return false;
 
@@ -399,8 +400,7 @@ template <typename Handler> struct ParserInline {
     }
 
     bool parse_object() {
-        if (!consume('{'))
-            return false;
+        ++i; // as in parse_array: parse_value dispatched on the brace
         if (!handler.on_start_object())
             return false;
 

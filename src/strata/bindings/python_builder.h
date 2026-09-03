@@ -127,6 +127,11 @@ class KeyCache {
  * overwriting it with a generic parse error.
  */
 class PythonObjectBuilder {
+    // Declared ahead of the callbacks that name them; defined below.
+    struct Frame;
+    struct PredictedKey;
+    struct Schema;
+
   public:
     ~PythonObjectBuilder() {
         reset();
@@ -187,9 +192,24 @@ class PythonObjectBuilder {
      * and the cache lookup.
      */
     [[nodiscard]] size_t try_match_key(const char* after_quote, size_t remaining) {
-        if (frames_.empty() || frames_.back().mapping == nullptr)
+        if (frames_.empty())
             return 0;
         Frame& frame = frames_.back();
+        // The resolved case first, and through the frame's own cursor: one
+        // load, one probe, one increment per key.
+        if (frame.next != nullptr) {
+            if (frame.next == frame.end)
+                return 0;
+            const PredictedKey& entry = *frame.next;
+            if (!prediction_hits(entry, after_quote, remaining))
+                return 0;
+            keys_.push_back(Py_NewRef(entry.object));
+            ++frame.next;
+            ++frame.cursor;
+            return entry.raw_size;
+        }
+        if (frame.mapping == nullptr)
+            return 0;
         const size_t depth = frames_.size();
         if (depth >= predicted_.size())
             return 0;
@@ -214,21 +234,29 @@ class PythonObjectBuilder {
                     keys_.push_back(Py_NewRef(entry.object));
                     frame.way = way_index;
                     frame.cursor = 1;
-                    return entry.raw.size();
+                    frame.next = keys.data() + 1;
+                    frame.end = keys.data() + keys.size();
+                    return entry.raw_size;
                 }
             }
             return 0;
         }
+        // A resolved way whose cursor was cleared (a miss re-recorded the
+        // shape): nothing more to predict for this object.
+        return 0;
+    }
 
+    /// Point @p frame's cursor at its adopted way's entries from its current
+    /// slot, or clear it: called after anything that may have moved them.
+    void refresh_cursor(Frame& frame, const Schema& schema) noexcept {
+        if (frame.way == kWayUnresolved || schema.retired) {
+            frame.next = nullptr;
+            frame.end = nullptr;
+            return;
+        }
         const auto& keys = schema.ways[frame.way].keys;
-        if (frame.cursor >= keys.size())
-            return 0;
-        const PredictedKey& entry = keys[frame.cursor];
-        if (!prediction_hits(entry, after_quote, remaining))
-            return 0;
-        keys_.push_back(Py_NewRef(entry.object));
-        ++frame.cursor;
-        return entry.raw.size();
+        frame.next = keys.data() + frame.cursor;
+        frame.end = keys.data() + keys.size();
     }
 
     bool on_null() { return push(Py_NewRef(Py_None)); }
@@ -269,7 +297,7 @@ class PythonObjectBuilder {
         PyObject* mapping = new_mapping(frames_.size());
         if (mapping == nullptr)
             return false;
-        frames_.push_back(Frame{mapping, values_.size(), 0, kWayUnresolved});
+        frames_.push_back(Frame{mapping, values_.size(), 0, kWayUnresolved, nullptr, nullptr});
         return true;
     }
 
@@ -299,7 +327,7 @@ class PythonObjectBuilder {
     }
 
     bool on_start_array() {
-        frames_.push_back(Frame{nullptr, values_.size(), 0, kWayUnresolved});
+        frames_.push_back(Frame{nullptr, values_.size(), 0, kWayUnresolved, nullptr, nullptr});
         return true;
     }
 
@@ -355,6 +383,15 @@ class PythonObjectBuilder {
         size_t start;
         uint32_t cursor; ///< next prediction slot within the adopted way
         uint8_t way;     ///< adopted prediction way, or kWayUnresolved
+        /// The adopted way's remaining predictions, [next, end): the per-key
+        /// probe reads one entry through these instead of re-deriving depth,
+        /// schema, way and cursor through three vectors (try_match_key self
+        /// time was 4.9 ns per key). Refreshed by record_key whenever it
+        /// changes the way's storage (push, resize, release, retire), so a
+        /// cursor never outlives the entries it points at; null when there is
+        /// nothing to predict.
+        const PredictedKey* next;
+        const PredictedKey* end;
     };
 
     /// A dict frame starts with no adopted way; its first key picks one.
@@ -375,6 +412,7 @@ class PythonObjectBuilder {
     struct PredictedKey {
         std::string raw;
         PyObject* object;
+        uint32_t raw_size = 0; ///< raw.size(), read without the SSO branch
         uint64_t word0 = 0;
         uint64_t word1 = 0;
         uint64_t mask0 = 0;
@@ -382,6 +420,7 @@ class PythonObjectBuilder {
 
         void fill_words() noexcept {
             const size_t len = raw.size();
+            raw_size = static_cast<uint32_t>(len);
             if (len > 16)
                 return; // masks stay zero: the probe takes the memcmp path
             unsigned char padded[16] = {};
@@ -500,6 +539,7 @@ class PythonObjectBuilder {
             } else {
                 if (++schema.divergences > kMaxDivergences) {
                     retire(schema);
+                    refresh_cursor(frame, schema);
                     return;
                 }
                 frame.way = schema.next_replace;
@@ -518,6 +558,7 @@ class PythonObjectBuilder {
         if (frame.cursor < keys.size()) {
             if (++schema.divergences > kMaxDivergences) {
                 retire(schema);
+                refresh_cursor(frame, schema);
                 return;
             }
             for (size_t index = frame.cursor; index < keys.size(); ++index)
@@ -528,6 +569,7 @@ class PythonObjectBuilder {
         keys.push_back(PredictedKey{std::string(begin, key.size() + 1), Py_NewRef(object)});
         keys.back().fill_words();
         ++frame.cursor;
+        refresh_cursor(frame, schema); // push_back may have moved the entries
     }
 
     /// A dict for an object opening at @p depth, presized to the size the

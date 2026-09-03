@@ -161,3 +161,9 @@ lists 1.55x → 1.10x, 7-digit ints 1.52x → 1.13x, loads flat small 1.054x →
 Three companions measured and dropped the same day. Awaiting the human
 push and the next four-leg sample; `benchmarks/decompose_loads_flat.py` is
 wired into profile.yml's Windows job to name that leg's flat-row sink.
+**Status 2026-09-03:** the wave-12 push drew a POSIX sample of 79/81 with
+every parse row #1 on every measured leg (the Windows leg died at the C++
+gate on an MSVC constant-division error in the new suite, fixed in the
+follow-up). Wave 13 then moved the key probe onto a frame-owned cursor:
+every keyed row another 3–9% (flat small 0.94x, nested 0.87x, users
+0.84x), mixed 2%. In-tree, gated, awaiting the human push.

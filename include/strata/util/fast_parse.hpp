@@ -366,7 +366,11 @@ STRATA_ALWAYS_INLINE size_t consume_digit_run(const char* str, size_t len, size_
         if (count < 8 || pos >= len || !is_digit(str[pos]))
             return pos - start;
     }
-    return (pos - start) + consume_digit_run_scalar(str, len, pos, acc);
+    // Sequenced explicitly: the tail advances `pos` by reference, and the
+    // operands of `+` are unsequenced — MSVC evaluated the call first and
+    // doubled the count (0.1 parsed as 0.01 on the Windows leg).
+    const size_t by_word = pos - start;
+    return by_word + consume_digit_run_scalar(str, len, pos, acc);
 }
 
 } // namespace detail
