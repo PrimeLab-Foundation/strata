@@ -8,6 +8,7 @@ docs/decisions.md move together.
 import json
 import math
 import random
+import sys
 import warnings
 
 import pytest
@@ -457,3 +458,25 @@ def test_long_fraction_floats_reject_malformed_neighbours():
     ):
         with pytest.raises(ValueError, match="^Invalid JSON$"):
             strata.loads(doc)
+
+
+def test_singletons_keep_their_reference_counts():
+    """api.md: null/true/false parse to None/True/False.
+
+    The builder places the interpreter's singletons without taking a
+    reference on interpreters where they are immortal, and with one where
+    they are not; either way the count observable from Python must be the
+    same after the parsed trees are gone as before -- the invariant that
+    keeps a mortal singleton alive on CPython 3.10 and 3.11.
+    """
+    doc = "[" + ",".join(("null", "true", "false") * 2000) + "]"
+    before = (sys.getrefcount(None), sys.getrefcount(True), sys.getrefcount(False))
+    for _ in range(5):
+        parsed = strata.loads(doc)
+        assert parsed[:3] == [None, True, False]
+        assert parsed[0] is None and parsed[1] is True and parsed[2] is False
+        nested = strata.loads('{"a": null, "b": [true, {"c": false}]}')
+        assert nested == {"a": None, "b": [True, {"c": False}]}
+        del parsed, nested
+    after = (sys.getrefcount(None), sys.getrefcount(True), sys.getrefcount(False))
+    assert after == before
