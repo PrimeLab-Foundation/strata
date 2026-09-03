@@ -100,6 +100,16 @@ def main() -> int:
         "str-36ch": ["0123456789abcdef0123456789abcdef0123"] * 4000,
         "str-200ch": ["x" * 200] * 800,
         "str-600ch": ["y" * 600] * 400,
+        # Mixed lengths, as mixed.json's own strings come (250 one-character
+        # kinds, then labels, tag words and 13-character hex ids side by
+        # side): the short path's length tiers change per element here,
+        # which the same-length buckets above never make them do. On Linux
+        # x86 the real-strings subset reads 1.34x while every bucket above
+        # sits at parity.
+        "str-mixed-1-13": [
+            ("a", "c12", "sale", "restock", "featured", "clearance", "00000003-2c83")[i % 7]
+            for i in range(4000)
+        ],
     }
     for name, bucket in buckets.items():
         s = median_call(lambda: strata.dumps(bucket, return_type="bytes"))
