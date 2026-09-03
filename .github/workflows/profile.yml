@@ -100,7 +100,9 @@ jobs:
           CXX: clang++
         run: |
           sudo apt-get install -y valgrind
-          STRATA_MARCH=x86-64-v3 SKIP_TESTS=1 .venv/bin/python setup.py build_ext --inplace
+          # Gated like every build (SKIP_TESTS is banned in CI): both suites
+          # run on the x86-64-v3 extension before the simulation sees it.
+          STRATA_MARCH=x86-64-v3 .venv/bin/python setup.py build_ext --inplace
           for engine in strata orjson msgspec; do
             echo "=== $engine"
             PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes --cachegrind-out-file=/dev/null \
