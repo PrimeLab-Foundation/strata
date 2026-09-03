@@ -77,6 +77,14 @@ def main() -> int:
             "orjson": lambda: orjson.dumps(data),
             "msgspec": lambda: encode(data),
         },
+        # str mode: the thread-local buffer path plus one PyUnicode copy,
+        # against bytes mode's fresh per-call output block — if this one's
+        # cold penalty is materially smaller, the block is the surplus.
+        "dumps mixed (str mode)": {
+            "strata": lambda: strata.dumps(data),
+            "orjson": lambda: orjson.dumps(data),
+            "msgspec": lambda: encode(data),
+        },
         "dumps 10 records": {
             "strata": lambda: strata.dumps(ten, return_type="bytes"),
             "orjson": lambda: orjson.dumps(ten),
