@@ -83,6 +83,9 @@ jobs:
           $PERF report --stdio -i interleaved.perf.data 2>/dev/null | head -200 > perf_report_interleaved.txt
           grep -E "strata|Serializer|Overhead|Samples" perf_report_interleaved.txt | head -40
 
+      - name: Cold-state probe on this leg
+        run: PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -134,3 +137,10 @@ jobs:
       - name: Decompose loads flat on this leg
         shell: bash
         run: PYTHONPATH=. python benchmarks/decompose_loads_flat.py
+
+      # The cold-start penalty per engine: the interleaved harness hands
+      # each engine a cold cache, and dumps mixed reads ahead isolated but
+      # behind interleaved on the x86 legs.
+      - name: Cold-state probe on this leg
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/cold_state_probe.py

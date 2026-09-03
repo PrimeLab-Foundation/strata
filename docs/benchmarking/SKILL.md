@@ -213,12 +213,13 @@ Post-wave-11 state (2026-09-02), all rows and their known leads:
   2026-09-01; the first sample after (run 33593729167, 2026-09-02) reads
   102/108 — linux and arm64 27/27, macos-x86_64 26/27 (dumps mixed 1.04x),
   Windows 22/27 on a Milan runner. The wave-11 push (68d6e74) then drew a
-  same-commit pair, 99/108 (a degraded Milan runner) and 101/108 (an Intel
-  runner): behind in both only macos-x86_64 dumps mixed (1.01x/1.04x) and
-  Windows dump flat (1.07x/1.04x); the Windows reader fix verified (load
-  minus loads 2.6 → 0.8 ms on users). Three Windows samples now span three
-  CPU generations (Genoa, Milan, Intel) and the leg's behind-set changes
-  with each — the next verdict is `gh workflow run benchmark.yml` +
+  same-commit pair, 99/108 and 101/108; the wave-12/13 pushes (parse side:
+  digit runs by word, the short-number head, the frame-owned key cursor)
+  took the tracker to **106/108 on 37a96fb** — linux, arm64 and macos-x86_64
+  all 27/27 in one run, Windows 25/27 with every parse row #1 and only
+  dumps/dump mixed behind (1.11x/1.06x, Genoa). Across three samples of the
+  wave-13 code the only row family behind in every draw is dumps mixed
+  under MSVC; the next verdict is `gh workflow run benchmark.yml` +
   `make bench-ci` per push, read as same-CPU pairs (linux-arm64 activates
   when the repo goes public).
 

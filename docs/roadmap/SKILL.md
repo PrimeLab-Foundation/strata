@@ -167,3 +167,10 @@ gate on an MSVC constant-division error in the new suite, fixed in the
 follow-up). Wave 13 then moved the key probe onto a frame-owned cursor:
 every keyed row another 3–9% (flat small 0.94x, nested 0.87x, users
 0.84x), mixed 2%. In-tree, gated, awaiting the human push.
+**Status 2026-09-03, later:** pushed as ff39a70/37a96fb; the 37a96fb sample
+reads **106/108 — "Goal met on 3/4 platforms"** (linux, arm64, macos-x86_64
+all 27/27; Windows 25/27 with every parse row #1). The remainder is the
+Windows serializer's mixed pair (dumps 1.11x, dump 1.06x under MSVC): the
+per-record machinery, the 17-digit float tier and the short-string tiers
+that the Windows decomposition names — an MSVC-side increment, validated
+one profile run per push.
