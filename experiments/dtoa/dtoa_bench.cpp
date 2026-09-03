@@ -189,6 +189,78 @@ size_t write_tree(double value, char* out) {
     return write_no_probe(value, out);
 }
 
+// The jeaiii fixed-point digit chain (as the reference Dragonbox printer
+// prints its significand): one wide multiply puts the leading digits above
+// bit 32, then each further pair is `(prod & 0xffffffff) * 100 >> 32` -- a
+// chain of 32-bit multiplies with no division and a pair lookup per step.
+// Nine digits from a 32-bit value; the 17-digit shape is one 64-bit split
+// by 10^8 into a 9-digit high part and an 8-digit low part.
+inline void write_pair(uint32_t two_digits, char* out) {
+    std::memcpy(out, &strata::util::detail::kDigitPairs[two_digits * 2], 2);
+}
+
+// Writes exactly 9 digits of s32 (10^8 <= s32 < 10^9).
+inline void write_9_chain(uint32_t s32, char* out) {
+    uint64_t prod = static_cast<uint64_t>(s32) * 1441151882ULL; // ceil(2^57 / 10^8) + 1
+    prod >>= 25;
+    out[0] = static_cast<char>('0' + static_cast<uint32_t>(prod >> 32));
+    prod = (prod & 0xffffffffULL) * 100;
+    write_pair(static_cast<uint32_t>(prod >> 32), out + 1);
+    prod = (prod & 0xffffffffULL) * 100;
+    write_pair(static_cast<uint32_t>(prod >> 32), out + 3);
+    prod = (prod & 0xffffffffULL) * 100;
+    write_pair(static_cast<uint32_t>(prod >> 32), out + 5);
+    prod = (prod & 0xffffffffULL) * 100;
+    write_pair(static_cast<uint32_t>(prod >> 32), out + 7);
+}
+
+// Writes exactly 8 digits of s32 (< 10^8), zero-padded on the left: the
+// reference printer's 7-or-8-digit constant puts the leading pair above
+// bit 32.
+inline void write_8_chain(uint32_t s32, char* out) {
+    uint64_t prod = static_cast<uint64_t>(s32) * 281474978ULL; // ceil(2^48 / 10^6) + 1
+    prod >>= 16;
+    write_pair(static_cast<uint32_t>(prod >> 32), out);
+    prod = (prod & 0xffffffffULL) * 100;
+    write_pair(static_cast<uint32_t>(prod >> 32), out + 2);
+    prod = (prod & 0xffffffffULL) * 100;
+    write_pair(static_cast<uint32_t>(prod >> 32), out + 4);
+    prod = (prod & 0xffffffffULL) * 100;
+    write_pair(static_cast<uint32_t>(prod >> 32), out + 6);
+}
+
+size_t write_jeaiii(double value, char* out) {
+    using strata::util::detail::decimal_digit_count;
+    size_t written = 0;
+    if (std::signbit(value))
+        out[written++] = '-';
+    if (value == 0.0) {
+        std::memcpy(out + written, "0.0", 3);
+        return written + 3;
+    }
+    const auto decimal = jkj::dragonbox::to_decimal(value, jkj::dragonbox::policy::sign::ignore,
+                                                    jkj::dragonbox::policy::trailing_zero::remove);
+    const uint64_t digits = decimal.significand;
+    const size_t length = decimal_digit_count(digits);
+    const int32_t scientific = static_cast<int32_t>(length) + decimal.exponent - 1;
+    const int32_t point = scientific + 1;
+    if (scientific >= -4 && point <= 0 && (length == 17 || length == 16)) {
+        out[written++] = '0';
+        out[written++] = '.';
+        for (int32_t pad = 0; pad < -point; ++pad)
+            out[written++] = '0';
+        const uint64_t high = digits / 100000000ULL;
+        const auto low = static_cast<uint32_t>(digits - high * 100000000ULL);
+        if (length == 17)
+            write_9_chain(static_cast<uint32_t>(high), out + written);
+        else
+            write_8_chain(static_cast<uint32_t>(high), out + written);
+        write_8_chain(low, out + written + (length - 8));
+        return written + length;
+    }
+    return write_no_probe(value, out);
+}
+
 struct Bucket {
     const char* name;
     std::vector<double> values;
@@ -244,8 +316,8 @@ template <typename Fn> double median_ns(const std::vector<double>& values, Fn&& 
 
 int main() {
     char buffer[64];
-    std::printf("%-16s %10s %10s %10s %10s %10s   (ns per value, median of 30 rounds)\n", "bucket",
-                "format", "no_probe", "tree", "dragonbox", "to_chars");
+    std::printf("%-16s %10s %10s %10s %10s %10s %10s   (ns per value, median of 30 rounds)\n",
+                "bucket", "format", "no_probe", "tree", "chain", "dragonbox", "to_chars");
     for (const Bucket& bucket : buckets()) {
         // Correctness: the writer's bytes must round-trip and match to_chars'.
         for (const double value : bucket.values) {
@@ -295,12 +367,25 @@ int main() {
             const Decimal d = to_decimal(value);
             return static_cast<size_t>(d.significand & 1) + static_cast<size_t>(d.exponent & 1);
         });
+        for (const double value : bucket.values) {
+            char ours[64];
+            char theirs[64];
+            const size_t n = strata::util::format_double(value, ours, sizeof ours);
+            const size_t m = write_jeaiii(value, theirs);
+            if (n != m || std::memcmp(ours, theirs, n) != 0) {
+                std::printf("JEAIII MISMATCH on %.17g: %.*s vs %.*s\n", value, static_cast<int>(n),
+                            ours, static_cast<int>(m), theirs);
+                return 1;
+            }
+        }
+        const double chain =
+            median_ns(bucket.values, [&](double value) { return write_jeaiii(value, buffer); });
         const double to_chars = median_ns(bucket.values, [&](double value) {
             const auto res = std::to_chars(buffer, buffer + sizeof buffer, value);
             return static_cast<size_t>(res.ptr - buffer);
         });
-        std::printf("%-16s %10.2f %10.2f %10.2f %10.2f %10.2f\n", bucket.name, format, no_probe,
-                    tree, dragonbox, to_chars);
+        std::printf("%-16s %10.2f %10.2f %10.2f %10.2f %10.2f %10.2f\n", bucket.name, format,
+                    no_probe, tree, chain, dragonbox, to_chars);
     }
     return 0;
 }
