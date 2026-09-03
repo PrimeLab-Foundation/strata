@@ -19,11 +19,13 @@ keeps the result, so the window holds the call alone but every allocation
 comes from fresh memory; *free only* builds the result outside the window
 and times its release alone. Next to the engines stand allocation
 controls of the bytes-mode sizes: `bytes(n)` (a calloc that touches every
-page), the untouched `PyBytes_FromStringAndSize(NULL, n)` bytes mode
-actually makes (through raw ctypes pointers -- a `py_object` wrapper keeps
-a stale pointer once the block moves), and a str block. The shrink itself
-has no stand-in; it is what the bytes-mode row carries beyond the str-mode
-row less the str row's own alloc-and-copy. Each timing list is printed
+page), a str block, and PyBytes blocks made through raw ctypes pointers
+(a `py_object` wrapper keeps a stale pointer once a resize moves the
+block, so no wrapper ever owns one): untouched at both sizes, the exact
+shape bytes mode makes -- the hinted block, written, shrunk in place to
+the document -- and the exact-fit shape a repeated document would take
+without headroom, which is the candidate remedy if the shrunk block is
+what the heap charges. Each timing list is printed
 sorted, so a bimodal row shows both modes, and in call order, so drift
 shows too. Pure timing; meant to be read from a CI log
 (.github/workflows/profile.yml runs it on Windows and Linux).
@@ -91,7 +93,7 @@ def run_interleaved(rows, repeat):
 def show(name, arm, times):
     ordered = sorted(times)
     print(
-        f"{name:28s} {arm:9s} min {ordered[0]:8.1f}  median {statistics.median(ordered):8.1f}  "
+        f"{name:40s} {arm:9s} min {ordered[0]:8.1f}  median {statistics.median(ordered):8.1f}  "
         f"max {ordered[-1]:8.1f} us"
     )
     print("    sorted: " + " ".join(f"{value:.0f}" for value in ordered))
@@ -112,12 +114,32 @@ def main() -> int:
     size = len(strata.dumps(data, return_type="bytes"))
     hint = size + size // 8 + 64
 
-    new_bytes = ctypes.pythonapi.PyBytes_FromStringAndSize
+    # Raw object pointers throughout: no ctypes wrapper ever owns a block, so
+    # nothing keeps a stale pointer when a resize moves one.
+    api = ctypes.pythonapi
+    new_bytes = api.PyBytes_FromStringAndSize
     new_bytes.argtypes = [ctypes.c_void_p, ctypes.c_ssize_t]
     new_bytes.restype = ctypes.c_void_p
-    decref = ctypes.pythonapi.Py_DecRef
+    data_of = api.PyBytes_AsString
+    data_of.argtypes = [ctypes.c_void_p]
+    data_of.restype = ctypes.c_void_p
+    resize = api._PyBytes_Resize
+    resize.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_ssize_t]
+    resize.restype = ctypes.c_int
+    decref = api.Py_DecRef
     decref.argtypes = [ctypes.c_void_p]
     decref.restype = None
+
+    def block(length, written, shrink_to=None):
+        pointer = new_bytes(None, length)
+        if written:
+            ctypes.memset(data_of(pointer), 0x20, written)
+        if shrink_to is not None:
+            holder = ctypes.c_void_p(pointer)
+            if resize(ctypes.byref(holder), shrink_to) != 0:
+                raise MemoryError("_PyBytes_Resize failed")
+            pointer = holder.value
+        return pointer
 
     rows = [
         Row("dumps strata bytes", lambda: strata.dumps(data, return_type="bytes")),
@@ -126,7 +148,13 @@ def main() -> int:
         Row("dumps msgspec", lambda: encode(data)),
         Row(f"bytes({size})", lambda: bytes(size)),
         Row(f"bytes({hint})", lambda: bytes(hint)),
-        Row(f"untouched PyBytes({hint})", lambda: new_bytes(None, hint), decref),
+        Row(f"PyBytes({hint}) untouched", lambda: block(hint, 0), decref),
+        Row(f"PyBytes({size}) untouched", lambda: block(size, 0), decref),
+        # Bytes mode's own shape: the hinted block, the document written into
+        # it, the in-place shrink to the document; and the exact-fit shape a
+        # repeated document would take if the hint carried no headroom.
+        Row(f"PyBytes({hint}) written, shrunk to {size}", lambda: block(hint, size, size), decref),
+        Row(f"PyBytes({size}) written, exact", lambda: block(size, size), decref),
         Row(f"str of {size}", lambda: "x" * size),
         Row("loads strata", lambda: strata.loads(payload)),
         Row("loads orjson", lambda: orjson.loads(payload)),

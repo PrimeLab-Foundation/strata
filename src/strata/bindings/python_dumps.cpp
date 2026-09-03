@@ -977,14 +977,21 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
     SchemaCacheLease schemas;
 
     if (as_bytes) {
-        // Sized from the previous document on this thread: growth doubling
-        // would otherwise copy roughly one document's worth of bytes on the
-        // way up, cancelling the copy this mode exists to save. Repeated
-        // dumps of similar payloads -- the workload that matters -- allocate
-        // exactly once.
+        // Sized to the previous document on this thread, exactly: growth
+        // doubling would otherwise copy roughly one document's worth of
+        // bytes on the way up, cancelling the copy this mode exists to
+        // save, and a repeated document -- the workload that matters --
+        // then allocates once, needs no resize, and asks the allocator for
+        // the very block the previous call freed. A hint with headroom
+        // (previously +12.5%) put the block in a larger size class than the
+        // document and shrank it in place; measured in the harness's window
+        // (gc.collect() before the call, the result freed inside it) that
+        // round trip cost 13 us on the Windows runners and 13 us on macOS
+        // against 2 us for an exact-fit block (benchmarks/
+        // alloc_roundtrip_probe.py; docs/decisions.md 2026-09-03).
         static thread_local size_t size_hint = kDumpsInitialCapacity;
         StagedOutput staged;
-        if (!staged.init_bytes(size_hint + size_hint / 8 + 64))
+        if (!staged.init_bytes(size_hint))
             return PyErr_NoMemory();
         Serializer serializer(staged, schemas.slots());
         if (!serializer.write(object))
