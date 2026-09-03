@@ -8,7 +8,8 @@
 // eight-digit word per group (B), and a straight-line pair split by digit
 // count (C). Each bucket is 4000 values of one width, the shape
 // benchmarks/decompose_dumps_mixed.py measures through Python; the number
-// printed is nanoseconds per value, the median of 15 rounds. Read on the
+// printed is nanoseconds per value, the median of 30 rounds (the
+// micro-benchmark protocol in docs/context/benchmarks.md). Read on the
 // Linux profile leg (clang, the extension's compiler there) and, where the
 // job builds it, under MSVC.
 //
@@ -31,9 +32,23 @@ using strata::util::detail::eight_digits_word;
 using strata::util::detail::kDigitPairs;
 using strata::util::detail::store_digit_word;
 
-// Current: digit count + backwards divmod-100 pairs (strata::util::format_int64).
+// Shipped: whatever strata::util::format_int64 is at this commit.
 size_t write_current(int64_t value, char* out) noexcept {
     return strata::util::format_int64(value, out);
+}
+
+// Loop: the pre-tier body verbatim -- digit count + backwards divmod-100
+// pairs -- kept here so every run can produce its own "before" column.
+size_t write_loop(int64_t value, char* out) noexcept {
+    auto magnitude = static_cast<uint64_t>(value);
+    size_t written = 0;
+    if (value < 0) {
+        out[written++] = '-';
+        magnitude = 0 - magnitude;
+    }
+    const size_t digits = decimal_digit_count(magnitude);
+    (void)strata::util::detail::fill_u64_backwards(magnitude, out + written + digits);
+    return written + digits;
 }
 
 // A: the same loop on 32-bit arithmetic when the magnitude allows it.
@@ -312,8 +327,9 @@ std::vector<Bucket> buckets() {
 
 int main() {
     const Variant variants[] = {
-        {"current", write_current}, {"narrow32", write_narrow}, {"words", write_words},
-        {"switch", write_switch},   {"tiers", write_tiers},     {"tiers2", write_tiers2},
+        {"current", write_current}, {"loop", write_loop},     {"narrow32", write_narrow},
+        {"words", write_words},     {"switch", write_switch}, {"tiers", write_tiers},
+        {"tiers2", write_tiers2},
     };
     std::vector<char> sink(4000 * 24);
     // Correctness first: every variant must produce the current writer's bytes.
@@ -337,12 +353,12 @@ int main() {
     std::printf("%-14s", "bucket");
     for (const Variant& variant : variants)
         std::printf(" %10s", variant.name);
-    std::printf("   (ns per value, median of 15 rounds)\n");
+    std::printf("   (ns per value, median of 30 rounds)\n");
     for (const Bucket& bucket : buckets()) {
         std::printf("%-14s", bucket.name);
         for (const Variant& variant : variants) {
             std::vector<double> rounds;
-            for (int round = 0; round < 15; ++round) {
+            for (int round = 0; round < 30; ++round) {
                 const auto start = std::chrono::steady_clock::now();
                 size_t total = 0;
                 for (int rep = 0; rep < 50; ++rep) {

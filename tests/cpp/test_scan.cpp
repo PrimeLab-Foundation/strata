@@ -285,6 +285,31 @@ void test_format_int64_matches_to_chars() {
         state ^= state << 17;
         check(static_cast<long long>(state));
     }
+    // The writer may store a whole word past the digits: the contract is
+    // that nothing beyond kInt64BufferSize bytes from `out` is touched, and
+    // nothing before it. Sentinels on both sides, exhaustively over the
+    // 4-byte word tier (every value under 10^4, both signs) and at the loop
+    // path's widest outputs.
+    const auto check_window = [](long long value) {
+        char buffer[48];
+        std::memset(buffer, '\xAA', sizeof buffer);
+        char* out = buffer + 8;
+        const size_t got = strata::util::format_int64(value, out);
+        assert(got <= strata::util::kInt64BufferSize);
+        for (size_t index = 0; index < 8; ++index)
+            assert(buffer[index] == '\xAA');
+        for (size_t index = 8 + strata::util::kInt64BufferSize; index < sizeof buffer; ++index)
+            assert(buffer[index] == '\xAA');
+    };
+    for (long long value = 0; value < 10000; ++value) {
+        check_window(value);
+        check_window(-value);
+        check(value);
+        check(-value);
+    }
+    check_window(9223372036854775807LL);
+    check_window(-9223372036854775807LL - 1);
+    check_window(999999999999999999LL);
     // Random 64-bit values are almost all 19 or 20 characters; the writer's
     // tiers turn on digit count, so every width from 1 to 19 digits gets its
     // own random sweep, both signs.

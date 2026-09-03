@@ -296,24 +296,21 @@ inline void shift16_right(char* from, size_t gap) noexcept {
         magnitude = 0 - magnitude; // wraps correctly for INT64_MIN
     }
     char* cursor = out + written;
-    // Nine digits and up take the backwards pair loop; under that, two
-    // straight-line word tiers. Real integer data mixes widths from one
-    // element to the next (indexes, counts and values side by side), and the
-    // loop's trip count then changes per element and its exit branch
-    // mispredicts; a value's magnitude selecting one of two fixed shapes
-    // does not. Measured in experiments/itoa (ns per value, arm64): mixed
-    // 1-7-digit lists 3.13 -> 2.59, 9-10 digits 4.48 -> 3.81, one to three
-    // digits 2.24 -> 2.12, the rest level; on x86 the eight-digit word reads
-    // flat at 3.05 ns from one to eight digits where the loop climbs from
-    // 1.96 to 3.34. Both tiers store a whole word -- four or eight bytes --
-    // past the digits, inside the kInt64BufferSize the contract gives.
-    if (magnitude >= 100000000ULL) {
-        const size_t digits = detail::decimal_digit_count(magnitude);
-        (void)detail::fill_u64_backwards(magnitude, cursor + digits);
-        return written + digits;
-    }
-    const auto v = static_cast<uint32_t>(magnitude);
-    if (v < 10000) {
+    // Values under 10^4 -- ids, counts, ages, the bulk of real integer data --
+    // take one straight-line shape: the digit count from three compares, two
+    // pair lookups into a 4-byte word, shifted and stored whole (the four
+    // bytes land inside the kInt64BufferSize the contract gives). Everything
+    // else takes the digit count and the backwards pair loop. Measured in
+    // experiments/itoa on a quiet arm64 machine (ns per value, five runs
+    // within 2%): 1-3 digits 1.78 -> 1.70, 4-6 digits 2.44 -> 2.47, mixed
+    // 1-7-digit lists 2.18 -> 2.18, 8 digits 3.08 -> 3.00. A wider word tier
+    // for 5-8 digits was measured and rejected: the eight-digit word's fixed
+    // cost lost 18% on 4-6-digit values and 8% on mixed widths there
+    // (docs/decisions.md 2026-09-03).
+    static_assert(std::endian::native == std::endian::little,
+                  "the 4-byte digit word assumes little-endian byte order");
+    if (magnitude < 10000) {
+        const auto v = static_cast<uint32_t>(magnitude);
         const size_t digits = v >= 1000 ? 4 : v >= 100 ? 3 : v >= 10 ? 2 : 1;
         const uint32_t high = v / 100;
         const uint32_t low = v - high * 100;
@@ -326,8 +323,8 @@ inline void shift16_right(char* from, size_t gap) noexcept {
         std::memcpy(cursor, &word, 4);
         return written + digits;
     }
-    const size_t digits = detail::decimal_digit_count(v);
-    detail::store_digit_word(cursor, detail::eight_digits_word(v) >> ((8 - digits) * 8));
+    const size_t digits = detail::decimal_digit_count(magnitude);
+    (void)detail::fill_u64_backwards(magnitude, cursor + digits);
     return written + digits;
 }
 

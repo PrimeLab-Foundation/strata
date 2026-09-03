@@ -89,8 +89,9 @@ jobs:
       # x86 legs' serializer buckets can be read side by side.
       - name: Decompose dumps mixed on this leg
         run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
-      # The integer-writer experiment: four variants of format_int64 timed
-      # per width bucket, compiled as the extension is here (clang, native).
+      # The integer-writer experiment: the variants of format_int64 (the
+      # pre-tier loop among them) timed per width bucket, compiled as the
+      # extension is here (clang, native).
       - name: Integer writer variants (experiments/itoa)
         run: |
           clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp -o itoa_bench
