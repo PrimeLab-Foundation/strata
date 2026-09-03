@@ -85,6 +85,8 @@ jobs:
 
       - name: Cold-state probe on this leg
         run: PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
+      - name: Allocation round trips, hot, harness style
+        run: PYTHONPATH=. .venv/bin/python benchmarks/alloc_roundtrip_probe.py
 
       # Simulated cache counts of one engine's cold calls: whether the
       # serializer's extra cold cost is code (I1/LLi misses) or data (D1/LLd).
@@ -105,13 +107,23 @@ jobs:
           STRATA_MARCH=x86-64-v3 .venv/bin/python setup.py build_ext --inplace
           for engine in strata orjson msgspec; do
             echo "=== $engine"
-            PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes --cachegrind-out-file=cg.$engine.out \
-              .venv/bin/python benchmarks/cold_loop.py $engine 20 16 2>&1 \
-              | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses|unhandled|SIGILL|terminating|Error|Traceback" || true
+            # Two call counts per engine: the 60-call profile minus the
+            # 20-call one, over 40, is the per-call cost of every function
+            # with import-time work removed -- and it attributes an engine
+            # whose symbols are stripped (orjson's Rust code profiles as
+            # `???`, next to the loader's own unnamed code) by whatever
+            # grows with the calls. The hash seed is pinned so the two
+            # processes lay out their dicts alike.
+            for calls in 20 60; do
+              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes --cachegrind-out-file=cg.$engine.$calls.out \
+                .venv/bin/python benchmarks/cold_loop.py $engine $calls 16 2>&1 \
+                | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses|unhandled|SIGILL|terminating|Error|Traceback" || true
+            done
             # The engine's own functions, summed from the out-file by symbol
             # name (an extension without debug info keeps its symbols but
             # not its file names, so cg_annotate's per-file view is `???`).
-            .venv/bin/python benchmarks/cg_attribute.py cg.$engine.out $engine
+            .venv/bin/python benchmarks/cg_attribute.py cg.$engine.20.out $engine
+            .venv/bin/python benchmarks/cg_attribute.py --delta cg.$engine.20.out cg.$engine.60.out 40 $engine
           done
 
       - uses: actions/upload-artifact@v4
@@ -122,6 +134,7 @@ jobs:
             perf_stat_*.txt
             perf_report_strata.txt
             perf_report_interleaved.txt
+            cg.*.out
           if-no-files-found: ignore
 
   # Windows carries the goal's last rows and no perf; the decomposition
@@ -172,3 +185,6 @@ jobs:
       - name: Cold-state probe on this leg
         shell: bash
         run: PYTHONPATH=. python benchmarks/cold_state_probe.py
+      - name: Allocation round trips, hot, harness style
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
