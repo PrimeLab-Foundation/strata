@@ -126,6 +126,25 @@ def main() -> int:
             f"fbucket {name:14s} n={len(bucket):5d}  strata {s:.4f}  orjson {o:.4f}  "
             f"ratio {s / o:.3f}x"
         )
+    # Int buckets by width: the x86 legs read mixed's ints subset 1.27x behind
+    # orjson under both compilers while arm64 reads 0.96x; the digit writer's
+    # cost per width names which of its tiers the x86 build pays for.
+    ibuckets = {
+        "int-1-3dig": [i % 1000 for i in range(4000)],
+        "int-4-6dig": [1000 + (i * 7919) % 999000 for i in range(4000)],
+        "int-7dig": [1000000 + (i * 7919) % 9000000 for i in range(4000)],
+        "int-8dig": [10000000 + (i * 7919) % 90000000 for i in range(4000)],
+        "int-9-10dig": [100000000 + (i * 104729) % 9900000000 for i in range(4000)],
+        "int-neg-7dig": [-(1000000 + (i * 7919) % 9000000) for i in range(4000)],
+        "int-19dig": [1000000000000000000 + i for i in range(4000)],
+    }
+    for name, bucket in ibuckets.items():
+        s = median_call(lambda: strata.dumps(bucket, return_type="bytes"))
+        o = median_call(lambda: orjson.dumps(bucket))
+        print(
+            f"ibucket {name:14s} n={len(bucket):5d}  strata {s:.4f}  orjson {o:.4f}  "
+            f"ratio {s / o:.3f}x"
+        )
     return 0
 
 

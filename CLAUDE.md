@@ -54,9 +54,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON) + committed seed corpus/
 │
 ├── benchmarks/              # harness, datasets, regression gate and the CI fetch/summary tools
-│
-└── planned — later milestones add these (layout contract in docs/context/convention.md):
-    └── experiments/         # isolated prototypes, never linked into production
+└── experiments/             # isolated prototypes, never linked into production (itoa/: the integer-writer variants)
 ```
 
 ## Rebuild in progress

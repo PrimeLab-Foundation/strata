@@ -88,7 +88,14 @@ NUMBERS = [
 
 
 def _record(rng: random.Random, index: int) -> dict:
-    """One record; the key set varies so the key cache both hits and misses."""
+    """One record of a few rotating shapes, so the profile carries the paths the
+    benchmark rows measure: records whose keys repeat (the prepared-key emit,
+    the schema cache's four-way select), long scalar runs (the run writers),
+    and -- kept at depth one, where they cannot retire the top level -- the
+    cache's miss and retire paths. A varying key on every top-level record
+    made every one of them a miss, retired that depth after 64, and profiled
+    the uncached walk as the hot path: the MSVC PGO build then read the
+    record path 1.78x behind orjson where the plain build read 1.17x."""
     record = {
         # Stable keys — the cache should hit on these every time.
         "id": index,
@@ -98,11 +105,26 @@ def _record(rng: random.Random, index: int) -> dict:
         "note": rng.choice(ESCAPED),
         "label": rng.choice(UNICODE),
         "missing": None,
-        # Varying key — a cache miss on most records.
-        f"field_{index % 512}": rng.random(),
         "tags": [rng.choice(PLAIN) for _ in range(rng.randint(0, 6))],
         "numbers": [rng.choice(NUMBERS) for _ in range(rng.randint(0, 8))],
     }
+    # Three shapes rotate at the top level: the four-way select hits after the
+    # first sighting of each and every record after that emits prepared keys.
+    shape = index % 3
+    if shape == 1:
+        record["rank"] = index % 97
+    elif shape == 2:
+        record["ratio"] = rng.random()
+        del record["missing"]
+    # Varying keys at depth one: misses, remembers and, after 64, retirement
+    # of that depth — the cold paths, trained without evicting the hot one.
+    record["extra"] = {f"field_{index % 512}": rng.random()}
+    # Long homogeneous runs every eighth record: the scalar-run writers take
+    # whole 64-element blocks at a time, which short lists never reach.
+    if index % 8 == 0:
+        record["series"] = [rng.random() * 1000 for _ in range(rng.randint(64, 200))]
+        record["ids"] = list(range(index, index + rng.randint(64, 200)))
+        record["names"] = [rng.choice(PLAIN) for _ in range(rng.randint(64, 200))]
     # Nested objects, occasionally deep, to exercise the recursion guard's
     # shallow path and the container-reuse logic.
     depth = rng.choice([0, 1, 2, 2, 3, 6])

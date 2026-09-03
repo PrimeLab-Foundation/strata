@@ -89,6 +89,12 @@ jobs:
       # x86 legs' serializer buckets can be read side by side.
       - name: Decompose dumps mixed on this leg
         run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
+      # The integer-writer experiment: four variants of format_int64 timed
+      # per width bucket, compiled as the extension is here (clang, native).
+      - name: Integer writer variants (experiments/itoa)
+        run: |
+          clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp -o itoa_bench
+          ./itoa_bench
       - name: Allocation round trips, hot, harness style
         run: PYTHONPATH=. .venv/bin/python benchmarks/alloc_roundtrip_probe.py
 
@@ -223,6 +229,15 @@ jobs:
       - name: Allocation round trips on the plain MSVC build
         shell: bash
         run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
+
+      # The integer-writer experiment under clang-cl (the MSVC command line
+      # accepts GNU inline asm; cl.exe itself is not on a bash step's PATH).
+      - name: Integer writer variants (experiments/itoa, clang-cl)
+        shell: bash
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc /I include experiments/itoa/itoa_bench.cpp /o itoa_bench.exe
+          ./itoa_bench.exe
 
       - name: clang-cl /O2 build of the same commit (gated)
         shell: bash
