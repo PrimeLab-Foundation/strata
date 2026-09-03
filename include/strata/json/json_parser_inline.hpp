@@ -23,8 +23,17 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <string_view>
+
+#if defined(_MSC_VER) && !defined(__clang__)
+#define STRATA_NOINLINE __declspec(noinline)
+#elif defined(__clang__) || defined(__GNUC__)
+#define STRATA_NOINLINE [[gnu::noinline]]
+#else
+#define STRATA_NOINLINE
+#endif
 
 namespace strata {
 
@@ -184,7 +193,109 @@ template <typename Handler> struct ParserInline {
     }
 
     /// Numbers are validated and classified in one pass by parse_number_unified.
-    bool parse_number() {
+    ///
+    /// Kept out of line on purpose (STRATA_NOINLINE): inlined into
+    /// parse_value, the head below made the dispatcher's prologue bigger for
+    /// every null, bool and string too — measured +4–7% on those lists
+    /// (docs/performance/SKILL.md, wave 12). Only numbers pay for it here.
+    STRATA_NOINLINE bool parse_number() {
+        // The short-number head: an optional sign, one to seven digits, and
+        // optionally a point with one to seven more, with no exponent behind
+        // — ids, counts, prices, coordinates: most of what JSON numbers are.
+        // Two word loads resolve it without entering the full scanner, whose
+        // prologue alone (six callee-saved register pairs, a ParsedNumber
+        // round trip) cost more than these numbers' digits: per-number cost
+        // read 6–13 ns over orjson before this head. The decimal case is the
+        // full path's own Clinger step verbatim — an exact integer below
+        // 10^14 divided by an exact power of ten is correctly rounded — so
+        // the double is bit-identical to what parse_number_unified produces
+        // (checked by the fast_parse suite). Eight readable bytes are
+        // required past each run's start, the lone-zero rule is kept ("0"
+        // and "0.5" are taken; "01" falls through to be rejected), and every
+        // other shape takes the full path unchanged.
+        const bool negative = data[i] == '-';
+        const size_t digits = i + static_cast<size_t>(negative);
+        if (digits + 8 <= len) {
+            uint64_t chunk;
+            std::memcpy(&chunk, data + digits, 8);
+            const unsigned count = util::detail::leading_digit_count(chunk);
+            if (count != 0 && count < 8 && (data[digits] != '0' || count == 1)) {
+                const size_t after = digits + count;
+                const char next = data[after];
+                if (next != '.' && next != 'e' && next != 'E') {
+                    const auto value =
+                        static_cast<int64_t>(util::detail::leading_digit_value(chunk, count));
+                    i = after;
+                    return handler.on_int(negative ? -value : value);
+                }
+                if (next == '.' && after + 9 <= len) {
+                    uint64_t fraction_chunk;
+                    std::memcpy(&fraction_chunk, data + after + 1, 8);
+                    const unsigned fraction_count =
+                        util::detail::leading_digit_count(fraction_chunk);
+                    if (fraction_count != 0 && fraction_count < 8) {
+                        const char tail = data[after + 1 + fraction_count];
+                        if (tail != 'e' && tail != 'E') {
+                            const uint64_t mantissa =
+                                util::detail::leading_digit_value(chunk, count) *
+                                    util::detail::kRunPow10[fraction_count] +
+                                util::detail::leading_digit_value(fraction_chunk, fraction_count);
+                            const double magnitude = static_cast<double>(mantissa) /
+                                                     util::detail::kClingerPow10[fraction_count];
+                            i = after + 1 + fraction_count;
+                            return handler.on_double(negative ? -magnitude : magnitude);
+                        }
+                    } else if (fraction_count == 8 && after + 17 <= len) {
+                        // A long fraction (full-precision doubles such as
+                        // 0.8444218515250481): one more word gives up to fifteen
+                        // fraction digits. The digit cap keeps the mantissa under
+                        // 10^19, and the value follows the scanner's own ladder —
+                        // Clinger while the mantissa fits 2^53, Eisel–Lemire above
+                        // it, and its refusals fall through to the full path.
+                        uint64_t more_chunk;
+                        std::memcpy(&more_chunk, data + after + 9, 8);
+                        const unsigned more_count = util::detail::leading_digit_count(more_chunk);
+                        const unsigned fraction_digits = 8 + more_count;
+                        // Sixteen fraction digits — the common full-precision
+                        // shape — fill the second word exactly; the byte after
+                        // it must then be readable and not a digit.
+                        const bool run_ends = more_count < 8 || (after + 18 <= len &&
+                                                                 !util::detail::is_digit(
+                                                                     data[after + 1 + 16]));
+                        if (run_ends && count + fraction_digits <= 19) {
+                            const char tail = data[after + 1 + fraction_digits];
+                            if (tail != 'e' && tail != 'E') {
+                                uint64_t mantissa =
+                                    util::detail::leading_digit_value(chunk, count) * 100000000ULL +
+                                    util::detail::eight_digit_word_value(fraction_chunk);
+                                if (more_count == 8) {
+                                    mantissa = mantissa * 100000000ULL +
+                                               util::detail::eight_digit_word_value(more_chunk);
+                                } else if (more_count != 0) {
+                                    mantissa = mantissa * util::detail::kRunPow10[more_count] +
+                                               util::detail::leading_digit_value(more_chunk,
+                                                                                 more_count);
+                                }
+                                double magnitude = 0.0;
+                                bool resolved = true;
+                                if (mantissa <= (uint64_t{1} << 53)) {
+                                    magnitude = static_cast<double>(mantissa) /
+                                                util::detail::kClingerPow10[fraction_digits];
+                                } else {
+                                    resolved = util::detail::eisel_lemire_double(
+                                        mantissa, -static_cast<long>(fraction_digits), false,
+                                        magnitude);
+                                }
+                                if (resolved) {
+                                    i = after + 1 + fraction_digits;
+                                    return handler.on_double(negative ? -magnitude : magnitude);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         util::ParsedNumber number;
         if (!util::parse_number_unified(data + i, len - i, number))
             return false;

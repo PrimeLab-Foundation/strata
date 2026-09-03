@@ -22,6 +22,7 @@
  */
 
 #include <bit>
+#include <cassert>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
@@ -31,6 +32,19 @@
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h> // _umul128: MSVC's spelling of the 64x64->128 multiply
+#endif
+
+// A placement the measurements depend on is declared, not left to heuristics
+// (docs/performance/SKILL.md, wave 12): the same source read +13% on 17-digit
+// float lists when the fraction digit-run came out as a separate function.
+// Both compiler families get their own spelling so every leg builds the
+// measured shape.
+#if defined(_MSC_VER) && !defined(__clang__)
+#define STRATA_ALWAYS_INLINE __forceinline
+#elif defined(__clang__) || defined(__GNUC__)
+#define STRATA_ALWAYS_INLINE [[gnu::always_inline]] inline
+#else
+#define STRATA_ALWAYS_INLINE inline
 #endif
 
 // Floating-point std::from_chars reached libc++ only at LLVM 20; Apple SDKs
@@ -191,25 +205,14 @@ inline constexpr long kEiselLemireMaxExp10 = 347;
 }
 #endif
 
-/// Are the eight bytes at @p p all ASCII digits? One word, two adds, a mask
-/// (the fast_float/simdjson check): adding 0x46 carries into bit 7 exactly
-/// for bytes above '9', and subtracting 0x30 borrows for bytes below '0'.
-[[nodiscard]] inline bool eight_digits_at(const char* p) noexcept {
-    uint64_t chunk;
-    std::memcpy(&chunk, p, 8);
-    return (((chunk + 0x4646464646464646ULL) | (chunk - 0x3030303030303030ULL)) &
-            0x8080808080808080ULL) == 0;
-}
-
-/// The numeric value of eight ASCII digits at @p p, in three multiplies
-/// instead of eight serial multiply-adds (fast_float's in-register
-/// reduction). Byte order note: the pair/quad folding below assumes the
-/// first digit sits in the low byte — little-endian targets, which every
-/// supported platform is; the per-digit loops beside the call sites remain
-/// the definition and the fallback.
-[[nodiscard]] inline uint32_t parse_eight_digits(const char* p) noexcept {
-    uint64_t chunk;
-    std::memcpy(&chunk, p, 8);
+/// The numeric value of the eight ASCII digits held in @p chunk (first digit
+/// in the low byte, i.e. the word loaded from the text on a little-endian
+/// target), in three multiplies instead of eight serial multiply-adds
+/// (fast_float's in-register reduction). Byte order note: the pair/quad
+/// folding assumes the first digit sits in the low byte — little-endian
+/// targets, which every supported platform is; the per-digit loops beside
+/// the call sites remain the definition and the fallback.
+[[nodiscard]] inline uint32_t eight_digit_word_value(uint64_t chunk) noexcept {
     constexpr uint64_t kMask = 0x000000FF000000FFULL;
     constexpr uint64_t kMul1 = 100 + (1000000ULL << 32);
     constexpr uint64_t kMul2 = 1 + (10000ULL << 32);
@@ -217,6 +220,153 @@ inline constexpr long kEiselLemireMaxExp10 = 347;
     chunk = (chunk * 10) + (chunk >> 8);
     chunk = (((chunk & kMask) * kMul1) + (((chunk >> 16) & kMask) * kMul2)) >> 32;
     return static_cast<uint32_t>(chunk);
+}
+
+// The word helpers below read the text's first byte in the word's low byte
+// (the run length is a count of trailing zero bits, the value a shift up):
+// little-endian by construction, like every SWAR tier in scan.hpp. Every
+// supported platform is; a big-endian build stops here instead of parsing
+// numbers wrongly and silently.
+static_assert(std::endian::native == std::endian::little,
+              "fast_parse.hpp's digit-run word helpers assume a little-endian target");
+
+/// How many of the eight bytes in @p chunk, from the first, are ASCII digits
+/// (0..8). The digit test is fast_float's: adding 0x46 carries into bit 7
+/// exactly for bytes above '9', subtracting 0x30 borrows for bytes below
+/// '0'. Its carry and borrow only ever travel *upward* (from a byte into
+/// later ones), so every byte below the first flagged non-digit is exactly
+/// classified, which is all a leading count needs.
+[[nodiscard]] inline unsigned leading_digit_count(uint64_t chunk) noexcept {
+    const uint64_t non_digit =
+        ((chunk + 0x4646464646464646ULL) | (chunk - 0x3030303030303030ULL)) & 0x8080808080808080ULL;
+    return static_cast<unsigned>(std::countr_zero(non_digit)) >> 3; // 64 >> 3 == 8 when none
+}
+
+/// The value of the first @p count digits of @p chunk (1..8): the run is
+/// shifted up and the vacated low bytes filled with '0', so the eight-digit
+/// reduction reads a zero-padded number.
+[[nodiscard]] inline uint32_t leading_digit_value(uint64_t chunk, unsigned count) noexcept {
+    assert(count >= 1 && count <= 8);
+    const unsigned shift = (8 - count) * 8; // 0..56
+    // '0' bytes below the run. Split into two shifts because a full run
+    // (count == 8) would otherwise shift the word by 64, which is undefined.
+    const uint64_t pad = (0x3030303030303030ULL >> (count * 8 - 1)) >> 1;
+    return eight_digit_word_value((chunk << shift) | pad);
+}
+
+/// How many of the first @p count digit bytes of @p chunk are '0'.
+[[nodiscard]] inline unsigned leading_zero_digits(uint64_t chunk, unsigned count) noexcept {
+    assert(count >= 1 && count <= 8);
+    const uint64_t run = ~0ULL >> ((8 - count) * 8);
+    const uint64_t non_zero = (chunk ^ 0x3030303030303030ULL) & run;
+    const unsigned first = static_cast<unsigned>(std::countr_zero(non_zero)) >> 3;
+    return first < count ? first : count;
+}
+
+/// Powers of ten a digit-run step multiplies by (10^0 .. 10^8).
+inline constexpr uint64_t kRunPow10[9] = {
+    1ULL, 10ULL, 100ULL, 1000ULL, 10000ULL, 100000ULL, 1000000ULL, 10000000ULL, 100000000ULL,
+};
+
+/// The powers of ten that are exact doubles (5^22 < 2^53): Clinger's window,
+/// shared by the full scanner and the parser's short-number head.
+inline constexpr double kClingerPow10[23] = {
+    1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
+    1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+};
+
+/// Significant digits a number keeps exactly; the rest only set `truncated`.
+inline constexpr size_t kMaxSignificant = 19;
+
+/// The digit accumulator shared by the integer and fraction parts: the first
+/// nineteen significant digits, how many were kept, the zeros seen before the
+/// first significant digit (a fraction's leading zeros only shift the
+/// exponent), and whether digits past the cap were dropped.
+struct DigitAccumulator {
+    uint64_t mantissa = 0;
+    size_t significant = 0;
+    size_t leading_zeros = 0;
+    bool truncated = false;
+};
+
+/// The per-digit body: one byte of the run into @p acc.
+inline void accumulate_digit(char c, DigitAccumulator& acc) noexcept {
+    if (acc.mantissa == 0 && c == '0') {
+        ++acc.leading_zeros; // carries no significance, only shifts the exponent
+    } else if (acc.significant < kMaxSignificant) {
+        acc.mantissa = acc.mantissa * 10 + static_cast<uint64_t>(c - '0');
+        ++acc.significant;
+    } else {
+        acc.truncated = true;
+    }
+}
+
+/// The scalar twin of @ref consume_digit_run: the per-digit body alone.
+/// Exposed so the equivalence is *checked* (tests/cpp) rather than asserted.
+inline size_t consume_digit_run_scalar(const char* str, size_t len, size_t& pos,
+                                       DigitAccumulator& acc) noexcept {
+    const size_t start = pos;
+    while (pos < len && is_digit(str[pos])) {
+        accumulate_digit(str[pos], acc);
+        ++pos;
+    }
+    return pos - start;
+}
+
+/**
+ * Advance past the run of ASCII digits at `str[pos..len)`, accumulating it
+ * into @p acc; returns the number of digits consumed.
+ *
+ * Up to eight digits per step while eight bytes are readable: one word
+ * load, the run's length from the digit mask, its value from the padded
+ * eight-digit reduction, its leading zeros (only while the mantissa is still
+ * zero) from a second mask — no branch that depends on where the run ends.
+ * The per-digit loop it replaced mispredicted its exit on every number of
+ * random width, which on number-dense documents (a 64-element array of
+ * 1..10-digit ints, a column of 5-decimal floats) was the largest single
+ * cost the parser paid: homogeneous number lists read 1.33–1.55x behind
+ * orjson before this, bools and nulls through the same array loop at parity.
+ * The per-digit body remains the definition: it takes the last seven bytes
+ * of the input, and every digit past the nineteen-significant cap.
+ *
+ * Forced inline (STRATA_ALWAYS_INLINE): left to the heuristics, the fraction
+ * instantiation came out as a separate function — a prologue and epilogue per
+ * fraction, measured as +13% on 17-digit float lists against the loop it
+ * replaced.
+ *
+ * @tparam kLeadingZerosPossible False for an integer part, whose first digit
+ *         is never '0' past a lone zero; true for a fraction.
+ */
+template <bool kLeadingZerosPossible>
+STRATA_ALWAYS_INLINE size_t consume_digit_run(const char* str, size_t len, size_t& pos,
+                                              DigitAccumulator& acc) noexcept {
+    const size_t start = pos;
+    while (pos + 8 <= len) {
+        uint64_t chunk;
+        std::memcpy(&chunk, str + pos, 8);
+        const unsigned count = leading_digit_count(chunk);
+        if (count == 0)
+            return pos - start;
+        // An integer part starts with a non-zero digit (the lone-zero rule is
+        // enforced by the caller), so only a fraction can hold zeros ahead of
+        // the first significant digit, and only when its run starts with one;
+        // the integer instantiation folds the second mask away entirely.
+        const unsigned zeros = kLeadingZerosPossible && acc.mantissa == 0 && (chunk & 0xFF) == '0'
+                                   ? leading_zero_digits(chunk, count)
+                                   : 0;
+        const unsigned kept = count - zeros;
+        if (acc.significant + kept > kMaxSignificant)
+            break; // the cap: the per-digit body decides digit by digit
+        acc.mantissa = acc.mantissa * kRunPow10[count] + leading_digit_value(chunk, count);
+        acc.significant += kept;
+        acc.leading_zeros += zeros;
+        pos += count;
+        // A run shorter than the word ended inside it; a full word may or may
+        // not continue — one byte tells, cheaper than another word step.
+        if (count < 8 || pos >= len || !is_digit(str[pos]))
+            return pos - start;
+    }
+    return (pos - start) + consume_digit_run_scalar(str, len, pos, acc);
 }
 
 } // namespace detail
@@ -314,13 +464,11 @@ struct FromCharsResult {
         return false;
 
     // The validation scan doubles as the conversion: significant digits
-    // accumulate into `mantissa` as they are checked, so the common cases
+    // accumulate into the mantissa as they are checked, so the common cases
     // below never re-read the span. `from_chars` re-scanning the token was
     // the previous conversion strategy, and on number-dense documents that
     // second pass was a measurable share of the whole parse.
-    uint64_t mantissa = 0;
-    size_t significant = 0; // digits accumulated into `mantissa`
-    bool truncated = false; // more significant digits than fit; fall back
+    detail::DigitAccumulator acc;
 
     // Integer part. A leading zero may only stand alone.
     const size_t int_start = pos;
@@ -329,64 +477,27 @@ struct FromCharsResult {
         if (pos < len && is_digit(str[pos]))
             return false;
     } else {
-        // Eight digits per step while they last: the per-digit multiply-add
-        // chain is serial, and real integer columns are 8-10 digits wide.
-        // The accumulation is exactly the scalar loop's (same first-19-digit
-        // prefix, same counters), so every consumer below is unaffected.
-        while (pos + 8 <= len && significant + 8 <= 19 && detail::eight_digits_at(str + pos)) {
-            mantissa = mantissa * 100000000 + detail::parse_eight_digits(str + pos);
-            significant += 8;
-            pos += 8;
-        }
-        while (pos < len && is_digit(str[pos])) {
-            if (significant < 19) {
-                mantissa = mantissa * 10 + static_cast<uint64_t>(str[pos] - '0');
-                ++significant;
-            } else {
-                truncated = true;
-            }
-            ++pos;
-        }
+        (void)detail::consume_digit_run<false>(str, len, pos, acc);
     }
     const size_t int_digits = pos - int_start;
     const bool int_part_is_zero = (int_digits == 1 && str[int_start] == '0');
 
     bool is_double = false;
     size_t fraction_digits = 0;
-    size_t fraction_leading_zeros = 0;
 
     if (pos < len && str[pos] == '.') {
         ++pos;
         if (pos >= len || !is_digit(str[pos]))
             return false;
-        while (pos < len && is_digit(str[pos])) {
-            // Same eight-digit step as the integer part, once significance
-            // has begun (full-precision doubles carry ~16 fraction digits).
-            // While the mantissa is still zero the scalar body below owns
-            // the leading-zero bookkeeping.
-            if (mantissa != 0 && significant + 8 <= 19 && pos + 8 <= len &&
-                detail::eight_digits_at(str + pos)) {
-                mantissa = mantissa * 100000000 + detail::parse_eight_digits(str + pos);
-                significant += 8;
-                fraction_digits += 8;
-                pos += 8;
-                continue;
-            }
-            ++fraction_digits;
-            if (mantissa == 0 && str[pos] == '0') {
-                // Leading zeros carry no significance; they only shift the
-                // exponent, which `fraction_digits` already records.
-                ++fraction_leading_zeros;
-            } else if (significant < 19) {
-                mantissa = mantissa * 10 + static_cast<uint64_t>(str[pos] - '0');
-                ++significant;
-            } else {
-                truncated = true;
-            }
-            ++pos;
-        }
+        fraction_digits = detail::consume_digit_run<true>(str, len, pos, acc);
         is_double = true;
     }
+    // Zeros before the first significant digit can only come from the
+    // fraction: an integer part is "0" alone or starts with a non-zero digit.
+    const size_t fraction_leading_zeros = acc.leading_zeros;
+    const uint64_t mantissa = acc.mantissa;
+    const size_t significant = acc.significant;
+    const bool truncated = acc.truncated;
 
     long exponent = 0;
     if (pos < len && (str[pos] == 'e' || str[pos] == 'E')) {
@@ -453,13 +564,10 @@ struct FromCharsResult {
     const long effective_exponent = exponent - static_cast<long>(fraction_digits);
     if (!truncated && mantissa <= (uint64_t{1} << 53) && effective_exponent >= -22 &&
         effective_exponent <= 22) {
-        static constexpr double kPow10[23] = {
-            1e0,  1e1,  1e2,  1e3,  1e4,  1e5,  1e6,  1e7,  1e8,  1e9,  1e10, 1e11,
-            1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
-        };
         const double magnitude = static_cast<double>(mantissa);
-        const double value = effective_exponent < 0 ? magnitude / kPow10[-effective_exponent]
-                                                    : magnitude * kPow10[effective_exponent];
+        const double value = effective_exponent < 0
+                                 ? magnitude / detail::kClingerPow10[-effective_exponent]
+                                 : magnitude * detail::kClingerPow10[effective_exponent];
         out.double_value = negative ? -value : value;
         return true;
     }

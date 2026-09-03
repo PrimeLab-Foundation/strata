@@ -144,6 +144,13 @@ Decision record (formerly ADR-0001, implemented in `8f468d2`):
   Not Eisel–Lemire (that was only ever built in the archived `new_strata`
   rewrite). **Rebuild status:** Eisel–Lemire is now real — the tier sits
   between Clinger and `from_chars` (see "Double conversion is tiered" above).
+  Digit runs are consumed up to eight per 64-bit word (`consume_digit_run`,
+  per-digit body kept as the checked scalar twin), and most numbers never
+  reach the scanner at all: `ParserInline::parse_number` resolves
+  `[-]d{1..7}[.d{1..7}]` with no exponent from one or two word loads — the
+  int directly, the double by the scanner's own Clinger division — which is
+  an accelerator pinned bit-for-bit against the scanner, not a second
+  definition of the number grammar.
 - **Strings:** SIMD scan (`find_next_escape_simd`) for quote/backslash/control;
   escape-free strings pass a **zero-copy `string_view` into the input buffer**
   (valid only during the callback). Slow path handles all escapes incl. UTF-16

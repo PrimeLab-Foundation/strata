@@ -149,3 +149,15 @@ SWAR word plus a branch-free micro-decimal emission (6-decimal float lists
 0.85x in-process), and the raw-descriptor file reader that gives Windows
 the sized read it never had (its `load` rows trailed `loads` by 1.3–2.6 ms
 on 1–2 MB files). Awaiting the human push and the next four-leg sample.
+**Status 2026-09-02, later:** the wave-11 push (68d6e74) drew a same-commit
+CI pair, 99/108 and 101/108 — behind in both only macos-x86_64 dumps mixed
+(1.01x/1.04x) and Windows dump flat (1.07x/1.04x); the Windows reader fix
+verified (load minus loads 2.6 → 0.8 ms on users). Wave 12 landed in-tree:
+the number scanner steps digit runs by word and a short-number head keeps
+`[-]d{1..7}[.d{1..7}]` out of the full scanner entirely — 5-decimal float
+lists 1.55x → 1.10x, 7-digit ints 1.52x → 1.13x, loads flat small 1.054x →
+1.007x, nested 0.93x, wide_arrays large 0.91x, medium/large nested 0.93x
+(same-session stash A/B, plain build, py3.14; docs/performance/SKILL.md).
+Three companions measured and dropped the same day. Awaiting the human
+push and the next four-leg sample; `benchmarks/decompose_loads_flat.py` is
+wired into profile.yml's Windows job to name that leg's flat-row sink.

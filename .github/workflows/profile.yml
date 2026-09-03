@@ -127,3 +127,10 @@ jobs:
       - name: Decompose dumps mixed on this leg
         shell: bash
         run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
+
+      # The parse-side twin: loads flat is the row this leg reads behind
+      # msgspec on two of three runner generations while every POSIX leg
+      # leads it; per-kind subsets name which value parser MSVC mistreats.
+      - name: Decompose loads flat on this leg
+        shell: bash
+        run: PYTHONPATH=. python benchmarks/decompose_loads_flat.py

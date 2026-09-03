@@ -6,6 +6,7 @@ docs/decisions.md move together.
 """
 
 import json
+import math
 import warnings
 
 import pytest
@@ -80,6 +81,74 @@ def test_integers_are_exact_at_any_size(literal):
     assert type(parsed) is int
     assert parsed == int(literal)
     assert parsed == json.loads(literal)
+
+
+# The parser's short-number head resolves [-]d{1..7}[.d{1..7}] without the
+# full scanner; these pin its boundaries against stdlib json: seven versus
+# eight digits on either side of the point, the lone-zero forms, a number in
+# the last bytes of the input (where the head cannot run), and the shapes
+# that must fall through to the scanner unchanged.
+@pytest.mark.parametrize(
+    "literal",
+    [
+        "1234567",
+        "12345678",
+        "-1234567",
+        "-12345678",
+        "0",
+        "-0",
+        "0.5",
+        "-0.0",
+        "0.000123",
+        "1234567.1234567",
+        "1234567.12345678",
+        "12345678.1234567",
+        "9999999.9999999",
+        "1.5e3",
+        "1.5E-3",
+        "1e5",
+        "0.6394267984578837",
+        "0.84442185152504811",
+        "123.4567890123456",
+        "-0.0000000000000001",
+        "9007199254740993.5",
+        "0.30000000000000004",
+        "123456789012345678",
+        "1000000",
+        "10.05",
+        "0.0100",
+    ],
+)
+def test_short_numbers_match_stdlib_at_the_head_boundaries(literal):
+    # The head needs eight readable bytes past a run's first digit, so the
+    # long-tailed wrappers are the ones that exercise it at every width; the
+    # bare and short-tailed forms pin the scanner path for the same literal.
+    for text in (
+        literal,
+        f"[{literal}]",
+        f'{{"k": {literal}}}',
+        f"[{literal}, 1]",
+        f"[{literal}, 123456789012]",
+        f'{{"k": {literal}, "padding": 0}}',
+    ):
+        parsed = strata.loads(text)
+        expected = json.loads(text)
+        assert parsed == expected
+        leaf = parsed
+        reference = expected
+        while isinstance(leaf, (list, dict)):
+            leaf = leaf[0] if isinstance(leaf, list) else leaf["k"]
+            reference = reference[0] if isinstance(reference, list) else reference["k"]
+        assert type(leaf) is type(reference)
+        if isinstance(leaf, float):
+            assert math.copysign(1.0, leaf) == math.copysign(1.0, reference)
+
+
+@pytest.mark.parametrize("literal", ["01", "-01", "00", "1.", ".5", "1e", "1.5e+", "-", "0x1"])
+def test_malformed_short_numbers_are_rejected_at_every_input_distance(literal):
+    for text in (literal, f"[{literal}]", f"[{literal}, 12345678901]", f"[{literal}, 1]"):
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            strata.loads(text)
 
 
 def test_a_twenty_digit_integer_is_not_truncated_to_nineteen():

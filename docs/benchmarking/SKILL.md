@@ -156,7 +156,17 @@ Post-wave-11 state (2026-09-02), all rows and their known leads:
   change between runs. Only the gated quiet-machine protocol settles them.
   Today's instance: `dump mixed` at 1.01x on small/medium in one tier run
   and #1 (0.96x) at large in the next.
-- **`loads mixed`/`loads flat` small**: closed by the wave-10 loads pass
+- **Small-document parse under CPython 3.14 (this machine)**: reopened by
+  the 3.14.7 refresh (loads mixed 1.10x, flat 1.03–1.05x, nested a coin
+  flip after CPython halved orjson's nested time); wave 12 (digit runs by
+  word + the short-number head, `docs/performance/SKILL.md`) moved flat
+  small to 1.007x, nested to 0.93x, wide_arrays large to 0.91x and the
+  medium/large parse rows further ahead; loads mixed reads ~1.07x — its
+  remaining cost is per key (PyDict_SetDefault, the way probe), not per
+  number, and the key-handoff rewrite measured a wash. Follow-ups on file:
+  the 17-digit head extension (two fraction words + Eisel–Lemire), the
+  token-loop re-scans, single-pass strings.
+- **`loads mixed`/`loads flat` small (wave 10)**: closed by the wave-10 loads pass
   (prediction-probe word compares + builder-side compact-ASCII
   construction — docs/performance/SKILL.md): every small-tier loads row is
   #1 in the post-wave tier refresh. The `LightweightBuilder` salvage item
@@ -194,10 +204,15 @@ Post-wave-11 state (2026-09-02), all rows and their known leads:
   failed on the GitHub account; every workflow died in seconds) until
   2026-09-01; the first sample after (run 33593729167, 2026-09-02) reads
   102/108 — linux and arm64 27/27, macos-x86_64 26/27 (dumps mixed 1.04x),
-  Windows 22/27 on a Milan runner. The wave-11 code and the reader fix are
-  in-tree awaiting the human push; then `gh workflow run benchmark.yml` +
-  `make bench-ci` deliver the next verdict on all four active legs
-  (linux-arm64 activates when the repo goes public).
+  Windows 22/27 on a Milan runner. The wave-11 push (68d6e74) then drew a
+  same-commit pair, 99/108 (a degraded Milan runner) and 101/108 (an Intel
+  runner): behind in both only macos-x86_64 dumps mixed (1.01x/1.04x) and
+  Windows dump flat (1.07x/1.04x); the Windows reader fix verified (load
+  minus loads 2.6 → 0.8 ms on users). Three Windows samples now span three
+  CPU generations (Genoa, Milan, Intel) and the leg's behind-set changes
+  with each — the next verdict is `gh workflow run benchmark.yml` +
+  `make bench-ci` per push, read as same-CPU pairs (linux-arm64 activates
+  when the repo goes public).
 
 ## Standings at the pre-reset tip (`c0e3b5a`, macOS arm64, py3.14)
 
