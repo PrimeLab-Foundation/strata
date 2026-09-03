@@ -53,7 +53,11 @@ def run(train_json: Path, train_ndjson: Path, work_dir: Path) -> None:
 
     print("[2/7] dumps")
     _step("dumps(str)", lambda: strata.dumps(data))
-    _step("dumps(bytes)", lambda: strata.dumps(data, return_type="bytes"))
+    # Repeated: the second call on takes bytes mode's exact-fit path (the
+    # block sized to the previous document, the tail staged), which is the
+    # steady state every benchmark row measures and one call never reaches.
+    _step("dumps(bytes)", lambda: strata.dumps(data, return_type="bytes"), repeat=3)
+    _step("dumps(sample, bytes)", lambda: strata.dumps(sample, return_type="bytes"), repeat=5)
     _step("dumps(sample)", lambda: strata.dumps(sample), repeat=5)
 
     print("[3/7] load")

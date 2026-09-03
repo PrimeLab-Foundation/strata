@@ -1,12 +1,12 @@
 {
   "workflow": "Benchmarks",
-  "run_id": 33774537458,
-  "url": "https://github.com/PrimeLab-Foundation/strata/actions/runs/33774537458",
+  "run_id": 33776609760,
+  "url": "https://github.com/PrimeLab-Foundation/strata/actions/runs/33776609760",
   "event": "workflow_dispatch",
   "conclusion": "success",
   "head_branch": "main",
-  "head_sha": "49acca3191f2eef9b8ae83e494fa6bfe8cb24829",
-  "created_at": "2026-09-03T15:45:39Z",
+  "head_sha": "571381e6caa8ee3d906dfb028926b90d91e8559c",
+  "created_at": "2026-09-03T16:06:15Z",
   "reports": {
     "linux-x86_64": "benchmark-linux-x86_64/bench_ci_linux-x86_64.md",
     "macos-arm64": "benchmark-macos-arm64/bench_ci_macos-arm64.md",

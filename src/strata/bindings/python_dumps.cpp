@@ -975,10 +975,26 @@ bool set_cycle_policy(std::string_view name) noexcept {
     return true;
 }
 
+// Windows builds fill the bytes result by one copy from the resident
+// buffer instead of writing into it directly. Measured on the Windows
+// profile leg with three toolchains on one commit: under the MSVC PGO build
+// the direct-write bytes path ran 0.064 ms hot against str mode's 0.043 on
+// one runner family (0.042 against 0.044 on the other), while the plain
+// MSVC and clang-cl builds of the same code showed no such gap, and str
+// mode plus one copy read within a microsecond of str mode on every build
+// (docs/decisions.md 2026-09-03). The copy costs about 2 us on the family
+// that never paid the penalty; the POSIX legs, where the direct write
+// measures faster, keep it.
+#if defined(_WIN32)
+constexpr bool kBytesByCopy = true;
+#else
+constexpr bool kBytesByCopy = false;
+#endif
+
 PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
     SchemaCacheLease schemas;
 
-    if (as_bytes) {
+    if (as_bytes && !kBytesByCopy) {
         // Sized to the previous document on this thread, exactly: growth
         // doubling would otherwise copy roughly one document's worth of
         // bytes on the way up, cancelling the copy this mode exists to
@@ -1036,6 +1052,8 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
     if (!serializer.write(object))
         return nullptr;
     staged.flush_str();
+    if (as_bytes)
+        return PyBytes_FromStringAndSize(out.data(), static_cast<Py_ssize_t>(out.size()));
     return PyUnicode_FromStringAndSize(out.data(), static_cast<Py_ssize_t>(out.size()));
 }
 
