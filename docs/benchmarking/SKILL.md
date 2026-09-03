@@ -164,8 +164,8 @@ Post-wave-11 state (2026-09-02), all rows and their known leads:
   medium/large parse rows further ahead; loads mixed reads ~1.07x — its
   remaining cost is per key (PyDict_SetDefault, the way probe), not per
   number, and the key-handoff rewrite measured a wash. Follow-ups on file:
-  the 17-digit head extension (two fraction words + Eisel–Lemire), the
-  token-loop re-scans, single-pass strings.
+  the token-loop re-scans and single-pass strings (the 17-digit head
+  extension was tried and measured flat — negative-results table).
 - **`loads mixed`/`loads flat` small (wave 10)**: closed by the wave-10 loads pass
   (prediction-probe word compares + builder-side compact-ASCII
   construction — docs/performance/SKILL.md): every small-tier loads row is

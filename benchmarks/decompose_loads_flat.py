@@ -83,7 +83,9 @@ def main() -> int:
             timings[name].append((time.perf_counter_ns() - start) / 1e6)
     s_int = statistics.median(timings["strata"])
     best_int = min(statistics.median(timings["orjson"]), statistics.median(timings["msgspec"]))
-    print(f"INTERLEAVED strata {s_int:.4f} ms  best rival {best_int:.4f} ms  ratio {s_int / best_int:.3f}x")
+    print(
+        f"INTERLEAVED strata {s_int:.4f} ms  best rival {best_int:.4f} ms  ratio {s_int / best_int:.3f}x"
+    )
 
     # One value kind at a time, same keys and record count: what varies is
     # only the value parser and the object each value becomes.
@@ -97,7 +99,9 @@ def main() -> int:
         "nulls-only": lambda: None,
     }
     for label, make in kinds.items():
-        subset = [{k: (v if k == "id" else make()) for k, v in record.items()} for record in records]
+        subset = [
+            {k: (v if k == "id" else make()) for k, v in record.items()} for record in records
+        ]
         report(f"records {label}", json.dumps(subset).encode())
 
     # Extremes: keys with the cheapest possible values (prediction + dict

@@ -245,53 +245,6 @@ template <typename Handler> struct ParserInline {
                             i = after + 1 + fraction_count;
                             return handler.on_double(negative ? -magnitude : magnitude);
                         }
-                    } else if (fraction_count == 8 && after + 17 <= len) {
-                        // A long fraction (full-precision doubles such as
-                        // 0.8444218515250481): one more word gives up to fifteen
-                        // fraction digits. The digit cap keeps the mantissa under
-                        // 10^19, and the value follows the scanner's own ladder —
-                        // Clinger while the mantissa fits 2^53, Eisel–Lemire above
-                        // it, and its refusals fall through to the full path.
-                        uint64_t more_chunk;
-                        std::memcpy(&more_chunk, data + after + 9, 8);
-                        const unsigned more_count = util::detail::leading_digit_count(more_chunk);
-                        const unsigned fraction_digits = 8 + more_count;
-                        // Sixteen fraction digits — the common full-precision
-                        // shape — fill the second word exactly; the byte after
-                        // it must then be readable and not a digit.
-                        const bool run_ends = more_count < 8 || (after + 18 <= len &&
-                                                                 !util::detail::is_digit(
-                                                                     data[after + 1 + 16]));
-                        if (run_ends && count + fraction_digits <= 19) {
-                            const char tail = data[after + 1 + fraction_digits];
-                            if (tail != 'e' && tail != 'E') {
-                                uint64_t mantissa =
-                                    util::detail::leading_digit_value(chunk, count) * 100000000ULL +
-                                    util::detail::eight_digit_word_value(fraction_chunk);
-                                if (more_count == 8) {
-                                    mantissa = mantissa * 100000000ULL +
-                                               util::detail::eight_digit_word_value(more_chunk);
-                                } else if (more_count != 0) {
-                                    mantissa = mantissa * util::detail::kRunPow10[more_count] +
-                                               util::detail::leading_digit_value(more_chunk,
-                                                                                 more_count);
-                                }
-                                double magnitude = 0.0;
-                                bool resolved = true;
-                                if (mantissa <= (uint64_t{1} << 53)) {
-                                    magnitude = static_cast<double>(mantissa) /
-                                                util::detail::kClingerPow10[fraction_digits];
-                                } else {
-                                    resolved = util::detail::eisel_lemire_double(
-                                        mantissa, -static_cast<long>(fraction_digits), false,
-                                        magnitude);
-                                }
-                                if (resolved) {
-                                    i = after + 1 + fraction_digits;
-                                    return handler.on_double(negative ? -magnitude : magnitude);
-                                }
-                            }
-                        }
                     }
                 }
             }

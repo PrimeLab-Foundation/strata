@@ -19,6 +19,7 @@
 
 #include <cassert>
 #include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -50,8 +51,7 @@ struct Outcome {
     return out;
 }
 
-[[nodiscard]] Outcome run_word_integer(const std::string& text, size_t pos,
-                                       DigitAccumulator acc) {
+[[nodiscard]] Outcome run_word_integer(const std::string& text, size_t pos, DigitAccumulator acc) {
     Outcome out{0, pos, acc};
     out.consumed = consume_digit_run<false>(text.data(), text.size(), out.pos, out.acc);
     return out;
@@ -76,9 +76,8 @@ void expect_same(const std::string& text, size_t pos, const DigitAccumulator& st
     if (!same) {
         std::printf("digit run mismatch on \"%s\" at %zu: word (%zu, %llu, %zu, %zu, %d) vs "
                     "scalar (%zu, %llu, %zu, %zu, %d)\n",
-                    text.c_str(), pos, a.consumed,
-                    static_cast<unsigned long long>(a.acc.mantissa), a.acc.significant,
-                    a.acc.leading_zeros, a.acc.truncated, b.consumed,
+                    text.c_str(), pos, a.consumed, static_cast<unsigned long long>(a.acc.mantissa),
+                    a.acc.significant, a.acc.leading_zeros, a.acc.truncated, b.consumed,
                     static_cast<unsigned long long>(b.acc.mantissa), b.acc.significant,
                     b.acc.leading_zeros, b.acc.truncated);
         assert(false);
@@ -115,8 +114,23 @@ std::string digits_of(uint64_t& state, size_t length, size_t leading_zeros, bool
 /// Every run length, zero pattern, terminator and tail distance: the two
 /// consumers must land on the same byte with the same accumulator.
 void test_word_run_matches_scalar_twin() {
-    const char terminators[] = {',', ']', '}', ' ', '.', 'e', 'E', '-', '+', 'a', '/', ':', '"',
-                                '\n', '\0', static_cast<char>(0x80), static_cast<char>(0xFF)};
+    const char terminators[] = {',',
+                                ']',
+                                '}',
+                                ' ',
+                                '.',
+                                'e',
+                                'E',
+                                '-',
+                                '+',
+                                'a',
+                                '/',
+                                ':',
+                                '"',
+                                '\n',
+                                '\0',
+                                static_cast<char>(0x80),
+                                static_cast<char>(0xFF)};
     uint64_t state = 0x9E3779B97F4A7C15ULL;
     for (size_t length = 0; length <= 25; ++length) {
         for (size_t zeros = 0; zeros <= length && zeros <= 9; ++zeros) {
@@ -226,12 +240,12 @@ void test_fractions_and_leading_zeros_match_from_chars() {
         strata::util::ParsedNumber number;
         const bool ok = parse_ok(text, number);
         double expected = 0.0;
-        const auto converted = strata::util::from_chars_double(
-            text.data(), text.data() + text.size(), expected);
+        const auto converted =
+            strata::util::from_chars_double(text.data(), text.data() + text.size(), expected);
         const bool reference_ok = converted.ec != std::errc::invalid_argument &&
-                                  converted.ptr == text.data() + text.size() &&
-                                  text != "00" && text != "01" && text != "1." &&
-                                  text != ".5" && text != "1e" && text != "-" && text != "1.5e+";
+                                  converted.ptr == text.data() + text.size() && text != "00" &&
+                                  text != "01" && text != "1." && text != ".5" && text != "1e" &&
+                                  text != "-" && text != "1.5e+";
         if (!reference_ok) {
             assert(!ok);
             continue;
@@ -240,8 +254,9 @@ void test_fractions_and_leading_zeros_match_from_chars() {
         if (number.kind != strata::util::NumberKind::Double)
             continue; // integral literals are integers here, by design
         if (converted.ec == std::errc::result_out_of_range) {
-            const bool infinite = number.double_value == 1.0 / 0.0 ||
-                                  number.double_value == -1.0 / 0.0;
+            // std::isinf rather than a literal 1.0 / 0.0: MSVC rejects the
+            // constant division as an error (C2124), clang folds it.
+            const bool infinite = std::isinf(number.double_value);
             const bool zero = number.double_value == 0.0;
             assert(infinite || zero);
             continue;
