@@ -26,6 +26,8 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
+#include <vector>
 
 using strata::util::detail::consume_digit_run;
 using strata::util::detail::consume_digit_run_scalar;
@@ -306,7 +308,9 @@ void test_short_number_head_matches_full_scanner() {
     };
     uint64_t state = 0x1234567887654321ULL;
     const char* tails[] = {", 1", "]", "}", " ", "e5", "E-2", ".5", "x"};
-    for (size_t int_len = 1; int_len <= 9; ++int_len) {
+    // Integer widths through 17: the head's first word covers 1..7 digits,
+    // its second word 8..15, and 16 and 17 prove the hand-off to the scanner.
+    for (size_t int_len = 1; int_len <= 17; ++int_len) {
         for (size_t frac_len = 0; frac_len <= 17; ++frac_len) {
             for (int trial = 0; trial < 12; ++trial) {
                 std::string text = digits_of(state, int_len, 0, false);
@@ -361,7 +365,88 @@ void test_short_number_head_matches_full_scanner() {
 
 } // namespace
 
+// The dispatcher resolves one- to three-digit integers inline, ahead of
+// parse_number; every such value in both signs, in every position an array
+// puts it in, must parse exactly as the full scanner does -- and every
+// malformed neighbour ("01", "1.", "1e", "1x", a lone "-") must still be
+// rejected.
+namespace {
+
+struct IntCollector {
+    std::vector<int64_t> ints;
+    std::vector<double> doubles;
+    bool failed = false;
+    bool on_null() { return true; }
+    bool on_bool(bool) { return true; }
+    bool on_int(int64_t value) {
+        ints.push_back(value);
+        return true;
+    }
+    bool on_big_int(std::string_view) { return true; }
+    bool on_double(double value) {
+        doubles.push_back(value);
+        return true;
+    }
+    bool on_string(std::string_view) { return true; }
+    bool on_key(std::string_view) { return true; }
+    bool on_start_object() { return true; }
+    bool on_end_object() { return true; }
+    bool on_start_array() { return true; }
+    bool on_end_array() { return true; }
+};
+
+} // namespace
+
+void test_tiny_int_dispatch_matches_the_scanner() {
+    for (int value = -999; value <= 999; ++value) {
+        const std::string digits = std::to_string(value);
+        // The inline path needs four readable bytes from the number's first
+        // digit; forms with and without them, so both the inline path and
+        // the full path see every value. Each form says how many copies of
+        // the value it carries; anything else it holds is padding.
+        const std::pair<std::string, size_t> forms[] = {
+            {digits, 1},
+            {digits + "    ", 1},
+            {"[" + digits + "]", 1},
+            {"[" + digits + "," + digits + "]", 2},
+            {"[" + digits + "," + digits + ",0,0,0]", 2},
+            {"[" + digits + " ]", 1},
+            {"[" + digits + "    ]", 1},
+            {"{\"k\":" + digits + "}", 1},
+            {"{\"k\":" + digits + ",\"j\":" + digits + "}   ", 2},
+            {"[" + digits + ",1.5]", 1},
+        };
+        for (const auto& [doc, copies] : forms) {
+            IntCollector got;
+            const strata::Status status = strata::parse_sax_inline(doc, got, true);
+            assert(status == strata::Status::Ok);
+            assert(got.ints.size() >= copies);
+            for (size_t index = 0; index < copies; ++index)
+                assert(got.ints[index] == value);
+        }
+        // With a fraction or an exponent the same digits become a double,
+        // through the full path.
+        IntCollector fraction;
+        assert(strata::parse_sax_inline("[" + digits + ".25]", fraction, true) ==
+               strata::Status::Ok);
+        assert(fraction.ints.empty() && fraction.doubles.size() == 1);
+        assert(fraction.doubles[0] == static_cast<double>(value) + (value < 0 ? -0.25 : 0.25));
+        IntCollector exponent;
+        assert(strata::parse_sax_inline("[" + digits + "e1]", exponent, true) ==
+               strata::Status::Ok);
+        assert(exponent.ints.empty() && exponent.doubles.size() == 1);
+        assert(exponent.doubles[0] == static_cast<double>(value) * 10.0);
+    }
+    for (const char* bad : {"01", "[01]", "[1.]", "[1e]", "[1x]", "[-]", "[--1]", "[12", "[007]",
+                            "[1.e5]", "[+1]", "[01,0,0,0]", "[-01,0,0,0]", "[1x,0,0,0]",
+                            "[12.,0,0]", "[-,0,0,0,0]", "[-a,0,0,0]", "[1e,0,0,0]"}) {
+        IntCollector got;
+        assert(strata::parse_sax_inline(bad, got, true) != strata::Status::Ok);
+    }
+}
+
 int main() {
+    test_tiny_int_dispatch_matches_the_scanner();
     test_short_number_head_matches_full_scanner();
     test_word_run_matches_scalar_twin();
     test_integers_of_every_width_match_from_chars();

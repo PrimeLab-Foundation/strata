@@ -362,6 +362,13 @@ def _compile_args() -> list[str]:
         args = ["/std:c++20", "/O2", "/Zc:__cplusplus"]
         if platform.machine() in ("AMD64", "x86_64"):
             args.append("/arch:AVX2")
+        if _compiler_kind() == "clang-cl":
+            # clang-cl's /O2 is clang's -O2; the POSIX legs build -O3, and a
+            # review measured the parser's dispatcher paying 13% on the bool
+            # path at -O2 through code layout alone (nothing at -O3). The
+            # later flag wins, so the measured Windows build is the same
+            # optimisation level as the others.
+            args.append("/clang:-O3")
         args.extend(_optimization_args()[0])
         return args
     args = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
