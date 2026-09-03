@@ -96,6 +96,13 @@ jobs:
         run: |
           clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp -o itoa_bench
           ./itoa_bench
+      # The float writer's pieces on 17-digit doubles (experiments/dtoa):
+      # the whole writer, the writer without its micro-decimal probe, a
+      # tree-shaped layout, Dragonbox alone, std::to_chars as the yardstick.
+      - name: Float writer pieces (experiments/dtoa)
+        run: |
+          clang++ -O3 -march=native -std=c++20 -I include experiments/dtoa/dtoa_bench.cpp src/strata/util/dtoa.cpp -o dtoa_bench
+          ./dtoa_bench
       - name: Allocation round trips, hot, harness style
         run: PYTHONPATH=. .venv/bin/python benchmarks/alloc_roundtrip_probe.py
 
@@ -242,6 +249,8 @@ jobs:
           export MSYS2_ARG_CONV_EXCL="*"
           clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc -I include experiments/itoa/itoa_bench.cpp /Fe:itoa_bench.exe
           ./itoa_bench.exe
+          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc -I include experiments/dtoa/dtoa_bench.cpp src/strata/util/dtoa.cpp /Fe:dtoa_bench.exe
+          ./dtoa_bench.exe
 
       - name: clang-cl /O2 build of the same commit (gated)
         shell: bash
