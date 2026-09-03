@@ -69,15 +69,7 @@ M3 (serializer and shortest round-trip float formatting) M4 (the binding layer: 
 layer) M6 (file I/O, NDJSON and cursor
 mode), M7 (JSONPath: `query`, `search`, `compile`) and M8 (folder mode for
 `load`, `dump` and `search`), M9 (fuzzing with a committed corpus, coverage,
-PGO+LTO, full CI) and the M10 performance waves, closed by the quiet-machine
-standings sweep: **63/81 benchmark rows #1**, the headline dataset leading
-every category at every tier bar one 1.00× tie, and the release version bumped
-to `2026.8.10`. The rebuild is complete; what remains is the post-release
-backlog in `docs/benchmarking/SKILL.md` (mixed serialization, the
-under-load wide_arrays serialization residue, and the coin-flip ties — the
-wave-8 parse work closed the small-document and wide_arrays parse gaps, and
-the wave-9 scalar-run work closed short-int and isolated wide_arrays
-serialization) and the deferred JSONPath grammar extensions. The rebuild is versioned calver,
+PGO+LTO, full CI) and the M10 performance waves, closed by the quiet-machine standings sweep, and the post-release waves 11–18 (the digit-word float writer, the parse-side digit runs and short-number head, the prediction cursor, the serializer's cold footprint, the exact-fit output block with its staged tail, the short-string scan, the tiered integer writer, and the clang-cl profile-guided Windows build). Standing at 2026-09-03: local quiet rolls read medium and large 27/27 and small 25/27 (loads mixed and load mixed in the parse-side coin band); the CI standings (`make bench-ci`) read 105–106/108 on the last clean samples with Linux and both macOS legs at 27/27 and the Windows `dumps mixed` row the one family still flipping (1.02–1.19x across draws of one build on one runner family; 0.82x isolated). What remains is that coin band, the deferred JSONPath grammar extensions, and the backlog in `docs/benchmarking/SKILL.md`. The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
 (see `docs/context/api.md`).
 

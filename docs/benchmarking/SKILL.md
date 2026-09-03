@@ -151,6 +151,19 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-03 (end of the wave-15–18 day).** Fourteen clean CI samples on
+the day's code line read 101–106/108; the last six have Linux and both macOS
+legs at 27/27 on their clean draws and every row behind inside its leg's coin
+band. The one family still flipping is Windows `dumps mixed`: 1.02x and 1.19x
+on two Genoa draws of the clang-cl PGO build (1.06–1.25x under MSVC PGO),
+0.82x isolated on the same build — the runner's band, not the code's. The
+Windows leg builds with clang-cl's PGO since wave 18 (`scripts/pgo_build_clang_cl.py`);
+the profile job's three-arm blocks (clang-cl PGO, plain MSVC, plain clang-cl)
+and the allocation, cold-state and decomposition probes are the instruments
+that named each wave's lever. Locally the quiet rolls read medium and large
+27/27 and small 25/27 (loads mixed 1.04x, load mixed 1.02–1.06x — the
+parse-side coin band).
+
 Post-wave-11 state (2026-09-02), all rows and their known leads:
 
 - **Coin-flip band** (1.00–1.03x, every leg): decided by machine state, not

@@ -11,10 +11,10 @@ supportability). Shared runners are noisy: this file tracks the goal, the
 supportability tripwire stays the CI gate, and headline standings come
 only from the quiet-machine protocol (docs/context/benchmarks.md).
 
-- workflow: Benchmarks run 33795369529 (workflow_dispatch, conclusion: success)
-- branch/commit: main @ ddc9cb701d666004954e77d50f3b7d4b19bbf248
-- run date: 2026-09-03T19:15:31Z
-- url: https://github.com/PrimeLab-Foundation/strata/actions/runs/33795369529
+- workflow: Benchmarks run 33800744512 (workflow_dispatch, conclusion: success)
+- branch/commit: main @ af229e17c2e2091a44b474b24726ec767863be8e
+- run date: 2026-09-03T20:10:52Z
+- url: https://github.com/PrimeLab-Foundation/strata/actions/runs/33800744512
 
 ## Rows at #1, by category
 
@@ -22,39 +22,32 @@ Cells are "#1 rows / comparable rows" within that platform's own report.
 
 | platform-arch | loads | dumps | load | load (ndjson) | dump | query | search | total |
 |---|---|---|---|---|---|---|---|---|
-| linux-x86_64 | 5/5 | 2/5 | 5/5 | 1/1 | 2/5 | 3/3 | 3/3 | 21/27 |
-| macos-arm64 | 5/5 | 5/5 | 5/5 | 1/1 | 4/5 | 3/3 | 3/3 | 26/27 |
+| linux-x86_64 | 5/5 | 4/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 26/27 |
+| macos-arm64 | 5/5 | 5/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 27/27 |
 | macos-x86_64 | 5/5 | 5/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 27/27 |
-| windows-x86_64 | 5/5 | 3/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 25/27 |
+| windows-x86_64 | 5/5 | 4/5 | 5/5 | 1/1 | 4/5 | 3/3 | 3/3 | 25/27 |
 
-**Goal met on 1/4 platforms -- 9 row(s) to close.**
+**Goal met on 2/4 platforms -- 3 row(s) to close.**
 
 ## Rows behind, by platform
 
-### linux-x86_64 (python 3.12.14, repeats 10, commit ddc9cb7)
+### linux-x86_64 (python 3.12.14, repeats 10, commit af229e1)
 
 | section | dataset | rank | behind best | best rival |
 |---|---|---|---|---|
-| dumps | users.json | 2/5 | 1.10x | orjson |
-| dumps | wide_arrays.json | 2/5 | 1.21x | orjson |
-| dumps | mixed.json | 2/5 | 1.13x | orjson |
-| dump | flat.json | 2/5 | 1.00x | orjson |
-| dump | wide_arrays.json | 2/5 | 1.07x | orjson |
-| dump | mixed.json | 2/5 | 1.04x | orjson |
+| dumps | flat.json | 2/5 | 1.03x | orjson |
 
-### macos-arm64 (python 3.12.10, repeats 10, commit ddc9cb7)
-
-| section | dataset | rank | behind best | best rival |
-|---|---|---|---|---|
-| dump | mixed.json | 2/5 | 1.03x | orjson |
-
-### macos-x86_64 (python 3.12.10, repeats 10, commit ddc9cb7)
+### macos-arm64 (python 3.12.10, repeats 10, commit af229e1)
 
 All rows #1.
 
-### windows-x86_64 (python 3.12.10, repeats 10, commit ddc9cb7)
+### macos-x86_64 (python 3.12.10, repeats 10, commit af229e1)
+
+All rows #1.
+
+### windows-x86_64 (python 3.12.10, repeats 10, commit af229e1)
 
 | section | dataset | rank | behind best | best rival |
 |---|---|---|---|---|
-| dumps | wide_arrays.json | 2/5 | 1.01x | orjson |
-| dumps | mixed.json | 2/5 | 1.02x | orjson |
+| dumps | mixed.json | 2/5 | 1.19x | orjson |
+| dump | mixed.json | 2/5 | 1.06x | orjson |
