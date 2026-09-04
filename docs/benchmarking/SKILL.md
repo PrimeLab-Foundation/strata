@@ -151,6 +151,16 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-04, wave 22.** The `loads mixed` coin band had a cause:
+the key predictor retired mixed.json's record depth for the life of the
+thread once the other datasets had gone through the same builder, so the
+harness always measured that row on the miss path (128 → 145 µs warm,
+`benchmarks/predictor_state_probe.py`). With retirement scoped to one
+input the small tier reads 1.06x, 1.01x and 0.98x on
+that row across three samples at load 5.6–6.8, every other row #1 — the
+quiet-machine roll decides it. CI remains blocked by
+the spending limit.
+
 **Status 2026-09-04, review and the first 27/27 small roll.** The wave-20/21
 adversarial review found no defect (13.4 M differential documents, 3.1 M
 exact-size sanitizer documents, every number re-measured) and disclosed

@@ -622,3 +622,49 @@ def test_discarded_speculative_strings_do_not_leak():
     after = sys.getallocatedblocks()
     # One discard per parse: a leak shows as about `parses` blocks (1,800).
     assert after - before < parses // 10, (before, after, parses)
+
+
+def test_shape_churn_across_inputs_keeps_results_exact_and_leaks_nothing():
+    """api.md: the tree is the same whatever the process parsed before.
+
+    The builder's key predictor learns record shapes per depth and retires a
+    depth whose objects keep disagreeing; the retirement is re-armed at every
+    input. Documents that thrash a depth (many shapes at one level) alternate
+    with uniform ones and with documents that share a prefix of keys, across
+    text and bytes input, and every result must equal stdlib's; the allocated
+    block count over the cycle stays flat, so releasing and re-learning the
+    prediction ways leaks nothing.
+    """
+    import gc
+    import sys
+
+    rng = random.Random(2026)
+    shapes = [
+        lambda i: {"kind": "k", "id": i, "value": f"v{i}"},
+        lambda i: {"type": "t", "payload": {"a": 1, "b": 2}, "n": i},
+        lambda i: {"label": "w", "items": [1, 2, 3, 4, 5], "i": i},
+        lambda i: {"uuid": "0123456789abcdef" * 2, "meta": {"x": 1}, "active": True, "i": i},
+    ]
+    thrash = [
+        {f"key{rng.randrange(40)}": i, f"other{rng.randrange(40)}": "s", "z": i} for i in range(400)
+    ]
+    uniform = [{"name": f"n{i}", "age": i % 90, "email": f"e{i}@x.y"} for i in range(400)]
+    prefixed = [
+        {"name": f"n{i}", "age": i, **({"extra": i} if i % 3 else {}), "tail": [i]}
+        for i in range(400)
+    ]
+    rotating = [shapes[i % 4](i) for i in range(400)]
+    docs = [json.dumps(d) for d in (thrash, uniform, prefixed, rotating, thrash, rotating)]
+    expected = [json.loads(d) for d in docs]
+    for _ in range(3):
+        for doc, want in zip(docs, expected, strict=True):
+            assert strata.loads(doc) == want
+            assert strata.loads(doc.encode()) == want
+    gc.collect()
+    before = sys.getallocatedblocks()
+    for _ in range(40):
+        for doc, want in zip(docs, expected, strict=True):
+            assert strata.loads(doc) == want
+    gc.collect()
+    after = sys.getallocatedblocks()
+    assert after - before < 200, (before, after)

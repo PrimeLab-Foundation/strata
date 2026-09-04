@@ -141,8 +141,9 @@ class PythonObjectBuilder {
     /**
      * Return to the empty state, releasing whatever an aborted parse left
      * behind. The KeyCache survives deliberately -- it is why reusing one
-     * builder across calls pays -- and so does the prediction table, which
-     * `begin_input` invalidates the moment the input buffer changes.
+     * builder across calls pays -- and so does the prediction table: its
+     * predictions own their bytes and outlive the buffer, and `begin_input`
+     * re-arms its churn accounting for the next input.
      */
     void reset() noexcept {
         // Latched here as well as in begin_input and at construction, so no
@@ -175,6 +176,20 @@ class PythonObjectBuilder {
         ascii_expected_ = true;
         input_begin_ = begin;
         input_end_ = end;
+        // The prediction table's churn accounting is per input. A depth
+        // retires when its objects keep disagreeing -- the guard against a
+        // shape-unstable document -- but the count used to run across every
+        // document a thread's builder ever saw, and a retired depth never
+        // predicted again: after the other four benchmark datasets had gone
+        // through, every key of mixed.json paid the miss path for the life
+        // of the thread (128 -> 145 us per parse, measured, and the whole of
+        // that row's deficit). Each input now starts with the count at zero
+        // and the depth predicting; one that thrashes retires within itself
+        // exactly as before, and re-learns on the next.
+        for (Schema& schema : predicted_) {
+            schema.divergences = 0;
+            schema.retired = false;
+        }
         // One thread-local read per parse instead of per dict member: the
         // getter is an out-of-line call, and users.json inserts ~150k keys.
         // A parse therefore runs under the policy it started with — the only
