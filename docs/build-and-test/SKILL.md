@@ -244,6 +244,10 @@ an actionable message. `brew install llvm` is the fix; CI fuzzes on Linux.
 - No release/publish workflow; `[tool.cibuildwheel]` in pyproject is configured
   but unused.
 
+### Backlog
+
+- **Sanitize the bindings, not only the core.** The `corpus` job builds and runs the C++ suites under ASan+UBSan from `core_sources.txt`; nothing compiles `src/strata/bindings` instrumented, so the builder's raw stores into CPython allocations (the fused string copy, the exact-fit output block) are checked by value equality alone. Wanted: one CI leg that builds the extension with `-fsanitize=address,undefined`, preloads the runtime (`LD_PRELOAD`/`DYLD_INSERT_LIBRARIES` of `libclang_rt.asan*`, `ASAN_OPTIONS=detect_leaks=0`) and runs the Python suites. Recorded by the wave-20/21 review (docs/decisions.md, 2026-09-04).
+
 ## Known-broken / stale inventory of the previous implementation (do not reproduce)
 
 1. `make coverage-cpp` — source list named deleted files

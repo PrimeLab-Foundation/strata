@@ -151,6 +151,15 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-04, review and the first 27/27 small roll.** The wave-20/21
+adversarial review found no defect (13.4 M differential documents, 3.1 M
+exact-size sanitizer documents, every number re-measured) and disclosed
+the helper's cost on exponent floats and 20+-digit fractions, absent from
+every dataset. The small tier then rolled **27/27** on de68beb at load
+4.7–4.9 (`loads mixed` 0.99x, 0.135 ms against 0.137) — a within-run
+ranking; the quiet confirmation, the baseline refresh and the medium and
+large tiers are next. CI remains blocked by the spending limit.
+
 **Status 2026-09-04, later (wave 21).** The builder's one-pass string copy
 (`copy_if_ascii`) moved the parse-side rows the coin band had held: in the
 same-venv A/B users.json −6.5%, wide_arrays −2.5% and mixed −2 to −4%;

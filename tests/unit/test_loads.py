@@ -585,3 +585,40 @@ def test_strings_of_every_width_and_every_high_byte_position_decode():
     for width in range(1, 20):
         text = "a" * width + "\n" + "b" * width
         assert strata.loads(json.dumps(text)) == text
+
+
+def test_discarded_speculative_strings_do_not_leak():
+    """api.md: strings decode to str -- and the builder's speculation leaves nothing behind.
+
+    The first string with a high byte in a document is allocated as a
+    compact ASCII object, then discarded for the decoder (and the document's
+    remaining strings skip the speculation), so the discard happens once per
+    document and must release the object. The interpreter's allocated block
+    count is the metric: a leaked object per parse shows as one block per
+    parse, whatever the allocator's slack.
+    """
+    import gc
+    import sys
+
+    docs = [
+        json.dumps(["caf\u00e9-" + str(i) for i in range(200)], ensure_ascii=False),
+        json.dumps({"k" + str(i): "z\u00fcrich-" + str(i) for i in range(200)}, ensure_ascii=False),
+        json.dumps(["\U0001f600" + "a" * (i % 30) for i in range(200)], ensure_ascii=False),
+    ]
+    encoded = [doc.encode() for doc in docs]
+    for _ in range(50):  # warm every path the parse can take, then measure
+        for doc, raw in zip(docs, encoded, strict=True):
+            strata.loads(doc)
+            strata.loads(raw)
+    gc.collect()
+    before = sys.getallocatedblocks()
+    parses = 0
+    for _ in range(300):
+        for doc, raw in zip(docs, encoded, strict=True):
+            strata.loads(doc)
+            strata.loads(raw)
+            parses += 2
+    gc.collect()
+    after = sys.getallocatedblocks()
+    # One discard per parse: a leak shows as about `parses` blocks (1,800).
+    assert after - before < parses // 10, (before, after, parses)
