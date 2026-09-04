@@ -160,9 +160,10 @@ input the small tier reads 1.06x, 1.01x and 0.98x on
 that row across three samples at load 5.6–6.8, every other row #1, medium and large 27/27 on the same build; the
 first clean quiet sample reads that row 1.01x (0.130 against 0.129, a tie
 within a percent) with every touched median below the baseline, which is
-refreshed on it, and the next genuinely quiet draw (load 1.85–1.98
-throughout) reads **27/27** with `loads mixed` 0.95x — the local
-platform first in every row of every tier. CI remains blocked by
+refreshed on it, and the next two genuinely quiet draws (load 1.8–2.0 throughout) read
+**27/27** with `loads mixed` 0.95x and 1.00x — the local platform first
+in every row of every tier on two of three clean draws, the third a tie
+within a percent. CI remains blocked by
 the spending limit.
 
 **Status 2026-09-04, review and the first 27/27 small roll.** The wave-20/21
