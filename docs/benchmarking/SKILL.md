@@ -156,9 +156,13 @@ adversarial review found no defect (13.4 M differential documents, 3.1 M
 exact-size sanitizer documents, every number re-measured) and disclosed
 the helper's cost on exponent floats and 20+-digit fractions, absent from
 every dataset. The small tier then rolled **27/27** on de68beb at load
-4.7–4.9 (`loads mixed` 0.99x, 0.135 ms against 0.137) — a within-run
-ranking; the quiet confirmation, the baseline refresh and the medium and
-large tiers are next. CI remains blocked by the spending limit.
+4.7–4.9 (`loads mixed` 0.99x, 0.135 ms against 0.137), the medium tier
+27/27 on two of three rolls (the third's `dump mixed` a spiked median,
+0.96x on the others) and the large tier 27/27; a second small sample read `loads mixed`
+1.05x with every other row #1 — the last row is a coin band of about
+five percent either way under load (27/27 and 26/27 across two samples),
+medium and large 27/27 on every roll; the quiet confirmation and the
+baseline refresh are next. CI remains blocked by the spending limit.
 
 **Status 2026-09-04, later (wave 21).** The builder's one-pass string copy
 (`copy_if_ascii`) moved the parse-side rows the coin band had held: in the
