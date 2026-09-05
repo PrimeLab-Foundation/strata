@@ -158,6 +158,81 @@ jobs:
   # Windows carries the goal's last rows and no perf; the decomposition
   # technique that named every POSIX mechanism is pure Python timing, so it
   # runs anywhere. The output is the job log itself.
+  # The parse side on arm64 Linux: the first five-platform sample read
+  # loads/load wide_arrays 1.10x on this runner where the local M1 reads
+  # them ahead. Counters, the per-element floor and the decomposition, on
+  # the PGO+LTO build the benchmark leg measures.
+  profile-linux-arm64:
+    name: perf (linux-arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang, LLVM and perf
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
+          sudo sysctl -w kernel.perf_event_paranoid=1 || true
+
+      - name: Install strata with the dev and bench extras (test-gated build)
+        env:
+          CC: clang
+          CXX: clang++
+        run: make install-bench
+
+      - name: PGO+LTO build (the build the benchmark leg measures)
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+        run: make pgo
+
+      - name: Generate the small-tier datasets
+        run: |
+          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      - name: CPU and compiler facts
+        run: |
+          lscpu | grep -E "Model name|Vendor|Flags|CPU\(s\)" | head -4
+          clang++ --version | head -1
+
+      - name: Per-element parse floor (strata vs orjson)
+        run: PYTHONPATH=. .venv/bin/python benchmarks/parse_elements_probe.py
+
+      - name: Decompose loads mixed on this leg
+        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_loads_mixed.py
+
+      - name: Counter comparison on loads wide_arrays (perf stat, strata vs orjson)
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          cat > loads_loop.py <<'PY'
+          import sys, importlib
+          lib = importlib.import_module(sys.argv[1]); n = int(sys.argv[2])
+          data = open("benchmarks/data/generated/small/wide_arrays.json", "rb").read()
+          for _ in range(n):
+              r = lib.loads(data); del r
+          PY
+          for lib in strata orjson; do
+            PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses \
+              -o "perf_stat_loads_${lib}.txt" -- .venv/bin/python loads_loop.py "$lib" 400 || true
+            echo "=== $lib ==="; cat "perf_stat_loads_${lib}.txt" || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-linux-arm64
+          path: |
+            perf_stat_loads_*.txt
+          if-no-files-found: ignore
+
   decompose-windows:
     name: decompose (windows-x86_64)
     runs-on: windows-latest
