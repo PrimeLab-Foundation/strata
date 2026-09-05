@@ -241,10 +241,22 @@ jobs:
           for lib in strata orjson; do
             PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o "loads_${lib}.perf.data" -- \
               .venv/bin/python loads_loop.py "$lib" 600 || true
-            $PERF report --stdio --no-children -i "loads_${lib}.perf.data" 2>/dev/null \
+            $PERF report --stdio --no-children -g none --percent-limit 0.5 \
+              -i "loads_${lib}.perf.data" 2>/dev/null \
               | grep -vE "^#|^$" | head -60 > "perf_report_loads_${lib}.txt" || true
             echo "=== $lib: top symbols (self) ==="; cat "perf_report_loads_${lib}.txt" | cut -c1-150
           done
+          # Instruction-level annotation of strata's two parser functions: the
+          # lines with at least one percent of the function's samples, so the
+          # multiply chains and the divide show up as the instructions they are.
+          $PERF report --stdio --no-children -g none -F overhead,symbol -i loads_strata.perf.data 2>/dev/null \
+            | grep -E "parse_value|parse_number" | head -2 | sed -E 's/^\s*[0-9.]+%\s+//' > strata_symbols.txt || true
+          while IFS= read -r sym; do
+            [ -n "$sym" ] || continue
+            echo "=== annotate: $sym ==="
+            $PERF annotate --stdio -i loads_strata.perf.data --symbol="$sym" 2>/dev/null \
+              | grep -E "^\s+[0-9]+\.[0-9]+\s" | awk '$1 >= 1.0' | sort -rn | head -45 | cut -c1-160 || true
+          done < strata_symbols.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -253,6 +265,7 @@ jobs:
           path: |
             perf_stat_loads_*.txt
             perf_report_loads_*.txt
+            strata_symbols.txt
           if-no-files-found: ignore
 
   decompose-windows:
