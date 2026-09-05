@@ -151,6 +151,16 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-05 (public repository, five platforms).** The user made
+the repository public on 2026-09-05 rather than pay hosted minutes; the
+first sample since 2026-09-03 (run 33946353222 on 53fa480) is also the
+first with the Linux arm64 leg: **128/135** — linux-x86_64 27/27,
+macos-x86_64 27/27, macos-arm64 26/27 (`dumps flat` 1.42x on a spiky
+draw), windows-x86_64 24/27 (`dumps mixed` 1.09x, the family row, with
+two noise-band rows), linux-arm64 24/27 (`loads`/`load wide_arrays` 1.10x,
+tight — a real arm64-Linux deficit on the number-heavy dataset, the next
+thing to decompose on that runner).
+
 **Status 2026-09-04, wave 22.** The `loads mixed` coin band had a cause:
 the key predictor retired mixed.json's record depth for the life of the
 thread once the other datasets had gone through the same builder, so the
