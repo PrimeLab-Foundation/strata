@@ -54,6 +54,7 @@
 #define STRATA_LOCAL_CONST
 #endif
 
+
 // A placement the measurements depend on is declared, not left to heuristics
 // (docs/performance/SKILL.md, wave 12): the same source read +13% on 17-digit
 // float lists when the fraction digit-run came out as a separate function.

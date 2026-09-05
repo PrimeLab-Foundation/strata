@@ -1,171 +1,22 @@
 name: Profile
 
-# One-off perf instrumentation for the row the benchmark legs cannot explain
-# from ranks alone: `dumps mixed` reads at parity on arm64 but 1.02-1.16x
-# behind orjson on the x86 runners, and the development machine is arm64 —
-# the only place the gap exists is this hardware, so this is where the
-# counters have to come from. `perf stat` needs no symbols and delivers the
-# differential that names a gap: instructions per cycle, branch misses and
-# cache misses for strata and orjson driving the identical workload. The
-# report is an uploaded artifact for human (and agent) reading; nothing here
-# gates anything.
+# EXPERIMENT BRANCH (exp/terminator) — this file is temporarily reduced to the
+# arm64 A/B for the number-terminator classification. Two jobs, each on its own
+# Neoverse-N2 runner, each building the baseline headers and then one variant
+# with `make pgo` and measuring both with the same probes, so every comparison
+# is same-machine, same-session. Instruction counts are the primary reading.
+#
+#   ab-v2 : baseline -> V2 (the class table, used for digits and terminators)
+#   ab-v1 : baseline -> V1 (the class table for the terminator tests only)
 
 on:
   workflow_dispatch:
 
 jobs:
-  profile-linux:
-    name: perf (linux-x86_64)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install clang, LLVM and perf
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
-          # Runner images ship a paranoid setting that blocks even user-space
-          # counters; this job owns the whole VM, so relax it.
-          sudo sysctl -w kernel.perf_event_paranoid=1
-
-      - name: Install strata with the dev and bench extras (test-gated build)
-        env:
-          CC: clang
-          CXX: clang++
-        run: make install-bench
-
-      - name: PGO+LTO build (the build the benchmark legs measure)
-        env:
-          PYTHON: python
-          CC: clang
-          CXX: clang++
-        run: make pgo
-
-      - name: Generate the small-tier datasets
-        run: |
-          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
-            --out-dir benchmarks/data/generated/small \
-            --num-users 1000 --max-orders 10 --max-items 5 --records 500
-
-      - name: Counter comparison (perf stat, strata vs orjson)
-        run: |
-          PERF=$(ls /usr/lib/linux-tools/*/perf | head -1 || echo perf)
-          for lib in strata orjson; do
-            PYTHONPATH=. $PERF stat -ddd -o "perf_stat_${lib}.txt" -- \
-              .venv/bin/python benchmarks/profile_dumps_mixed.py "$lib" 4000
-          done
-          echo "=== strata ==="; cat perf_stat_strata.txt
-          echo "=== orjson ==="; cat perf_stat_orjson.txt
-
-      - name: Hot-spot record (perf record, strata)
-        run: |
-          PERF=$(ls /usr/lib/linux-tools/*/perf | head -1 || echo perf)
-          PYTHONPATH=. $PERF record -F 1999 -g --call-graph fp -o strata.perf.data -- \
-            .venv/bin/python benchmarks/profile_dumps_mixed.py strata 6000
-          $PERF report --stdio -i strata.perf.data 2>/dev/null | head -120 > perf_report_strata.txt
-          cat perf_report_strata.txt
-
-      # The harness ranks come from a five-library round-robin, and the row
-      # under study measures at parity isolated — so the interesting record
-      # is taken under the interleave itself. Comparing strata's *relative*
-      # frame shares between the two reports names the code that pays for
-      # the condition: the frame whose share grows is the victim.
-      - name: Hot-spot record under interleave (perf record, five libraries)
-        run: |
-          PERF=$(ls /usr/lib/linux-tools/*/perf | head -1 || echo perf)
-          PYTHONPATH=. $PERF record -F 1999 -g --call-graph fp -o interleaved.perf.data -- \
-            .venv/bin/python benchmarks/profile_interleaved.py 800
-          $PERF report --stdio -i interleaved.perf.data 2>/dev/null | head -200 > perf_report_interleaved.txt
-          grep -E "strata|Serializer|Overhead|Samples" perf_report_interleaved.txt | head -40
-
-      - name: Cold-state probe on this leg
-        run: PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
-      # The same per-bucket decomposition the Windows leg reads, so the two
-      # x86 legs' serializer buckets can be read side by side.
-      - name: Decompose dumps mixed on this leg
-        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
-      # The integer-writer experiment: the variants of format_int64 (the
-      # pre-tier loop among them) timed per width bucket, compiled as the
-      # extension is here (clang, native).
-      - name: Integer writer variants (experiments/itoa)
-        run: |
-          clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp -o itoa_bench
-          ./itoa_bench
-      # The float writer's pieces on 17-digit doubles (experiments/dtoa):
-      # the whole writer, the writer without its micro-decimal probe, a
-      # tree-shaped layout, Dragonbox alone, std::to_chars as the yardstick.
-      - name: Float writer pieces (experiments/dtoa)
-        run: |
-          clang++ -O3 -march=native -std=c++20 -I include experiments/dtoa/dtoa_bench.cpp src/strata/util/dtoa.cpp -o dtoa_bench
-          ./dtoa_bench
-      - name: Allocation round trips, hot, harness style
-        run: PYTHONPATH=. .venv/bin/python benchmarks/alloc_roundtrip_probe.py
-
-      # Simulated cache counts of one engine's cold calls: whether the
-      # serializer's extra cold cost is code (I1/LLi misses) or data (D1/LLd).
-      # The hosted runners expose no hardware PMU (perf stat reads every
-      # event as "not supported"), so cachegrind's simulation is the count.
-      # valgrind emulates AVX2 but not AVX-512, and -march=native on these
-      # runners emits AVX-512, so the extension is rebuilt in place for the
-      # simulation as a plain x86-64-v3 build (the perf steps above already
-      # measured the PGO build). Errors are printed, not filtered away.
-      - name: Cold-call cache simulation per engine
-        env:
-          CC: clang
-          CXX: clang++
-        run: |
-          sudo apt-get install -y valgrind
-          # Gated like every build (SKIP_TESTS is banned in CI): both suites
-          # run on the x86-64-v3 extension before the simulation sees it.
-          STRATA_MARCH=x86-64-v3 .venv/bin/python setup.py build_ext --inplace
-          for engine in strata orjson msgspec; do
-            echo "=== $engine"
-            # Two call counts per engine: the 60-call profile minus the
-            # 20-call one, over 40, is the per-call cost of every function
-            # with import-time work removed -- and it attributes an engine
-            # whose symbols are stripped (orjson's Rust code profiles as
-            # `???`, next to the loader's own unnamed code) by whatever
-            # grows with the calls. The hash seed is pinned so the two
-            # processes lay out their dicts alike.
-            for calls in 20 60; do
-              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes --cachegrind-out-file=cg.$engine.$calls.out \
-                .venv/bin/python benchmarks/cold_loop.py $engine $calls 16 2>&1 \
-                | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses|unhandled|SIGILL|terminating|Error|Traceback" || true
-            done
-            # The engine's own functions, summed from the out-file by symbol
-            # name (an extension without debug info keeps its symbols but
-            # not its file names, so cg_annotate's per-file view is `???`).
-            .venv/bin/python benchmarks/cg_attribute.py cg.$engine.20.out $engine
-            .venv/bin/python benchmarks/cg_attribute.py --delta cg.$engine.20.out cg.$engine.60.out 40 $engine
-          done
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: profile-linux-x86_64
-          path: |
-            perf_stat_*.txt
-            perf_report_strata.txt
-            perf_report_interleaved.txt
-            cg.*.out
-          if-no-files-found: ignore
-
-  # Windows carries the goal's last rows and no perf; the decomposition
-  # technique that named every POSIX mechanism is pure Python timing, so it
-  # runs anywhere. The output is the job log itself.
-  # The parse side on arm64 Linux: the first five-platform sample read
-  # loads/load wide_arrays 1.10x on this runner where the local M1 reads
-  # them ahead. Counters, the per-element floor and the decomposition, on
-  # the PGO+LTO build the benchmark leg measures.
-  profile-linux-arm64:
-    name: perf (linux-arm64)
+  ab-v2:
+    name: terminator A/B v2 (linux-arm64)
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -179,18 +30,16 @@ jobs:
           sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
           sudo sysctl -w kernel.perf_event_paranoid=1 || true
 
+      - name: CPU and compiler facts
+        run: |
+          lscpu | grep -E "Model name|Vendor|CPU\(s\)" | head -4
+          clang++ --version | head -1
+
       - name: Install strata with the dev and bench extras (test-gated build)
         env:
           CC: clang
           CXX: clang++
         run: make install-bench
-
-      - name: PGO+LTO build (the build the benchmark leg measures)
-        env:
-          PYTHON: python
-          CC: clang
-          CXX: clang++
-        run: make pgo
 
       - name: Generate the small-tier datasets
         run: |
@@ -198,81 +47,53 @@ jobs:
             --out-dir benchmarks/data/generated/small \
             --num-users 1000 --max-orders 10 --max-items 5 --records 500
 
-      - name: CPU and compiler facts
+      - name: BASE — headers, PGO+LTO build, measure
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+          PGO_BENCH_REPEAT: "1"
+          PGO_BENCH_WARMUP: "0"
         run: |
-          lscpu | grep -E "Model name|Vendor|Flags|CPU\(s\)" | head -4
-          clang++ --version | head -1
+          bash experiments/terminator/use.sh base
+          make pgo 2>&1 | tail -5
+          bash experiments/terminator/ab_measure.sh BASE
 
-      - name: Per-element parse floor (strata vs orjson)
-        run: PYTHONPATH=. .venv/bin/python benchmarks/parse_elements_probe.py
-
-      - name: Decompose loads mixed on this leg
-        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_loads_mixed.py
-
-      - name: Cold-state probe and dumps decomposition on this leg
+      - name: V2 — headers, PGO+LTO build, measure
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+          PGO_BENCH_REPEAT: "1"
+          PGO_BENCH_WARMUP: "0"
         run: |
-          PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
-          PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
+          bash experiments/terminator/use.sh v2
+          make pgo 2>&1 | tail -5
+          bash experiments/terminator/ab_measure.sh V2
 
-      - name: Counter comparison on loads wide_arrays (perf stat, strata vs orjson)
+      - name: BASE again — the drift control
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+          PGO_BENCH_REPEAT: "1"
+          PGO_BENCH_WARMUP: "0"
         run: |
-          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
-          cat > loads_loop.py <<'PY'
-          import sys, importlib
-          lib = importlib.import_module(sys.argv[1]); n = int(sys.argv[2])
-          data = open("benchmarks/data/generated/small/wide_arrays.json", "rb").read()
-          for _ in range(n):
-              r = lib.loads(data); del r
-          PY
-          for lib in strata orjson; do
-            PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses \
-              -o "perf_stat_loads_${lib}.txt" -- .venv/bin/python loads_loop.py "$lib" 400 || true
-            echo "=== $lib ==="; cat "perf_stat_loads_${lib}.txt" || true
-          done
-
-      - name: Integer and float writer variants on this core (experiments/itoa, experiments/dtoa)
-        run: |
-          clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp -o itoa_bench && ./itoa_bench
-          clang++ -O3 -march=native -std=c++20 -I include experiments/dtoa/dtoa_bench.cpp src/strata/util/dtoa.cpp -o dtoa_bench && ./dtoa_bench
-
-      - name: Hot-spot record on loads wide_arrays (perf record, strata and orjson)
-        run: |
-          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
-          for lib in strata orjson; do
-            PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o "loads_${lib}.perf.data" -- \
-              .venv/bin/python loads_loop.py "$lib" 600 || true
-            $PERF report --stdio --no-children -g none --percent-limit 0.5 \
-              -i "loads_${lib}.perf.data" 2>/dev/null \
-              | grep -vE "^#|^$" | head -60 > "perf_report_loads_${lib}.txt" || true
-            echo "=== $lib: top symbols (self) ==="; cat "perf_report_loads_${lib}.txt" | cut -c1-150
-          done
-          # Instruction-level annotation of strata's two parser functions: the
-          # lines with at least one percent of the function's samples, so the
-          # multiply chains and the divide show up as the instructions they are.
-          $PERF report --stdio --no-children -g none -F overhead,symbol -i loads_strata.perf.data 2>/dev/null \
-            | grep -E "parse_value|parse_number" | head -2 | sed -E 's/^\s*[0-9.]+%\s+//; s/^\[\.\]\s+//' > strata_symbols.txt || true
-          echo "annotating:"; cat strata_symbols.txt
-          while IFS= read -r sym; do
-            [ -n "$sym" ] || continue
-            echo "=== annotate: $sym ==="
-            $PERF annotate --stdio -i loads_strata.perf.data --symbol="$sym" 2>/dev/null \
-              | grep -E "^\s+[0-9]+\.[0-9]+\s" | sort -rn | head -30 | cut -c1-160 || true
-          done < strata_symbols.txt
+          bash experiments/terminator/use.sh base
+          make pgo 2>&1 | tail -5
+          bash experiments/terminator/ab_measure.sh BASE2
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: profile-linux-arm64
-          path: |
-            perf_stat_loads_*.txt
-            perf_report_loads_*.txt
-            strata_symbols.txt
+          name: terminator-ab-v2
+          path: ps_*.txt
           if-no-files-found: ignore
 
-  decompose-windows:
-    name: decompose (windows-x86_64)
-    runs-on: windows-latest
-    timeout-minutes: 60
+  ab-v1:
+    name: terminator A/B v1 (linux-arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
 
@@ -280,105 +101,56 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install strata and the competitor set (test-gated build)
-        shell: bash
+      - name: Install clang, LLVM and perf
         run: |
-          python -m pip install -U pip setuptools wheel
-          python -m pip install -e ".[dev,bench]"
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
+          sudo sysctl -w kernel.perf_event_paranoid=1 || true
 
-      - name: clang-cl PGO build (the build the benchmark leg measures)
-        shell: bash
+      - name: CPU and compiler facts
         run: |
-          export PATH="/c/Program Files/LLVM/bin:$PATH"
-          python scripts/pgo_build_clang_cl.py
+          lscpu | grep -E "Model name|Vendor|CPU\(s\)" | head -4
+          clang++ --version | head -1
+
+      - name: Install strata with the dev and bench extras (test-gated build)
+        env:
+          CC: clang
+          CXX: clang++
+        run: make install-bench
 
       - name: Generate the small-tier datasets
-        shell: bash
         run: |
-          PYTHONPATH=. python -m benchmarks.data.generate_bench_data \
+          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
             --out-dir benchmarks/data/generated/small \
             --num-users 1000 --max-orders 10 --max-items 5 --records 500
 
-      - name: Decompose dumps mixed on this leg
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
-
-      # The parse-side twin: loads flat is the row this leg reads behind
-      # msgspec on two of three runner generations while every POSIX leg
-      # leads it; per-kind subsets name which value parser MSVC mistreats.
-      - name: Decompose loads flat on this leg
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/decompose_loads_flat.py
-
-      # The cold-start penalty per engine: the interleaved harness hands
-      # each engine a cold cache, and dumps mixed reads ahead isolated but
-      # behind interleaved on the x86 legs.
-      - name: Cold-state probe on this leg
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/cold_state_probe.py
-      - name: Allocation round trips, hot, harness style
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
-
-      # The toolchain controls, on the same commit: two more builds of the
-      # extension replace the clang-cl PGO build in place, each plain /O2,
-      # no LTCG, no PGO (setuptools hardcodes /GL and /LTCG; the override
-      # strips them) -- plain MSVC, then plain clang-cl -- so the three
-      # blocks of this job differ in compiler and profile and nothing else. Each rebuild is forced (setuptools'
-      # up-to-date check would otherwise skip it silently and the probes
-      # would re-measure the previous binary) and its own line in the log
-      # proves which compiler ran; the Python suites gate each build (the
-      # C++ gate is CMake's own MSVC build and does not see the override).
-      # Read the three blocks of this job side by side.
-      - name: Plain MSVC /O2 build (the control, gated)
-        shell: bash
+      - name: BASE — headers, PGO+LTO build, measure
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+          PGO_BENCH_REPEAT: "1"
+          PGO_BENCH_WARMUP: "0"
         run: |
-          STRATA_WIN_COMPILER=cl python setup.py build_ext --inplace --force | tee build_cl.log
-          grep -q "compiling with" build_cl.log
-      - name: Decompose dumps mixed on the plain MSVC build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
-      - name: Decompose loads flat on the plain MSVC build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/decompose_loads_flat.py
-      - name: Cold-state probe on the plain MSVC build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/cold_state_probe.py
-      - name: Allocation round trips on the plain MSVC build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
+          bash experiments/terminator/use.sh base
+          make pgo 2>&1 | tail -5
+          bash experiments/terminator/ab_measure.sh BASE
 
-      # The integer-writer experiment under clang-cl (the MSVC command line
-      # accepts GNU inline asm; cl.exe itself is not on a bash step's PATH).
-      - name: Integer writer variants (experiments/itoa, clang-cl)
-        shell: bash
+      - name: V1 — headers, PGO+LTO build, measure
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+          PGO_BENCH_REPEAT: "1"
+          PGO_BENCH_WARMUP: "0"
         run: |
-          export PATH="/c/Program Files/LLVM/bin:$PATH"
-          # Git Bash rewrites slash-led arguments into Windows paths (/O2
-          # reached the linker as C:\Program Files\Git\O2.obj); the
-          # exclusion keeps clang-cl's own spellings intact.
-          export MSYS2_ARG_CONV_EXCL="*"
-          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc -I include experiments/itoa/itoa_bench.cpp /Fe:itoa_bench.exe
-          ./itoa_bench.exe
-          clang-cl /O2 /arch:AVX2 /std:c++20 /EHsc -I include experiments/dtoa/dtoa_bench.cpp src/strata/util/dtoa.cpp /Fe:dtoa_bench.exe
-          ./dtoa_bench.exe
+          bash experiments/terminator/use.sh v1
+          make pgo 2>&1 | tail -5
+          bash experiments/terminator/ab_measure.sh V1
 
-      - name: clang-cl /O2 build of the same commit (gated)
-        shell: bash
-        run: |
-          export PATH="/c/Program Files/LLVM/bin:$PATH"
-          clang-cl --version
-          STRATA_WIN_COMPILER=clang-cl python setup.py build_ext --inplace --force | tee build_clang.log
-          grep -q "compiling with" build_clang.log
-      - name: Decompose dumps mixed on the clang-cl build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
-      - name: Decompose loads flat on the clang-cl build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/decompose_loads_flat.py
-      - name: Cold-state probe on the clang-cl build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/cold_state_probe.py
-      - name: Allocation round trips on the clang-cl build
-        shell: bash
-        run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: terminator-ab-v1
+          path: ps_*.txt
+          if-no-files-found: ignore

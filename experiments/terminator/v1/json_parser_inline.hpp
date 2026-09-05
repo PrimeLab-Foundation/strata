@@ -177,45 +177,36 @@ template <typename Handler> struct ParserInline {
             // recovers none of it -- the cost is the branch, not the loads);
             // every repository dataset still gains, from 1% on flat to 12%
             // on wide_arrays.
-            //
-            // Every question below is one lookup in kNumberByteClass: "is
-            // this byte a digit" and "may a number continue through it".
-            // Written as compares, the terminator question
-            // (`b != '.' && b != 'e' && b != 'E'`) is a three-value set the
-            // compiler lowers to a shift mask -- nine arm64 instructions,
-            // and it is on the path of every short integer. The table also
-            // removes a test: a digit continues a number, so the width-3
-            // arm no longer needs a separate digit check on its last byte.
             const size_t sign = static_cast<size_t>(c == '-');
             const size_t start = i + sign;
             if (start + 4 <= len) {
-                const auto cls = [](char byte) noexcept {
-                    return util::detail::number_class(byte);
+                const auto digit_or_point = [](char byte) noexcept {
+                    return (byte >= '0' && byte <= '9') || byte == '.';
                 };
-                const auto continues = [](unsigned char bits) noexcept {
-                    return (bits & util::detail::kNumClassContinues) != 0;
-                };
-                const auto digit = [](unsigned char bits) noexcept {
-                    return (bits & util::detail::kNumClassDigit) != 0;
-                };
+                const auto digit = [](char byte) noexcept { return byte >= '0' && byte <= '9'; };
                 const char b0 = data[start];
                 const char b1 = data[start + 1];
                 const char b2 = data[start + 2];
                 const char b3 = data[start + 3];
-                const unsigned char c1 = cls(b1);
-                if (digit(cls(b0)) &&
-                    !(continues(c1) && continues(cls(b2)) && continues(cls(b3)))) {
+                if (digit(b0) &&
+                    !(digit_or_point(b1) && digit_or_point(b2) && digit_or_point(b3))) {
+                    const auto ends = [](char byte) noexcept {
+                        return util::detail::ends_number(byte);
+                    };
                     int64_t value = 0;
                     size_t width = 0;
-                    if (!continues(c1)) {
-                        value = b0 - '0';
-                        width = 1;
-                    } else if (digit(c1) && b0 != '0') {
-                        const unsigned char c2 = cls(b2);
-                        if (!continues(c2)) {
-                            value = (b0 - '0') * 10 + (b1 - '0');
-                            width = 2;
-                        } else if (digit(c2) && !continues(cls(b3))) {
+                    if (!digit(b1)) {
+                        if (ends(b1)) {
+                            value = b0 - '0';
+                            width = 1;
+                        }
+                    } else if (b0 != '0') {
+                        if (!digit(b2)) {
+                            if (ends(b2)) {
+                                value = (b0 - '0') * 10 + (b1 - '0');
+                                width = 2;
+                            }
+                        } else if (!digit(b3) && ends(b3)) {
                             value = (b0 - '0') * 100 + (b1 - '0') * 10 + (b2 - '0');
                             width = 3;
                         }
@@ -327,8 +318,7 @@ template <typename Handler> struct ParserInline {
                         util::detail::leading_digit_count(fraction_chunk);
                     if (fraction_count != 0 && fraction_count < 8) {
                         const char tail = data[after + 1 + fraction_count];
-                        if ((util::detail::number_class(tail) & util::detail::kNumClassExponent) ==
-                            0) {
+                        if ((util::detail::number_class(tail) & util::detail::kNumClassExponent) == 0) {
                             const uint64_t mantissa =
                                 util::detail::leading_digit_value(chunk, count) *
                                     util::detail::kRunPow10[fraction_count] +

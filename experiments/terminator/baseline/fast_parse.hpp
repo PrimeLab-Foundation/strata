@@ -21,7 +21,6 @@
  * provides a strtod_l twin with identical observable behavior.
  */
 
-#include <array>
 #include <bit>
 #include <cassert>
 #include <charconv>
@@ -42,16 +41,6 @@
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h> // _umul128: MSVC's spelling of the 64x64->128 multiply
-#endif
-
-/// Keeps a constant table local to the shared object. A reference to a
-/// default-visibility object is preemptible and goes through the GOT in a
-/// PIC build, which spends a load per use; a hidden one is a pc-relative
-/// address. Observable behavior is unchanged either way.
-#if defined(__clang__) || defined(__GNUC__)
-#define STRATA_LOCAL_CONST [[gnu::visibility("hidden")]]
-#else
-#define STRATA_LOCAL_CONST
 #endif
 
 // A placement the measurements depend on is declared, not left to heuristics
@@ -281,56 +270,6 @@ static_assert(std::endian::native == std::endian::little,
     const uint64_t non_zero = (chunk ^ 0x3030303030303030ULL) & run;
     const unsigned first = static_cast<unsigned>(std::countr_zero(non_zero)) >> 3;
     return first < count ? first : count;
-}
-
-/// Number-shape class of a byte, one entry per byte value.
-///
-/// Three bits settle every question the number paths ask about the byte after
-/// a digit run, with one load and one mask where the compiler otherwise
-/// lowers `byte != '.' && byte != 'e' && byte != 'E'` to a shift-mask
-/// sequence (nine instructions on arm64: sub, cmp, two constant moves, a
-/// variable shift, an and, a ccmp and the branch).
-///
-///   - kNumClassExponent — 'e' or 'E'
-///   - kNumClassPoint    — '.'
-///   - kNumClassDigit    — '0'..'9'
-///
-/// A byte with no kNumClassEnds bit terminates a number: nothing that could
-/// extend it follows. This table is the single definition of that
-/// classification; the predicates below are its only readers.
-inline constexpr unsigned char kNumClassExponent = 0x1;
-inline constexpr unsigned char kNumClassPoint = 0x2;
-inline constexpr unsigned char kNumClassDigit = 0x4;
-/// A point or an exponent marker: what continues a number past its digits.
-inline constexpr unsigned char kNumClassEnds = kNumClassExponent | kNumClassPoint;
-/// Everything a number may continue with, digits included.
-inline constexpr unsigned char kNumClassContinues =
-    kNumClassExponent | kNumClassPoint | kNumClassDigit;
-
-STRATA_LOCAL_CONST inline constexpr auto kNumberByteClass = [] {
-    std::array<unsigned char, 256> table{};
-    for (int byte = 0; byte < 256; ++byte) {
-        unsigned char bits = 0;
-        if (byte == 'e' || byte == 'E')
-            bits |= kNumClassExponent;
-        if (byte == '.')
-            bits |= kNumClassPoint;
-        if (byte >= '0' && byte <= '9')
-            bits |= kNumClassDigit;
-        table[static_cast<size_t>(byte)] = bits;
-    }
-    return table;
-}();
-
-/// The class bits of @p byte (see kNumberByteClass).
-[[nodiscard]] inline unsigned char number_class(char byte) noexcept {
-    return kNumberByteClass[static_cast<unsigned char>(byte)];
-}
-
-/// True when @p byte ends a number: neither a point nor an exponent marker.
-/// Callers pass the byte just past a digit run, so a digit cannot appear.
-[[nodiscard]] inline bool ends_number(char byte) noexcept {
-    return (number_class(byte) & kNumClassEnds) == 0;
 }
 
 /// Powers of ten a digit-run step multiplies by (10^0 .. 10^8).
