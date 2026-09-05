@@ -151,6 +151,15 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-05, four samples.** 128, 128, 131 and 128 of 135 across
+four draws of two builds. Persistent on every draw: linux-arm64's
+`loads`/`load wide_arrays` (1.04–1.10x) and `dumps mixed` (1.03–1.11x) —
+the Neoverse-N2's number code, annotated in docs/decisions.md. Bands:
+windows-x86_64 `dumps mixed` (1.09x, 1.03x, #1, 1.02x) with `dump mixed`
+beside it; macos-arm64's shared-runner rows flip draw to draw (a
+different `dumps`/`dump` row each time, all ahead on the local quiet
+rolls). linux-x86_64 27/27 on all four, macos-x86_64 on three.
+
 **Status 2026-09-05, evening (wave 23 on five platforms).** The third
 sample (run 33955093951 on b7f31bb, the parse without the UTF-8 sweep)
 reads **131/135**: linux-x86_64, macos-x86_64 and windows-x86_64 27/27
