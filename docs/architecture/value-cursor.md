@@ -128,13 +128,24 @@ cursor already closed — and a re-entrant `loads` leases its own builder
 ### Handlers without the capability
 
 `value_cursor_of` falls back to `strata::PlainCursor`, a single `bool`
-carrying "no failure yet". `parse_value(PlainCursor)` and
-`parse_number(PlainCursor)` compile to the boolean dispatcher they replaced —
-verified instruction for instruction on the null path — and every
-`if constexpr` cursor operation erases. The DOM builder, the NDJSON stream,
-the streaming-search handler and every `JsonSaxHandler` subclass keep exactly
-the code they had. The no-argument `parse_value()` / `parse_number()`
-overloads remain for the root, for object members and for the number suites.
+carrying "no failure yet"; every `if constexpr` cursor operation erases, and
+`parse_value(PlainCursor)` is the boolean dispatcher it replaced. The DOM
+builder, the NDJSON stream, the streaming-search handler and every
+`JsonSaxHandler` subclass therefore keep the behaviour they had — pinned, not
+assumed: `tests/cpp/test_value_cursor.cpp` runs a cursor-capable handler and
+a plain twin over one corpus and requires the same tree, the same
+accept/reject verdict and the same stop position on every document. The
+no-argument `parse_value()` / `parse_number()` overloads remain for the root,
+for object members and for the number suites.
+
+The generated code on that path is close but **not** identical: at plain
+-O3 (no LTO) `parse_value<PlainCursor>` is 229 instructions against the old
+`parse_value()`'s 203. The growth is cold — duplicated failure epilogues,
+where the old shape branched to one — plus the container and string cases
+losing a tail call, since `scan_string` is now a step of the dispatcher
+rather than the whole of `parse_string`. The PGO+LTO build inlines the
+region differently; the N2 profile is the reading that matters, and it moved
+the right way.
 
 ## Alternatives considered
 
