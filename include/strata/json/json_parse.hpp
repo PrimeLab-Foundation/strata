@@ -39,7 +39,9 @@ enum class DuplicateKeyPolicy {
  * That is a property of this DOM, not of the engine: the Python builder
  * consumes the same events and keeps integers exact.
  *
- * @return The root value, or Status::ParseError for malformed input.
+ * @return The root value; Status::DepthExceeded when the input nests deeper
+ *         than strata::kMaxNestingDepth; Status::ParseError for any other
+ *         malformed input.
  */
 [[nodiscard]] Result<JsonValue> parse_json(std::string_view text);
 
@@ -47,6 +49,7 @@ enum class DuplicateKeyPolicy {
  * Parse @p text, streaming events to @p handler through virtual dispatch.
  *
  * @param validate_utf8 Check the input up front; see parse_sax_inline().
+ * @return Ok, DepthExceeded past strata::kMaxNestingDepth, else ParseError.
  */
 [[nodiscard]] Status parse_sax(std::string_view text, JsonSaxHandler& handler,
                                bool validate_utf8 = true);

@@ -331,6 +331,7 @@ struct Outcome {
     bool ok;
     size_t consumed;
     std::string tree;
+    bool too_deep;
 };
 
 template <typename Handler> [[nodiscard]] Outcome run(std::string_view text, int refuse_at = -1) {
@@ -338,7 +339,7 @@ template <typename Handler> [[nodiscard]] Outcome run(std::string_view text, int
     handler.refuse_at(refuse_at);
     strata::ParserInline<Handler> parser{text.data(), text.size(), handler};
     const bool ok = parser.parse_value();
-    Outcome outcome{ok, parser.i, std::string()};
+    Outcome outcome{ok, parser.i, std::string(), parser.too_deep};
     Cell* root = handler.take_root();
     outcome.tree = ok ? render(root) : std::string("<aborted>");
     Cell::drop(root);
@@ -413,7 +414,7 @@ void test_plain_and_cursor_agree() {
         const Outcome cursor = run<TreeHandler>(document);
         assert(Cell::live == 0);
         if (plain.ok != cursor.ok || plain.consumed != cursor.consumed ||
-            plain.tree != cursor.tree) {
+            plain.tree != cursor.tree || plain.too_deep != cursor.too_deep) {
             std::fprintf(stderr, "divergence on %s: plain(%d,%zu,%s) cursor(%d,%zu,%s)\n", document,
                          static_cast<int>(plain.ok), plain.consumed, plain.tree.c_str(),
                          static_cast<int>(cursor.ok), cursor.consumed, cursor.tree.c_str());
@@ -509,6 +510,63 @@ void test_deep_nesting_places_every_value() {
     assert(plain.tree == cursor.tree);
 }
 
+/// The depth cap is the parser's, not a handler's: a capable handler and a
+/// plain twin accept exactly kMaxNestingDepth containers and refuse the next
+/// one at the same byte, releasing everything staged on the way down.
+void test_depth_limit_is_the_same_on_both_handlers() {
+    for (const char* open : {"[", "{\"a\":"}) {
+        const std::string close = (*open == '[') ? "]" : "}";
+        for (const size_t depth :
+             {size_t{1}, strata::kMaxNestingDepth - 1, strata::kMaxNestingDepth,
+              strata::kMaxNestingDepth + 1, strata::kMaxNestingDepth + 32}) {
+            std::string document;
+            for (size_t level = 0; level < depth; ++level)
+                document += open;
+            document += "1";
+            for (size_t level = 0; level < depth; ++level)
+                document += close;
+
+            const Outcome plain = run<PlainTreeHandler>(document);
+            assert(Cell::live == 0);
+            const Outcome cursor = run<TreeHandler>(document);
+            assert(Cell::live == 0);
+
+            assert(plain.ok == (depth <= strata::kMaxNestingDepth));
+            assert(plain.too_deep == (depth > strata::kMaxNestingDepth));
+            assert(plain.ok == cursor.ok);
+            assert(plain.too_deep == cursor.too_deep);
+            assert(plain.consumed == cursor.consumed);
+            assert(plain.tree == cursor.tree);
+        }
+    }
+}
+
+/// Alternating containers count as one level each, and one extra container
+/// around a document that was exactly at the limit is what tips it over.
+void test_depth_limit_counts_mixed_nesting() {
+    const size_t pairs = strata::kMaxNestingDepth / 2;
+    std::string at_limit;
+    std::string closing;
+    for (size_t level = 0; level < pairs; ++level) {
+        at_limit += "{\"a\":[";
+        closing = "]}" + closing;
+    }
+    at_limit += "1" + closing;
+
+    const Outcome ok = run<TreeHandler>(at_limit);
+    assert(Cell::live == 0);
+    assert(ok.ok && !ok.too_deep);
+
+    const std::string past = "[" + at_limit + "]";
+    const Outcome refused = run<TreeHandler>(past);
+    assert(Cell::live == 0);
+    assert(!refused.ok && refused.too_deep);
+    const Outcome refused_plain = run<PlainTreeHandler>(past);
+    assert(Cell::live == 0);
+    assert(!refused_plain.ok && refused_plain.too_deep);
+    assert(refused.consumed == refused_plain.consumed);
+}
+
 } // namespace
 
 int main() {
@@ -517,6 +575,8 @@ int main() {
     test_failed_construction_releases_everything();
     test_growth_keeps_order();
     test_deep_nesting_places_every_value();
+    test_depth_limit_is_the_same_on_both_handlers();
+    test_depth_limit_counts_mixed_nesting();
     std::puts("value cursor tests passed");
     return 0;
 }

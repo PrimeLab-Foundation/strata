@@ -472,7 +472,13 @@ PyObject* search_file_streaming(const char* path, const CompiledPath& compiled) 
     }
     if (status != Status::Ok) {
         // The document must be wholly valid for the law to hold: query(load)
-        // would have raised, so search raises too, matches notwithstanding.
+        // would have raised, so search raises too, matches notwithstanding --
+        // and a document nested past the cap raises what load() raises for it.
+        if (status == Status::DepthExceeded) {
+            PyErr_Clear();
+            PyErr_SetString(PyExc_ValueError, kDepthExceededMessage);
+            return nullptr;
+        }
         if (!PyErr_Occurred())
             PyErr_SetString(PyExc_ValueError, "Invalid JSON");
         return nullptr;

@@ -30,8 +30,19 @@ Invalid UTF-8 in `bytes` input ⇒ `ValueError("Invalid JSON")` — for bytes th
 parser is the only validator. `return_type="cursor"` returns a lazy
 `JsonCursor`. `iterator=True`: dict root yields `(key, value)`, list root yields
 elements (eager parse, lazy consumption); scalar roots ignore the flag.
-Raises `ValueError` (invalid JSON / bad `return_type`), `TypeError`, `RuntimeError`
-(internal C++ error), `RuntimeWarning` under `duplicate_key_policy="warn"`.
+
+**Nesting is capped at 1024 open containers.** A document nesting deeper —
+counting arrays and objects alike, so `[1]` is depth 1 and `[[1]]` depth 2 —
+raises `ValueError("Maximum nesting depth exceeded")`. The parser recurses, so
+the cap is what makes a deep document an error instead of a dead process; it
+applies to every parsing entry point (`loads` for `str` and `bytes`, `load`,
+each NDJSON line, `search`) and to both builders (the Python tree and
+`return_type="cursor"`). Depth exactly 1024 parses. For comparison, orjson
+refuses at 1024 and stdlib `json` at `sys.getrecursionlimit()`.
+
+Raises `ValueError` (invalid JSON / nesting past the cap / bad `return_type`),
+`TypeError`, `RuntimeError` (internal C++ error), `RuntimeWarning` under
+`duplicate_key_policy="warn"`.
 
 ```python
 strata.dumps(obj, *, return_type="str") -> str | bytes
@@ -57,7 +68,10 @@ document. **Invalid NDJSON lines raise `ValueError` unless
 folder modes; the previous implementation silently skipped, do not
 reproduce). `iterator=True` parses lazily line-by-line (the whole file is
 still read into memory up front; errors surface at the failing line);
-`return_type="cursor"` on NDJSON is a `ValueError`. Raises
+`return_type="cursor"` on NDJSON is a `ValueError`. The 1024-container nesting
+cap applies per document and per NDJSON line, and NDJSON names the line:
+`ValueError("Maximum nesting depth exceeded on line N")`, skipped like any
+other bad line under `skip_errors=True`. Raises
 `FileNotFoundError`, `OSError`, `ValueError` ("Empty file" for JSON).
 `dump` writes compact JSON + trailing newline, mode 0644, truncating;
 `split_by` with a file path is a `ValueError`.
@@ -168,7 +182,12 @@ threads. `cycle_policy` is a plain process-global — it affects all threads.
 
 ## Error contract (test-pinned messages)
 
-Parse errors ⇒ `ValueError("Invalid JSON")`. Cursor misuse ⇒ `RuntimeError`
+Parse errors ⇒ `ValueError("Invalid JSON")`; malformed NDJSON lines ⇒
+`ValueError("Invalid JSON on line N")`. Nesting past 1024 containers ⇒
+`ValueError("Maximum nesting depth exceeded")`, and on an NDJSON line
+`ValueError("Maximum nesting depth exceeded on line N")` — a refusal, kept
+distinct from malformed input so a caller can tell the two apart.
+Cursor misuse ⇒ `RuntimeError`
 matching "not an object" / "not an array" / "not a bool|number|string" /
 "not found" / "out of range". Unknown config key ⇒ `KeyError` on `config.set`
 (`config.get` returns `None`); bad config value ⇒ `ValueError`; wrong value

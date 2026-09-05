@@ -130,7 +130,39 @@ template <typename K, typename V> class FlatMap {
 };
 
 /// Outcome of an operation that does not throw. `Ok` is the zero value.
-enum class Status { Ok, TypeMismatch, KeyNotFound, IndexOutOfBounds, ParseError };
+///
+/// `DepthExceeded` is a *refusal*, not a malformed document: the input nests
+/// deeper than @ref kMaxNestingDepth, and the binding layer reports it with its
+/// own message rather than the generic parse error (docs/context/api.md).
+enum class Status { Ok, TypeMismatch, KeyNotFound, IndexOutOfBounds, ParseError, DepthExceeded };
+
+/**
+ * The deepest chain of open containers the parser will accept.
+ *
+ * The parser is recursive, so nesting is C stack, and without a cap a deep
+ * enough document is not a `ValueError` but a dead process — the crash is in
+ * the parser's own frames, where no handler and no `try` can see it. This
+ * constant turns that cliff into an error on every path.
+ *
+ * **Why 1024.** The number is bounded by the smallest stack strata must run
+ * on — Windows' 1 MB main thread — divided by the largest per-level frame,
+ * with room for a build whose frames are several times larger than the ones
+ * measured. On the development host (macOS arm64, clang -O3 `-march=native`)
+ * one level of nested arrays costs 144 bytes of stack on the Python-builder
+ * path and the same on the C++ document path, so a 1 MB stack overflows at
+ * 7351 levels — and a `loads` of a document at exactly 1024, interpreter
+ * frames included, is the deepest thing that still runs on a **160 KB**
+ * stack: a **6.4x margin** against Windows' 1 MB main thread, and ~52x on an
+ * 8 MB one (both measured by binary search over a subprocess, on the Python
+ * and C++ paths; docs/architecture/value-cursor.md). It is also the market's
+ * answer: orjson refuses at 1024, and stdlib `json` at the interpreter's
+ * recursion limit (1000 by default). The repository's own deepest documents
+ * are the depth-100 stress tests and a depth-60 fuzz seed.
+ *
+ * Counted as *open containers*: `[1]` is depth 1, `[[1]]` depth 2, and a
+ * document of exactly @ref kMaxNestingDepth containers parses.
+ */
+inline constexpr std::size_t kMaxNestingDepth = 1024;
 
 /**
  * A value plus the status that produced it — the hot-path alternative to

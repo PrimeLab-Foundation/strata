@@ -14,6 +14,8 @@
  */
 
 #define PY_SSIZE_T_CLEAN
+#include "strata/json/json_core.hpp"
+
 #include <Python.h>
 #include <cstddef>
 #include <exception>
@@ -34,7 +36,16 @@ namespace strata::bindings {
 inline constexpr size_t kDumpsInitialCapacity = 1024;
 
 /// Parse @p text into a new Python object tree, or nullptr with an error set.
-[[nodiscard]] PyObject* loads_to_python(std::string_view text, bool validate_utf8);
+///
+/// @param status_out When given, receives the parse's status — the one caller
+///        that needs it is NDJSON, whose messages name the failing line and so
+///        must re-raise rather than pass the exception through.
+[[nodiscard]] PyObject* loads_to_python(std::string_view text, bool validate_utf8,
+                                        Status* status_out = nullptr);
+
+/// The one spelling of the depth refusal, shared by every entry point so the
+/// message is a contract and not a per-file string (docs/context/api.md).
+inline constexpr const char* kDepthExceededMessage = "Maximum nesting depth exceeded";
 
 /// Serialize @p object to JSON as `str`, or as `bytes` when @p as_bytes.
 [[nodiscard]] PyObject* dumps_to_python(PyObject* object, bool as_bytes);

@@ -839,3 +839,100 @@ def test_reentrant_loads_from_a_duplicate_key_warning_builds_both_trees():
     assert parsed[-2] == {"d": 1}
     assert len(parsed) == 405
     assert seen and all(tree == list(range(500)) for tree in seen)
+
+
+# ---------------------------------------------------------------------------
+# "Nesting deeper than 1024 containers raises
+#  ValueError('Maximum nesting depth exceeded')" -- api.md § Parse & serialize
+# and § Error contract. The parser recurses, so this is the line between an
+# error and a dead process; the number is pinned here on purpose, and moves
+# only with api.md and strata::kMaxNestingDepth.
+# ---------------------------------------------------------------------------
+
+MAX_NESTING_DEPTH = 1024
+DEPTH_MESSAGE = "^Maximum nesting depth exceeded$"
+
+
+def nested_document(depth, shape="array"):
+    """`depth` open containers around a scalar, as text.
+
+    "mixed" alternates object and array so that every level is one container,
+    which is what the cap counts.
+    """
+    if shape == "array":
+        return "[" * depth + "1" + "]" * depth
+    if shape == "object":
+        return '{"a":' * depth + "1" + "}" * depth
+    opens = ['{"a":' if level % 2 == 0 else "[" for level in range(depth)]
+    closes = ["}" if level % 2 == 0 else "]" for level in range(depth)]
+    return "".join(opens) + "1" + "".join(reversed(closes))
+
+
+def depth_of(value):
+    """Walk a parsed tree iteratively -- recursion here would be the bug."""
+    depth = 0
+    while isinstance(value, (list, dict)):
+        depth += 1
+        value = value[0] if isinstance(value, list) else next(iter(value.values()))
+    return depth
+
+
+@pytest.mark.parametrize("shape", ["array", "object", "mixed"])
+def test_nesting_at_the_limit_parses(shape):
+    parsed = strata.loads(nested_document(MAX_NESTING_DEPTH, shape))
+    assert depth_of(parsed) == MAX_NESTING_DEPTH
+
+
+@pytest.mark.parametrize("shape", ["array", "object", "mixed"])
+def test_nesting_past_the_limit_raises_the_pinned_message(shape):
+    text = nested_document(MAX_NESTING_DEPTH + 1, shape)
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.loads(text)
+    # bytes input takes the same parser and the same refusal.
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.loads(text.encode())
+
+
+def test_the_refusal_survives_far_past_the_limit():
+    """Far past the cap the parse must still return an error rather than run
+    out of C stack: the whole reason the cap exists."""
+    for depth in (MAX_NESTING_DEPTH + 1, 10_000, 200_000):
+        with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+            strata.loads(nested_document(depth))
+    # Unbalanced and deep: the cap is reached before the document ends.
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.loads("[" * 100_000)
+
+
+def test_cursor_mode_is_capped_by_the_same_constant():
+    """return_type="cursor" builds the C++ document, a different builder on
+    the same parser -- and the same refusal (api.md § Cursor)."""
+    cursor = strata.loads(nested_document(MAX_NESTING_DEPTH), return_type="cursor")
+    assert cursor.is_array()
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.loads(nested_document(MAX_NESTING_DEPTH + 1), return_type="cursor")
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.loads(nested_document(MAX_NESTING_DEPTH + 1).encode(), return_type="cursor")
+
+
+def test_a_too_deep_document_is_not_a_generic_parse_error():
+    """The message distinguishes a refusal from malformed text, so a caller
+    can tell "your document is too deep" from "your document is broken"."""
+    with pytest.raises(ValueError) as refused:
+        strata.loads(nested_document(MAX_NESTING_DEPTH + 1))
+    assert str(refused.value) == "Maximum nesting depth exceeded"
+    with pytest.raises(ValueError) as malformed:
+        strata.loads("[1,]")
+    assert str(malformed.value) == "Invalid JSON"
+
+
+def test_the_limit_is_per_document_not_cumulative():
+    """A builder is reused across calls; a refused parse must leave nothing
+    behind that lowers the next document's ceiling."""
+    for _ in range(3):
+        with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+            strata.loads(nested_document(MAX_NESTING_DEPTH + 1))
+        assert depth_of(strata.loads(nested_document(MAX_NESTING_DEPTH))) == MAX_NESTING_DEPTH
+    # Siblings each start from zero: many deep-but-legal branches in one array.
+    inner = nested_document(MAX_NESTING_DEPTH - 1)
+    assert len(strata.loads("[" + ",".join([inner] * 5) + "]")) == 5

@@ -79,13 +79,23 @@ thread_local bool BuilderLease::busy_ = false;
 
 } // namespace
 
-PyObject* loads_to_python(std::string_view text, bool validate_utf8) {
+PyObject* loads_to_python(std::string_view text, bool validate_utf8, Status* status_out) {
     BuilderLease builder;
     builder->begin_input(text.data(), text.data() + text.size());
     Status status;
     {
         GcPause pause;
         status = parse_sax_inline(text, *builder, validate_utf8);
+    }
+    if (status_out != nullptr)
+        *status_out = status;
+
+    if (status == Status::DepthExceeded) {
+        // A refusal, not a malformed document, and raised by the parser rather
+        // than by a callback -- so nothing else has described it and the
+        // pinned message is set here (docs/context/api.md, error contract).
+        PyErr_SetString(PyExc_ValueError, kDepthExceededMessage);
+        return nullptr;
     }
 
     if (status != Status::Ok) {

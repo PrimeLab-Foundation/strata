@@ -12,9 +12,11 @@
  *
  * Entry point: parse_sax_inline<Handler>().
  *
- * **Recursion is the depth limit.** Nesting consumes C++ stack and nothing
- * caps it; that is a stated contributor invariant, and the stress suite
- * deliberately stops at depth 100.
+ * **Nesting is capped, because nesting is stack.** One level of containers is
+ * one recursive frame, so an uncapped parser turns a deep enough document into
+ * a dead process rather than an error. @ref strata::kMaxNestingDepth is the
+ * cap; past it the parse stops with Status::DepthExceeded, on every handler and
+ * every entry point, before the handler sees the opening container.
  */
 
 #include "strata/json/json_core.hpp"
@@ -90,8 +92,22 @@ struct PlainCursor {
  * or a value-initialised one meaning "failed, and already closed".
  *
  * Handlers without the member type (the DOM builder, the NDJSON stream, the
- * streaming-search handler, any JsonSaxHandler subclass) select PlainCursor
- * and compile to exactly the code they compiled to before this hook existed.
+ * streaming-search handler, any JsonSaxHandler subclass) select PlainCursor,
+ * which erases every cursor operation and leaves the *behaviour* they had —
+ * pinned by tests/cpp/test_value_cursor.cpp, which runs a capable handler and
+ * a plain twin over one corpus and requires the same tree, the same
+ * accept/reject verdict and the same stop position.
+ *
+ * The **generated code on that path is not identical**, and saying it was is
+ * how the change nearly shipped a halved stack budget. Measured on the
+ * development host (macOS arm64, clang -O3 `-march=native`, the
+ * `json_parse.cpp` translation unit): `parse_value` 412 → 454 instructions and
+ * its frame **96 → 144 bytes**, against 981 → 914 instructions for the whole
+ * plain trio, because the string case moved out of a tail-called
+ * `parse_string` into the dispatcher and three more callee-saved pairs are
+ * spilled. 144 bytes per level is what fixes the depth budget, and
+ * @ref strata::kMaxNestingDepth is sized from it — see
+ * docs/architecture/value-cursor.md.
  */
 template <typename T, typename = void> struct value_cursor_of {
     using type = PlainCursor;
@@ -116,6 +132,45 @@ template <typename Handler> struct ParserInline {
     /// Reused buffer for strings that contain escapes; see the lifetime note
     /// in json_sax_handler.hpp.
     std::string scratch{};
+
+    /// Containers currently open — the recursion's own depth, which is what
+    /// kMaxNestingDepth caps.
+    size_t depth = 0;
+
+    /// Set by the one place that refuses a container, read once by
+    /// parse_sax_inline: it is what separates a refusal from a syntax error
+    /// after both have unwound as `false`.
+    bool too_deep = false;
+
+    /// Opens one container level for its scope, or refuses.
+    ///
+    /// Constructed *before* the handler is told the container started, so a
+    /// refused document never reaches a handler with an unbalanced start
+    /// event. `entered()` false means the level was refused and `too_deep` is
+    /// already set; the destructor then closes nothing.
+    class Level {
+      public:
+        explicit Level(ParserInline& parser) noexcept : parser_(parser) {
+            if (parser_.depth == kMaxNestingDepth) {
+                parser_.too_deep = true;
+                return;
+            }
+            ++parser_.depth;
+            entered_ = true;
+        }
+        ~Level() noexcept {
+            if (entered_)
+                --parser_.depth;
+        }
+        Level(const Level&) = delete;
+        Level& operator=(const Level&) = delete;
+
+        [[nodiscard]] bool entered() const noexcept { return entered_; }
+
+      private:
+        ParserInline& parser_;
+        bool entered_ = false;
+    };
 
     /// The cursor an array's element loop runs on: the handler's own type
     /// when it has the capability, PlainCursor otherwise.
@@ -652,6 +707,12 @@ template <typename Handler> struct ParserInline {
         // Only reached through parse_value, which dispatched on this byte:
         // the opening bracket is consumed without re-scanning for it.
         ++i;
+        // One frame of this function per level of nesting: the cap is checked
+        // here, ahead of on_start_array, so a refusal costs the handler
+        // nothing to unwind (docs/architecture/value-cursor.md, § depth).
+        const Level level(*this);
+        if (!level.entered())
+            return false;
         if (!handler.on_start_array())
             return false;
 
@@ -708,7 +769,10 @@ template <typename Handler> struct ParserInline {
     }
 
     bool parse_object() {
-        ++i; // as in parse_array: parse_value dispatched on the brace
+        ++i;                      // as in parse_array: parse_value dispatched on the brace
+        const Level level(*this); // as in parse_array: the cap, before the event
+        if (!level.entered())
+            return false;
         if (!handler.on_start_object())
             return false;
 
@@ -752,8 +816,9 @@ template <typename Handler> struct ParserInline {
  *        Python strings can pass false, because PyUnicode validates during
  *        creation — but note that for `bytes` input this parser is then the
  *        only validator there is (docs/context/api.md).
- * @return Status::Ok, or Status::ParseError for any malformed input, including
- *         trailing bytes after the top-level value.
+ * @return Status::Ok; Status::DepthExceeded when the input nests deeper than
+ *         strata::kMaxNestingDepth; Status::ParseError for any other malformed
+ *         input, including trailing bytes after the top-level value.
  */
 template <typename Handler>
 [[nodiscard]] Status parse_sax_inline(std::string_view text, Handler& handler,
@@ -763,7 +828,7 @@ template <typename Handler>
 
     ParserInline<Handler> parser{text.data(), text.size(), handler};
     if (!parser.parse_value())
-        return Status::ParseError;
+        return parser.too_deep ? Status::DepthExceeded : Status::ParseError;
     parser.skip_ws();
     if (!parser.eof())
         return Status::ParseError;

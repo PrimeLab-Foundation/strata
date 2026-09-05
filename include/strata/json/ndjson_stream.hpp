@@ -30,9 +30,10 @@ class NdjsonStream {
      * Parse the next line.
      *
      * @return Status::Ok with the value, Status::ParseError for a malformed
-     *         line, or **Status::KeyNotFound at end of stream** — a deliberate
-     *         reuse of that code as the end marker, so no separate sentinel is
-     *         needed.
+     *         line, Status::DepthExceeded for one nested past
+     *         strata::kMaxNestingDepth, or **Status::KeyNotFound at end of
+     *         stream** — a deliberate reuse of that code as the end marker, so
+     *         no separate sentinel is needed.
      */
     [[nodiscard]] Result<JsonValue> next();
 
@@ -63,7 +64,8 @@ class NdjsonStream {
      *        and @p failed_line reports which one it was. When true, malformed
      *        lines are dropped and the rest are returned.
      * @param failed_line Set to the 1-based number of the offending line when
-     *        the parse stops; left at 0 otherwise.
+     *        the parse stops; left at 0 otherwise. The returned status says
+     *        why that line stopped it: ParseError, or DepthExceeded.
      */
     [[nodiscard]] Result<std::vector<JsonValue>> parse_all(bool skip_errors,
                                                            size_t* failed_line = nullptr);
