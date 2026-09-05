@@ -463,6 +463,59 @@ on record-shaped data.
 `dumps mixed` is untouched by this change and still reads 1.05x on the same
 runs: the leg's other deficit, and a different record.
 
+## What the N2 measured with the cap in place
+
+Profile run 33987499471 on `exp/cursor2` (41ee694 — the value cursor plus the
+nesting cap), same runner, same build recipe. The question this run answers is
+narrow: does one compare, one increment and one decrement per container cost
+anything on the workload the change was made for?
+
+`perf stat`, 400 `loads` of small `wide_arrays.json`:
+
+| counter             | main    | cursor r1 | cursor r2 | **+cap** |
+| ------------------- | ------- | --------- | --------- | -------- |
+| strata elapsed      | 1.849 s | 1.673 s   | 1.667 s   | 1.635 s  |
+| strata instructions | 20.86 G | 19.22 G   | 19.26 G   | 19.15 G  |
+| orjson elapsed      | 1.801 s | 1.784 s   | 1.708 s   | 1.754 s  |
+| strata / orjson     | 1.027x  | 0.938x    | 0.976x    | 0.932x   |
+
+−8.2% instructions and −11.6% elapsed against main; the fewest instructions
+and the lowest elapsed of the three cursor runs. The cap costs nothing here,
+which is what the arithmetic predicted — a `wide_arrays` parse opens one
+container per array and stores thousands of elements into it.
+
+Per element (`benchmarks/parse_elements_probe.py`, ns):
+
+| class        | main  | cursor r1 | cursor r2 | **+cap** | orjson |
+| ------------ | ----- | --------- | --------- | -------- | ------ |
+| nulls        | 7.89  | 4.34      | 4.50      | 4.62     | 3.63   |
+| bools        | 10.72 | 4.94      | 5.06      | **6.18** | 6.62   |
+| ints 0–9     | 10.10 | 7.48      | 7.68      | 7.58     | 6.77   |
+| ints 100–999 | 24.56 | 21.38     | 21.13     | 21.12    | 18.98  |
+| ints 4-digit | 28.59 | 25.24     | 25.24     | 25.37    | 18.93  |
+| ints 7-digit | 28.90 | 25.18     | 25.32     | 25.54    | 20.03  |
+| ints 9–10dig | 37.05 | 30.92     | 31.20     | 31.07    | 22.99  |
+| floats 6dp   | 41.13 | 36.37     | 36.48     | 36.40    | 25.15  |
+| floats 17dig | 45.71 | 40.92     | 41.02     | 41.32    | 33.34  |
+
+Every class sits inside the `exp/cursor` range except **bools**, +22–25% on
+it (6.18 against 4.94 and 5.06), and nulls, +3–6%. That is reported as
+measured rather than explained away, but it is not a per-element cost of the
+cap: the probe parses one list of 2000 elements, so the cap's three
+instructions run **once** for the whole measurement. It is code layout — one
+branch and two parser-struct words more in `parse_array` shift what PGO+LTO
+inlines around the cheapest classes — and it is a single draw. Both classes
+remain far ahead of main (bools −42%, nulls −41%) and bools stays ahead of
+orjson at 0.93x. `decompose_loads_mixed` reads the same shape: `list bools`
+0.0209 against the cursor runs' 0.0195/0.0199 and main's 0.0277/0.0285, every
+other row inside the cursor range, `loads mixed` isolated 0.887x and
+interleaved 0.881x against the cursor runs' 0.881x/0.893x and 0.876x/0.879x.
+
+`perf record` self shares are unchanged in kind: the two `parse_value`
+instantiations hold 51.4% (32.5% plain, 18.9% cursor) and the builder's
+`push` is still absent from the list. `dumps mixed`, untouched, reads 1.023x
+isolated and 1.106x interleaved — the leg's other deficit, where it was.
+
 ## What it still needs
 
 The M1 quiet-machine roll, and an x86 sample for the second instantiation's
