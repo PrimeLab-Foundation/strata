@@ -147,6 +147,41 @@ rather than the whole of `parse_string`. The PGO+LTO build inlines the
 region differently; the N2 profile is the reading that matters, and it moved
 the right way.
 
+### How the invariant is checked, not asserted
+
+The invariant above is the whole risk of the change: a staged reference the
+builder loses on an abort is a leak, and one it releases twice is a crash.
+Four gates cover it, all green on `exp/cursor`:
+
+- `tests/cpp/test_value_cursor.cpp` — a cursor-capable handler and a plain
+  twin over one corpus (same tree, same accept/reject, same stop position),
+  plus a refused element, a failed object construction, growth mid-array and
+  deep nesting, each asserting every staged reference is accounted for.
+- `tests/unit/test_loads.py` — aborts at every level of a nested document
+  release every staged element; the singleton refcounts (`None`, `True`,
+  `False`, small ints) return to their pre-parse values after an abort inside
+  an array; nested containers inside arrays match the stdlib oracle; a
+  re-entrant `loads` from a duplicate-key warning filter builds both trees.
+- The whole ctest registry rebuilt with `-fsanitize=address,undefined
+  -fno-sanitize-recover=all`: 15/15 pass, `test_value_cursor` included.
+- A differential harness over 400 nested documents, 13 578 mutated documents
+  (each rejected exactly where stdlib `json` rejects it) and 200 re-entrant
+  parses, reading `sys.getallocatedblocks()` across repeats.
+
+`make test-py-asan` — the sanitized *Python* gate — cannot run on the
+development host at all, on any branch: macOS refuses to preload the
+Apple-clang sanitizer runtime into the signed framework interpreter
+("Sanitizer load violates platform policy"). The sanitized C++ registry and
+the differential harness stand in for it locally; CI's corpus job runs the
+real thing on Linux, and that is where this change must clear it.
+
+The differential's re-entrant section reads an allocated-block drift of ~350
+over its first 200 parses, which looks like a small leak and is not: running
+the identical loop four times in one process reads 354, 1, 1, 1. It is the
+staging block being warmed once — the design keeps it across `reset()`, as
+the vector's capacity was kept — and nothing accumulates per parse, per abort
+or per re-entry.
+
 ## Alternatives considered
 
 1. **Cache the innermost frame pointer in the builder.** Already measured,
@@ -273,6 +308,29 @@ ratio is quoted as a range — behind on main, ahead on both cursor runs.
 `perf record` symbol list no longer contains the builder's `push` at all
 (1.6% on main), and the parser's own share is 52.4% against 53.6% of a
 9.6%-larger total.
+
+The consequence this record predicted — an extra `close_values` +
+`open_values` per nested container inside an array, "in the wrong direction
+for exactly those datasets" — was looked for in `decompose_loads_mixed` and
+is **not visible above the draw**. Read across both main runs and both cursor
+runs (strata's own ms per parse), every array-of-scalars row moves 8–30%
+better, while the array-of-dict rows overlap their main range rather than
+regressing:
+
+| row                  | main (2 runs) | cursor (2 runs) | verdict |
+| -------------------- | ------------- | --------------- | ------- |
+| list bools           | 0.0285 0.0277 | 0.0195 0.0199   | −30%    |
+| list hex ids         | 0.0640 0.0615 | 0.0518 0.0535   | −16%    |
+| list small ints      | 0.0578 0.0562 | 0.0494 0.0491   | −14%    |
+| list 17dig floats    | 0.0965 0.0947 | 0.0870 0.0876   | −9%     |
+| shape kind/id/value  | 0.1095 0.1060 | 0.1045 0.1079   | neutral |
+| shape type/payload/n | 0.1958 0.1926 | 0.1921 0.1948   | neutral |
+| list payload dicts   | 0.4105 0.4078 | 0.4032 0.4128   | neutral |
+
+Compared single-run to single-run, three of those neutral rows read 1–2%
+worse, which is why both draws per side are quoted: the predicted cost is
+real in the instruction stream but sits below what this experiment resolves
+on record-shaped data.
 
 `dumps mixed` is untouched by this change and still reads 1.05x on the same
 runs: the leg's other deficit, and a different record.
