@@ -57,9 +57,11 @@ struct has_try_match_key<T, std::void_t<decltype(std::declval<T&>().try_match_ke
  * The placement token a produced value travels on: the no-capability default.
  *
  * It carries one thing — "no failure yet" — so a handler without the
- * value-cursor capability parses through exactly the boolean dispatcher it
- * always did (`parse_value(PlainCursor)` takes and returns one register).
- * @ref value_cursor_of selects it for every such handler.
+ * value-cursor capability parses through the same boolean dispatcher it always
+ * did (`parse_value(PlainCursor)` takes and returns one register). Same
+ * behaviour, not the same instructions: see @ref value_cursor_of, which
+ * selects it for every such handler and records what the codegen actually
+ * costs.
  */
 struct PlainCursor {
     bool live;
