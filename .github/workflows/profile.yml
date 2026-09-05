@@ -222,10 +222,15 @@ jobs:
       # per tree, so the only difference between the two columns is the two
       # headers under study.
       # ---------------------------------------------------------------------
-      - name: Digit chain — materialise the baseline include tree
+      - name: Digit chain — materialise the baseline and half-step include trees
         run: |
-          mkdir -p trees/base
+          mkdir -p trees/base trees/half
           git archive "$DIGITCHAIN_BASE" include | tar -x -C trees/base
+          git archive "$DIGITCHAIN_BASE" include | tar -x -C trees/half
+          # The half-step tree carries the shortened value chain alone: the
+          # parser head still loads the terminator and the lone-zero byte from
+          # memory, so the two halves of the change can be told apart.
+          cp include/strata/util/fast_parse.hpp trees/half/include/strata/util/fast_parse.hpp
           git --no-pager diff --stat "$DIGITCHAIN_BASE" -- include
 
       - name: Digit chain — bit identity, baseline vs variant (810k documents)
@@ -252,9 +257,11 @@ jobs:
         run: |
           clang++ -O3 -march=native -std=c++20 -DNDEBUG -I trees/base/include -S \
             -o head_base.s experiments/digitchain/head_shape_probe.cpp
+          clang++ -O3 -march=native -std=c++20 -DNDEBUG -I trees/half/include -S \
+            -o head_half.s experiments/digitchain/head_shape_probe.cpp
           clang++ -O3 -march=native -std=c++20 -DNDEBUG -I include -S \
             -o head_var.s experiments/digitchain/head_shape_probe.cpp
-          python3 - head_base.s head_var.s <<'PY'
+          python3 - head_base.s head_half.s head_var.s <<'PY'
           import re, sys
           NAMES = {"12parse_numberEv": "parse_number",
                    "parse_number_unifiedEPKcm": "parse_number_unified",
@@ -288,15 +295,18 @@ jobs:
             -o digitchain_bench
           ./digitchain_bench
 
-      - name: Digit chain — the parser alone, baseline vs variant
+      - name: Digit chain — the parser alone, baseline vs half-step vs variant
         run: |
           clang++ -O3 -march=native -std=c++20 -I trees/base/include \
             experiments/digitchain/sax_parse_bench.cpp src/strata/util/scan.cpp -o sax_base
+          clang++ -O3 -march=native -std=c++20 -I trees/half/include \
+            experiments/digitchain/sax_parse_bench.cpp src/strata/util/scan.cpp -o sax_half
           clang++ -O3 -march=native -std=c++20 -I include \
             experiments/digitchain/sax_parse_bench.cpp src/strata/util/scan.cpp -o sax_var
           DOC=benchmarks/data/generated/small/wide_arrays.json
           for pass in 1 2 3; do
             echo "=== pass $pass: baseline"; ./sax_base "$DOC"
+            echo "=== pass $pass: half-step (value chain only)"; ./sax_half "$DOC"
             echo "=== pass $pass: variant"; ./sax_var "$DOC"
           done
 
