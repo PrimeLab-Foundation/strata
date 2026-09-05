@@ -38,14 +38,67 @@ Decimal to_decimal(double value) {
     return {decimal.significand, decimal.exponent};
 }
 
+// The head layout `write_digits_fixed` carried before the head became a word
+// too: the low eight digits through the SWAR word, the head through the
+// pair-table loop -- four *chained* 32-bit divides at a sixteen-digit
+// significand, which is 71% of the doubles a `random()` payload produces.
+// Kept local so the A/B stands whichever header this tree carries.
+inline void write_digits_paired(uint64_t value, char* out, size_t len) noexcept {
+    using strata::util::detail::kDigitPairs;
+    using strata::util::detail::write_8_digits;
+    if (len > 8) {
+        const uint64_t high = value / 100000000;
+        const auto low = static_cast<uint32_t>(value - high * 100000000);
+        write_8_digits(low, out + len - 8);
+        len -= 8;
+        if (high > 0xFFFFFFFFULL) {
+            const uint64_t top = high / 100000000;
+            write_8_digits(static_cast<uint32_t>(high - top * 100000000), out + len - 8);
+            len -= 8;
+            value = top;
+        } else if (len > 8) {
+            const auto high32 = static_cast<uint32_t>(high);
+            const uint32_t top = high32 / 100000000;
+            write_8_digits(high32 - top * 100000000, out + len - 8);
+            len -= 8;
+            value = top;
+        } else {
+            value = high;
+        }
+    }
+    auto rest = static_cast<uint32_t>(value);
+    size_t index = len;
+    while (index >= 2) {
+        const uint32_t pair = (rest % 100) * 2;
+        rest /= 100;
+        out[index - 1] = kDigitPairs[pair + 1];
+        out[index - 2] = kDigitPairs[pair];
+        index -= 2;
+    }
+    if (index == 1)
+        out[0] = static_cast<char>('0' + rest % 10);
+}
+
+struct GroupedDigits {
+    static void write(uint64_t value, char* out, size_t len) noexcept {
+        strata::util::detail::write_digits_fixed(value, out, len);
+    }
+};
+
+struct PairedDigits {
+    static void write(uint64_t value, char* out, size_t len) noexcept {
+        write_digits_paired(value, out, len);
+    }
+};
+
 // The writer without its micro-decimal tier: sign and zero, Dragonbox, then
 // the same layout format_double takes (fixed for scientific exponents in
 // [-4, 15], d.ddde+XX otherwise). What format_double costs beyond this is
 // the probe every value pays first plus its prologue.
-size_t write_no_probe(double value, char* out) {
+template <class Digits> size_t write_layout(double value, char* out) {
     using strata::util::detail::decimal_digit_count;
     using strata::util::detail::shift16_right;
-    using strata::util::detail::write_digits_fixed;
+    const auto write_digits_fixed = Digits::write;
     size_t written = 0;
     if (std::signbit(value))
         out[written++] = '-';
@@ -104,6 +157,12 @@ size_t write_no_probe(double value, char* out) {
     out[written++] = static_cast<char>('0' + magnitude % 10);
     return written;
 }
+
+size_t write_no_probe(double value, char* out) { return write_layout<GroupedDigits>(value, out); }
+
+// The same writer with the pre-grouping head layout: the one column of this
+// table that isolates what the head word is worth on this core.
+size_t write_paired(double value, char* out) { return write_layout<PairedDigits>(value, out); }
 
 // Tree-shaped digit layout: the significand split by constant divisions
 // into 4-digit groups, each into two pair lookups -- a tree of independent
@@ -274,6 +333,22 @@ std::vector<Bucket> buckets() {
     for (int i = 0; i < 4000; ++i)
         seventeen.values.push_back(unit(rng));
     out.push_back(seventeen);
+    // The seam itself: sixteen significant digits is where the head is exactly
+    // one word and used to take four chained divides; seventeen already had
+    // its own word before the change and is the control.
+    Bucket sixteen{"float-16dig", {}};
+    Bucket seventeen_only{"float-17dig-only", {}};
+    while (sixteen.values.size() < 4000 || seventeen_only.values.size() < 4000) {
+        const double value = unit(rng);
+        const size_t length =
+            strata::util::detail::decimal_digit_count(to_decimal(value).significand);
+        if (length == 16 && sixteen.values.size() < 4000)
+            sixteen.values.push_back(value);
+        else if (length == 17 && seventeen_only.values.size() < 4000)
+            seventeen_only.values.push_back(value);
+    }
+    out.push_back(sixteen);
+    out.push_back(seventeen_only);
     Bucket two{"float-2dp", {}};
     for (int i = 0; i < 4000; ++i)
         two.values.push_back(std::round((i * 0.37 + 0.1) * 100.0) / 100.0);
@@ -316,8 +391,8 @@ template <typename Fn> double median_ns(const std::vector<double>& values, Fn&& 
 
 int main() {
     char buffer[64];
-    std::printf("%-16s %10s %10s %10s %10s %10s %10s   (ns per value, median of 30 rounds)\n",
-                "bucket", "format", "no_probe", "tree", "chain", "dragonbox", "to_chars");
+    std::printf("%-18s %10s %10s %10s %10s %10s %10s %10s   (ns per value, median of 30 rounds)\n",
+                "bucket", "format", "no_probe", "paired", "tree", "chain", "dragonbox", "to_chars");
     for (const Bucket& bucket : buckets()) {
         // Correctness: the writer's bytes must round-trip and match to_chars'.
         for (const double value : bucket.values) {
@@ -361,6 +436,21 @@ int main() {
         }
         const double no_probe =
             median_ns(bucket.values, [&](double value) { return write_no_probe(value, buffer); });
+        // The paired head must produce the grouped head's bytes: the change
+        // under test is a layout, never a format.
+        for (const double value : bucket.values) {
+            char ours[64];
+            char theirs[64];
+            const size_t n = write_no_probe(value, ours);
+            const size_t m = write_paired(value, theirs);
+            if (n != m || std::memcmp(ours, theirs, n) != 0) {
+                std::printf("PAIRED MISMATCH on %.17g: %.*s vs %.*s\n", value, static_cast<int>(n),
+                            ours, static_cast<int>(m), theirs);
+                return 1;
+            }
+        }
+        const double paired =
+            median_ns(bucket.values, [&](double value) { return write_paired(value, buffer); });
         const double tree =
             median_ns(bucket.values, [&](double value) { return write_tree(value, buffer); });
         const double dragonbox = median_ns(bucket.values, [&](double value) {
@@ -394,8 +484,8 @@ int main() {
             const auto res = std::to_chars(buffer, buffer + sizeof buffer, value);
             return static_cast<size_t>(res.ptr - buffer);
         });
-        std::printf("%-16s %10.2f %10.2f %10.2f %10.2f %10.2f %10.2f\n", bucket.name, format,
-                    no_probe, tree, chain, dragonbox, to_chars);
+        std::printf("%-18s %10.2f %10.2f %10.2f %10.2f %10.2f %10.2f %10.2f\n", bucket.name, format,
+                    no_probe, paired, tree, chain, dragonbox, to_chars);
     }
     return 0;
 }

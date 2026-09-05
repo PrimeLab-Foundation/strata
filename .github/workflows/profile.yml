@@ -155,29 +155,38 @@ jobs:
             cg.*.out
           if-no-files-found: ignore
 
-  # Windows carries the goal's last rows and no perf; the decomposition
-  # technique that named every POSIX mechanism is pure Python timing, so it
-  # runs anywhere. The output is the job log itself.
-  # The parse side on arm64 Linux: the first five-platform sample read
-  # loads/load wide_arrays 1.10x on this runner where the local M1 reads
-  # them ahead. Counters, the per-element floor and the decomposition, on
-  # the PGO+LTO build the benchmark leg measures.
+  # The serializer on arm64 Linux: `dumps mixed` is the leg's third standing
+  # row (1.03-1.11x behind orjson on every five-platform sample) and it reads
+  # at parity hot -- the gap lives in the harness's cold entry and in the
+  # full-precision float writer. This job measures both, and A/Bs the tree's
+  # last commit against its parent on one runner in one session: baseline
+  # PGO+LTO build -> probes -> variant PGO+LTO build -> the same probes.
   profile-linux-arm64:
     name: perf (linux-arm64)
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install clang, LLVM and perf
+      - name: Install clang, LLVM, perf and valgrind
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
+          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic valgrind
           sudo sysctl -w kernel.perf_event_paranoid=1 || true
+
+      # The A/B's first leg: the tree with this commit's header reverted to
+      # its parent's. Everything else -- tests, benchmarks, workflow -- is
+      # the same checkout, so the two legs differ in one file.
+      - name: Baseline tree (the parent's dtoa header)
+        run: |
+          git checkout HEAD~1 -- include/strata/util/dtoa.hpp
+          git diff --stat HEAD -- include/strata/util/dtoa.hpp
 
       - name: Install strata with the dev and bench extras (test-gated build)
         env:
@@ -185,7 +194,7 @@ jobs:
           CXX: clang++
         run: make install-bench
 
-      - name: PGO+LTO build (the build the benchmark leg measures)
+      - name: PGO+LTO build, baseline (the build the benchmark leg measures)
         env:
           PYTHON: python
           CC: clang
@@ -203,72 +212,170 @@ jobs:
           lscpu | grep -E "Model name|Vendor|Flags|CPU\(s\)" | head -4
           clang++ --version | head -1
 
-      - name: Per-element parse floor (strata vs orjson)
-        run: PYTHONPATH=. .venv/bin/python benchmarks/parse_elements_probe.py
+      - name: BASELINE cold-state probe
+        run: PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
 
-      - name: Decompose loads mixed on this leg
-        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_loads_mixed.py
+      - name: BASELINE dumps decomposition
+        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
 
-      - name: Cold-state probe and dumps decomposition on this leg
-        run: |
-          PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
-          PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
+      - name: BASELINE allocation round trips
+        run: PYTHONPATH=. .venv/bin/python benchmarks/alloc_roundtrip_probe.py
 
-      - name: Counter comparison on loads wide_arrays (perf stat, strata vs orjson)
+      # Counters for the cold penalty itself: the same loop with and without
+      # the cache-evicting sweep, per engine. The sweep costs both engines the
+      # same, so (cold - hot) per engine is its own cold surplus in hardware
+      # counters -- which says whether the surplus is instruction fetch, data,
+      # or TLB.
+      - name: BASELINE cold-versus-hot counters per engine
         run: |
           PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
-          cat > loads_loop.py <<'PY'
-          import sys, importlib
-          lib = importlib.import_module(sys.argv[1]); n = int(sys.argv[2])
-          data = open("benchmarks/data/generated/small/wide_arrays.json", "rb").read()
-          for _ in range(n):
-              r = lib.loads(data); del r
-          PY
+          EVENTS=task-clock,cycles,instructions,branch-misses,cache-references,cache-misses,L1-dcache-load-misses,L1-icache-load-misses,dTLB-load-misses,iTLB-load-misses
+          for engine in strata orjson msgspec; do
+            for sweep in 0 64; do
+              PYTHONPATH=. $PERF stat -e "$EVENTS" -o "cold_base_${engine}_${sweep}.txt" -- \
+                .venv/bin/python benchmarks/cold_loop.py "$engine" 300 "$sweep" || true
+              echo "=== baseline $engine sweep=${sweep}MB ==="
+              cat "cold_base_${engine}_${sweep}.txt" || true
+            done
+          done
+
+      - name: BASELINE counters and hot spots on dumps mixed
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
           for lib in strata orjson; do
             PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses \
-              -o "perf_stat_loads_${lib}.txt" -- .venv/bin/python loads_loop.py "$lib" 400 || true
-            echo "=== $lib ==="; cat "perf_stat_loads_${lib}.txt" || true
+              -o "perf_stat_dumps_base_${lib}.txt" -- \
+              .venv/bin/python benchmarks/profile_dumps_mixed.py "$lib" 4000 || true
+            echo "=== baseline $lib ==="; cat "perf_stat_dumps_base_${lib}.txt" || true
+          done
+          PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o dumps_base.perf.data -- \
+            .venv/bin/python benchmarks/profile_dumps_mixed.py strata 6000 || true
+          $PERF report --stdio --no-children -g none --percent-limit 0.4 -i dumps_base.perf.data 2>/dev/null \
+            | grep -vE "^#|^$" | head -50 | cut -c1-150
+          # The float writer, instruction by instruction: the head's divide
+          # chain is what this commit replaces, so it has to be visible here.
+          $PERF report --stdio --no-children -g none -F overhead,symbol -i dumps_base.perf.data 2>/dev/null \
+            | grep -E "format_double|Serializer|write_record_fused|write_mapping" | head -4 \
+            | sed -E 's/^\s*[0-9.]+%\s+//; s/^\[\.\]\s+//' > dumps_symbols.txt || true
+          echo "annotating:"; cat dumps_symbols.txt
+          while IFS= read -r sym; do
+            [ -n "$sym" ] || continue
+            echo "=== annotate (baseline): $sym ==="
+            $PERF annotate --stdio -i dumps_base.perf.data --symbol="$sym" 2>/dev/null \
+              | grep -E "^\s+[0-9]+\.[0-9]+\s" | sort -rn | head -25 | cut -c1-160 || true
+          done < dumps_symbols.txt
+
+      # The A/B's second leg: this commit's header, rebuilt the same way. The
+      # object tree is cleared first -- setuptools' up-to-date check keys on
+      # source timestamps, not on headers, and would silently keep the
+      # baseline's objects.
+      - name: Variant tree (this commit's dtoa header) and rebuild
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+        run: |
+          git checkout HEAD -- include/strata/util/dtoa.hpp
+          git status --short
+          rm -rf build/temp.* build/lib.*
+          find src include \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -exec touch {} +
+          make pgo
+
+      - name: VARIANT cold-state probe
+        run: PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
+
+      - name: VARIANT dumps decomposition
+        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
+
+      - name: VARIANT allocation round trips
+        run: PYTHONPATH=. .venv/bin/python benchmarks/alloc_roundtrip_probe.py
+
+      - name: VARIANT cold-versus-hot counters per engine
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          EVENTS=task-clock,cycles,instructions,branch-misses,cache-references,cache-misses,L1-dcache-load-misses,L1-icache-load-misses,dTLB-load-misses,iTLB-load-misses
+          for engine in strata orjson; do
+            for sweep in 0 64; do
+              PYTHONPATH=. $PERF stat -e "$EVENTS" -o "cold_var_${engine}_${sweep}.txt" -- \
+                .venv/bin/python benchmarks/cold_loop.py "$engine" 300 "$sweep" || true
+              echo "=== variant $engine sweep=${sweep}MB ==="
+              cat "cold_var_${engine}_${sweep}.txt" || true
+            done
           done
 
-      - name: Integer and float writer variants on this core (experiments/itoa, experiments/dtoa)
-        run: |
-          clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp -o itoa_bench && ./itoa_bench
-          clang++ -O3 -march=native -std=c++20 -I include experiments/dtoa/dtoa_bench.cpp src/strata/util/dtoa.cpp -o dtoa_bench && ./dtoa_bench
-
-      - name: Hot-spot record on loads wide_arrays (perf record, strata and orjson)
+      - name: VARIANT counters and hot spots on dumps mixed
         run: |
           PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
           for lib in strata orjson; do
-            PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o "loads_${lib}.perf.data" -- \
-              .venv/bin/python loads_loop.py "$lib" 600 || true
-            $PERF report --stdio --no-children -g none --percent-limit 0.5 \
-              -i "loads_${lib}.perf.data" 2>/dev/null \
-              | grep -vE "^#|^$" | head -60 > "perf_report_loads_${lib}.txt" || true
-            echo "=== $lib: top symbols (self) ==="; cat "perf_report_loads_${lib}.txt" | cut -c1-150
+            PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses \
+              -o "perf_stat_dumps_var_${lib}.txt" -- \
+              .venv/bin/python benchmarks/profile_dumps_mixed.py "$lib" 4000 || true
+            echo "=== variant $lib ==="; cat "perf_stat_dumps_var_${lib}.txt" || true
           done
-          # Instruction-level annotation of strata's two parser functions: the
-          # lines with at least one percent of the function's samples, so the
-          # multiply chains and the divide show up as the instructions they are.
-          $PERF report --stdio --no-children -g none -F overhead,symbol -i loads_strata.perf.data 2>/dev/null \
-            | grep -E "parse_value|parse_number" | head -2 | sed -E 's/^\s*[0-9.]+%\s+//; s/^\[\.\]\s+//' > strata_symbols.txt || true
-          echo "annotating:"; cat strata_symbols.txt
+          PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o dumps_var.perf.data -- \
+            .venv/bin/python benchmarks/profile_dumps_mixed.py strata 6000 || true
+          $PERF report --stdio --no-children -g none --percent-limit 0.4 -i dumps_var.perf.data 2>/dev/null \
+            | grep -vE "^#|^$" | head -50 | cut -c1-150
           while IFS= read -r sym; do
             [ -n "$sym" ] || continue
-            echo "=== annotate: $sym ==="
-            $PERF annotate --stdio -i loads_strata.perf.data --symbol="$sym" 2>/dev/null \
-              | grep -E "^\s+[0-9]+\.[0-9]+\s" | sort -rn | head -30 | cut -c1-160 || true
-          done < strata_symbols.txt
+            echo "=== annotate (variant): $sym ==="
+            $PERF annotate --stdio -i dumps_var.perf.data --symbol="$sym" 2>/dev/null \
+              | grep -E "^\s+[0-9]+\.[0-9]+\s" | sort -rn | head -25 | cut -c1-160 || true
+          done < dumps_symbols.txt
+
+      # One binary carrying both digit layouts, so the per-value A/B does not
+      # depend on which header the tree holds: `no_probe` is the grouped head
+      # this commit ships, `paired` the head it replaces, `format` the shipped
+      # writer with its micro-decimal probe in front.
+      - name: Float writer variants on this core (experiments/dtoa)
+        run: |
+          clang++ -O3 -march=native -std=c++20 -I include experiments/dtoa/dtoa_bench.cpp \
+            src/strata/util/dtoa.cpp -o dtoa_bench && ./dtoa_bench
+
+      - name: Integer writer variants on this core (experiments/itoa)
+        run: |
+          clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp \
+            -o itoa_bench && ./itoa_bench
+
+      # Simulated caches attribute the cold surplus to functions, which the
+      # hardware counters above cannot: the engine's own I1 misses say code,
+      # its D1 misses say data. valgrind does not model this core's SVE, so
+      # the extension is rebuilt as a plain armv8-a build for the simulation
+      # (both suites gate it, as every build here does).
+      - name: Cold-call cache simulation per engine
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          rm -rf build/temp.* build/lib.*
+          STRATA_MARCH=armv8-a .venv/bin/python setup.py build_ext --inplace
+          for engine in strata orjson msgspec; do
+            echo "=== $engine"
+            for calls in 20 60; do
+              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes \
+                --cachegrind-out-file=cg.$engine.$calls.out \
+                .venv/bin/python benchmarks/cold_loop.py $engine $calls 16 2>&1 \
+                | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses|unhandled|SIGILL|terminating|Error|Traceback" || true
+            done
+            .venv/bin/python benchmarks/cg_attribute.py cg.$engine.20.out $engine
+            .venv/bin/python benchmarks/cg_attribute.py --delta cg.$engine.20.out cg.$engine.60.out 40 $engine
+          done
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: profile-linux-arm64
           path: |
-            perf_stat_loads_*.txt
-            perf_report_loads_*.txt
-            strata_symbols.txt
+            perf_stat_dumps_*.txt
+            cold_base_*.txt
+            cold_var_*.txt
+            dumps_symbols.txt
+            cg.*.out
           if-no-files-found: ignore
 
+  # Windows carries the goal's last rows and no perf; the decomposition
+  # technique that named every POSIX mechanism is pure Python timing, so it
+  # runs anywhere. The output is the job log itself.
   decompose-windows:
     name: decompose (windows-x86_64)
     runs-on: windows-latest
