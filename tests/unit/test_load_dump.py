@@ -272,7 +272,8 @@ def test_invalid_utf8_in_an_ndjson_line_follows_the_skip_errors_contract(tmp_pat
     """
     path = tmp_path / "bad.ndjson"
     path.write_bytes(b'{"i": 1}\n{"s": "\xff"}\n{"i": 3}\n')
-    with pytest.raises(ValueError, match="^Invalid JSON$") as caught:
+    # The NDJSON loader names the line, as for any malformed line.
+    with pytest.raises(ValueError, match="^Invalid JSON on line 2$") as caught:
         strata.load(path)
     assert not isinstance(caught.value, UnicodeDecodeError)
     assert strata.load(path, skip_errors=True) == [{"i": 1}, {"i": 3}]
