@@ -229,14 +229,32 @@ jobs:
       # paired estimator, the hash seed pinned and the arm order flipped every
       # pass so first position cannot favour either column.
       # ---------------------------------------------------------------------
-      - name: Keep the shipped extension aside for the interleaved A/B
+      # ---------------------------------------------------------------------
+      # Layout control. The candidate row's end-to-end evidence is a paired
+      # A/B between two independently PGO+LTO'd extensions. Any systematic
+      # difference between those two binaries is charged to the header
+      # change -- but a header change also moves every address after it, and
+      # the same job's own `dumps mixed` row (a path whose translation unit
+      # includes neither fast_parse.hpp nor json_parser_inline.hpp) moved
+      # ~1% between the same two binaries, which is the size of the claim.
+      # So three extra arms are built and timed beside the two:
+      #   base   -- main's header, PGO build #1        (the claim's baseline)
+      #   base2  -- main's header, PGO build #2        (build nondeterminism)
+      #   pad    -- main's header + a used, never-called function in the
+      #             loads translation unit: identical semantics, shifted
+      #             addresses                          (pure layout)
+      #   variant-- the branch's header                (the claim)
+      # If `pad` moves the rows as much as `variant` does, the claim is
+      # inside the layout band and the arithmetic is not what was measured.
+      # ---------------------------------------------------------------------
+      - name: Keep the shipped extension aside
         run: |
           SO=$(.venv/bin/python -c "import strata._strata as m; print(m.__file__)")
           echo "extension: $SO"
           cp "$SO" ext_variant.so
           echo "$SO" > ext_path.txt
 
-      - name: Baseline extension — restore the pre-change header and rebuild PGO
+      - name: Baseline extension - restore the pre-change header and rebuild PGO
         env:
           PYTHON: python
           CC: clang
@@ -245,15 +263,56 @@ jobs:
           git checkout "$DIGITCHAIN_BASE" -- include/strata/util/fast_parse.hpp
           git --no-pager diff --stat
           make pgo
-          SO=$(cat ext_path.txt)
-          cp "$SO" ext_base.so
-          cmp -s ext_base.so ext_variant.so && echo "WARNING: the two extensions are identical"
-          ls -l ext_base.so ext_variant.so
+          cp "$(cat ext_path.txt)" ext_base.so
+
+      - name: Baseline extension, built a second time from the same source
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+        run: |
+          git --no-pager diff --stat
+          make pgo
+          cp "$(cat ext_path.txt)" ext_base2.so
+
+      - name: Layout arm - the baseline plus a used, never-called function
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+        run: |
+          cp src/strata/bindings/python_loads.cpp python_loads.cpp.orig
+          .venv/bin/python - <<'PY'
+          src = open("src/strata/bindings/python_loads.cpp").read()
+          body = "    x ^= x >> 7;\n    x *= 0x9E3779B97F4A7C15ULL;\n    x += 0x1234ULL;\n" * 96
+          pad = ('\nextern "C" __attribute__((used, noinline)) unsigned long long\n'
+                 "strata_layout_pad(unsigned long long x) {\n" + body + "    return x;\n}\n")
+          marker = "namespace strata::bindings {"
+          assert marker in src
+          open("src/strata/bindings/python_loads.cpp", "w").write(src.replace(marker, pad + marker, 1))
+          PY
+          grep -c "strata_layout_pad" src/strata/bindings/python_loads.cpp
+          make pgo
+          cp "$(cat ext_path.txt)" ext_pad.so
+          cp python_loads.cpp.orig src/strata/bindings/python_loads.cpp
+          git --no-pager diff --stat
+
+      - name: The four extensions are four distinct binaries
+        run: |
+          ls -l ext_base.so ext_base2.so ext_pad.so ext_variant.so
+          for a in base base2 pad variant; do
+            for b in base base2 pad variant; do
+              if [ "$a" != "$b" ]; then
+                if cmp -s ext_$a.so ext_$b.so; then echo "IDENTICAL: $a $b"; else echo "differ: $a $b"; fi
+              fi
+            done
+          done
+          for a in base base2 pad variant; do echo "$a $(sha256sum ext_$a.so | cut -c1-16) $(stat -c%s ext_$a.so)"; done
 
       - name: Write the document probe
         run: |
           cat > doc_probe.py <<'PY'
-          import gc, statistics, sys, time
+          import gc, statistics, time
           import orjson, strata
 
           root = "benchmarks/data/generated/small/"
@@ -282,16 +341,38 @@ jobs:
           ]
           for name, fn, arg in rows:
               best = min(timed(fn, arg), timed(fn, arg))
-              print("%-26s %9.4f ms" % (name, best))
+              print("%-26s %10.5f ms" % (name, best))
           PY
 
-      - name: Interleaved A/B on the documents — ten passes, arm order flipped each pass
+      - name: Every arm parses the documents to the same objects
+        run: |
+          cat > oracle_check.py <<'PY'
+          import json, strata
+          for name in ("wide_arrays", "mixed", "flat", "nested"):
+              raw = open("benchmarks/data/generated/small/%s.json" % name, "rb").read()
+              assert strata.loads(raw) == json.loads(raw), name
+              assert strata.dumps(strata.loads(raw)) == strata.dumps(json.loads(raw)), name
+          print("oracle ok")
+          PY
+          SO=$(cat ext_path.txt)
+          for which in base base2 pad variant; do
+            cp "ext_${which}.so" "$SO"
+            echo -n "$which: "
+            PYTHONPATH=. .venv/bin/python oracle_check.py
+          done
+
+      - name: Interleaved A/B on the documents - four arms, order rotated each pass
         env:
           PYTHONHASHSEED: "0"
         run: |
           SO=$(cat ext_path.txt)
-          for pass in 1 2 3 4 5 6 7 8 9 10; do
-            if [ $((pass % 2)) -eq 1 ]; then order="base variant"; else order="variant base"; fi
+          for pass in 1 2 3 4 5 6 7 8; do
+            case $((pass % 4)) in
+              1) order="base base2 pad variant" ;;
+              2) order="variant pad base2 base" ;;
+              3) order="base2 variant base pad" ;;
+              *) order="pad base variant base2" ;;
+            esac
             for which in $order; do
               cp "ext_${which}.so" "$SO"
               echo "=== pass $pass: $which"
@@ -300,7 +381,7 @@ jobs:
           done
           cp ext_variant.so "$SO"
 
-      - name: Counters on loads wide_arrays — six samples an arm, hash seed pinned
+      - name: Counters on loads wide_arrays - four samples an arm
         env:
           PYTHONHASHSEED: "0"
         run: |
@@ -313,8 +394,13 @@ jobs:
           for _ in range(n):
               r = lib.loads(data); del r
           PY
-          for pass in 1 2 3 4 5 6; do
-            if [ $((pass % 2)) -eq 1 ]; then order="base variant"; else order="variant base"; fi
+          for pass in 1 2 3 4; do
+            case $((pass % 4)) in
+              1) order="base base2 pad variant" ;;
+              2) order="variant pad base2 base" ;;
+              3) order="base2 variant base pad" ;;
+              *) order="pad base variant base2" ;;
+            esac
             for which in $order; do
               cp "ext_${which}.so" "$SO"
               echo "=== pass $pass: $which"
