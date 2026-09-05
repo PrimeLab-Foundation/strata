@@ -222,123 +222,13 @@ jobs:
           clang++ --version | head -1
 
       # ---------------------------------------------------------------------
-      # The digit-chain change, proved and measured against the include tree
-      # it replaces. Everything below compiles the same sources twice, once
-      # per tree, so the only difference between the two columns is the two
-      # headers under study.
+      # Refutation pass: the claimed row measured directly. The earlier runs
+      # covered `loads wide_arrays` end to end only with `perf stat` at three
+      # samples an arm, whose base column straddled the variant. This job
+      # builds the same two extensions and times the actual documents with a
+      # paired estimator, the hash seed pinned and the arm order flipped every
+      # pass so first position cannot favour either column.
       # ---------------------------------------------------------------------
-      - name: Digit chain — materialise the baseline and word-byte include trees
-        run: |
-          mkdir -p trees/base trees/word
-          git archive "$DIGITCHAIN_BASE" include | tar -x -C trees/base
-          git archive "$DIGITCHAIN_WORD" include | tar -x -C trees/word
-          # Three trees, one header apart at a time: `trees/base` is the
-          # commit under measurement, `include` is what this branch ships
-          # (the shortened value chain alone), `trees/word` adds the parser
-          # head that reads its terminator bytes out of the loaded word.
-          git --no-pager diff --stat "$DIGITCHAIN_BASE" -- include
-
-      - name: Digit chain — bit identity, baseline vs shipped (810k documents)
-        run: |
-          set -o pipefail
-          clang++ -O2 -std=c++20 -I trees/base/include \
-            experiments/digitchain/differential.cpp src/strata/util/scan.cpp -o diff_base
-          clang++ -O2 -std=c++20 -I include \
-            experiments/digitchain/differential.cpp src/strata/util/scan.cpp -o diff_var
-          ./diff_base dump_base.txt | tail -2
-          ./diff_var dump_var.txt | tail -2
-          cmp dump_base.txt dump_var.txt && echo "DIFFERENTIAL: dumps are byte-identical"
-          # The same sweep with the sanitizers on: every document is parsed out
-          # of an exactly-sized heap buffer, so a read one byte past the end is
-          # a report rather than a silent success.
-          clang++ -O1 -g -std=c++20 -fsanitize=address,undefined -fno-sanitize-recover=all \
-            -I include experiments/digitchain/differential.cpp src/strata/util/scan.cpp \
-            -o diff_var_san
-          ./diff_var_san dump_var_san.txt | tail -2
-          cmp dump_var.txt dump_var_san.txt && echo "DIFFERENTIAL: sanitized run identical"
-          rm -f dump_base.txt dump_var.txt dump_var_san.txt
-
-      - name: Digit chain — static shape of the head, all three trees
-        run: |
-          clang++ -O3 -march=native -std=c++20 -DNDEBUG -I trees/base/include -S \
-            -o head_base.s experiments/digitchain/head_shape_probe.cpp
-          clang++ -O3 -march=native -std=c++20 -DNDEBUG -I include -S \
-            -o head_var.s experiments/digitchain/head_shape_probe.cpp
-          clang++ -O3 -march=native -std=c++20 -DNDEBUG -I trees/word/include -S \
-            -o head_word.s experiments/digitchain/head_shape_probe.cpp
-          # The count that matters first: whether the compiler still leaves
-          # `leading_digit_value` out of line and calls it per digit run.
-          for tree in base var word; do
-            echo "head_$tree.s: $(grep -c 'bl.*leading_digit_value' head_$tree.s || true) calls to leading_digit_value"
-          done
-          python3 - head_base.s head_var.s head_word.s <<'PY'
-          import re, sys
-          # A label's trailing comment is `;` on Darwin and `//` on Linux, so
-          # the match stops at the colon. Local labels (LBB.., .L..) are not
-          # function boundaries and must not end a count.
-          NAMES = {"11parse_valueEv": "parse_value",
-                   "12parse_numberEv": "parse_number",
-                   "20parse_number_unifiedE": "parse_number_unified",
-                   "19parse_long_fractionE": "parse_long_fraction",
-                   "19leading_digit_valueE": "leading_digit_value (out of line)"}
-          LABEL = re.compile(r"^([A-Za-z_$.][A-Za-z0-9_$.]*):")
-          for path in sys.argv[1:]:
-              counts, current = {}, None
-              for line in open(path).read().splitlines():
-                  match = LABEL.match(line)
-                  if match:
-                      name = match.group(1)
-                      hit = next((v for k, v in NAMES.items() if k in name), None)
-                      if hit is not None:
-                          current = hit; counts.setdefault(current, [0, 0, 0, 0, 0])
-                      elif "_ZN" in name or "probe_parse" in name:
-                          current = None
-                      continue
-                  if current is None:
-                      continue
-                  if ".cfi_endproc" in line:
-                      current = None; continue
-                  stripped = line.strip()
-                  if not stripped or stripped.startswith((".", "//", ";", "#")):
-                      continue
-                  mnemonic = stripped.split()[0]
-                  row = counts[current]
-                  row[0] += 1
-                  if mnemonic.startswith(("ldr", "ldur", "ldp")):
-                      row[1] += 1
-                  if mnemonic.startswith(("mul", "madd", "umull", "smull", "umaddl", "umulh")):
-                      row[2] += 1
-                  if mnemonic.startswith(("lsl", "lsr", "shl", "ubfiz", "ubfx")):
-                      row[3] += 1
-                  if mnemonic.startswith("sub"):
-                      row[4] += 1
-              print("---", path)
-              for name, row in counts.items():
-                  print(f"    {name:36s} {row[0]:5d} instructions  loads {row[1]:4d}  "
-                        f"multiplies {row[2]:4d}  shifts {row[3]:4d}  subs {row[4]:4d}")
-          PY
-
-      - name: Digit chain — the four formulations (experiments/digitchain)
-        run: |
-          clang++ -O3 -march=native -std=c++20 experiments/digitchain/digitchain_bench.cpp \
-            -o digitchain_bench
-          ./digitchain_bench
-
-      - name: Digit chain — the parser alone, baseline vs shipped vs word-byte
-        run: |
-          clang++ -O3 -march=native -std=c++20 -I trees/base/include \
-            experiments/digitchain/sax_parse_bench.cpp src/strata/util/scan.cpp -o sax_base
-          clang++ -O3 -march=native -std=c++20 -I include \
-            experiments/digitchain/sax_parse_bench.cpp src/strata/util/scan.cpp -o sax_var
-          clang++ -O3 -march=native -std=c++20 -I trees/word/include \
-            experiments/digitchain/sax_parse_bench.cpp src/strata/util/scan.cpp -o sax_word
-          DOC=benchmarks/data/generated/small/wide_arrays.json
-          for pass in 1 2 3 4; do
-            echo "=== pass $pass: baseline"; ./sax_base "$DOC"
-            echo "=== pass $pass: shipped (value chain alone)"; ./sax_var "$DOC"
-            echo "=== pass $pass: word-byte head as well"; ./sax_word "$DOC"
-          done
-
       - name: Keep the shipped extension aside for the interleaved A/B
         run: |
           SO=$(.venv/bin/python -c "import strata._strata as m; print(m.__file__)")
@@ -346,15 +236,76 @@ jobs:
           cp "$SO" ext_variant.so
           echo "$SO" > ext_path.txt
 
-      - name: Per-element parse floor (strata vs orjson)
-        run: PYTHONPATH=. .venv/bin/python benchmarks/parse_elements_probe.py
+      - name: Baseline extension — restore the pre-change header and rebuild PGO
+        env:
+          PYTHON: python
+          CC: clang
+          CXX: clang++
+        run: |
+          git checkout "$DIGITCHAIN_BASE" -- include/strata/util/fast_parse.hpp
+          git --no-pager diff --stat
+          make pgo
+          SO=$(cat ext_path.txt)
+          cp "$SO" ext_base.so
+          cmp -s ext_base.so ext_variant.so && echo "WARNING: the two extensions are identical"
+          ls -l ext_base.so ext_variant.so
 
-      - name: Decompose loads mixed on this leg
-        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_loads_mixed.py
+      - name: Write the document probe
+        run: |
+          cat > doc_probe.py <<'PY'
+          import gc, statistics, sys, time
+          import orjson, strata
 
-      - name: Counter comparison on loads wide_arrays (perf stat, strata vs orjson)
+          root = "benchmarks/data/generated/small/"
+          wide = open(root + "wide_arrays.json", "rb").read()
+          mixed = open(root + "mixed.json", "rb").read()
+          wide_obj = strata.loads(wide)
+          mixed_obj = strata.loads(mixed)
+
+          def timed(fn, arg, rounds=41, reps=5):
+              out = []
+              for _ in range(rounds):
+                  gc.collect()
+                  t0 = time.perf_counter()
+                  for _ in range(reps):
+                      r = fn(arg)
+                      del r
+                  out.append((time.perf_counter() - t0) / reps * 1e3)
+              return statistics.median(out)
+
+          rows = [
+              ("loads wide_arrays  strata", strata.loads, wide),
+              ("loads wide_arrays  orjson", orjson.loads, wide),
+              ("loads mixed        strata", strata.loads, mixed),
+              ("dumps mixed        strata", strata.dumps, mixed_obj),
+              ("dumps wide_arrays  strata", strata.dumps, wide_obj),
+          ]
+          for name, fn, arg in rows:
+              best = min(timed(fn, arg), timed(fn, arg))
+              print("%-26s %9.4f ms" % (name, best))
+          PY
+
+      - name: Interleaved A/B on the documents — ten passes, arm order flipped each pass
+        env:
+          PYTHONHASHSEED: "0"
+        run: |
+          SO=$(cat ext_path.txt)
+          for pass in 1 2 3 4 5 6 7 8 9 10; do
+            if [ $((pass % 2)) -eq 1 ]; then order="base variant"; else order="variant base"; fi
+            for which in $order; do
+              cp "ext_${which}.so" "$SO"
+              echo "=== pass $pass: $which"
+              PYTHONPATH=. .venv/bin/python doc_probe.py
+            done
+          done
+          cp ext_variant.so "$SO"
+
+      - name: Counters on loads wide_arrays — six samples an arm, hash seed pinned
+        env:
+          PYTHONHASHSEED: "0"
         run: |
           PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          SO=$(cat ext_path.txt)
           cat > loads_loop.py <<'PY'
           import sys, importlib
           lib = importlib.import_module(sys.argv[1]); n = int(sys.argv[2])
@@ -362,92 +313,15 @@ jobs:
           for _ in range(n):
               r = lib.loads(data); del r
           PY
-          for lib in strata orjson; do
-            PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses \
-              -o "perf_stat_loads_${lib}.txt" -- .venv/bin/python loads_loop.py "$lib" 400 || true
-            echo "=== $lib ==="; cat "perf_stat_loads_${lib}.txt" || true
-          done
-
-      - name: Hot-spot record on loads wide_arrays (perf record, strata and orjson)
-        run: |
-          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
-          for lib in strata orjson; do
-            PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o "loads_${lib}.perf.data" -- \
-              .venv/bin/python loads_loop.py "$lib" 600 || true
-            $PERF report --stdio --no-children -g none --percent-limit 0.5 \
-              -i "loads_${lib}.perf.data" 2>/dev/null \
-              | grep -vE "^#|^$" | head -60 > "perf_report_loads_${lib}.txt" || true
-            echo "=== $lib: top symbols (self) ==="; cat "perf_report_loads_${lib}.txt" | cut -c1-150
-          done
-          # Instruction-level annotation of strata's two parser functions: the
-          # lines with at least one percent of the function's samples, so the
-          # multiply chains and the divide show up as the instructions they are.
-          $PERF report --stdio --no-children -g none -F overhead,symbol -i loads_strata.perf.data 2>/dev/null \
-            | grep -E "parse_value|parse_number" | head -2 | sed -E 's/^\s*[0-9.]+%\s+//; s/^\[\.\]\s+//' > strata_symbols.txt || true
-          echo "annotating:"; cat strata_symbols.txt
-          while IFS= read -r sym; do
-            [ -n "$sym" ] || continue
-            echo "=== annotate: $sym ==="
-            $PERF annotate --stdio -i loads_strata.perf.data --symbol="$sym" 2>/dev/null \
-              | grep -E "^\s+[0-9]+\.[0-9]+\s" | sort -rn | head -30 | cut -c1-160 || true
-          done < strata_symbols.txt
-
-      # ---------------------------------------------------------------------
-      # The end-to-end A/B. The same PGO+LTO recipe is run once more with the
-      # two headers restored to the base commit, and the resulting extension
-      # is kept beside the variant's: the probes below then alternate between
-      # the two .so files in one process-per-run, so runner drift falls on
-      # both columns instead of on whichever was measured first.
-      # ---------------------------------------------------------------------
-      - name: Baseline extension — restore the pre-change headers and rebuild PGO
-        env:
-          PYTHON: python
-          CC: clang
-          CXX: clang++
-        run: |
-          git checkout "$DIGITCHAIN_BASE" -- \
-            include/strata/util/fast_parse.hpp include/strata/json/json_parser_inline.hpp
-          git --no-pager diff --stat
-          make pgo
-          SO=$(cat ext_path.txt)
-          cp "$SO" ext_base.so
-          ls -l ext_base.so ext_variant.so
-
-      - name: Interleaved A/B — per-element parse floor, baseline then shipped, four passes
-        run: |
-          SO=$(cat ext_path.txt)
-          for pass in 1 2 3 4; do
-            for which in base variant; do
+          for pass in 1 2 3 4 5 6; do
+            if [ $((pass % 2)) -eq 1 ]; then order="base variant"; else order="variant base"; fi
+            for which in $order; do
               cp "ext_${which}.so" "$SO"
               echo "=== pass $pass: $which"
-              PYTHONPATH=. .venv/bin/python benchmarks/parse_elements_probe.py
+              PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses \
+                -o "pstat_${which}_${pass}.txt" -- .venv/bin/python loads_loop.py strata 400 || true
+              grep -E "instructions|branches|branch-misses|cycles|seconds time elapsed" "pstat_${which}_${pass}.txt" || true
             done
-          done
-
-      - name: Interleaved A/B — counters on loads wide_arrays, baseline then shipped
-        run: |
-          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
-          SO=$(cat ext_path.txt)
-          for pass in 1 2 3; do
-            for which in base variant; do
-              cp "ext_${which}.so" "$SO"
-              PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses \
-                -o "perf_stat_ab_${which}_${pass}.txt" -- .venv/bin/python loads_loop.py strata 400 || true
-              echo "=== pass $pass: $which"; cat "perf_stat_ab_${which}_${pass}.txt" || true
-            done
-          done
-          # orjson on the same loop, once, as the row's own yardstick.
-          PYTHONPATH=. $PERF stat -e task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses \
-            -o perf_stat_ab_orjson.txt -- .venv/bin/python loads_loop.py orjson 400 || true
-          echo "=== orjson"; cat perf_stat_ab_orjson.txt || true
-
-      - name: Interleaved A/B — decompose loads mixed, baseline then shipped
-        run: |
-          SO=$(cat ext_path.txt)
-          for which in base variant; do
-            cp "ext_${which}.so" "$SO"
-            echo "=== $which"
-            PYTHONPATH=. .venv/bin/python benchmarks/decompose_loads_mixed.py
           done
           cp ext_variant.so "$SO"
 
@@ -456,13 +330,7 @@ jobs:
         with:
           name: profile-linux-arm64
           path: |
-            perf_stat_loads_*.txt
-            perf_stat_ab_*.txt
-            perf_report_loads_*.txt
-            strata_symbols.txt
-            head_base.s
-            head_var.s
-            head_word.s
+            pstat_*.txt
           if-no-files-found: ignore
 
   decompose-windows:
