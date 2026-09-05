@@ -275,10 +275,10 @@ thread — against the largest measured frame, then rounded down hard:
   that is a **6.4x** margin, which is the number to quote: it tolerates a
   build whose frames are six times clang's.
 - Within the market: orjson refuses at 1024, stdlib `json` at
-  `sys.getrecursionlimit()` (1000 by default). msgspec caps too.
+  `sys.getrecursionlimit()` (1000 by default).
 - Nothing in the repository comes near it: the deepest committed documents
-  are the depth-100 stress tests and a depth-60 fuzz seed, and the deepest
-  benchmark dataset is `nested.json` at single digits.
+  are the depth-100 stress tests and a depth-60 fuzz seed (`deep_arrays`),
+  both measured by counting brackets.
 
 The cost is one compare, one increment and one decrement per **container** —
 not per element, which is where this record's gains are. On the N2 the
