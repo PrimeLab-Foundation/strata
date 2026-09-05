@@ -1,20 +1,22 @@
 name: Profile
 
 # EXPERIMENT BRANCH (exp/terminator) — this file is temporarily reduced to the
-# arm64 A/B for the number-terminator classification. Two jobs, each on its own
-# Neoverse-N2 runner, each building the baseline headers and then one variant
-# with `make pgo` and measuring both with the same probes, so every comparison
-# is same-machine, same-session. Instruction counts are the primary reading.
+# arm64 A/B for the number-terminator classification: one Neoverse-N2 runner
+# builds the baseline headers, then the variant, then the baseline again, each
+# with `make pgo`, and measures all three with the same probes. Every
+# comparison is same-machine, same-session, and the repeated baseline is the
+# drift control. Instruction counts are the primary reading.
 #
-#   ab-v2 : baseline -> V2 (the class table, used for digits and terminators)
-#   ab-v1 : baseline -> V1 (the class table for the terminator tests only)
+# Round 1 (run 33957429763) measured V1 and V2. Round 2 measures V3: V2's
+# dispatcher table, with parse_number's count<8 terminator left as compares
+# because the table there cost 4- and 7-digit integers 2.8%.
 
 on:
   workflow_dispatch:
 
 jobs:
-  ab-v2:
-    name: terminator A/B v2 (linux-arm64)
+  ab-v3:
+    name: terminator A/B v3 (linux-arm64)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 75
     steps:
@@ -59,7 +61,7 @@ jobs:
           make pgo 2>&1 | tail -5
           bash experiments/terminator/ab_measure.sh BASE
 
-      - name: V2 — headers, PGO+LTO build, measure
+      - name: V3 — headers, PGO+LTO build, measure
         env:
           PYTHON: python
           CC: clang
@@ -67,9 +69,9 @@ jobs:
           PGO_BENCH_REPEAT: "1"
           PGO_BENCH_WARMUP: "0"
         run: |
-          bash experiments/terminator/use.sh v2
+          bash experiments/terminator/use.sh v3
           make pgo 2>&1 | tail -5
-          bash experiments/terminator/ab_measure.sh V2
+          bash experiments/terminator/ab_measure.sh V3
 
       - name: BASE again — the drift control
         env:
@@ -83,48 +85,7 @@ jobs:
           make pgo 2>&1 | tail -5
           bash experiments/terminator/ab_measure.sh BASE2
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: terminator-ab-v2
-          path: ps_*.txt
-          if-no-files-found: ignore
-
-  ab-v1:
-    name: terminator A/B v1 (linux-arm64)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 75
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install clang, LLVM and perf
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
-          sudo sysctl -w kernel.perf_event_paranoid=1 || true
-
-      - name: CPU and compiler facts
-        run: |
-          lscpu | grep -E "Model name|Vendor|CPU\(s\)" | head -4
-          clang++ --version | head -1
-
-      - name: Install strata with the dev and bench extras (test-gated build)
-        env:
-          CC: clang
-          CXX: clang++
-        run: make install-bench
-
-      - name: Generate the small-tier datasets
-        run: |
-          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
-            --out-dir benchmarks/data/generated/small \
-            --num-users 1000 --max-orders 10 --max-items 5 --records 500
-
-      - name: BASE — headers, PGO+LTO build, measure
+      - name: V3 again — the variant's own repeat
         env:
           PYTHON: python
           CC: clang
@@ -132,25 +93,13 @@ jobs:
           PGO_BENCH_REPEAT: "1"
           PGO_BENCH_WARMUP: "0"
         run: |
-          bash experiments/terminator/use.sh base
+          bash experiments/terminator/use.sh v3
           make pgo 2>&1 | tail -5
-          bash experiments/terminator/ab_measure.sh BASE
-
-      - name: V1 — headers, PGO+LTO build, measure
-        env:
-          PYTHON: python
-          CC: clang
-          CXX: clang++
-          PGO_BENCH_REPEAT: "1"
-          PGO_BENCH_WARMUP: "0"
-        run: |
-          bash experiments/terminator/use.sh v1
-          make pgo 2>&1 | tail -5
-          bash experiments/terminator/ab_measure.sh V1
+          bash experiments/terminator/ab_measure.sh V3B
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: terminator-ab-v1
+          name: terminator-ab-v3
           path: ps_*.txt
           if-no-files-found: ignore
