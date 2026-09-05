@@ -214,21 +214,39 @@ inline constexpr long kEiselLemireMaxExp10 = 347;
 }
 #endif
 
-/// The numeric value of the eight ASCII digits held in @p chunk (first digit
-/// in the low byte, i.e. the word loaded from the text on a little-endian
-/// target), in three multiplies instead of eight serial multiply-adds
-/// (fast_float's in-register reduction). Byte order note: the pair/quad
-/// folding assumes the first digit sits in the low byte — little-endian
-/// targets, which every supported platform is; the per-digit loops beside
-/// the call sites remain the definition and the fallback.
-[[nodiscard]] inline uint32_t eight_digit_word_value(uint64_t chunk) noexcept {
+/// The eight bytes of @p chunk as digit values, one per byte: ASCII '0'
+/// subtracted from all of them at once.
+///
+/// A byte that is not a digit comes out as whatever the subtraction leaves,
+/// and may borrow — but a borrow only ever travels *upward*, from a byte
+/// into later ones, so every byte below the first non-digit holds exactly
+/// its own digit's value whatever follows it. That is the property the
+/// leading-run helpers below rest on, and it is why they can all share this
+/// single subtraction: it is the same expression @ref leading_digit_count
+/// evaluates, so the value of a run costs no subtraction of its own.
+[[nodiscard]] inline uint64_t digit_values(uint64_t chunk) noexcept {
+    return chunk - 0x3030303030303030ULL;
+}
+
+/// The number spelled by the eight per-byte digit values in @p values (first
+/// digit in the low byte, i.e. the word loaded from the text on a
+/// little-endian target), in three multiplies instead of eight serial
+/// multiply-adds (fast_float's in-register reduction). Byte order note: the
+/// pair/quad folding assumes the first digit sits in the low byte —
+/// little-endian targets, which every supported platform is; the per-digit
+/// loops beside the call sites remain the definition and the fallback.
+[[nodiscard]] inline uint32_t eight_digit_value_word(uint64_t values) noexcept {
     constexpr uint64_t kMask = 0x000000FF000000FFULL;
     constexpr uint64_t kMul1 = 100 + (1000000ULL << 32);
     constexpr uint64_t kMul2 = 1 + (10000ULL << 32);
-    chunk -= 0x3030303030303030ULL;
-    chunk = (chunk * 10) + (chunk >> 8);
-    chunk = (((chunk & kMask) * kMul1) + (((chunk >> 16) & kMask) * kMul2)) >> 32;
-    return static_cast<uint32_t>(chunk);
+    values = (values * 10) + (values >> 8);
+    values = (((values & kMask) * kMul1) + (((values >> 16) & kMask) * kMul2)) >> 32;
+    return static_cast<uint32_t>(values);
+}
+
+/// The numeric value of the eight ASCII digits held in @p chunk.
+[[nodiscard]] inline uint32_t eight_digit_word_value(uint64_t chunk) noexcept {
+    return eight_digit_value_word(digit_values(chunk));
 }
 
 // The word helpers below read the text's first byte in the word's low byte
@@ -247,20 +265,38 @@ static_assert(std::endian::native == std::endian::little,
 /// classified, which is all a leading count needs.
 [[nodiscard]] inline unsigned leading_digit_count(uint64_t chunk) noexcept {
     const uint64_t non_digit =
-        ((chunk + 0x4646464646464646ULL) | (chunk - 0x3030303030303030ULL)) & 0x8080808080808080ULL;
+        ((chunk + 0x4646464646464646ULL) | digit_values(chunk)) & 0x8080808080808080ULL;
     return static_cast<unsigned>(std::countr_zero(non_digit)) >> 3; // 64 >> 3 == 8 when none
 }
 
 /// The value of the first @p count digits of @p chunk (1..8): the run is
-/// shifted up and the vacated low bytes filled with '0', so the eight-digit
-/// reduction reads a zero-padded number.
+/// shifted up so it sits in the high bytes, and the eight-digit reduction
+/// then weights it by the powers of ten the vacated low bytes stand for.
+///
+/// Subtracting '0' *before* the alignment shift is what makes this short.
+/// The shift brings in zero bytes, which are already exactly the value a
+/// '0' digit carries, so the padding word the previous shape built — two
+/// shifts and an or, every one of them downstream of @p count — is gone,
+/// and the one subtraction left is @ref leading_digit_count's own, off
+/// @p count's dependency chain entirely. Bytes above the run are discarded
+/// by the shift and their borrows never reach it (see @ref digit_values).
 [[nodiscard]] inline uint32_t leading_digit_value(uint64_t chunk, unsigned count) noexcept {
     assert(count >= 1 && count <= 8);
-    const unsigned shift = (8 - count) * 8; // 0..56
-    // '0' bytes below the run. Split into two shifts because a full run
-    // (count == 8) would otherwise shift the word by 64, which is undefined.
-    const uint64_t pad = (0x3030303030303030ULL >> (count * 8 - 1)) >> 1;
-    return eight_digit_word_value((chunk << shift) | pad);
+    return eight_digit_value_word(digit_values(chunk) << ((8 - count) * 8)); // shift 0..56
+}
+
+/// The byte at @p index (0..7) of a word already loaded from the input,
+/// instead of a second load of that same byte.
+///
+/// Every byte a number head reads behind a digit run — the terminator that
+/// proves the run ends, the first byte that enforces the lone-zero rule —
+/// lies inside the word the run's count came from, because a count that
+/// leaves room for a terminator is below eight. Reading it out of the word
+/// keeps the check on the arithmetic pipes: the address it would load from
+/// is not known any earlier than the shift amount is.
+[[nodiscard]] inline char word_byte(uint64_t chunk, unsigned index) noexcept {
+    assert(index < 8);
+    return static_cast<char>((chunk >> (index * 8)) & 0xFFULL);
 }
 
 /// How many of the first @p count digit bytes of @p chunk are '0'.
