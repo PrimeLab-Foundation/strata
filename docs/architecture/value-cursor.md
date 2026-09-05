@@ -1,6 +1,7 @@
 # Decision record: the value cursor (wave 24)
 
-Opened 2026-09-05. Status: **measured on the Neoverse-N2; see the verdict**.
+Opened 2026-09-05. Status: **measured on the Neoverse-N2 twice; adopt,
+pending the M1 roll.**
 
 ## Problem, with its evidence file
 
@@ -214,3 +215,58 @@ No improvement in instructions per `loads wide_arrays` parse on the N2, or
 any regression on the M1 per-element classes or on the small-tier rows —
 then this record closes as a negative beside its two predecessors, and the
 `push`-through-the-builder placement stands as the cheapest one measured.
+
+## What the N2 measured
+
+Two profile runs on `exp/cursor` (33970232962 on the parser change,
+33970851049 on the delivered tree), against the same-day main baseline
+(33947097598 / 33955161161). PGO+LTO, Python 3.12, Ubuntu clang 18.
+
+Per element, `benchmarks/parse_elements_probe.py`, ns per element (a list of
+2000 of one kind, median of 30 rounds):
+
+| class        | main  | cursor r1 | cursor r2 | change | orjson (3 runs)   |
+| ------------ | ----- | --------- | --------- | ------ | ----------------- |
+| nulls        | 7.89  | 4.34      | 4.50      | −44%   | 3.63 / 3.61 / 3.62 |
+| bools        | 10.72 | 4.94      | 5.06      | −53%   | 6.63 / 6.32 / 6.65 |
+| ints 0–9     | 10.10 | 7.48      | 7.68      | −25%   | 6.79 / 6.79 / 6.80 |
+| ints 100–999 | 24.56 | 21.38     | 21.13     | −14%   | 18.82 / 18.96 / 18.85 |
+| ints 4-digit | 28.59 | 25.24     | 25.24     | −12%   | 18.81 / 18.81 / 18.86 |
+| ints 7-digit | 28.90 | 25.18     | 25.32     | −13%   | 20.02 / 19.92 / 20.21 |
+| ints 9–10dig | 37.05 | 30.92     | 31.20     | −16%   | 23.22 / 23.21 / 23.13 |
+| floats 6dp   | 41.13 | 36.37     | 36.48     | −11%   | 25.25 / 25.30 / 25.27 |
+| floats 17dig | 45.71 | 40.92     | 41.02     | −10%   | 33.36 / 33.34 / 33.36 |
+
+orjson's own column moves by at most 0.4% across the three runs, which is
+what makes the strata column readable as the change and not the draw. Bools
+cross over: 1.62x behind before, 0.76x ahead after.
+
+`perf stat`, 400 `loads` of small `wide_arrays.json`:
+
+| counter          | main   | cursor r1 | cursor r2 |
+| ---------------- | ------ | --------- | --------- |
+| strata elapsed   | 1.849 s | 1.673 s  | 1.667 s   |
+| strata instructions | 20.86 G | 19.22 G | 19.26 G  |
+| orjson elapsed   | 1.801 s | 1.784 s  | 1.708 s   |
+| orjson instructions | 19.42 G | 19.49 G | 19.09 G  |
+| strata / orjson  | 1.027x | 0.938x    | 0.976x    |
+
+**−7.7% instructions and −9.6% elapsed on strata's own side**, with the
+instruction count the direct confirmation of what was removed: four loads
+and two stores per element. orjson's elapsed swings 5% between draws, so the
+ratio is quoted as a range — behind on main, ahead on both cursor runs.
+
+`parse_elements_probe` also reads the string classes unchanged (`strs 8ch`
+22.44/22.54 against orjson 24.03/23.92) and `decompose_loads_mixed` reads
+`loads mixed` isolated 0.881x/0.893x, interleaved 0.876x/0.879x. The
+`perf record` symbol list no longer contains the builder's `push` at all
+(1.6% on main), and the parser's own share is 52.4% against 53.6% of a
+9.6%-larger total.
+
+`dumps mixed` is untouched by this change and still reads 1.05x on the same
+runs: the leg's other deficit, and a different record.
+
+## What it still needs
+
+The M1 quiet-machine roll, and an x86 sample for the second instantiation's
+code-growth risk. Neither is this session's to run.
