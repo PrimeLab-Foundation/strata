@@ -230,12 +230,24 @@ jobs:
             echo "=== $lib ==="; cat "perf_stat_loads_${lib}.txt" || true
           done
 
+      - name: Hot-spot record on loads wide_arrays (perf record, strata and orjson)
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          for lib in strata orjson; do
+            PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o "loads_${lib}.perf.data" -- \
+              .venv/bin/python loads_loop.py "$lib" 600 || true
+            $PERF report --stdio --no-children -i "loads_${lib}.perf.data" 2>/dev/null \
+              | grep -vE "^#|^$" | head -60 > "perf_report_loads_${lib}.txt" || true
+            echo "=== $lib: top symbols (self) ==="; cat "perf_report_loads_${lib}.txt" | cut -c1-150
+          done
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: profile-linux-arm64
           path: |
             perf_stat_loads_*.txt
+            perf_report_loads_*.txt
           if-no-files-found: ignore
 
   decompose-windows:
