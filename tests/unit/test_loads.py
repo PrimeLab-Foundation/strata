@@ -230,11 +230,30 @@ def test_big_integers_survive_nesting():
         b'"\xc2"',  # truncated two-byte sequence
         b'"\xed\xa0\x80"',  # UTF-8-encoded surrogate
         b'"\xf4\x90\x80\x80"',  # above U+10FFFF
+        b'{"\xff": 1}',  # inside a key
+        b'{"k": "a\\n\xff"}',  # inside a string that also carries an escape
+        b'[1, \xff]',  # outside any string
+        b'["ok", "caf\xc3\xa9", "\xc3"]',  # after valid non-ASCII strings
+        b'[' + b'"x",' * 3000 + b'"\x80"]',  # deep inside a large document
+        b'"\xe2\x82"',  # truncated three-byte sequence at the end
     ],
 )
 def test_invalid_utf8_bytes_are_rejected(payload):
-    with pytest.raises(ValueError, match="^Invalid JSON$"):
+    # api.md: for bytes the parser is the only validator. The builder catches
+    # a bad sequence where it lies -- in the string that carries it -- and the
+    # error is the contract's, never the codec's.
+    with pytest.raises(ValueError, match="^Invalid JSON$") as caught:
         strata.loads(payload)
+    assert not isinstance(caught.value, UnicodeDecodeError)
+
+
+def test_invalid_utf8_in_a_file_is_rejected(tmp_path):
+    path = tmp_path / "bad.json"
+    path.write_bytes(b'{"k": ["fine", "\xff"]}')
+    with pytest.raises(ValueError, match="^Invalid JSON$"):
+        strata.load(path)
+    path.write_bytes(b'{"k": "caf\xc3\xa9"}')
+    assert strata.load(path) == {"k": "café"}
 
 
 def test_valid_utf8_bytes_are_accepted():

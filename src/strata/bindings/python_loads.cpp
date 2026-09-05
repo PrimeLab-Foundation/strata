@@ -90,7 +90,14 @@ PyObject* loads_to_python(std::string_view text, bool validate_utf8) {
 
     if (status != Status::Ok) {
         // A callback that failed has already described the problem precisely;
-        // only a genuine syntax error needs the generic message.
+        // only a genuine syntax error needs the generic message. Invalid
+        // UTF-8 inside a string reaches here as the decoder's error -- the
+        // builder's ASCII path admits only bytes below 0x80 and every other
+        // string goes through CPython's strict decoder, which is why no pass
+        // over the input precedes the parse -- and it is malformed input,
+        // reported as the contract's ValueError, never as a codec error.
+        if (PyErr_Occurred() && PyErr_ExceptionMatches(PyExc_UnicodeDecodeError))
+            PyErr_Clear();
         if (!PyErr_Occurred())
             PyErr_SetString(PyExc_ValueError, "Invalid JSON");
         return nullptr;

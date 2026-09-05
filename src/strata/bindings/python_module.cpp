@@ -255,8 +255,14 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
         if (PyBytes_AsStringAndSize(source, &data, &size) != 0)
             return nullptr;
         // For bytes the parser is the only validator there is.
+        // No pass over the bytes ahead of the parse: the builder admits only
+        // ASCII on its zero-copy path and hands every other string to
+        // CPython's strict decoder, and the grammar rejects a high byte
+        // anywhere else -- so invalid UTF-8 is caught where it lies, once,
+        // and loads_to_python reports it as the contract's ValueError. The
+        // cursor path builds the C++ document, which validates for itself.
         return finish_loads(std::string_view(data, static_cast<size_t>(size)),
-                            /*validate_utf8=*/true, want_cursor, iterator != 0);
+                            /*validate_utf8=*/false, want_cursor, iterator != 0);
     }
 
     PyErr_Format(PyExc_TypeError, "loads() expects str or bytes, not %s", Py_TYPE(source)->tp_name);

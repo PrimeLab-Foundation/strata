@@ -261,3 +261,19 @@ def test_a_missing_final_newline_still_yields_the_last_record(tmp_path):
     path = tmp_path / "tail.ndjson"
     path.write_text('{"i":1}\n{"i":2}', encoding="utf-8")
     assert strata.load(path) == [{"i": 1}, {"i": 2}]
+
+
+def test_invalid_utf8_in_an_ndjson_line_follows_the_skip_errors_contract(tmp_path):
+    """api.md: invalid NDJSON lines raise ValueError unless skip_errors=True.
+
+    A line whose string carries a bad UTF-8 sequence is an invalid line like
+    any other: the error is the contract's ValueError("Invalid JSON"), never
+    the codec's, and skip_errors drops the line eagerly and lazily alike.
+    """
+    path = tmp_path / "bad.ndjson"
+    path.write_bytes(b'{"i": 1}\n{"s": "\xff"}\n{"i": 3}\n')
+    with pytest.raises(ValueError, match="^Invalid JSON$") as caught:
+        strata.load(path)
+    assert not isinstance(caught.value, UnicodeDecodeError)
+    assert strata.load(path, skip_errors=True) == [{"i": 1}, {"i": 3}]
+    assert list(strata.load(path, iterator=True, skip_errors=True)) == [{"i": 1}, {"i": 3}]

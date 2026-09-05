@@ -209,7 +209,9 @@ PyObject* load_from_file(const char* path, const char* return_type, bool iterato
         return make_root_cursor(document.value.share());
     }
 
-    PyRef value(loads_to_python(text, /*validate_utf8=*/true));
+    // The builder validates string by string (see loads_to_python); no
+    // separate pass over the file's bytes.
+    PyRef value(loads_to_python(text, /*validate_utf8=*/false));
     if (!value)
         return nullptr;
     if (!iterator)
