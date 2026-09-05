@@ -230,6 +230,11 @@ jobs:
             echo "=== $lib ==="; cat "perf_stat_loads_${lib}.txt" || true
           done
 
+      - name: Integer and float writer variants on this core (experiments/itoa, experiments/dtoa)
+        run: |
+          clang++ -O3 -march=native -std=c++20 -I include experiments/itoa/itoa_bench.cpp -o itoa_bench && ./itoa_bench
+          clang++ -O3 -march=native -std=c++20 -I include experiments/dtoa/dtoa_bench.cpp src/strata/util/dtoa.cpp -o dtoa_bench && ./dtoa_bench
+
       - name: Hot-spot record on loads wide_arrays (perf record, strata and orjson)
         run: |
           PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
