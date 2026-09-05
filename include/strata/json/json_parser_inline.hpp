@@ -394,30 +394,32 @@ template <typename Handler> struct ParserInline {
     /// the handler's staging buffer by its own route, so the handler's view
     /// must be current before the recursion and is re-read after it.
     template <typename C> [[nodiscard]] C parse_array_value(C cursor) {
-        if constexpr (!is_plain<C>)
-            handler.close_values(cursor);
-        if (!parse_array())
-            return C{};
+        // The plain context keeps the tail call the dispatcher always had.
         if constexpr (is_plain<C>)
-            return C{true};
-        else
+            return C{parse_array()};
+        else {
+            handler.close_values(cursor);
+            if (!parse_array())
+                return C{};
             return handler.open_values();
+        }
     }
 
     template <typename C> [[nodiscard]] C parse_object_value(C cursor) {
-        if constexpr (!is_plain<C>)
-            handler.close_values(cursor);
-        if (!parse_object())
-            return C{};
+        // The plain context keeps the tail call the dispatcher always had.
         if constexpr (is_plain<C>)
-            return C{true};
-        else
+            return C{parse_object()};
+        else {
+            handler.close_values(cursor);
+            if (!parse_object())
+                return C{};
             return handler.open_values();
+        }
     }
 
     template <typename C> [[nodiscard]] C parse_string_value(C cursor) {
-        std::string_view text;
-        if (!scan_string(text))
+        const std::string_view text = scan_string();
+        if (text.data() == nullptr)
             return abandon(cursor);
         return emit_string(cursor, text);
     }
@@ -542,25 +544,31 @@ template <typename Handler> struct ParserInline {
     bool parse_number() { return parse_number(PlainCursor{true}).live; }
 
     /**
-     * Scan one string literal, leaving its text in @p out.
+     * Scan one string literal and return its text.
      *
      * Escape-free strings come back as a view straight into the input buffer —
      * no copy. Anything containing an escape or a control byte is decoded into
      * @ref scratch and viewed from there. The one definition of string
-     * scanning: keys, values and cursor-carried values all read it, so there
-     * is no second place where a string could be accepted differently.
+     * scanning: keys and values both read it, so there is no second place
+     * where a string could be accepted differently.
+     *
+     * Failure is a **null-data view**, which no accepted string can be: an
+     * input view points into the caller's buffer and `scratch.data()` is
+     * never null. Returning the view rather than filling an out-parameter is
+     * what keeps it in the pair of registers a two-word POD is returned in,
+     * so the plain dispatcher needs no stack slot for it.
      */
-    bool scan_string(std::string_view& out) {
+    [[nodiscard]] std::string_view scan_string() {
         if (get() != '"')
-            return false;
+            return std::string_view();
 
         const size_t remaining = len - i;
         const size_t plain = util::find_next_escape(data + i, remaining);
 
         if (plain < remaining && data[i + plain] == '"') {
-            out = std::string_view(data + i, plain);
+            const std::string_view view(data + i, plain);
             i += plain + 1;
-            return true;
+            return view;
         }
 
         // Keep the clean prefix, then decode from the first interesting byte.
@@ -569,18 +577,16 @@ template <typename Handler> struct ParserInline {
 
         while (!eof()) {
             const char c = get();
-            if (c == '"') {
-                out = scratch;
-                return true;
-            }
+            if (c == '"')
+                return scratch;
             if (c != '\\') {
                 if (static_cast<unsigned char>(c) < 0x20)
-                    return false; // unescaped control character
+                    return std::string_view(); // unescaped control character
                 scratch.push_back(c);
                 continue;
             }
             if (eof())
-                return false;
+                return std::string_view();
             switch (get()) {
             case '"':
                 scratch.push_back('"');
@@ -609,37 +615,37 @@ template <typename Handler> struct ParserInline {
             case 'u': {
                 uint32_t codepoint = 0;
                 if (!read_hex4(codepoint))
-                    return false;
+                    return std::string_view();
                 if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
                     // High surrogate: a low surrogate must follow, and the pair
                     // combines into one codepoint.
                     if (i + 1 >= len || data[i] != '\\' || data[i + 1] != 'u')
-                        return false;
+                        return std::string_view();
                     i += 2;
                     uint32_t low = 0;
                     if (!read_hex4(low))
-                        return false;
+                        return std::string_view();
                     if (low < 0xDC00 || low > 0xDFFF)
-                        return false;
+                        return std::string_view();
                     codepoint = 0x10000 + ((codepoint - 0xD800) << 10) + (low - 0xDC00);
                 }
                 // Anything still in the surrogate range is a lone half, and
                 // append_utf8 is the single place that rejects it.
                 if (!append_utf8(scratch, codepoint))
-                    return false;
+                    return std::string_view();
                 break;
             }
             default:
-                return false; // unknown escape
+                return std::string_view(); // unknown escape
             }
         }
-        return false; // unterminated string
+        return std::string_view(); // unterminated string
     }
 
     /// An object key: scanned exactly as a value is, then handed to on_key.
     bool parse_key() {
-        std::string_view text;
-        return scan_string(text) && handler.on_key(text);
+        const std::string_view text = scan_string();
+        return text.data() != nullptr && handler.on_key(text);
     }
 
     bool parse_array() {
