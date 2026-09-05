@@ -272,11 +272,15 @@ void test_format_int64_matches_to_chars() {
     check(-1);
     check(9223372036854775807LL);
     check(-9223372036854775807LL - 1); // INT64_MIN
-    for (long long power = 1; power <= 1000000000000000000LL; power *= 10) {
+    // Up to 10^18 without the multiply past it: `power *= 10` on the last
+    // value overflows int64, undefined behaviour a fatal UBSan build reports.
+    for (long long power = 1;; power *= 10) {
         check(power - 1);
         check(power);
         check(-power);
         check(-power + 1);
+        if (power == 1000000000000000000LL)
+            break;
     }
     unsigned long long state = 0x9E3779B97F4A7C15ULL;
     for (int trial = 0; trial < 200000; ++trial) {

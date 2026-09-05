@@ -162,7 +162,10 @@ jobs:
   corpus:
     name: fuzz corpus (ASan + UBSan)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The C++ replay is minutes; the sanitized extension build below adds a
+    # full rebuild of ~20 translation units plus two runs of both Python
+    # suites under the sanitizer.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -174,6 +177,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang cmake
+
+      # Hosted Ubuntu runners randomize mmap with 32 bits, more than ASan's
+      # shadow layout tolerates ("shadow memory range interleaves with an
+      # existing memory mapping"); 28 is the value the sanitizer expects.
+      - name: Lower mmap randomization for ASan
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
 
       # The full fuzzing run is weekly (fuzz.yml). This leg replays the
       # committed corpus through the suites under the sanitizers on every
@@ -187,3 +196,31 @@ jobs:
             -DCMAKE_CXX_COMPILER=clang++
           cmake --build build/asan --parallel
           ctest --test-dir build/asan --output-on-failure --no-tests=error
+
+      # The step above compiles core_sources.txt only — src/strata/bindings is
+      # not in it, so the raw stores into CPython-owned allocations have never
+      # been sanitized anywhere. This one builds the extension itself with the
+      # same sanitizers, into its own virtualenv, and runs both Python suites
+      # against it (scripts/asan_py_tests.sh, docs/build-and-test/SKILL.md).
+      - name: Build and run the Python suites under ASan + UBSan
+        env:
+          CC: clang
+          CXX: clang++
+        run: make test-py-asan
+
+  # The same gate on the platform where it was validated (Apple clang, the
+  # DYLD_INSERT_LIBRARIES preload): a Linux-only breakage in the corpus job's
+  # copy cannot masquerade as a gate that never worked.
+  bindings-asan-macos:
+    name: bindings under ASan + UBSan (macos)
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build and run the Python suites under ASan + UBSan
+        run: make test-py-asan

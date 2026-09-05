@@ -9,7 +9,7 @@ VENV ?= .venv
 VPY := $(VENV)/bin/python
 
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
-        test test-py test-cpp fmt lint pre-commit-check gate \
+        test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline \
         bench-ci bench-ci-summary \
@@ -66,6 +66,12 @@ test-cpp: venv  ## Run the C++ suite through the CMake/ctest registry
 
 test-py: venv  ## Run tests/py (integration) and tests/unit (contract)
 	$(VPY) scripts/py_tests.py
+
+# Not part of `test`: the sanitized build is a separate, several-minute
+# toolchain run in its own virtualenv, and `make test` is the fast inner loop.
+# CI runs it in the corpus job, beside the sanitized C++ suites.
+test-py-asan:  ## Build the extension with ASan+UBSan in .venv-asan and run both Python suites
+	@bash scripts/asan_py_tests.sh
 
 gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests, coverage
 	@bash scripts/gate.sh

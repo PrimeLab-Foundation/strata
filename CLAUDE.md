@@ -36,7 +36,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 ├── CMakeLists.txt           # the single C++ test registry (ctest)
 ├── MANIFEST.in              # sdist contents
 ├── Makefile                 # the single user-facing interface; targets forward to scripts/
-├── scripts/                 # automation: cpp_tests, py_tests, fmt, lint, gate, coverage, fuzz, pgo_*
+├── scripts/                 # automation: cpp_tests, py_tests, asan_py_tests, fmt, lint, gate, coverage, fuzz, pgo_*
 ├── include/strata/          # public C++ headers (core; never CPython)
 │   ├── json/                # value model, SAX handler, parser, parse + serialize API
 │   └── util/                # scan.hpp (utf-8/whitespace/escapes), fast_parse.hpp, dtoa.hpp

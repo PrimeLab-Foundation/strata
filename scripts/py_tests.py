@@ -61,9 +61,22 @@ def main(argv: list[str] | None = None) -> int:
     # enough: pip's build isolation installs a sitecustomize that rewrites
     # sys.path at startup, which silently drops the staging directory and made
     # the post-build gate fail with "No module named 'strata'".
+    # Under the sanitized gate (scripts/asan_py_tests.sh) the process that
+    # imports the extension proves the runtime is loaded and CPython's
+    # allocator routed through it, so a lost preload or allocator setting is
+    # a failure and never a silent pass.
+    armed_check = ""
+    if os.environ.get("STRATA_ASAN_GATE") == "1":
+        armed_check = (
+            "import ctypes, os; "
+            "assert os.environ.get('PYTHONMALLOC') == 'malloc', "
+            "'ASan gate: PYTHONMALLOC=malloc did not reach the test process'; "
+            "ctypes.CDLL(None).__asan_init; "
+        )
     bootstrap = (
         "import sys; "
         f"sys.path[:0] = {prefix!r}; "
+        f"{armed_check}"
         "import pytest; "
         f"raise SystemExit(pytest.main({pytest_argv!r}))"
     )
