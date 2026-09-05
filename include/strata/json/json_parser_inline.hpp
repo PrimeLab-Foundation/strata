@@ -26,6 +26,7 @@
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace strata {
 
@@ -51,6 +52,56 @@ struct has_try_match_key<T, std::void_t<decltype(std::declval<T&>().try_match_ke
     : std::true_type {};
 
 /**
+ * The placement token a produced value travels on: the no-capability default.
+ *
+ * It carries one thing — "no failure yet" — so a handler without the
+ * value-cursor capability parses through exactly the boolean dispatcher it
+ * always did (`parse_value(PlainCursor)` takes and returns one register).
+ * @ref value_cursor_of selects it for every such handler.
+ */
+struct PlainCursor {
+    bool live;
+};
+
+/**
+ * Detects an optional handler capability: an array element cursor.
+ *
+ * A handler that stages array elements in its own buffer pays, per element, a
+ * load of the buffer's end pointer, a capacity compare and two stores — all
+ * *through the handler object*, so an opaque call (creating the element's
+ * object) forces the reload every time. A handler declaring
+ *
+ * ```
+ * struct ValueCursor { ... };            // trivially copyable, two words
+ * ValueCursor open_values();             // the staging buffer's [next, limit)
+ * void close_values(ValueCursor);        // publish `next` back to the handler
+ * ValueCursor on_null_at(ValueCursor);   // ... one per scalar event
+ * ```
+ *
+ * hands that pair to the parser instead, which keeps it in registers across
+ * the array's whole element loop: the store becomes a store and a register
+ * increment. See docs/architecture/value-cursor.md.
+ *
+ * The cursor is *only* ever live inside one array's element loop. Everything
+ * that can reach the handler's staging buffer by any other route — a nested
+ * array or object, the end of this array, any failure — is preceded by
+ * `close_values`, so the handler's own view is authoritative at every point
+ * where control can leave the parser. `on_*_at` returns the advanced cursor,
+ * or a value-initialised one meaning "failed, and already closed".
+ *
+ * Handlers without the member type (the DOM builder, the NDJSON stream, the
+ * streaming-search handler, any JsonSaxHandler subclass) select PlainCursor
+ * and compile to exactly the code they compiled to before this hook existed.
+ */
+template <typename T, typename = void> struct value_cursor_of {
+    using type = PlainCursor;
+};
+
+template <typename T> struct value_cursor_of<T, std::void_t<typename T::ValueCursor>> {
+    using type = typename T::ValueCursor;
+};
+
+/**
  * Recursive-descent SAX parser.
  *
  * @tparam Handler Concrete handler type providing the JsonSaxHandler
@@ -65,6 +116,91 @@ template <typename Handler> struct ParserInline {
     /// Reused buffer for strings that contain escapes; see the lifetime note
     /// in json_sax_handler.hpp.
     std::string scratch{};
+
+    /// The cursor an array's element loop runs on: the handler's own type
+    /// when it has the capability, PlainCursor otherwise.
+    using ArrayCursor = typename value_cursor_of<Handler>::type;
+
+    /// True for the no-capability token, so the `if constexpr` branches below
+    /// erase every cursor operation from a handler that has none.
+    template <typename C> static constexpr bool is_plain = std::is_same_v<C, PlainCursor>;
+
+    /// A value-initialised cursor is the failure token, on either kind.
+    template <typename C> [[nodiscard]] static bool live(C cursor) noexcept {
+        if constexpr (is_plain<C>)
+            return cursor.live;
+        else
+            return cursor.next != nullptr;
+    }
+
+    /// Take the handler's staging range into registers for one element loop.
+    [[nodiscard]] ArrayCursor open_values() {
+        if constexpr (is_plain<ArrayCursor>)
+            return ArrayCursor{true};
+        else
+            return handler.open_values();
+    }
+
+    /// Publish the cursor back to the handler: after this the handler's own
+    /// view of its staging buffer is authoritative again.
+    void close_values(ArrayCursor cursor) {
+        if constexpr (!is_plain<ArrayCursor>)
+            handler.close_values(cursor);
+    }
+
+    /// Give up on this value: close the cursor first, so every element already
+    /// stored through it is accounted for by the handler before the parse
+    /// unwinds, then return the failure token.
+    template <typename C> [[nodiscard]] C abandon(C cursor) {
+        if constexpr (!is_plain<C>)
+            handler.close_values(cursor);
+        return C{};
+    }
+
+    // One emitter per scalar event. The handler's `on_*_at` returns the
+    // advanced cursor (or the failure token, having closed it itself); the
+    // plain form wraps the handler's boolean.
+    template <typename C> [[nodiscard]] C emit_null(C cursor) {
+        if constexpr (is_plain<C>)
+            return C{handler.on_null()};
+        else
+            return handler.on_null_at(cursor);
+    }
+
+    template <typename C> [[nodiscard]] C emit_bool(C cursor, bool value) {
+        if constexpr (is_plain<C>)
+            return C{handler.on_bool(value)};
+        else
+            return handler.on_bool_at(cursor, value);
+    }
+
+    template <typename C> [[nodiscard]] C emit_int(C cursor, int64_t value) {
+        if constexpr (is_plain<C>)
+            return C{handler.on_int(value)};
+        else
+            return handler.on_int_at(cursor, value);
+    }
+
+    template <typename C> [[nodiscard]] C emit_big_int(C cursor, std::string_view text) {
+        if constexpr (is_plain<C>)
+            return C{handler.on_big_int(text)};
+        else
+            return handler.on_big_int_at(cursor, text);
+    }
+
+    template <typename C> [[nodiscard]] C emit_double(C cursor, double value) {
+        if constexpr (is_plain<C>)
+            return C{handler.on_double(value)};
+        else
+            return handler.on_double_at(cursor, value);
+    }
+
+    template <typename C> [[nodiscard]] C emit_string(C cursor, std::string_view value) {
+        if constexpr (is_plain<C>)
+            return C{handler.on_string(value)};
+        else
+            return handler.on_string_at(cursor, value);
+    }
 
     [[nodiscard]] bool eof() const noexcept { return i >= len; }
     [[nodiscard]] char peek() const noexcept { return eof() ? '\0' : data[i]; }
@@ -135,22 +271,26 @@ template <typename Handler> struct ParserInline {
 
     // --- Values ------------------------------------------------------------
 
-    bool parse_value() {
+    /// The dispatcher, in the context its value belongs to: @p cursor is an
+    /// array's element cursor, or PlainCursor for an object member, the root,
+    /// and every handler without the capability. Returns the advanced cursor,
+    /// or the failure token — which always implies the cursor was closed.
+    template <typename C> [[nodiscard]] C parse_value(C cursor) {
         skip_ws();
         if (eof())
-            return false;
+            return abandon(cursor);
         switch (peek()) {
         case 'n':
-            return parse_null();
+            return parse_null(cursor);
         case 't':
         case 'f':
-            return parse_bool();
+            return parse_bool(cursor);
         case '"':
-            return parse_string();
+            return parse_string_value(cursor);
         case '[':
-            return parse_array();
+            return parse_array_value(cursor);
         case '{':
-            return parse_object();
+            return parse_object_value(cursor);
         default:
             break;
         }
@@ -213,37 +353,73 @@ template <typename Handler> struct ParserInline {
                     }
                     if (width != 0) {
                         i = start + width;
-                        return handler.on_int(sign != 0 ? -value : value);
+                        return emit_int(cursor, sign != 0 ? -value : value);
                     }
                 }
             }
-            return parse_number();
+            return parse_number(cursor);
         }
-        return false;
+        return abandon(cursor);
     }
 
-    bool parse_null() {
+    /// The root and every object member parse in the plain context; kept as an
+    /// overload so callers that never hold a cursor read as they always did.
+    bool parse_value() { return parse_value(PlainCursor{true}).live; }
+
+    template <typename C> [[nodiscard]] C parse_null(C cursor) {
         if (i + 4 <= len && data[i + 1] == 'u' && data[i + 2] == 'l' && data[i + 3] == 'l') {
             i += 4;
-            return handler.on_null();
+            return emit_null(cursor);
         }
-        return false;
+        return abandon(cursor);
     }
 
-    bool parse_bool() {
+    template <typename C> [[nodiscard]] C parse_bool(C cursor) {
         if (peek() == 't') {
             if (i + 4 <= len && data[i + 1] == 'r' && data[i + 2] == 'u' && data[i + 3] == 'e') {
                 i += 4;
-                return handler.on_bool(true);
+                return emit_bool(cursor, true);
             }
-            return false;
+            return abandon(cursor);
         }
         if (i + 5 <= len && data[i + 1] == 'a' && data[i + 2] == 'l' && data[i + 3] == 's' &&
             data[i + 4] == 'e') {
             i += 5;
-            return handler.on_bool(false);
+            return emit_bool(cursor, false);
         }
-        return false;
+        return abandon(cursor);
+    }
+
+    /// A nested container empties the cursor first: everything inside reaches
+    /// the handler's staging buffer by its own route, so the handler's view
+    /// must be current before the recursion and is re-read after it.
+    template <typename C> [[nodiscard]] C parse_array_value(C cursor) {
+        if constexpr (!is_plain<C>)
+            handler.close_values(cursor);
+        if (!parse_array())
+            return C{};
+        if constexpr (is_plain<C>)
+            return C{true};
+        else
+            return handler.open_values();
+    }
+
+    template <typename C> [[nodiscard]] C parse_object_value(C cursor) {
+        if constexpr (!is_plain<C>)
+            handler.close_values(cursor);
+        if (!parse_object())
+            return C{};
+        if constexpr (is_plain<C>)
+            return C{true};
+        else
+            return handler.open_values();
+    }
+
+    template <typename C> [[nodiscard]] C parse_string_value(C cursor) {
+        std::string_view text;
+        if (!scan_string(text))
+            return abandon(cursor);
+        return emit_string(cursor, text);
     }
 
     /// Numbers are validated and classified in one pass by parse_number_unified.
@@ -252,7 +428,7 @@ template <typename Handler> struct ParserInline {
     /// parse_value, the head below made the dispatcher's prologue bigger for
     /// every null, bool and string too — measured +4–7% on those lists
     /// (docs/performance/SKILL.md, wave 12). Only numbers pay for it here.
-    STRATA_NOINLINE bool parse_number() {
+    template <typename C> STRATA_NOINLINE C parse_number(C cursor) {
         // The short-number head: an optional sign, one to seven digits, and
         // optionally a point with one to seven more, with no exponent behind
         // — ids, counts, prices, coordinates: most of what JSON numbers are.
@@ -297,8 +473,8 @@ template <typename Handler> struct ParserInline {
                                     util::detail::leading_digit_value(tail_chunk, tail_count);
                         }
                         i = after;
-                        return handler.on_int(negative ? -static_cast<int64_t>(value)
-                                                       : static_cast<int64_t>(value));
+                        return emit_int(cursor, negative ? -static_cast<int64_t>(value)
+                                                         : static_cast<int64_t>(value));
                     }
                 }
             }
@@ -309,7 +485,7 @@ template <typename Handler> struct ParserInline {
                     const auto value =
                         static_cast<int64_t>(util::detail::leading_digit_value(chunk, count));
                     i = after;
-                    return handler.on_int(negative ? -value : value);
+                    return emit_int(cursor, negative ? -value : value);
                 }
                 if (next == '.' && after + 9 <= len) {
                     uint64_t fraction_chunk;
@@ -326,7 +502,7 @@ template <typename Handler> struct ParserInline {
                             const double magnitude = static_cast<double>(mantissa) /
                                                      util::detail::kClingerPow10[fraction_count];
                             i = after + 1 + fraction_count;
-                            return handler.on_double(negative ? -magnitude : magnitude);
+                            return emit_double(cursor, negative ? -magnitude : magnitude);
                         }
                     } else if (fraction_count == 8) {
                         // Eight fraction digits and counting -- full-precision
@@ -340,7 +516,7 @@ template <typename Handler> struct ParserInline {
                                 util::detail::leading_digit_value(chunk, count), count, negative,
                                 value, fraction_digits)) {
                             i = after + 1 + fraction_digits;
-                            return handler.on_double(value);
+                            return emit_double(cursor, value);
                         }
                     }
                 }
@@ -348,28 +524,33 @@ template <typename Handler> struct ParserInline {
         }
         util::ParsedNumber number;
         if (!util::parse_number_unified(data + i, len - i, number))
-            return false;
+            return abandon(cursor);
         const size_t start = i;
         i += number.consumed;
         switch (number.kind) {
         case util::NumberKind::Int64:
-            return handler.on_int(number.int_value);
+            return emit_int(cursor, number.int_value);
         case util::NumberKind::BigInt:
-            return handler.on_big_int(std::string_view(data + start, number.consumed));
+            return emit_big_int(cursor, std::string_view(data + start, number.consumed));
         case util::NumberKind::Double:
-            return handler.on_double(number.double_value);
+            return emit_double(cursor, number.double_value);
         }
-        return false;
+        return abandon(cursor);
     }
 
+    /// The plain-context overload, and the entry the number suites drive.
+    bool parse_number() { return parse_number(PlainCursor{true}).live; }
+
     /**
-     * Parse a string, or an object key when @p is_key.
+     * Scan one string literal, leaving its text in @p out.
      *
-     * Escape-free strings are handed to the handler as a view straight into
-     * the input buffer — no copy. Anything containing an escape or a control
-     * byte falls back to building the decoded text in @ref scratch.
+     * Escape-free strings come back as a view straight into the input buffer —
+     * no copy. Anything containing an escape or a control byte is decoded into
+     * @ref scratch and viewed from there. The one definition of string
+     * scanning: keys, values and cursor-carried values all read it, so there
+     * is no second place where a string could be accepted differently.
      */
-    bool parse_string(bool is_key = false) {
+    bool scan_string(std::string_view& out) {
         if (get() != '"')
             return false;
 
@@ -377,9 +558,9 @@ template <typename Handler> struct ParserInline {
         const size_t plain = util::find_next_escape(data + i, remaining);
 
         if (plain < remaining && data[i + plain] == '"') {
-            const std::string_view view(data + i, plain);
+            out = std::string_view(data + i, plain);
             i += plain + 1;
-            return is_key ? handler.on_key(view) : handler.on_string(view);
+            return true;
         }
 
         // Keep the clean prefix, then decode from the first interesting byte.
@@ -388,8 +569,10 @@ template <typename Handler> struct ParserInline {
 
         while (!eof()) {
             const char c = get();
-            if (c == '"')
-                return is_key ? handler.on_key(scratch) : handler.on_string(scratch);
+            if (c == '"') {
+                out = scratch;
+                return true;
+            }
             if (c != '\\') {
                 if (static_cast<unsigned char>(c) < 0x20)
                     return false; // unescaped control character
@@ -453,6 +636,12 @@ template <typename Handler> struct ParserInline {
         return false; // unterminated string
     }
 
+    /// An object key: scanned exactly as a value is, then handed to on_key.
+    bool parse_key() {
+        std::string_view text;
+        return scan_string(text) && handler.on_key(text);
+    }
+
     bool parse_array() {
         // Only reached through parse_value, which dispatched on this byte:
         // the opening bracket is consumed without re-scanning for it.
@@ -468,18 +657,34 @@ template <typename Handler> struct ParserInline {
             return handler.on_end_array();
         }
 
+        // The element loop runs on a cursor: for a handler that stages array
+        // elements, `next` and `limit` live in registers for the whole loop
+        // instead of round-tripping through the handler on every element
+        // (docs/architecture/value-cursor.md). PlainCursor erases all of it.
+        ArrayCursor cursor = open_values();
+        bool ok = true;
         for (;;) {
-            if (!parse_value())
-                return false;
+            cursor = parse_value(cursor);
+            if (!live(cursor))
+                return false; // parse_value closed it on the way out
             skip_ws();
-            if (eof())
-                return false;
+            if (eof()) {
+                ok = false;
+                break;
+            }
             const char delimiter = get();
             if (delimiter == ']')
-                return handler.on_end_array();
-            if (delimiter != ',')
-                return false;
+                break;
+            if (delimiter != ',') {
+                ok = false;
+                break;
+            }
         }
+        // The single commit point of a successful element loop: after it the
+        // handler's own view of its staging buffer is authoritative again,
+        // which is what on_end_array reads.
+        close_values(cursor);
+        return ok && handler.on_end_array();
     }
 
     /// One memcmp against the handler's predicted raw key bytes; see
@@ -513,7 +718,7 @@ template <typename Handler> struct ParserInline {
             skip_ws();
             if (peek() != '"')
                 return false;
-            if (!try_predicted_key() && !parse_string(true))
+            if (!try_predicted_key() && !parse_key())
                 return false;
             if (!consume(':'))
                 return false;
