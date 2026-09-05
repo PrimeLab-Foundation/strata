@@ -273,11 +273,7 @@ template <typename Handler> struct ParserInline {
             uint64_t chunk;
             std::memcpy(&chunk, data + digits, 8);
             const unsigned count = util::detail::leading_digit_count(chunk);
-            // The run's own first byte and the byte behind it are read out of
-            // the words already loaded (util::detail::word_byte), never a
-            // second time from memory: an address that is not known any
-            // earlier than the shift amount buys nothing by being an address.
-            if (count == 8 && util::detail::word_byte(chunk, 0) != '0' && digits + 16 <= len) {
+            if (count == 8 && data[digits] != '0' && digits + 16 <= len) {
                 // Eight to fifteen digits -- ids and timestamps past the first
                 // word -- from a second word: the leading count of its digits
                 // extends the first word's value by a power of ten, and the
@@ -293,7 +289,7 @@ template <typename Handler> struct ParserInline {
                 const unsigned tail_count = util::detail::leading_digit_count(tail_chunk);
                 if (tail_count < 8) {
                     const size_t after = digits + 8 + tail_count;
-                    const char next = util::detail::word_byte(tail_chunk, tail_count);
+                    const char next = data[after];
                     if (next != '.' && next != 'e' && next != 'E') {
                         uint64_t value = util::detail::leading_digit_value(chunk, 8);
                         if (tail_count != 0) {
@@ -306,10 +302,9 @@ template <typename Handler> struct ParserInline {
                     }
                 }
             }
-            if (count != 0 && count < 8 &&
-                (util::detail::word_byte(chunk, 0) != '0' || count == 1)) {
+            if (count != 0 && count < 8 && (data[digits] != '0' || count == 1)) {
                 const size_t after = digits + count;
-                const char next = util::detail::word_byte(chunk, count);
+                const char next = data[after];
                 if (next != '.' && next != 'e' && next != 'E') {
                     const auto value =
                         static_cast<int64_t>(util::detail::leading_digit_value(chunk, count));
@@ -322,7 +317,7 @@ template <typename Handler> struct ParserInline {
                     const unsigned fraction_count =
                         util::detail::leading_digit_count(fraction_chunk);
                     if (fraction_count != 0 && fraction_count < 8) {
-                        const char tail = util::detail::word_byte(fraction_chunk, fraction_count);
+                        const char tail = data[after + 1 + fraction_count];
                         if (tail != 'e' && tail != 'E') {
                             const uint64_t mantissa =
                                 util::detail::leading_digit_value(chunk, count) *

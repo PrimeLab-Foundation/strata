@@ -285,20 +285,6 @@ static_assert(std::endian::native == std::endian::little,
     return eight_digit_value_word(digit_values(chunk) << ((8 - count) * 8)); // shift 0..56
 }
 
-/// The byte at @p index (0..7) of a word already loaded from the input,
-/// instead of a second load of that same byte.
-///
-/// Every byte a number head reads behind a digit run — the terminator that
-/// proves the run ends, the first byte that enforces the lone-zero rule —
-/// lies inside the word the run's count came from, because a count that
-/// leaves room for a terminator is below eight. Reading it out of the word
-/// keeps the check on the arithmetic pipes: the address it would load from
-/// is not known any earlier than the shift amount is.
-[[nodiscard]] inline char word_byte(uint64_t chunk, unsigned index) noexcept {
-    assert(index < 8);
-    return static_cast<char>((chunk >> (index * 8)) & 0xFFULL);
-}
-
 /// How many of the first @p count digit bytes of @p chunk are '0'.
 [[nodiscard]] inline unsigned leading_zero_digits(uint64_t chunk, unsigned count) noexcept {
     assert(count >= 1 && count <= 8);
