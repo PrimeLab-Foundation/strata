@@ -250,7 +250,8 @@ jobs:
           # lines with at least one percent of the function's samples, so the
           # multiply chains and the divide show up as the instructions they are.
           $PERF report --stdio --no-children -g none -F overhead,symbol -i loads_strata.perf.data 2>/dev/null \
-            | grep -E "parse_value|parse_number" | head -2 | sed -E 's/^\s*[0-9.]+%\s+//' > strata_symbols.txt || true
+            | grep -E "parse_value|parse_number" | head -2 | sed -E 's/^\s*[0-9.]+%\s+//; s/^\[\.\]\s+//' > strata_symbols.txt || true
+          echo "annotating:"; cat strata_symbols.txt
           while IFS= read -r sym; do
             [ -n "$sym" ] || continue
             echo "=== annotate: $sym ==="
