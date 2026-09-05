@@ -158,8 +158,14 @@ first with the Linux arm64 leg: **128/135** — linux-x86_64 27/27,
 macos-x86_64 27/27, macos-arm64 26/27 (`dumps flat` 1.42x on a spiky
 draw), windows-x86_64 24/27 (`dumps mixed` 1.09x, the family row, with
 two noise-band rows), linux-arm64 24/27 (`loads`/`load wide_arrays` 1.10x,
-tight — a real arm64-Linux deficit on the number-heavy dataset, the next
-thing to decompose on that runner).
+tight — a real arm64-Linux deficit on the number-heavy dataset). A second
+sample of the same build read 128/135 again with the band's rows moved and
+three rows persistent: the Linux arm64 wide_arrays pair (1.04–1.10x), its
+`dumps mixed` (1.07–1.11x), and Windows `dumps mixed` (1.03–1.09x). The
+arm64 runner is a Neoverse-N2; its profile job reads every number class
+1.3–1.6x behind per element with 7% more instructions and far fewer
+branches and misses than orjson — a dependency-chain problem, not a branch
+one (docs/decisions.md, 2026-09-05).
 
 **Status 2026-09-04, wave 22.** The `loads mixed` coin band had a cause:
 the key predictor retired mixed.json's record depth for the life of the

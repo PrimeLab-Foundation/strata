@@ -209,6 +209,11 @@ jobs:
       - name: Decompose loads mixed on this leg
         run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_loads_mixed.py
 
+      - name: Cold-state probe and dumps decomposition on this leg
+        run: |
+          PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
+          PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
+
       - name: Counter comparison on loads wide_arrays (perf stat, strata vs orjson)
         run: |
           PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
