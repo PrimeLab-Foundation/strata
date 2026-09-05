@@ -15,6 +15,8 @@ on:
 
 jobs:
   profile-linux:
+    # Branch-local: this dispatch exists for the macos-arm64 job below.
+    if: ${{ false }}
     name: perf (linux-x86_64)
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -163,6 +165,8 @@ jobs:
   # them ahead. Counters, the per-element floor and the decomposition, on
   # the PGO+LTO build the benchmark leg measures.
   profile-linux-arm64:
+    # Branch-local: this dispatch exists for the macos-arm64 job below.
+    if: ${{ false }}
     name: perf (linux-arm64)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
@@ -270,6 +274,8 @@ jobs:
           if-no-files-found: ignore
 
   decompose-windows:
+    # Branch-local: this dispatch exists for the macos-arm64 job below.
+    if: ${{ false }}
     name: decompose (windows-x86_64)
     runs-on: windows-latest
     timeout-minutes: 60
@@ -382,3 +388,62 @@ jobs:
       - name: Allocation round trips on the clang-cl build
         shell: bash
         run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
+
+  # The `dump flat` row lives on macos-arm64 and nowhere else: three of four
+  # five-platform samples ranked strata first there, the third read strata
+  # median 0.511 ms against orjson's 0.474 while strata's *minimum* led
+  # (0.408 against 0.423) and its p95 trailed badly (1.253 against 0.695).
+  # A minimum that leads and a median that trails is a tail, and a tail on a
+  # shared runner is not the same finding as a slower code path -- so the
+  # phases have to be separated on this hardware. The job builds the same
+  # PGO+LTO extension the benchmark leg measures, then runs the probe twice
+  # in the one process-free sequence so the run's own spread is visible
+  # inside a single log.
+  dump-flat-macos:
+    name: dump flat phases (macos-arm64)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      ARCHFLAGS: "-arch arm64"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install strata with the dev and bench extras (test-gated build)
+        env:
+          CC: cc
+          CXX: c++
+        run: make install-bench
+
+      - name: PGO+LTO build (the build the benchmark leg measures)
+        env:
+          PYTHON: python
+          CC: cc
+          CXX: c++
+        run: make pgo
+
+      - name: Generate the small-tier datasets
+        run: |
+          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      # The row is a file row, so the filesystem the temporary directory
+      # lands on is part of the measurement, not background.
+      - name: Machine and filesystem facts
+        run: |
+          sw_vers
+          sysctl -n machdep.cpu.brand_string hw.ncpu hw.memsize hw.pagesize
+          uptime
+          .venv/bin/python -c "import tempfile; print('tempdir:', tempfile.gettempdir())"
+          df -h "$(.venv/bin/python -c 'import tempfile; print(tempfile.gettempdir())')"
+          mount | head -5
+
+      - name: dump flat phases (first pass)
+        run: PYTHONPATH=. .venv/bin/python benchmarks/dump_flat_phases.py
+
+      - name: dump flat phases (second pass)
+        run: PYTHONPATH=. .venv/bin/python benchmarks/dump_flat_phases.py
