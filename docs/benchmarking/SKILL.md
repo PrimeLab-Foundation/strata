@@ -151,6 +151,15 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**Status 2026-09-05, evening (wave 23 on five platforms).** The third
+sample (run 33955093951 on b7f31bb, the parse without the UTF-8 sweep)
+reads **131/135**: linux-x86_64, macos-x86_64 and windows-x86_64 27/27
+(Windows for the first time, its `dumps mixed` row #1 on this draw),
+macos-arm64 26/27 on a file-write row the two samples before read ahead,
+linux-arm64 24/27 — `loads`/`load wide_arrays` 1.08x/1.07x, the one
+deficit on every sample, and `dumps mixed` narrowed to 1.03x. The
+Neoverse-N2's number code is what remains.
+
 **Status 2026-09-05 (public repository, five platforms).** The user made
 the repository public on 2026-09-05 rather than pay hosted minutes; the
 first sample since 2026-09-03 (run 33946353222 on 53fa480) is also the
