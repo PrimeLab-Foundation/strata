@@ -463,6 +463,10 @@ PyMODINIT_FUNC PyInit__strata(void) {
     // observe them, so a fresh process reports exactly what it will do.
     strata::set_duplicate_key_policy(strata::DuplicateKeyPolicy::FirstWins);
     strata::bindings::set_cycle_policy("warn");
+    // Resolve the serializer's one-time runtime probe here rather than on the
+    // first dumps(): it allocates, and allocating inside the walk can run a
+    // finalizer at a point the walk's contract says runs no user code.
+    strata::bindings::prepare_dumps_runtime();
 
     PyObject* module = PyModule_Create(&kModuleDef);
     if (module == nullptr)

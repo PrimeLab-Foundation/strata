@@ -25,10 +25,21 @@
  * weakref callback firing out of a `Py_DECREF` in `Frame`, `DeferredOpen` or
  * `RowLock`. Everything else the walk executes runs none: it calls nothing
  * the user wrote and allocates nothing the collector tracks (the output
- * buffer is `bytes`/`std::string`, the schema blob is `std::string`, and
+ * buffer is `bytes`/`std::string`, the schema blob is `std::string`, the
+ * staged rows and the schema cache are leased before the walk starts, and
  * `PyObject_Str` on an *exact* int reaches `long_to_decimal_string`), so no
  * collection and therefore no finalizer can be triggered either. That is the
  * same fact frame elision already rests on.
+ *
+ * The enumeration is only true because nothing here resolves lazily. The
+ * raw-dict layout proof used to: it is a function-local static whose
+ * initialiser allocates two dicts, and its first use is *in the middle of the
+ * walk* of a process's first dumps() of a document containing a dict, where a
+ * collection triggered by that allocation ran finalizers under borrowed rows
+ * and elided containers (a deterministic segfault; see
+ * build/evidence/FIX1-REVIEW). `prepare_dumps_runtime()` resolves it at
+ * module init instead. A lazily-resolved static, or any GC-tracked
+ * allocation, added below is a fourth step and breaks this contract.
  *
  * Because that user code can mutate the very container being written, the
  * walk obeys two rules, and a change here has to keep both:
@@ -60,7 +71,10 @@
  *    non-scalar value on, so a record emits the row the serializer read --
  *    which is what makes the general and the fused writer agree byte for byte
  *    even here. Dicts too wide for that row take `PyDict_Next`, which
- *    re-validates against the dict on every call.
+ *    re-validates against the dict on every call. The row itself is *leased*,
+ *    one per nesting level, not a local array: see
+ *    SchemaCacheLease::StagedRow for why no function on this walk may carry
+ *    one in its frame.
  *
  * The schema cache is part of the same contract: it *owns* the keys it
  * remembers, so it only ever remembers exact `str` objects, whose release
@@ -121,8 +135,9 @@ class Serializer {
     using Schema = SchemaCacheLease::Schema;
 
   public:
-    Serializer(StagedOutput& out, std::vector<SchemaCacheLease::DepthSchemas>& schemas)
-        : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(schemas) {}
+    Serializer(StagedOutput& out, SchemaCacheLease::State& state)
+        : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(state.schemas),
+          staged_rows_(state.rows), lock_nodes_(state.locks) {}
 
     [[nodiscard]] bool write(PyObject* object) {
         // Exact types first: one pointer compare instead of a flag load per
@@ -600,8 +615,11 @@ class Serializer {
 
     /// Objects with more keys than this serialize their keys the plain way.
     static constexpr Py_ssize_t kMaxSchemaKeys = 24;
+    static_assert(kMaxSchemaKeys <= 255, "RowLock packs its row bounds into bytes");
     /// Nesting levels that get a schema slot; deeper objects take the plain walk.
-    static constexpr size_t kMaxCachedDepth = 64;
+    static constexpr size_t kMaxCachedDepth = SchemaCacheLease::kMaxDepth;
+    static_assert(static_cast<size_t>(kMaxSchemaKeys) == SchemaCacheLease::kSchemaSlots,
+                  "the staged rows and the schema slot rows are the same width");
 
     /// Exact scalar types cannot recurse, so a dict of them cannot contain
     /// itself and needs no cycle frame.
@@ -625,11 +643,14 @@ class Serializer {
      * single definition of behavior; a miss here also lets it remember the
      * shape, which is what makes the next sibling hit.
      *
-     * Out of line, like write_mapping_body and for the same reason plus one:
-     * its `row` is a 192-byte stack array, and inlined into write_sequence it
-     * put that array — and, on this host's default `-fstack-protector`, a
-     * canary — into the frame of the loop every array in every document runs,
-     * all-scalar arrays included.
+     * Out of line, like write_mapping_body and for the same reason: a
+     * document with no array-of-records — `flat`, `wide_arrays` — must not
+     * fetch this body at all, and write_sequence must stay the small loop
+     * every array in every document runs (inlined here it costs write_sequence
+     * +545 instructions and +80 frame bytes under the profile). What it no
+     * longer carries either way is a staging array: the row is the leased row
+     * of this nesting level (SchemaCacheLease::StagedRow), so neither this
+     * function nor any function it is folded into declares one.
      */
     [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
 #if defined(STRATA_RAW_DICT_WALK)
@@ -666,13 +687,14 @@ class Serializer {
         if (!schema.prepared || schema.wide)
             return write_mapping(object);
         // The verification pass keeps the value pointers it already loads to
-        // check each slot is occupied. The emit loop then reads this stack row
-        // instead of re-striding the entry array -- and, load-bearing, never
-        // touches `entries` again: user code below a value can resize the dict
-        // and free that table. Still one walk of the entry array and no second
-        // walk of the dict; the row is a copy of pointers this pass has in
-        // hand (docs/architecture/fused_record_writer.md).
-        PyObject* row[kMaxSchemaKeys];
+        // check each slot is occupied. The emit loop then reads this level's
+        // staged row instead of re-striding the entry array -- and,
+        // load-bearing, never touches `entries` again: user code below a value
+        // can resize the dict and free that table. Still one walk of the entry
+        // array and no second walk of the dict; the row is a copy of pointers
+        // this pass has in hand, in storage the call leases rather than in
+        // this frame (docs/architecture/fused_record_writer.md).
+        PyObject** const row = staged_row(depth).values;
         for (Py_ssize_t index = 0; index < size; ++index) {
             PyObject* const value = entries[index].me_value;
             if (value == nullptr ||
@@ -707,7 +729,7 @@ class Serializer {
                 // frame as the sequence loop, same row registration as
                 // write_mapping_body -- so both emit the same record here.
                 open_container.arm(object);
-                values_lock.own(*this, row, index + 1, size);
+                values_lock.own(*this, lock_node(depth, 0), row, index + 1, size);
             }
             if (!write(value))
                 return false;
@@ -733,9 +755,12 @@ class Serializer {
 
         // One walk collects everything the decisions below need: the keys and
         // values, whether every value is a plain scalar, and whether the
-        // object is too wide for the schema cache.
-        PyObject* keys[kMaxSchemaKeys];
-        PyObject* values[kMaxSchemaKeys];
+        // object is too wide for the schema cache. The row it stages is this
+        // level's leased one, not a local array -- see
+        // SchemaCacheLease::StagedRow for why that difference is hot.
+        SchemaCacheLease::StagedRow& staged = staged_row(map_depth_);
+        PyObject** const keys = staged.keys;
+        PyObject** const values = staged.values;
         Py_ssize_t count = 0;
         bool too_many = false;
         bool all_scalar = true;
@@ -888,7 +913,7 @@ class Serializer {
         // from, and everything after it is still to be emitted. Everything
         // before it is already written, so what reaches the output is the row
         // the serializer read -- which is the row the fused writer emits too.
-        RowLock values_lock(*this, values, own_from, count);
+        RowLock values_lock(*this, lock_node(depth, 0), values, own_from, count);
         if (schemas_.size() <= depth)
             schemas_.resize(depth + 1);
 
@@ -953,7 +978,7 @@ class Serializer {
         } else {
             // The only branch that reads a staged *key* after the first value
             // has been written, so the only one that has to register them too.
-            RowLock keys_lock(*this, keys, own_from, count);
+            RowLock keys_lock(*this, lock_node(depth, 1), keys, own_from, count);
             for (Py_ssize_t index = 0; index < count; ++index) {
                 if (index != 0) {
                     out_.ensure(1);
@@ -1147,58 +1172,54 @@ class Serializer {
     class RowLock {
       public:
         RowLock() noexcept = default;
-        RowLock(Serializer& owner, PyObject* const* row, Py_ssize_t first,
-                Py_ssize_t last) noexcept {
-            own(owner, row, first, last);
+        RowLock(Serializer& owner, SchemaCacheLease::RowNode& node, PyObject* const* row,
+                Py_ssize_t first, Py_ssize_t last) noexcept {
+            own(owner, node, row, first, last);
         }
 
         ~RowLock() {
             if (owner_ == nullptr)
                 return;
-            // Always the head: rows are stack objects and their scopes nest,
-            // so the innermost is the first destroyed. A row registered
-            // outside this discipline would unlink the wrong node.
-            owner_->rows_ = next_;
-            if (!latched_)
+            // Always the head: registrations nest with the frames that make
+            // them, so the innermost is the first destroyed. A row registered
+            // outside that discipline would unlink the wrong node.
+            owner_->rows_ = node_->next;
+            if (!node_->latched)
                 return;
-            for (Py_ssize_t index = first_; index < last_; ++index)
-                Py_DECREF(row_[index]);
+            for (unsigned index = node_->first; index < node_->last; ++index)
+                Py_DECREF(node_->row[index]);
         }
 
         RowLock(const RowLock&) = delete;
         RowLock& operator=(const RowLock&) = delete;
 
-        /// Register `row[first … last)`. An empty range registers nothing:
-        /// there is no borrowed pointer left for user code to invalidate.
-        /// Called at most once per object -- both call sites are guarded by
-        /// the same condition that arms the container's deferred push.
-        void own(Serializer& owner, PyObject* const* row, Py_ssize_t first,
-                 Py_ssize_t last) noexcept {
+        /// Register `row[first .. last)` on @p node. An empty range
+        /// registers nothing: there is no borrowed pointer left for user code
+        /// to invalidate. Called at most once per object -- both call sites
+        /// are guarded by the same condition that arms the container's
+        /// deferred push -- and the node is this level's, so no two live
+        /// registrations can share one.
+        void own(Serializer& owner, SchemaCacheLease::RowNode& node, PyObject* const* row,
+                 Py_ssize_t first, Py_ssize_t last) noexcept {
             if (first >= last)
                 return;
-            row_ = row;
-            first_ = first;
-            last_ = last;
-            next_ = owner.rows_;
+            node.row = row;
+            // Both are indices into a row of at most kMaxSchemaKeys entries,
+            // so a byte holds either.
+            node.first = static_cast<uint8_t>(first);
+            node.last = static_cast<uint8_t>(last);
+            // The node is reused by the next record at this level: a stale
+            // flag would release references this row never took.
+            node.latched = false;
+            node.next = owner.rows_;
             owner_ = &owner;
-            owner.rows_ = this;
+            node_ = &node;
+            owner.rows_ = &node;
         }
 
       private:
-        friend class Serializer;
-
-        void latch_row() noexcept {
-            for (Py_ssize_t index = first_; index < last_; ++index)
-                Py_INCREF(row_[index]);
-            latched_ = true;
-        }
-
         Serializer* owner_ = nullptr;
-        RowLock* next_ = nullptr;
-        PyObject* const* row_ = nullptr;
-        Py_ssize_t first_ = 0;
-        Py_ssize_t last_ = 0;
-        bool latched_ = false;
+        SchemaCacheLease::RowNode* node_ = nullptr;
     };
 
     /**
@@ -1217,8 +1238,12 @@ class Serializer {
             Py_INCREF(open_[owned_]);
             ++owned_;
         }
-        for (RowLock* row = rows_; row != nullptr && !row->latched_; row = row->next_)
-            row->latch_row();
+        for (SchemaCacheLease::RowNode* row = rows_; row != nullptr && !row->latched;
+             row = row->next) {
+            for (unsigned index = row->first; index < row->last; ++index)
+                Py_INCREF(row->row[index]);
+            row->latched = true;
+        }
     }
 
     /// Pop a container off `open_`, releasing it if the walk had latched it.
@@ -1230,20 +1255,54 @@ class Serializer {
         }
     }
 
+    /// The staged row of dict nesting level @p depth. Levels past the schema
+    /// cache share the one scratch row at `kMaxCachedDepth`, which nothing
+    /// ever reads back -- see SchemaCacheLease::State.
+    [[nodiscard]] SchemaCacheLease::StagedRow& staged_row(size_t depth) const noexcept {
+        return staged_rows_[depth < kMaxCachedDepth ? depth : kMaxCachedDepth];
+    }
+
+    /// The registration node of one of a level's two staged rows. Only levels
+    /// inside the schema cache register: both call sites have already sent a
+    /// deeper level to write_mapping_uncached, which stages nothing.
+    [[nodiscard]] SchemaCacheLease::RowNode& lock_node(size_t depth, size_t which) const noexcept {
+        return lock_nodes_[2 * depth + which];
+    }
+
     StagedOutput& out_;
     std::vector<PyObject*> open_;
     /// `open_[0 … owned_)` hold a strong reference; the rest are borrowed.
     size_t owned_ = 0;
     /// Innermost registered staged row; see RowLock.
-    RowLock* rows_ = nullptr;
+    SchemaCacheLease::RowNode* rows_ = nullptr;
     size_t map_depth_ = 0; ///< dict nesting, independent of frame elision
     int depth_limit_;
 
     // One prepared schema per nesting depth; leased, so it survives the call.
     std::vector<SchemaCacheLease::DepthSchemas>& schemas_;
+    /// One staged key/value row per nesting depth, leased from the same
+    /// state. Leased rather than declared here or in the dict writers'
+    /// frames: a stack row is a stack row in every function the profile
+    /// inlines them into (SchemaCacheLease::StagedRow).
+    SchemaCacheLease::StagedRow* staged_rows_;
+    /// One registration node per staged row, leased for the same reason.
+    SchemaCacheLease::RowNode* lock_nodes_;
 };
 
 } // namespace
+
+void prepare_dumps_runtime() noexcept {
+#if defined(STRATA_RAW_DICT_WALK)
+    // The layout proof builds two dicts, and a dict is GC-tracked: allocating
+    // it can run a collection, and a collection runs __del__ and weakref
+    // callbacks -- user code. Inside a walk that would be a fourth user-code
+    // step, at a point that takes no latch and beneath rows and elided
+    // containers nothing protects. Resolving it here, once, before any walk,
+    // is what makes this file's three-step enumeration true as written.
+    if (!rawdict::available())
+        PyErr_Clear(); // a refused layout is not an import failure
+#endif
+}
 
 CyclePolicyValue get_cycle_policy() noexcept { return g_cycle_policy; }
 
@@ -1261,7 +1320,9 @@ bool set_cycle_policy(std::string_view name) noexcept {
 }
 
 PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
-    SchemaCacheLease schemas;
+    SchemaCacheLease lease;
+    if (!lease.ok())
+        return PyErr_NoMemory();
 
     if (as_bytes) {
         // Sized to the previous document on this thread, exactly: growth
@@ -1282,7 +1343,7 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         StagedOutput staged;
         if (!staged.init_bytes(size_hint))
             return PyErr_NoMemory();
-        Serializer serializer(staged, schemas.slots());
+        Serializer serializer(staged, lease.state());
         if (!serializer.write(object))
             return nullptr;
         PyObject* result = staged.take_bytes();
@@ -1317,7 +1378,7 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         out.reserve(kDumpsInitialCapacity);
 
     StagedOutput staged(out);
-    Serializer serializer(staged, schemas.slots());
+    Serializer serializer(staged, lease.state());
     if (!serializer.write(object))
         return nullptr;
     staged.flush_str();
