@@ -17,7 +17,13 @@ initialiser builds two dicts, and its first use is in the middle of the walk.
 Every test here therefore runs in a **fresh interpreter**: in this one the
 first `dumps` call is the first `dumps` call. A warm process cannot see the
 difference, which is why nothing caught it — every test process runs many
-`dumps` calls before it reaches an adversarial one.
+`dumps` calls before it reaches an adversarial one. The same shape of failure
+has one more source, and the last test here pins it: on CPython 3.12+ the
+decimal conversion of a large enough **exact** `int` is delegated to the
+`_pylong` Python module, so a plain `int` runs bytecode, imports modules and
+can have a collection run a `__del__` under the walk
+(build/evidence/FIX1-V3-REVIEW, finding G-A). Its child dies the same way on
+an unfixed build, so it too needs a fresh interpreter.
 """
 
 import json
@@ -29,12 +35,6 @@ import pytest
 
 MODES = ("str", "bytes")
 
-# The load-bearing one. On the unfixed serializer this script is a
-# deterministic SIGSEGV: the layout probe's two dicts schedule a collection
-# from inside the walk, the collection's finalizers empty the containers the
-# walk borrowed, and the next element read is freed memory. Cheap to state,
-# and it kills the interpreter rather than returning a wrong answer, so it
-# cannot pass by accident.
 # The load-bearing one, verbatim from build/evidence/FIX1-REVIEW/repro/
 # probe_gc_segv.py (the review that found F-A). Three documents that fail, two
 # output modes, one interpreter: the walk of the first of them is the first
@@ -164,6 +164,91 @@ sys.stdout.write(json.dumps({
 """
 
 
+# The third reproducer, from build/evidence/FIX1-V3-REVIEW/repro/
+# probe_pylong_segv.py (the review that found G-A). Every value of this record
+# is a plain scalar and every key an exact `str`, so on the unfixed serializer
+# the whole dict takes the elided all-scalar path: no cycle frame, no entry on
+# the open list, no registered row. One of those values is an exact `int` of
+# ~60 000 digits, and on CPython 3.12+ `long_to_decimal_string` hands a
+# conversion that size to the `_pylong` *Python* module — which imports four
+# modules and runs bytecode, so the collection those allocations schedule runs
+# a `__del__` that empties the dict while the emit loop is still reading the
+# row staged from it. Unfixed: a deterministic SIGSEGV (heap-use-after-free
+# under ASan). Fixed: `is_plain_scalar` refuses to call the big int plain, so
+# the container is armed and the row registered before it is written.
+_PYLONG_SCRIPT = """
+import gc, json, sys
+import strata
+
+fired = []
+
+
+class Fin:
+    def __init__(self, target):
+        self.target = target
+
+    def __del__(self):
+        fired.append(1)
+        for node in self.target:
+            try:
+                node.clear()
+            except Exception:
+                pass
+
+
+def build(shape):
+    sys.set_int_max_str_digits(0)
+    big = 1 << 200000  # ~60 206 decimal digits: past the _pylong threshold
+    leaf = {"k%02d" % i: ("v" * (40 + i) + str(i)) for i in range(24)}
+    leaf["k00"] = big
+    victims = [leaf]
+    if shape == "record":
+        root = [leaf]           # a dict inside a list -> write_record_fused
+    else:
+        root = {"outer": leaf}  # -> write_mapping / write_mapping_body
+    return root, victims
+
+
+report = []
+for shape in ("record", "mapping"):
+    for mode in ("str", "bytes"):
+        root, victims = build(shape)
+        gc.disable()
+        expected = json.dumps(root, separators=(",", ":"))
+        garbage = []
+        for _ in range(500):
+            f = Fin(victims)
+            f.self_ref = f
+            garbage.append(f)
+        garbage.clear()
+        del garbage
+        before = len(fired)
+        gc.set_threshold(1, 1, 1)
+        gc.enable()
+        try:
+            out = strata.dumps(root, return_type=mode)
+            err = "none"
+        except Exception as exc:
+            err = type(exc).__name__
+            out = ""
+        gc.set_threshold(700, 10, 10)
+        if isinstance(out, bytes):
+            out = out.decode()
+        report.append({
+            "shape": shape,
+            "mode": mode,
+            "err": err,
+            "matches": out == expected,
+            "length": len(out),
+            "expected_length": len(expected),
+            "fired_during": len(fired) - before,
+            "pylong": "_pylong" in sys.modules,
+        })
+        gc.collect()
+sys.stdout.write(json.dumps(report))
+"""
+
+
 def _run_text(script, *args):
     """Run `script` in a fresh interpreter that imports the same strata.
 
@@ -222,6 +307,35 @@ def test_a_cold_process_reads_no_freed_memory_with_finalizers_pending():
     for (kind, mode, error), line in zip(EXPECTED_ERRORS, lines, strict=False):
         assert line.split()[:2] == [kind, mode], line
         assert f"err={error}" in line, line
+
+
+def test_a_big_int_runs_python_and_the_row_survives_it():
+    """A large exact `int` is a user-code step, and the record must come out whole.
+
+    `docs/context/api.md` and `python_dumps.cpp`'s header name four steps at
+    which `dumps` can run user code; the third is this one — CPython 3.12+
+    converts a large enough exact `int` through the `_pylong` Python module.
+    The contract that has to hold across it is the same one the other steps
+    have: a dict of at most 24 exact-`str` keys is emitted as the row read on
+    entry, whatever that code does to the dict afterwards, and no freed memory
+    is read on the way (unfixed, this child is a SIGSEGV — see G-A in
+    build/evidence/FIX1-V3-REVIEW).
+
+    Both dict writers are covered: `record` is a dict inside a list, which
+    takes the fused writer, and `mapping` reaches `write_mapping_body`.
+    """
+    report = _run(_PYLONG_SCRIPT)
+    assert len(report) == 4, report
+    for case in report:
+        assert case["err"] == "none", case
+        assert case["matches"], case
+        assert case["length"] == case["expected_length"], case
+    if sys.version_info >= (3, 12):
+        # Proof the step was exercised rather than skipped: the module was
+        # imported, and its bytecode let a scheduled collection run finalizers
+        # in the middle of the walk.
+        assert all(case["pylong"] for case in report), report
+        assert all(case["fired_during"] > 0 for case in report), report
 
 
 @pytest.mark.parametrize("mode", MODES)

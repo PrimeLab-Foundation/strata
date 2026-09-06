@@ -17,19 +17,33 @@
  *
  * ## Re-entrancy: what the walk may borrow, and for how long
  *
- * The serializer runs user code at exactly three steps, all of them rare and
- * all of them named here: a cycle placeholder's `PyErr_WarnEx` under the
- * default `cycle_policy="warn"`; `write_int`'s `PyObject_Str` on a value that
- * is not an exact `int` (an `int` subclass's `__str__`); and the serializer's
- * own release of a reference it took at one of those two -- a `__del__` or a
- * weakref callback firing out of a `Py_DECREF` in `Frame`, `DeferredOpen` or
- * `RowLock`. Everything else the walk executes runs none: it calls nothing
- * the user wrote and allocates nothing the collector tracks (the output
- * buffer is `bytes`/`std::string`, the schema blob is `std::string`, the
- * staged rows and the schema cache are leased before the walk starts, and
- * `PyObject_Str` on an *exact* int reaches `long_to_decimal_string`), so no
+ * The serializer runs user code at exactly four steps, all of them rare and
+ * all of them named here:
+ *
+ *   1. a cycle placeholder's `PyErr_WarnEx` under the default
+ *      `cycle_policy="warn"` (a warnings filter, a `showwarning` hook);
+ *   2. `write_int`'s `PyObject_Str` on an `int` *subclass* beyond int64 --
+ *      its `__str__`;
+ *   3. `write_int`'s `PyObject_Str` on an **exact** `int` beyond int64 whose
+ *      decimal conversion CPython 3.12+ delegates to the `_pylong` *Python*
+ *      module (above roughly 10 000 digits, which
+ *      `sys.set_int_max_str_digits` must permit): that step imports modules
+ *      and runs bytecode, so a collection can run there too;
+ *   4. the serializer's own release of a reference it took at one of those --
+ *      a `__del__` or a weakref callback firing out of a `Py_DECREF` in
+ *      `Frame`, `DeferredOpen` or `RowLock`.
+ *
+ * Everything else the walk executes runs none: it calls nothing the user
+ * wrote and allocates nothing the collector tracks (the output buffer is
+ * `bytes`/`std::string`, the schema blob is `std::string`, and the staged
+ * rows and the schema cache are leased before the walk starts), so no
  * collection and therefore no finalizer can be triggered either. That is the
- * same fact frame elision already rests on.
+ * same fact frame elision already rests on -- which is why step 3 is not just
+ * a latch: `is_plain_scalar` refuses to call a large `int` a plain scalar, so
+ * a container holding one is framed and its row registered like a container
+ * holding an `int` subclass. Steps 2 and 3 additionally hold a strong
+ * reference to the value being converted, which the latch does not cover: the
+ * `_pylong` import runs before the value is handed over and can orphan it.
  *
  * The enumeration is only true because nothing here resolves lazily. The
  * raw-dict layout proof used to: it is a function-local static whose
@@ -39,7 +53,9 @@
  * and elided containers (a deterministic segfault; see
  * build/evidence/FIX1-REVIEW). `prepare_dumps_runtime()` resolves it at
  * module init instead. A lazily-resolved static, or any GC-tracked
- * allocation, added below is a fourth step and breaks this contract.
+ * allocation, or any conversion an interpreter version hands back to Python
+ * (step 3 is exactly that, and was missed once) added below is a fifth step
+ * and breaks this contract.
  *
  * Because that user code can mutate the very container being written, the
  * walk obeys two rules, and a change here has to keep both:
@@ -52,8 +68,9 @@
  *    here:
  *      1. a container is on `open_` *before* any user code can run beneath it
  *         -- `Frame` pushes on entry, and the deferred push of the sequence
- *         and record loops arms at the first element that is not an exact
- *         scalar, which is the first element that can run anything;
+ *         and record loops arms at the first element `is_plain_scalar`
+ *         refuses, which is the first element that can run anything (a large
+ *         `int` included: see step 3 above);
  *      2. the latch is prefix-closed -- `open_` is a stack whose latched
  *         entries are a prefix from the root, and the row list's latched
  *         nodes are a suffix from the root, so latching stops at the first
@@ -213,14 +230,30 @@ class Serializer {
             return true;
         }
 
-        // Beyond int64 the digits come from Python itself, so nothing is lost.
-        // For an `int` *subclass* that call is user code -- `__str__` can empty
-        // the containers this walk is inside, and so can the release of a `str`
-        // subclass it returns -- so the walk takes its references first. An
-        // exact int reaches `long_to_decimal_string` and returns an exact
-        // `str`: no user code either way, and no latch.
-        if (Py_TYPE(object) != &PyLong_Type)
-            latch();
+        // Beyond int64 the digits come from Python itself, so nothing is lost
+        // -- and this call is user code whatever the type is. For an `int`
+        // *subclass* it is `__str__`; for an **exact** int on CPython 3.12+ it
+        // is the `_pylong` module, which `long_to_decimal_string` imports and
+        // executes above roughly 10 000 digits. Either can empty the
+        // containers this walk is inside, and so can the release of a `str`
+        // subclass returned by the first, so the walk takes its references
+        // first -- unconditionally. The condition that used to stand here
+        // ("exact ints run nothing") was false on 3.12+ and cost a
+        // heap-use-after-free; is_plain_scalar keeps the other half of the
+        // bargain by refusing to call such an int plain, so the container is
+        // armed and the row registered before this is reached.
+        //
+        // The strong reference on the value itself covers the one window the
+        // latch cannot. `latch()` owns the containers and the staged rows, but
+        // not the entry being written -- and `long_to_decimal_string` imports
+        // `_pylong` *before* it hands the value over, so a collection during
+        // that import can run a `__del__` that empties the container and drops
+        // the last reference to the very int being converted. Measured: with
+        // the value held elsewhere the reproducer is 24/24 clean, orphaned it
+        // is 4/24 SIGSEGV without this line (build/evidence/E26-FIX1/v4).
+        // Both fast paths above return before here, so only big ints pay it.
+        latch();
+        const PyRef value_guard(Py_NewRef(object));
         PyRef text(PyObject_Str(object));
         if (!text)
             return false;
@@ -621,12 +654,42 @@ class Serializer {
     static_assert(static_cast<size_t>(kMaxSchemaKeys) == SchemaCacheLease::kSchemaSlots,
                   "the staged rows and the schema slot rows are the same width");
 
+    /**
+     * True while an exact `int` prints without running Python.
+     *
+     * CPython 3.12+ hands `long_to_decimal_string` a conversion above roughly
+     * 10 000 decimal digits to the **`_pylong` Python module** -- it imports
+     * four modules and runs bytecode, so such an int is a user-code step like
+     * any other (`sys.set_int_max_str_digits` is what lets the conversion be
+     * attempted at all). The test used here is the interpreter's own
+     * compactness bound -- one digit, |v| < 2^30 -- which is public API, far
+     * below the `_pylong` threshold, and one tag load. Earlier versions have
+     * no `_pylong`, but the same bound is applied there from the digit count,
+     * so the classifier's answer does not depend on the interpreter version.
+     */
+    [[nodiscard]] static bool is_compact_int(PyObject* value) noexcept {
+#if PY_VERSION_HEX >= 0x030C0000
+        return PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(value)) != 0;
+#else
+        const Py_ssize_t digits = Py_SIZE(value);
+        return digits >= -1 && digits <= 1;
+#endif
+    }
+
     /// Exact scalar types cannot recurse, so a dict of them cannot contain
-    /// itself and needs no cycle frame.
+    /// itself and needs no cycle frame -- and, just as load-bearing, none of
+    /// them can run user code, so the row staged for such a dict is emitted
+    /// without a frame or a registration at all. A large `int` is therefore
+    /// *not* plain: its decimal conversion runs Python (is_compact_int), and
+    /// a value that can run Python has to arm the container and register the
+    /// row before it is written.
     [[nodiscard]] static bool is_plain_scalar(PyObject* value) noexcept {
         PyTypeObject* type = Py_TYPE(value);
-        return type == &PyUnicode_Type || type == &PyFloat_Type || type == &PyLong_Type ||
-               type == &PyBool_Type || value == Py_None;
+        if (type == &PyUnicode_Type || type == &PyFloat_Type)
+            return true;
+        if (type == &PyLong_Type)
+            return is_compact_int(value);
+        return type == &PyBool_Type || value == Py_None;
     }
 
     /**
