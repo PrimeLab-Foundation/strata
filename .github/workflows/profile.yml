@@ -305,17 +305,32 @@ jobs:
             cat "perf_stat_dumps_hot_fetch_${lib}.txt" 2>/dev/null \
               || echo "(this runner exposes no instruction-fetch events)"
           done
+          # The harness's own condition, and nothing else: one gc.collect()
+          # before every call. `none` runs the collect and no dumps, so the
+          # collector's own counters -- identical across the three, same heap
+          # -- subtract out and what is left is the engine's cost under the
+          # condition that flips this row.
+          for lib in strata orjson none; do
+            PYTHONPATH=. $PERF stat -e "$CORE" -o "perf_stat_dumps_gc_${lib}.txt" -- \
+              .venv/bin/python benchmarks/dumps_loop.py "$lib" 2000 gc || true
+            echo "=== $lib, gc.collect() per call, core events ==="
+            cat "perf_stat_dumps_gc_${lib}.txt" || true
+          done
+          # The same with a 4 MB sweep on top: past this core's 64 KB L1 and
+          # 1 MB L2, well inside its 128 MB L3. A 64 MB sweep was tried first
+          # and made the differential meaningless -- it cost 8 ms against the
+          # call's 0.07 ms and varied 16% between identical runs.
           for lib in strata orjson none; do
             PYTHONPATH=. $PERF stat -e "$CORE" -o "perf_stat_dumps_cold_${lib}.txt" -- \
-              .venv/bin/python benchmarks/dumps_loop.py "$lib" 400 cold 64 || true
-            echo "=== $lib, cold (sweep included), core events ==="
+              .venv/bin/python benchmarks/dumps_loop.py "$lib" 2000 cold 4 || true
+            echo "=== $lib, cold (4 MB sweep included), core events ==="
             cat "perf_stat_dumps_cold_${lib}.txt" || true
-            PYTHONPATH=. $PERF stat -e "$FETCH" -o "perf_stat_dumps_cold_fetch_${lib}.txt" -- \
-              .venv/bin/python benchmarks/dumps_loop.py "$lib" 400 cold 64 || true
-            echo "=== $lib, cold, fetch events ==="
-            cat "perf_stat_dumps_cold_fetch_${lib}.txt" 2>/dev/null \
-              || echo "(this runner exposes no instruction-fetch events)"
           done
+          echo "=== fetch-side events, one probe run ==="
+          PYTHONPATH=. $PERF stat -e "$FETCH" -o perf_stat_dumps_fetch.txt -- \
+            .venv/bin/python benchmarks/dumps_loop.py strata 2000 hot || true
+          cat perf_stat_dumps_fetch.txt 2>/dev/null \
+            || echo "(this runner exposes no instruction-fetch events)"
 
       - name: Hot-spot record and annotation on dumps mixed (perf record)
         run: |
@@ -382,12 +397,49 @@ jobs:
           # Asked of the interpreter, not guessed from the tree: whichever
           # object `import strata` actually loads is the one that was measured.
           SO=$(PYTHONPATH=. .venv/bin/python -c "import strata._strata as m; print(m.__file__)")
-          ORJSON=$(.venv/bin/python -c "import orjson; print(orjson.__file__)")
+          # orjson.__file__ is its package __init__.py; the extension sits
+          # beside it, and the first run of this step measured the .py.
+          ORJSON=$(.venv/bin/python -c "import glob, orjson, os; d = os.path.dirname(orjson.__file__); print(next(iter(glob.glob(os.path.join(d, '*.so'))), orjson.__file__))")
           echo "== section sizes"
           size -A "$SO" | head -22 || true
           size -A "$ORJSON" | head -22 || true
           PYTHONPATH=. .venv/bin/python benchmarks/symbol_sizes.py "$SO" "$ORJSON" \
             | tee -a serializer_footprint.txt
+
+      # Code or data? This core's PMU answers neither: `perf list` offers only
+      # L1-dcache-loads and L1-dcache-load-misses, and L1-icache-load-misses
+      # and iTLB-load-misses both read "not supported". Cachegrind's simulated
+      # caches are the recorded fallback (the x86 leg has used them since
+      # 2026-09-03) and they attribute per symbol, which is what the question
+      # needs: strata's own instruction-cache misses against its own
+      # data-cache misses, per cold call, on this core.
+      #
+      # Rebuilt for the simulation at a baseline architecture: -march=native
+      # on a Neoverse-N2 emits SVE, which valgrind does not model. Gated like
+      # every build (SKIP_TESTS is banned in CI) -- both suites run on the
+      # rebuilt extension before the simulation sees it. Errors are printed,
+      # not filtered away.
+      - name: Cold-call cache simulation per engine (cachegrind)
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          sudo apt-get install -y valgrind
+          STRATA_MARCH=armv8.2-a .venv/bin/python setup.py build_ext --inplace
+          for engine in strata orjson msgspec; do
+            echo "=== $engine"
+            # Two call counts: the 60-call profile minus the 20-call one, over
+            # 40, is the per-call cost with import-time work removed. The hash
+            # seed is pinned so the two processes lay out their dicts alike.
+            for calls in 20 60; do
+              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=cachegrind --cache-sim=yes \
+                --cachegrind-out-file=cg.$engine.$calls.out \
+                .venv/bin/python benchmarks/cold_loop.py $engine $calls 16 2>&1 \
+                | grep -E "I\s+refs|I1\s+misses|LLi\s+misses|D\s+refs|D1\s+misses|LLd\s+misses|unhandled|SIGILL|terminating|Error|Traceback" || true
+            done
+            .venv/bin/python benchmarks/cg_attribute.py cg.$engine.20.out $engine || true
+            .venv/bin/python benchmarks/cg_attribute.py --delta cg.$engine.20.out cg.$engine.60.out 40 $engine || true
+          done
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -401,6 +453,7 @@ jobs:
             perf_report_dumps_*.txt
             dumps_symbols.txt
             serializer_footprint.txt
+            cg.*.out
           if-no-files-found: ignore
 
   decompose-windows:
