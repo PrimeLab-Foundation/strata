@@ -49,6 +49,7 @@ class RowStanding:
     libraries: int  # libraries measured in the row, strata included
     ratio: float  # strata median / best rival median; <= 1.0 at #1
     best_rival: str
+    tied: bool = False  # strata's median equals the best rival's at the report's precision
 
 
 def standings(report: Report) -> list[RowStanding]:
@@ -74,6 +75,11 @@ def standings(report: Report) -> list[RowStanding]:
                 libraries=1 + len(rivals),
                 ratio=strata_ms / rivals[best_rival],
                 best_rival=best_rival,
+                # The report prints medians to three decimals; two libraries
+                # at the same printed value are a tie the rank rule resolves
+                # as #1. Listed separately, so a rounded tie never reads as a
+                # demonstrated lead.
+                tied=strata_ms == rivals[best_rival],
             )
         )
     return ranked
@@ -156,9 +162,12 @@ def render_summary(platforms: dict[str, Report], run_info: dict | None) -> str:
         if rows_by_key[key] and all(row.rank == 1 for row in rows_by_key[key])
     ]
     behind_total = sum(row.rank > 1 for key in valid_keys for row in rows_by_key[key])
+    tied_total = sum(row.rank == 1 and row.tied for key in valid_keys for row in rows_by_key[key])
     verdict = f"Goal met on {len(met)}/{len(valid_keys)} platforms"
     if behind_total:
         verdict += f" -- {behind_total} row(s) to close"
+    if tied_total:
+        verdict += f"; {tied_total} #1 row(s) are ties at the report's precision"
     if invalid_keys:
         verdict += f"; {len(invalid_keys)} platform(s) INVALID"
     lines.append(f"**{verdict}.**")
@@ -179,16 +188,22 @@ def render_summary(platforms: dict[str, Report], run_info: dict | None) -> str:
                     lines.append(f"- {row.section} | {row.dataset} | {row.library}: {row.error}")
             continue
         behind = [row for row in rows_by_key[key] if row.rank > 1]
+        ties = [row for row in rows_by_key[key] if row.rank == 1 and row.tied]
         if not behind:
             lines.append("All rows #1.")
-            continue
-        lines.append("| section | dataset | rank | behind best | best rival |")
-        lines.append("|" + "|".join(["---"] * 5) + "|")
-        for row in behind:
-            lines.append(
-                f"| {row.section} | {row.dataset} | {row.rank}/{row.libraries} "
-                f"| {row.ratio:.2f}x | {row.best_rival} |"
-            )
+        else:
+            lines.append("| section | dataset | rank | behind best | best rival |")
+            lines.append("|" + "|".join(["---"] * 5) + "|")
+            for row in behind:
+                lines.append(
+                    f"| {row.section} | {row.dataset} | {row.rank}/{row.libraries} "
+                    f"| {row.ratio:.2f}x | {row.best_rival} |"
+                )
+        if ties:
+            lines.append("")
+            lines.append("Ties at the report's precision, counted as #1 by the rank rule:")
+            for row in ties:
+                lines.append(f"- {row.section} | {row.dataset} | with {row.best_rival}")
     lines.append("")
 
     return "\n".join(lines)

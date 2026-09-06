@@ -72,7 +72,9 @@ Parser departures from the blueprint:
 - **No speculative-key hook and no inline array fast path** yet: both are
   performance work with benchmarks attached (M5), and the parser is correct
   first.
-- Recursion is still the only depth limit, as the invariant below requires.
+- Recursion is still how depth is spent, and `strata::kMaxNestingDepth`
+  (1024 open containers) is what keeps that from being a cliff — see the
+  invariant below.
 
 Strictness was verified by diffing accept/reject against stdlib `json` over a
 generated corpus of ~1700 documents. The only disagreements are deliberate and
@@ -178,8 +180,10 @@ Decision record (formerly ADR-0001, implemented in `8f468d2`):
 
 1. **C++ `serialize_json`** (`json_serialize.cpp`): simple recursive descent into
    a `std::string`. Numbers via `util::dragonbox_d2s` (see naming warning below).
-   NaN/Inf → `null`. **No depth limit and no cycle detection** (a `JsonValue` tree
-   cannot be cyclic, but deep input can overflow the stack). Header comment
+   NaN/Inf → `null`. **No depth limit and no cycle detection** (a `JsonValue`
+   tree cannot be cyclic, and since the parser caps nesting at
+   `kMaxNestingDepth` a *parsed* tree is bounded — a hand-built one still is
+   the caller's problem). Header comment
    claiming "keys sorted via std::map" is stale — output is insertion-ordered.
 2. **Python `dumps`** (`bindings/python_dumps.cpp`, the heavily optimized one):
    thread-local reusable `OutputBuffer` with `unsafe_*` writes after a
@@ -238,8 +242,19 @@ with precomputed hashes, a module-lifetime small-int cache (0..256),
 
 ## Contributor invariants
 
-1. Recursion = stack depth: parser and serializers recurse; **no C++ depth limit
-   anywhere**. C++ stress tests cap at depth 100 deliberately.
+1. Recursion = stack depth: parser and serializers recurse. The **parser** is
+   capped at `strata::kMaxNestingDepth` = **1024 open containers**
+   (`json_core.hpp`), checked in `parse_array`/`parse_object` before the
+   handler is told the container started, and surfaced as
+   `Status::DepthExceeded` → `ValueError("Maximum nesting depth exceeded")`.
+   One cap, one place: every handler, every entry point (Python builder, DOM /
+   cursor, NDJSON per line, streaming search) inherits it, because they all
+   run the same `ParserInline`. The number is sized from the smallest
+   supported stack (Windows' 1 MB main thread) against the measured end-to-end need of 160 KB at depth 1024 — a 6.4x margin — and is documented at the constant.
+   The **serializers** keep their own limits: the Python one at
+   `Py_GetRecursionLimit()`, the C++ `serialize_json` none (it can only be
+   handed a tree, and a parsed tree is now bounded). C++ stress tests exercise
+   depth 100 for the everyday cases and the cap itself at 1024 and 1025.
 2. `JsonCursor` never owns — the `JsonDocument` must outlive every cursor.
 3. `try_match_key` contract as above; runs before escape handling.
 4. `KeyCache::get()` returns a borrowed `PyObject*` — full cache contract and

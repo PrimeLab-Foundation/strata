@@ -169,7 +169,11 @@ PyObject* finish_loads(std::string_view text, bool validate_utf8, bool want_curs
     if (want_cursor) {
         auto document = strata::JsonDocument::from_string(text);
         if (!document.ok()) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+            // The C++ document path is capped by the same constant as the
+            // Python builder path, and reports it with the same message.
+            PyErr_SetString(PyExc_ValueError, document.status == strata::Status::DepthExceeded
+                                                  ? strata::bindings::kDepthExceededMessage
+                                                  : "Invalid JSON");
             return nullptr;
         }
         return strata::bindings::make_root_cursor(document.value.share());

@@ -58,7 +58,7 @@ Result<JsonValue> NdjsonStream::next() {
 
     auto parsed = parse_json(line);
     if (!parsed.ok())
-        return {Status::ParseError};
+        return {parsed.status}; // ParseError, or DepthExceeded for a nested line
     return {Status::Ok, std::move(parsed.value)};
 }
 
@@ -81,7 +81,7 @@ Result<std::vector<JsonValue>> NdjsonStream::parse_all(bool skip_errors, size_t*
             continue; // the caller opted in to losing this line
         if (failed_line != nullptr)
             *failed_line = line_number_;
-        return {Status::ParseError, {}};
+        return {parsed.status, {}};
     }
     return {Status::Ok, std::move(records)};
 }

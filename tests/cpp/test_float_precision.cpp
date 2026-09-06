@@ -21,6 +21,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -468,8 +469,71 @@ void test_micro_decimal_shapes_match_reference() {
     }
 }
 
+/**
+ * The grouped digit write against a digit-by-digit twin, at every width, and
+ * the bytes around it against a guard pattern.
+ *
+ * `write_digits_fixed` emits its groups of eight as whole eight-byte words,
+ * head first, so every group but the last stores scratch where the next
+ * group's digits go. The twin below is the obvious loop; the guard bytes on
+ * both sides pin the other half of the contract -- that the scratch is always
+ * inside [out, out + len) and no byte outside the group is touched.
+ */
+void test_digit_groups_match_the_digit_loop() {
+    constexpr size_t kLead = 8;
+    constexpr unsigned char kGuard = 0xAB;
+    char buffer[64];
+    char expected[24];
+
+    auto check = [&](uint64_t value, size_t len) {
+        std::memset(buffer, kGuard, sizeof(buffer));
+        strata::util::detail::write_digits_fixed(value, buffer + kLead, len);
+        uint64_t rest = value;
+        for (size_t index = len; index-- > 0;) {
+            expected[index] = static_cast<char>('0' + rest % 10);
+            rest /= 10;
+        }
+        if (std::memcmp(buffer + kLead, expected, len) != 0) {
+            std::printf("write_digits_fixed(%llu, %zu) = %.*s, expected %.*s\n",
+                        static_cast<unsigned long long>(value), len, static_cast<int>(len),
+                        buffer + kLead, static_cast<int>(len), expected);
+            assert(false);
+        }
+        for (size_t index = 0; index < sizeof(buffer); ++index) {
+            if (index >= kLead && index < kLead + len)
+                continue;
+            if (static_cast<unsigned char>(buffer[index]) != kGuard) {
+                std::printf("write_digits_fixed(%llu, %zu) touched byte %zd outside its group\n",
+                            static_cast<unsigned long long>(value), len,
+                            static_cast<ptrdiff_t>(index) - static_cast<ptrdiff_t>(kLead));
+                assert(false);
+            }
+        }
+    };
+
+    uint64_t state = 0x9E3779B97F4A7C15ULL;
+    for (size_t len = 1; len <= 20; ++len) {
+        // Widths are exercised at their edges first: the narrowest and widest
+        // value of the width, the group boundaries (10^8 and 10^16 sit on the
+        // splits), and values whose leading digits are zeros -- the padding
+        // the contract promises and the shift the head word depends on.
+        const uint64_t span = len == 20 ? ~0ULL : strata::util::detail::kPow10[len] - 1;
+        const uint64_t low = len == 1 ? 0 : strata::util::detail::kPow10[len - 1];
+        for (const uint64_t pinned : {uint64_t{0}, uint64_t{1}, low, low + 1, span, span - 1,
+                                      uint64_t{99999999}, uint64_t{100000000}})
+            check(pinned <= span ? pinned : span, len);
+        for (int trial = 0; trial < 20000; ++trial) {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            check(span == ~0ULL ? state : state % (span + 1), len);
+        }
+    }
+}
+
 int main() {
     test_eight_digit_word_matches_pair_table_exhaustively();
+    test_digit_groups_match_the_digit_loop();
     test_micro_decimal_shapes_match_reference();
     test_exact_renderings();
     test_integral_values_keep_a_fraction();

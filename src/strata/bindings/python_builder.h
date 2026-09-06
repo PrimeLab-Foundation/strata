@@ -18,8 +18,10 @@
 
 #include "python_types.h"
 #include "strata/json/json_parse.hpp"
+#include "strata/util/fast_parse.hpp"
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -116,11 +118,19 @@ class KeyCache {
 /**
  * Builds Python objects directly from parser events.
  *
- * Finished values accumulate in one flat `values_` vector; `frames_` records
- * where each open container started. An array is created once, at its closing
+ * Finished values accumulate in one flat value stack; `frames_` records where
+ * each open container started. An array is created once, at its closing
  * bracket, with its final size already known — so there is no repeated list
  * growth and no per-element refcount churn, because PyList_SET_ITEM steals the
- * references the vector was holding.
+ * references the stack was holding.
+ *
+ * The stack is three raw pointers rather than a std::vector because the parser
+ * borrows `[next, limit)` into registers for the length of an array's element
+ * loop (@ref ValueCursor, docs/architecture/value-cursor.md) and hands `next`
+ * back at the close — a range a vector has no way to publish. Ownership is
+ * unchanged: every reference in `[values_begin_, values_next_)` belongs to the
+ * builder, and `reset()` is what releases them, so a cursor is closed before
+ * any path that can leave the parser.
  *
  * Every callback returns false on failure with a Python exception already set,
  * which aborts the parse; loads() then reports that exception rather than
@@ -136,6 +146,7 @@ class PythonObjectBuilder {
     ~PythonObjectBuilder() {
         reset();
         clear_predictions();
+        std::free(values_begin_);
     }
 
     /**
@@ -152,9 +163,9 @@ class PythonObjectBuilder {
         policy_ = get_duplicate_key_policy();
         Py_XDECREF(root_);
         root_ = nullptr;
-        for (PyObject* value : values_)
-            Py_XDECREF(value);
-        values_.clear();
+        for (PyObject** slot = values_begin_; slot != values_next_; ++slot)
+            Py_XDECREF(*slot);
+        values_next_ = values_begin_; // the block itself is reused, as before
         for (const Frame& frame : frames_)
             Py_XDECREF(frame.mapping);
         frames_.clear();
@@ -281,15 +292,66 @@ class PythonObjectBuilder {
 
     bool on_int(int64_t value) { return push(PyLong_FromLongLong(value)); }
 
-    /// Integers past int64 keep every digit: Python has no size limit.
-    bool on_big_int(std::string_view text) {
-        const std::string digits(text); // PyLong_FromString needs a terminator
-        return push(PyLong_FromString(digits.c_str(), nullptr, 10));
-    }
+    bool on_big_int(std::string_view text) { return push(make_big_int(text)); }
 
     bool on_double(double value) { return push(PyFloat_FromDouble(value)); }
 
-    bool on_string(std::string_view value) {
+    bool on_string(std::string_view value) { return push(make_string(value)); }
+
+    // --- The value cursor (docs/architecture/value-cursor.md) --------------
+    //
+    // Declaring this member type is what makes ParserInline hand an array's
+    // element loop the staging range to hold in registers; the `_at` callbacks
+    // below are the placement half of the same events the `on_*` callbacks
+    // above serve, over the identical object construction, so there is exactly
+    // one definition of what a JSON scalar becomes.
+
+    /// The staging stack's writable range, borrowed by one array's element
+    /// loop. Two words, trivially copyable: it travels in registers.
+    struct ValueCursor {
+        PyObject** next;
+        PyObject** limit;
+    };
+
+    /// Lend the writable range. Valid only until the next `close_values` --
+    /// which every route into the builder's own stack is preceded by.
+    [[nodiscard]] ValueCursor open_values() noexcept {
+        return ValueCursor{values_next_, values_cap_};
+    }
+
+    /// Take the range back: from here the builder's own view owns every
+    /// reference the loop stored, and `reset()` will release them.
+    void close_values(ValueCursor cursor) noexcept { values_next_ = cursor.next; }
+
+    ValueCursor on_null_at(ValueCursor cursor) { return store_singleton(cursor, Py_None); }
+
+    ValueCursor on_bool_at(ValueCursor cursor, bool value) {
+        return store_singleton(cursor, value ? Py_True : Py_False);
+    }
+
+    ValueCursor on_int_at(ValueCursor cursor, int64_t value) {
+        return store(cursor, PyLong_FromLongLong(value));
+    }
+
+    ValueCursor on_big_int_at(ValueCursor cursor, std::string_view text) {
+        return store(cursor, make_big_int(text));
+    }
+
+    ValueCursor on_double_at(ValueCursor cursor, double value) {
+        return store(cursor, PyFloat_FromDouble(value));
+    }
+
+    ValueCursor on_string_at(ValueCursor cursor, std::string_view value) {
+        return store(cursor, make_string(value));
+    }
+
+    /// Integers past int64 keep every digit: Python has no size limit.
+    [[nodiscard]] PyObject* make_big_int(std::string_view text) {
+        const std::string digits(text); // PyLong_FromString needs a terminator
+        return PyLong_FromString(digits.c_str(), nullptr, 10);
+    }
+
+    [[nodiscard]] PyObject* make_string(std::string_view value) {
         // The bytes are parser-validated UTF-8 already, so for the
         // overwhelmingly common all-ASCII case the compact-ASCII object is
         // built directly: one word-wise scan plus a memcpy, instead of the
@@ -310,28 +372,28 @@ class PythonObjectBuilder {
                 // string.
                 PyObject* object = PyUnicode_New(size, 127);
                 if (object == nullptr)
-                    return push(nullptr);
+                    return nullptr;
                 if (copy_if_ascii(static_cast<char*>(PyUnicode_DATA(object)), value.data(),
                                   value.size()))
-                    return push(object);
+                    return object;
                 Py_DECREF(object);
                 ascii_expected_ = false;
             } else if (all_ascii(value.data(), value.size())) {
                 PyObject* object = PyUnicode_New(size, 127);
                 if (object == nullptr)
-                    return push(nullptr);
+                    return nullptr;
                 std::memcpy(PyUnicode_DATA(object), value.data(), value.size());
-                return push(object);
+                return object;
             }
         }
-        return push(PyUnicode_FromStringAndSize(value.data(), size));
+        return PyUnicode_FromStringAndSize(value.data(), size);
     }
 
     bool on_start_object() {
         PyObject* mapping = new_mapping(frames_.size());
         if (mapping == nullptr)
             return false;
-        frames_.push_back(Frame{mapping, values_.size(), 0, kWayUnresolved, nullptr, nullptr});
+        frames_.push_back(Frame{mapping, values_size(), 0, kWayUnresolved, nullptr, nullptr});
         return true;
     }
 
@@ -361,7 +423,7 @@ class PythonObjectBuilder {
     }
 
     bool on_start_array() {
-        frames_.push_back(Frame{nullptr, values_.size(), 0, kWayUnresolved, nullptr, nullptr});
+        frames_.push_back(Frame{nullptr, values_size(), 0, kWayUnresolved, nullptr, nullptr});
         return true;
     }
 
@@ -371,15 +433,18 @@ class PythonObjectBuilder {
         const size_t start = frames_.back().start;
         frames_.pop_back();
 
-        const size_t count = values_.size() - start;
+        // The element loop's cursor was closed before this call, so the
+        // stack's own end is the array's end (docs/architecture/value-cursor.md).
+        const size_t count = values_size() - start;
         PyObject* list = PyList_New(static_cast<Py_ssize_t>(count));
         if (list == nullptr)
-            return false;
+            return false; // the staged references stay owned; reset() frees them
+        PyObject** const staged = values_begin_ + start;
         for (size_t index = 0; index < count; ++index) {
-            // SET_ITEM steals the reference the vector was holding.
-            PyList_SET_ITEM(list, static_cast<Py_ssize_t>(index), values_[start + index]);
+            // SET_ITEM steals the reference the stack was holding.
+            PyList_SET_ITEM(list, static_cast<Py_ssize_t>(index), staged[index]);
         }
-        values_.resize(start);
+        values_next_ = values_begin_ + start;
         return push(list);
     }
 
@@ -668,10 +733,8 @@ class PythonObjectBuilder {
             root_ = value;
             return true;
         }
-        if (frames_.back().mapping == nullptr) {
-            values_.push_back(value); // the vector now owns it
-            return true;
-        }
+        if (frames_.back().mapping == nullptr)
+            return push_value(value); // the stack now owns it
         return insert_into_object(frames_.back().mapping, value);
     }
 
@@ -687,6 +750,88 @@ class PythonObjectBuilder {
         return push(Py_NewRef(value));
 #endif
     }
+
+    /// The singleton rule of push_singleton, through the cursor.
+    ValueCursor store_singleton(ValueCursor cursor, PyObject* value) {
+#if PY_VERSION_HEX >= 0x030C0000
+        return store(cursor, value);
+#else
+        return store(cursor, Py_NewRef(value));
+#endif
+    }
+
+    /**
+     * Consume one reference to @p value into the borrowed range.
+     *
+     * The whole point of the cursor: on the common path this is a store and a
+     * register increment, with no load of the stack's end and no store back to
+     * it. A full range, and a failed construction, both leave through
+     * `store_grown` / the null branch, which publish the cursor first -- so a
+     * returned failure token always means "closed", and every reference stored
+     * so far is the builder's again.
+     */
+    [[nodiscard]] ValueCursor store(ValueCursor cursor, PyObject* value) {
+        if (value == nullptr) {
+            close_values(cursor);
+            return ValueCursor{};
+        }
+        if (cursor.next == cursor.limit)
+            return store_grown(cursor, value);
+        *cursor.next++ = value;
+        return cursor;
+    }
+
+    /// The range is full: publish it, grow the stack, and lend a fresh range.
+    /// Out of line because it happens once per doubling, not once per element.
+    STRATA_NOINLINE ValueCursor store_grown(ValueCursor cursor, PyObject* value) {
+        close_values(cursor);
+        if (!grow_values()) {
+            Py_DECREF(value);
+            return ValueCursor{};
+        }
+        *values_next_++ = value;
+        return ValueCursor{values_next_, values_cap_};
+    }
+
+    /// Consume one reference to @p value into the stack, the builder's own
+    /// view. Only ever reached with no cursor outstanding: a finished nested
+    /// container, or a handler that has no cursor at all.
+    [[nodiscard]] bool push_value(PyObject* value) {
+        if (values_next_ == values_cap_ && !grow_values()) {
+            Py_DECREF(value);
+            return false;
+        }
+        *values_next_++ = value;
+        return true;
+    }
+
+    [[nodiscard]] size_t values_size() const noexcept {
+        return static_cast<size_t>(values_next_ - values_begin_);
+    }
+
+    /// Double the staging block (first call: kInitialValueSlots). The slots
+    /// hold plain pointers, so the move is a realloc; `Frame::start` is an
+    /// index precisely so that it survives one.
+    [[nodiscard]] bool grow_values() {
+        const size_t used = values_size();
+        const size_t old_slots = static_cast<size_t>(values_cap_ - values_begin_);
+        const size_t slots = old_slots == 0 ? kInitialValueSlots : old_slots * 2;
+        auto* block = static_cast<PyObject**>(
+            std::realloc(values_begin_, slots * sizeof(PyObject*))); // NOLINT
+        if (block == nullptr) {
+            PyErr_NoMemory();
+            return false;
+        }
+        values_begin_ = block;
+        values_next_ = block + used;
+        values_cap_ = block + slots;
+        return true;
+    }
+
+    /// First block: 64 slots, past the doublings every small document would
+    /// otherwise pay on a freshly leased builder. The block is kept across
+    /// resets, so a reused builder grows it once.
+    static constexpr size_t kInitialValueSlots = 64;
 
     bool insert_into_object(PyObject* object, PyObject* value) {
         if (keys_.empty()) {
@@ -757,7 +902,12 @@ class PythonObjectBuilder {
 
     PyObject* root_ = nullptr;
     std::vector<Frame> frames_;
-    std::vector<PyObject*> values_;
+    /// The staging stack: owned references in [begin, next), free slots up to
+    /// cap. Three raw pointers so the parser can borrow [next, cap) -- see
+    /// ValueCursor.
+    PyObject** values_begin_ = nullptr;
+    PyObject** values_next_ = nullptr;
+    PyObject** values_cap_ = nullptr;
     std::vector<PyObject*> keys_;
     /// Depths whose object sizes are remembered; deeper objects are not
     /// record-shaped and just take PyDict_New. Fixed storage: the hot path

@@ -22,6 +22,13 @@ namespace strata::bindings {
 
 namespace {
 
+/// What a failing line is called. A line nested past kMaxNestingDepth is a
+/// refusal, not malformed text, and says so -- with the line number, because
+/// that is what makes an NDJSON error actionable (docs/context/api.md).
+[[nodiscard]] const char* line_message(Status status) noexcept {
+    return status == Status::DepthExceeded ? kDepthExceededMessage : "Invalid JSON";
+}
+
 /// Owns the file text and walks it one line at a time.
 struct NdjsonIteratorObject {
     PyObject_HEAD std::string* text;
@@ -57,13 +64,14 @@ PyObject* iterator_next(PyObject* self) {
         if (!iterator->stream->next_line(line))
             return nullptr; // exhausted: StopIteration, no exception set
 
-        PyObject* value = loads_to_python(line, /*validate_utf8=*/false);
+        Status status = Status::Ok;
+        PyObject* value = loads_to_python(line, /*validate_utf8=*/false, &status);
         if (value != nullptr)
             return value;
 
         if (!iterator->skip_errors) {
             PyErr_Clear();
-            PyErr_Format(PyExc_ValueError, "Invalid JSON on line %zu",
+            PyErr_Format(PyExc_ValueError, "%s on line %zu", line_message(status),
                          iterator->stream->line_number());
             return nullptr;
         }
@@ -101,14 +109,16 @@ PyObject* ndjson_to_list(std::string_view text, bool skip_errors) {
         if (!stream.next_line(line))
             break;
 
-        PyRef value(loads_to_python(line, /*validate_utf8=*/false));
+        Status status = Status::Ok;
+        PyRef value(loads_to_python(line, /*validate_utf8=*/false, &status));
         if (!value) {
             if (skip_errors) {
                 PyErr_Clear();
                 continue;
             }
             PyErr_Clear();
-            PyErr_Format(PyExc_ValueError, "Invalid JSON on line %zu", stream.line_number());
+            PyErr_Format(PyExc_ValueError, "%s on line %zu", line_message(status),
+                         stream.line_number());
             return nullptr;
         }
         if (PyList_Append(records.get(), value.get()) != 0)

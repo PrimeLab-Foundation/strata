@@ -23,7 +23,8 @@ class JsonDocument {
     /// Adopt an already-built tree.
     explicit JsonDocument(JsonValue root) : root_(std::make_shared<JsonValue>(std::move(root))) {}
 
-    /// Parse @p text; Status::ParseError for malformed input.
+    /// Parse @p text; Status::ParseError for malformed input, Status::DepthExceeded
+    /// for a document nested deeper than kMaxNestingDepth containers.
     [[nodiscard]] static Result<JsonDocument> from_string(std::string_view text);
 
     /// A cursor at the root. Valid for as long as this document, or any share

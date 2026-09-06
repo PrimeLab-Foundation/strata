@@ -75,7 +75,12 @@ class Report:
 
 
 def peak_rss_mb() -> float | None:
-    """Peak resident set size, or None when psutil is unavailable."""
+    """The whole process's *current* resident set size -- not a peak, not
+    per-library, despite the name -- or None when psutil is unavailable.
+
+    One read per row, recorded for every library in it; kept under this name
+    because docs/context/benchmarks.md and docs/benchmarking/SKILL.md cite it.
+    """
     try:
         import psutil
     except ImportError:

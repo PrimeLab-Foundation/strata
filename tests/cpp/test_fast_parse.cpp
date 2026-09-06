@@ -113,6 +113,122 @@ std::string digits_of(uint64_t& state, size_t length, size_t leading_zeros, bool
 
 // ---------------------------------------------------------------------------
 
+/// The digit-run word helpers against their scalar definitions, over every
+/// byte that can follow a run.
+///
+/// `leading_digit_value` subtracts '0' from the whole word *before* the
+/// alignment shift: the zero bytes the shift brings in are already exactly
+/// what a '0' digit is worth, so the padding word the previous shape built
+/// is gone. That rests on one property of the subtraction — its borrows
+/// travel only *upward*, from a byte into later ones, so a non-digit behind
+/// the run can never reach into it, and the shift throws away the bytes it
+/// does reach. This sweep is that property checked rather than argued: every
+/// run length, every digit pattern, and *every one of the 256 bytes* placed
+/// immediately behind the run (a third of which are below '0' and therefore
+/// borrow), against the per-digit loop that is the definition.
+void test_digit_word_helpers_match_the_scalar_definition() {
+    using strata::util::detail::eight_digit_word_value;
+    using strata::util::detail::leading_digit_count;
+    using strata::util::detail::leading_digit_value;
+    using strata::util::detail::leading_zero_digits;
+
+    const auto scalar_value = [](const unsigned char* bytes, unsigned count) {
+        uint32_t value = 0;
+        for (unsigned index = 0; index < count; ++index)
+            value = value * 10 + static_cast<uint32_t>(bytes[index] - '0');
+        return value;
+    };
+    const auto scalar_count = [](const unsigned char* bytes) {
+        unsigned count = 0;
+        while (count < 8 && bytes[count] >= '0' && bytes[count] <= '9')
+            ++count;
+        return count;
+    };
+    const auto scalar_zeros = [](const unsigned char* bytes, unsigned count) {
+        unsigned zeros = 0;
+        while (zeros < count && bytes[zeros] == '0')
+            ++zeros;
+        return zeros;
+    };
+
+    uint64_t state = 0x0f1e2d3c4b5a6978ULL;
+    // Digit patterns per run length: all zeros, all nines, a leading zero
+    // ahead of significant digits, a trailing zero, and two draws.
+    const int kPatterns = 6;
+    // What sits above the run's terminator: a word of borrowing bytes, a word
+    // of high bytes, and more digits -- the value must not move with any of
+    // them.
+    const unsigned char fills[] = {0x00, 0xFF, '7'};
+    for (unsigned count = 1; count <= 8; ++count) {
+        for (int pattern = 0; pattern < kPatterns; ++pattern) {
+            unsigned char run[8];
+            for (unsigned index = 0; index < count; ++index) {
+                switch (pattern) {
+                case 0:
+                    run[index] = '0';
+                    break;
+                case 1:
+                    run[index] = '9';
+                    break;
+                case 2:
+                    run[index] = index == 0 ? '0' : static_cast<unsigned char>('1' + index % 9);
+                    break;
+                case 3:
+                    run[index] = index + 1 == count ? '0' : '5';
+                    break;
+                default:
+                    run[index] = static_cast<unsigned char>('0' + next(state) % 10);
+                    break;
+                }
+            }
+            uint32_t settled = 0;
+            bool settled_seen = false;
+            for (int trailing = 0; trailing < 256; ++trailing) {
+                for (const unsigned char fill : fills) {
+                    unsigned char bytes[8];
+                    std::memcpy(bytes, run, count);
+                    for (unsigned index = count; index < 8; ++index)
+                        bytes[index] = index == count ? static_cast<unsigned char>(trailing) : fill;
+                    uint64_t chunk;
+                    std::memcpy(&chunk, bytes, sizeof(chunk));
+
+                    const uint32_t got = leading_digit_value(chunk, count);
+                    const uint32_t want = scalar_value(bytes, count);
+                    if (got != want) {
+                        std::printf("leading_digit_value(%016llx, %u) = %u, want %u\n",
+                                    static_cast<unsigned long long>(chunk), count, got, want);
+                        assert(false);
+                    }
+                    // The same run, whatever follows it: the value a run
+                    // carries is a function of the run alone.
+                    if (settled_seen)
+                        assert(got == settled);
+                    settled = got;
+                    settled_seen = true;
+
+                    assert(leading_digit_count(chunk) == scalar_count(bytes));
+                    assert(leading_zero_digits(chunk, count) == scalar_zeros(bytes, count));
+                    if (scalar_count(bytes) == 8)
+                        assert(eight_digit_word_value(chunk) == scalar_value(bytes, 8));
+                }
+            }
+        }
+    }
+    // The two ends of the shift: a single digit (shift 56) and a full word
+    // (shift 0), spelled out rather than drawn.
+    uint64_t chunk;
+    std::memcpy(&chunk, "7,,,,,,,", sizeof(chunk));
+    assert(leading_digit_value(chunk, 1) == 7);
+    std::memcpy(&chunk, "12345678", sizeof(chunk));
+    assert(leading_digit_value(chunk, 8) == 12345678);
+    assert(eight_digit_word_value(chunk) == 12345678);
+    std::memcpy(&chunk, "00000000", sizeof(chunk));
+    assert(leading_digit_value(chunk, 8) == 0);
+    assert(leading_zero_digits(chunk, 8) == 8);
+}
+
+// ---------------------------------------------------------------------------
+
 /// Every run length, zero pattern, terminator and tail distance: the two
 /// consumers must land on the same byte with the same accumulator.
 void test_word_run_matches_scalar_twin() {
@@ -593,6 +709,7 @@ void test_tiny_int_dispatch_matches_the_scanner() {
 }
 
 int main() {
+    test_digit_word_helpers_match_the_scalar_definition();
     test_tiny_int_dispatch_matches_the_scanner();
     test_long_fraction_step_contract();
     test_short_number_head_matches_full_scanner();

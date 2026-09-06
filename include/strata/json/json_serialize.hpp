@@ -14,9 +14,11 @@
  *
  * JSON has no NaN or infinity, so both are written as `null`.
  *
- * Like the parser, this recurses and imposes no depth limit — deep enough
- * input will exhaust the stack (docs/architecture/SKILL.md, invariant 1). A
- * JsonValue tree cannot contain a cycle, so there is nothing to detect.
+ * This recurses and imposes no depth limit of its own — deep enough input
+ * will exhaust the stack (docs/architecture/SKILL.md, invariant 1). The parser
+ * refuses past kMaxNestingDepth containers, so a tree it built is bounded;
+ * one adopted through JsonDocument(JsonValue) is not. A JsonValue tree cannot
+ * contain a cycle, so there is nothing to detect.
  */
 
 #include "strata/json/json_core.hpp"

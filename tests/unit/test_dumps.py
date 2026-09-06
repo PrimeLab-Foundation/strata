@@ -5,6 +5,7 @@ Each test pins a clause of docs/context/api.md § Parse & serialize.
 
 import json
 import math
+import random
 import sys
 
 import pytest
@@ -99,6 +100,47 @@ def test_micro_decimal_gate_boundaries():
     out = strata.dumps(values)
     assert out == json.dumps(values, separators=(",", ":"))
     assert json.loads(out) == values
+
+
+def _significant_digits(value: float) -> int:
+    text = repr(abs(value)).split("e")[0]
+    return len(text.replace(".", "").lstrip("0").rstrip("0")) or 1
+
+
+def test_full_precision_floats_render_at_every_significant_width():
+    """Shortest round-trip text, width by width, against the stdlib oracle.
+
+    The digit layout writes the significand in eight-digit groups, head
+    first, so the widths where the head is narrower than, exactly, and wider
+    than a group (nine, sixteen and seventeen significant digits) are its
+    seams. Every width from one to seventeen is exercised here, in the fixed
+    layout and the scientific one, both signs, as a list, inside a dict and
+    in bytes mode -- `json.dumps` is the documented oracle for float text
+    (docs/context/styleguide.md).
+    """
+    rng = random.Random(20260905)
+    values: list[float] = []
+    for width in range(1, 18):
+        low = 10 ** (width - 1) if width > 1 else 1
+        for _ in range(40):
+            digits = rng.randrange(low, 10**width)
+            for exponent in (-width, -width + 2, -5, 0, 4, 17, -22):
+                value = float(f"{digits}e{exponent}")
+                if math.isfinite(value) and value != 0.0:
+                    values.append(value)
+                    values.append(-value)
+    for _ in range(400):
+        values.append(rng.random())  # 14-17 digits: the mixed.json float shape
+
+    widths = {_significant_digits(value) for value in values}
+    assert widths == set(range(1, 18)), sorted(widths)
+
+    expected = json.dumps(values, separators=(",", ":"))
+    assert strata.dumps(values) == expected
+    assert strata.dumps(values, return_type="bytes") == expected.encode()
+    record = {"floats": values}
+    assert strata.dumps(record) == json.dumps(record, separators=(",", ":"))
+    assert json.loads(strata.dumps(values)) == values
 
 
 def test_bool_is_not_serialized_as_an_integer():

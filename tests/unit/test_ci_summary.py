@@ -109,8 +109,12 @@ def test_exact_median_tie_counts_as_first(tmp_path):
     )
     code, text = run_summary(tmp_path)
     assert code == 0
-    assert "**Goal met on 1/1 platforms.**" in text
+    # The rank rule counts the tie as #1 and the summary says which rows are
+    # ties, so a rounded tie never reads as a demonstrated lead.
+    assert "**Goal met on 1/1 platforms; 1 #1 row(s) are ties at the report's precision.**" in text
     assert "All rows #1." in text
+    assert "Ties at the report's precision, counted as #1 by the rank rule:" in text
+    assert "- dumps | users.json | with orjson" in text
 
 
 def test_error_rows_invalidate_the_platform(tmp_path):

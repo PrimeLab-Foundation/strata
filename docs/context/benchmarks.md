@@ -70,6 +70,18 @@ Before optimizing: capture baseline. After: compare against
 touched category, or RSS worse by **>5%** ⇒ fix or revert. Refresh the
 baseline (`--save-baseline`) only after an accepted improvement.
 
+The RSS column is a coarse gate, not a per-library measurement: the
+harness reads the whole process's *current* resident size once after a
+row's libraries have all run (`benchmarks/harness.py` `peak_rss_mb`, which
+despite its name is `memory_info().rss`, not a peak) and records that one
+number for every library in the row. It catches a build that holds much
+more memory than before; it cannot attribute memory to a library or see a
+transient peak. Memory-sensitive changes need separate evidence —
+`benchmarks/alloc_roundtrip_probe.py` for allocation round trips, a
+`ru_maxrss` probe over the datasets for peak memory per build (the
+2026-09-04 `rss_probe` in docs/decisions.md is the pattern) — obtained
+without changing the canonical latency experiment.
+
 ## CI standings by platform and architecture
 
 The weekly `benchmark.yml` workflow runs this same suite on every supported

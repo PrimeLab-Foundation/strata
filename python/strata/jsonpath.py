@@ -57,7 +57,8 @@ def search(path: str | os.PathLike, expression, *, iterator: bool = False):
     Raises:
         TypeError: ``path`` does not end in a supported extension.
         FileNotFoundError: No such file.
-        ValueError: Invalid JSON, or an invalid expression.
+        ValueError: Invalid JSON, nesting past 1024 open containers, or an
+            invalid expression.
     """
     text = os.fspath(path)
     # A directory is searched by discovery, so the extension rule applies to

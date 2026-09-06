@@ -203,7 +203,9 @@ PyObject* load_from_file(const char* path, const char* return_type, bool iterato
     if (want_cursor) {
         auto document = JsonDocument::from_string(text);
         if (!document.ok()) {
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
+            PyErr_SetString(PyExc_ValueError, document.status == Status::DepthExceeded
+                                                  ? kDepthExceededMessage
+                                                  : "Invalid JSON");
             return nullptr;
         }
         return make_root_cursor(document.value.share());

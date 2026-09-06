@@ -29,7 +29,8 @@ def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = Fa
         ``bool`` or ``None``. Integers are exact at any size.
 
     Raises:
-        ValueError: The text is not valid JSON, or ``return_type`` is unknown.
+        ValueError: The text is not valid JSON, nesting exceeds 1024 open
+            containers, or ``return_type`` is unknown.
         TypeError: ``source`` is neither ``str`` nor ``bytes``.
         RuntimeError: An internal engine error.
         RuntimeWarning: Emitted, not raised, for a duplicate key while
@@ -88,7 +89,8 @@ def load(
     Raises:
         FileNotFoundError: No such file.
         OSError: The file could not be read.
-        ValueError: Invalid JSON, an empty ``.json`` file, an unknown
+        ValueError: Invalid JSON, nesting past 1024 open containers (per
+            document and per NDJSON line), an empty ``.json`` file, an unknown
             ``return_type``, or cursor mode on NDJSON.
     """
     return _native.load(

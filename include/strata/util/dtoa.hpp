@@ -26,6 +26,7 @@
  */
 
 #include <bit>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -166,12 +167,39 @@ inline void write_8_digits(uint32_t value, char* out) noexcept {
     store_digit_word(out, eight_digits_word(value));
 }
 
+/// The low @p len digits of @p value (< 10^len), as one eight-byte store.
+///
+/// The digit word holds the k-th digit from the left in byte k, so a group of
+/// @p len digits is that word with its 8-len leading zero bytes shifted off.
+/// The store spills 8-len scratch bytes past the group; every caller below
+/// writes the next group over exactly that span, so the spill is always
+/// overwritten and the digits never reach past out[len - 1].
+///
+/// Precondition: 1 <= @p len <= 8, @p value < 10^len, and eight writable
+/// bytes at @p out.
+inline void write_head_digits(uint32_t value, char* out, size_t len) noexcept {
+    assert(len >= 1 && len <= 8 && value < kPow10[len]);
+    store_digit_word(out, eight_digits_word(value) >> ((8 - len) * 8));
+}
+
 /// Exactly @p len digits of @p value, zero-padded on the left.
 ///
-/// Peels eight digits at a time into 32-bit groups: the divides become
-/// multiply-shifts, the groups' four pair lookups are independent, and a
-/// 17-digit mantissa costs two groups plus one odd digit instead of a
-/// seventeen-step serial divide chain.
+/// Groups of eight, head first, each group one `eight_digits_word` store: the
+/// divides become multiply-shifts, the two words are independent once the
+/// split is done, and the last store ends exactly at out[len - 1].
+///
+/// The head used to take the pair-table loop below at every width, so a
+/// 16-digit significand — 71% of the full-precision doubles a `random()`
+/// payload produces, which is what mixed.json's floats are — paid four
+/// *chained* 32-bit divides for its leading eight digits while its trailing
+/// eight went through the word in one step. What still takes the loop is only
+/// what a word cannot pay for: one to eight digits at the top level, and the
+/// one to four digits above two full groups at seventeen and beyond.
+///
+/// Precondition: @p len writable bytes at @p out, and — for the nine-to-
+/// sixteen widths the head word serves — @p value < 10^len. Every caller
+/// passes `decimal_digit_count(value)`, so the head is a genuine digit group;
+/// a wider value would overflow the word's eight-digit split.
 inline void write_digits_fixed(uint64_t value, char* out, size_t len) noexcept {
     // One 64-bit split at most: a double's significand is at most 17 digits,
     // so after peeling the low eight the rest always fits 32 bits, where the
@@ -182,23 +210,29 @@ inline void write_digits_fixed(uint64_t value, char* out, size_t len) noexcept {
     if (len > 8) {
         const uint64_t high = value / 100000000;
         const auto low = static_cast<uint32_t>(value - high * 100000000);
-        write_8_digits(low, out + len - 8);
-        len -= 8;
-        if (high > 0xFFFFFFFFULL) {
-            const uint64_t top = high / 100000000;
-            write_8_digits(static_cast<uint32_t>(high - top * 100000000), out + len - 8);
-            len -= 8;
-            value = top;
-        } else if (len > 8) {
-            const auto high32 = static_cast<uint32_t>(high);
-            const uint32_t top = high32 / 100000000;
-            write_8_digits(high32 - top * 100000000, out + len - 8);
-            len -= 8;
-            value = top;
-        } else {
-            value = high;
+        const size_t head = len - 8; // at least one digit, by the branch
+        if (head <= 8) {
+            // Nine to sixteen digits: two words, head first, so the head's
+            // spill past its own digits is exactly where the low group lands.
+            write_head_digits(static_cast<uint32_t>(high), out, head);
+            write_8_digits(low, out + head);
+            return;
         }
+        // Seventeen digits or more: the low two groups are words, and the top
+        // one to four digits take the pair loop below — a chain that short
+        // beats the word's fixed cost and its overlapping store (measured:
+        // +1.2 ns per value with a word there, on the 17-digit bucket alone).
+        write_8_digits(low, out + head);
+        const uint64_t top =
+            high > 0xFFFFFFFFULL ? high / 100000000 : static_cast<uint32_t>(high) / 100000000U;
+        write_8_digits(static_cast<uint32_t>(high - top * 100000000), out + head - 8);
+        value = top;
+        len = head - 8;
     }
+    // One to eight digits: the pair table, two at a time. Reached by the short
+    // forms — the integral and scientific layouts — where the word's fixed
+    // cost loses to a one- or two-step divide chain, and kept as the twin the
+    // exhaustive reference test pins the grouped path against.
     auto rest = static_cast<uint32_t>(value);
     size_t index = len;
     while (index >= 2) {

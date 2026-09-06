@@ -278,3 +278,84 @@ def test_invalid_utf8_in_an_ndjson_line_follows_the_skip_errors_contract(tmp_pat
     assert not isinstance(caught.value, UnicodeDecodeError)
     assert strata.load(path, skip_errors=True) == [{"i": 1}, {"i": 3}]
     assert list(strata.load(path, iterator=True, skip_errors=True)) == [{"i": 1}, {"i": 3}]
+
+
+# ---------------------------------------------------------------------------
+# "Nesting deeper than 1024 containers raises
+#  ValueError('Maximum nesting depth exceeded')" -- api.md § Parse & serialize,
+# through every file entry point. NDJSON names the line, as it does for any
+# other bad line.
+# ---------------------------------------------------------------------------
+
+MAX_NESTING_DEPTH = 1024
+DEPTH_MESSAGE = "^Maximum nesting depth exceeded$"
+
+
+def nested_text(depth, shape="array"):
+    """`depth` open containers around a scalar; "mixed" alternates them."""
+    if shape == "array":
+        return "[" * depth + "1" + "]" * depth
+    if shape == "object":
+        return '{"a":' * depth + "1" + "}" * depth
+    opens = ['{"a":' if level % 2 == 0 else "[" for level in range(depth)]
+    closes = ["}" if level % 2 == 0 else "]" for level in range(depth)]
+    return "".join(opens) + "1" + "".join(reversed(closes))
+
+
+@pytest.mark.parametrize("shape", ["array", "object", "mixed"])
+def test_load_refuses_a_file_nested_past_the_limit(tmp_path, shape):
+    at_limit = tmp_path / "deep.json"
+    at_limit.write_text(nested_text(MAX_NESTING_DEPTH, shape), encoding="utf-8")
+    assert isinstance(strata.load(at_limit), (list, dict))
+
+    past = tmp_path / "deeper.json"
+    past.write_text(nested_text(MAX_NESTING_DEPTH + 1, shape), encoding="utf-8")
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.load(past)
+
+
+def test_load_cursor_mode_is_capped_from_a_file(tmp_path):
+    past = tmp_path / "deeper.json"
+    past.write_text(nested_text(MAX_NESTING_DEPTH + 1), encoding="utf-8")
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.load(past, return_type="cursor")
+
+
+def test_ndjson_names_the_line_that_is_too_deep(tmp_path):
+    path = tmp_path / "deep.ndjson"
+    path.write_text(
+        "[1]\n" + nested_text(MAX_NESTING_DEPTH + 1) + "\n[3]\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="^Maximum nesting depth exceeded on line 2$"):
+        strata.load(path)
+
+    # Lazily, the refusal arrives when the iterator reaches that line.
+    records = strata.load(path, iterator=True)
+    assert next(records) == [1]
+    with pytest.raises(ValueError, match="^Maximum nesting depth exceeded on line 2$"):
+        next(records)
+
+    # skip_errors treats it as any other unusable line.
+    assert strata.load(path, skip_errors=True) == [[1], [3]]
+    assert list(strata.load(path, iterator=True, skip_errors=True)) == [[1], [3]]
+
+
+def test_ndjson_at_the_limit_is_a_normal_line(tmp_path):
+    path = tmp_path / "at_limit.ndjson"
+    path.write_text("[1]\n" + nested_text(MAX_NESTING_DEPTH) + "\n", encoding="utf-8")
+    records = strata.load(path)
+    assert len(records) == 2
+    assert records[0] == [1]
+
+
+def test_folder_load_and_search_are_capped_too(tmp_path):
+    (tmp_path / "a.json").write_text("[1]", encoding="utf-8")
+    (tmp_path / "b.json").write_text(nested_text(MAX_NESTING_DEPTH + 1), encoding="utf-8")
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.load(tmp_path)
+    assert strata.load(tmp_path, skip_errors=True) == [1]
+
+    # search streams the same parser; the law says it refuses what load does.
+    with pytest.raises(ValueError, match=DEPTH_MESSAGE):
+        strata.search(tmp_path / "b.json", "$[*]")

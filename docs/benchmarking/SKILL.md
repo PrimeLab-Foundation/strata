@@ -151,6 +151,14 @@ push:
 
 ### Remaining to #1-everywhere (the row-by-row backlog)
 
+**RSS column, disclosed (2026-09-05).** `peak_rss_mb()` in
+`benchmarks/harness.py` returns the process's current RSS (psutil
+`memory_info().rss`), read once per row after every library has run and
+assigned to each library in that row; it is neither a peak nor per-library.
+The >5% gate stays as the coarse whole-process check it is; memory claims
+about a change come from the separate probes named in
+docs/context/benchmarks.md.
+
 **Status 2026-09-05, four samples.** 128, 128, 131 and 128 of 135 across
 four draws of two builds. Persistent on every draw: linux-arm64's
 `loads`/`load wide_arrays` (1.04–1.10x) and `dumps mixed` (1.03–1.11x) —
@@ -184,6 +192,18 @@ arm64 runner is a Neoverse-N2; its profile job reads every number class
 1.3–1.6x behind per element with 7% more instructions and far fewer
 branches and misses than orjson — a dependency-chain problem, not a branch
 one (docs/decisions.md, 2026-09-05).
+
+Status at 2026-09-06: the wave-25 tree (digit chain, head-group word, capped
+value cursor) is prepared for publication. Its PGO+LTO roll ran at load 3.1–4.7
+(the desktop in use, WindowServer at 47%) and read small 27/27, large 27/27,
+medium 26/27 (`dump mixed` 1.04x of msgspec, a 0.34 ms file-write row);
+`regression_check` against the 2026-09-04 quiet baseline is undecidable on that
+machine state — untouched `query` rows fail it by up to 59% and the touched parse rows by 3–10%, against an A/B that reads those same rows faster — so the baseline stays
+where it is and the quiet-machine gate is owed before any refresh. Drift-free
+evidence for the tree: a same-venv tier A/B (parse rows −5.0%..+4.0% raw; the two medians past the +2% gate — large `loads nested` and small `load mixed` — read −0.3% and −1.8% on a 40-repeat re-measure), a per-
+build `ru_maxrss` probe (no memory change), and an in-process A/B against HEAD's
+own PGO build (`loads users` −2.9%, `mixed` −4.2%, `dumps mixed` −7.0%, the streaming `search` control flat, the two `query` controls −0.1% and −9.9%, the latter a 0.10 ms row whose HEAD draws span 17%). The five-platform CI sample for this tree is owed after the human
+publishes it (docs/decisions.md, 2026-09-06).
 
 **Status 2026-09-04, wave 22.** The `loads mixed` coin band had a cause:
 the key predictor retired mixed.json's record depth for the life of the

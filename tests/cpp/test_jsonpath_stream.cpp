@@ -244,6 +244,44 @@ void test_streamability_gate() {
     assert(!is_streamable(compile_jsonpath("$[?(@.a > 1)]").value));
 }
 
+/// The streaming leg is capped like every other parse: the law is
+/// `search == query(load)`, and `load` refuses a document nested past
+/// strata::kMaxNestingDepth, so the stream must refuse it identically -- with
+/// DepthExceeded, not ParseError, and whatever it had already matched.
+void test_nesting_past_the_limit_is_refused() {
+    const auto compiled = compile_jsonpath("$[*].id");
+    assert(compiled.ok());
+
+    std::string document = R"([{"id": 1}, )";
+    for (size_t level = 0; level <= strata::kMaxNestingDepth; ++level)
+        document += "[";
+    document += "2";
+    for (size_t level = 0; level <= strata::kMaxNestingDepth; ++level)
+        document += "]";
+    document += "]";
+
+    DomSink sink;
+    StreamSearchHandler<DomSink> handler(compiled.value, sink);
+    assert(parse_sax_inline(std::string_view(document), handler, true) == Status::DepthExceeded);
+    // The same document through the DOM evaluator's own parse: same verdict.
+    assert(parse_json(document).status == Status::DepthExceeded);
+
+    // Exactly at the limit both legs accept it.
+    std::string at_limit = R"([{"id": 1}, )";
+    for (size_t level = 0; level + 1 < strata::kMaxNestingDepth; ++level)
+        at_limit += "[";
+    at_limit += "2";
+    for (size_t level = 0; level + 1 < strata::kMaxNestingDepth; ++level)
+        at_limit += "]";
+    at_limit += "]";
+
+    DomSink accepted;
+    StreamSearchHandler<DomSink> accepting(compiled.value, accepted);
+    assert(parse_sax_inline(std::string_view(at_limit), accepting, true) == Status::Ok);
+    assert(accepted.results.size() == 1);
+    assert(parse_json(at_limit).ok());
+}
+
 } // namespace
 
 int main() {
@@ -253,6 +291,7 @@ int main() {
     test_duplicate_keys_pin_firstwins();
     test_invalid_documents_fail_after_matches();
     test_streamability_gate();
+    test_nesting_past_the_limit_is_refused();
 
     std::puts("jsonpath_stream_tests: OK");
     return 0;
