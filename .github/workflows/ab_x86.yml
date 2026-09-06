@@ -48,6 +48,11 @@ jobs:
             cc: cc
             cxx: c++
             archflags: "-arch x86_64"
+          - os: macos-latest
+            platform: macos-arm64
+            cc: cc
+            cxx: c++
+            archflags: "-arch arm64"
     env:
       ARCHFLAGS: ${{ matrix.archflags }}
       CC: ${{ matrix.cc }}
@@ -104,7 +109,7 @@ jobs:
       - name: A-B-B-A rounds, then an A/A floor
         run: |
           TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
-          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps"
+          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
             --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/R1.stderr
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A.so \
@@ -139,9 +144,13 @@ jobs:
           done
           echo "== frames A"; cat ab/frames.A.txt; echo "== frames B"; cat ab/frames.B.txt
 
+      # Hosted runners deny perf_event_open without CAP_PERFMON; try the sysctl
+      # and let the step fail without failing the job (the A/B is what matters).
       - name: perf per arm on small dumps flat and users (Linux)
         if: runner.os == 'Linux'
+        continue-on-error: true
         run: |
+          sudo sysctl -w kernel.perf_event_paranoid=1 || true
           PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
           TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
           for arm in A B; do
@@ -164,7 +173,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ab-x86-${{ matrix.platform }}
+          name: ab-${{ matrix.platform }}
           path: |
             ab/
           if-no-files-found: ignore
