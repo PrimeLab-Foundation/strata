@@ -57,6 +57,18 @@ containers, so a tree parsed at depth 1001–1024 needs a raised
 `sys.setrecursionlimit` to serialize again — unchanged from before the parse
 cap, and stated so the asymmetry is not a surprise.
 
+**Mutation during serialization.** User code can run inside `dumps` in two
+places: the `RuntimeWarning` under `cycle_policy="warn"` (a warnings filter
+or `showwarning` hook) and `__str__` of an `int` subclass beyond int64. If
+that code mutates a container being written, `dumps` never reads freed
+memory: lists and tuples are followed live, element by element, as stdlib
+`json` does (a shrunk list ends there, appended elements are written); a
+dict of at most 24 exact-`str` keys is emitted as the row read on entry
+(the only rule the general and the fused record writer can both produce
+byte-identically — this diverges from stdlib `json`, which walks dicts
+live); wider dicts and dicts with `str`-subclass keys are followed live.
+Output on unmutated input is unchanged.
+
 ## File & folder I/O
 
 ```python

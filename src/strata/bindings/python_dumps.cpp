@@ -17,27 +17,46 @@
  *
  * ## Re-entrancy: what the walk may borrow, and for how long
  *
- * The serializer runs user code at exactly two steps, both documented and
- * supported: a cycle placeholder's `PyErr_WarnEx` under the default
- * `cycle_policy="warn"`, and `write_int`'s `PyObject_Str` on a value that is
- * not an exact `int` (an `int` subclass's `__str__`). Writing a value of
- * *exact* scalar type runs none: it calls nothing the user wrote and
- * allocates nothing the collector tracks, so it cannot even trigger a
- * collection. That is the same fact frame elision already rests on, and it is
- * what makes the two rules below free on the all-scalar paths.
+ * The serializer runs user code at exactly three steps, all of them rare and
+ * all of them named here: a cycle placeholder's `PyErr_WarnEx` under the
+ * default `cycle_policy="warn"`; `write_int`'s `PyObject_Str` on a value that
+ * is not an exact `int` (an `int` subclass's `__str__`); and the serializer's
+ * own release of a reference it took at one of those two -- a `__del__` or a
+ * weakref callback firing out of a `Py_DECREF` in `Frame`, `DeferredOpen` or
+ * `RowLock`. Everything else the walk executes runs none: it calls nothing
+ * the user wrote and allocates nothing the collector tracks (the output
+ * buffer is `bytes`/`std::string`, the schema blob is `std::string`, and
+ * `PyObject_Str` on an *exact* int reaches `long_to_decimal_string`), so no
+ * collection and therefore no finalizer can be triggered either. That is the
+ * same fact frame elision already rests on.
  *
  * Because that user code can mutate the very container being written, the
  * walk obeys two rules, and a change here has to keep both:
  *
- *  - **Ownership.** A container holds a strong reference to itself for
- *    exactly the window in which user code can run beneath it -- taken by the
- *    same deferred push that puts it on `open_`, or by `Frame`. Every
- *    container on the current walk (and so every entry of `open_`) is
- *    therefore alive, and its storage can be re-derived from it.
+ *  - **Ownership, latched.** The walk borrows; it takes strong references
+ *    only when it is about to run user code. `latch()` increfs every entry of
+ *    `open_` and every registered `RowLock` that is not already latched, and
+ *    each reference is released when its frame or row goes out of scope.
+ *    Three facts make that sufficient, and all three have to survive a change
+ *    here:
+ *      1. a container is on `open_` *before* any user code can run beneath it
+ *         -- `Frame` pushes on entry, and the deferred push of the sequence
+ *         and record loops arms at the first element that is not an exact
+ *         scalar, which is the first element that can run anything;
+ *      2. the latch is prefix-closed -- `open_` is a stack whose latched
+ *         entries are a prefix from the root, and the row list's latched
+ *         nodes are a suffix from the root, so latching stops at the first
+ *         node already latched;
+ *      3. a `Py_DECREF` of the serializer's own can only reach zero from a
+ *         *latched* guard, and a latched guard implies every guard still live
+ *         at that moment is latched too -- so the `__del__` it fires sees the
+ *         same fully-owned walk the other two steps do.
+ *    Ordinary documents run no user code and so pay no reference counting at
+ *    all; a document that does pays O(depth) once per event.
  *  - **Freshness.** No borrowed pointer *into* a container's storage survives
  *    a step that can run user code. A list's `ob_item`/`ob_size` are re-read
  *    per element, so the loop follows the live list exactly as stdlib json's
- *    encoder does. A dict's row is read once and *owned* from the first
+ *    encoder does. A dict's row is read once and *registered* from the first
  *    non-scalar value on, so a record emits the row the serializer read --
  *    which is what makes the general and the fused writer agree byte for byte
  *    even here. Dicts too wide for that row take `PyDict_Next`, which
@@ -180,6 +199,13 @@ class Serializer {
         }
 
         // Beyond int64 the digits come from Python itself, so nothing is lost.
+        // For an `int` *subclass* that call is user code -- `__str__` can empty
+        // the containers this walk is inside, and so can the release of a `str`
+        // subclass it returns -- so the walk takes its references first. An
+        // exact int reaches `long_to_decimal_string` and returns an exact
+        // `str`: no user code either way, and no latch.
+        if (Py_TYPE(object) != &PyLong_Type)
+            latch();
         PyRef text(PyObject_Str(object));
         if (!text)
             return false;
@@ -265,8 +291,10 @@ class Serializer {
         // me?" and "is the nesting too deep?" -- and only descending into a
         // container child can make either matter for the *next* level. So the
         // cycle probe runs up front, the boundary case keeps the framed path
-        // (its depth error must stay byte-identical), and the push is
-        // deferred until the first container element. All-scalar lists -- the
+        // (its depth error must stay byte-identical), and the push is deferred
+        // until the first element that is not an exact scalar -- which is also
+        // the first element that can run user code, so this list is on open_
+        // whenever `latch()` could need it. All-scalar lists -- the
         // overwhelming majority -- never touch the open_ vector at all.
         if (std::find(open_.begin(), open_.end(), object) != open_.end())
             return emit_cycle_placeholder();
@@ -373,8 +401,11 @@ class Serializer {
         out_.ensure(4);
         out_.write("null", 4);
         if (g_cycle_policy == CyclePolicyValue::Warn) {
+            // The warning runs a user handler, which can empty the containers
+            // this walk is inside: take the references before it runs.
             // A warning filter set to "error" raises here, which stops the
             // serialization rather than being swallowed.
+            latch();
             return PyErr_WarnEx(PyExc_RuntimeWarning, "Circular reference detected", 1) == 0;
         }
         return true;
@@ -584,15 +615,23 @@ class Serializer {
      * One-pass emit for a record inside an array-of-records
      * (docs/architecture/fused_record_writer.md): the entry array is walked
      * once, the schema way resolves from the first key, keys emit from the
-     * inline slot row and values dispatch as visited — no staging arrays, no
-     * second walk. Verification of the whole key row completes before any
+     * inline slot row and values dispatch as visited — no second walk of the
+     * dict, and the only staging is the stack copy of the value pointers the
+     * verification pass already loads. Verification of the whole key row
+     * completes before any
      * output byte, so every deviation — split table, holes, width, way miss,
      * unprepared or wide schema, retired depth, the depth boundary — falls
      * back to write_mapping with nothing to undo. The general path stays the
      * single definition of behavior; a miss here also lets it remember the
      * shape, which is what makes the next sibling hit.
+     *
+     * Out of line, like write_mapping_body and for the same reason plus one:
+     * its `row` is a 192-byte stack array, and inlined into write_sequence it
+     * put that array — and, on this host's default `-fstack-protector`, a
+     * canary — into the frame of the loop every array in every document runs,
+     * all-scalar arrays included.
      */
-    [[nodiscard]] bool write_record_fused(PyObject* object) {
+    [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
 #if defined(STRATA_RAW_DICT_WALK)
         if (!rawdict::available())
             return write_mapping(object);
@@ -665,10 +704,10 @@ class Serializer {
                 // must be findable in open_ while a container child walks, and
                 // the row behind it stops being safe to borrow, because the
                 // child can run user code that empties the dict. Same deferred
-                // frame as the sequence loop, same row ownership as
+                // frame as the sequence loop, same row registration as
                 // write_mapping_body -- so both emit the same record here.
                 open_container.arm(object);
-                values_lock.own(row, index + 1, size);
+                values_lock.own(*this, row, index + 1, size);
             }
             if (!write(value))
                 return false;
@@ -778,8 +817,9 @@ class Serializer {
             }
         }
         // Neither walk above can run user code, so the row it staged is
-        // whole; from here on it is only borrowed, and write_mapping_body owns
-        // the part of it that outlives a step which can run user code.
+        // whole; from here on it is only borrowed, and write_mapping_body
+        // registers the part of it that outlives a step which can run user
+        // code.
         const bool cacheable = !too_many && exact_keys;
         const Py_ssize_t own_from = all_scalar ? count : first_container + 1;
 
@@ -821,10 +861,10 @@ class Serializer {
     // of this body plus the fused writer's own loop were three copies of the
     // key-emit machinery in hot text; this keeps one.
     ///
-    /// @param own_from The first index of the staged row that must be owned
-    ///        rather than borrowed: the index just past the first value that
-    ///        can run user code, or @p count for an all-scalar record, which
-    ///        cannot run any and pays two compares for the empty lock.
+    /// @param own_from The first index of the staged row that outlives a step
+    ///        that can run user code: the index just past the first value that
+    ///        can run any, or @p count for an all-scalar record, whose empty
+    ///        range registers nothing.
     [[nodiscard]] STRATA_NOINLINE_HOT bool
     write_mapping_body(PyObject* object, PyObject* const* keys, PyObject* const* values,
                        Py_ssize_t count, Py_ssize_t own_from) {
@@ -844,11 +884,11 @@ class Serializer {
             return write_mapping_uncached(object);
 
         // From the first value that can run user code on, the staged row is
-        // owned: that code can empty the dict these pointers are borrowed
+        // registered: that code can empty the dict these pointers are borrowed
         // from, and everything after it is still to be emitted. Everything
         // before it is already written, so what reaches the output is the row
         // the serializer read -- which is the row the fused writer emits too.
-        const RowLock values_lock(values, own_from, count);
+        RowLock values_lock(*this, values, own_from, count);
         if (schemas_.size() <= depth)
             schemas_.resize(depth + 1);
 
@@ -912,8 +952,8 @@ class Serializer {
             }
         } else {
             // The only branch that reads a staged *key* after the first value
-            // has been written, so the only one that has to own them too.
-            const RowLock keys_lock(keys, own_from, count);
+            // has been written, so the only one that has to register them too.
+            RowLock keys_lock(*this, keys, own_from, count);
             for (Py_ssize_t index = 0; index < count; ++index) {
                 if (index != 0) {
                     out_.ensure(1);
@@ -1011,21 +1051,17 @@ class Serializer {
         Frame(Serializer& owner, PyObject* container) : owner_(owner), container_(container) {
             const auto& open = owner_.open_;
             repeated_ = std::find(open.begin(), open.end(), container) != open.end();
-            if (!repeated_) {
+            // Pushed, not increfed: `latch()` is what makes every entry of
+            // open_ strong, and it runs before any user code that could drop
+            // the container out of its parent's slot. That is also what makes
+            // every pointer this scan compares safe to compare against.
+            if (!repeated_)
                 owner_.open_.push_back(container);
-                // Owned while open, not borrowed: user code below this frame
-                // can drop the last reference to the container -- its parent's
-                // slot -- and the walk still has to read it. That also makes
-                // every pointer in open_ safe to compare against.
-                Py_INCREF(container);
-            }
         }
 
         ~Frame() {
-            if (!repeated_) {
-                owner_.open_.pop_back();
-                Py_DECREF(container_);
-            }
+            if (!repeated_)
+                owner_.close_container(container_);
         }
 
         Frame(const Frame&) = delete;
@@ -1049,8 +1085,13 @@ class Serializer {
             owner_.out_.ensure(4);
             owner_.out_.write("null", 4);
             if (g_cycle_policy == CyclePolicyValue::Warn) {
+                // The warning runs a user handler, which can empty the
+                // containers this walk is inside -- including the one this
+                // frame found repeated, which this frame deliberately does not
+                // push and whose only keeper is the ancestor that did.
                 // A warning filter set to "error" raises here, which stops the
                 // serialization rather than being swallowed.
+                owner_.latch();
                 return PyErr_WarnEx(PyExc_RuntimeWarning, "Circular reference detected", 1) == 0;
             }
             return true;
@@ -1064,19 +1105,18 @@ class Serializer {
 
     /**
      * The deferred frame of the sequence and record loops: the container goes
-     * on `open_`, and is owned, the first time the loop is about to walk a
-     * child that could run user code. All-scalar containers never arm it and
-     * pay nothing, which is what makes frame elision free.
+     * on `open_` the first time the loop is about to walk a child that could
+     * run user code -- which is exactly the first element that is not an exact
+     * scalar. All-scalar containers never arm it and pay nothing, which is
+     * what makes frame elision free.
      */
     class DeferredOpen {
       public:
         explicit DeferredOpen(Serializer& owner) noexcept : owner_(owner) {}
 
         ~DeferredOpen() {
-            if (container_ != nullptr) {
-                owner_.open_.pop_back();
-                Py_DECREF(container_);
-            }
+            if (container_ != nullptr)
+                owner_.close_container(container_);
         }
 
         DeferredOpen(const DeferredOpen&) = delete;
@@ -1084,7 +1124,6 @@ class Serializer {
 
         void arm(PyObject* container) {
             owner_.open_.push_back(container);
-            Py_INCREF(container);
             container_ = container;
         }
 
@@ -1096,19 +1135,32 @@ class Serializer {
     };
 
     /**
-     * Strong references to the tail of a staged row of borrowed pointers.
+     * A staged row of borrowed pointers, registered so `latch()` can find it.
      *
      * A row read out of a dict is only borrowed for as long as the dict holds
      * it, and user code running under a container value can empty the dict.
-     * From that value on, the loop owns what it still has to emit. An
-     * all-scalar record locks nothing: an empty range is two compares.
+     * From that value on the row registers itself on the serializer's row
+     * stack -- three stores, no reference counting -- and pays a reference per
+     * entry only if user code actually runs. An all-scalar record's range is
+     * empty and registers nothing at all.
      */
     class RowLock {
       public:
         RowLock() noexcept = default;
-        RowLock(PyObject* const* row, Py_ssize_t first, Py_ssize_t last) { own(row, first, last); }
+        RowLock(Serializer& owner, PyObject* const* row, Py_ssize_t first,
+                Py_ssize_t last) noexcept {
+            own(owner, row, first, last);
+        }
 
         ~RowLock() {
+            if (owner_ == nullptr)
+                return;
+            // Always the head: rows are stack objects and their scopes nest,
+            // so the innermost is the first destroyed. A row registered
+            // outside this discipline would unlink the wrong node.
+            owner_->rows_ = next_;
+            if (!latched_)
+                return;
             for (Py_ssize_t index = first_; index < last_; ++index)
                 Py_DECREF(row_[index]);
         }
@@ -1116,22 +1168,74 @@ class Serializer {
         RowLock(const RowLock&) = delete;
         RowLock& operator=(const RowLock&) = delete;
 
-        void own(PyObject* const* row, Py_ssize_t first, Py_ssize_t last) {
-            for (Py_ssize_t index = first; index < last; ++index)
-                Py_INCREF(row[index]);
+        /// Register `row[first … last)`. An empty range registers nothing:
+        /// there is no borrowed pointer left for user code to invalidate.
+        /// Called at most once per object -- both call sites are guarded by
+        /// the same condition that arms the container's deferred push.
+        void own(Serializer& owner, PyObject* const* row, Py_ssize_t first,
+                 Py_ssize_t last) noexcept {
+            if (first >= last)
+                return;
             row_ = row;
             first_ = first;
             last_ = last;
+            next_ = owner.rows_;
+            owner_ = &owner;
+            owner.rows_ = this;
         }
 
       private:
+        friend class Serializer;
+
+        void latch_row() noexcept {
+            for (Py_ssize_t index = first_; index < last_; ++index)
+                Py_INCREF(row_[index]);
+            latched_ = true;
+        }
+
+        Serializer* owner_ = nullptr;
+        RowLock* next_ = nullptr;
         PyObject* const* row_ = nullptr;
         Py_ssize_t first_ = 0;
         Py_ssize_t last_ = 0;
+        bool latched_ = false;
     };
+
+    /**
+     * Make every borrowed pointer the walk still needs a strong one.
+     *
+     * Called immediately before each of the two steps that run user code, and
+     * so also before any `__del__` the serializer's own releases can fire (see
+     * the rule at the top of this file). Latched entries stay latched until
+     * their frame or row goes out of scope, so a second event only pays for
+     * what has been opened since the first: `open_`'s latched entries are a
+     * prefix from the root and the row list's are a suffix from the root,
+     * which is why both loops may stop at the first one already latched.
+     */
+    STRATA_COLD_FN void latch() noexcept {
+        while (owned_ < open_.size()) {
+            Py_INCREF(open_[owned_]);
+            ++owned_;
+        }
+        for (RowLock* row = rows_; row != nullptr && !row->latched_; row = row->next_)
+            row->latch_row();
+    }
+
+    /// Pop a container off `open_`, releasing it if the walk had latched it.
+    void close_container(PyObject* container) {
+        open_.pop_back();
+        if (owned_ > open_.size()) {
+            owned_ = open_.size();
+            Py_DECREF(container);
+        }
+    }
 
     StagedOutput& out_;
     std::vector<PyObject*> open_;
+    /// `open_[0 … owned_)` hold a strong reference; the rest are borrowed.
+    size_t owned_ = 0;
+    /// Innermost registered staged row; see RowLock.
+    RowLock* rows_ = nullptr;
     size_t map_depth_ = 0; ///< dict nesting, independent of frame elision
     int depth_limit_;
 

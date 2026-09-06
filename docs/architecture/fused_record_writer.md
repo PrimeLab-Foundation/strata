@@ -25,10 +25,22 @@ collect-then-emit per record:
 - Today: `write_mapping` walks the dict once into `keys[24]`/`values[24]`
   staging arrays (classify, width check), selects the schema way, then a
   second loop emits prepared keys and dispatches each staged value.
+
 - Fused: for a list whose elements are exact dicts, a record loop walks the
   rawdict entry array **once**, resolving the schema way from the first
   key, emitting `"key":` from the inline slot row and dispatching each
-  value as it is visited. No staging arrays, no second walk.
+  value as it is visited. No second walk, and no staging of the *keys* at
+  all.
+
+  The one staging array that remains is the row of value pointers: the
+  verification pass loads every `me_value` anyway (to prove the slot is
+  occupied), and it keeps them in a stack row so the emit loop never reads
+  the entry array again. It cannot: user code running under a value — an
+  `int` subclass's `__str__`, a cycle warning — can resize the dict and free
+  that table (E26-FIX1, 2026-09-06). The row is a copy of pointers the one
+  pass already has in hand, not a second read of the dict, and holding it
+  is what lets the fused writer emit the same bytes as the general path
+  under mutation.
 
 The general path stays untouched as the single definition of behavior and
 the fallback at every deviation: non-`str` key, width past `kMaxSchemaKeys`,
