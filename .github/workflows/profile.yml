@@ -441,6 +441,10 @@ jobs:
             .venv/bin/python benchmarks/cg_attribute.py --delta cg.$engine.20.out cg.$engine.60.out 40 $engine || true
           done
 
+      # E26-P1 attribution: how many allocator calls does one `dumps` of
+      # mixed.json make, from which serializer function, and how does that
+      # compare with orjson? Same armv8.2-a rebuild the cachegrind step
+      # left in place; callgrind counts calls, not time.
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -467,10 +471,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      # E26-P1 attribution: how many allocator calls does one `dumps` of
-      # mixed.json make, from which serializer function, and how does that
-      # compare with orjson? Same armv8.2-a rebuild the cachegrind step
-      # left in place; callgrind counts calls, not time.
       - name: Allocator calls per dumps call (callgrind, armv8.2-a rebuild)
         run: |
           cat > dumps_calls.py <<'PY'
