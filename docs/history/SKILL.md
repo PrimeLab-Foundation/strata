@@ -86,14 +86,15 @@ doc is the narrative index.
 
 ## Archive map
 
-| Path                                       | What it is                                                             |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| `../archive/turbojsonpath`                 | Original project, 6 commits + uncommitted final reports                |
-| `../archive/bkp_strata`                    | First 12 strata commits (ancestor of pre-reset main)                   |
-| `../archive/strata`                        | Full pre-reset repo: 167 commits, all experiment branches listed above |
-| `../archive/new_strata`                    | The shelved 2026-06 rearchitecture (working tree, builds included)     |
-| `../archive/strata.zip`                    | Feb 2026 full snapshot incl. venv — redundant with the git repos       |
-| branch `backup/pre-reset-main` (this repo) | The 49-commit pre-reset main line                                      |
+| Path                                       | What it is                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `../archive/turbojsonpath`                 | Original project, 6 commits + uncommitted final reports                                                                                                                                                                                                                                                                                     |
+| `../archive/bkp_strata`                    | First 12 strata commits (ancestor of pre-reset main)                                                                                                                                                                                                                                                                                        |
+| `../archive/strata`                        | Full pre-reset repo: 167 commits, all experiment branches listed above                                                                                                                                                                                                                                                                      |
+| `../archive/new_strata`                    | The shelved 2026-06 rearchitecture (working tree, builds included)                                                                                                                                                                                                                                                                          |
+| `../archive/strata.zip`                    | Feb 2026 full snapshot incl. venv — redundant with the git repos                                                                                                                                                                                                                                                                            |
+| branch `backup/pre-reset-main` (this repo) | The 49-commit pre-reset main line                                                                                                                                                                                                                                                                                                           |
+| tags `archive/<branch>` (origin and local) | Every experiment and pre-reset branch as it stood on 2026-09-07, when the branches themselves were deleted: `archive/main-v2*`, `archive/main-from-scratch-v1`, `archive/exp/*` (the wave-24/25 records, the rejected levers, the campaign's fix and review branches). A doc that names a branch resolves through the tag of the same name. |
 
 ## Hygiene lessons already paid for (don't repeat)
 
