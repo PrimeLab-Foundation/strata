@@ -445,32 +445,6 @@ jobs:
       # mixed.json make, from which serializer function, and how does that
       # compare with orjson? Same armv8.2-a rebuild the cachegrind step
       # left in place; callgrind counts calls, not time.
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: profile-linux-arm64
-          path: |
-            perf_stat_loads_*.txt
-            perf_report_loads_*.txt
-            strata_symbols.txt
-            perf_stat_dumps_*.txt
-            perf_report_dumps_*.txt
-            dumps_symbols.txt
-            serializer_footprint.txt
-            cg.*.out
-          if-no-files-found: ignore
-
-  decompose-windows:
-    name: decompose (windows-x86_64)
-    runs-on: windows-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Allocator calls per dumps call (callgrind, armv8.2-a rebuild)
         run: |
           cat > dumps_calls.py <<'PY'
@@ -519,6 +493,32 @@ jobs:
               .venv/bin/python calls_by_caller.py cg_calls.$engine.$dataset.zero.out 1 | head -3
             done
           done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-linux-arm64
+          path: |
+            perf_stat_loads_*.txt
+            perf_report_loads_*.txt
+            strata_symbols.txt
+            perf_stat_dumps_*.txt
+            perf_report_dumps_*.txt
+            dumps_symbols.txt
+            serializer_footprint.txt
+            cg.*.out
+          if-no-files-found: ignore
+
+  decompose-windows:
+    name: decompose (windows-x86_64)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Install strata and the competitor set (test-gated build)
         shell: bash
         run: |
