@@ -769,8 +769,7 @@ class Serializer {
         bool prepared = false;
         const size_t way = schemas_[depth].select(keys, count);
         if (way != SchemaCacheLease::DepthSchemas::kMiss) {
-            Schema& selected = schemas_[depth].ways[way];
-            if (!selected.prepared && !build_schema(selected))
+            if (!schemas_[depth].ways[way].prepared && !build_schema(schemas_[depth], way))
                 return false;
             prepared = true;
         }
@@ -836,15 +835,29 @@ class Serializer {
         return true;
     }
 
-    /// Prepare the `"key":` bytes for a schema whose keys are already recorded.
-    [[nodiscard]] STRATA_COLD_FN bool build_schema(Schema& schema) {
+    /// Prepare the `"key":` bytes for the schema in @p way of @p depth_schemas,
+    /// whose keys are already recorded.
+    ///
+    /// Takes the way rather than the slot because the one failing key -- a
+    /// lone surrogate, which has no UTF-8 -- has to take the *whole way* out
+    /// of service, not just empty it: an emptied slot that still matched
+    /// `counts`/`first_keys`/`key_row` was rebuilt over no keys at all on the
+    /// next call, declared prepared with every span zero, and emitted a record
+    /// with no key bytes (`{1,2}` -- invalid JSON, silently).
+    [[nodiscard]] STRATA_COLD_FN bool build_schema(SchemaCacheLease::DepthSchemas& depth_schemas,
+                                                   size_t way) {
+        Schema& schema = depth_schemas.ways[way];
         schema.blob.clear();
         schema.offsets.assign(1, 0);
         for (PyObject* key : schema.keys) {
             Py_ssize_t size = 0;
             const char* utf8 = PyUnicode_AsUTF8AndSize(key, &size);
             if (utf8 == nullptr) {
-                schema.keys.clear(); // never leave a half-built slot cached
+                // Nothing usable is left behind, so the next call re-walks the
+                // shape and raises this same error from write_string -- the
+                // one definition of key emission -- instead of hitting a
+                // remembered failure. `schema` is dead after this line.
+                depth_schemas.invalidate(way);
                 return false;
             }
             append_escaped_json_string(std::string_view(utf8, static_cast<size_t>(size)),

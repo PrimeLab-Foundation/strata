@@ -51,7 +51,12 @@ Compact serialization (no whitespace). Supports dict/list/tuple/str/int/float/bo
 dict keys must be `str` (else `TypeError`); NaN/±Inf serialize as `null`; big ints
 beyond int64 are emitted via their str form. Raises `TypeError` (unsupported type),
 `ValueError` ("Maximum serialization depth exceeded" at `sys.getrecursionlimit()`,
-or cycle under `cycle_policy="error"`). The serializer's limit is the
+or cycle under `cycle_policy="error"`), `UnicodeEncodeError` (a `str` key or
+value with no UTF-8 encoding — a lone surrogate). The output is UTF-8, so a
+lone surrogate has no JSON form: strata refuses it, on **every** call and in
+both return types, and nothing is written to the destination of a `dump`.
+stdlib `json` accepts it (escaped, or passed through under
+`ensure_ascii=False`); orjson refuses it as `TypeError`. The serializer's limit is the
 interpreter's recursion limit (1000 by default), the parser's is 1024
 containers, so a tree parsed at depth 1001–1024 needs a raised
 `sys.setrecursionlimit` to serialize again — unchanged from before the parse

@@ -304,6 +304,12 @@ class SchemaCacheLease {
         bool wide = false; ///< some span exceeded a slot: emit from the blob
 
         void remember(PyObject* const* other, Py_ssize_t count) {
+            // The one step that can allocate, taken before anything is
+            // mutated: a throw here leaves the way exactly as it was, rather
+            // than with its old references already dropped and a vector the
+            // next remember() would release a second time. `assign` cannot
+            // then allocate, so the rest of this runs to completion.
+            keys.reserve(static_cast<size_t>(count));
             for (PyObject* key : keys)
                 Py_DECREF(key);
             keys.assign(other, other + count);
@@ -316,6 +322,20 @@ class SchemaCacheLease {
                 key_row[static_cast<size_t>(index)] = other[index];
             prepared = false;
             wide = false;
+        }
+
+        /// Drop the remembered shape: release the owned keys and blank the
+        /// borrowed row, leaving nothing an identity compare could hit. The
+        /// prepared bytes are not cleared -- `prepared` is false, and
+        /// `build_schema` resets `blob` and `offsets` before it writes them.
+        void forget() {
+            prepared = false;
+            wide = false;
+            for (PyObject* key : keys)
+                Py_DECREF(key);
+            keys.clear();
+            for (PyObject*& remembered : key_row)
+                remembered = nullptr;
         }
 
         /// Keys past the first, by identity. `select` has already matched the
@@ -384,6 +404,16 @@ class SchemaCacheLease {
         /// stops paying remember()'s reference traffic.
         bool retired = false;
 
+        /// Take one way out of service: it stops matching *before* its owned
+        /// keys are released, so no select() can reach a slot whose shape is
+        /// half gone. `counts` back at -1 is what un-matches it -- callers
+        /// guarantee count >= 1, so -1 can never be asked for.
+        void invalidate(size_t way) {
+            counts[way] = -1;
+            first_keys[way] = nullptr;
+            ways[way].forget();
+        }
+
         [[nodiscard]] size_t select(PyObject* const* keys, Py_ssize_t count) {
             if (retired)
                 return kMiss;
@@ -394,16 +424,8 @@ class SchemaCacheLease {
                     return way;
             }
             if (++misses > 64) {
-                for (Schema& schema : ways) {
-                    for (PyObject* key : schema.keys)
-                        Py_DECREF(key);
-                    schema.keys.clear();
-                    schema.prepared = false;
-                }
-                for (size_t way = 0; way < kWays; ++way) {
-                    counts[way] = -1;
-                    first_keys[way] = nullptr;
-                }
+                for (size_t way = 0; way < kWays; ++way)
+                    invalidate(way);
                 retired = true;
                 return kMiss;
             }
