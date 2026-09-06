@@ -205,6 +205,15 @@ build `ru_maxrss` probe (no memory change), and an in-process A/B against HEAD's
 own PGO build (`loads users` −2.9%, `mixed` −4.2%, `dumps mixed` −7.0%, the streaming `search` control flat, the two `query` controls −0.1% and −9.9%, the latter a 0.10 ms row whose HEAD draws span 17%). The five-platform CI sample for this tree is owed after the human
 publishes it (docs/decisions.md, 2026-09-06).
 
+Published as 32c5fa4 the same day: the push's CI green on every leg, then two
+`benchmark.yml` samples on the SHA — 129/135 (run 34012082501) and 134/135 (run
+34012087358, the fetch in the tree), no ties, five legs of 27 rows each with the
+SHA in every report. The Neoverse-N2's `loads`/`load wide_arrays` rows read
+0.94x and 0.81–0.83x of orjson on both draws; the one row behind on both is
+linux-arm64 `dumps mixed` at 1.03x (0.066 ms against 0.064). Sample one's five
+other misses (linux-x86_64 `dumps wide_arrays`/`mixed`, macos-arm64 `loads nested` at 1.00x and `dump mixed`, windows `dumps mixed`) did not recur
+(docs/decisions.md, 2026-09-06).
+
 **Status 2026-09-04, wave 22.** The `loads mixed` coin band had a cause:
 the key predictor retired mixed.json's record depth for the life of the
 thread once the other datasets had gone through the same builder, so the
