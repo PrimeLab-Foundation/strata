@@ -7,17 +7,23 @@ conditions need their own countable process:
 
 - ``hot``: warm once, then N calls back to back. Every counter is the
   serializer's own steady state.
-- ``cold``: the harness's condition — ``gc.collect()`` and a cache-evicting
-  sweep before each call, so the engine finds neither its code nor its data
-  resident. The sweep is written at the C level (one strided slice assignment)
-  so the interpreter's own instructions do not drown the engine's.
+- ``gc``: the harness's own condition and nothing else — one
+  ``gc.collect()`` before each call. This is what the tier harness does, and
+  it is what flips this row: the collector's traversal re-warms every dict's
+  internals while evicting the side structures an engine keeps between calls.
+- ``cold``: ``gc`` plus a cache-evicting sweep, for a harsher starting state.
+  The sweep is written at the C level (one strided slice assignment) so the
+  interpreter's own instructions do not drown the engine's. Keep it small:
+  a sweep whose own cost dwarfs the call makes the differential below
+  meaningless (a 64 MB sweep costs 8 ms here against the call's 0.07 ms, and
+  varies by 16% between identical runs).
 
-Because the cold sweep is the expensive part of a cold iteration, the engine
-name ``none`` runs the sweep and no dumps at all: subtracting its counters from
-an engine's leaves the engine's own cold cost. Read the three cold runs
-together or the totals mean nothing.
+The gc and cold modes charge the counters for work that is not the engine's,
+so the engine name ``none`` runs the same preamble and no dumps at all:
+subtracting its counters leaves the engine's own cost under that condition.
+Read a mode's runs together or the totals mean nothing.
 
-usage: dumps_loop.py <strata|orjson|none> [iterations] [hot|cold] [sweep_mb]
+usage: dumps_loop.py <strata|orjson|none> [iterations] [hot|gc|cold] [sweep_mb]
 """
 
 import gc
@@ -53,6 +59,12 @@ def main() -> int:
         for _ in range(iterations):
             call()
         elapsed = time.perf_counter() - start
+    elif mode == "gc":
+        start = time.perf_counter()
+        for _ in range(iterations):
+            gc.collect()
+            call()
+        elapsed = time.perf_counter() - start
     elif mode == "cold":
         sweep = bytearray(sweep_mb * 1024 * 1024)
         stride = memoryview(sweep)[::64]  # one byte per cache line
@@ -67,7 +79,8 @@ def main() -> int:
         raise SystemExit(f"unknown mode: {mode}")
     print(
         f"{engine} {mode}: {iterations} iterations, "
-        f"{elapsed * 1e6 / iterations:.2f} us/iteration (sweep included in cold)"
+        f"{elapsed * 1e6 / iterations:.2f} us/iteration "
+        f"(the mode's preamble is inside the measured span)"
     )
     return 0
 
