@@ -401,3 +401,124 @@ def test_str_mode_survives_a_nested_dumps_call():
         out = strata.dumps(cyclic)
     assert out == '{"a":[1,2,null]}'
     assert seen == ['{"w":"' + "x" * 50 + '"}']
+
+
+# ---------------------------------------------------------------------------
+# "Supports dict/list/tuple/str/int/float/bool/None" — reached through a
+# subclass. The exact-type ladder in the serializer's dispatch settles real
+# payloads; subclasses fall to an out-of-line chain whose one semantic
+# ordering is bool before int. These pin that the chain is a dispatch and not
+# a second format: a subclass serializes as its base type does.
+# ---------------------------------------------------------------------------
+
+
+class _Str(str):
+    pass
+
+
+class _Int(int):
+    pass
+
+
+class _Float(float):
+    pass
+
+
+class _List(list):
+    pass
+
+
+class _Dict(dict):
+    pass
+
+
+class _Tuple(tuple):
+    pass
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (_Str("text"), '"text"'),
+        (_Str('with "quotes" and \\'), '"with \\"quotes\\" and \\\\"'),
+        (_Int(0), "0"),
+        (_Int(-7), "-7"),
+        (_Int(2**63), "9223372036854775808"),
+        (_Int(-(2**70)), "-1180591620717411303424"),
+        (_Float(2.5), "2.5"),
+        (_Float(float("nan")), "null"),
+        (_Float(float("-inf")), "null"),
+        (_List([1, "a", None]), '[1,"a",null]'),
+        (_Dict({"k": "v"}), '{"k":"v"}'),
+        (_Tuple((1, 2)), "[1,2]"),
+    ],
+)
+def test_a_subclass_serializes_as_its_base_type(value, expected):
+    assert strata.dumps(value) == expected
+    assert strata.dumps(value, return_type="bytes") == expected.encode()
+
+
+def test_subclasses_nested_inside_containers():
+    doc = {"a": [_Str("s"), _Int(7), _Float(2.5)], "b": _Dict({"k": _List([1])})}
+    assert strata.dumps(doc) == '{"a":["s",7,2.5],"b":{"k":[1]}}'
+
+
+def test_a_run_of_subclassed_scalars_takes_the_general_path():
+    """The scalar runs test the *exact* type, so a list of int subclasses ends
+    the run at its first element and every value still prints as an int."""
+    assert strata.dumps([_Int(index) for index in range(80)]) == json.dumps(
+        list(range(80)), separators=(",", ":")
+    )
+    assert strata.dumps([_Str(f"v{index}") for index in range(80)]) == json.dumps(
+        [f"v{index}" for index in range(80)], separators=(",", ":")
+    )
+    assert strata.dumps([_Float(index * 0.5) for index in range(80)]) == json.dumps(
+        [index * 0.5 for index in range(80)], separators=(",", ":")
+    )
+
+
+def test_a_tuple_of_records_serializes_like_a_list_of_records():
+    records = tuple({"id": index, "name": f"user{index}"} for index in range(50))
+    assert strata.dumps(records) == json.dumps(list(records), separators=(",", ":"))
+    assert strata.dumps({"rows": records}) == json.dumps(
+        {"rows": list(records)}, separators=(",", ":")
+    )
+
+
+def test_nested_tuples_and_mixed_containers():
+    doc = ((1,), [2], {"k": (3, [4, (5,)])})
+    assert strata.dumps(doc) == '[[1],[2],{"k":[3,[4,[5]]]}]'
+
+
+# ---------------------------------------------------------------------------
+# The prepared-key cache is an accelerator, not a format: a level whose
+# shapes never repeat retires and every record there emits its keys through
+# the escaper instead. Output must not change when that happens, nor when
+# repetition resumes afterwards.
+# ---------------------------------------------------------------------------
+
+
+def test_shapes_that_never_repeat_still_serialize_identically():
+    doc = [{f"k{index}_{field}": field for field in range(3)} for index in range(300)]
+    assert strata.dumps(doc) == json.dumps(doc, separators=(",", ":"))
+    assert strata.dumps(doc, return_type="bytes") == json.dumps(doc, separators=(",", ":")).encode()
+
+
+def test_repetition_after_churn_still_serializes_identically():
+    doc = [{f"k{index}": 1} for index in range(200)] + [{"a": 1, "b": 2}] * 200
+    assert strata.dumps(doc) == json.dumps(doc, separators=(",", ":"))
+
+
+def test_every_nesting_depth_up_to_the_cache_bound():
+    """Each new dict depth grows the per-depth schema array; depths past the
+    cached bound take the plain walk. Both sides must print the same."""
+
+    def nest(depth):
+        node = {"leaf": 1}
+        for level in range(depth):
+            node = {f"n{level}": node, "s": level}
+        return node
+
+    doc = [nest(depth) for depth in range(1, 70)]
+    assert strata.dumps(doc) == json.dumps(doc, separators=(",", ":"))
+    assert strata.dumps(doc, return_type="bytes") == json.dumps(doc, separators=(",", ":")).encode()

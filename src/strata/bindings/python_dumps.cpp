@@ -42,15 +42,23 @@ namespace {
 // The benchmark condition interleaves five engines per round; on x86's small
 // L1I every byte of hot footprint refaults per call, and these functions run
 // once per schema, once per cycle, or never.
+// STRATA_NOINLINE_HOT is for paths that are *rarer*, not slower: they leave
+// the hot symbol's text but keep its optimization level, because each is the
+// steady state of some real document shape (long keys, one-off schemas, a
+// list of one scalar type). STRATA_INLINE_FN goes the other way — a type
+// ladder that only dispatches must not become a call of its own.
 #if defined(__clang__) || defined(__GNUC__)
 #define STRATA_COLD_FN __attribute__((noinline, cold))
 #define STRATA_NOINLINE_HOT __attribute__((noinline))
+#define STRATA_INLINE_FN [[gnu::always_inline]] inline
 #elif defined(_MSC_VER)
 #define STRATA_COLD_FN __declspec(noinline)
 #define STRATA_NOINLINE_HOT __declspec(noinline)
+#define STRATA_INLINE_FN __forceinline
 #else
 #define STRATA_COLD_FN
 #define STRATA_NOINLINE_HOT
+#define STRATA_INLINE_FN inline
 #endif
 
 /**
@@ -104,7 +112,18 @@ class Serializer {
                 out_.write("false", 5);
             return true;
         }
-
+        // The subclass chain below stays *inline*, and that was measured.
+        // Moving it out of line is the obvious companion to the two splits
+        // above — it is seven flag loads and an error format that exact-typed
+        // data never reaches — but it buys only 124 bytes of `write`'s text
+        // (3,448 → 3,324 on the PGO+LTO aarch64 build, against the 8,956 that
+        // leaving write_mapping_body buys), and it costs a call on every
+        // subclassed value: 9.1% on a document of `str` and `int` subclasses
+        // when marked cold, 5.4% when merely out of line, five alternating
+        // rounds each. A subclass is rare in the sense that most values are
+        // not one, not in the sense that no payload is made of them —
+        // `enum.IntEnum` and NumPy's scalar types are int and float
+        // subclasses, and such a document takes this chain for every value.
         if (PyUnicode_Check(object))
             return write_string(object);
         if (PyFloat_Check(object)) {
@@ -334,7 +353,17 @@ class Serializer {
         return true;
     }
 
-    [[nodiscard]] Py_ssize_t write_scalar_run(PyObject** items, Py_ssize_t size) {
+    /**
+     * Dispatch to the run for the first element's type.
+     *
+     * Inlined into the two sequence loops, while every run below stays out of
+     * line: the ladder is a handful of compares, and one call replaces one
+     * call, so a list still pays exactly one. What changes is the text the
+     * call touches — a document of int lists fetches the int run, not the
+     * five runs a single fused symbol would interleave, and each run sets up
+     * its own frame instead of the union of all five.
+     */
+    [[nodiscard]] STRATA_INLINE_FN Py_ssize_t write_scalar_run(PyObject** items, Py_ssize_t size) {
         if (size == 0)
             return 0;
         PyTypeObject* type = Py_TYPE(items[0]);
@@ -358,7 +387,7 @@ class Serializer {
     static_assert(kScalarRunBlock * (util::kDoubleBufferSize + 1) <= StagedOutput::kMaxReservation,
                   "a scalar-run block must fit one reservation");
 
-    [[nodiscard]] Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
         while (index < size) {
             const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
@@ -386,7 +415,7 @@ class Serializer {
         return index;
     }
 
-    [[nodiscard]] Py_ssize_t run_ints(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_ints(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
         while (index < size) {
             const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
@@ -428,7 +457,7 @@ class Serializer {
         return index;
     }
 
-    [[nodiscard]] Py_ssize_t run_bools(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_bools(PyObject** items, Py_ssize_t size) {
         if (size == 0 || (items[0] != Py_True && items[0] != Py_False))
             return 0;
         // First element bare, the rest as one eight-byte constant store each
@@ -467,7 +496,7 @@ class Serializer {
         return index;
     }
 
-    [[nodiscard]] Py_ssize_t run_nones(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_nones(PyObject** items, Py_ssize_t size) {
         // First element bare, then one eight-byte constant store per element
         // (",null" plus slack the next write overwrites). Same store-window
         // proof as the bool run: the last store reaches (block-1)*5+8 bytes
@@ -490,7 +519,7 @@ class Serializer {
 
     /// Clean short ASCII strings, quoted straight into the stage. The first
     /// element needing escapes, non-ASCII text, or real length ends the run.
-    [[nodiscard]] Py_ssize_t run_strings(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_strings(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
         for (; index < size; ++index) {
             PyObject* item = items[index];
@@ -561,7 +590,7 @@ class Serializer {
         if (depth >= kMaxCachedDepth || open_.size() >= static_cast<size_t>(depth_limit_))
             return write_mapping(object);
         if (schemas_.size() <= depth)
-            schemas_.resize(depth + 1);
+            grow_schemas(depth);
         auto& depth_schemas = schemas_[depth];
         if (depth_schemas.retired || entries[0].me_value == nullptr)
             return write_mapping(object);
@@ -757,7 +786,7 @@ class Serializer {
         if (depth >= kMaxCachedDepth)
             return write_mapping_uncached(object);
         if (schemas_.size() <= depth)
-            schemas_.resize(depth + 1);
+            grow_schemas(depth);
 
         // Preparing the bytes costs about what writing them costs, so a schema
         // seen once would pay for a cache it never uses — measurably so on
@@ -804,37 +833,76 @@ class Serializer {
                     return false;
             }
         } else if (prepared) {
-            // Some span exceeded its slot: emit every key from the blob.
-            for (Py_ssize_t index = 0; index < count; ++index) {
-                const Schema& schema = schemas_[depth].ways[way];
-                const uint32_t offset = schema.offsets[static_cast<size_t>(index)];
-                const uint32_t span = schema.offsets[static_cast<size_t>(index) + 1] - offset;
-                if (index != 0) {
-                    out_.ensure(1);
-                    out_.put(',');
-                }
-                out_.write_spanning(schema.blob.data() + offset, span);
-                if (!write(values[index]))
-                    return false;
-            }
+            if (!write_blob_keys(depth, way, values, count))
+                return false;
         } else {
-            for (Py_ssize_t index = 0; index < count; ++index) {
-                if (index != 0) {
-                    out_.ensure(1);
-                    out_.put(',');
-                }
-                if (!write_string(keys[index]))
-                    return false;
-                out_.ensure(1);
-                out_.put(':');
-                if (!write(values[index]))
-                    return false;
-            }
+            if (!write_walked_keys(keys, values, count))
+                return false;
         }
         out_.ensure(1);
         out_.put('}');
         return true;
     }
+
+    /**
+     * A schema whose key bytes did not fit the inline slots: emit them from
+     * the heap blob instead.
+     *
+     * Out of line so the inline-slot loop above is the only key emitter in
+     * write_mapping_body's text, and noinline rather than cold: a document
+     * whose keys run past thirteen characters takes this loop for every
+     * record, so it keeps the hot path's optimization level.
+     */
+    [[nodiscard]] STRATA_NOINLINE_HOT bool
+    write_blob_keys(size_t depth, size_t way, PyObject* const* values, Py_ssize_t count) {
+        for (Py_ssize_t index = 0; index < count; ++index) {
+            // Re-indexed per iteration for the same reason as the slot loop:
+            // a nested object may grow `schemas_` and move its elements.
+            const Schema& schema = schemas_[depth].ways[way];
+            const uint32_t offset = schema.offsets[static_cast<size_t>(index)];
+            const uint32_t span = schema.offsets[static_cast<size_t>(index) + 1] - offset;
+            if (index != 0) {
+                out_.ensure(1);
+                out_.put(',');
+            }
+            out_.write_spanning(schema.blob.data() + offset, span);
+            if (!write(values[index]))
+                return false;
+        }
+        return true;
+    }
+
+    /**
+     * No prepared schema: the keys go through the escaper, one by one.
+     *
+     * This is the first sighting of every shape, and the steady state at a
+     * depth whose shapes churned until it retired — so, like the blob loop,
+     * out of line but not cold.
+     */
+    [[nodiscard]] STRATA_NOINLINE_HOT bool
+    write_walked_keys(PyObject* const* keys, PyObject* const* values, Py_ssize_t count) {
+        for (Py_ssize_t index = 0; index < count; ++index) {
+            if (index != 0) {
+                out_.ensure(1);
+                out_.put(',');
+            }
+            if (!write_string(keys[index]))
+                return false;
+            out_.ensure(1);
+            out_.put(':');
+            if (!write(values[index]))
+                return false;
+        }
+        return true;
+    }
+
+    /// Give depth @p depth a schema set of its own.
+    ///
+    /// Out of line and cold: `std::vector`'s growth path — relocate, destroy,
+    /// reallocate, four 688-byte Schemas per element — is kilobytes of text
+    /// that runs at most kMaxCachedDepth times in a thread's life, and it was
+    /// sitting inside both of the walk's hottest symbols.
+    STRATA_COLD_FN void grow_schemas(size_t depth) { schemas_.resize(depth + 1); }
 
     /// Prepare the `"key":` bytes for a schema whose keys are already recorded.
     [[nodiscard]] STRATA_COLD_FN bool build_schema(Schema& schema) {
