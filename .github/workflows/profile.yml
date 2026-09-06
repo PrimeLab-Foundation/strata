@@ -406,6 +406,17 @@ jobs:
           PYTHONPATH=. .venv/bin/python benchmarks/symbol_sizes.py "$SO" "$ORJSON" \
             | tee -a serializer_footprint.txt
 
+      # The other half of the entry cost, which code size cannot show: what
+      # each serializer function saves and restores on the way in. The
+      # annotation of this row found `Serializer::write`'s prologue and
+      # epilogue carrying 11.8% of that function's own samples, and `write`
+      # runs 1,375 times per mixed.json document.
+      - name: Serializer stack frames per symbol
+        run: |
+          SO=$(PYTHONPATH=. .venv/bin/python -c "import strata._strata as m; print(m.__file__)")
+          PYTHONPATH=. .venv/bin/python benchmarks/frame_sizes.py "$SO" \
+            | tee -a serializer_footprint.txt
+
       # Code or data? This core's PMU answers neither: `perf list` offers only
       # L1-dcache-loads and L1-dcache-load-misses, and L1-icache-load-misses
       # and iTLB-load-misses both read "not supported". Cachegrind's simulated
