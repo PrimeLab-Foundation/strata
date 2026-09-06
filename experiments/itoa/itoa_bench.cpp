@@ -323,6 +323,69 @@ std::vector<Bucket> buckets() {
     return out;
 }
 
+// --- Loop shapes: the writer against the two shapes the serializer wraps it
+// in. `format_int64`'s own nanoseconds are only half of what an integer costs
+// in `dumps`; the other half is the output bookkeeping and, at the Python
+// level, the PyLong extraction. These three shapes price the bookkeeping, so
+// the Python-level nanoseconds per element (benchmarks/decompose_dumps_records
+// .py, same job) minus the matching shape here is the extraction.
+//
+//   raw        the digits, nothing else: the writer's own cost
+//   write_int  Serializer::write_int exactly -- ensure(kInt64BufferSize) then
+//              advance(format_int64(cursor())): one capacity compare and one
+//              size update per value. This is the shape an integer *inside a
+//              record* takes; its separator comes from the key's own store.
+//   run_ints   the scalar-run shape: one ensure per 64-element block and the
+//              comma fused into the value's store window.
+// raw -> write_int is the per-value bookkeeping; raw -> run_ints is the same
+// bookkeeping amortized over a block, plus the fused separator.
+struct Stage {
+    char* base;
+    size_t used;
+    size_t capacity;
+
+    void ensure(size_t bytes) noexcept {
+        if (used + bytes > capacity)
+            used = 0; // the bench never overflows; keep the compare honest
+    }
+    [[nodiscard]] char* cursor() noexcept { return base + used; }
+    void advance(size_t bytes) noexcept { used += bytes; }
+    void put(char c) noexcept { base[used++] = c; }
+};
+
+size_t shape_raw(Stage& stage, const std::vector<int64_t>& values) {
+    char* cursor = stage.base;
+    for (const int64_t value : values)
+        cursor += strata::util::format_int64(value, cursor);
+    return static_cast<size_t>(cursor - stage.base);
+}
+
+size_t shape_write_int(Stage& stage, const std::vector<int64_t>& values) {
+    stage.used = 0;
+    for (const int64_t value : values) {
+        stage.ensure(strata::util::kInt64BufferSize);
+        stage.advance(strata::util::format_int64(value, stage.cursor()));
+    }
+    return stage.used;
+}
+
+size_t shape_run_ints(Stage& stage, const std::vector<int64_t>& values) {
+    stage.used = 0;
+    const size_t size = values.size();
+    size_t index = 0;
+    while (index < size) {
+        const size_t block_end = std::min(size, index + 64);
+        stage.ensure((block_end - index) * (strata::util::kInt64BufferSize + 1));
+        for (; index < block_end; ++index) {
+            char* cursor = stage.cursor();
+            *cursor = ',';
+            const size_t skip = index != 0 ? 1u : 0u;
+            stage.advance(skip + strata::util::format_int64(values[index], cursor + skip));
+        }
+    }
+    return stage.used;
+}
+
 } // namespace
 
 int main() {
@@ -376,6 +439,44 @@ int main() {
             }
             std::sort(rounds.begin(), rounds.end());
             std::printf(" %10.2f", rounds[rounds.size() / 2]);
+        }
+        std::printf("\n");
+    }
+
+    // The same buckets through the two output shapes the serializer wraps the
+    // writer in, so the Python-level cost per element can be split into
+    // formatting, bookkeeping and CPython extraction.
+    using Shape = size_t (*)(Stage&, const std::vector<int64_t>&);
+    const struct {
+        const char* name;
+        Shape run;
+    } shapes[] = {
+        {"raw(writer only)", shape_raw},
+        {"write_int(ensure/v)", shape_write_int},
+        {"run_ints(block/64)", shape_run_ints},
+    };
+    std::printf("\n%-14s", "bucket");
+    for (const auto& shape : shapes)
+        std::printf(" %18s", shape.name);
+    std::printf("   (ns per value, median of 30 rounds)\n");
+    for (const Bucket& bucket : buckets()) {
+        std::printf("%-14s", bucket.name);
+        for (const auto& shape : shapes) {
+            Stage stage{sink.data(), 0, sink.size()};
+            std::vector<double> rounds;
+            for (int round = 0; round < 30; ++round) {
+                const auto start = std::chrono::steady_clock::now();
+                size_t total = 0;
+                for (int rep = 0; rep < 50; ++rep) {
+                    total += shape.run(stage, bucket.values);
+                    asm volatile("" : : "r"(sink.data()), "r"(total) : "memory");
+                }
+                const auto end = std::chrono::steady_clock::now();
+                const double ns = std::chrono::duration<double, std::nano>(end - start).count();
+                rounds.push_back(ns / (50.0 * static_cast<double>(bucket.values.size())));
+            }
+            std::sort(rounds.begin(), rounds.end());
+            std::printf(" %18.2f", rounds[rounds.size() / 2]);
         }
         std::printf("\n");
     }
