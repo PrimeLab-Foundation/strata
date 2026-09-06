@@ -211,8 +211,7 @@ Published as 32c5fa4 the same day: the push's CI green on every leg, then two
 SHA in every report. The Neoverse-N2's `loads`/`load wide_arrays` rows read
 0.94x and 0.81–0.83x of orjson on both draws; the one row behind on both is
 linux-arm64 `dumps mixed` at 1.03x (0.066 ms against 0.064). Sample one's five
-other misses (linux-x86_64 `dumps wide_arrays`/`mixed`, macos-arm64 `loads nested` at 1.00x and `dump mixed`, windows `dumps mixed`) did not recur
-(docs/decisions.md, 2026-09-06).
+other misses (linux-x86_64 `dumps wide_arrays`/`mixed`, macos-arm64 `loads nested` at 1.00x and `dump mixed`, windows `dumps mixed`) did not recur. Wave 26 then measured the remaining row to a fixed per-call cold-instruction cost and rejected three levers on it; the arm64 profile leg now carries the serializer instruments (docs/decisions.md, 2026-09-06).
 
 **Status 2026-09-04, wave 22.** The `loads mixed` coin band had a cause:
 the key predictor retired mixed.json's record depth for the life of the
