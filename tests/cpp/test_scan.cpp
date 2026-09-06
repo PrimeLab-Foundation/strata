@@ -157,6 +157,35 @@ void test_fused_copy_matches_scan() {
     }
 }
 
+/// Long strings, at and around the reservation the binding serializer's
+/// staged fast path can cover in one go (4096 bytes, less the quotes and the
+/// copy's block rounding). Past that boundary the serializer hands the string
+/// to its out-of-line writer, which scans with `find_next_escape` instead of
+/// copying with `copy_until_escape` — so the two must agree on exactly these
+/// lengths, with an escape planted at the front, the middle and the very end.
+void test_fused_copy_matches_scan_at_reservation_lengths() {
+    for (const size_t len : {size_t{4060}, size_t{4076}, size_t{4077}, size_t{4078}, size_t{4079},
+                             size_t{4096}, size_t{5000}}) {
+        for (const char needle : {'"', '\\', '\n', '\x1f'}) {
+            for (const size_t position : {size_t{0}, len / 2, len - 1, len}) {
+                std::string text(len, 'p');
+                if (position < len)
+                    text[position] = needle;
+                std::vector<char> fused((len + 15) / 16 * 16 + 16, '\xAA');
+                std::vector<char> twin(fused.size(), '\xAA');
+                const size_t got = strata::util::copy_until_escape(text.data(), len, fused.data());
+                const size_t want =
+                    strata::util::copy_until_escape_scalar(text.data(), len, twin.data());
+                assert(got == want);
+                assert(got == find_next_escape(text.data(), len));
+                assert(got == find_next_escape_scalar(text.data(), len));
+                assert(got == (position < len ? position : len));
+                assert(std::memcmp(fused.data(), text.data(), got) == 0);
+            }
+        }
+    }
+}
+
 void check_utf8(const std::string& text) {
     const bool fast = strata::util::validate_utf8(text.data(), text.size());
     const bool twin = strata::util::validate_utf8_scalar(text.data(), text.size());
@@ -339,6 +368,7 @@ int main() {
     test_multibyte_utf8_is_never_flagged();
     test_dense_matches();
     test_fused_copy_matches_scan();
+    test_fused_copy_matches_scan_at_reservation_lengths();
     test_utf8_ascii_runs_every_length();
     test_utf8_non_ascii_at_every_position();
     test_utf8_sequence_rules_survive_the_fast_path();

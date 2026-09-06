@@ -105,6 +105,19 @@ class Serializer {
             return true;
         }
 
+        return write_subclass(object);
+    }
+
+  private:
+    /**
+     * The flag-check chain, for objects the exact-type ladder did not claim:
+     * subclasses, tuples, and the type error.
+     *
+     * Out of line so that the dispatcher every value passes through holds
+     * only the ladder. The chain's own body is unchanged — the subtype probes
+     * still run in the same order, bool already handled above by identity.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_subclass(PyObject* object) {
         if (PyUnicode_Check(object))
             return write_string(object);
         if (PyFloat_Check(object)) {
@@ -123,7 +136,6 @@ class Serializer {
         return false;
     }
 
-  private:
     [[nodiscard]] bool write_int(PyObject* object) {
 #if PY_VERSION_HEX >= 0x030C0000
         // A compact int is one machine word inside the object; reading it
@@ -138,15 +150,25 @@ class Serializer {
 #endif
         int overflow = 0;
         const long long value = PyLong_AsLongLongAndOverflow(object, &overflow);
-        if (overflow == 0) {
-            if (value == -1 && PyErr_Occurred())
-                return false;
-            out_.ensure(util::kInt64BufferSize);
-            out_.advance(util::format_int64(value, out_.cursor()));
-            return true;
-        }
+        if (overflow != 0)
+            return write_huge_int(object);
+        if (value == -1 && PyErr_Occurred())
+            return false;
+        out_.ensure(util::kInt64BufferSize);
+        out_.advance(util::format_int64(value, out_.cursor()));
+        return true;
+    }
 
-        // Beyond int64 the digits come from Python itself, so nothing is lost.
+    /**
+     * Integers past int64: the digits come from Python itself, so nothing is
+     * lost.
+     *
+     * Out of line and cold. Its owned reference and UTF-8 fetch need the
+     * registers and the unwind path that widened the dispatcher's frame,
+     * and an integer this wide is rare in real payloads; the int64 path
+     * above keeps its straight line.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_huge_int(PyObject* object) {
         PyRef text(PyObject_Str(object));
         if (!text)
             return false;
@@ -207,7 +229,19 @@ class Serializer {
             // string, quotes included.
             out_.rewind(1);
         }
+        return write_string_spanning(data, size);
+    }
 
+    /**
+     * Strings the copy-while-scanning path did not finish: one needing
+     * escapes, or one too long for a single reservation.
+     *
+     * Out of line, so the second scanner and the escaper's string machinery
+     * leave the hot value path. Not marked cold: a payload of long strings
+     * runs here every time, and the work it does — a full scan plus the
+     * spanning write — dwarfs the call it now costs.
+     */
+    [[nodiscard]] STRATA_NOINLINE_HOT bool write_string_spanning(const char* data, size_t size) {
         const size_t clean = util::find_next_escape(data, size);
         if (clean == size) {
             out_.ensure(1);
@@ -358,7 +392,7 @@ class Serializer {
     static_assert(kScalarRunBlock * (util::kDoubleBufferSize + 1) <= StagedOutput::kMaxReservation,
                   "a scalar-run block must fit one reservation");
 
-    [[nodiscard]] Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
         while (index < size) {
             const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
@@ -386,7 +420,7 @@ class Serializer {
         return index;
     }
 
-    [[nodiscard]] Py_ssize_t run_ints(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_ints(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
         while (index < size) {
             const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
@@ -428,7 +462,7 @@ class Serializer {
         return index;
     }
 
-    [[nodiscard]] Py_ssize_t run_bools(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_bools(PyObject** items, Py_ssize_t size) {
         if (size == 0 || (items[0] != Py_True && items[0] != Py_False))
             return 0;
         // First element bare, the rest as one eight-byte constant store each
@@ -467,7 +501,7 @@ class Serializer {
         return index;
     }
 
-    [[nodiscard]] Py_ssize_t run_nones(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_nones(PyObject** items, Py_ssize_t size) {
         // First element bare, then one eight-byte constant store per element
         // (",null" plus slack the next write overwrites). Same store-window
         // proof as the bool run: the last store reaches (block-1)*5+8 bytes
@@ -490,7 +524,7 @@ class Serializer {
 
     /// Clean short ASCII strings, quoted straight into the stage. The first
     /// element needing escapes, non-ASCII text, or real length ends the run.
-    [[nodiscard]] Py_ssize_t run_strings(PyObject** items, Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t run_strings(PyObject** items, Py_ssize_t size) {
         Py_ssize_t index = 0;
         for (; index < size; ++index) {
             PyObject* item = items[index];

@@ -401,3 +401,150 @@ def test_str_mode_survives_a_nested_dumps_call():
         out = strata.dumps(cyclic)
     assert out == '{"a":[1,2,null]}'
     assert seen == ['{"w":"' + "x" * 50 + '"}']
+
+
+# ---------------------------------------------------------------------------
+# Value classes across the dispatcher's split boundaries.
+#
+# `write` keeps the exact-type ladder and hands everything else to an
+# out-of-line chain; `write_int` keeps the int64 line and hands wider values
+# to an out-of-line writer; `write_string` keeps the copy-while-scanning line
+# and hands escapes and oversized strings to an out-of-line one. All three
+# splits are accelerators, so each class below must serialize identically
+# through every entry point — bare, inside a scalar run, and as a record
+# value — and identically to stdlib json.
+# ---------------------------------------------------------------------------
+
+
+def _int_value_classes() -> list[int]:
+    values = [0, -0, 1, -1]
+    for width in range(1, 20):
+        power = 10**width
+        values += [power - 1, power, -(power - 1), -power]
+    values += [
+        2**30 - 1,  # the widest CPython "compact" int on 64-bit builds
+        2**30,
+        -(2**30),
+        2**62,
+        2**63 - 1,  # int64 max
+        -(2**63),  # int64 min
+        2**63,  # first value past int64: the out-of-line writer
+        -(2**63) - 1,
+        2**64,
+        -(2**64),
+        2**70 + 12345,
+        10**40,
+        -(10**40),
+        int("9" * 100),
+        -int("9" * 100),
+    ]
+    return values
+
+
+def test_int_value_classes_serialize_identically_through_every_entry_point():
+    for value in _int_value_classes():
+        want = json.dumps(value)
+        assert strata.dumps(value) == want
+        assert strata.dumps([value]) == f"[{want}]"
+        assert strata.dumps({"k": value}) == f'{{"k":{want}}}'
+        # Mid-run fallback: the int run must stop and let the general path
+        # render exactly the same digits.
+        assert strata.dumps([1, 2, value, 3]) == f"[1,2,{want},3]"
+
+
+def test_int_value_classes_survive_a_long_homogeneous_run():
+    values = _int_value_classes() * 3
+    assert strata.dumps(values) == json.dumps(values, separators=(",", ":"))
+
+
+def test_float_value_classes_serialize_identically_through_every_entry_point():
+    values = [
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        0.5,
+        -0.125,
+        1e-4,
+        9.9999e-05,
+        1e16,
+        1.7976931348623157e308,
+        5e-324,
+        2.2250738585072014e-308,
+        123456789.123456,
+        3999999999.999999,
+        4.0e9,
+        0.1 + 0.2,
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+    ]
+    for value in values:
+        want = "null" if not math.isfinite(value) else json.dumps(value)
+        assert strata.dumps(value) == want
+        assert strata.dumps([value]) == f"[{want}]"
+        assert strata.dumps({"k": value}) == f'{{"k":{want}}}'
+        assert strata.dumps([1.5, value, 2.5]) == f"[1.5,{want},2.5]"
+
+
+def _compact_text(value) -> str:
+    """stdlib json in strata's shape: compact, and UTF-8 rather than \\uXXXX."""
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+
+
+def test_string_and_key_classes_cross_the_reservation_boundary():
+    # The staged fast path covers a string only while it fits one reservation
+    # (4096 bytes, less room for the quotes and the copy's block rounding);
+    # longer text, and any text needing an escape, takes the out-of-line
+    # writer. Both must produce exactly what stdlib json produces.
+    escapes = ['"', "\\", "\n", "\t", "\x00", "\x1f", "é", "中", "\U0001f600"]
+    for length in (0, 1, 15, 16, 17, 4060, 4076, 4077, 4078, 4079, 4096, 5000):
+        clean = "a" * length
+        assert strata.dumps(clean) == _compact_text(clean)
+        assert strata.dumps({clean: 1}) == _compact_text({clean: 1})
+        for needle in escapes:
+            for position in (0, length // 2, max(length - 1, 0)):
+                text = clean[:position] + needle + clean[position:]
+                assert strata.dumps(text) == _compact_text(text)
+                assert strata.dumps([text, text]) == _compact_text([text, text])
+                record = {text: text}
+                assert strata.dumps(record) == _compact_text(record)
+
+
+def test_nested_records_of_mixed_value_classes_match_stdlib():
+    records = [
+        {
+            "id": index,
+            "wide": 2**63 + index,
+            "ratio": index / 7,
+            "name": f'user "{index}"\n',
+            "tags": ["a", "b\\c", "d"],
+            "counts": [index, index * 10**9, index * 2**40],
+            "flags": [True, False, None],
+            "inner": {"deep": {"deeper": [index, {"leaf": "x" * (index * 700)}]}},
+        }
+        for index in range(8)
+    ]
+    assert strata.dumps(records) == json.dumps(records, separators=(",", ":"))
+    assert strata.loads(strata.dumps(records)) == records
+
+
+def test_subclasses_take_the_out_of_line_chain_with_unchanged_semantics():
+    class Text(str):
+        pass
+
+    class Number(int):
+        pass
+
+    class Real(float):
+        pass
+
+    assert strata.dumps(Text('a"b')) == '"a\\"b"'
+    assert strata.dumps(Number(2**70)) == str(2**70)
+    assert strata.dumps(Number(-5)) == "-5"
+    assert strata.dumps(Real(2.5)) == "2.5"
+    # bool subclasses int and is claimed by identity before the chain runs.
+    assert strata.dumps({"a": True, "b": False}) == '{"a":true,"b":false}'
+    assert strata.dumps((1, Text("x"), Number(3))) == '[1,"x",3]'
+    with pytest.raises(TypeError, match="not JSON serializable"):
+        strata.dumps({"k": object()})
