@@ -557,6 +557,32 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   independently reviewed (`build/evidence/P5B-REVIEW/`, not refuted, wording
   corrections applied)
 
+## E26-P6 — the x86 cost of the re-entrancy fix's serializer changes
+
+- - Opened 2026-09-07 · owner: open · from the two five-platform samples on
+    79fa3df (E26-P5): on runners comparable with the previous sample, the x86
+    legs read the serializer rows +2–6% against orjson (linux-x86_64 `dumps flat` 0.78x → 0.83x, macos-x86_64 0.77x → 0.84x, `dumps users` +2–3%) while
+    the arm64 legs read −8..−12% in ratio, as the M1 window predicted. The fixes
+    are correctness (a use-after-free); they stay. The cost is to be attributed
+    and removed on x86.
+- - Hypotheses, in the order to test: register pressure — the leased
+    `StagedRow` pointer, the `RowNode` registration and the latched ownership
+    per container are three more live values in `write_mapping_body` /
+    `write_record_fused`, cheap on arm64's 31 registers and spilled on x86-64's
+    16; the `RowLock` list push/pop per container on the x86 legs'
+    `-fstack-protector-strong`; a PGO layout change (the profile is
+    gate-inclusive on every leg). Instruction count and simulated i-cache do not
+    explain it (the 79fa3df linux-x86_64 cachegrind reads strata below orjson on
+    both).
+- - Instruments: a same-host A-B-B-A on an x86 machine — the P0 driver
+    (`benchmarks/ab_rows.py`, `probe-ab-rows`) run in a `workflow_dispatch` job
+    on the linux-x86_64 and windows legs with both SHAs' extensions built in the
+    same job, orjson in-process as the control; then a per-function
+    perf/cachegrind diff of `write_mapping_body` and `write_record_fused`
+    between 32c5fa4 and 79fa3df on that leg (the profile leg's x86 artifacts for
+    32c5fa4 are not archived; dispatch `profile.yml` on a tag of it).
+- Outcome: open
+
 ## E26-P5 — integration and final standings
 
 - Opened 2026-09-06 · owner: lead · reviewers: Opus reviewer and Opus
@@ -689,6 +715,48 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
     breaches on untouched rows as before (`loads flat` +9.5%, `query $[*].id`
     p95 +10.8%; `recomposed/regression_vs_*.txt`): undecidable on this host, the
     window is the evidence, the baseline is not refreshed.
+- Published 2026-09-07 01:28 as 79fa3df (one commit of the whole recomposed
+  tree; the plan file left uncommitted). Predeclared before any result:
+  `benchmark.yml` run 34064158421 is the five-platform sample and run
+  34064174240, dispatched 21 s later on the same SHA, is the confirmation run;
+  `profile.yml` run 34064175618 carries the serializer instruments. Both
+  samples are fetched whole with `ci_fetch --run <id>` and summarised with
+  `ci_summary`; a 135/135 claim needs both to read it on this SHA.
+- - Two five-platform samples on 79fa3df (2026-09-07, both archived whole
+    under `build/evidence/E26-P5/ci_run1/` and `ci_run2/`; `docs/benchmarks/ci/`
+    holds the second as the tooling last wrote it): run 34064158421 reads
+    **132/135** — linux-x86_64 and macos-arm64 27/27, linux-arm64 26/27 (`dumps mixed` 1.04x), macos-x86_64 26/27 (`dumps mixed` 1.10x), windows 26/27
+    (`dumps flat` 1.08x); the confirmation run 34064174240, dispatched 21 s
+    later, reads **128/135** — macos-arm64 and macos-x86_64 27/27, linux-arm64
+    26/27 (`dumps mixed` 1.01x), linux-x86_64 23/27 (`dumps flat` 1.02x, `dumps wide_arrays` 1.04x, `dumps mixed` 1.08x, `dump wide_arrays` 1.02x), windows
+    25/27 (`dumps mixed` 1.08x, `dump mixed` 1.06x). The previous SHA 32c5fa4
+    had read 129/135 and 134/135. The confirmation run does not confirm; no
+    135/135 is claimed; the goal is not met on 79fa3df.
+- - Reading, leg by leg. macos-arm64 (an Apple M1 VM on all three draws) reads
+    the fixes as the M1 window predicted: `dumps flat` 0.94x → 0.83x / 0.85x,
+    `dumps users` 0.73x → 0.66x / 0.66x, `dumps nested` 0.64x → 0.60x, strata's
+    medians −20..−31% (the previous draw was a slower VM, orjson −11..−21% too).
+    linux-arm64 (the Neoverse-N2): `dumps flat` 0.77x → 0.80x / 0.78x, `dumps users` 0.79x → 0.78x / 0.77x, the persistent `dumps mixed` 1.03x → 1.04x /
+    1.01x, the parse rows unchanged (`loads wide_arrays` 0.94x on all three
+    draws). x86 is the finding: on the two draws whose runner read the parse
+    rows within ±1% of the previous sample — linux-x86_64 sample 1 (`loads wide_arrays` −0.3%, `loads mixed` +0.5%) and macos-x86_64 sample 1 (the same
+    i7-8700B on every draw; `loads wide_arrays` +0.9%) — the serializer rows
+    moved against strata with orjson flat: linux-x86_64 `dumps flat` +6.5%,
+    `users` +3.2%, `wide_arrays` +5.6% (orjson −0.6%, −0.2%, +2.4%; ratios 0.78x
+    → 0.83x, 0.83x → 0.86x, 0.85x → 0.87x), macos-x86_64 `dumps flat` +5.4%,
+    `users` +2.0% (orjson −3.0%, −0.9%; ratios 0.77x → 0.84x, 0.75x → 0.77x).
+    Sample 2's linux-x86_64 draw ran on a faster host (parse rows −19% / −10%)
+    and its 1.02–1.08x serializer ratios are that machine's, not comparable with
+    the previous sample; the Windows leg drew three different processors (Intel
+    Model 207, Model 173, AMD Family 25) so its three draws are three machines.
+    What survives the runner lottery: the source fixes cost the x86 serializer
+    rows about +2–6% against orjson, the direction the arm64 host could not see
+    (E26-P5b measured them at −6.6..−8.5% there). Opened as E26-P6; the
+    linux-x86_64 profile leg's artifacts for 79fa3df are archived
+    (`build/evidence/E26-P5/profile_run_34064175618/`: cachegrind at repeat 60,
+    strata 1.38e9 instructions and 842k first-level instruction misses against
+    orjson's 1.50e9 and 1.29M, so the x86 cost is not instruction count or
+    i-cache in that simulation).
 - Outcome: reviewed in its first composition; recomposed after E26-P5b and
   reviewed again (`build/evidence/P5B-REVIEW/REVIEW.md`, 2026-09-07: not
   refuted on the measurement, provenance, identity and roll all reproduced;
@@ -696,4 +764,4 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   copy removed, the small `dumps mixed` cell marked inside its floor, the
   recipe's cost stated as +3.3–6.3% on the three rows measured, a
   negative-results row added, the packet's large report set to the committed
-  draw); open (publication, two five-platform samples)
+  draw); published; two five-platform samples taken (132/135, 128/135); the x86 serializer cost is E26-P6
