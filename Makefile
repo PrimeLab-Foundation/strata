@@ -12,7 +12,7 @@ VPY := $(VENV)/bin/python
         test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline \
-        bench-ci bench-ci-summary \
+        bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -123,6 +123,10 @@ BENCH_DIR := benchmarks/data/generated
 BENCH_REPORTS := docs/benchmarks
 BENCH_RUN := PYTHONPATH=. $(VPY) -m benchmarks.bench_main
 BENCH_GEN := PYTHONPATH=. $(VPY) -m benchmarks.data.generate_bench_data
+PROBE_CALLS ?= 400
+PROBE_BLOCKS ?= 3
+PROBE_REPEAT ?= 60
+PROBE_OUT ?= build/evidence/ab_rounds.tsv
 
 bench-data: venv  ## Generate the small, medium and large datasets
 	$(BENCH_GEN) --out-dir $(BENCH_DIR)/small  --num-users 1000 --max-orders 10 --max-items 5  --records 500
@@ -156,6 +160,31 @@ bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild th
 
 bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports
 	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+
+# ---------------------------------------------------------------------------
+# Diagnostic probes
+#
+# Not benchmarks: these answer "why", not "how fast", and none of them writes
+# to docs/benchmarks/. They exist because the official protocol -- ten repeats,
+# five engines, one fixed order -- is the right instrument for a rank and the
+# wrong one for a two-microsecond difference. Each keeps its raw samples.
+# ---------------------------------------------------------------------------
+
+PROBE_RUN := PYTHONPATH=. $(VPY)
+
+probe-dumps-records: venv  ## Decompose dumps mixed's records, hot / gc / cold, with matched controls
+	$(PROBE_RUN) benchmarks/decompose_dumps_records.py
+
+probe-dumps-call: venv  ## Time the dumps call alone, preamble outside the timer, against its matched `none` arm
+	@for engine in strata orjson none-strata none-orjson; do \
+		$(PROBE_RUN) benchmarks/dumps_loop.py $$engine $(PROBE_CALLS) gc-call; \
+	done
+
+probe-ab-builds: venv  ## A-B-B-A rounds over two extension builds (BUILD_A, BUILD_B, PROBE_OUT)
+	$(PROBE_RUN) benchmarks/ab_builds.py \
+		--build A=$(BUILD_A) --build B=$(BUILD_B) \
+		--target python/strata/$(notdir $(wildcard python/strata/_strata*.so)) \
+		--out $(PROBE_OUT) --blocks $(PROBE_BLOCKS) --repeat $(PROBE_REPEAT)
 
 # ---------------------------------------------------------------------------
 # Lint / format
