@@ -314,6 +314,38 @@ void test_format_int64_matches_to_chars() {
     check_window(9223372036854775807LL);
     check_window(-9223372036854775807LL - 1);
     check_window(999999999999999999LL);
+    // The straight-line tier between 10^4 and 10^10 stores a whole eight-byte
+    // digit word for nine- and ten-digit values, so the window check runs
+    // over every one of its widths, at both ends of each and at the tier
+    // seams themselves (10^4, 10^8 and 10^10, where the shape changes).
+    for (long long power = 10000; power <= 10000000000LL; power *= 10) {
+        for (long long delta = -4; delta <= 4; ++delta) {
+            check(power + delta);
+            check(-(power + delta));
+            check_window(power + delta);
+            check_window(-(power + delta));
+        }
+    }
+    // Every five- and six-digit value, both signs: the widths where the
+    // straight-line shape writes an odd number of digits (a bare leading
+    // digit plus pairs) are the ones an off-by-one would show up in first.
+    for (long long value = 10000; value < 1000000; ++value) {
+        check(value);
+        check(-value);
+    }
+    // Seven to ten digits, strided by an odd step so the sweep is spread over
+    // every residue of the pair splits rather than walking ten billion
+    // values; both signs, and the window check on the same values.
+    for (long long power = 1000000LL; power <= 1000000000LL; power *= 10) {
+        const long long span = power * 9;
+        const long long step = (span / 200000) | 1;
+        for (long long offset = 0; offset < span; offset += step) {
+            check(power + offset);
+            check(-(power + offset));
+            check_window(power + offset);
+            check_window(-(power + offset));
+        }
+    }
     // Random 64-bit values are almost all 19 or 20 characters; the writer's
     // tiers turn on digit count, so every width from 1 to 19 digits gets its
     // own random sweep, both signs.

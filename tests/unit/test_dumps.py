@@ -148,6 +148,51 @@ def test_bool_is_not_serialized_as_an_integer():
     assert strata.dumps([True, False, 1, 0]) == "[true,false,1,0]"
 
 
+def test_integers_render_at_every_digit_width():
+    """Digits, width by width, against the stdlib oracle.
+
+    The integer writer picks its shape by magnitude — a four-byte word below
+    10^4, straight-line pairs up to 10^10, the back-fill loop above — so the
+    seams are the powers of ten, and an off-by-one in one shape would be
+    invisible in the widths the others serve. Every width from 1 to 19 digits
+    is exercised here, both signs, at each seam and either side of it, through
+    a homogeneous list (the scalar-run path), a list the run bails out of, a
+    dict value, a bare scalar and bytes mode.
+    """
+    rng = random.Random(20260906)
+    values: list[int] = []
+    for width in range(1, 20):
+        low = 10 ** (width - 1)
+        high = min(10**width, 2**63) - 1
+        values.append(low)
+        values.append(high)
+        values.append(-low)
+        values.append(-high)
+        for _ in range(40):
+            magnitude = rng.randint(low, high)
+            values.append(magnitude)
+            values.append(-magnitude)
+    for power in (10**4, 10**8, 10**10):  # the seams themselves
+        values += [power - 1, power, power + 1, -power + 1, -power, -power - 1]
+    values += [0, 2**63 - 1, -(2**63)]
+
+    widths = {len(str(abs(value))) for value in values}
+    assert widths == set(range(1, 20)), sorted(widths)
+
+    compact = json.dumps(values, separators=(",", ":"))
+    assert strata.dumps(values) == compact
+    assert strata.dumps(values, return_type="bytes") == compact.encode()
+    # A non-int in the middle makes the scalar run give up and hands the rest
+    # to the general walk, which must render the same digits.
+    mixed = [item for value in values for item in (value, "x")]
+    assert strata.dumps(mixed) == json.dumps(mixed, separators=(",", ":"))
+    record = {"ints": values, "one": values[0]}
+    assert strata.dumps(record) == json.dumps(record, separators=(",", ":"))
+    for value in values:
+        assert strata.dumps(value) == str(value)
+    assert strata.loads(strata.dumps(values)) == values
+
+
 # ---------------------------------------------------------------------------
 # "dict keys must be `str` (else `TypeError`)"
 # ---------------------------------------------------------------------------

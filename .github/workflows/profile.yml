@@ -165,7 +165,9 @@ jobs:
   profile-linux-arm64:
     name: perf (linux-arm64)
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    # The record decomposition adds its cold sweeps to a job already
+    # dominated by two gated builds.
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
 
@@ -213,6 +215,13 @@ jobs:
         run: |
           PYTHONPATH=. .venv/bin/python benchmarks/cold_state_probe.py
           PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_mixed.py
+
+      # The same row split per record and per integer width, in nanoseconds
+      # rather than ratios: `decompose_dumps_mixed.py` reports where the row
+      # stands, this reports what one record and one integer of each width
+      # cost, which is the unit an integer-writer change moves.
+      - name: Decompose the record itself on this leg
+        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_records.py
 
       - name: Counter comparison on loads wide_arrays (perf stat, strata vs orjson)
         run: |

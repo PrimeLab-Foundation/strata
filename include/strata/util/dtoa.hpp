@@ -58,6 +58,13 @@ inline constexpr char kDigitPairs[] = "00010203040506070809"
                                       "80818283848586878889"
                                       "90919293949596979899";
 
+/// The two ASCII digits of @p value (< 100), in reading order, at @p out.
+///
+/// Byte-for-byte from the table, so it says the same thing on either endian.
+inline void write_digit_pair(char* out, uint32_t value) noexcept {
+    std::memcpy(out, &kDigitPairs[value * 2], 2);
+}
+
 inline constexpr uint64_t kPow10[20] = {
     1ULL,
     10ULL,
@@ -303,10 +310,12 @@ inline void shift16_right(char* from, size_t gap) noexcept {
 /**
  * Render @p value as decimal digits into @p out. Not terminated.
  *
- * Two digits per step through a 200-byte pair table — the classic itoa that
- * beats `to_chars`' generic machinery by roughly half on the short integers
- * JSON is made of. Count first, then back-fill in place: the digits land
- * exactly where they belong and nothing is copied twice. (A grouped
+ * Digits come two at a time out of a 200-byte pair table — the classic itoa
+ * that beats `to_chars`' generic machinery by roughly half on the short
+ * integers JSON is made of. Three shapes read that table, chosen by
+ * magnitude: a four-byte word below 10^4, straight-line pairs up to 10^10,
+ * and above that the count-then-back-fill loop, which lands the digits where
+ * they belong without copying anything twice. (A grouped
  * fixed-width write via `detail::write_digits_fixed` was measured against
  * this body and lost on every length that matters — +24% on 1–4 digit
  * values, +4% at 9–10 digits — winning only past 14 digits, which JSON
@@ -357,6 +366,87 @@ inline void shift16_right(char* from, size_t gap) noexcept {
         std::memcpy(cursor, &word, 4);
         return written + digits;
     }
+    // 10^4 up to 10^10 -- timestamps, ids, quantities in cents -- take the
+    // same pair table with the loop unrolled by digit count: every divisor is
+    // a compile-time multiply-shift, the pairs are independent, and no step
+    // waits on the previous one's quotient. The loop's trip count is data, so
+    // its exit branch mispredicts on width-mixed data and each iteration's
+    // divide feeds the next; straight-line code has neither problem. Measured
+    // in experiments/itoa on the Neoverse-N2 profile leg (ns per value,
+    // median of 30) as variant `switch` against the loop: 4-6 digits
+    // 4.17 -> 3.87, 7 digits 5.21 -> 4.14, 8 digits 5.13 -> 4.14, 9-10 digits
+    // 6.44 -> 5.04. Below 10^4 the word tier above still wins (1-3 digits
+    // 2.39 against this shape's 2.91), which is why it stays in front.
+    if (magnitude < 100000000ULL) {
+        // Five to eight digits: 32-bit arithmetic throughout.
+        const auto v = static_cast<uint32_t>(magnitude);
+        if (v < 1000000U) {
+            const uint32_t high = v / 10000;
+            const uint32_t rest = v - high * 10000;
+            const uint32_t middle = rest / 100;
+            const uint32_t low = rest - middle * 100;
+            if (v < 100000U) {
+                cursor[0] = static_cast<char>('0' + high);
+                detail::write_digit_pair(cursor + 1, middle);
+                detail::write_digit_pair(cursor + 3, low);
+                return written + 5;
+            }
+            detail::write_digit_pair(cursor + 0, high);
+            detail::write_digit_pair(cursor + 2, middle);
+            detail::write_digit_pair(cursor + 4, low);
+            return written + 6;
+        }
+        const uint32_t high = v / 1000000;
+        const uint32_t rest = v - high * 1000000;
+        const uint32_t upper = rest / 10000;
+        const uint32_t tail = rest - upper * 10000;
+        const uint32_t middle = tail / 100;
+        const uint32_t low = tail - middle * 100;
+        if (v < 10000000U) {
+            cursor[0] = static_cast<char>('0' + high);
+            detail::write_digit_pair(cursor + 1, upper);
+            detail::write_digit_pair(cursor + 3, middle);
+            detail::write_digit_pair(cursor + 5, low);
+            return written + 7;
+        }
+        detail::write_digit_pair(cursor + 0, high);
+        detail::write_digit_pair(cursor + 2, upper);
+        detail::write_digit_pair(cursor + 4, middle);
+        detail::write_digit_pair(cursor + 6, low);
+        return written + 8;
+    }
+    if (magnitude < 10000000000ULL) {
+        // Nine or ten digits: one 64-bit split off the top, then the leading
+        // one or two digits from the table and the low eight as the SWAR
+        // word. The word's store ends exactly on the last digit at both
+        // widths (1 + 8 and 2 + 8), so nothing spills past the number.
+        //
+        // The doc comment above records a *losing* measurement of a split
+        // that looks like this one -- a back-filled head plus the word, which
+        // cost 9-10-digit lists 8.8 -> 9.0 ns and short lists 5%. Two things
+        // differ. That variant hung the split off the short path, so every
+        // one- to four-digit value paid its branch; this one is reached only
+        // after two magnitude tests those values never fall through, and it
+        // takes the head from the pair table instead of the loop. The reason
+        // it is here at all is the deficit the shape it replaces leaves on
+        // the arm64 leg -- ints at 7 digits 1.37x of orjson, at 8 digits
+        // 1.39x, at 9-10 digits 1.51x, against 0.90x at 1-3 digits.
+        const auto high = static_cast<uint32_t>(magnitude / 100000000ULL); // 1..99
+        const auto low =
+            static_cast<uint32_t>(magnitude - static_cast<uint64_t>(high) * 100000000ULL);
+        if (high < 10) {
+            cursor[0] = static_cast<char>('0' + high);
+            detail::write_8_digits(low, cursor + 1);
+            return written + 9;
+        }
+        detail::write_digit_pair(cursor + 0, high);
+        detail::write_8_digits(low, cursor + 2);
+        return written + 10;
+    }
+    // Eleven digits and up: the backwards pair loop, unchanged. This is where
+    // the measured variant stopped -- past 10^10 the leading group no longer
+    // fits the 32-bit split, and JSON integers that wide are rare enough that
+    // the extra code would be read once and never again.
     const size_t digits = detail::decimal_digit_count(magnitude);
     (void)detail::fill_u64_backwards(magnitude, cursor + digits);
     return written + digits;
