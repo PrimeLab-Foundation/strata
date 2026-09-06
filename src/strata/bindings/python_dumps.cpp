@@ -105,19 +105,6 @@ class Serializer {
             return true;
         }
 
-        return write_subclass(object);
-    }
-
-  private:
-    /**
-     * The flag-check chain, for objects the exact-type ladder did not claim:
-     * subclasses, tuples, and the type error.
-     *
-     * Out of line so that the dispatcher every value passes through holds
-     * only the ladder. The chain's own body is unchanged — the subtype probes
-     * still run in the same order, bool already handled above by identity.
-     */
-    [[nodiscard]] STRATA_COLD_FN bool write_subclass(PyObject* object) {
         if (PyUnicode_Check(object))
             return write_string(object);
         if (PyFloat_Check(object)) {
@@ -136,6 +123,7 @@ class Serializer {
         return false;
     }
 
+  private:
     [[nodiscard]] bool write_int(PyObject* object) {
 #if PY_VERSION_HEX >= 0x030C0000
         // A compact int is one machine word inside the object; reading it
@@ -150,25 +138,15 @@ class Serializer {
 #endif
         int overflow = 0;
         const long long value = PyLong_AsLongLongAndOverflow(object, &overflow);
-        if (overflow != 0)
-            return write_huge_int(object);
-        if (value == -1 && PyErr_Occurred())
-            return false;
-        out_.ensure(util::kInt64BufferSize);
-        out_.advance(util::format_int64(value, out_.cursor()));
-        return true;
-    }
+        if (overflow == 0) {
+            if (value == -1 && PyErr_Occurred())
+                return false;
+            out_.ensure(util::kInt64BufferSize);
+            out_.advance(util::format_int64(value, out_.cursor()));
+            return true;
+        }
 
-    /**
-     * Integers past int64: the digits come from Python itself, so nothing is
-     * lost.
-     *
-     * Out of line and cold. Its owned reference and UTF-8 fetch need the
-     * registers and the unwind path that widened the dispatcher's frame,
-     * and an integer this wide is rare in real payloads; the int64 path
-     * above keeps its straight line.
-     */
-    [[nodiscard]] STRATA_COLD_FN bool write_huge_int(PyObject* object) {
+        // Beyond int64 the digits come from Python itself, so nothing is lost.
         PyRef text(PyObject_Str(object));
         if (!text)
             return false;
@@ -229,19 +207,7 @@ class Serializer {
             // string, quotes included.
             out_.rewind(1);
         }
-        return write_string_spanning(data, size);
-    }
 
-    /**
-     * Strings the copy-while-scanning path did not finish: one needing
-     * escapes, or one too long for a single reservation.
-     *
-     * Out of line, so the second scanner and the escaper's string machinery
-     * leave the hot value path. Not marked cold: a payload of long strings
-     * runs here every time, and the work it does — a full scan plus the
-     * spanning write — dwarfs the call it now costs.
-     */
-    [[nodiscard]] STRATA_NOINLINE_HOT bool write_string_spanning(const char* data, size_t size) {
         const size_t clean = util::find_next_escape(data, size);
         if (clean == size) {
             out_.ensure(1);
@@ -368,6 +334,19 @@ class Serializer {
         return true;
     }
 
+    /**
+     * Pick the run for the first element's type, or 0 for a list the runs do
+     * not cover.
+     *
+     * The five runs are deliberately out of line, so this stays a five-way
+     * dispatch that tail-calls and opens no frame of its own. Inlined, they
+     * were one 8 KB function with a 432-byte frame, and a document that uses
+     * two of them fetched instruction lines belonging to all five: on the
+     * Neoverse-N2 the split took strata's own first-level instruction-cache
+     * misses per cold `dumps` call from 1,941 to 619, with orjson's and
+     * msgspec's unchanged (docs/performance/SKILL.md, wave 26). The call it
+     * costs is one per list, not one per element.
+     */
     [[nodiscard]] Py_ssize_t write_scalar_run(PyObject** items, Py_ssize_t size) {
         if (size == 0)
             return 0;
