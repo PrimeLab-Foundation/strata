@@ -122,7 +122,19 @@ jobs:
           sudo apt-get install -y valgrind
           # Gated like every build (SKIP_TESTS is banned in CI): both suites
           # run on the x86-64-v3 extension before the simulation sees it.
-          STRATA_MARCH=x86-64-v3 .venv/bin/python setup.py build_ext --inplace
+          #
+          # --force, and a saved copy of the measured extension: `build_ext`
+          # decides by source mtime, and STRATA_MARCH changes the compiler
+          # flags without touching a source file, so without --force this step
+          # can silently simulate the previous build. The PGO+LTO object the
+          # perf steps measured is restored afterwards, and every stage prints
+          # its hash, so no reader can mistake a simulation artifact for the
+          # measured build.
+          SO=$(PYTHONPATH=. .venv/bin/python -c "import strata._strata as m; print(m.__file__)")
+          cp "$SO" /tmp/strata_pgo_measured.so
+          echo "== the measured (PGO+LTO, -march=native) extension"; md5sum "$SO"
+          STRATA_MARCH=x86-64-v3 .venv/bin/python setup.py build_ext --force --inplace
+          echo "== the simulated (plain -O3, x86-64-v3) extension"; md5sum "$SO"
           for engine in strata orjson msgspec; do
             echo "=== $engine"
             # Two call counts per engine: the 60-call profile minus the
@@ -143,6 +155,9 @@ jobs:
             .venv/bin/python benchmarks/cg_attribute.py cg.$engine.20.out $engine
             .venv/bin/python benchmarks/cg_attribute.py --delta cg.$engine.20.out cg.$engine.60.out 40 $engine
           done
+          echo "== restoring the measured extension"
+          cp /tmp/strata_pgo_measured.so "$SO"
+          md5sum "$SO"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -402,6 +417,22 @@ jobs:
           for engine in strata orjson none-strata none-orjson none-strata none-orjson; do
             STRATA_LOOP_TSV=dumps_call_raw.tsv \
               PYTHONPATH=. .venv/bin/python benchmarks/dumps_loop.py "$engine" 600 gc-call
+          done
+          # The same call with the other four engines resident but not called:
+          # the tier harness runs five in one process, and "resident" and
+          # "alone" are different conditions before any interleaving happens.
+          for engine in strata orjson; do
+            case "$engine" in
+              strata) COMPANIONS=orjson,msgspec,ujson,json ;;
+              orjson) COMPANIONS=strata,msgspec,ujson,json ;;
+            esac
+            STRATA_LOOP_COMPANIONS="$COMPANIONS" STRATA_LOOP_TSV=dumps_call_raw.tsv \
+              PYTHONPATH=. .venv/bin/python benchmarks/dumps_loop.py "$engine" 600 gc-call
+          done
+          # And the rung above that: both engines in one process, alternating,
+          # preamble still outside the timer. Three draws, all kept.
+          for draw in 1 2 3; do
+            PYTHONPATH=. .venv/bin/python benchmarks/dumps_loop.py pair 300 gc-pair
           done
 
       # The footprint the cold surplus is blamed on, as two numbers: the data

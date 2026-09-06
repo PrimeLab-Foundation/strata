@@ -13,6 +13,8 @@ import json
 import statistics
 import time
 
+from benchmarks import ab_rounds
+
 
 def median_call(call, repeat=60):
     call()
@@ -47,10 +49,39 @@ def main() -> int:
         call()
         call()
 
+    # Two readings of the same quantity, printed together because they have
+    # disagreed. SEQUENTIAL is the original: every strata sample, then every
+    # orjson sample -- so a machine that drifted during the run charges the
+    # drift to whichever engine ran second, and 3% is well inside what a
+    # shared runner drifts in a few seconds. PAIRED takes the same 60 samples
+    # per engine in alternating rounds (`benchmarks/ab_rounds.py`), so the
+    # difference carries no position term, and reports a bootstrap interval
+    # over the pairs. Believe PAIRED; keep SEQUENTIAL to compare with the
+    # logs that only have it.
     s_iso = median_call(calls["strata"])
     o_iso = median_call(calls["orjson"])
-    print(f"ISOLATED    strata {s_iso:.4f} ms  orjson {o_iso:.4f} ms  ratio {s_iso / o_iso:.3f}x")
+    print(
+        f"ISOLATED (SEQUENTIAL, strata block then orjson block)  "
+        f"strata {s_iso:.4f} ms  orjson {o_iso:.4f} ms  ratio {s_iso / o_iso:.3f}x"
+    )
+    paired = ab_rounds.alternating_rounds(
+        {"strata": calls["strata"], "orjson": calls["orjson"]},
+        repeat=60,
+        preamble=ab_rounds.collect,
+    )
+    s_pair = statistics.median(paired["strata"])
+    o_pair = statistics.median(paired["orjson"])
+    print(
+        f"ISOLATED (PAIRED, order alternating)                   "
+        f"strata {s_pair:.4f} ms  orjson {o_pair:.4f} ms  "
+        f"ratio {ab_rounds.paired_ratio(paired['strata'], paired['orjson'])}"
+    )
 
+    # The tier harness's own condition, reproduced deliberately: five engines
+    # per round in one fixed order, `gc.collect()` before each call. The order
+    # is part of what is being reproduced, so it is NOT balanced here -- the
+    # official rank comes from exactly this shape. The rotated variant below
+    # says how much of the result is the order itself.
     rounds = 40
     timings = {name: [] for name in calls}
     for _ in range(rounds):
@@ -62,6 +93,23 @@ def main() -> int:
     s_int = statistics.median(timings["strata"])
     o_int = statistics.median(timings["orjson"])
     print(f"INTERLEAVED strata {s_int:.4f} ms  orjson {o_int:.4f} ms  ratio {s_int / o_int:.3f}x")
+
+    names = list(calls)
+    rotated = {name: [] for name in names}
+    for index in range(rounds):
+        order = names[index % len(names) :] + names[: index % len(names)]
+        for name in order:
+            gc.collect()
+            start = time.perf_counter_ns()
+            calls[name]()
+            rotated[name].append((time.perf_counter_ns() - start) / 1e6)
+    s_rot = statistics.median(rotated["strata"])
+    o_rot = statistics.median(rotated["orjson"])
+    print(
+        f"INTERLEAVED (rotated start) strata {s_rot:.4f} ms  orjson {o_rot:.4f} ms  "
+        f"ratio {s_rot / o_rot:.3f}x  "
+        f"(order effect: {(s_int / o_int) - (s_rot / o_rot):+.3f}x)"
+    )
 
     def leaves(node, kind):
         if isinstance(node, dict):

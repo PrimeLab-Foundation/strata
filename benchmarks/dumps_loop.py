@@ -51,8 +51,12 @@ two identical runs is the resolution of any subtraction made with it.
 
 Read a mode's runs together or the totals mean nothing.
 
-usage: dumps_loop.py <strata|orjson|none|none-strata|none-orjson>
-                     [iterations] [hot|gc|cold|gc-call|cold-call] [sweep_mb]
+usage: dumps_loop.py <strata|orjson|none|none-strata|none-orjson|pair>
+                     [iterations] [hot|gc|cold|gc-call|cold-call|gc-pair|cold-pair] [sweep_mb]
+
+`gc-pair`/`cold-pair` ignore the engine name and time strata and orjson
+alternately in one process: the rung between each engine alone and the
+official five-engine row.
 """
 
 import gc
@@ -63,6 +67,43 @@ import sys
 import time
 
 TSV_PATH = os.environ.get("STRATA_LOOP_TSV", "")
+# Engines to import and warm *besides* the one being timed. The tier harness
+# runs five in one process, and a matched `none` arm showed that merely having
+# orjson imported and once-called changes what `gc.collect()` costs in that
+# process. So "the same call, measured in a five-engine process" is a separate
+# condition from "measured alone", and this names it explicitly instead of
+# leaving it as an unstated difference between a probe and the official row.
+COMPANIONS = [name for name in os.environ.get("STRATA_LOOP_COMPANIONS", "").split(",") if name]
+
+
+def warm_companions(data):
+    """Import and warm the companion engines; return how many were warmed."""
+    warmed = 0
+    for name in COMPANIONS:
+        if name == "strata":
+            import strata
+
+            strata.dumps(data, return_type="bytes")
+        elif name == "orjson":
+            import orjson
+
+            orjson.dumps(data)
+        elif name == "msgspec":
+            import msgspec
+
+            msgspec.json.encode(data)
+        elif name == "ujson":
+            import ujson
+
+            ujson.dumps(data)
+        elif name == "json":
+            import json as stdlib_json
+
+            stdlib_json.dumps(data, separators=(",", ":"))
+        else:
+            raise SystemExit(f"unknown companion: {name}")
+        warmed += 1
+    return warmed
 
 
 def build_call(engine, data):
@@ -75,7 +116,7 @@ def build_call(engine, data):
         import orjson
 
         call = lambda: orjson.dumps(data)  # noqa: E731
-    elif engine == "none":
+    elif engine in ("none", "pair"):
         return lambda: None  # noqa: E731
     else:
         raise SystemExit(f"unknown engine: {engine}")
@@ -112,6 +153,9 @@ def main() -> int:
         data = json.load(handle)
 
     call = build_call(engine, data)
+    warmed = warm_companions(data)
+    if warmed:
+        print(f"({warmed} companion engine(s) imported and warmed: {','.join(COMPANIONS)})")
     call()  # warm caches and lazy state outside the measured span
 
     if mode == "hot":
@@ -135,6 +179,33 @@ def main() -> int:
             stride[:] = ones
             call()
         elapsed = time.perf_counter() - start
+    elif mode in ("gc-pair", "cold-pair"):
+        # Both engines in ONE process, alternating, preamble outside the timer.
+        # The rung between "each engine alone" (gc-call) and the official row
+        # (five engines, fixed order): it holds the workload and the condition
+        # fixed and changes only whether a rival runs between the calls. The
+        # engine argument is ignored.
+        from benchmarks import ab_rounds
+
+        import orjson  # noqa: PLC0415
+
+        import strata  # noqa: PLC0415
+
+        preamble = ab_rounds.collect
+        if mode == "cold-pair":
+            preamble = ab_rounds.make_sweep(sweep_mb)
+        calls = {
+            "strata": lambda: strata.dumps(data, return_type="bytes"),
+            "orjson": lambda: orjson.dumps(data),
+        }
+        paired = ab_rounds.alternating_rounds(calls, repeat=iterations, preamble=preamble)
+        for name, values in paired.items():
+            report_samples(name, mode, [value * 1000.0 for value in values])
+        print(
+            f"pair {mode}: strata/orjson "
+            f"{ab_rounds.paired_ratio(paired['strata'], paired['orjson'])}"
+        )
+        return 0
     elif mode in ("gc-call", "cold-call"):
         if mode == "cold-call":
             sweep = bytearray(sweep_mb * 1024 * 1024)
