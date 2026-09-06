@@ -165,7 +165,9 @@ jobs:
   profile-linux-arm64:
     name: perf (linux-arm64)
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    # The serializer steps below add a few minutes of cold sweeps to a job
+    # already dominated by two gated builds.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -259,6 +261,134 @@ jobs:
               | grep -E "^\s+[0-9]+\.[0-9]+\s" | sort -rn | head -30 | cut -c1-160 || true
           done < strata_symbols.txt
 
+      # --- The serializer side of this leg ---------------------------------
+      # `dumps mixed` is the one row still behind here: 1.03x of orjson in
+      # both five-platform samples of the wave-25 tree, 0.066 ms against
+      # 0.064. The parse side of this core has counters, a per-element floor
+      # and an instruction-level annotation; the serializer has never had any
+      # of the three, and the standing explanation of its cold surplus ("the
+      # serializer's footprint on smaller caches") has no number attached.
+      # The steps below are the serializer's twin of the loads steps above:
+      # counters hot and under the harness's cold condition, a record and an
+      # unfiltered annotation, a decomposition of the record itself, and the
+      # footprint in bytes.
+      - name: PMU facts and the events this runner exposes
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          $PERF --version || true
+          lscpu | grep -Ei "model name|caches|L1d|L1i|L2|L3" || true
+          getconf -a | grep -E "LEVEL[0-9]_[ID]?CACHE" || true
+          echo "--- cache and fetch events this perf lists ---"
+          $PERF list cache 2>/dev/null | grep -E "icache|dcache|iTLB|dTLB|LLC" | head -30 || true
+
+      # Two conditions, because the row inverts between them: isolated and
+      # hot, strata leads; under the tier harness -- five engines round-robin
+      # with a gc.collect() before every call -- it trails. The cold pair runs
+      # a third process, `none`, which performs the same sweep and no dumps at
+      # all: subtracting it leaves the engine's own cold cost, since the sweep
+      # itself dwarfs one call.
+      - name: Counter comparison on dumps mixed (perf stat, hot and cold)
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          CORE=task-clock,cycles,instructions,branches,branch-misses,cache-misses,L1-dcache-load-misses
+          # Instruction-fetch events are asked for separately: a runner whose
+          # PMU lacks one fails the whole invocation it appears in, and the
+          # core set above is the one this leg has already proven.
+          FETCH=L1-icache-load-misses,iTLB-load-misses,branch-load-misses
+          for lib in strata orjson; do
+            PYTHONPATH=. $PERF stat -e "$CORE" -o "perf_stat_dumps_hot_${lib}.txt" -- \
+              .venv/bin/python benchmarks/dumps_loop.py "$lib" 2000 hot || true
+            echo "=== $lib, hot, core events ==="; cat "perf_stat_dumps_hot_${lib}.txt" || true
+            PYTHONPATH=. $PERF stat -e "$FETCH" -o "perf_stat_dumps_hot_fetch_${lib}.txt" -- \
+              .venv/bin/python benchmarks/dumps_loop.py "$lib" 2000 hot || true
+            echo "=== $lib, hot, fetch events ==="
+            cat "perf_stat_dumps_hot_fetch_${lib}.txt" 2>/dev/null \
+              || echo "(this runner exposes no instruction-fetch events)"
+          done
+          for lib in strata orjson none; do
+            PYTHONPATH=. $PERF stat -e "$CORE" -o "perf_stat_dumps_cold_${lib}.txt" -- \
+              .venv/bin/python benchmarks/dumps_loop.py "$lib" 400 cold 64 || true
+            echo "=== $lib, cold (sweep included), core events ==="
+            cat "perf_stat_dumps_cold_${lib}.txt" || true
+            PYTHONPATH=. $PERF stat -e "$FETCH" -o "perf_stat_dumps_cold_fetch_${lib}.txt" -- \
+              .venv/bin/python benchmarks/dumps_loop.py "$lib" 400 cold 64 || true
+            echo "=== $lib, cold, fetch events ==="
+            cat "perf_stat_dumps_cold_fetch_${lib}.txt" 2>/dev/null \
+              || echo "(this runner exposes no instruction-fetch events)"
+          done
+
+      - name: Hot-spot record and annotation on dumps mixed (perf record)
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          for lib in strata orjson; do
+            PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o "dumps_${lib}.perf.data" -- \
+              .venv/bin/python benchmarks/dumps_loop.py "$lib" 4000 hot || true
+            $PERF report --stdio --no-children -g none --percent-limit 0.5 \
+              -i "dumps_${lib}.perf.data" 2>/dev/null \
+              | grep -vE "^#|^$" | head -45 > "perf_report_dumps_${lib}.txt" || true
+            echo "=== $lib, hot: top symbols (self) ==="
+            cut -c1-170 "perf_report_dumps_${lib}.txt" || true
+          done
+          # The same walk under the harness's condition. Most samples land in
+          # the sweep, so the per-DSO view is the readable one: strata's share
+          # of a cold call against its share of a hot one is the surplus.
+          PYTHONPATH=. $PERF record -F 2999 -g --call-graph fp -o dumps_strata_cold.perf.data -- \
+            .venv/bin/python benchmarks/dumps_loop.py strata 600 cold 64 || true
+          $PERF report --stdio --no-children -g none --percent-limit 0.3 \
+            -i dumps_strata_cold.perf.data 2>/dev/null \
+            | grep -vE "^#|^$" | head -45 > perf_report_dumps_strata_cold.txt || true
+          echo "=== strata, cold: top symbols (self; the sweep is in here too) ==="
+          cut -c1-170 perf_report_dumps_strata_cold.txt || true
+          for data in dumps_strata.perf.data dumps_orjson.perf.data dumps_strata_cold.perf.data; do
+            echo "=== $data: per-DSO ==="
+            $PERF report --stdio --no-children -g none --sort dso -i "$data" 2>/dev/null \
+              | grep -vE "^#|^$" | head -12 || true
+          done
+          # strata's own top three symbols from the hot record, for the
+          # instruction-level annotation. `perf report` prints `[.] ` ahead of
+          # every user-space symbol and the demangled C++ names contain
+          # spaces, so the prefix is stripped and the entire remainder is the
+          # symbol (read with IFS= so the spaces survive into --symbol=).
+          $PERF report --stdio --no-children -g none -F overhead,dso,symbol \
+            -i dumps_strata.perf.data 2>/dev/null \
+            | grep "_strata" | head -3 | sed -E 's/^[^[]*\[\.\][[:space:]]+//' > dumps_symbols.txt || true
+          echo "annotating:"; cat dumps_symbols.txt
+          # No percent filter: on this core the serializer's time spreads thin
+          # across many instructions, and a one-percent floor printed nothing
+          # at all for parse_number when the loads step used one.
+          while IFS= read -r sym; do
+            [ -n "$sym" ] || continue
+            echo "=== annotate: $sym ==="
+            $PERF annotate --stdio -i dumps_strata.perf.data --symbol="$sym" 2>/dev/null \
+              > annotate_raw.txt || true
+            grep -E "^\s+[0-9]+\.[0-9]+\s" annotate_raw.txt | sort -rn | head -40 \
+              | cut -c1-170 || true
+            echo "--- sampled lines: $(grep -cE '^\s+[0-9]+\.[0-9]+\s' annotate_raw.txt), instructions in the function: $(grep -cE '^\s+[0-9a-f]+:' annotate_raw.txt)"
+          done < dumps_symbols.txt
+
+      - name: Decompose the record itself on this leg
+        run: PYTHONPATH=. .venv/bin/python benchmarks/decompose_dumps_records.py
+
+      # The footprint the cold surplus is blamed on, as two numbers: the data
+      # side (every static table the writers index, plus the per-thread schema
+      # state a call touches at each depth) and the code side (bytes of text
+      # per symbol group, strata against orjson).
+      - name: Serializer footprint — tables, thread-local state, code size
+        run: |
+          INCLUDE=$(.venv/bin/python -c "import sysconfig; print(sysconfig.get_paths()['include'])")
+          clang++ -O2 -std=c++20 -I include -I src/strata/bindings "-I$INCLUDE" \
+            experiments/footprint/footprint_probe.cpp -o footprint_probe
+          ./footprint_probe | tee serializer_footprint.txt
+          # Asked of the interpreter, not guessed from the tree: whichever
+          # object `import strata` actually loads is the one that was measured.
+          SO=$(PYTHONPATH=. .venv/bin/python -c "import strata._strata as m; print(m.__file__)")
+          ORJSON=$(.venv/bin/python -c "import orjson; print(orjson.__file__)")
+          echo "== section sizes"
+          size -A "$SO" | head -22 || true
+          size -A "$ORJSON" | head -22 || true
+          PYTHONPATH=. .venv/bin/python benchmarks/symbol_sizes.py "$SO" "$ORJSON" \
+            | tee -a serializer_footprint.txt
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -267,6 +397,10 @@ jobs:
             perf_stat_loads_*.txt
             perf_report_loads_*.txt
             strata_symbols.txt
+            perf_stat_dumps_*.txt
+            perf_report_dumps_*.txt
+            dumps_symbols.txt
+            serializer_footprint.txt
           if-no-files-found: ignore
 
   decompose-windows:
