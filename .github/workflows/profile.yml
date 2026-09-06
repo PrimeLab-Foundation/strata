@@ -467,6 +467,58 @@ jobs:
         with:
           python-version: "3.12"
 
+      # E26-P1 attribution: how many allocator calls does one `dumps` of
+      # mixed.json make, from which serializer function, and how does that
+      # compare with orjson? Same armv8.2-a rebuild the cachegrind step
+      # left in place; callgrind counts calls, not time.
+      - name: Allocator calls per dumps call (callgrind, armv8.2-a rebuild)
+        run: |
+          cat > dumps_calls.py <<'PY'
+          import gc, importlib, sys
+          lib = importlib.import_module(sys.argv[1]); n = int(sys.argv[2]); name = sys.argv[3]
+          data = open(f"benchmarks/data/generated/small/{name}.json", "rb").read()
+          obj = lib.loads(data)
+          for _ in range(5):
+              lib.dumps(obj)
+          for _ in range(n):
+              gc.collect(); r = lib.dumps(obj); del r
+          PY
+          cat > calls_by_caller.py <<'PY'
+          """Sum callgrind call counts into allocator entry points, by caller."""
+          import collections, re, sys
+          path, n = sys.argv[1], int(sys.argv[2])
+          names = {}; fn = None; counts = collections.Counter(); pending = None
+          alloc = re.compile(r"^(malloc|free|realloc|calloc|_?_?Znwm|_?_?Zdl|operator new|operator delete|posix_memalign|aligned_alloc|_int_malloc|PyObject_Malloc|PyMem_Malloc|_PyObject_Malloc)")
+          def resolve(tok):
+              m = re.match(r"\((\d+)\)(?: (.*))?", tok)
+              if not m: return tok
+              if m.group(2): names[m.group(1)] = m.group(2)
+              return names.get(m.group(1), tok)
+          for line in open(path, errors="replace"):
+              if line.startswith("fn="): fn = resolve(line[3:].strip())
+              elif line.startswith("cfn="): pending = resolve(line[4:].strip())
+              elif line.startswith("calls=") and pending is not None:
+                  c = int(line.split("=")[1].split()[0])
+                  if alloc.match(pending.split("(")[0].strip()): counts[(fn, pending.split("(")[0].strip())] += c
+                  pending = None
+          total = sum(counts.values())
+          print(f"allocator calls per dumps: {total / n:.2f}  (total {total} over {n} calls, after 5 warm-ups)")
+          for (caller, callee), c in counts.most_common(25):
+              print(f"  {c / n:8.2f}/call  {callee:14s} <- {caller[:110]}")
+          PY
+          for dataset in mixed users; do
+            for engine in strata orjson; do
+              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=callgrind --callgrind-out-file=cg_calls.$engine.$dataset.out \
+                .venv/bin/python dumps_calls.py $engine 200 $dataset > /dev/null 2> callgrind.$engine.$dataset.log || true
+              echo "=== $engine, $dataset: allocator calls per dumps (200 calls with gc.collect, minus nothing) ==="
+              # subtract the loop's own allocations: a run of 0 dumps calls
+              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=callgrind --callgrind-out-file=cg_calls.$engine.$dataset.zero.out \
+                .venv/bin/python dumps_calls.py $engine 0 $dataset > /dev/null 2>&1 || true
+              .venv/bin/python calls_by_caller.py cg_calls.$engine.$dataset.out 200
+              echo "--- the same process with 0 dumps calls (the preamble), for subtraction ---"
+              .venv/bin/python calls_by_caller.py cg_calls.$engine.$dataset.zero.out 1 | head -3
+            done
+          done
       - name: Install strata and the competitor set (test-gated build)
         shell: bash
         run: |
