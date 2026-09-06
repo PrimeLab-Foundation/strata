@@ -50,6 +50,14 @@ inline constexpr const char* kDepthExceededMessage = "Maximum nesting depth exce
 /// Serialize @p object to JSON as `str`, or as `bytes` when @p as_bytes.
 [[nodiscard]] PyObject* dumps_to_python(PyObject* object, bool as_bytes);
 
+/// Resolve everything the serializer would otherwise resolve lazily *inside*
+/// a walk. Call once, from module init: the raw-dict layout proof allocates
+/// dicts, and a GC-tracked allocation under a walk can run a finalizer where
+/// the walk's enumeration of user-code steps says none can run
+/// (python_dumps.cpp's header). Never fails; a probe that cannot run leaves
+/// the raw walk off for the process.
+void prepare_dumps_runtime() noexcept;
+
 /// Register the JsonCursor type on @p module. False with an error set on failure.
 bool register_cursor_type(PyObject* module);
 

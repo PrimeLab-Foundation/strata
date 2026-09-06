@@ -7,6 +7,7 @@ import json
 import math
 import random
 import sys
+import warnings
 
 import pytest
 
@@ -377,8 +378,6 @@ def test_str_mode_survives_a_nested_dumps_call():
     from the cycle warning's handler or from an int subclass's __str__ must
     not disturb the outer call's output (str mode shares a per-thread buffer
     across calls)."""
-    import warnings
-
     nested = []
 
     class Big(int):

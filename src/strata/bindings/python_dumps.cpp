@@ -14,6 +14,89 @@
  * core escaper would (and defers to it the moment a string needs escaping),
  * and the per-depth schema cache stores bytes produced by that same escaper.
  * All of them are measured in docs/performance/SKILL.md.
+ *
+ * ## Re-entrancy: what the walk may borrow, and for how long
+ *
+ * The serializer runs user code at exactly four steps, all of them rare and
+ * all of them named here:
+ *
+ *   1. a cycle placeholder's `PyErr_WarnEx` under the default
+ *      `cycle_policy="warn"` (a warnings filter, a `showwarning` hook);
+ *   2. `write_int`'s `PyObject_Str` on an `int` *subclass* beyond int64 --
+ *      its `__str__`;
+ *   3. `write_int`'s `PyObject_Str` on an **exact** `int` beyond int64 whose
+ *      decimal conversion CPython 3.12+ delegates to the `_pylong` *Python*
+ *      module (above roughly 10 000 digits, which
+ *      `sys.set_int_max_str_digits` must permit): that step imports modules
+ *      and runs bytecode, so a collection can run there too;
+ *   4. the serializer's own release of a reference it took at one of those --
+ *      a `__del__` or a weakref callback firing out of a `Py_DECREF` in
+ *      `Frame`, `DeferredOpen` or `RowLock`.
+ *
+ * Everything else a *successful* walk executes runs none (a failing walk allocates only the
+ * exception it raises, and returns at once): it calls nothing the user wrote and allocates nothing
+ * the collector tracks (the output buffer is `bytes`/`std::string`, the schema blob is
+ * `std::string`, and the staged rows and the schema cache are leased before the walk starts), so no
+ * collection and therefore no finalizer can be triggered either. That is the
+ * same fact frame elision already rests on -- which is why step 3 is not just
+ * a latch: `is_plain_scalar` refuses to call a large `int` a plain scalar, so
+ * a container holding one is framed and its row registered like a container
+ * holding an `int` subclass. Steps 2 and 3 additionally hold a strong
+ * reference to the value being converted, which the latch does not cover: the
+ * `_pylong` import runs before the value is handed over and can orphan it.
+ *
+ * The enumeration is only true because nothing here resolves lazily. The
+ * raw-dict layout proof used to: it is a function-local static whose
+ * initialiser allocates two dicts, and its first use is *in the middle of the
+ * walk* of a process's first dumps() of a document containing a dict, where a
+ * collection triggered by that allocation ran finalizers under borrowed rows
+ * and elided containers (a deterministic segfault; see
+ * build/evidence/FIX1-REVIEW). `prepare_dumps_runtime()` resolves it at
+ * module init instead. A lazily-resolved static, or any GC-tracked
+ * allocation, or any conversion an interpreter version hands back to Python
+ * (step 3 is exactly that, and was missed once) added below is a fifth step
+ * and breaks this contract.
+ *
+ * Because that user code can mutate the very container being written, the
+ * walk obeys two rules, and a change here has to keep both:
+ *
+ *  - **Ownership, latched.** The walk borrows; it takes strong references
+ *    only when it is about to run user code. `latch()` increfs every entry of
+ *    `open_` and every registered `RowLock` that is not already latched, and
+ *    each reference is released when its frame or row goes out of scope.
+ *    Three facts make that sufficient, and all three have to survive a change
+ *    here:
+ *      1. a container is on `open_` *before* any user code can run beneath it
+ *         -- `Frame` pushes on entry, and the deferred push of the sequence
+ *         and record loops arms at the first element `is_plain_scalar`
+ *         refuses, which is the first element that can run anything (a large
+ *         `int` included: see step 3 above);
+ *      2. the latch is prefix-closed -- `open_` is a stack whose latched
+ *         entries are a prefix from the root, and the row list's latched
+ *         nodes are a suffix from the root, so latching stops at the first
+ *         node already latched;
+ *      3. a `Py_DECREF` of the serializer's own can only reach zero from a
+ *         *latched* guard, and a latched guard implies every guard still live
+ *         at that moment is latched too -- so the `__del__` it fires sees the
+ *         same fully-owned walk the other three steps do.
+ *    Ordinary documents run no user code and so pay no reference counting at
+ *    all; a document that does pays O(depth) once per event.
+ *  - **Freshness.** No borrowed pointer *into* a container's storage survives
+ *    a step that can run user code. A list's `ob_item`/`ob_size` are re-read
+ *    per element, so the loop follows the live list exactly as stdlib json's
+ *    encoder does. A dict's row is read once and *registered* from the first
+ *    non-scalar value on, so a record emits the row the serializer read --
+ *    which is what makes the general and the fused writer agree byte for byte
+ *    even here. Dicts too wide for that row take `PyDict_Next`, which
+ *    re-validates against the dict on every call. The row itself is *leased*,
+ *    one per nesting level, not a local array: see
+ *    SchemaCacheLease::StagedRow for why no function on this walk may carry
+ *    one in its frame.
+ *
+ * The schema cache is part of the same contract: it *owns* the keys it
+ * remembers, so it only ever remembers exact `str` objects, whose release
+ * cannot run a `__del__` or a weakref callback while another record's row is
+ * staged. A dict with a `str` subclass key takes the plain walk instead.
  */
 
 #include "python_dumps_output.h"
@@ -69,8 +152,9 @@ class Serializer {
     using Schema = SchemaCacheLease::Schema;
 
   public:
-    Serializer(StagedOutput& out, std::vector<SchemaCacheLease::DepthSchemas>& schemas)
-        : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(schemas) {}
+    Serializer(StagedOutput& out, SchemaCacheLease::State& state)
+        : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(state.schemas),
+          staged_rows_(state.rows), lock_nodes_(state.locks) {}
 
     [[nodiscard]] bool write(PyObject* object) {
         // Exact types first: one pointer compare instead of a flag load per
@@ -146,7 +230,30 @@ class Serializer {
             return true;
         }
 
-        // Beyond int64 the digits come from Python itself, so nothing is lost.
+        // Beyond int64 the digits come from Python itself, so nothing is lost
+        // -- and this call is user code whatever the type is. For an `int`
+        // *subclass* it is `__str__`; for an **exact** int on CPython 3.12+ it
+        // is the `_pylong` module, which `long_to_decimal_string` imports and
+        // executes above roughly 10 000 digits. Either can empty the
+        // containers this walk is inside, and so can the release of a `str`
+        // subclass returned by the first, so the walk takes its references
+        // first -- unconditionally. The condition that used to stand here
+        // ("exact ints run nothing") was false on 3.12+ and cost a
+        // heap-use-after-free; is_plain_scalar keeps the other half of the
+        // bargain by refusing to call such an int plain, so the container is
+        // armed and the row registered before this is reached.
+        //
+        // The strong reference on the value itself covers the one window the
+        // latch cannot. `latch()` owns the containers and the staged rows, but
+        // not the entry being written -- and `long_to_decimal_string` imports
+        // `_pylong` *before* it hands the value over, so a collection during
+        // that import can run a `__del__` that empties the container and drops
+        // the last reference to the very int being converted. Measured: with
+        // the value held elsewhere the reproducer is 24/24 clean, orphaned it
+        // is 4/24 SIGSEGV without this line (build/evidence/E26-FIX1/v4).
+        // Both fast paths above return before here, so only big ints pay it.
+        latch();
+        const PyRef value_guard(Py_NewRef(object));
         PyRef text(PyObject_Str(object));
         if (!text)
             return false;
@@ -232,8 +339,10 @@ class Serializer {
         // me?" and "is the nesting too deep?" -- and only descending into a
         // container child can make either matter for the *next* level. So the
         // cycle probe runs up front, the boundary case keeps the framed path
-        // (its depth error must stay byte-identical), and the push is
-        // deferred until the first container element. All-scalar lists -- the
+        // (its depth error must stay byte-identical), and the push is deferred
+        // until the first element that is not an exact scalar -- which is also
+        // the first element that can run user code, so this list is on open_
+        // whenever `latch()` could need it. All-scalar lists -- the
         // overwhelming majority -- never touch the open_ vector at all.
         if (std::find(open_.begin(), open_.end(), object) != open_.end())
             return emit_cycle_placeholder();
@@ -248,39 +357,46 @@ class Serializer {
 
         out_.ensure(1);
         out_.put('[');
-        const Py_ssize_t size = PySequence_Fast_GET_SIZE(object);
+        // A list's ob_item and ob_size are re-read per element instead of
+        // being hoisted: user code running below this loop can resize the
+        // list, which moves the item array out from under a hoisted pointer
+        // (that read freed memory, and crashed on a reallocation). stdlib
+        // json's encoder re-reads for the same reason, and this loop follows
+        // the list the same way -- a shrunk list ends here, an appended
+        // element is written. A tuple cannot change, so it is read once.
+        const bool from_list = PyList_Check(object) != 0;
+        Py_ssize_t size = PySequence_Fast_GET_SIZE(object);
         PyObject** items = PySequence_Fast_ITEMS(object);
 
         // Arrays of one scalar type are the common shape in real payloads, and
         // for them the per-element dispatch through write() is pure overhead.
         // Each run formats straight into the stage; the element type is
         // re-checked per element, so a mixed list just ends the run early and
-        // the general loop below picks up exactly where it stopped.
+        // the general loop below picks up exactly where it stopped. The runs
+        // handle exact scalars only, so none of them can run user code and the
+        // snapshot they are handed stays valid for their whole length.
         Py_ssize_t index = write_scalar_run(items, size);
 
-        bool pushed = false;
+        DeferredOpen open_container(*this);
         for (; index < size; ++index) {
             if (index != 0) {
                 out_.ensure(1);
                 out_.put(',');
             }
-            PyObject* item = items[index];
-            if (!pushed && !is_plain_scalar(item)) {
-                open_.push_back(object);
-                pushed = true;
-            }
+            PyObject* const item = items[index];
+            if (!open_container.armed() && !is_plain_scalar(item))
+                open_container.arm(object);
             // Array-of-records is the shape the certified rows are made of
             // (docs/architecture/fused_record_writer.md): exact dicts take
             // the one-pass emit, everything else the general dispatch.
             const bool ok = Py_TYPE(item) == &PyDict_Type ? write_record_fused(item) : write(item);
-            if (!ok) {
-                if (pushed)
-                    open_.pop_back();
+            if (!ok)
                 return false;
+            if (from_list) {
+                items = reinterpret_cast<PyListObject*>(object)->ob_item;
+                size = Py_SIZE(object);
             }
         }
-        if (pushed)
-            open_.pop_back();
         out_.ensure(1);
         out_.put(']');
         return true;
@@ -290,7 +406,7 @@ class Serializer {
     [[nodiscard]] bool write_sequence_body(PyObject* object) {
         out_.ensure(1);
         out_.put('[');
-        const Py_ssize_t size = PySequence_Fast_GET_SIZE(object);
+        Py_ssize_t size = PySequence_Fast_GET_SIZE(object);
         PyObject** items = PySequence_Fast_ITEMS(object);
         Py_ssize_t index = write_scalar_run(items, size);
         for (; index < size; ++index) {
@@ -300,6 +416,12 @@ class Serializer {
             }
             if (!write(items[index]))
                 return false;
+            // Re-read for the reason the main loop does: the Frame keeps the
+            // sequence alive, but user code below can still have moved its
+            // items. This path is the depth boundary, so it pays the macro's
+            // type test rather than hoisting it.
+            size = PySequence_Fast_GET_SIZE(object);
+            items = PySequence_Fast_ITEMS(object);
         }
         out_.ensure(1);
         out_.put(']');
@@ -327,8 +449,11 @@ class Serializer {
         out_.ensure(4);
         out_.write("null", 4);
         if (g_cycle_policy == CyclePolicyValue::Warn) {
+            // The warning runs a user handler, which can empty the containers
+            // this walk is inside: take the references before it runs.
             // A warning filter set to "error" raises here, which stops the
             // serialization rather than being swallowed.
+            latch();
             return PyErr_WarnEx(PyExc_RuntimeWarning, "Circular reference detected", 1) == 0;
         }
         return true;
@@ -523,30 +648,74 @@ class Serializer {
 
     /// Objects with more keys than this serialize their keys the plain way.
     static constexpr Py_ssize_t kMaxSchemaKeys = 24;
+    static_assert(kMaxSchemaKeys <= 255, "RowLock packs its row bounds into bytes");
     /// Nesting levels that get a schema slot; deeper objects take the plain walk.
-    static constexpr size_t kMaxCachedDepth = 64;
+    static constexpr size_t kMaxCachedDepth = SchemaCacheLease::kMaxDepth;
+    static_assert(static_cast<size_t>(kMaxSchemaKeys) == SchemaCacheLease::kSchemaSlots,
+                  "the staged rows and the schema slot rows are the same width");
+
+    /**
+     * True while an exact `int` prints without running Python.
+     *
+     * CPython 3.12+ hands `long_to_decimal_string` a conversion above roughly
+     * 10 000 decimal digits to the **`_pylong` Python module** -- it imports
+     * four modules and runs bytecode, so such an int is a user-code step like
+     * any other (`sys.set_int_max_str_digits` is what lets the conversion be
+     * attempted at all). The test used here is the interpreter's own
+     * compactness bound -- one digit, |v| < 2^30 -- which is public API, far
+     * below the `_pylong` threshold, and one tag load. Earlier versions have
+     * no `_pylong`, but the same bound is applied there from the digit count,
+     * so the classifier's answer does not depend on the interpreter version.
+     */
+    [[nodiscard]] static bool is_compact_int(PyObject* value) noexcept {
+#if PY_VERSION_HEX >= 0x030C0000
+        return PyUnstable_Long_IsCompact(reinterpret_cast<PyLongObject*>(value)) != 0;
+#else
+        const Py_ssize_t digits = Py_SIZE(value);
+        return digits >= -1 && digits <= 1;
+#endif
+    }
 
     /// Exact scalar types cannot recurse, so a dict of them cannot contain
-    /// itself and needs no cycle frame.
+    /// itself and needs no cycle frame -- and, just as load-bearing, none of
+    /// them can run user code, so the row staged for such a dict is emitted
+    /// without a frame or a registration at all. A large `int` is therefore
+    /// *not* plain: its decimal conversion runs Python (is_compact_int), and
+    /// a value that can run Python has to arm the container and register the
+    /// row before it is written.
     [[nodiscard]] static bool is_plain_scalar(PyObject* value) noexcept {
         PyTypeObject* type = Py_TYPE(value);
-        return type == &PyUnicode_Type || type == &PyFloat_Type || type == &PyLong_Type ||
-               type == &PyBool_Type || value == Py_None;
+        if (type == &PyUnicode_Type || type == &PyFloat_Type)
+            return true;
+        if (type == &PyLong_Type)
+            return is_compact_int(value);
+        return type == &PyBool_Type || value == Py_None;
     }
 
     /**
      * One-pass emit for a record inside an array-of-records
      * (docs/architecture/fused_record_writer.md): the entry array is walked
      * once, the schema way resolves from the first key, keys emit from the
-     * inline slot row and values dispatch as visited — no staging arrays, no
-     * second walk. Verification of the whole key row completes before any
+     * inline slot row and values dispatch as visited — no second walk of the
+     * dict, and the only staging is the stack copy of the value pointers the
+     * verification pass already loads. Verification of the whole key row
+     * completes before any
      * output byte, so every deviation — split table, holes, width, way miss,
      * unprepared or wide schema, retired depth, the depth boundary — falls
      * back to write_mapping with nothing to undo. The general path stays the
      * single definition of behavior; a miss here also lets it remember the
      * shape, which is what makes the next sibling hit.
+     *
+     * Out of line, like write_mapping_body and for the same reason: a
+     * document with no array-of-records — `flat`, `wide_arrays` — must not
+     * fetch this body at all, and write_sequence must stay the small loop
+     * every array in every document runs (inlined here it costs write_sequence
+     * +545 instructions and +80 frame bytes under the profile). What it no
+     * longer carries either way is a staging array: the row is the leased row
+     * of this nesting level (SchemaCacheLease::StagedRow), so neither this
+     * function nor any function it is folded into declares one.
      */
-    [[nodiscard]] bool write_record_fused(PyObject* object) {
+    [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
 #if defined(STRATA_RAW_DICT_WALK)
         if (!rawdict::available())
             return write_mapping(object);
@@ -580,16 +749,28 @@ class Serializer {
         Schema& schema = depth_schemas.ways[way];
         if (!schema.prepared || schema.wide)
             return write_mapping(object);
+        // The verification pass keeps the value pointers it already loads to
+        // check each slot is occupied. The emit loop then reads this level's
+        // staged row instead of re-striding the entry array -- and,
+        // load-bearing, never touches `entries` again: user code below a value
+        // can resize the dict and free that table. Still one walk of the entry
+        // array and no second walk of the dict; the row is a copy of pointers
+        // this pass has in hand, in storage the call leases rather than in
+        // this frame (docs/architecture/fused_record_writer.md).
+        PyObject** const row = staged_row(depth).values;
         for (Py_ssize_t index = 0; index < size; ++index) {
-            if (entries[index].me_value == nullptr ||
+            PyObject* const value = entries[index].me_value;
+            if (value == nullptr ||
                 schema.key_row[static_cast<size_t>(index)] != entries[index].me_key)
                 return write_mapping(object);
+            row[static_cast<size_t>(index)] = value;
         }
 
         const MappingDepth level(map_depth_);
         out_.ensure(1);
         out_.put('{');
-        bool pushed = false;
+        DeferredOpen open_container(*this);
+        RowLock values_lock;
         for (Py_ssize_t index = 0; index < size; ++index) {
             // Re-indexed per iteration: a nested object may grow schemas_
             // and move its elements (the write_mapping_body hazard).
@@ -602,21 +783,20 @@ class Serializer {
                         slot_row.slots + static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
                         SchemaCacheLease::kSlotBytes);
             out_.advance(skip + slot_row.spans[static_cast<size_t>(index)]);
-            PyObject* const value = entries[index].me_value;
-            if (!pushed && !is_plain_scalar(value)) {
-                // Same deferred cycle frame as the sequence loop: this dict
-                // must be findable in open_ while a container child walks.
-                open_.push_back(object);
-                pushed = true;
+            PyObject* const value = row[static_cast<size_t>(index)];
+            if (!open_container.armed() && !is_plain_scalar(value)) {
+                // The one moment two things become true at once: this dict
+                // must be findable in open_ while a container child walks, and
+                // the row behind it stops being safe to borrow, because the
+                // child can run user code that empties the dict. Same deferred
+                // frame as the sequence loop, same row registration as
+                // write_mapping_body -- so both emit the same record here.
+                open_container.arm(object);
+                values_lock.own(*this, lock_node(depth, 0), row, index + 1, size);
             }
-            if (!write(value)) {
-                if (pushed)
-                    open_.pop_back();
+            if (!write(value))
                 return false;
-            }
         }
-        if (pushed)
-            open_.pop_back();
         out_.ensure(1);
         out_.put('}');
         return true;
@@ -638,12 +818,24 @@ class Serializer {
 
         // One walk collects everything the decisions below need: the keys and
         // values, whether every value is a plain scalar, and whether the
-        // object is too wide for the schema cache.
-        PyObject* keys[kMaxSchemaKeys];
-        PyObject* values[kMaxSchemaKeys];
+        // object is too wide for the schema cache. The row it stages is this
+        // level's leased one, not a local array -- see
+        // SchemaCacheLease::StagedRow for why that difference is hot.
+        SchemaCacheLease::StagedRow& staged = staged_row(map_depth_);
+        PyObject** const keys = staged.keys;
+        PyObject** const values = staged.values;
         Py_ssize_t count = 0;
         bool too_many = false;
         bool all_scalar = true;
+        // The schema cache *owns* the keys it remembers, and releasing a `str`
+        // subclass can run a `__del__` or a weakref callback -- while another
+        // record's row is staged, which would be exactly the hazard the row
+        // lock below exists to close. Such keys keep out of the cache: the
+        // plain walk emits identical bytes.
+        bool exact_keys = true;
+        /// Index of the first value that can run user code; only read when
+        /// `all_scalar` is false, in which case the walk below set it.
+        Py_ssize_t first_container = 0;
 
 #if defined(STRATA_RAW_DICT_WALK)
         Py_ssize_t entry_count = 0;
@@ -655,17 +847,22 @@ class Serializer {
                 if (value == nullptr)
                     continue; // deleted slot
                 PyObject* key = entries[index].me_key;
-                if (!PyUnicode_Check(key)) {
-                    PyErr_Format(PyExc_TypeError, "keys must be str, not %s",
-                                 Py_TYPE(key)->tp_name);
-                    return false;
+                if (Py_TYPE(key) != &PyUnicode_Type) {
+                    if (!PyUnicode_Check(key)) {
+                        PyErr_Format(PyExc_TypeError, "keys must be str, not %s",
+                                     Py_TYPE(key)->tp_name);
+                        return false;
+                    }
+                    exact_keys = false;
                 }
                 if (count == kMaxSchemaKeys) {
                     too_many = true;
                     break;
                 }
-                if (all_scalar && !is_plain_scalar(value))
+                if (all_scalar && !is_plain_scalar(value)) {
                     all_scalar = false;
+                    first_container = count;
+                }
                 keys[count] = key;
                 values[count] = value;
                 ++count;
@@ -674,6 +871,8 @@ class Serializer {
                 // The table disagreed with the size — walk the safe way.
                 count = 0;
                 all_scalar = true;
+                exact_keys = true;
+                first_container = 0;
                 entries = nullptr;
             }
         }
@@ -684,22 +883,33 @@ class Serializer {
             PyObject* key = nullptr;
             PyObject* value = nullptr;
             while (PyDict_Next(object, &position, &key, &value)) {
-                if (!PyUnicode_Check(key)) {
-                    PyErr_Format(PyExc_TypeError, "keys must be str, not %s",
-                                 Py_TYPE(key)->tp_name);
-                    return false;
+                if (Py_TYPE(key) != &PyUnicode_Type) {
+                    if (!PyUnicode_Check(key)) {
+                        PyErr_Format(PyExc_TypeError, "keys must be str, not %s",
+                                     Py_TYPE(key)->tp_name);
+                        return false;
+                    }
+                    exact_keys = false;
                 }
                 if (count == kMaxSchemaKeys) {
                     too_many = true;
                     break;
                 }
-                if (all_scalar && !is_plain_scalar(value))
+                if (all_scalar && !is_plain_scalar(value)) {
                     all_scalar = false;
+                    first_container = count;
+                }
                 keys[count] = key;
                 values[count] = value;
                 ++count;
             }
         }
+        // Neither walk above can run user code, so the row it staged is
+        // whole; from here on it is only borrowed, and write_mapping_body
+        // registers the part of it that outlives a step which can run user
+        // code.
+        const bool cacheable = !too_many && exact_keys;
+        const Py_ssize_t own_from = all_scalar ? count : first_container + 1;
 
         // The cycle frame exists to recognise this dict if it reappears below
         // itself -- which can only happen through a container value. A dict
@@ -707,9 +917,9 @@ class Serializer {
         // record data skips the frame entirely. The depth guard keeps the
         // depth-limit contract byte-identical: at the boundary the framed
         // path runs and raises exactly as before.
-        if (!too_many && count > 0 && all_scalar &&
+        if (cacheable && count > 0 && all_scalar &&
             open_.size() < static_cast<size_t>(depth_limit_))
-            return write_mapping_body(object, keys, values, count);
+            return write_mapping_body(object, keys, values, count, own_from);
 
         const Frame frame(*this, object);
         if (frame.repeated())
@@ -717,7 +927,7 @@ class Serializer {
         if (!frame.within_depth_limit())
             return false;
 
-        if (too_many)
+        if (!cacheable)
             return write_mapping_uncached(object);
 
         // An empty object has no keys to prepare, and letting it reach the
@@ -727,7 +937,7 @@ class Serializer {
             out_.write("{}", 2);
             return true;
         }
-        return write_mapping_body(object, keys, values, count);
+        return write_mapping_body(object, keys, values, count, own_from);
     }
 
     // One out-of-line copy, deliberately. It was force-inlined into both call
@@ -738,10 +948,14 @@ class Serializer {
     // interleaved harness hands every call a cold cache. Two inlined copies
     // of this body plus the fused writer's own loop were three copies of the
     // key-emit machinery in hot text; this keeps one.
-    [[nodiscard]] STRATA_NOINLINE_HOT bool write_mapping_body(PyObject* object,
-                                                              PyObject* const* keys,
-                                                              PyObject* const* values,
-                                                              Py_ssize_t count) {
+    ///
+    /// @param own_from The first index of the staged row that outlives a step
+    ///        that can run user code: the index just past the first value that
+    ///        can run any, or @p count for an all-scalar record, whose empty
+    ///        range registers nothing.
+    [[nodiscard]] STRATA_NOINLINE_HOT bool
+    write_mapping_body(PyObject* object, PyObject* const* keys, PyObject* const* values,
+                       Py_ssize_t count, Py_ssize_t own_from) {
         // Documents are overwhelmingly made of records that share a schema, so
         // the same keys get escape-scanned and quoted once per record.
         // Remembering the previous object's keys turns all of that into one
@@ -756,6 +970,13 @@ class Serializer {
         const size_t depth = map_depth_;
         if (depth >= kMaxCachedDepth)
             return write_mapping_uncached(object);
+
+        // From the first value that can run user code on, the staged row is
+        // registered: that code can empty the dict these pointers are borrowed
+        // from, and everything after it is still to be emitted. Everything
+        // before it is already written, so what reaches the output is the row
+        // the serializer read -- which is the row the fused writer emits too.
+        RowLock values_lock(*this, lock_node(depth, 0), values, own_from, count);
         if (schemas_.size() <= depth)
             schemas_.resize(depth + 1);
 
@@ -769,8 +990,7 @@ class Serializer {
         bool prepared = false;
         const size_t way = schemas_[depth].select(keys, count);
         if (way != SchemaCacheLease::DepthSchemas::kMiss) {
-            Schema& selected = schemas_[depth].ways[way];
-            if (!selected.prepared && !build_schema(selected))
+            if (!schemas_[depth].ways[way].prepared && !build_schema(schemas_[depth], way))
                 return false;
             prepared = true;
         }
@@ -818,6 +1038,9 @@ class Serializer {
                     return false;
             }
         } else {
+            // The only branch that reads a staged *key* after the first value
+            // has been written, so the only one that has to register them too.
+            RowLock keys_lock(*this, lock_node(depth, 1), keys, own_from, count);
             for (Py_ssize_t index = 0; index < count; ++index) {
                 if (index != 0) {
                     out_.ensure(1);
@@ -836,15 +1059,29 @@ class Serializer {
         return true;
     }
 
-    /// Prepare the `"key":` bytes for a schema whose keys are already recorded.
-    [[nodiscard]] STRATA_COLD_FN bool build_schema(Schema& schema) {
+    /// Prepare the `"key":` bytes for the schema in @p way of @p depth_schemas,
+    /// whose keys are already recorded.
+    ///
+    /// Takes the way rather than the slot because the one failing key -- a
+    /// lone surrogate, which has no UTF-8 -- has to take the *whole way* out
+    /// of service, not just empty it: an emptied slot that still matched
+    /// `counts`/`first_keys`/`key_row` was rebuilt over no keys at all on the
+    /// next call, declared prepared with every span zero, and emitted a record
+    /// with no key bytes (`{1,2}` -- invalid JSON, silently).
+    [[nodiscard]] STRATA_COLD_FN bool build_schema(SchemaCacheLease::DepthSchemas& depth_schemas,
+                                                   size_t way) {
+        Schema& schema = depth_schemas.ways[way];
         schema.blob.clear();
         schema.offsets.assign(1, 0);
         for (PyObject* key : schema.keys) {
             Py_ssize_t size = 0;
             const char* utf8 = PyUnicode_AsUTF8AndSize(key, &size);
             if (utf8 == nullptr) {
-                schema.keys.clear(); // never leave a half-built slot cached
+                // Nothing usable is left behind, so the next call re-walks the
+                // shape and raises this same error from write_string -- the
+                // one definition of key emission -- instead of hitting a
+                // remembered failure. `schema` is dead after this line.
+                depth_schemas.invalidate(way);
                 return false;
             }
             append_escaped_json_string(std::string_view(utf8, static_cast<size_t>(size)),
@@ -868,7 +1105,11 @@ class Serializer {
         return true;
     }
 
-    /// The plain walk, for objects too wide to be worth remembering.
+    /// The plain walk, for objects too wide to be worth remembering (and for
+    /// the ones whose keys must stay out of the schema cache). It stages
+    /// nothing: `PyDict_Next` re-validates its position against the dict on
+    /// every call, so this loop follows a mutated dict without ever reading
+    /// freed memory -- its caller's Frame is what keeps the dict itself alive.
     [[nodiscard]] STRATA_COLD_FN bool write_mapping_uncached(PyObject* object) {
         out_.ensure(1);
         out_.put('{');
@@ -908,16 +1149,20 @@ class Serializer {
      */
     class Frame {
       public:
-        Frame(Serializer& owner, PyObject* container) : owner_(owner) {
+        Frame(Serializer& owner, PyObject* container) : owner_(owner), container_(container) {
             const auto& open = owner_.open_;
             repeated_ = std::find(open.begin(), open.end(), container) != open.end();
+            // Pushed, not increfed: `latch()` is what makes every entry of
+            // open_ strong, and it runs before any user code that could drop
+            // the container out of its parent's slot. That is also what makes
+            // every pointer this scan compares safe to compare against.
             if (!repeated_)
                 owner_.open_.push_back(container);
         }
 
         ~Frame() {
             if (!repeated_)
-                owner_.open_.pop_back();
+                owner_.close_container(container_);
         }
 
         Frame(const Frame&) = delete;
@@ -941,8 +1186,13 @@ class Serializer {
             owner_.out_.ensure(4);
             owner_.out_.write("null", 4);
             if (g_cycle_policy == CyclePolicyValue::Warn) {
+                // The warning runs a user handler, which can empty the
+                // containers this walk is inside -- including the one this
+                // frame found repeated, which this frame deliberately does not
+                // push and whose only keeper is the ancestor that did.
                 // A warning filter set to "error" raises here, which stops the
                 // serialization rather than being swallowed.
+                owner_.latch();
                 return PyErr_WarnEx(PyExc_RuntimeWarning, "Circular reference detected", 1) == 0;
             }
             return true;
@@ -950,19 +1200,185 @@ class Serializer {
 
       private:
         Serializer& owner_;
+        PyObject* container_;
         bool repeated_ = false;
     };
 
+    /**
+     * The deferred frame of the sequence and record loops: the container goes
+     * on `open_` the first time the loop is about to walk a child that could
+     * run user code -- which is exactly the first element that is not an exact
+     * scalar. All-scalar containers never arm it and pay nothing, which is
+     * what makes frame elision free.
+     */
+    class DeferredOpen {
+      public:
+        explicit DeferredOpen(Serializer& owner) noexcept : owner_(owner) {}
+
+        ~DeferredOpen() {
+            if (container_ != nullptr)
+                owner_.close_container(container_);
+        }
+
+        DeferredOpen(const DeferredOpen&) = delete;
+        DeferredOpen& operator=(const DeferredOpen&) = delete;
+
+        void arm(PyObject* container) {
+            owner_.open_.push_back(container);
+            container_ = container;
+        }
+
+        [[nodiscard]] bool armed() const noexcept { return container_ != nullptr; }
+
+      private:
+        Serializer& owner_;
+        PyObject* container_ = nullptr;
+    };
+
+    /**
+     * A staged row of borrowed pointers, registered so `latch()` can find it.
+     *
+     * A row read out of a dict is only borrowed for as long as the dict holds
+     * it, and user code running under a container value can empty the dict.
+     * From that value on the row registers itself on the serializer's row
+     * stack -- three stores, no reference counting -- and pays a reference per
+     * entry only if user code actually runs. An all-scalar record's range is
+     * empty and registers nothing at all.
+     */
+    class RowLock {
+      public:
+        RowLock() noexcept = default;
+        RowLock(Serializer& owner, SchemaCacheLease::RowNode& node, PyObject* const* row,
+                Py_ssize_t first, Py_ssize_t last) noexcept {
+            own(owner, node, row, first, last);
+        }
+
+        ~RowLock() {
+            if (owner_ == nullptr)
+                return;
+            // Always the head: registrations nest with the frames that make
+            // them, so the innermost is the first destroyed. A row registered
+            // outside that discipline would unlink the wrong node.
+            owner_->rows_ = node_->next;
+            if (!node_->latched)
+                return;
+            for (unsigned index = node_->first; index < node_->last; ++index)
+                Py_DECREF(node_->row[index]);
+        }
+
+        RowLock(const RowLock&) = delete;
+        RowLock& operator=(const RowLock&) = delete;
+
+        /// Register `row[first .. last)` on @p node. An empty range
+        /// registers nothing: there is no borrowed pointer left for user code
+        /// to invalidate. Called at most once per object -- both call sites
+        /// are guarded by the same condition that arms the container's
+        /// deferred push -- and the node is this level's, so no two live
+        /// registrations can share one.
+        void own(Serializer& owner, SchemaCacheLease::RowNode& node, PyObject* const* row,
+                 Py_ssize_t first, Py_ssize_t last) noexcept {
+            if (first >= last)
+                return;
+            node.row = row;
+            // Both are indices into a row of at most kMaxSchemaKeys entries,
+            // so a byte holds either.
+            node.first = static_cast<uint8_t>(first);
+            node.last = static_cast<uint8_t>(last);
+            // The node is reused by the next record at this level: a stale
+            // flag would release references this row never took.
+            node.latched = false;
+            node.next = owner.rows_;
+            owner_ = &owner;
+            node_ = &node;
+            owner.rows_ = &node;
+        }
+
+      private:
+        Serializer* owner_ = nullptr;
+        SchemaCacheLease::RowNode* node_ = nullptr;
+    };
+
+    /**
+     * Make every borrowed pointer the walk still needs a strong one.
+     *
+     * Called immediately before each of the three steps that run user code (the cycle warning, an
+     * `int` subclass's `__str__`, a large exact `int`'s decimal conversion), and so also before any
+     * `__del__` the serializer's own releases can fire (see the rule at the top of this file).
+     * Latched entries stay latched until their frame or row goes out of scope, so a second event
+     * only pays for what has been opened since the first: `open_`'s latched entries are a prefix
+     * from the root and the row list's are a suffix from the root, which is why both loops may stop
+     * at the first one already latched.
+     */
+    STRATA_COLD_FN void latch() noexcept {
+        while (owned_ < open_.size()) {
+            Py_INCREF(open_[owned_]);
+            ++owned_;
+        }
+        for (SchemaCacheLease::RowNode* row = rows_; row != nullptr && !row->latched;
+             row = row->next) {
+            for (unsigned index = row->first; index < row->last; ++index)
+                Py_INCREF(row->row[index]);
+            row->latched = true;
+        }
+    }
+
+    /// Pop a container off `open_`, releasing it if the walk had latched it.
+    void close_container(PyObject* container) {
+        open_.pop_back();
+        if (owned_ > open_.size()) {
+            owned_ = open_.size();
+            Py_DECREF(container);
+        }
+    }
+
+    /// The staged row of dict nesting level @p depth. Levels past the schema
+    /// cache share the one scratch row at `kMaxCachedDepth`, which nothing
+    /// ever reads back -- see SchemaCacheLease::State.
+    [[nodiscard]] SchemaCacheLease::StagedRow& staged_row(size_t depth) const noexcept {
+        return staged_rows_[depth < kMaxCachedDepth ? depth : kMaxCachedDepth];
+    }
+
+    /// The registration node of one of a level's two staged rows. Only levels
+    /// inside the schema cache register: both call sites have already sent a
+    /// deeper level to write_mapping_uncached, which stages nothing.
+    [[nodiscard]] SchemaCacheLease::RowNode& lock_node(size_t depth, size_t which) const noexcept {
+        return lock_nodes_[2 * depth + which];
+    }
+
     StagedOutput& out_;
     std::vector<PyObject*> open_;
+    /// `open_[0 … owned_)` hold a strong reference; the rest are borrowed.
+    size_t owned_ = 0;
+    /// Innermost registered staged row; see RowLock.
+    SchemaCacheLease::RowNode* rows_ = nullptr;
     size_t map_depth_ = 0; ///< dict nesting, independent of frame elision
     int depth_limit_;
 
     // One prepared schema per nesting depth; leased, so it survives the call.
     std::vector<SchemaCacheLease::DepthSchemas>& schemas_;
+    /// One staged key/value row per nesting depth, leased from the same
+    /// state. Leased rather than declared here or in the dict writers'
+    /// frames: a stack row is a stack row in every function the profile
+    /// inlines them into (SchemaCacheLease::StagedRow).
+    SchemaCacheLease::StagedRow* staged_rows_;
+    /// One registration node per staged row, leased for the same reason.
+    SchemaCacheLease::RowNode* lock_nodes_;
 };
 
 } // namespace
+
+void prepare_dumps_runtime() noexcept {
+#if defined(STRATA_RAW_DICT_WALK)
+    // The layout proof builds two dicts, and a dict is GC-tracked: allocating
+    // it can run a collection, and a collection runs __del__ and weakref
+    // callbacks -- user code. Inside a walk that would be a fourth user-code
+    // step, at a point that takes no latch and beneath rows and elided
+    // containers nothing protects. Resolving it here, once, before any walk,
+    // is what makes this file's four-step enumeration true as written.
+    if (!rawdict::available())
+        PyErr_Clear(); // a refused layout is not an import failure
+#endif
+}
 
 CyclePolicyValue get_cycle_policy() noexcept { return g_cycle_policy; }
 
@@ -980,7 +1396,9 @@ bool set_cycle_policy(std::string_view name) noexcept {
 }
 
 PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
-    SchemaCacheLease schemas;
+    SchemaCacheLease lease;
+    if (!lease.ok())
+        return PyErr_NoMemory();
 
     if (as_bytes) {
         // Sized to the previous document on this thread, exactly: growth
@@ -1001,7 +1419,7 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         StagedOutput staged;
         if (!staged.init_bytes(size_hint))
             return PyErr_NoMemory();
-        Serializer serializer(staged, schemas.slots());
+        Serializer serializer(staged, lease.state());
         if (!serializer.write(object))
             return nullptr;
         PyObject* result = staged.take_bytes();
@@ -1036,7 +1454,7 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         out.reserve(kDumpsInitialCapacity);
 
     StagedOutput staged(out);
-    Serializer serializer(staged, schemas.slots());
+    Serializer serializer(staged, lease.state());
     if (!serializer.write(object))
         return nullptr;
     staged.flush_str();

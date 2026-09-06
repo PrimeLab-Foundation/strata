@@ -11,8 +11,9 @@
  *    or a PyBytes written directly, sized to the previous document, with
  *    the stage holding the tail that its last reservation could not fit
  *    (the bytes path -- one document copy at most, usually none).
- *  - SchemaCacheLease: the per-thread prepared-key cache with owned key
- *    references.
+ *  - SchemaCacheLease: the per-thread lease of everything a dumps() call
+ *    keeps per nesting level -- the prepared-key cache with owned key
+ *    references, and the staged key/value rows the dict writers emit from.
  *  - rawdict: the runtime-proved direct walk over a dict's entry array.
  */
 
@@ -22,6 +23,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <string>
 #include <vector>
@@ -265,7 +267,7 @@ class StagedOutput {
 };
 
 /**
- * The per-thread schema cache, shared across dumps() calls.
+ * The per-thread state a dumps() call leases: prepared keys and staged rows.
  *
  * Sharing is what lets repeated serialization of same-shaped payloads skip
  * key preparation entirely after the first call. The keys are *owned*
@@ -273,7 +275,8 @@ class StagedOutput {
  * a borrowed pointer could be freed between calls and reincarnated as a
  * different key. The busy flag covers re-entrancy -- a cycle warning can run
  * arbitrary Python, which can call dumps() again mid-walk; the nested call
- * pays for a private, empty cache instead.
+ * pays for a private, empty state instead, so neither the outer walk's
+ * schemas nor its staged rows are touched.
  */
 class SchemaCacheLease {
   public:
@@ -281,6 +284,9 @@ class SchemaCacheLease {
     static constexpr size_t kSchemaSlots = 24;
     /// Bytes per inline `"key":` slot; a wider span falls back to heap spans.
     static constexpr size_t kSlotBytes = 16;
+    /// Nesting levels with a schema slot and a staged row of their own;
+    /// deeper objects take the plain walk (python_dumps.cpp kMaxCachedDepth).
+    static constexpr size_t kMaxDepth = 64;
 
     /// Prepared `"key":` bytes for one object shape at one depth.
     ///
@@ -304,6 +310,12 @@ class SchemaCacheLease {
         bool wide = false; ///< some span exceeded a slot: emit from the blob
 
         void remember(PyObject* const* other, Py_ssize_t count) {
+            // The one step that can allocate, taken before anything is
+            // mutated: a throw here leaves the way exactly as it was, rather
+            // than with its old references already dropped and a vector the
+            // next remember() would release a second time. `assign` cannot
+            // then allocate, so the rest of this runs to completion.
+            keys.reserve(static_cast<size_t>(count));
             for (PyObject* key : keys)
                 Py_DECREF(key);
             keys.assign(other, other + count);
@@ -316,6 +328,20 @@ class SchemaCacheLease {
                 key_row[static_cast<size_t>(index)] = other[index];
             prepared = false;
             wide = false;
+        }
+
+        /// Drop the remembered shape: release the owned keys and blank the
+        /// borrowed row, leaving nothing an identity compare could hit. The
+        /// prepared bytes are not cleared -- `prepared` is false, and
+        /// `build_schema` resets `blob` and `offsets` before it writes them.
+        void forget() {
+            prepared = false;
+            wide = false;
+            for (PyObject* key : keys)
+                Py_DECREF(key);
+            keys.clear();
+            for (PyObject*& remembered : key_row)
+                remembered = nullptr;
         }
 
         /// Keys past the first, by identity. `select` has already matched the
@@ -332,24 +358,6 @@ class SchemaCacheLease {
             return true;
         }
     };
-
-    SchemaCacheLease() {
-        if (!busy_ && shared() != nullptr) {
-            busy_ = true;
-            slots_ = shared();
-            owns_flag_ = true;
-        } else {
-            slots_ = &fallback_;
-        }
-    }
-
-    ~SchemaCacheLease() {
-        if (owns_flag_)
-            busy_ = false;
-    }
-
-    SchemaCacheLease(const SchemaCacheLease&) = delete;
-    SchemaCacheLease& operator=(const SchemaCacheLease&) = delete;
 
     /**
      * One depth's schema set: four ways, scanned in place.
@@ -384,6 +392,16 @@ class SchemaCacheLease {
         /// stops paying remember()'s reference traffic.
         bool retired = false;
 
+        /// Take one way out of service: it stops matching *before* its owned
+        /// keys are released, so no select() can reach a slot whose shape is
+        /// half gone. `counts` back at -1 is what un-matches it -- callers
+        /// guarantee count >= 1, so -1 can never be asked for.
+        void invalidate(size_t way) {
+            counts[way] = -1;
+            first_keys[way] = nullptr;
+            ways[way].forget();
+        }
+
         [[nodiscard]] size_t select(PyObject* const* keys, Py_ssize_t count) {
             if (retired)
                 return kMiss;
@@ -394,16 +412,8 @@ class SchemaCacheLease {
                     return way;
             }
             if (++misses > 64) {
-                for (Schema& schema : ways) {
-                    for (PyObject* key : schema.keys)
-                        Py_DECREF(key);
-                    schema.keys.clear();
-                    schema.prepared = false;
-                }
-                for (size_t way = 0; way < kWays; ++way) {
-                    counts[way] = -1;
-                    first_keys[way] = nullptr;
-                }
+                for (size_t way = 0; way < kWays; ++way)
+                    invalidate(way);
                 retired = true;
                 return kMiss;
             }
@@ -415,21 +425,113 @@ class SchemaCacheLease {
         }
     };
 
-    [[nodiscard]] std::vector<DepthSchemas>& slots() noexcept { return *slots_; }
+    /**
+     * The staged key and value rows of one dict nesting level.
+     *
+     * The dict writers read a record's keys and values once -- a walk that
+     * runs no user code -- and then emit from that row, so the record that
+     * reaches the output is the one the serializer read. The row is *leased*
+     * rather than declared as a local array, because a local array in
+     * write_mapping or write_record_fused is a local array in every function
+     * they are inlined into: under `-fprofile-use` the whole dict writer
+     * folds into the per-value dispatcher, and a 192-byte row there becomes a
+     * 448-byte frame plus a stack-protector canary on `write` and
+     * `write_sequence` -- paid by every value of every document, arrays of
+     * scalars included (build/evidence/E26-P2/BUILDS.md). Leasing it keeps
+     * the hot walk free of stack arrays under any inlining decision the
+     * profile makes.
+     *
+     * One row per nesting level is exactly what the recursion can have live
+     * at once: `map_depth_` is unique along the walk's path, so a level's row
+     * belongs to the single write_mapping / write_record_fused frame at that
+     * level, and a sibling record reuses it only after that frame -- and the
+     * RowLock registered over it -- has gone.
+     */
+    struct StagedRow {
+        PyObject* keys[kSchemaSlots];
+        PyObject* values[kSchemaSlots];
+    };
+
+    /// One registration of a staged row on the serializer's row list.
+    ///
+    /// Leased for the second half of the same reason the rows are: an
+    /// intrusive list node *is* an address-taken local, and a function with
+    /// one gets a stack-protector canary under `-fstack-protector-strong`
+    /// (the Linux legs' default) whatever its frame contains. Holding the
+    /// node here leaves the frame guard two pointers the optimizer keeps in
+    /// registers. Two nodes per level is what the recursion can have live:
+    /// write_mapping_body registers its values row and, on the branch that
+    /// still reads staged keys, its keys row; the fused writer registers one.
+    struct RowNode {
+        RowNode* next;
+        PyObject* const* row;
+        uint8_t first;
+        uint8_t last;
+        bool latched;
+    };
+
+    /// Everything one dumps() call leases: a schema set and a staged row per
+    /// nesting level. Heap-resident and never moved, so a row pointer stays
+    /// valid for the whole walk (`schemas` may reallocate; `rows` may not).
+    struct State {
+        std::vector<DepthSchemas> schemas;
+        /// Indexed by dict nesting level. Index `kMaxDepth` is the scratch
+        /// every deeper level stages into and *none of them reads*:
+        /// write_mapping_body hands a level that deep to
+        /// write_mapping_uncached, which walks the dict itself, before it
+        /// touches a row. Levels never overlap in a row of their own, so
+        /// only the levels past the cache share.
+        StagedRow rows[kMaxDepth + 1];
+        /// Two registration nodes per level, addressed rather than pushed:
+        /// only levels inside the schema cache ever register one.
+        RowNode locks[2 * (kMaxDepth + 1)];
+    };
+
+    SchemaCacheLease() {
+        if (!busy_) {
+            State* const state = shared();
+            if (state != nullptr) {
+                busy_ = true;
+                state_ = state;
+                owns_flag_ = true;
+                return;
+            }
+        }
+        // Re-entrant, or the thread's own state could not be allocated: a
+        // private state, so the outer walk keeps its schemas and its rows.
+        // A failed allocation is reported by ok(), not swallowed.
+        fallback_.reset(new (std::nothrow) State);
+        state_ = fallback_.get();
+    }
+
+    ~SchemaCacheLease() {
+        if (owns_flag_)
+            busy_ = false;
+    }
+
+    SchemaCacheLease(const SchemaCacheLease&) = delete;
+    SchemaCacheLease& operator=(const SchemaCacheLease&) = delete;
+
+    /// False when even the private state could not be allocated.
+    [[nodiscard]] bool ok() const noexcept { return state_ != nullptr; }
+
+    [[nodiscard]] State& state() noexcept { return *state_; }
 
   private:
-    [[nodiscard]] static std::vector<DepthSchemas>* shared() {
+    [[nodiscard]] static State* shared() {
         // Deliberately leaked: a destructor after interpreter shutdown could
-        // not legally Py_DECREF the owned keys anyway.
-        static thread_local std::vector<DepthSchemas>* instance =
-            new (std::nothrow) std::vector<DepthSchemas>();
+        // not legally Py_DECREF the owned keys anyway. Default-initialized,
+        // not value-initialized: the staged rows are scratch that is always
+        // written before it is read, and zeroing 25 KB per thread would buy
+        // nothing.
+        static thread_local State* instance = new (std::nothrow) State;
         return instance;
     }
 
     static thread_local bool busy_;
 
-    std::vector<DepthSchemas>* slots_;
-    std::vector<DepthSchemas> fallback_;
+    std::unique_ptr<State> fallback_;
+    State* state_ = nullptr;
     bool owns_flag_ = false;
 };
 

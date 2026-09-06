@@ -47,15 +47,39 @@ Raises `ValueError` (invalid JSON / nesting past the cap / bad `return_type`),
 strata.dumps(obj, *, return_type="str") -> str | bytes
 ```
 
-Compact serialization (no whitespace). Supports dict/list/tuple/str/int/float/bool/None;
-dict keys must be `str` (else `TypeError`); NaN/±Inf serialize as `null`; big ints
-beyond int64 are emitted via their str form. Raises `TypeError` (unsupported type),
-`ValueError` ("Maximum serialization depth exceeded" at `sys.getrecursionlimit()`,
-or cycle under `cycle_policy="error"`). The serializer's limit is the
-interpreter's recursion limit (1000 by default), the parser's is 1024
+Compact serialization (no whitespace). Supports
+dict/list/tuple/str/int/float/bool/None; dict keys must be `str` (else
+`TypeError`); NaN/±Inf serialize as `null`; big ints beyond int64 are emitted
+via their str form. Raises `TypeError` (unsupported type), `ValueError`
+("Maximum serialization depth exceeded" at `sys.getrecursionlimit()`, or cycle
+under `cycle_policy="error"`), `UnicodeEncodeError` (a `str` key or value with
+no UTF-8 encoding — a lone surrogate; the output is UTF-8, so strata refuses it
+on **every** call and in both return types, and nothing is written to the
+destination of a `dump`; stdlib `json` escapes it or passes it through under
+`ensure_ascii=False`, orjson refuses it as `TypeError`). The serializer's limit
+is the interpreter's recursion limit (1000 by default), the parser's is 1024
 containers, so a tree parsed at depth 1001–1024 needs a raised
 `sys.setrecursionlimit` to serialize again — unchanged from before the parse
 cap, and stated so the asymmetry is not a surprise.
+
+**Mutation during serialization.** User code can run inside `dumps` at four
+steps, all of them rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
+warnings filter or `showwarning` hook); `__str__` of an `int` subclass beyond
+int64; the decimal conversion of an **exact** `int` beyond int64 that CPython
+3.12+ delegates to the `_pylong` Python module — reached above roughly 10 000
+digits, so `sys.set_int_max_str_digits` has to permit it, and it imports modules
+and runs bytecode; and, as a consequence of any of those, a `__del__` or a
+weakref callback fired when the serializer releases what that code orphaned.
+Nothing else in a successful `dumps` calls into Python or allocates an object
+the collector tracks, so no collection can run one either. If that code mutates
+a container being written, `dumps` never reads freed memory: lists and tuples
+are followed live, element by element, as stdlib `json` does (a shrunk list ends
+there, appended elements are written); a dict of at most 24 exact-`str` keys,
+below 64 levels of dict nesting, is emitted as the row read on entry (the only
+rule the general and the fused record writer can both produce byte-identically —
+this diverges from stdlib `json`, which walks dicts live); wider dicts and dicts
+with `str`-subclass keys are followed live. Output on unmutated input is
+unchanged.
 
 ## File & folder I/O
 

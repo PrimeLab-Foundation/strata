@@ -187,6 +187,17 @@ LTO off) → `pgo_training_data.py` writes `build/pgo/train.{json,ndjson}`
 gate tests → `llvm-profdata merge` → rebuild `PGO_MODE=use` + LTO → gate tests →
 verification benchmarks to `build/pgo/bench_results_pgo.md`. Historically worth
 ~+15% on medium/large parses (measured on the 0.1 branch, commit `22015c8`).
+The merged profile is not the training workload alone: `LLVM_PROFILE_FILE` is
+exported before the phase-1 install's test gate, so the two pytest gate runs'
+counts (about 47.5% of all counts on 2026-09-06, E26-P2) merge with the training
+run's — eleven raw profiles on the M1. A training-only recipe
+(`exp/e26-p2-profile`, 0747d73) was measured and withdrawn: on the source with
+the serializer's leased staging rows it costs +3.3–6.3% on the three serializer
+rows measured (`dumps flat`, `users`, `mixed`) and +1.5–1.7% on `loads wide_arrays` against this recipe (E26-P5b in
+docs/performance/experiment-ledger.md), and the −9% it had shown on `dumps flat`
+was the contaminated profile's damage to the earlier source, which the source
+fix removed. Keep the gate runs in the profile until a training workload reads
+at least as well on the fixed source.
 
 ## C++ tests — target: ONE harness
 

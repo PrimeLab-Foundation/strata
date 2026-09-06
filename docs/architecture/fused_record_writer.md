@@ -25,10 +25,35 @@ collect-then-emit per record:
 - Today: `write_mapping` walks the dict once into `keys[24]`/`values[24]`
   staging arrays (classify, width check), selects the schema way, then a
   second loop emits prepared keys and dispatches each staged value.
+
 - Fused: for a list whose elements are exact dicts, a record loop walks the
   rawdict entry array **once**, resolving the schema way from the first
   key, emitting `"key":` from the inline slot row and dispatching each
-  value as it is visited. No staging arrays, no second walk.
+  value as it is visited. No second walk, and no staging of the *keys* at
+  all.
+
+  The one staging row that remains is the row of value pointers: the
+  verification pass loads every `me_value` anyway (to prove the slot is
+  occupied), and it keeps them so the emit loop never reads the entry array
+  again. It cannot: user code running under a value — an `int` subclass's
+  `__str__`, a large exact `int`'s decimal conversion on CPython 3.12+, a
+  cycle warning — can resize the dict and free that table
+  (E26-FIX1, 2026-09-06). The row is a copy of pointers the one pass already
+  has in hand, not a second read of the dict, and holding it is what lets the
+  fused writer emit the same bytes as the general path under mutation.
+
+  That row is **leased, not a local array** — one per dict nesting level, in
+  the same per-thread state as the schemas it serves
+  (`SchemaCacheLease::StagedRow`), and shared with `write_mapping`'s
+  `keys`/`values` staging for the same level. A local array here is a local
+  array in every function this body is inlined into, and the profile inlines
+  it into the per-value dispatcher: on `-fprofile-use` a 192-byte row in
+  `write` and `write_sequence` is a 448-byte frame and a stack-protector
+  canary paid by every value of every document, arrays of scalars included
+  (build/evidence/E26-P2/BUILDS.md). Leasing it is what lets this body stay
+  inlinable — which is also what keeps the canary from moving from once per
+  array to once per record on the legs that default to
+  `-fstack-protector-strong` (E26-FIX1 v3).
 
 The general path stays untouched as the single definition of behavior and
 the fallback at every deviation: non-`str` key, width past `kMaxSchemaKeys`,
