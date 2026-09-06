@@ -1,0 +1,170 @@
+name: A/B x86
+
+# Same-machine A-B-B-A of two revisions on the x86 legs (E26-P6). The five-
+# platform samples can only compare strata against its rivals within one
+# run; two revisions land on two runners, and the Windows leg drew three
+# processor models in three draws. This workflow builds BOTH revisions with
+# the same PGO recipe on one runner, then alternates their extensions in one
+# interpreter slot with orjson timed in the same process as the drift
+# control (benchmarks/ab_rows.py -> rows_probe.py, the instrument P0 built
+# and E26-P5/P5b used on the M1). An A/A block of the base revision gives the
+# floor. On Linux it also records perf per arm and reads the serializer's
+# frame sizes and stack-protector sites from the two binaries.
+#
+# Diagnostic only: nothing here writes docs/benchmarks/ or gates anything.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "revision A (the before)"
+        default: "32c5fa4"
+      cand_ref:
+        description: "revision B (the after); the checkout that runs the probe"
+        default: "main"
+      blocks:
+        description: "ABBA blocks"
+        default: "6"
+      repeat:
+        description: "repeats per row per launch"
+        default: "60"
+
+jobs:
+  ab:
+    name: A/B (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+            cc: clang
+            cxx: clang++
+            archflags: ""
+          - os: macos-15-intel
+            platform: macos-x86_64
+            cc: cc
+            cxx: c++
+            archflags: "-arch x86_64"
+    env:
+      ARCHFLAGS: ${{ matrix.archflags }}
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+      PYTHON: python
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.cand_ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang, LLVM and perf
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
+
+      - name: CPU facts
+        run: |
+          mkdir -p ab
+          { echo "platform ${{ matrix.platform }}"; uname -a; python -c "import platform; print(platform.processor(), platform.machine())"; \
+            (grep -m1 'model name' /proc/cpuinfo || sysctl -n machdep.cpu.brand_string) 2>/dev/null; nproc 2>/dev/null || sysctl -n hw.ncpu; } | tee ab/cpu.txt
+
+      - name: Build B (candidate) with PGO+LTO, gate tests on both phases
+        run: |
+          make install-bench
+          make pgo
+          mkdir -p arms
+          cp "$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')" arms/B.so
+          echo "B $(git rev-parse --short HEAD) $(md5sum arms/B.so 2>/dev/null || md5 -q arms/B.so)" | tee -a ab/arms.txt
+
+      - name: Build A (base) with the same recipe in a worktree
+        run: |
+          git worktree add ../base "${{ inputs.base_ref }}"
+          cd ../base
+          make install-bench
+          make pgo
+          cd "$GITHUB_WORKSPACE"
+          cp "$(../base/.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')" arms/A.so
+          echo "A $(git -C ../base rev-parse --short HEAD) $(md5sum arms/A.so 2>/dev/null || md5 -q arms/A.so)" | tee -a ab/arms.txt
+
+      - name: Datasets (small and medium)
+        run: |
+          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small --num-users 1000 --max-orders 10 --max-items 5 --records 500
+          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
+
+      - name: A-B-B-A rounds, then an A/A floor
+        run: |
+          TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
+          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps"
+          PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
+            --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/R1.stderr
+          PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A.so \
+            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks 2 --repeat "${{ inputs.repeat }}" 2> ab/AA.stderr
+          for w in R1 AA; do
+            PYTHONPATH=. .venv/bin/python benchmarks/ab_builds.py --analyze ab/$w.tsv > ab/${w}_analyze.txt
+            PYTHONPATH=. .venv/bin/python benchmarks/ab_floor.py ab/$w.tsv > ab/${w}_floor.txt
+            .venv/bin/python benchmarks/ab_blocks.py ab/$w.tsv > ab/${w}_blocks.txt
+          done
+          echo "== R1 block-paired, normalised"; cat ab/R1_blocks.txt
+          echo "== AA"; cat ab/AA_blocks.txt
+
+      - name: Serializer symbols, frame sizes and stack-protector sites per arm
+        shell: bash
+        run: |
+          for arm in A B; do
+            if [ "$RUNNER_OS" = "Linux" ]; then
+              nm -S --size-sort -C arms/$arm.so | grep -E 'Serializer|dumps' > ab/symbols.$arm.txt || true
+              objdump -d -C --no-show-raw-insn arms/$arm.so | awk '
+                /^[0-9a-f]+ <.*>:$/ { fn=$0; sub(/^[0-9a-f]+ </,"",fn); sub(/>:$/,"",fn); printed=0; chk=0; next }
+                /sub +\$0x[0-9a-f]+,%rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %d\n", fn, strtonum(substr($0,RSTART+1,RLENGTH-1)); printed=1 }
+                /__stack_chk_fail/ { printf "%s stack_chk\n", fn }
+              ' | grep -E 'Serializer' | sort | uniq -c | sort -k2 > ab/frames.$arm.txt || true
+            else
+              nm -m arms/$arm.so | grep -E 'Serializer' | c++filt > ab/symbols.$arm.txt || true
+              otool -tvV arms/$arm.so | awk '
+                /^_.*:$/ { fn=$0; sub(/:$/,"",fn); printed=0; next }
+                /subq +\$0x[0-9a-f]+, %rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %s\n", fn, substr($0,RSTART+1,RLENGTH-1); printed=1 }
+                /___stack_chk_fail|___stack_chk_guard/ { printf "%s stack_chk\n", fn }
+              ' | c++filt | grep -E 'Serializer' | sort | uniq -c | sort -k2 > ab/frames.$arm.txt || true
+            fi
+          done
+          echo "== frames A"; cat ab/frames.A.txt; echo "== frames B"; cat ab/frames.B.txt
+
+      - name: perf per arm on small dumps flat and users (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
+          TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
+          for arm in A B; do
+            cp arms/$arm.so "$TARGET"
+            for ds in flat users; do
+              PYTHONPATH=. $PERF record -q -F 4999 -o ab/perf.$arm.$ds.data -- .venv/bin/python - <<PY
+          import json, time, strata
+          doc = json.load(open("benchmarks/data/generated/small/$ds.json"))
+          end = time.perf_counter() + 4.0
+          while time.perf_counter() < end:
+              strata.dumps(doc)
+          PY
+              $PERF report -i ab/perf.$arm.$ds.data --stdio --no-children --sort symbol 2>/dev/null | grep -v '^#' | grep -v '^$' | head -40 > ab/perf_report.$arm.$ds.txt || true
+            done
+          done
+          cp arms/B.so "$TARGET"
+          rm -f ab/perf.*.data
+          for f in ab/perf_report.*.txt; do echo "== $f"; head -20 "$f"; done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ab-x86-${{ matrix.platform }}
+          path: |
+            ab/
+          if-no-files-found: ignore
