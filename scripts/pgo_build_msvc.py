@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Two-phase MSVC PGO + LTCG build — the Windows twin of scripts/pgo_build.sh.
 
-  phase 1  instrumented build (/GL, /LTCG /GENPROFILE) -> training data
-           -> training workload -> gate tests
+  phase 1  instrumented build (/GL, /LTCG /GENPROFILE) -> gate tests
+           -> set the gate's counters aside -> training data
+           -> training workload
   phase 2  relink against the profile (/LTCG /USEPROFILE) -> gate tests
            -> verification benchmarks
 
 Both phases run the full gate for the same reason the POSIX script does: an
 optimized build that fails its tests is worth nothing, and PGO is exactly the
 kind of change that can miscompile. The profile is regenerated from scratch
-every run.
+every run, and — as in pgo_build.sh — the gate's own counters are kept out of
+it: the merged profile is the training workload alone.
 
 Differences from the POSIX script that are MSVC facts, not choices:
 
@@ -18,6 +20,11 @@ Differences from the POSIX script that are MSVC facts, not choices:
 - No llvm-profdata step: the training runs drop ``strata!N.pgc`` beside the
   .pgd named by ``STRATA_PGO_PROFILE``, and the /USEPROFILE link merges them
   on its own.
+- The .pgd path is baked into the instrumented binary at link time and there
+  is no per-process redirect like LLVM_PROFILE_FILE, so the gate's counters
+  cannot be *routed* elsewhere. They are separated by order instead: the
+  gate runs first, its .pgc files are moved into a junk directory, and the
+  training workload is the last instrumented thing phase 1 does.
 - The instrumented extension depends on pgort140.dll, and Python 3.8+ does
   not consult PATH when resolving extension-module dependencies — so the DLL
   is staged beside python.exe, whose directory the loader always searches.
@@ -37,6 +44,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PGO_DIR = PROJECT_ROOT / os.environ.get("PGO_DIR", "build/pgo")
+# Counters written by anything other than the training workload land here and
+# are never merged. Kept rather than discarded so a run can be audited.
+JUNK_DIR = PGO_DIR / "junk"
 WORK_DIR = PGO_DIR / "work"
 PGD_FILE = PGO_DIR / "strata.pgd"
 BENCH_DATA = PROJECT_ROOT / "benchmarks" / "data" / "generated" / "small"
@@ -147,15 +157,39 @@ def _found_pgc() -> list[Path]:
     instrumented binary or in the process working directory depending on the
     toolset. Search every plausible home; phase 2 consumes them from the
     .pgd's directory.
+
+    JUNK_DIR is the one place deliberately excluded: the gate's counters were
+    moved there to keep them out of the /USEPROFILE merge.
     """
+    junk = JUNK_DIR.resolve()
     seen: dict[Path, Path] = {}
     for pgc in PROJECT_ROOT.rglob("strata!*.pgc"):
-        seen[pgc.resolve()] = pgc
+        resolved = pgc.resolve()
+        if junk in resolved.parents:
+            continue
+        seen[resolved] = pgc
     module_dir = _extension_dir()
     if module_dir is not None:
         for pgc in module_dir.glob("strata!*.pgc"):
             seen[pgc.resolve()] = pgc
     return sorted(seen)
+
+
+def _junk_pgc(what: str) -> None:
+    """Move every .pgc written so far out of the way of the merge.
+
+    The instrumented extension always writes beside the .pgd, so the gate's
+    counters cannot be routed elsewhere; they are separated by running the
+    gate first and setting its files aside before the training workload runs.
+    """
+    JUNK_DIR.mkdir(parents=True, exist_ok=True)
+    moved = 0
+    for pgc in _found_pgc():
+        # Renamed off the `strata!*.pgc` pattern as well as moved: neither the
+        # /USEPROFILE merge nor _found_pgc can pick a file up by accident.
+        shutil.move(str(pgc), JUNK_DIR / f"gate-{moved}-{pgc.name}")
+        moved += 1
+    print(f"    {moved} .pgc file(s) from {what} set aside in {JUNK_DIR}; not merged", flush=True)
 
 
 def _collect_pgc() -> None:
@@ -202,10 +236,23 @@ def main() -> int:
 
     if PGO_DIR.exists():
         shutil.rmtree(PGO_DIR)
+    JUNK_DIR.mkdir(parents=True)
     WORK_DIR.mkdir(parents=True)
 
     print("==> PGO phase 1: instrumented build (/GL /LTCG /GENPROFILE)", flush=True)
     _install("generate")
+
+    # The gate runs before the training workload here, unlike the POSIX and
+    # clang-cl scripts: their counters cannot be redirected per process, so
+    # they are separated by order and set aside below. A test suite's counts
+    # are not production behaviour (on the POSIX recipe they were 47.5% of the
+    # merged counts and 99.7% of dumps_to_python's), and the merged profile is
+    # the training workload alone on every platform.
+    print("==> PGO: gate tests on the instrumented build", flush=True)
+    _gate_tests()
+
+    print("==> PGO: setting the gate's counters aside", flush=True)
+    _junk_pgc("the instrumented build's gate")
 
     print("==> PGO: generating training data", flush=True)
     _run([sys.executable, "scripts/pgo_training_data.py", "--out-dir", str(PGO_DIR)])
@@ -224,9 +271,6 @@ def main() -> int:
         ],
         extra_env={"PYTHONPATH": "."},
     )
-
-    print("==> PGO: gate tests on the instrumented build", flush=True)
-    _gate_tests()
 
     print("==> PGO: collecting .pgc profiles", flush=True)
     _collect_pgc()

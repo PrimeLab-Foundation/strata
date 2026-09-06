@@ -10,7 +10,9 @@
 Both phases run the full gate, as the POSIX and MSVC scripts do: an
 optimized build that fails its tests is worth nothing, and PGO is exactly
 the kind of change that can miscompile. The profile is regenerated from
-scratch every run.
+scratch every run. The gate runs under instrumentation too, and their
+counters go to a throwaway directory: the merged profile is the training
+workload alone, exactly as in pgo_build.sh.
 
 Why clang-cl: measured on one commit with three toolchains, MSVC compiles
 the serializer's record and float paths 20-30% slower than clang-cl, which
@@ -44,6 +46,9 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PGO_DIR = PROJECT_ROOT / os.environ.get("PGO_DIR", "build/pgo")
 RAW_DIR = PGO_DIR / "raw"
+# Counters written by anything other than the training workload land here and
+# are never merged. Kept rather than discarded so a run can be audited.
+JUNK_DIR = PGO_DIR / "junk"
 WORK_DIR = PGO_DIR / "work"
 PROFILE = PGO_DIR / "strata.profdata"
 BENCH_DATA = PROJECT_ROOT / "benchmarks" / "data" / "generated" / "small"
@@ -111,10 +116,18 @@ def _found_profraw() -> list[Path]:
     saw that variable writes `default*.profraw` into its working directory
     instead, and the extension's own directory is the other plausible home.
     Searched everywhere so a misrouted profile is diagnosed, not missed.
+
+    JUNK_DIR is the one place deliberately excluded: the gate runs are aimed
+    there precisely so their counters stay out of the merge, and this search
+    feeds the merge.
     """
+    junk = JUNK_DIR.resolve()
     seen: dict[Path, Path] = {}
     for raw in PROJECT_ROOT.rglob("*.profraw"):
-        seen[raw.resolve()] = raw
+        resolved = raw.resolve()
+        if junk in resolved.parents:
+            continue
+        seen[resolved] = raw
     module_dir = _extension_dir()
     if module_dir is not None:
         for raw in module_dir.glob("*.profraw"):
@@ -123,26 +136,39 @@ def _found_profraw() -> list[Path]:
 
 
 def _collect_profraw() -> list[Path]:
-    """Gather the training profiles into RAW_DIR, or fail with a diagnosis."""
-    found = _found_profraw()
-    if not found:
-        raise SystemExit(
-            "No .profraw files were written anywhere -- either the link never pulled "
-            "the profile runtime (the build was not instrumented) or the runtime never "
-            "flushed at exit. Searched the project tree and the extension's directory.",
-        )
-    moved = 0
-    for raw in found:
-        if raw.parent.resolve() != RAW_DIR.resolve():
-            shutil.move(str(raw), RAW_DIR / raw.name)
-            moved += 1
-    if moved:
+    """The training workload's profile, or a diagnosis.
+
+    Only the training run was pointed at RAW_DIR, so a profile that landed
+    anywhere else cannot be attributed to it: it is reported and set aside in
+    JUNK_DIR rather than merged. Exactly one file must remain — a second one
+    means another instrumented process reached RAW_DIR, which is the
+    contamination this separation exists to prevent.
+    """
+    strays = [raw for raw in _found_profraw() if raw.parent.resolve() != RAW_DIR.resolve()]
+    for index, raw in enumerate(strays):
+        shutil.move(str(raw), JUNK_DIR / f"stray-{index}-{raw.name}")
+    if strays:
         print(
-            f"    {moved} profile(s) landed outside {RAW_DIR} (LLVM_PROFILE_FILE did not "
-            "reach that process); moved beside the others",
+            f"    {len(strays)} profile(s) landed outside {RAW_DIR} (LLVM_PROFILE_FILE "
+            f"did not reach that process); set aside in {JUNK_DIR}, not merged",
             flush=True,
         )
-    return sorted(RAW_DIR.glob("*.profraw"))
+    raw = sorted(RAW_DIR.glob("*.profraw"))
+    if not raw:
+        raise SystemExit(
+            f"The training workload wrote no .profraw into {RAW_DIR} -- either the link "
+            "never pulled the profile runtime (the build was not instrumented), or the "
+            "runtime never flushed at exit, or LLVM_PROFILE_FILE did not reach it. "
+            "Searched the project tree and the extension's directory.",
+        )
+    if len(raw) != 1:
+        raise SystemExit(
+            f"Expected one raw profile in {RAW_DIR} (the training workload), found "
+            f"{len(raw)}: {[str(path) for path in raw]}. Something else ran with "
+            "LLVM_PROFILE_FILE pointing there; the production profile must be the "
+            "training workload alone.",
+        )
+    return raw
 
 
 def _assert_not_instrumented() -> None:
@@ -168,13 +194,21 @@ def main() -> int:
     if PGO_DIR.exists():
         shutil.rmtree(PGO_DIR)
     RAW_DIR.mkdir(parents=True)
+    JUNK_DIR.mkdir(parents=True)
     WORK_DIR.mkdir(parents=True)
 
     print("==> PGO phase 1: instrumented build (clang-cl, -fprofile-generate)", flush=True)
     # %p keeps concurrent processes from clobbering one profile file; one
     # file per process is all the merge needs, so no in-place merge pool.
-    profile_env = {"LLVM_PROFILE_FILE": str(RAW_DIR / "%p.profraw")}
-    _install("generate", profile_env)
+    #
+    # Two destinations, for the reason pgo_build.sh spells out: the gate runs
+    # are instrumented as well, and their counters are a test suite's, not
+    # production's (on the POSIX recipe they were 47.5% of the merged counts
+    # and 99.7% of dumps_to_python's). They go to JUNK_DIR; only the training
+    # workload writes into RAW_DIR, and only RAW_DIR is merged.
+    junk_env = {"LLVM_PROFILE_FILE": str(JUNK_DIR / "%p.profraw")}
+    training_env = {"LLVM_PROFILE_FILE": str(RAW_DIR / "%p.profraw")}
+    _install("generate", junk_env)
 
     print("==> PGO: generating training data", flush=True)
     _run([sys.executable, "scripts/pgo_training_data.py", "--out-dir", str(PGO_DIR)])
@@ -191,15 +225,16 @@ def main() -> int:
             "--work-dir",
             str(WORK_DIR),
         ],
-        extra_env={"PYTHONPATH": ".", **profile_env},
+        # The one process whose counters are kept.
+        extra_env={"PYTHONPATH": ".", **training_env},
     )
 
     print("==> PGO: gate tests on the instrumented build", flush=True)
     for script in ("scripts/cpp_tests.py", "scripts/py_tests.py"):
-        _run([sys.executable, script], extra_env=profile_env)
+        _run([sys.executable, script], extra_env=junk_env)
 
     raw = _collect_profraw()
-    print(f"==> PGO: merging {len(raw)} raw profiles", flush=True)
+    print(f"==> PGO: merging {len(raw)} raw profile (the training workload)", flush=True)
     _run([profdata, "merge", f"-output={PROFILE}", *map(str, raw)])
 
     print("==> PGO phase 2: optimized build (clang-cl, -fprofile-use)", flush=True)

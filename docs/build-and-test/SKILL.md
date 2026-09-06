@@ -188,6 +188,22 @@ gate tests → `llvm-profdata merge` → rebuild `PGO_MODE=use` + LTO → gate t
 verification benchmarks to `build/pgo/bench_results_pgo.md`. Historically worth
 ~+15% on medium/large parses (measured on the 0.1 branch, commit `22015c8`).
 
+**The profile is the training workload alone.** Phase 1 instruments *every*
+process that imports the extension — the two gate runs (pip's own and the
+script's) as much as the training workload — so the gates are pointed at
+`build/pgo/junk/` and only `pgo_training.py` writes into `build/pgo/raw/`,
+which is what gets merged: the merge line names one profile — "the training
+workload" — and the script refuses to build when `raw/` holds anything other
+than exactly one file. Both gates still run, on both phases. Left in,
+the gate counters were **47.5% of the merged counts** — 64.5% of
+`write_sequence`'s and 99.7% of `dumps_to_python`'s, against 8.1% of
+`write_scalar_run`'s inner loop — and production codegen was a function of the
+test files (measured 2026-09-06; see `docs/decisions.md`). The Windows twins
+do the same: `pgo_build_clang_cl.py` routes the gates to `junk/` exactly as
+above, and `pgo_build_msvc.py`, whose `.pgc` path is baked in at link time and
+cannot be redirected per process, runs its gate *first* and moves the `.pgc`
+files it produced into `junk/` before the training workload runs.
+
 ## C++ tests — target: ONE harness
 
 **Target decision:** CMakeLists.txt is the single test registry; `make test-cpp`, the install gate, coverage, and CI all drive **ctest** with
