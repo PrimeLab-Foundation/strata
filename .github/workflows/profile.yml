@@ -153,6 +153,7 @@ jobs:
             perf_report_strata.txt
             perf_report_interleaved.txt
             cg.*.out
+            cg_calls.*.out
           if-no-files-found: ignore
 
   # Windows carries the goal's last rows and no perf; the decomposition
@@ -458,39 +459,42 @@ jobs:
               gc.collect(); r = lib.dumps(obj); del r
           PY
           cat > calls_by_caller.py <<'PY'
-          """Sum callgrind call counts into allocator entry points, by caller."""
+          """Allocator calls by caller: the N-call run minus the 0-call run, per dumps."""
           import collections, re, sys
-          path, n = sys.argv[1], int(sys.argv[2])
-          names = {}; fn = None; counts = collections.Counter(); pending = None
-          alloc = re.compile(r"^(malloc|free|realloc|calloc|_?_?Znwm|_?_?Zdl|operator new|operator delete|posix_memalign|aligned_alloc|_int_malloc|PyObject_Malloc|PyMem_Malloc|_PyObject_Malloc)")
-          def resolve(tok):
-              m = re.match(r"\((\d+)\)(?: (.*))?", tok)
-              if not m: return tok
-              if m.group(2): names[m.group(1)] = m.group(2)
-              return names.get(m.group(1), tok)
-          for line in open(path, errors="replace"):
-              if line.startswith("fn="): fn = resolve(line[3:].strip())
-              elif line.startswith("cfn="): pending = resolve(line[4:].strip())
-              elif line.startswith("calls=") and pending is not None:
-                  c = int(line.split("=")[1].split()[0])
-                  if alloc.match(pending.split("(")[0].strip()): counts[(fn, pending.split("(")[0].strip())] += c
-                  pending = None
-          total = sum(counts.values())
-          print(f"allocator calls per dumps: {total / n:.2f}  (total {total} over {n} calls, after 5 warm-ups)")
-          for (caller, callee), c in counts.most_common(25):
-              print(f"  {c / n:8.2f}/call  {callee:14s} <- {caller[:110]}")
+          def load(path):
+              names = {}; fn = None; counts = collections.Counter(); pending = None
+              alloc = re.compile(r"^(malloc|free|realloc|calloc|_int_malloc|_int_free|malloc_consolidate|_?_?Znwm|_?_?Zdl|operator new|operator delete|posix_memalign|PyObject_Malloc|_PyObject_Malloc|PyObject_Free|_PyObject_Free|PyMem_Malloc|PyMem_RawMalloc|PyMem_Realloc|PyMem_RawFree)")
+              def resolve(tok):
+                  m = re.match(r"\((\d+)\)(?: (.*))?", tok)
+                  if not m: return tok
+                  if m.group(2): names[m.group(1)] = m.group(2)
+                  return names.get(m.group(1), tok)
+              for line in open(path, errors="replace"):
+                  if line.startswith("fn="): fn = resolve(line[3:].strip())
+                  elif line.startswith("cfn="): pending = resolve(line[4:].strip())
+                  elif line.startswith("calls=") and pending is not None:
+                      c = int(line.split("=")[1].split()[0])
+                      callee = pending.split("(")[0].strip().replace("'2", "")
+                      if alloc.match(callee): counts[(fn.split("(")[0].strip().replace("'2", ""), callee)] += c
+                      pending = None
+              return counts
+          full, zero, n = load(sys.argv[1]), load(sys.argv[2]), int(sys.argv[3])
+          delta = collections.Counter()
+          for k, c in full.items(): delta[k] = c - zero.get(k, 0)
+          total = sum(c for c in delta.values() if c > 0)
+          print(f"allocator calls attributable to {n} dumps calls: {total / n:.2f} per call (N-run minus 0-run)")
+          for (caller, callee), c in sorted(delta.items(), key=lambda kv: -kv[1])[:30]:
+              if c / n < 0.05: break
+              print(f"  {c / n:8.2f}/call  {callee:18s} <- {caller[:100]}")
           PY
           for dataset in mixed users; do
             for engine in strata orjson; do
-              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=callgrind --callgrind-out-file=cg_calls.$engine.$dataset.out \
-                .venv/bin/python dumps_calls.py $engine 200 $dataset > /dev/null 2> callgrind.$engine.$dataset.log || true
-              echo "=== $engine, $dataset: allocator calls per dumps (200 calls with gc.collect, minus nothing) ==="
-              # subtract the loop's own allocations: a run of 0 dumps calls
-              PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=callgrind --callgrind-out-file=cg_calls.$engine.$dataset.zero.out \
-                .venv/bin/python dumps_calls.py $engine 0 $dataset > /dev/null 2>&1 || true
-              .venv/bin/python calls_by_caller.py cg_calls.$engine.$dataset.out 200
-              echo "--- the same process with 0 dumps calls (the preamble), for subtraction ---"
-              .venv/bin/python calls_by_caller.py cg_calls.$engine.$dataset.zero.out 1 | head -3
+              for calls in 200 0; do
+                PYTHONHASHSEED=0 PYTHONPATH=. valgrind --tool=callgrind --callgrind-out-file=cg_calls.$engine.$dataset.$calls.out \
+                  .venv/bin/python dumps_calls.py $engine $calls $dataset > /dev/null 2> callgrind.$engine.$dataset.$calls.log || true
+              done
+              echo "=== $engine, $dataset: allocator calls per dumps, 200-call run minus 0-call run ==="
+              .venv/bin/python calls_by_caller.py cg_calls.$engine.$dataset.200.out cg_calls.$engine.$dataset.0.out 200
             done
           done
       - uses: actions/upload-artifact@v4
