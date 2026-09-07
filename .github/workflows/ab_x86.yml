@@ -130,14 +130,14 @@ jobs:
               nm -S --size-sort -C arms/$arm.so | grep -E 'Serializer|dumps' > ab/symbols.$arm.txt || true
               objdump -d -C --no-show-raw-insn arms/$arm.so | awk '
                 /^[0-9a-f]+ <.*>:$/ { fn=$0; sub(/^[0-9a-f]+ </,"",fn); sub(/>:$/,"",fn); printed=0; chk=0; next }
-                /sub[ \t]+\$0x[0-9a-f]+,%rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %d\n", fn, strtonum(substr($0,RSTART+1,RLENGTH-1)); printed=1 }
+                /sub +\$0x[0-9a-f]+,%rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %d\n", fn, strtonum(substr($0,RSTART+1,RLENGTH-1)); printed=1 }
                 /__stack_chk_fail/ { printf "%s stack_chk\n", fn }
               ' | grep -E 'Serializer' | sort | uniq -c | sort -k2 > ab/frames.$arm.txt || true
             else
               nm -m arms/$arm.so | grep -E 'Serializer' | c++filt > ab/symbols.$arm.txt || true
               otool -tvV arms/$arm.so | awk '
                 /^_.*:$/ { fn=$0; sub(/:$/,"",fn); printed=0; next }
-                /subq[ \t]+\$0x[0-9a-f]+, %rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %s\n", fn, substr($0,RSTART+1,RLENGTH-1); printed=1 }
+                /subq +\$0x[0-9a-f]+, %rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %s\n", fn, substr($0,RSTART+1,RLENGTH-1); printed=1 }
                 /___stack_chk_fail|___stack_chk_guard/ { printf "%s stack_chk\n", fn }
               ' | c++filt | grep -E 'Serializer' | sort | uniq -c | sort -k2 > ab/frames.$arm.txt || true
             fi
