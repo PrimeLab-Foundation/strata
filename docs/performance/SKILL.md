@@ -329,3 +329,13 @@ comparison is meaningful, which is the point of running both orders.
   record was never built and is no longer needed for safety.
 - GIL never released — no parallelism story; parallel parsing lost under the GIL
   once already.
+
+## E26-P9: nested exact mapping dispatch (September 8)
+
+A one-call dispatch change reuses the existing fused record writer for exact
+root/nested dictionaries. Matched-test PGO A/B finds roughly 2.2% lower mixed
+and 9.5% lower nested serialization time, but the 10- and 60-sample canonical
+checks both fail regression gates. Do not ship on the paired gains alone.
+The tested prototype is preserved in `experiments/benchmark-nested-mappings.patch`,
+absent from production, for native investigation after publication. See the
+[ledger](experiment-ledger.md#e26-p9--reuse-the-fused-writer-for-nested-exact-dictionaries).

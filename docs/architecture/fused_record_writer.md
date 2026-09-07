@@ -92,3 +92,17 @@ scalar writers rather than inline new dispatch machinery).
 `dumps mixed` #1 in the majority of ≥ 4 same-code CI samples on
 linux-x86_64 and macos-x86_64; no row regresses on any leg; both suites
 green; byte-identity pinned.
+
+## September 8 experiment: reuse for nested exact dictionaries
+
+Status: prototype, not accepted. The native ARM64 PGO profile from run
+34146265191 attributes 8.48% of hot dumps samples to `write_mapping_body`;
+exact dictionaries reached through `Serializer::write` still enter the
+general writer even when their schema is prepared. Test routing that exact
+`dict` dispatch to the existing out-of-line `write_record_fused`, preserving
+its complete validation and general fallback. List dispatch, subclass
+handling, cache retirement, staging ownership and depth/cycle semantics must
+remain unchanged. No new inlining, scalar-kind cache or per-record storage.
+Compare mixed plus flat/users/nested/wide and root-dict mutation/depth
+controls. Reject unless gains clear the paired noise floor without a
+canonical regression; this does not revive rejected broad footprint changes.

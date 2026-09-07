@@ -164,3 +164,95 @@ report for `75cfb42`, not a score for these unpublished experiments.
   restored; no production C++ diff retained. The native prototypes passed the
   earlier full gate and sanitizers before removal; this is separate from their
   failed performance acceptance. No commit or push performed.
+
+## Native continuation, September 8
+
+Published revision: `c9a337dbb05c11244dab08a00bbc4ad33a6f4b0d`.
+The fresh-build control [34159096738](https://github.com/PrimeLab-Foundation/strata/actions/runs/34159096738)
+completed successfully on all five platforms. All ten binary hashes match
+their sidecars, both arms name the pinned commit, and every build records
+complete compilation. Candidate identities are marked dirty only because of
+untracked diagnostic `ab/cpu.txt` / `ab/experiment.txt`; every tracked-source
+patch is empty. These diagnostic identities must not be treated as clean
+canonical benchmark identities.
+
+For small `dumps mixed` bytes, the normalized fresh-build effects and matching
+identical-binary floors were:
+
+| Platform       | Effect | 95% block interval | A/A floor |
+| -------------- | ------ | ------------------ | --------- |
+| Linux ARM64    | +0.15% | -0.35..+0.96%      | 1.72%     |
+| Linux x86-64   | -0.57% | -2.29..+0.87%      | 2.55%     |
+| macOS ARM64    | +1.30% | -1.56..+5.99%      | 4.47%     |
+| macOS x86-64   | +4.15% | -3.54..+8.50%      | 7.60%     |
+| Windows x86-64 | -0.03% | -0.79..+1.74%      | 0.38%     |
+
+No target effect is resolved. Mac ARM file `dump mixed` nevertheless reports
+-6.05% (interval -10.14..-4.38%), past its 4.97% identical-binary floor,
+without any source change. `otool` extraction confirms that A and B have
+identical `__TEXT,__text` on both macOS architectures. Thus this apparent
+file improvement is not evidence of changed executable code; a single A/A
+interval cannot certify such a candidate gain. Preserve this contradictory
+control and require confirmation rather than interpreting the successful
+workflow status as a performance acceptance.
+
+Isolated native experiments dispatched with both refs pinned to `c9a337d`,
+so the only intended source delta is the selected patch and its tests:
+
+- Schema recovery: [34163602199](https://github.com/PrimeLab-Foundation/strata/actions/runs/34163602199).
+- File newline: [34163603711](https://github.com/PrimeLab-Foundation/strata/actions/runs/34163603711).
+
+Both use six ABBA blocks, 60 samples and matching A/A controls on all five
+platforms. Results are pending; neither prototype has been reintroduced into
+production. Full control artifacts and macOS text hashes are archived under
+`build/evidence/benchmark-lead/native-control-34159096738/`. These are A/B
+diagnostics, so canonical `ci_summary.md` remains the latest published
+133/135 result until new complete canonical reports exist.
+
+### E26-P9 and current integration boundary
+
+A third prototype routes exact root/nested dictionaries to the existing
+out-of-line fused writer. Both PGO builds used identical test/training source
+manifests and data. The six-block, 60-sample A/B result shows -2.21% small
+mixed bytes and -9.51% nested bytes beyond matching A/A floors. Canonical
+regression checks nevertheless failed twice: 15 metric breaches at 10
+samples, 18 at the predeclared 60-sample confirmation. Both builds ranked
+27/27 in the latter; that does not waive the gate. Both full PGO test phases
+and the candidate's ASan/UBSan checks passed (15 C++ suites/2,249 Python tests).
+
+The prototype is removed from production and retained with its tests as
+`experiments/benchmark-nested-mappings.patch`. The workflow adds a
+`nested-mappings` choice; `combined` still means only the original schema and
+newline patches. Native execution of this new choice requires publication.
+Canonical Make targets now honor existing `BENCH_REPEAT`/`BENCH_WARMUP`
+variables, with the original 10/2 defaults and thresholds preserved.
+
+Initial native isolated results (remaining jobs still pending): schema
+recovery improves Linux x86 serialization, including mixed bytes -1.87%, but
+nested file dump slows +2.32% (interval +0.57..+2.96%, A/A floor 0.50%).
+Windows mixed bytes is unresolved (-0.07%, interval -0.77..+1.72%, floor
+1.34%). Linux ARM small mixed is also unresolved. File-newline ARM results
+do not yet establish a resolved file-write gain. No isolated experiment is
+accepted, and the combination has not been dispatched.
+
+File-newline follow-up: Windows file flat/mixed/nested normalized changes are
+-1.26%/-1.62%/-1.45%, below respective A/A floors 1.74%/2.67%/2.08%; raw flat
+and nested times are actually +1.31%/+0.71%, so their relative gains are not
+Strata speedups. Linux x86 small mixed bytes regresses +2.67% (raw +2.72%,
+interval +2.28..+2.99%, floor 1.42%); medium mixed bytes also slows. This
+experiment does not qualify for production or a combined run. Both isolated
+experiments have four successful platform jobs; macOS Intel remains running.
+Full native acceptance is not claimed. `ci_summary.md` was regenerated and
+correctly remains 133/135 for the latest complete canonical run.
+
+The new native `nested-mappings` option applies its four mutation tests to
+both worktrees before PGO training. Pinning both refs to the same new revision
+therefore preserves the matched-test design used locally; only the candidate
+receives the runtime change. Both implementations passed these tests locally.
+
+Retained-change validation: restored production source/binary passed
+`make test` (15 C++ suites, 2,245 Python tests); changed-file pre-commit hooks,
+workflow shell syntax, full prototype patch applicability and tests-only
+baseline patch selection passed. The repository baseline is unchanged.
+Native publication of E26-P9 remains the next dependency; no commit or push
+was performed by this session.

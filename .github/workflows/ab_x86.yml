@@ -33,6 +33,7 @@ on:
           - none
           - schema-recovery
           - file-newline
+          - nested-mappings
           - combined
       blocks:
         description: "ABBA blocks"
@@ -112,6 +113,7 @@ jobs:
             none|"") ;;
             schema-recovery) patches=(experiments/benchmark-schema-recovery.patch) ;;
             file-newline) patches=(experiments/benchmark-file-newline.patch) ;;
+            nested-mappings) patches=(experiments/benchmark-nested-mappings.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac
@@ -140,6 +142,11 @@ jobs:
       - name: Build A (base) with the same recipe in a worktree
         run: |
           git worktree add ../base "$BASE_REF"
+          if [ "$EXPERIMENT" = "nested-mappings" ]; then
+            # The new mutation contracts pass on both implementations. Train
+            # both PGO builds with them so only the runtime dispatch differs.
+            git -C ../base apply --include=tests/unit/test_dumps_reentrancy.py "$GITHUB_WORKSPACE/experiments/benchmark-nested-mappings.patch"
+          fi
           cd ../base
           make install-bench
           make pgo
@@ -279,6 +286,7 @@ jobs:
             none|"") ;;
             schema-recovery) patches=(experiments/benchmark-schema-recovery.patch) ;;
             file-newline) patches=(experiments/benchmark-file-newline.patch) ;;
+            nested-mappings) patches=(experiments/benchmark-nested-mappings.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac
@@ -311,6 +319,11 @@ jobs:
         run: |
           export PATH="/c/Program Files/LLVM/bin:$PATH"
           git worktree add ../base "$BASE_REF"
+          if [ "$EXPERIMENT" = "nested-mappings" ]; then
+            # The new mutation contracts pass on both implementations. Train
+            # both PGO builds with them so only the runtime dispatch differs.
+            git -C ../base apply --include=tests/unit/test_dumps_reentrancy.py "$GITHUB_WORKSPACE/experiments/benchmark-nested-mappings.patch"
+          fi
           constraints="$GITHUB_WORKSPACE/ab/constraints.txt"
           cd ../base
           python -m venv .venv

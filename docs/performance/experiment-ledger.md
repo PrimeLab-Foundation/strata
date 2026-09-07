@@ -1464,3 +1464,32 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   recipe's cost stated as +3.3–6.3% on the three rows measured, a
   negative-results row added, the packet's large report set to the committed
   draw); published; two five-platform samples taken (132/135, 128/135); the x86 serializer cost is E26-P6
+
+## E26-P9 — reuse the fused writer for nested exact dictionaries
+
+- Opened 2026-09-08 on `c9a337d`; not accepted.
+- Named cost: native ARM64 hot profile 34146265191 places 8.48% in
+  `write_mapping_body`. Exact dictionaries reached through the scalar
+  dispatcher currently bypass the fused writer. Reuse the existing guarded,
+  out-of-line path for those dictionaries, including root dictionaries.
+- Preserve all existing fallbacks, staged mutation semantics, recursion limits
+  and private leases. Add no cache state or duplicated scalar machinery.
+- Decide with production-PGO mixed/flat/users/nested/wide controls, root/nested
+  mutation contracts and sanitizers. Reject a gain below the matching floor
+  or unresolved canonical regressions. Baseline binary/provenance retained.
+- Local result: paired, matched-test production PGO ABBA (six blocks, 60
+  samples, matched A/A) found small mixed bytes -2.21% (raw -1.44%, interval
+  -3.17..-0.26%, floor 1.36%), medium mixed bytes -1.81% (floor 1.23%),
+  and nested bytes -9.51% (raw -9.33%, floor 1.14%). Flat/wide effects stayed
+  within their A/A floors. The two PGO workload-source and training-data
+  manifests are identical; the runtime source delta is one dispatch call.
+- Both canonical checks failed: initial 10-sample comparison had 15 metric
+  breaches; a predeclared 60-sample confirmation had 18, despite both builds
+  ranking 27/27 in that confirmation. Preserve all reports; no baseline
+  replaced. The confirmation's failures include parser/query controls and
+  process RSS, so the paired serializer gains do not resolve the gate.
+- Outcome: **not accepted for production**. Reverted runtime/tests into
+  `experiments/benchmark-nested-mappings.patch`; native investigation is
+  selectable after publication. Correctness: both PGO phases passed 15 C++
+  suites/2,249 Python tests, and candidate ASan/UBSan passed all 2,249 tests.
+  Evidence: `build/evidence/benchmark-lead/p9/`.

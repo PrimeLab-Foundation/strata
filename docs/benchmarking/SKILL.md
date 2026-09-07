@@ -440,8 +440,12 @@ identities use unversioned include paths, so this check alone does not prove
 ABI compatibility there; both workflow builds use the same interpreter.
 
 The workflow's `experiment` choice applies `none`, `schema-recovery`,
-`file-newline`, or `combined` from the checked-in patches before candidate
+`file-newline`, `nested-mappings`, or `combined` from the checked-in patches before candidate
 build/test gates. These runtime changes are unaccepted and absent from
 production. For a fresh unchanged-source build control, choose `none` and
 set both refs to the same published revision. See
 [experiment instructions](../../experiments/benchmark-lead.md).
+
+Canonical `bench-small`, `bench-medium`, and `bench-large` accept
+`BENCH_REPEAT` and `BENCH_WARMUP` (defaults 10 and 2); all declared workloads
+and regression thresholds remain unchanged.
