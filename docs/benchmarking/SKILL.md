@@ -8,6 +8,16 @@ description: Benchmark suite deep detail — harness internals,
 
 # Benchmarking
 
+September 7 continuation: new reports require a same-stem JSON companion
+containing raw chronological samples and provenance. All report gates use its
+validated full precision; unmarked historical Markdown retains limited
+precision/provenance. Build identities come from the compiler invocation,
+not the report process's environment. `make bench-supplementary` keeps NDJSON
+search and folder controls in a distinct six-row scope; `make probe-file-costs`
+records diagnostic real-file phase controls. The canonical tracker remains
+135 rows. Usage and limits are in [the benchmark contract](../context/benchmarks.md)
+and [execution record](../performance/plan-execution-2026-09-07.md).
+
 The canonical contract — competitor/feature matrix, datasets, run commands,
 protocol, fairness, regression thresholds — is `docs/context/benchmarks.md`.
 This doc holds the deep detail behind it, described from the previous

@@ -49,7 +49,7 @@ from benchmarks.harness import (
     WORKLOADS,
     Report,
     baseline_key,
-    parse_report,
+    read_report,
     resolve_workload,
     validate_report,
 )
@@ -223,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"error: no such report: {args.report}\n")
         return 2
 
-    report = parse_report(args.report.read_text(encoding="utf-8"), name=args.report.name)
+    report = read_report(args.report)
     validation = validate_report(report, expected=resolve_workload(args.expect))
     if not validation.ok:
         sys.stderr.write(f"error: {args.report.name} is not gateable evidence:\n")

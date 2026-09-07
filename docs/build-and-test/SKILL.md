@@ -18,6 +18,16 @@ real.
 
 ## Current state (after M9 — hardening & tooling)
 
+September 7 continuation: the extension build writes an adjacent
+`*.build.json` with its hash, actual compile/link commands, tool versions,
+source identity, and profile inputs. No-op builds preserve matching metadata;
+partial builds and source archives do not invent clean commit attribution.
+The wheel gate copies only the Python facade, never an older native binary.
+All PGO drivers retain their recipes and write input manifests. CI now includes
+3.10/3.14 endpoints on both macOS architectures, Windows, and Linux ARM.
+See [the execution record](../performance/plan-execution-2026-09-07.md) for
+local validation and still-pending remote acceptance.
+
 Real on this branch:
 
 - `Makefile` — `PYTHON ?= python3`, no `VERSION` variable (the version has one

@@ -1,5 +1,51 @@
 # Experiment ledger
 
+## September 7 plan continuation on `work/september-7-plan`
+
+Baseline: `3f45c9c`, the current main integration. The three pre-existing
+untracked review/plan documents remain owned by their author. T0 reconciliation
+found T1/T2 and the A/B portion of T3 already integrated, as were the accepted
+E26-P6/P7 changes and their Windows check. No rejected optimization was rerun.
+
+The canonical-provenance portion of T3 was still absent despite the earlier
+"T1–T3 delivered" shorthand. This continuation adds raw report companions,
+build identities, profile-input manifests, validated full-precision gating,
+and transactional companion transport. It also supplies T7 real-file phase
+controls and T8's separate supplementary scope and Python-version endpoints.
+Independent review required preserving incremental-build attribution, rejecting
+missing companions, checking binary/source consistency, requiring folder-loop
+coverage, and accurately labeling diagnostic timing protocols; those changes
+are included.
+
+Initial `make test` exposed a stale installed extension: 23 private-cache
+tests failed while the current source already contained the fix. A gated
+rebuild restored the current source; the subsequent full run passed 15 C++
+suites and 2,232 Python tests before the final additional diagnostic tests.
+The standalone 100-call reproduction now has zero key-reference growth in
+both output modes. Evidence and final validation are recorded in
+`build/evidence/september-7-plan/` and the execution handoff document.
+
+Three six-block, 60-sample serial campaigns completed: baseline/candidate,
+identical-binary A/A, and two fresh candidate builds with matching training
+source/data. Every effect remains below its row's A/A floor. The six real
+parse/file-load rows show baseline/candidate normalized effects from -0.24%
+to +0.28%; this local T5 experiment is inconclusive and does not close E26-P8.
+
+The subsequent complete canonical baseline/candidate comparison matched all
+81 rows and FAILED every tier: 19/30/17 metric threshold breaches for
+small/medium/large. Candidate standings were 26/27, 27/27, 27/27 against a
+27/27 baseline at each tier; the separate 3.0x gates all passed. Small file
+dump mixed median/p95 increased 23.4%/133.3%, illustrating why standings
+cannot waive the failed regression gate. All contradictory evidence remains
+under `build/evidence/september-7-plan/`; the published baseline was untouched.
+
+No additional runtime or PGO-recipe optimization is accepted here. Historical
+E26-P8, T6's native N2/Windows residual rows, and deciding T7 native file
+attribution remain unresolved. T9 requires quiet-machine resolution of the
+failed comparison, publication of the final source, and two complete
+five-platform runs; historical 132/135 and 128/135 runs are not standings for
+this branch. See [the execution record](plan-execution-2026-09-07.md).
+
 The campaign ledger required by `fable-5.1-opus-5-improvement-plan.md` §6:
 one entry per experiment, opened before it starts and closed with one
 outcome — accepted, rejected or inconclusive. Raw evidence lives under

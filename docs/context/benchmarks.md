@@ -117,3 +117,41 @@ replacement atomically, so a failed fetch leaves the previous reports and
 manifest intact. The supportability tripwire keeps its 3.0x bound and now
 requires strata in every declared row and category, and fails an empty
 report.
+
+New canonical reports carry `provenance_schema: 1` and a same-stem JSON
+companion. The companion retains chronological samples in milliseconds,
+full-precision aggregates, exclusions, dataset hashes, protocol parameters,
+Python/dependency versions, checkout identity, and the measured extension's
+path/hash. Build-produced `*.build.json` records the actual compiler commands,
+tool versions, source identity, and PGO profile/input identities. An incremental
+build preserves an existing matching identity; missing historical identities
+remain unknown. Report-time environment variables are not build evidence.
+
+All report gates validate a present companion and use its full-precision
+measurements. Missing companions for marked reports, changed report hashes,
+inconsistent samples, and binary/source mismatches invalidate the evidence.
+Unmarked historical Markdown remains readable at its original precision.
+CI fetch transports companions transactionally and refuses dirty or unknown
+new build attribution. Keep each companion beside its Markdown when archiving
+or comparing reports; keep build metadata beside a copied extension.
+
+For an isolated before/candidate comparison, use identical report basenames
+in separate directories. `make bench-baseline BENCH_REPORT=<before-report> BENCH_BASELINE=<evidence-baseline.json>` records that comparison's baseline;
+`make bench-check BENCH_REPORT=<candidate-report> BENCH_BASELINE=<evidence-baseline.json>` applies the unchanged thresholds.
+This leaves the published baseline intact. A failed comparison remains failed;
+do not replace its before evidence with candidate measurements.
+
+`make bench-supplementary BENCH_SUPPLEMENTARY_TIER=medium` produces a
+separate six-row `supplementary-v1` report: three NDJSON searches and folder
+load/dump/search against a Strata per-file loop. It checks ordered results
+and exact dumped bytes before timing. Both folder arms include discovery or
+grouping. `BENCH_REPORTS`, `BENCH_REPEAT`, and `BENCH_WARMUP` select its output
+directory and protocol. Its denominator never changes the canonical 135 rows.
+The monthly supplementary workflow measures medium/large on Linux x86,
+macOS ARM, and Windows; it retains canonical tier reports separately too.
+
+`make probe-file-costs` writes a separate real-file diagnostic packet (default
+small mixed, 60 samples). `FILE_COST_DATASET` and `FILE_COST_OUTPUT` override
+the paths. It records native dump and Python-composition phase controls,
+checks newline and POSIX 0644 behavior, and retains raw samples. Phase timers
+add overhead; this is not native attribution or a canonical acceptance gate.

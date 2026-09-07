@@ -13,6 +13,14 @@ trust PGO-build interleaved comparisons over single runs, and record go/no-go
 conclusions here. The negative-results table below exists so failed experiments
 are not unknowingly repeated.
 
+September 7 continuation: no additional runtime or PGO-recipe optimization
+was accepted. Six-block before/candidate, identical-binary, and fresh-build
+controls on macOS ARM found no measured effect above the timing floor,
+including the previously missing real file-load rows. This does not close
+historical E26-P8 or establish a quiet-machine regression pass. Keep canonical
+and interleaved evidence distinct; details and remaining dependencies are in
+[the execution record](plan-execution-2026-09-07.md).
+
 ## What won (chronological — all on the pre-reset main line, `backup/pre-reset-main`, tip `c0e3b5a`)
 
 | Commit               | Technique                                                                                                                  | Effect / rationale                                                                |

@@ -114,6 +114,7 @@ else
 fi
 
 # --- phase 2: optimize -----------------------------------------------------
+"$VPY" scripts/build_identity.py --profile "$PROFILE" --raw "$RAW_DIR" --recipe gate-inclusive-posix-v1
 echo "==> PGO phase 2: optimized build (profile + LTO)"
 unset LLVM_PROFILE_FILE GCOV_PREFIX GCOV_PREFIX_STRIP
 export PGO_MODE=use

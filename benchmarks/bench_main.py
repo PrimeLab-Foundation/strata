@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import gc
 import json
-import os
 import sys
 import tempfile
 from pathlib import Path
@@ -30,44 +29,11 @@ from benchmarks.harness import (
     describe_environment,
     measure_interleaved,
     peak_rss_mb,
-    render_report,
     summarize,
 )
+from benchmarks.provenance import capture, write_report
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-# The compiler flags the extension is built with (setup.py). Recorded so a
-# result can be traced back to the build that produced it.
-BASE_COMPILER_FLAGS = "-std=c++20 -O3 -march=native"
-BASE_COMPILER_FLAGS_MSVC = "/std:c++20 /O2 /arch:AVX2"
-
-
-def _compiler_flags() -> str:
-    """Describe the build actually being measured, in its compiler's spelling.
-
-    A hardcoded string would report plain -O3 for a PGO+LTO run — or GCC
-    spellings for an MSVC build — and quietly make two incomparable reports
-    look comparable; exactly the kind of mismatch the fairness rules in
-    docs/context/benchmarks.md exist to stop.
-    """
-    windows = sys.platform == "win32"
-    clang_cl = windows and os.environ.get("STRATA_WIN_COMPILER", "").strip().lower() == "clang-cl"
-    msvc = windows and not clang_cl
-    if clang_cl:
-        flags = ["clang-cl " + BASE_COMPILER_FLAGS_MSVC]
-    else:
-        flags = [BASE_COMPILER_FLAGS_MSVC if msvc else BASE_COMPILER_FLAGS]
-    if os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1":
-        flags.append("/GL /LTCG" if msvc else "-flto")
-    mode = os.environ.get("PGO_MODE", "").strip().lower()
-    if mode == "generate":
-        flags.append(
-            ("/GENPROFILE" if msvc else "-fprofile-generate")
-            + " (instrumented; not a performance build)"
-        )
-    elif mode == "use":
-        flags.append("/USEPROFILE (PGO)" if msvc else "-fprofile-use (PGO)")
-    return " ".join(flags)
 
 
 def _load_competitors() -> tuple[dict, dict[str, str]]:
@@ -329,13 +295,26 @@ def _run_section(
 
 
 def run(datasets: list[Path], *, name: str, repeat: int, warmup: int) -> Report:
+    if repeat < 1 or warmup < 0:
+        raise ValueError("repeat must be positive and warmup nonnegative")
     libraries, excluded = _load_competitors()
     query_libraries = _load_query_libraries(excluded)
     report = Report(
-        name=name, environment=describe_environment(_compiler_flags()), excluded=excluded
+        name=name, environment=describe_environment("see build provenance"), excluded=excluded
     )
     report.environment["repeats"] = str(repeat)
     report.environment["warmup"] = str(warmup)
+    report.provenance = capture(
+        datasets, {**libraries, **query_libraries}, repeat=repeat, warmup=warmup
+    )
+    build = report.provenance["extension"]["build"]
+    if build and build.get("source") and build["source"].get("commit"):
+        report.environment["commit"] = build["source"]["commit"]
+    report.environment["compiler_flags"] = (
+        json.dumps(build["commands"], separators=(",", ":"))
+        if build and build["commands"]
+        else "unknown (legacy or incremental build; see provenance)"
+    )
 
     for path in datasets:
         payload = path.read_bytes()
@@ -440,7 +419,7 @@ def main(argv: list[str] | None = None) -> int:
     report = run(args.dataset, name=args.name, repeat=args.repeat, warmup=args.warmup)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render_report(report), encoding="utf-8")
+    write_report(args.output, report)
     print(f"wrote {args.output}")
 
     if report.has_errors:

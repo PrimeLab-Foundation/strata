@@ -18,6 +18,7 @@ from __future__ import annotations
 import functools
 import os
 import platform
+import runpy
 import shutil
 import subprocess
 import sys
@@ -28,6 +29,8 @@ from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+_BUILD_IDENTITY = runpy.run_path(str(PROJECT_ROOT / "scripts" / "build_identity.py"))
+write_identity = _BUILD_IDENTITY["write_identity"]
 FACADE_DIR = PROJECT_ROOT / "python" / "strata"
 SKIP_TESTS = os.environ.get("SKIP_TESTS", "0") == "1"
 IN_CI = os.environ.get("CI", "").strip().lower() in ("1", "true", "yes", "on")
@@ -112,7 +115,37 @@ class TestGatedBuildExt(build_ext):
                     if isinstance(flags, list):
                         flags[:] = [flag for flag in flags if flag != "/LTCG"]
             print(f"+ compiling with {self.compiler.cc}, plain /O2 (no LTCG)", flush=True)
-        super().build_extensions()
+        commands = []
+        source = _BUILD_IDENTITY["source_identity"](PROJECT_ROOT)
+        command_method = "call" if hasattr(self.compiler, "call") else "spawn"
+        spawn = getattr(self.compiler, command_method)
+
+        def record_spawn(command, **kwargs):
+            commands.append([str(part) for part in command])
+            return spawn(command, **kwargs)
+
+        setattr(self.compiler, command_method, record_spawn)
+        try:
+            super().build_extensions()
+        finally:
+            setattr(self.compiler, command_method, spawn)
+        for extension in self.extensions:
+            write_identity(
+                Path(self.get_ext_fullpath(extension.name)),
+                root=PROJECT_ROOT,
+                commands=commands,
+                profile=os.environ.get("STRATA_PGO_PROFILE"),
+                source=source,
+                required_sources=extension.sources,
+            )
+
+    def copy_extensions_to_source(self) -> None:
+        super().copy_extensions_to_source()
+        for extension in self.extensions:
+            filename = self.get_ext_filename(extension.name)
+            source = Path(self.build_lib) / (filename + ".build.json")
+            if source.is_file():
+                shutil.copy2(source, FACADE_DIR / source.name)
 
     def run(self) -> None:
         if SKIP_TESTS:
@@ -152,7 +185,9 @@ class TestGatedBuildExt(build_ext):
                 FACADE_DIR,
                 package_dir,
                 dirs_exist_ok=True,
-                ignore=shutil.ignore_patterns("__pycache__"),
+                ignore=shutil.ignore_patterns(
+                    "__pycache__", "*.build.json", "*.so", "*.pyd", "*.dll", "*.dylib"
+                ),
             )
         self._gate(
             "Python",

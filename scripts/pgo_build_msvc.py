@@ -232,6 +232,18 @@ def main() -> int:
     _collect_pgc()
 
     print("==> PGO phase 2: optimized build (/LTCG /USEPROFILE)", flush=True)
+    _run(
+        [
+            sys.executable,
+            "scripts/build_identity.py",
+            "--profile",
+            str(PGD_FILE),
+            "--raw",
+            str(PGO_DIR),
+            "--recipe",
+            "gate-inclusive-msvc-v1",
+        ]
+    )
     _install("use")
     _assert_not_instrumented()
 

@@ -136,7 +136,9 @@ jobs:
         if: always()
         with:
           name: benchmark-${{ matrix.platform }}
-          path: bench_ci_*.md
+          path: |
+            bench_ci_*.md
+            bench_ci_*.json
           if-no-files-found: ignore
 
   # NEON on Linux (mirrors ci.yml's test-linux-arm): GitHub's arm64 Linux
@@ -204,7 +206,9 @@ jobs:
         if: always()
         with:
           name: benchmark-linux-arm64
-          path: bench_ci_*.md
+          path: |
+            bench_ci_*.md
+            bench_ci_*.json
           if-no-files-found: ignore
 
   # The Windows build this leg measures is clang-cl with clang's own PGO
@@ -273,5 +277,7 @@ jobs:
         if: always()
         with:
           name: benchmark-windows-x86_64
-          path: bench_ci_*.md
+          path: |
+            bench_ci_*.md
+            bench_ci_*.json
           if-no-files-found: ignore

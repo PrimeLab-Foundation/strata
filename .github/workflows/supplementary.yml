@@ -1,0 +1,77 @@
+name: Supplementary benchmarks
+
+# A separate series: these artifacts never enter ci_fetch's benchmark-* set.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 1 * *"
+
+jobs:
+  supplementary:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        tier: [medium, large]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Linux toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang llvm cmake
+      - name: Install POSIX environment
+        if: runner.os != 'Windows'
+        run: make install-bench
+      - name: Build Linux PGO
+        if: runner.os == 'Linux'
+        run: CC=clang CXX=clang++ make pgo
+      - name: Build macOS PGO
+        if: runner.os == 'macOS'
+        run: ARCHFLAGS="-arch arm64" make pgo
+      - name: Install and build Windows PGO
+        if: runner.os == 'Windows'
+        run: |
+          python -m pip install -e ".[dev,bench]"
+          python scripts/pgo_build_clang_cl.py
+      - name: Run representative POSIX tier and supplementary scope
+        if: runner.os != 'Windows'
+        run: |
+          make bench-data
+          make bench-supplementary BENCH_SUPPLEMENTARY_TIER=${{ matrix.tier }} BENCH_REPORTS=build/supplementary-results
+          make bench-${{ matrix.tier }} BENCH_REPORTS=build/supplementary-results
+          make bench-supportability BENCH_REPORT=build/supplementary-results/bench_results_${{ matrix.tier }}.md
+      - name: Generate representative Windows tier and run supplementary scope
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          bench_python=python
+          if [ '${{ matrix.tier }}' = medium ]; then
+            users=2000; orders=20; items=10; records=2000
+          else
+            users=4000; orders=40; items=20; records=5000
+          fi
+          "$bench_python" -m benchmarks.data.generate_bench_data \
+            --out-dir build/supplementary-data --num-users "$users" \
+            --max-orders "$orders" --max-items "$items" --records "$records"
+          "$bench_python" -m benchmarks.supplementary --data build/supplementary-data \
+            --repeat 10 --warmup 2 --output build/supplementary-results/supplementary_v1_${{ matrix.tier }}.md
+          "$bench_python" -m benchmarks.bench_main --name canonical-${{ matrix.tier }} \
+            --repeat 10 --warmup 2 \
+            --dataset build/supplementary-data/users.json \
+            --dataset build/supplementary-data/users.ndjson \
+            --dataset build/supplementary-data/flat.json \
+            --dataset build/supplementary-data/nested.json \
+            --dataset build/supplementary-data/wide_arrays.json \
+            --dataset build/supplementary-data/mixed.json \
+            --output build/supplementary-results/canonical_${{ matrix.tier }}.md
+          "$bench_python" -m benchmarks.supportability_check build/supplementary-results/canonical_${{ matrix.tier }}.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: supplementary-v1-${{ matrix.os }}-${{ matrix.tier }}
+          path: build/supplementary-results/
+          if-no-files-found: ignore

@@ -11,12 +11,25 @@ VPY := $(VENV)/bin/python
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
         test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
-        bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check \
+        bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
-        probe-ab-analyze probe-ab-floor \
+        probe-ab-analyze probe-ab-floor probe-file-costs bench-supportability \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
+
+BENCH_SUPPLEMENTARY_TIER ?= small
+BENCH_REPEAT ?= 10
+BENCH_WARMUP ?= 2
+FILE_COST_DATASET ?= benchmarks/data/generated/small/mixed.json
+FILE_COST_OUTPUT ?= build/evidence/file-costs.json
+probe-file-costs: venv  ## Real-file diagnostic phase controls with raw samples
+	PYTHONPATH=. $(VPY) -m benchmarks.file_costs --dataset $(FILE_COST_DATASET) --output $(FILE_COST_OUTPUT) --repeat $(PROBE_REPEAT)
+bench-supplementary: venv  ## NDJSON search and folder controls; separate supplementary v1 scope
+	PYTHONPATH=. $(VPY) -m benchmarks.supplementary --data benchmarks/data/generated/$(BENCH_SUPPLEMENTARY_TIER) --repeat $(BENCH_REPEAT) --warmup $(BENCH_WARMUP) --output $(BENCH_REPORTS)/supplementary_v1_$(BENCH_SUPPLEMENTARY_TIER).md
+
+bench-supportability: venv  ## Validate a complete canonical report against the 3.0x tripwire
+	PYTHONPATH=. $(VPY) -m benchmarks.supportability_check $(BENCH_REPORT)
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -151,18 +164,19 @@ bench-large: venv  ## Benchmark the large tier
 
 bench-all: bench-data bench-small bench-medium bench-large  ## Data plus every tier
 
-bench-baseline: venv  ## Record the small tier as the regression baseline
+bench-baseline: venv  ## Record BENCH_REPORT as BENCH_BASELINE (defaults to the small tier)
 	PYTHONPATH=. $(VPY) -m benchmarks.regression_check \
-		$(BENCH_REPORTS)/bench_results_small.md --save-baseline
+		$(BENCH_REPORT) --baseline $(BENCH_BASELINE) --save-baseline
 
 # The gate itself, through the one user-facing interface: >2% median/p95 or
 # >5% RSS against benchmarks/results/baseline.json is fix-or-revert, and a
 # comparison that covers less than the baseline's scope for this report is
 # missing evidence, not a pass (docs/context/benchmarks.md).
 BENCH_REPORT ?= $(BENCH_REPORTS)/bench_results_small.md
+BENCH_BASELINE ?= benchmarks/results/baseline.json
 
 bench-check: venv  ## Gate a benchmark report against the recorded baseline (BENCH_REPORT)
-	PYTHONPATH=. $(VPY) -m benchmarks.regression_check $(BENCH_REPORT)
+	PYTHONPATH=. $(VPY) -m benchmarks.regression_check $(BENCH_REPORT) --baseline $(BENCH_BASELINE)
 
 # Flags forwarded to both halves of the CI standings pipeline. They share
 # --expect, --expect-platforms and --allow-incomplete, and a deliberately

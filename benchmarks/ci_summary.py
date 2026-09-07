@@ -62,7 +62,7 @@ from benchmarks.harness import (
     WORKLOADS,
     Report,
     Validation,
-    parse_report,
+    read_report,
     resolve_workload,
     validate_report,
 )
@@ -186,11 +186,9 @@ def standings(report: Report) -> list[RowStanding]:
                 libraries=1 + len(rivals),
                 ratio=strata_ms / rivals[best_rival],
                 best_rival=best_rival,
-                # The report prints medians to three decimals; two libraries
-                # at the same printed value are a tie the rank rule resolves
-                # as #1. Listed separately, so a rounded tie never reads as a
-                # demonstrated lead.
-                tied=strata_ms == rivals[best_rival],
+                # Disclose display ties even when a validated companion's
+                # full precision resolves the ranking behind the Markdown.
+                tied=f"{strata_ms:.3f}" == f"{rivals[best_rival]:.3f}",
             )
         )
     return ranked
@@ -205,11 +203,26 @@ def check_provenance(key: str, report: Report, run_info: dict | None) -> tuple[s
     platform at all, is a misattribution and fails.
     """
     commit = (report.environment.get("commit") or "").strip()
+    if report.provenance:
+        build = report.provenance.get("extension", {}).get("build")
+        source = build.get("source") if build else None
+        if not source or not source.get("commit"):
+            return "unverified: measured binary has no build source identity", True
+        if source.get("dirty") is not False:
+            return "MISMATCH: measured binary was built from dirty or unknown source", False
+    try:
+        actual = platform_key(report.environment)
+    except ValueError:
+        return "unverified: report platform identity unavailable", True
+    if actual != key:
+        return f"MISMATCH: report platform {actual} is not {key}", False
     if not run_info:
         return "unverified: no run_info.json beside the reports", True
     head = str(run_info.get("head_sha") or "").strip()
     run_id = run_info.get("run_id")
     reports = run_info.get("reports")
+    if not isinstance(reports, dict) or not reports:
+        return f"unverified: run {run_id} records no report map", True
     if isinstance(reports, dict) and reports and key not in reports:
         return f"MISMATCH: run {run_id} does not list a {key} report", False
     if not commit or commit == "unknown":
@@ -469,7 +482,9 @@ def _render_platform_detail(lines: list[str], item: PlatformEvidence) -> None:
             )
     if ties:
         lines.append("")
-        lines.append("Ties at the report's precision, counted as #1 by the rank rule:")
+        lines.append(
+            "Ties at the report's displayed precision among #1 rows (raw samples determine rank when available):"
+        )
         for row in ties:
             lines.append(f"- {row.section} | {row.dataset} | with {row.best_rival}")
 
@@ -624,7 +639,7 @@ def main(argv: list[str] | None = None) -> int:
 
     platforms: dict[str, Report] = {}
     for path in paths:
-        report = parse_report(path.read_text(encoding="utf-8"), name=path.name)
+        report = read_report(path)
         try:
             key = platform_key(report.environment)
         except ValueError as error:

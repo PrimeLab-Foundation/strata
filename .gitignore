@@ -79,3 +79,5 @@ benchmarks/data/*.ndjson
 .claude/plans/
 .claude/worktrees
 .percall
+# Build-produced metadata is bound to the adjacent local binary.
+*.build.json

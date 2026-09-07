@@ -70,7 +70,7 @@ from pathlib import Path
 from benchmarks.harness import (
     CI_PLATFORMS,
     WORKLOADS,
-    parse_report,
+    read_report,
     resolve_workload,
     validate_report,
 )
@@ -150,7 +150,7 @@ def _collect_reports(download_dir: Path) -> dict[str, Path]:
     """Map platform-arch -> downloaded report, refusing colliding legs."""
     reports: dict[str, Path] = {}
     for path in sorted(download_dir.rglob("*.md")):
-        report = parse_report(path.read_text(encoding="utf-8"), name=path.name)
+        report = read_report(path)
         key = platform_key(report.environment)
         if key in reports:
             raise ValueError(f"two artifacts claim {key}: {reports[key].name} and {path.name}")
@@ -177,11 +177,16 @@ def _verify(
     head = str(run.get("headSha") or "").strip()
 
     for key in sorted(found):
-        report = parse_report(found[key].read_text(encoding="utf-8"), name=found[key].name)
+        report = read_report(found[key])
         if not report.measurements:
             identity.append(f"{key}: {found[key].name} contains no measurements")
             continue
         commit = (report.environment.get("commit") or "").strip()
+        if report.provenance:
+            build = report.provenance.get("extension", {}).get("build")
+            source = build.get("source") if build else None
+            if not source or not source.get("commit") or source.get("dirty") is not False:
+                identity.append(f"{key}: measured binary has dirty or unknown build source")
         if not commit or commit == "unknown":
             identity.append(f"{key}: the report records no commit, so it cannot be attributed")
         elif head and not (head.startswith(commit) or commit.startswith(head)):
@@ -309,11 +314,18 @@ def _place(
     """Render the whole replacement, then install it: one run's evidence, never a mix."""
     files: dict[str, str] = {}
     sources: dict[str, str] = {}
+    sidecars: dict[str, str] = {}
     for key in sorted(found):
         source = found[key]
         text = source.read_text(encoding="utf-8")
         files[f"bench_results_{key}.md"] = "\n".join(text.splitlines()) + "\n"
         sources[key] = source.relative_to(scratch).as_posix()
+        from benchmarks.provenance import companion, validate_companion
+
+        if validate_companion(source, text) is not None:
+            sidecar = companion(source)
+            files[f"bench_results_{key}.json"] = sidecar.read_text(encoding="utf-8")
+            sidecars[key] = sidecar.relative_to(scratch).as_posix()
 
     info = {
         "workflow": run.get("workflowName"),
@@ -325,6 +337,7 @@ def _place(
         "head_sha": run.get("headSha"),
         "created_at": run.get("createdAt"),
         "reports": sources,
+        "sidecars": sidecars,
         "expected_platforms": list(expected_platforms),
         "complete": not problems,
     }
@@ -437,7 +450,7 @@ def main(argv: list[str] | None = None) -> int:
                     problems=coverage,
                     expected_platforms=expected_platforms,
                 )
-            except OSError as error:
+            except (OSError, ValueError) as error:
                 # Documented as exit 3: the evidence was fine, the filesystem
                 # was not. `_install` has already restored the previous set or
                 # said where it is; a traceback here would be neither.

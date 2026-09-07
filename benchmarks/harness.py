@@ -46,6 +46,10 @@ SECTIONS = (
     ("dump", "dump (tree to file)"),
     ("query", "query (JSONPath over an in-memory tree)"),
     ("search", "search (JSONPath over a file)"),
+    ("search (ndjson)", "supplementary v1 NDJSON search"),
+    ("folder load", "supplementary v1 folder load"),
+    ("folder dump", "supplementary v1 folder dump"),
+    ("folder search", "supplementary v1 folder search"),
 )
 
 COLUMNS = ("dataset", "library", "min_ms", "median_ms", "p95_ms", "rss_mb", "speedup_vs_strata")
@@ -134,6 +138,7 @@ class Measurement:
     p95_ms: float | None = None
     rss_mb: float | None = None
     error: str | None = None
+    samples_ms: tuple[float, ...] = ()
 
     @property
     def failed(self) -> bool:
@@ -149,6 +154,7 @@ class Report:
     # Table rows the parser could not read. Kept rather than dropped: a row
     # silently skipped is a measurement that disappears from every count.
     malformed: list[str] = field(default_factory=list)
+    provenance: dict = field(default_factory=dict)
 
     @property
     def has_errors(self) -> bool:
@@ -388,6 +394,7 @@ def summarize(
         median_ms=statistics.median(ordered),
         p95_ms=ordered[index],
         rss_mb=rss_mb,
+        samples_ms=tuple(timings),
     )
 
 
@@ -417,6 +424,16 @@ def _git_commit() -> str:
 
 
 def _cpu_name() -> str:
+    if sys.platform.startswith("linux"):
+        from pathlib import Path
+
+        try:
+            for line in Path("/proc/cpuinfo").read_text().splitlines():
+                key, _, value = line.partition(":")
+                if key.strip() in {"model name", "Hardware", "Model"} and value.strip():
+                    return value.strip()
+        except OSError:
+            pass
     if sys.platform == "darwin":
         try:
             result = subprocess.run(
@@ -526,9 +543,13 @@ def parse_report(text: str, name: str = "") -> Report:
     report = Report(name=name)
     section = ""
     titles = {key: title for key, title in SECTIONS}
+    exclusions = False
 
     for line in text.splitlines():
         stripped = line.strip()
+        if stripped == "Excluded libraries (not installed, or no native equivalent):":
+            exclusions = True
+            continue
         if stripped.startswith("## "):
             heading = stripped[3:].strip()
             section = heading.split(" -- ", 1)[0].strip()
@@ -537,7 +558,8 @@ def parse_report(text: str, name: str = "") -> Report:
             continue
         if stripped.startswith("- ") and ":" in stripped and not section:
             key, _, value = stripped[2:].partition(":")
-            report.environment[key.strip()] = value.strip()
+            target = report.excluded if exclusions else report.environment
+            target[key.strip()] = value.strip()
             continue
 
         match = _ROW.match(line)
@@ -573,6 +595,23 @@ def parse_report(text: str, name: str = "") -> Report:
                 rss_mb=values[3],
             ),
         )
+    return report
+
+
+def read_report(path) -> Report:
+    """Read a legacy report or validate its full-precision companion if present."""
+    from benchmarks.provenance import validate_companion
+
+    text = path.read_text(encoding="utf-8")
+    report = parse_report(text, name=path.name)
+    try:
+        data = validate_companion(path, text)
+    except (ValueError, OSError) as error:
+        report.malformed.append(str(error))
+    else:
+        if data is not None:
+            report.provenance = data["provenance"]
+            report.measurements = [Measurement(**row) for row in data["measurements"]]
     return report
 
 

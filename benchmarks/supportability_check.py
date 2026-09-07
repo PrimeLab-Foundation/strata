@@ -51,7 +51,7 @@ from pathlib import Path
 from benchmarks.harness import (
     MEASURED_LIBRARY,
     WORKLOADS,
-    parse_report,
+    read_report,
     resolve_workload,
     validate_report,
 )
@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"error: no such report: {args.report}\n")
         return 2
 
-    report = parse_report(args.report.read_text(encoding="utf-8"), name=args.report.name)
+    report = read_report(args.report)
     expected = resolve_workload(args.expect)
     validation = validate_report(report, expected=expected)
 

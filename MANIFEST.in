@@ -14,6 +14,8 @@ recursive-include include *.h *.hpp *.inc
 recursive-include src *.c *.cc *.cpp *.cxx *.h *.hpp *.inc *.txt
 recursive-include python *.py
 recursive-include scripts *.py *.sh
+# The mandatory Python gate includes report/provenance contract tests.
+recursive-include benchmarks *.py
 recursive-include tests *.py *.cpp *.h *.hpp *.json *.txt
 # The fuzz seeds are extensionless byte fixtures; the corpus-replay suite
 # fails the test-gated build when they are absent.

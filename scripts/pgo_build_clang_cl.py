@@ -201,6 +201,18 @@ def main() -> int:
     raw = _collect_profraw()
     print(f"==> PGO: merging {len(raw)} raw profiles", flush=True)
     _run([profdata, "merge", f"-output={PROFILE}", *map(str, raw)])
+    _run(
+        [
+            sys.executable,
+            "scripts/build_identity.py",
+            "--profile",
+            str(PROFILE),
+            "--raw",
+            str(RAW_DIR),
+            "--recipe",
+            "gate-inclusive-clang-cl-v1",
+        ]
+    )
 
     print("==> PGO phase 2: optimized build (clang-cl, -fprofile-use)", flush=True)
     _install("use", {"STRATA_PGO_PROFILE": str(PROFILE)})
