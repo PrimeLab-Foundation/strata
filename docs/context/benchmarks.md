@@ -70,6 +70,16 @@ Before optimizing: capture baseline. After: compare against
 touched category, or RSS worse by **>5%** ⇒ fix or revert. Refresh the
 baseline (`--save-baseline`) only after an accepted improvement.
 
+The gate reads against a declared workload (`benchmarks/harness.py`:
+`workload_rows()`, the 27 strata rows of the six datasets, and `CI_PLATFORMS`),
+not against whatever rows survived parsing: `make bench-check` (which runs
+`regression_check`) fails on zero matched entries, on a baseline row the
+candidate lacks, or on a missing metric — missing rows are missing evidence,
+not a pass — and reports rows with no baseline as ungated. Every report is
+validated first (`harness.validate_report`: finite, ordered min ≤ median ≤ p95,
+unique keys, no ERROR or unreadable rows, strata present in every declared
+row); a report that fails validation cannot pass any gate.
+
 The RSS column is a coarse gate, not a per-library measurement: the
 harness reads the whole process's *current* resident size once after a
 row's libraries have all run (`benchmarks/harness.py` `peak_rss_mb`, which
@@ -93,3 +103,17 @@ on every platform and architecture**. Ranks are within-run comparisons only;
 absolute times never cross platforms, the supportability tripwire remains
 the CI gate, and headline standings still come exclusively from the
 quiet-machine protocol. Detail: `docs/benchmarking/SKILL.md`.
+
+A complete-goal claim needs complete evidence: `ci_summary` counts every
+row against the declared workload and every platform against the declared
+five legs, cross-checks each report's commit and platform against
+`run_info.json`, lists each leg as complete, unverified (no manifest — a
+legacy report keeps its standings with no invented provenance), INCOMPLETE,
+INVALID, MISMATCH or MISSING in an Evidence section, and exits 1 when
+evidence is missing, invalid or misattributed (`--allow-incomplete` records
+the gaps instead; `--expect none` scopes a deliberate subset). `ci_fetch`
+verifies identity and coverage before placing anything and swaps a staged
+replacement atomically, so a failed fetch leaves the previous reports and
+manifest intact. The supportability tripwire keeps its 3.0x bound and now
+requires strata in every declared row and category, and fails an empty
+report.
