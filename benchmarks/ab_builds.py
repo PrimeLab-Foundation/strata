@@ -17,33 +17,171 @@ and this is it:
   it with a candidate. Whatever spread A/A shows is the floor; an effect
   smaller than the floor is not an effect, and this tool cannot make it one.
 
-Safety: the driver overwrites the extension of the checkout it lives in and
-refuses any other target. Point it at another tree's `.so` and it exits.
+Safety, all four rules learned the hard way (the 7 September review, finding 5):
+
+* The driver overwrites the extension of the checkout it lives in and refuses
+  any other target. Point it at another tree's `.so` and it exits.
+* The extension that was installed when the run started is **copied aside
+  first and restored in a `finally`**, then re-hashed. A campaign that ends —
+  or crashes — must not leave one of its arms installed as the product.
+* Every completed launch's samples are **appended to the TSV and flushed
+  immediately**, so a failure at launch 19 keeps launches 0-18 instead of
+  discarding the whole session.
+* The driver process must never have imported the extension it is about to
+  overwrite: a loaded shared library cannot be swapped, and a driver holding
+  one would measure it in every launch. It refuses to start if `strata` is
+  already imported.
 
 usage:
   ab_builds.py --build A=<so> --build B=<so> --target <so> --out <tsv>
                [--order ABBA] [--blocks 3] [--tail A] [--repeat 60]
-  ab_builds.py --analyze <tsv> [--baseline-build A]
+  ab_builds.py --analyze <tsv> [--baseline-build A] [--min-samples N]
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import shutil
 import statistics
 import subprocess
 import sys
-from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 
-from benchmarks import ab_rounds
+from benchmarks import ab_blocks, ab_rounds
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _digest(path: Path) -> str:
     return hashlib.md5(path.read_bytes()).hexdigest()  # noqa: S324
+
+
+def _refuse_if_target_imported(target: Path) -> None:
+    """A driver that has loaded the target cannot swap the target.
+
+    `shutil.copy2` over a mapped `.so` either fails or leaves the running
+    process on the old image; either way every launch after the first would be
+    measuring whatever the driver itself loaded. The check is against the file
+    the extension modules were loaded from, so it names the actual conflict
+    rather than any import called `strata`.
+    """
+    resolved = target.resolve()
+    loaded = sorted(
+        name
+        for name, module in list(sys.modules.items())
+        if getattr(module, "__file__", None) and Path(module.__file__).resolve() == resolved
+    )
+    if loaded:
+        raise SystemExit(
+            f"refusing to run: this process has already imported {resolved} as {loaded}; "
+            "the driver must not import the extension it replaces"
+        )
+
+
+class SampleWriter:
+    """The TSV, written as the session goes rather than at the end.
+
+    Every completed launch reaches the file before the next one starts, so a
+    campaign that dies at launch 19 leaves nineteen usable launches behind
+    instead of nothing. `flush` + `fsync` because the failure this guards
+    against includes the driver being killed.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._handle = open(self.path, "w", encoding="utf-8")  # noqa: SIM115
+        self._handle.write("\t".join(ab_rounds.TSV_HEADER) + "\n")
+        self._sync()
+        self.launches = 0
+
+    def _sync(self) -> None:
+        self._handle.flush()
+        os.fsync(self._handle.fileno())
+
+    def add(self, lines: list[str]) -> None:
+        for line in lines:
+            if line.strip():
+                self._handle.write(line + "\n")
+        self._sync()
+        self.launches += 1
+
+    def close(self) -> None:
+        if not self._handle.closed:
+            self._sync()
+            self._handle.close()
+
+
+class InstalledExtension:
+    """The extension in the checkout: saved, swapped, restored, verified.
+
+    The restore is unconditional (`finally` in `drive`) and is followed by a
+    hash check, because "the run finished, so the tree is clean" is exactly the
+    assumption that left arm A installed after a successful campaign.
+    """
+
+    def __init__(self, target: Path) -> None:
+        self.target = _check_target(target)
+        if not self.target.exists():
+            raise SystemExit(f"no extension to swap at {self.target}")
+        self.digest = _digest(self.target)
+        self.backup = self.target.with_name(self.target.name + ".ab_original")
+        shutil.copy2(self.target, self.backup)
+
+    def install(self, source: Path) -> str:
+        shutil.copy2(source, self.target)
+        digest = _digest(self.target)
+        if digest != _digest(source):
+            raise SystemExit(f"copy of {source} to {self.target} did not land: {digest}")
+        return digest
+
+    def restore(self) -> None:
+        shutil.copy2(self.backup, self.target)
+        digest = _digest(self.target)
+        if digest != self.digest:
+            raise SystemExit(
+                f"restore failed: {self.target} is {digest}, the original was {self.digest}; "
+                f"the saved copy is kept at {self.backup}"
+            )
+        self.backup.unlink()
+
+
+def drive(
+    order: list[str],
+    builds: dict[str, Path],
+    target: Path,
+    out: Path,
+    launch: Callable[[int, str], list[str]],
+) -> SampleWriter:
+    """Run the launch sequence, persisting as it goes and restoring at the end.
+
+    `launch(index, tag)` returns the TSV lines that launch produced; it is a
+    parameter so the drivers' subprocess machinery and this file's recovery
+    guarantees can be tested apart from each other.
+    """
+    _refuse_if_target_imported(target)
+    extension = InstalledExtension(target)
+    try:
+        writer = SampleWriter(out)
+        try:
+            for index, tag in enumerate(order):
+                digest = extension.install(builds[tag])
+                print(f"# launch {index:02d} build={tag} md5={digest}", file=sys.stderr, flush=True)
+                writer.add(launch(index, tag))
+        finally:
+            writer.close()
+            print(
+                f"# wrote {out} ({writer.launches} of {len(order)} launches)",
+                file=sys.stderr,
+                flush=True,
+            )
+    finally:
+        extension.restore()
+        print(f"# restored {target} to md5={extension.digest}", file=sys.stderr, flush=True)
+    return writer
 
 
 def _check_target(target: Path) -> Path:
@@ -57,30 +195,65 @@ def _check_target(target: Path) -> Path:
     return resolved
 
 
-def run(args: argparse.Namespace) -> int:
-    builds = {}
-    for entry in args.build:
+def parse_builds(entries: list[str]) -> dict[str, Path]:
+    builds: dict[str, Path] = {}
+    for entry in entries:
         tag, _, path = entry.partition("=")
         if not path:
             raise SystemExit(f"--build wants TAG=PATH, got {entry!r}")
         builds[tag] = Path(path).resolve()
         if not builds[tag].exists():
             raise SystemExit(f"no such build: {builds[tag]}")
-    target = _check_target(Path(args.target))
+    return builds
 
-    order = list(args.order) * args.blocks + list(args.tail)
-    unknown = sorted(set(order) - set(builds))
+
+def plan_order(order: str, blocks: int, tail: str, builds: dict[str, Path]) -> list[str]:
+    planned = list(order) * blocks + list(tail)
+    unknown = sorted(set(planned) - set(builds))
     if unknown:
         raise SystemExit(f"order names builds that were not given: {unknown}")
+    return planned
+
+
+def subprocess_launch(command_for: Callable[[int, str], list[str]], env: dict[str, str]):
+    """A launcher that runs one child per launch and returns its stdout lines.
+
+    A child that fails still reaches the caller's `finally`, so the samples
+    already written stay written and the original extension is restored; the
+    child's stderr is printed first, because that is where the probe says which
+    extension it actually loaded.
+    """
+
+    def launch(index: int, tag: str) -> list[str]:
+        command = command_for(index, tag)
+        result = subprocess.run(  # noqa: S603
+            command,
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            env={**env, "PYTHONPATH": str(PROJECT_ROOT)},
+            check=False,
+        )
+        sys.stderr.write(result.stderr)
+        sys.stderr.flush()
+        if result.returncode != 0:
+            raise SystemExit(f"launch {index:02d} ({tag}) failed with {result.returncode}")
+        return [line for line in result.stdout.splitlines() if line.strip()]
+
+    return launch
+
+
+def run(args: argparse.Namespace) -> int:
+    builds = parse_builds(args.build)
+    target = _check_target(Path(args.target))
+    order = plan_order(args.order, args.blocks, args.tail, builds)
 
     print(f"# target   {target}", file=sys.stderr)
     for tag, path in builds.items():
         print(f"# build {tag}  {path}  md5={_digest(path)}", file=sys.stderr)
     print(f"# order    {''.join(order)} ({len(order)} launches)", file=sys.stderr)
 
-    lines: list[str] = ["\t".join(ab_rounds.TSV_HEADER)]
-    for index, tag in enumerate(order):
-        shutil.copy2(builds[tag], target)
+    def command_for(index: int, tag: str) -> list[str]:
         command = [
             sys.executable,
             "benchmarks/dumps_rows_probe.py",
@@ -96,109 +269,49 @@ def run(args: argparse.Namespace) -> int:
         ]
         for dataset in args.dataset or []:
             command += ["--dataset", dataset]
-        print(f"# launch {index:02d} build={tag}", file=sys.stderr, flush=True)
-        result = subprocess.run(  # noqa: S603
-            command,
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-            env={**args.env, "PYTHONPATH": str(PROJECT_ROOT)},
-            check=True,
-        )
-        sys.stderr.write(result.stderr)
-        lines.extend(line for line in result.stdout.splitlines() if line.strip())
+        return command
 
-    Path(args.out).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"# wrote {args.out}", file=sys.stderr)
+    drive(order, builds, target, Path(args.out), subprocess_launch(command_for, args.env))
     return analyze(argparse.Namespace(analyze=args.out, baseline_build=order[0]))
 
 
-def _read(path: Path) -> list[dict[str, str]]:
-    rows = []
-    with open(path, encoding="utf-8") as handle:
-        header = handle.readline().rstrip("\n").split("\t")
-        for line in handle:
-            if not line.strip() or line.startswith("#"):
-                continue
-            rows.append(dict(zip(header, line.rstrip("\n").split("\t"), strict=True)))
-    return rows
-
-
 def analyze(args: argparse.Namespace) -> int:
-    rows = _read(Path(args.analyze))
-    # launch medians: (build, launch, engine, row) -> median ms
-    grouped: dict[tuple[str, str, str, str], list[float]] = defaultdict(list)
-    for row in rows:
-        grouped[(row["build"], row["tag"], row["engine"], row["row"])].append(float(row["ms"]))
+    """The launch-median table, then the one estimator.
 
-    launches = sorted({(key[1], key[0]) for key in grouped})
-    builds = sorted({key[0] for key in grouped})
-    engines = sorted({key[2] for key in grouped})
-    datasets = sorted({key[3] for key in grouped})
-    base = args.baseline_build or builds[0]
-    others = [build for build in builds if build != base]
+    Every statistic printed below the table comes from `benchmarks/ab_blocks`,
+    which is also what `ab_floor.py` prints and what the reading rule in the
+    ledger refers to. This file contributes the per-launch view and nothing
+    else, so `--analyze` and `ab_blocks.py` cannot report two different effects
+    for one packet (the 7 September review, finding 4).
+    """
+    path = Path(args.analyze)
+    launches = ab_blocks.read_launches(path, min_samples=getattr(args, "min_samples", 1))
+    engines = sorted({engine for launch in launches for engine, _ in launch.samples})
+    datasets = sorted({row for launch in launches for _, row in launch.samples})
 
-    print(f"launches: {' '.join(f'{tag}:{build}' for tag, build in launches)}")
-    print(f"builds: {builds}   baseline: {base}")
-    print()
     print("== launch medians (ms)")
-    header = "row/engine".ljust(30) + "".join(f"{tag}:{build:<8}" for tag, build in launches)
+    header = "row/engine".ljust(30) + "".join(
+        f"{launch.tag}:{launch.build:<8}" for launch in launches
+    )
     print(header)
     for dataset in datasets:
         for engine in engines:
             cells = []
-            for tag, build in launches:
-                samples = grouped.get((build, tag, engine, dataset))
-                cells.append(f"{statistics.median(samples):<11.4f}" if samples else f"{'-':<11}")
+            for launch in launches:
+                value = launch.median(engine, dataset)
+                cells.append(f"{value:<11.4f}" if value is not None else f"{'-':<11}")
             print(f"{dataset + ' ' + engine:<30}" + "".join(cells))
-
     print()
-    print("== paired A-B blocks (block = one occurrence of each build, in order)")
-    print("   effect = median(other)/median(base) - 1 per block, then the median of blocks")
-    for dataset in datasets:
-        for engine in engines:
-            per_build: dict[str, list[float]] = defaultdict(list)
-            for tag, build in launches:
-                samples = grouped.get((build, tag, engine, dataset))
-                if samples:
-                    per_build[build].append(statistics.median(samples))
-            for other in others:
-                a_values, b_values = per_build.get(base, []), per_build.get(other, [])
-                if not a_values or not b_values:
-                    continue
-                blocks = min(len(a_values) // 2, len(b_values) // 2)
-                effects = []
-                for index in range(blocks):
-                    a_mean = statistics.fmean(a_values[index * 2 : index * 2 + 2])
-                    b_mean = statistics.fmean(b_values[index * 2 : index * 2 + 2])
-                    effects.append(b_mean / a_mean - 1.0)
-                if not effects:
-                    effects = [statistics.median(b_values) / statistics.median(a_values) - 1.0]
-                spread = max(effects) - min(effects)
-                overall = statistics.median(b_values) / statistics.median(a_values) - 1.0
-                print(
-                    f"{dataset:<14}{engine:<14}{other} vs {base}: "
-                    f"blocks {' '.join(f'{value * 100:+.2f}%' for value in effects)}  "
-                    f"median-of-launches {overall * 100:+.2f}%  block spread {spread * 100:.2f}pp"
-                )
-
-    print()
-    print("== drift: the trailing baseline launch against the leading one")
-    first = [entry for entry in launches if entry[1] == base][0]
-    last = [entry for entry in launches if entry[1] == base][-1]
-    for dataset in datasets:
-        for engine in engines:
-            head = grouped.get((base, first[0], engine, dataset))
-            tail = grouped.get((base, last[0], engine, dataset))
-            if head and tail:
-                change = statistics.median(tail) / statistics.median(head) - 1.0
-                print(f"{dataset:<14}{engine:<14}{first[0]} -> {last[0]}: {change * 100:+.2f}%")
+    analysis = ab_blocks.analyze(
+        path,
+        baseline=args.baseline_build,
+        min_samples=getattr(args, "min_samples", 1),
+    )
+    print(ab_blocks.render(analysis))
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    import os
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--analyze", help="read a TSV this tool wrote and report, without measuring"
@@ -213,6 +326,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repeat", type=int, default=60)
     parser.add_argument("--tier", default="small")
     parser.add_argument("--dataset", action="append", default=None)
+    parser.add_argument("--min-samples", type=int, default=1)
     args = parser.parse_args(argv)
     args.env = dict(os.environ)
 
