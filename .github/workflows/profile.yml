@@ -1,9 +1,8 @@
 name: Profile
 
 # On this branch the file profile.yml IS the A/B workflow (ab_x86.yml with
-# its inputs fixed: A = 2ac7dbe, the main this branch forks from; B = this
-# ref), because the dispatch API only resolves workflow names that exist on
-# the default branch.
+# its inputs fixed: A = d5365b3, B = this ref), because the dispatch API only
+# resolves workflow names that exist on the default branch.
 
 # Same-machine A-B-B-A of two revisions on the x86 legs (E26-P6). The five-
 # platform samples can only compare strata against its rivals within one
@@ -40,11 +39,6 @@ jobs:
             cc: cc
             cxx: c++
             archflags: "-arch x86_64"
-          - os: macos-latest
-            platform: macos-arm64
-            cc: cc
-            cxx: c++
-            archflags: "-arch arm64"
     env:
       ARCHFLAGS: ${{ matrix.archflags }}
       CC: ${{ matrix.cc }}
@@ -82,7 +76,7 @@ jobs:
 
       - name: Build A (base) with the same recipe in a worktree
         run: |
-          git worktree add ../base 2ac7dbe
+          git worktree add ../base d5365b3
           cd ../base
           make install-bench
           make pgo
