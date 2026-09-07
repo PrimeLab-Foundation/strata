@@ -21,7 +21,19 @@ missing evidence — exit 1, the same non-zero a breach gets. Rows the baseline
 has never seen stay ungated, named explicitly rather than passed silently.
 Thresholds and the full-filename key contract are unchanged.
 
-Exit codes: 0 pass, 1 regression or missing evidence, 2 usage/report error.
+The exit codes are `supportability_check`'s, deliberately: the two tools judge
+the same reports, and the reviewed pair disagreed about which code an unusable
+report body deserved — 2 here, 1 there (build/evidence/T2-REVIEW/REVIEW.md,
+defect 4). One convention now, stated identically in both:
+
+* 0 — pass.
+* 1 — the report is gateable evidence and the gate's own verdict is negative:
+  here, a threshold breach, or a baseline scope the report does not cover.
+* 2 — the report is not gateable evidence, so no verdict was reached: a
+  missing file, unreadable rows, ERROR rows, absent/non-finite/negative/zero
+  or out-of-order numbers, a duplicated row, an empty report, or a report
+  short of the declared workload. A missing or unusable baseline is the same
+  code: there is nothing to gate against.
 """
 
 from __future__ import annotations
@@ -55,6 +67,15 @@ RSS_TOLERANCE = 0.05  # 5%
 REQUIRED_METRICS = ("median_ms", "p95_ms")
 
 DEFAULT_WORKLOAD = "ci"
+
+# Shared, word for word, with supportability_check: one convention for two
+# tools that read the same reports.
+EXIT_CODES = (
+    "Exit codes: 0 pass; 1 the report is gateable evidence and the gate's "
+    "verdict is negative; 2 the report is not gateable evidence (missing file, "
+    "unreadable or ERROR rows, unusable numbers, a duplicated row, an empty "
+    "report, or a report short of the declared workload)."
+)
 
 
 @dataclass(frozen=True)
@@ -182,7 +203,7 @@ def save_baseline(path: Path, entries: dict[str, dict[str, float]]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, epilog=EXIT_CODES)
     parser.add_argument("report", type=Path, help="a report written by bench_main")
     parser.add_argument("--baseline", type=Path, default=DEFAULT_BASELINE)
     parser.add_argument(

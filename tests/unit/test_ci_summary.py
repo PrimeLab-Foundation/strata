@@ -13,13 +13,25 @@ happened to arrive. A missing leg, a missing row, a `nan`, or a run manifest
 naming a different commit each keeps the goal from being claimed, and says so
 in the summary rather than shrinking the objective
 (docs/performance/ci-review-2026-09-07.md, finding 2).
+
+The follow-up review added the other direction: evidence the matrix never
+declared cannot inflate the verdict either. An undeclared leg gets its own
+section and its own denominator, and a row outside the declared workload
+never counts toward a declared one (build/evidence/T2-REVIEW/REVIEW.md,
+defects 1 and 2).
 """
 
 import json
 from pathlib import Path
 
 from benchmarks.ci_summary import main
-from benchmarks.harness import Measurement, Report, render_report, workload_rows
+from benchmarks.harness import (
+    CI_PLATFORMS,
+    Measurement,
+    Report,
+    render_report,
+    workload_rows,
+)
 
 LINUX = "Linux-6.8.0-1014-azure-x86_64-with-glibc2.39"
 MACOS = "macOS-26.3-arm64-arm-64bit-Mach-O"
@@ -235,7 +247,11 @@ def test_complete_evidence_claims_the_goal(tmp_path, complete_report):
     assert code == 0
     assert "| linux-x86_64 | 5/5 | 5/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 27/27 |" in text
     assert "**Goal met on 1/1 platforms" in text
-    assert "All 1 declared platforms reported valid, complete evidence." in text
+    # No run_info.json beside it: complete coverage, provenance not claimed.
+    assert (
+        "All 1 declared platforms reported valid, complete evidence; "
+        "1 of them with unverified provenance." in text
+    )
 
 
 def test_a_missing_platform_cannot_be_a_met_goal(tmp_path, capsys, complete_report):
@@ -406,3 +422,118 @@ def test_invalid_evidence_is_not_counted_on_stdout(tmp_path, capsys, complete_re
     place(tmp_path / "ci", "bench_results_linux-x86_64.md", report)
     assert run_summary(tmp_path, "--expect-platforms", ONE_LINUX)[0] == 1
     assert "0 platform(s), 0/0 rows at #1" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# Undeclared evidence: counted nowhere, never a substitute
+# ---------------------------------------------------------------------------
+
+# `platform_key` can name legs the matrix does not declare -- windows-arm64 is
+# a real, buildable combination that simply is not in CI_PLATFORMS.
+PLATFORM_HEADERS = {
+    "linux-arm64": ("Linux-6.8.0-1014-azure-aarch64-with-glibc2.39", "aarch64"),
+    "linux-x86_64": (LINUX, "x86_64"),
+    "macos-arm64": (MACOS, "arm64"),
+    "macos-x86_64": ("macOS-15.6-x86_64-i386-64bit-Mach-O", "x86_64"),
+    "windows-x86_64": ("Windows-2022Server-10.0.20348-SP0", "AMD64"),
+    "windows-arm64": ("Windows-11-10.0.26100-SP0", "ARM64"),
+}
+
+
+def place_platform(reports: Path, key: str, complete_report, **kwargs) -> None:
+    """A whole declared workload, stamped with `key`'s own environment header."""
+    platform, machine = PLATFORM_HEADERS[key]
+    place(
+        reports,
+        f"bench_results_{key}.md",
+        complete_report(platform=platform, machine=machine, **kwargs),
+    )
+
+
+def test_an_undeclared_leg_does_not_inflate_the_verdict(tmp_path, capsys, complete_report):
+    """Five declared legs plus a stray read "Goal met on 6/5" and 162/162."""
+    reports = tmp_path / "ci"
+    for key in CI_PLATFORMS:
+        place_platform(reports, key, complete_report)
+    place_platform(reports, "windows-arm64", complete_report)
+
+    code, text = run_summary(tmp_path)
+    assert code == 0
+    assert "**Goal met on 5/5 platforms" in text
+    assert "6/5" not in text
+    assert "; 1 undeclared leg(s) not counted" in text
+
+    # The stray gets its own section, its own denominator, and no vote.
+    assert "## Reports outside the declared matrix" in text
+    before, after = text.split("## Reports outside the declared matrix")
+    assert "windows-arm64" not in before
+    assert "| windows-arm64 | 5/5 | 5/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 27/27 |" in after
+
+    out = capsys.readouterr().out
+    assert "5 platform(s), 135/135 rows at #1" in out
+    assert "162/162" not in out
+    assert "1 report(s) outside the declared matrix" in out
+
+
+def test_an_undeclared_leg_cannot_fill_in_for_a_missing_one(tmp_path, capsys, complete_report):
+    """linux-arm64 absent, windows-arm64 present: not "Goal met on 5/5"."""
+    reports = tmp_path / "ci"
+    for key in CI_PLATFORMS:
+        if key != "linux-arm64":
+            place_platform(reports, key, complete_report)
+    place_platform(reports, "windows-arm64", complete_report)
+
+    code, text = run_summary(tmp_path)
+    assert code == 1
+    assert "**Goal met on 4/5 platforms; 1 platform(s) MISSING" in text
+    assert "Goal met on 5/5" not in text
+    assert "Evidence is incomplete: linux-arm64 (MISSING)" in text
+
+    out = capsys.readouterr().out
+    assert "4 platform(s), 108/108 rows at #1" in out
+    assert "135/135" not in out
+
+
+def test_an_extra_row_cannot_complete_a_platform(tmp_path, complete_report):
+    """26 declared rows plus one extra used to render 6/5 and a 27/27 total."""
+    extra = [
+        Measurement(
+            section="loads",
+            dataset="extra.json",
+            library=library,
+            min_ms=median,
+            median_ms=median,
+            p95_ms=median,
+            rss_mb=10.0,
+        )
+        for library, median in (("strata", 1.0), ("orjson", 1.2))
+    ]
+    place(
+        tmp_path / "ci",
+        "bench_results_linux-x86_64.md",
+        complete_report(drop=(("dumps", "mixed.json"),), extra=extra),
+    )
+
+    code, text = run_summary(tmp_path, "--expect-platforms", ONE_LINUX)
+    assert code == 1
+    assert "| linux-x86_64 | 5/5 | 4/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 26/27 |" in text
+    assert "6/5" not in text
+    assert "27/27" not in text  # no cell may exceed its declared denominator
+    assert "| linux-x86_64 | INCOMPLETE | 26/27 |" in text
+    assert "extra loads|extra.json: row is outside the declared workload" in text
+
+
+def test_a_complete_set_with_no_manifest_says_its_provenance_is_unverified(
+    tmp_path, complete_report
+):
+    """ "Complete" is coverage; it is not a claim about where the files came from."""
+    reports = tmp_path / "ci"
+    for key in CI_PLATFORMS:
+        place_platform(reports, key, complete_report)
+
+    code, text = run_summary(tmp_path)
+    assert code == 0
+    assert (
+        "All 5 declared platforms reported valid, complete evidence; "
+        "5 of them with unverified provenance." in text
+    )

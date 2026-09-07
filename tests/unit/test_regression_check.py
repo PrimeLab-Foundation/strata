@@ -18,6 +18,7 @@ import json
 
 import pytest
 
+from benchmarks import regression_check, supportability_check
 from benchmarks.harness import (
     Measurement,
     Report,
@@ -339,3 +340,17 @@ def test_a_new_category_is_named_and_ungated(tmp_path, capsys, complete_report):
     out = capsys.readouterr().out
     assert "ungated (no baseline evidence yet): bench_results_small.md|dumps|mixed.json" in out
     assert "compared 26 of 26 baseline entries" in out
+
+
+def test_the_exit_codes_are_in_the_help_and_match_supportability(capsys):
+    """One convention for two tools that read the same reports.
+
+    The reviewed pair gave "the report body is invalid" 1 in one tool and 2 in
+    the other (build/evidence/T2-REVIEW/REVIEW.md, defect 4).
+    """
+    assert regression_check.EXIT_CODES == supportability_check.EXIT_CODES
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    out = capsys.readouterr().out
+    assert "Exit codes:" in out
+    assert "not gateable evidence" in out

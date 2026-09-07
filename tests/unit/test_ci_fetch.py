@@ -13,6 +13,13 @@ own head SHA, and the declared coverage), and it is staged and swapped, so a
 write that fails half way leaves the previous reports and run_info.json
 exactly as they were. The reviewed version deleted first and wrote after
 (docs/performance/ci-review-2026-09-07.md, finding 10).
+
+The follow-up review closed the third case, the one no exception path can
+reach: a fetch *killed* mid-swap. The next start-up finds the debris, puts an
+unambiguously interrupted swap back, and refuses anything it would have to
+guess at rather than leaving the previous evidence in a directory nothing
+names (build/evidence/T2-REVIEW/REVIEW.md, defect 3). A filesystem failure
+during placement is exit 3, not a traceback.
 """
 
 import json
@@ -357,7 +364,7 @@ def test_an_empty_report_is_refused(tmp_path, monkeypatch, capsys):
     assert {path.name: path.read_text(encoding="utf-8") for path in dest.iterdir()} == before
 
 
-def test_a_failed_write_leaves_the_previous_fetch_intact(tmp_path, monkeypatch):
+def test_a_failed_write_leaves_the_previous_fetch_intact(tmp_path, monkeypatch, capsys):
     """The reviewed placement deleted first: an error on the second write left
     one new report and no previous evidence at all."""
     monkeypatch.setattr(ci_fetch, "_run_gh", fake_gh(runs=[RUN], artifacts=full_run_artifacts()))
@@ -374,15 +381,16 @@ def test_a_failed_write_leaves_the_previous_fetch_intact(tmp_path, monkeypatch):
         real_write(path, text)
 
     monkeypatch.setattr(ci_fetch, "_write_text", failing_write)
-    with pytest.raises(OSError, match="no space left"):
-        ci_fetch.main(["--dest", str(dest)])
+    # Documented as exit 3, not an escaped traceback.
+    assert ci_fetch.main(["--dest", str(dest)]) == 3
+    assert "could not be placed" in capsys.readouterr().err
 
     assert {path.name: path.read_text(encoding="utf-8") for path in dest.iterdir()} == before
     # And no staging directory is left behind beside it.
     assert [path.name for path in tmp_path.iterdir()] == ["ci"]
 
 
-def test_a_failed_swap_restores_the_previous_fetch(tmp_path, monkeypatch):
+def test_a_failed_swap_restores_the_previous_fetch(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(ci_fetch, "_run_gh", fake_gh(runs=[RUN], artifacts=full_run_artifacts()))
     dest = tmp_path / "ci"
     before = previous_fetch(dest)
@@ -397,8 +405,8 @@ def test_a_failed_swap_restores_the_previous_fetch(tmp_path, monkeypatch):
         real_replace(src, dst)
 
     monkeypatch.setattr(ci_fetch.os, "replace", failing_replace)
-    with pytest.raises(OSError, match="interrupted"):
-        ci_fetch.main(["--dest", str(dest)])
+    assert ci_fetch.main(["--dest", str(dest)]) == 3
+    assert "could not be placed" in capsys.readouterr().err
 
     assert {path.name: path.read_text(encoding="utf-8") for path in dest.iterdir()} == before
 
@@ -412,3 +420,83 @@ def test_files_the_fetch_does_not_own_survive_it(tmp_path, monkeypatch):
     assert ci_fetch.main(["--dest", str(dest)]) == 0
     assert (dest / "NOTES.md").read_text(encoding="utf-8") == "kept by hand\n"
     assert (dest / "bench_results_macos-arm64.md").is_file()
+
+
+# ---------------------------------------------------------------------------
+# The debris of a fetch that was killed, not raised
+# ---------------------------------------------------------------------------
+
+
+def interrupted_swap(dest: Path) -> tuple[Path, Path, dict[str, str]]:
+    """The state a SIGKILL between the move-aside and the rename leaves.
+
+    The previous evidence is in `.<dest>.previous-*`, the replacement is half
+    written in `.<dest>.staging-*`, and `dest` itself does not exist.
+    """
+    before = previous_fetch(dest)
+    orphan = dest.parent / f".{dest.name}.previous-abc123"
+    dest.rename(orphan)
+    staging = dest.parent / f".{dest.name}.staging-def456"
+    staging.mkdir()
+    (staging / "bench_results_linux-x86_64.md").write_text("half written\n", encoding="utf-8")
+    return orphan, staging, before
+
+
+def test_an_interrupted_swap_is_recovered_on_the_next_fetch(tmp_path, monkeypatch, capsys):
+    """Nothing named where the previous evidence went; now the next run does."""
+    dest = tmp_path / "ci"
+    orphan, staging, _ = interrupted_swap(dest)
+    assert not dest.exists()
+
+    monkeypatch.setattr(ci_fetch, "_run_gh", fake_gh(runs=[RUN], artifacts=full_run_artifacts()))
+    assert ci_fetch.main(["--dest", str(dest)]) == 0
+
+    err = capsys.readouterr().err
+    assert "recovered the previous reports from .ci.previous-abc123" in err
+    # The half-written staging directory is named too, and left alone: it is
+    # never the last copy of anything.
+    assert f"an unfinished staging directory is beside {dest}: {staging.name}" in err
+    assert not orphan.exists()
+    for key in CI_PLATFORMS:
+        assert (dest / f"bench_results_{key}.md").is_file()
+
+
+def test_unrecoverable_debris_is_named_and_refuses_the_fetch(tmp_path, monkeypatch, capsys):
+    """Two candidates for the truth: this tool names them, it does not choose."""
+    dest = tmp_path / "ci"
+    before = previous_fetch(dest)
+    orphan = dest.parent / f".{dest.name}.previous-abc123"
+    orphan.mkdir()
+    (orphan / "bench_results_linux-x86_64.md").write_text("the other copy\n", encoding="utf-8")
+
+    def never(args):
+        raise AssertionError("gh must not run before the debris is resolved")
+
+    monkeypatch.setattr(ci_fetch, "_run_gh", never)
+    assert ci_fetch.main(["--dest", str(dest)]) == 2
+
+    err = capsys.readouterr().err
+    assert ".ci.previous-abc123" in err
+    assert "move or remove them by hand" in err
+    assert orphan.is_dir()
+    assert {path.name: path.read_text(encoding="utf-8") for path in dest.iterdir()} == before
+
+
+def test_a_clean_destination_reports_no_debris(tmp_path):
+    dest = tmp_path / "ci"
+    previous_fetch(dest)
+    assert ci_fetch.recover_interrupted_install(dest) == (True, [])
+
+
+def test_make_bench_ci_forwards_flags_to_both_tools():
+    """--allow-incomplete has to reach the fetch *and* the summary.
+
+    Fetching a partial run and then summarizing it as if it were complete is
+    the false pass these gates exist to stop, so the flag variable goes to
+    both recipe lines (build/evidence/T2-REVIEW/REVIEW.md, defect 4).
+    """
+    makefile = (ci_fetch.PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "BENCH_CI_FLAGS ?=" in makefile
+    recipe = makefile.split("\nbench-ci:", 1)[1].split("\n\n", 1)[0]
+    assert "benchmarks.ci_fetch $(BENCH_CI_FLAGS)" in recipe
+    assert "benchmarks.ci_summary $(BENCH_CI_FLAGS)" in recipe

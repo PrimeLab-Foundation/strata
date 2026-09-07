@@ -29,8 +29,21 @@ Each report's own commit and platform are cross-checked against
 ``run_info.json``; a report that predates that file keeps its standings under
 an explicit *unverified* provenance rather than a provenance it does not have.
 
-Exit codes: 0 written from complete evidence, 1 written but evidence is
-missing, invalid or misattributed, 2 usage or report error.
+**Only declared platforms count.** A report for a leg outside
+`harness.CI_PLATFORMS` -- ``windows-arm64``, say, which `platform_key` can
+name perfectly well -- is rendered in its own section with its own
+denominator and contributes to neither the verdict nor the row tallies. The
+reviewed summary unioned it into the counts, so five declared legs plus one
+stray read ``Goal met on 6/5 platforms`` and ``162/162 rows at #1``, and a
+stray could fill in for a leg that never uploaded
+(build/evidence/T2-REVIEW/REVIEW.md, defect 1).
+
+Exit codes:
+
+* 0 -- written from complete evidence (or ``--allow-incomplete``).
+* 1 -- written, but the evidence is missing, invalid or misattributed.
+* 2 -- usage or report error: no reports, an unnameable platform, two reports
+  claiming one leg.
 """
 
 from __future__ import annotations
@@ -60,6 +73,13 @@ DEFAULT_OUTPUT = PROJECT_ROOT / "docs" / "benchmarks" / "ci_summary.md"
 
 DEFAULT_WORKLOAD = "ci"
 
+EXIT_CODES = (
+    "Exit codes: 0 the summary was written from complete evidence (or "
+    "--allow-incomplete); 1 it was written but the evidence is missing, invalid "
+    "or misattributed; 2 usage or report error (no reports, an unnameable "
+    "platform, two reports claiming one leg)."
+)
+
 # Statuses that still carry usable standings. "unverified" is a legacy fetch
 # with no run manifest beside it: its numbers are real, its provenance is not
 # claimed.
@@ -73,9 +93,10 @@ class SummaryResult:
     text: str
     complete: bool  # every declared platform valid and carrying every declared row
     verified: bool  # no report contradicts the run manifest beside it
-    platforms: int  # platforms whose rows were counted
-    first: int  # counted rows at #1
+    platforms: int  # declared platforms whose rows were counted
+    first: int  # counted rows at #1, declared platforms and declared rows only
     rows: int  # declared rows across those platforms
+    undeclared: tuple[str, ...] = ()  # legs outside CI_PLATFORMS, counted nowhere
 
 
 @dataclass(frozen=True)
@@ -101,6 +122,7 @@ class PlatformEvidence:
     rows: tuple[RowStanding, ...]
     provenance: str
     provenance_ok: bool
+    declared: bool = True  # part of the declared matrix; only these are counted
 
     @property
     def status(self) -> str:
@@ -119,7 +141,24 @@ class PlatformEvidence:
     @property
     def usable(self) -> bool:
         """Whether this platform's rows may be counted toward the goal."""
-        return self.status in USABLE_STATUSES
+        return self.declared and self.status in USABLE_STATUSES
+
+    @property
+    def declared_rows(self) -> tuple[RowStanding, ...]:
+        """This platform's standings, restricted to the declared workload.
+
+        `standings()` ranks every comparable row a report contains. A row
+        outside the workload is extra evidence, not part of the objective, and
+        counting it pushed a numerator past its own denominator: a report with
+        26 declared rows plus one extra rendered ``6/5`` for its category and
+        ``27/27`` for a platform the Evidence section called INCOMPLETE
+        (build/evidence/T2-REVIEW/REVIEW.md, defect 2).
+        """
+        expected = self.validation.expected if self.validation is not None else None
+        if expected is None:
+            return self.rows
+        wanted = set(expected)
+        return tuple(row for row in self.rows if (row.section, row.dataset) in wanted)
 
 
 def standings(report: Report) -> list[RowStanding]:
@@ -189,10 +228,17 @@ def collect(
     expected_rows: tuple[tuple[str, str], ...] | None,
     expected_platforms: tuple[str, ...],
 ) -> list[PlatformEvidence]:
-    """One `PlatformEvidence` per expected platform, plus any extra reports."""
-    keys = sorted(set(expected_platforms) | set(platforms))
+    """One `PlatformEvidence` per declared platform, then any undeclared report.
+
+    Declared platforms come first and in order; a report for a leg the matrix
+    does not declare follows, flagged `declared=False` so nothing counts it.
+    """
+    wanted = set(expected_platforms)
+    declared_keys = sorted(wanted)
+    extra_keys = sorted(set(platforms) - wanted)
     evidence: list[PlatformEvidence] = []
-    for key in keys:
+    for key in (*declared_keys, *extra_keys):
+        declared = key in wanted
         report = platforms.get(key)
         if report is None:
             evidence.append(
@@ -203,6 +249,7 @@ def collect(
                     rows=(),
                     provenance="no report fetched",
                     provenance_ok=True,
+                    declared=declared,
                 )
             )
             continue
@@ -216,6 +263,7 @@ def collect(
                 rows=tuple(standings(report)),
                 provenance=provenance,
                 provenance_ok=provenance_ok,
+                declared=declared,
             )
         )
     return evidence
@@ -238,9 +286,10 @@ def _section_cells(
     section_keys: list[str],
     expected_rows: tuple[tuple[str, str], ...] | None,
 ) -> list[str]:
+    counted = evidence.declared_rows
     cells = []
     for section in section_keys:
-        in_section = [row for row in evidence.rows if row.section == section]
+        in_section = [row for row in counted if row.section == section]
         declared = (
             [row for row in expected_rows if row[0] == section] if expected_rows is not None else []
         )
@@ -249,8 +298,8 @@ def _section_cells(
             cells.append("-")
             continue
         cells.append(f"{sum(row.rank == 1 for row in in_section)}/{total}")
-    first = sum(row.rank == 1 for row in evidence.rows)
-    total_rows = len(expected_rows) if expected_rows is not None else len(evidence.rows)
+    first = sum(row.rank == 1 for row in counted)
+    total_rows = len(expected_rows) if expected_rows is not None else len(counted)
     cells.append(f"{first}/{total_rows}")
     return cells
 
@@ -269,8 +318,8 @@ def render_summary(
         expected_rows=expected_rows,
         expected_platforms=expected_platforms,
     )
-    by_key = {item.key: item for item in evidence}
-    keys = [item.key for item in evidence]
+    declared = [item for item in evidence if item.declared]
+    undeclared = [item for item in evidence if not item.declared]
 
     lines = ["# CI benchmark standings by platform and architecture", ""]
     lines.append("Machine-written by `make bench-ci`. Do not hand-edit.")
@@ -305,22 +354,25 @@ def render_summary(
     lines.append("## Rows at #1, by category")
     lines.append("")
     lines.append('Cells are "#1 rows / declared rows" within that platform\'s own report.')
+    if undeclared:
+        lines.append("Declared platforms only; the rest are below, under their own heading.")
     lines.append("")
     lines.append("| platform-arch | " + " | ".join(section_keys) + " | total |")
     lines.append("|" + "|".join(["---"] * (len(section_keys) + 2)) + "|")
-    for key in keys:
-        item = by_key[key]
+    for item in declared:
         if item.status in ("MISSING", "INVALID"):
             cells = ["-"] * len(section_keys) + [item.status]
         else:
             cells = _section_cells(item, section_keys, expected_rows)
-        lines.append(f"| {key} | " + " | ".join(cells) + " |")
+        lines.append(f"| {item.key} | " + " | ".join(cells) + " |")
     lines.append("")
 
-    met = [item.key for item in evidence if item.usable and item.rows and _all_first(item)]
-    behind_total = sum(row.rank > 1 for item in evidence if item.usable for row in item.rows)
+    met = [item.key for item in declared if item.usable and item.declared_rows and _all_first(item)]
+    behind_total = sum(
+        row.rank > 1 for item in declared if item.usable for row in item.declared_rows
+    )
     tied_total = sum(
-        row.rank == 1 and row.tied for item in evidence if item.usable for row in item.rows
+        row.rank == 1 and row.tied for item in declared if item.usable for row in item.declared_rows
     )
     verdict = f"Goal met on {len(met)}/{len(expected_platforms)} platforms"
     if behind_total:
@@ -333,87 +385,137 @@ def render_summary(
         ("INCOMPLETE", "INCOMPLETE"),
         ("MISMATCH", "MISATTRIBUTED"),
     ):
-        count = sum(item.status == status for item in evidence)
+        count = sum(item.status == status for item in declared)
         if count:
             verdict += f"; {count} platform(s) {label}"
-    unverified = sum(item.status == "unverified" for item in evidence)
+    unverified = sum(item.status == "unverified" for item in declared)
     if unverified:
         verdict += f"; {unverified} platform(s) unverified"
+    if undeclared:
+        verdict += f"; {len(undeclared)} undeclared leg(s) not counted"
     lines.append(f"**{verdict}.**")
     lines.append("")
 
-    complete = _render_evidence(lines, evidence, expected_rows, expected_platforms)
+    complete = _render_evidence(lines, declared, expected_rows, expected_platforms)
+    # Misattribution is refused wherever it sits: a stray report contradicting
+    # the manifest beside it is a disclosure defect even off the matrix.
     verified = all(item.status != "MISMATCH" for item in evidence)
 
     lines.append("## Rows behind, by platform")
-    for key in keys:
-        item = by_key[key]
+    for item in declared:
         lines.append("")
-        if item.report is None:
-            lines.append(f"### {key} (no report)")
-            lines.append("")
-            lines.append("MISSING -- this platform is part of the declared benchmark matrix and")
-            lines.append("uploaded no report, so its rows are counted as not met.")
-            continue
-        lines.append(f"### {key} ({_environment_line(item.report)})")
-        lines.append("")
-        if item.status == "INVALID":
-            lines.append("INVALID -- the run produced ERROR rows or unusable numbers, so these")
-            lines.append("standings are excluded from the counts (docs/context/benchmarks.md):")
-            lines.append("")
-            assert item.validation is not None
-            for problem in item.validation.problems:
-                if problem.fatal and problem.kind != "missing":
-                    lines.append(f"- {problem}")
-            continue
-        if item.status == "MISMATCH":
-            lines.append(f"MISATTRIBUTED -- {item.provenance}; these standings are excluded")
-            lines.append("from the counts until the report and the run manifest agree.")
-            lines.append("")
-        if item.validation is not None and item.validation.of("missing"):
-            lines.append("Declared rows this report does not contain, counted as not met:")
-            lines.append("")
-            for problem in item.validation.of("missing"):
-                lines.append(f"- {problem.where}")
-            lines.append("")
-        behind = [row for row in item.rows if row.rank > 1]
-        ties = [row for row in item.rows if row.rank == 1 and row.tied]
-        if not behind:
-            lines.append("All rows #1.")
-        else:
-            lines.append("| section | dataset | rank | behind best | best rival |")
-            lines.append("|" + "|".join(["---"] * 5) + "|")
-            for row in behind:
-                lines.append(
-                    f"| {row.section} | {row.dataset} | {row.rank}/{row.libraries} "
-                    f"| {row.ratio:.2f}x | {row.best_rival} |"
-                )
-        if ties:
-            lines.append("")
-            lines.append("Ties at the report's precision, counted as #1 by the rank rule:")
-            for row in ties:
-                lines.append(f"- {row.section} | {row.dataset} | with {row.best_rival}")
+        _render_platform_detail(lines, item)
     lines.append("")
 
-    counted = [item for item in evidence if item.usable]
+    if undeclared:
+        _render_undeclared(lines, undeclared, section_keys, expected_rows)
+
+    counted = [item for item in declared if item.usable]
     return SummaryResult(
         text="\n".join(lines),
         complete=complete,
         verified=verified,
         platforms=len(counted),
-        first=sum(row.rank == 1 for item in counted for row in item.rows),
+        first=sum(row.rank == 1 for item in counted for row in item.declared_rows),
         rows=sum(
-            len(expected_rows) if expected_rows is not None else len(item.rows) for item in counted
+            len(expected_rows) if expected_rows is not None else len(item.declared_rows)
+            for item in counted
         ),
+        undeclared=tuple(item.key for item in undeclared),
     )
+
+
+def _render_platform_detail(lines: list[str], item: PlatformEvidence) -> None:
+    """One platform's heading, disclosures and behind-rows table."""
+    if item.report is None:
+        lines.append(f"### {item.key} (no report)")
+        lines.append("")
+        lines.append("MISSING -- this platform is part of the declared benchmark matrix and")
+        lines.append("uploaded no report, so its rows are counted as not met.")
+        return
+    lines.append(f"### {item.key} ({_environment_line(item.report)})")
+    lines.append("")
+    if item.status == "INVALID":
+        lines.append("INVALID -- the run produced ERROR rows or unusable numbers, so these")
+        lines.append("standings are excluded from the counts (docs/context/benchmarks.md):")
+        lines.append("")
+        assert item.validation is not None
+        for problem in item.validation.problems:
+            if problem.fatal and problem.kind != "missing":
+                lines.append(f"- {problem}")
+        return
+    if item.status == "MISMATCH":
+        lines.append(f"MISATTRIBUTED -- {item.provenance}; these standings are excluded")
+        lines.append("from the counts until the report and the run manifest agree.")
+        lines.append("")
+    if item.validation is not None and item.validation.of("missing"):
+        lines.append("Declared rows this report does not contain, counted as not met:")
+        lines.append("")
+        for problem in item.validation.of("missing"):
+            lines.append(f"- {problem.where}")
+        lines.append("")
+    rows = item.declared_rows
+    behind = [row for row in rows if row.rank > 1]
+    ties = [row for row in rows if row.rank == 1 and row.tied]
+    if not behind:
+        lines.append("All rows #1.")
+    else:
+        lines.append("| section | dataset | rank | behind best | best rival |")
+        lines.append("|" + "|".join(["---"] * 5) + "|")
+        for row in behind:
+            lines.append(
+                f"| {row.section} | {row.dataset} | {row.rank}/{row.libraries} "
+                f"| {row.ratio:.2f}x | {row.best_rival} |"
+            )
+    if ties:
+        lines.append("")
+        lines.append("Ties at the report's precision, counted as #1 by the rank rule:")
+        for row in ties:
+            lines.append(f"- {row.section} | {row.dataset} | with {row.best_rival}")
+
+
+def _render_undeclared(
+    lines: list[str],
+    items: list[PlatformEvidence],
+    section_keys: list[str],
+    expected_rows: tuple[tuple[str, str], ...] | None,
+) -> None:
+    """Legs off the declared matrix, with their own denominator and no vote.
+
+    An extra leg is extra evidence, never a substitute for a declared one: it
+    cannot raise the platform count above the matrix, and it cannot stand in
+    for a platform that uploaded nothing (build/evidence/T2-REVIEW/REVIEW.md,
+    defect 1).
+    """
+    lines.append("## Reports outside the declared matrix")
+    lines.append("")
+    lines.append("These legs uploaded a report without being part of the declared platform")
+    lines.append("list (`harness.CI_PLATFORMS`). Their cells carry their own denominator and")
+    lines.append("count toward neither the verdict nor the tallies above.")
+    lines.append("")
+    header = "| platform-arch | " + " | ".join(section_keys) + " | total | status | provenance |"
+    lines.append(header)
+    lines.append("|" + "|".join(["---"] * (len(section_keys) + 4)) + "|")
+    for item in items:
+        if item.status in ("MISSING", "INVALID"):
+            cells = ["-"] * len(section_keys) + [item.status]
+        else:
+            cells = _section_cells(item, section_keys, expected_rows)
+        body = " | ".join(cells)
+        lines.append(f"| {item.key} | {body} | {item.status} | {item.provenance} |")
+    for item in items:
+        lines.append("")
+        _render_platform_detail(lines, item)
+    lines.append("")
 
 
 def _all_first(item: PlatformEvidence) -> bool:
     """Every declared row of this platform measured, comparable and #1."""
+    rows = item.declared_rows
     if item.validation is not None and item.validation.expected is not None:
-        if len(item.rows) != len(item.validation.expected):
+        if len(rows) != len(item.validation.expected):
             return False
-    return all(row.rank == 1 for row in item.rows)
+    return all(row.rank == 1 for row in rows)
 
 
 def _render_evidence(
@@ -422,12 +524,18 @@ def _render_evidence(
     expected_rows: tuple[tuple[str, str], ...] | None,
     expected_platforms: tuple[str, ...],
 ) -> bool:
-    """The completeness section. Returns True when nothing is missing."""
+    """The completeness section over the declared platforms.
+
+    Returns True when nothing declared is missing. `evidence` carries the
+    declared platforms only; undeclared legs have their own section and no
+    vote here.
+    """
     lines.append("## Evidence")
     lines.append("")
-    lines.append("What the counts above are made of. A platform contributes standings only")
-    lines.append("when its report is valid and contains every declared row; the goal cannot")
-    lines.append("be met on evidence that is absent (docs/context/benchmarks.md).")
+    lines.append("What the counts above are made of -- the declared platforms, and only")
+    lines.append("those. A platform contributes standings only when its report is valid and")
+    lines.append("contains every declared row; the goal cannot be met on evidence that is")
+    lines.append("absent (docs/context/benchmarks.md).")
     lines.append("")
     lines.append(
         "| platform-arch | status | declared rows measured | comparable rows | provenance |"
@@ -467,15 +575,21 @@ def _render_evidence(
         )
         lines.append("")
         return False
-    lines.append(
-        f"All {len(expected_platforms)} declared platforms reported valid, complete evidence."
-    )
+    # "Complete" is a claim about coverage, not about provenance: a legacy set
+    # with no run manifest beside it is complete and unverified at once, and
+    # the closing sentence has to say both (build/evidence/T2-REVIEW/REVIEW.md,
+    # defect 4).
+    unverified = sum(item.provenance.startswith("unverified") for item in evidence)
+    closing = f"All {len(expected_platforms)} declared platforms reported valid, complete evidence"
+    if unverified:
+        closing += f"; {unverified} of them with unverified provenance"
+    lines.append(f"{closing}.")
     lines.append("")
     return True
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, epilog=EXIT_CODES)
     parser.add_argument("--reports-dir", type=Path, default=DEFAULT_REPORTS_DIR)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
@@ -543,6 +657,13 @@ def main(argv: list[str] | None = None) -> int:
         f"wrote {args.output} ({result.platforms} platform(s), "
         f"{result.first}/{result.rows} rows at #1)"
     )
+    if result.undeclared:
+        # Named, never added: an extra leg is not one of the platforms the goal
+        # is measured over.
+        print(
+            f"note: {len(result.undeclared)} report(s) outside the declared matrix, "
+            f"counted nowhere: {', '.join(result.undeclared)}"
+        )
     if not result.verified:
         sys.stderr.write(
             "error: a report contradicts the run manifest beside it; see the summary's "

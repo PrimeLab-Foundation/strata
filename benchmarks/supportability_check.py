@@ -27,7 +27,19 @@ the default — the CI legs and every bench-small/medium/large tier run it) or
 ``none`` for an explicitly scoped diagnostic report, where validity is still
 checked and completeness is not claimed.
 
-Exit codes: 0 pass, 1 tripwire fired, 2 usage/report error.
+The exit codes are `regression_check`'s, deliberately: the two tools judge the
+same reports, and the reviewed pair disagreed about which code an unusable
+report body deserved — 1 here, 2 there (build/evidence/T2-REVIEW/REVIEW.md,
+defect 4). One convention now, stated identically in both:
+
+* 0 — pass.
+* 1 — the report is gateable evidence and the gate's own verdict is negative:
+  here, a row more than ``--max-ratio`` behind the best rival, or a category
+  the report contains with no strata row in it.
+* 2 — the report is not gateable evidence, so no verdict was reached: a
+  missing file, unreadable rows, ERROR rows, absent/non-finite/negative/zero
+  or out-of-order numbers, a duplicated row, an empty report, or a report
+  short of the declared workload.
 """
 
 from __future__ import annotations
@@ -47,9 +59,18 @@ from benchmarks.harness import (
 DEFAULT_MAX_RATIO = 3.0
 DEFAULT_WORKLOAD = "ci"
 
+# Shared, word for word, with regression_check: one convention for two tools
+# that read the same reports.
+EXIT_CODES = (
+    "Exit codes: 0 pass; 1 the report is gateable evidence and the gate's "
+    "verdict is negative; 2 the report is not gateable evidence (missing file, "
+    "unreadable or ERROR rows, unusable numbers, a duplicated row, an empty "
+    "report, or a report short of the declared workload)."
+)
+
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, epilog=EXIT_CODES)
     parser.add_argument("report", type=Path, help="a report written by bench_main")
     parser.add_argument(
         "--max-ratio",
@@ -73,7 +94,10 @@ def main(argv: list[str] | None = None) -> int:
     expected = resolve_workload(args.expect)
     validation = validate_report(report, expected=expected)
 
-    failures: list[str] = [str(problem) for problem in validation.problems if problem.fatal]
+    # Two buckets, two exit codes: what makes the report ungateable, and what
+    # the gate itself found once it could read it.
+    ungateable: list[str] = [str(problem) for problem in validation.problems if problem.fatal]
+    failures: list[str] = []
 
     rows: dict[tuple[str, str], dict[str, float]] = {}
     sections_with_strata: set[str] = set()
@@ -91,7 +115,9 @@ def main(argv: list[str] | None = None) -> int:
         failures.append(f"{section}: strata produced no measurement at all")
     if expected is not None:
         for section in sorted({section for section, _ in expected} - sections_with_strata):
-            failures.append(f"{section}: declared category with no strata measurement")
+            # A declared category nobody measured is the missing-row problem
+            # again, named at the category it costs.
+            ungateable.append(f"{section}: declared category with no strata measurement")
 
     for (section, dataset), libraries in sorted(rows.items()):
         strata_ms = libraries.get(MEASURED_LIBRARY)
@@ -109,6 +135,16 @@ def main(argv: list[str] | None = None) -> int:
             )
 
     disclosed = [str(problem) for problem in validation.problems if not problem.fatal]
+
+    if ungateable:
+        sys.stderr.write(f"error: {args.report.name} is not gateable evidence:\n")
+        for problem in ungateable:
+            sys.stderr.write(f"  {problem}\n")
+        for failure in failures:
+            sys.stderr.write(f"  (also) {failure}\n")
+        for note in disclosed:
+            sys.stderr.write(f"  (disclosed) {note}\n")
+        return 2
 
     if failures:
         sys.stderr.write("SUPPORTABILITY TRIPWIRE (docs/context/convention.md):\n")

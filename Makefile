@@ -163,12 +163,19 @@ BENCH_REPORT ?= $(BENCH_REPORTS)/bench_results_small.md
 bench-check: venv  ## Gate a benchmark report against the recorded baseline (BENCH_REPORT)
 	PYTHONPATH=. $(VPY) -m benchmarks.regression_check $(BENCH_REPORT)
 
-bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+# Flags forwarded to both halves of the CI standings pipeline. They share
+# --expect, --expect-platforms and --allow-incomplete, and a deliberately
+# scoped run has to say so to both: fetching a partial run and then summarizing
+# it as if it were complete is exactly the false pass these gates exist to
+# stop. E.g. `make bench-ci BENCH_CI_FLAGS=--allow-incomplete`.
+BENCH_CI_FLAGS ?=
 
-bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary (BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch $(BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
+
+bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports (BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
 
 # ---------------------------------------------------------------------------
 # Diagnostic probes
