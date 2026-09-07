@@ -403,7 +403,8 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   scope retirement per input as wave 22 did for the parse-side predictor.
   Not the row's cause (the P0 reordered-records control shows no schema
   rotation effect); a robustness item for P4.
-- Outcome: open
+- Outcome: accepted on two i7 draws; on `exp/p6p7-integration` with the P6
+  change
 
 ## E26-P3 — keep the dict writer's staging rows out of the per-value dispatcher
 
@@ -581,7 +582,621 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
     perf/cachegrind diff of `write_mapping_body` and `write_record_fused`
     between 32c5fa4 and 79fa3df on that leg (the profile leg's x86 artifacts for
     32c5fa4 are not archived; dispatch `profile.yml` on a tag of it).
+- - Predeclared 2026-09-07 (before any run): `.github/workflows/ab_x86.yml` on
+    branch `exp/p6-x86-ab`, `workflow_dispatch` with A = 32c5fa4 (the shipped
+    build's source) and B = `exp/p6-x86-ab` at 93799cd (main 2ac7dbe plus the workflow and `benchmarks/ab_blocks.py`, dispatched under `profile.yml`'s name because the dispatch API resolves workflow names on the default branch only; the source identical to 79fa3df), both
+    built by `make pgo` under the shipped recipe on the SAME runner, on the
+    linux-x86_64 (ubuntu-latest, clang) and macos-x86_64 (macos-15-intel, the
+    i7-8700B the samples saw on every draw) legs. Rows: small `dumps flat`/`users`/`mixed`/`wide_arrays`, small `loads wide_arrays` (the
+    parse-side control: the source there is unchanged), medium `dumps flat`/`users`/`mixed`; ABBA ×6 + A at 60 repeats, orjson in-process as the
+    drift control, then an A/A of arm A over two blocks as the floor. Reading
+    rule: `ab_blocks.py`'s normalised per-launch, ABBA-block paired effect with
+    `ab_floor.py`'s bootstrap interval; a row moves when the interval excludes
+    the A/A floor of the same estimator. Expectation from the samples: B/A on
+    `dumps flat` +3..+7% and `users` +2..+4% on both legs, `loads wide_arrays`
+    inside its floor; a reading inside the floors everywhere would mean the
+    samples' x86 signal was the runner lottery after all. Also per arm:
+    serializer symbol sizes, `write*` frame sizes and stack-protector sites
+    (objdump / otool), and on Linux a perf profile of the small `dumps flat` and
+    `users` loops, to point at the function the cost sits in.
+- - Result, linux-x86_64 (run 34065637472, an AMD EPYC 9V74 with 4 vCPUs; A =
+    32c5fa4 at md5 a9d5a90e…, B = 93799cd at 00ac9ccf…, both `make pgo` on that
+    runner; 25 + 9 launches, every launch's extension md5 on
+    `R1.stderr`/`AA.stderr`; artifacts under
+    `build/evidence/E26-P6/run_34065637472/`): B/A normalised, ABBA-block paired
+    — `dumps wide_arrays` **+7.0% / +6.5%** (bytes / str; six of six blocks;
+    interval \[+6.4, +7.3\] against an A/A floor of 0.5%), `dumps flat` **+3.6% /
+    +3.5%** small and **+4.0% / +3.7%** medium (six of six; floors 1.3% / 1.2%),
+    `dumps users` +1.4% / +1.5% small (inside its 2.1% floor) and +1.9% / +1.7%
+    medium (clears a 0.5% floor), `dumps mixed` +0.7% / +0.9% (inside floors of
+    1.1% / 0.9%), and `loads wide_arrays` −0.1% (the parse control, unchanged,
+    floor 2.0%). The x86 cost is confirmed on one machine under one recipe:
+    arrays of scalars pay most, which is the element loop (H1 in CODEGEN.md),
+    then flat records (H2/H3), and the mixed row hardly at all. Per-arm frames
+    on that PGO+LTO build (`frames.{A,B}.txt`): `write` 440 → 168 bytes,
+    `write_mapping_body` 504 → 136, `write_record_fused` out of line at 120 —
+    the frames shrank while the loops slowed, so frame size is not the cost. The
+    perf step failed: hosted runners deny `perf_event_open` without CAP_PERFMON
+    (`kernel.perf_event_paranoid`); the workflow now tries the sysctl and
+    continues on error.
+- - - Result, macos-x86_64 (the same run; the i7-8700B the samples saw on every
+      draw, frame pointer pinned; A = 32c5fa4 at b75059a9…, B = 93799cd at
+      60808147…, both `make pgo` on that VM; 25 + 9 launches, md5s verified): B/A
+      normalised, ABBA-block paired — `dumps flat` **+7.3% / +7.0%** small and
+      **+7.5% / +6.7%** medium (six of six; floors 2.0% / 1.2%), medium `dumps mixed` **+6.4% / +5.5%** (six of six; floor 2.7%), small `dumps mixed` +3.8%
+      / +4.3% and `dumps users` +3.9% / +3.6% small, +3.6% / −0.5% medium (five or
+      six of six positive but inside this VM's wide A/A floors of 5–12% on those
+      rows), and — unlike the EPYC — `dumps wide_arrays` +0.3% / +0.1% and `loads wide_arrays` +0.2%, both unchanged. The two machines split the mechanism the
+      way CODEGEN.md predicted: with %rbp pinned (Apple clang's default) the
+      record writer pays — `write_mapping_body`'s sixth argument evicting `this`
+      and the fused writer's per-record call — so flat records and the mixed dicts
+      cost 6–7% and arrays of scalars nothing; with -fomit-frame-pointer (Linux
+      clang's default) `this` stays in a register and the surviving cost is the
+      element loop's re-read, so arrays of scalars pay 7% and flat records 4%.
+      Both are the fix's x86 codegen, neither is the profile. (The otool frame
+      scan on this leg matched only the canary sites — the `subq` regex expected
+      spaces where otool prints a tab; fixed in the workflow for the next
+      dispatch.)
+- - Result, run 2 (34067095664, branch head c7509f4 — the same source plus the
+    workflow's macos-arm64 leg and the parse rows as measured rows; artifacts
+    under `build/evidence/E26-P6/run_34067095664/`). linux-x86_64, a second EPYC
+    9V74 draw: `dumps wide_arrays` **+6.6% / +6.3%** (six of six, floor 0.5%),
+    `dumps flat` **+3.6% / +3.5%** small and **+4.4% / +4.1%** medium (six of
+    six; floors 4.3% and 3.2% on this draw's noisier A/A, so the interval, not
+    the floor, is the evidence: every block between +2.9% and +4.7%), `dumps users` and `dumps mixed` +0.6..+1.3% (inside floors), `loads wide_arrays`
+    +0.1%, `loads users` +0.9%, `loads mixed` +0.9% (inside floors of 2–18%) —
+    the first draw reproduced. macos-arm64, one Apple M1 VM with both revisions
+    built on it: `dumps users` **−5.7% / −3.7%** small and **−5.1% / −4.0%**
+    medium (zero of six blocks positive), `dumps flat` +1.2% / −1.3% small and
+    +1.8% / +3.0% medium, `dumps mixed` −3.4% / −1.5% small and −1.1% / −3.7%
+    medium (all inside this VM's floors of 2–7%), `dumps wide_arrays` −0.1%; the
+    parse rows `loads wide_arrays` +0.3% small / −2.3% medium, `loads users`
+    −1.9%, `loads mixed` +0.3%, every one inside the VM's 7–14% raw floors. So
+    the arm64 serializer gain the M1 window measured is there on the VM too
+    (users), and the macos-arm64 parse-row shift the five-platform samples
+    showed (0.04–0.05 in ratio) does not reproduce with both revisions on one
+    VM: it was host variance between draws, not the revision — the
+    profile-layout hypothesis for it is not supported and is dropped.
+- - Result, run 2 on macos-x86_64 (the same i7-8700B VM class, B = c7509f4):
+    `dumps flat` **+7.9% / +7.2%** small and **+7.9% / +6.6%** medium, `dumps mixed` **+6.9% / +6.9%** small and **+6.1% / +5.9%** medium (six of six
+    everywhere; floors 2–3% on flat and medium mixed), `dumps users` +1.7% /
+    +1.7% small and +2.5% / +3.0% medium (inside floors of 6–12%), `dumps wide_arrays` −1.3% / −1.7% (inside a 14–16% floor), the parse rows `loads wide_arrays` +1.2% / −0.3%, `loads users` −1.2%, `loads mixed` +0.4% (inside
+    7–20% raw floors) — the first draw reproduced on the frame-pointer build:
+    the record writer pays, the element loop does not. Four same-runner windows
+    on two x86 machine classes now agree; the fix is the cause and the codegen
+    diff names the three sites.
+- Scope widened 2026-09-07 02:30: the macos-arm64 parse rows (see the E26-P5
+  correction) join the question — the same-runner A/B runs on that leg too,
+  with `loads wide_arrays` and `load users` as measured rows, not only
+  controls.
+- - Mechanism (2026-09-07, `build/evidence/E26-P6/CODEGEN.md`, a static diff
+    of python_dumps.cpp compiled -O3 without PGO for x86-64 with the frame
+    pointer pinned, x86-64 -fomit-frame-pointer, x86-64 -fstack-protector-strong
+    and arm64): the fix's cost is the SysV x86-64 register budget — five
+    allocatable callee-saved GPRs with %rbp pinned (six without) and six integer
+    argument registers, against AAPCS64's ten and eight. (H1) `write_sequence`'s
+    element loop re-reads the list's ob_item/ob_size every element (the
+    live-follow contract); arm64 keeps both in callee-saved registers (one
+    `ldp`, a register back-edge compare), x86 round-trips them through the frame
+    with a store-to-load forward on the loop-carried compare (15 frame ops per
+    element with the frame pointer, 13 without, against arm64's 4). (H2)
+    `write_mapping_body` grew a sixth integer parameter (`own_from`) — exactly
+    SysV's limit — and a `RowLock` live to frame pop, so `this` is spilled and
+    reloaded twice per key in the prepared-key loop (35 → 43 instructions, 2 → 5
+    frame ops on the frame-pointer build; 34 → 39 and 1 → 2 without the frame
+    pointer; 36 → 40 and 0 → 0 on arm64). (H3) `write_record_fused` went out of
+    line on an arm64 profile measurement, a call and a six-register prologue per
+    record on x86. Rejected there: instruction footprint (hot text +13.9% x86
+    against +14.1% arm64) and the stack protector (the after has fewer canary
+    sites). The same-runner windows fit the split: the frame-pointer build
+    (macos-x86_64) pays in the record writer, the Linux build in the element
+    loop.
+- - Implementation (2026-09-07, `exp/p6-x86-regs` 6cfbc62 on main 2ac7dbe;
+    `build/evidence/E26-P6/IMPL.md`; author an Opus worker, reviewed separately
+    below): a 64-bit `user_steps_` counter on the Serializer, bumped at the head
+    of `latch()` (the choke point before the three steps that invoke user code)
+    and on the two release arms that can fire a `__del__` (`close_container()`'s
+    latched-container release and `~RowLock`'s latched-row release), with the
+    enumeration and the proof that the release bumps are belt-and-braces in the
+    member's comment; `write_sequence`'s element loop keeps the list's bounds
+    loop-invariant and re-derives them only when the counter moved (the
+    `from_list` flag is gone with it). `write_mapping_body` drops two parameters
+    that re-stated `staged_row(map_depth_)` and `map_depth_`: six → four integer
+    arguments. The two `RowLock`s stay two (they cover non-contiguous rows). H3
+    was refused on evidence: inlining `write_record_fused` on this source takes
+    the record key loop from 10 to 23 frame ops per key on the frame-pointer
+    build (11 → 17 without), because `write_sequence`'s loop-carried values then
+    compete for the same five registers; the before's inlined form paid only 9
+    because it carried neither the deferred frame nor the row lock the fix
+    requires — the out-lining stays on every target with both measurements in
+    its comment. Codegen, steady state per list element on x86: frame ops 5 → 3
+    (frame pointer), 3 → 2 (without), the back edge now a compare against a slot
+    never stored in the loop; `write_mapping_body`'s prepared-key loop 39/5 →
+    38/4 (frame pointer) and 35/2 → 34/2 (without, the before's count exactly),
+    arm64 40/0 → 36/0. Gates in the worktree: fmt/lint clean, C++ 15/15, gated
+    install, 2,099 Python tests (26 new in
+    `tests/unit/test_dumps_user_step_counter.py`, 20 of which fail with the
+    bumps removed and the original fault reproduces), ASan gate clean, `make gate` passed. arm64 sanity on this M1 (three windows, load 1.3–1.5, A/A
+    floor 0.2–2.4%): every row inside its floor — `dumps flat` +0.3% / +0.1%
+    pooled, `dumps mixed` −0.9% / −0.3%, `loads wide_arrays` −0.04% — a real but
+    sub-resolution one-instruction cost per element on arm64, the N2 leg not yet
+    seen. Open: `this` still reloads twice per key in `write_mapping_body`
+    because the loop re-indexes the `schemas_` vector (a fixed array in the
+    leased state would remove it at ~182 KB per thread; needs the ru_maxrss
+    probe).
+- - Predeclared (2026-09-07 03:20, before the run): the fix branch's own
+    same-runner A/B, A = main 2ac7dbe, B = `exp/p6-x86-regs`, on linux-x86_64,
+    macos-x86_64 and macos-arm64 (the branch's `profile.yml` carries the
+    workflow with A fixed). Prediction: B beats A on the serializer rows on both
+    x86 machine classes — the Linux build on `dumps wide_arrays` and `dumps flat` (H1), the frame-pointer build on `dumps flat` and `dumps mixed` (H2) —
+    by less than main trails 32c5fa4 (H3 and the residual `this` reloads
+    remain); the parse rows unchanged; arm64 inside its floors. A reading inside
+    the floors on x86 prices H1 and H2 at zero and sends the work back to the
+    codegen.
+- - Acceptance A/B, run 34069600714 (A = main 2ac7dbe, B = `exp/p6-x86-regs`
+    f0a2325 = 6cfbc62 plus the workflow files; artifacts under
+    `build/evidence/E26-P6/run_34069600714/`). linux-x86_64 — a third x86 class,
+    an Intel Xeon Platinum 8573C: B/A normalised, ABBA-block paired — `dumps wide_arrays` **−4.1% / −3.3%** (zero of six blocks positive; interval \[−4.4,
+    −3.7\] against a 1.2% floor), `dumps users` **−2.7% / −3.9%** small and
+    **−2.6% / −2.2%** medium (zero of six; intervals clear of floors of
+    0.5–1.9%), `dumps flat` **−1.6% / −1.5%** small (\[−2.1, −1.5\], floor 3.3% on
+    this draw's A/A — the interval is the evidence) and −0.4% medium (inside
+    1.05%), `dumps mixed` −1.4% / −1.3% small and +0.1% / −1.0% medium (inside
+    2–8% floors). The parse rows, whose source did not change: `loads wide_arrays` **+1.4%** (six of six blocks; interval \[+0.7, +1.7\] against a
+    1.1% raw floor — at the edge, not inside), `loads users` +0.8% and `loads mixed` +0.8% (five of six, inside floors of 0.8–3.0%). The fix recovers
+    about half of what main lost on this class (main trailed 32c5fa4 by
+    +3.6..+4.4% on `dumps flat` and +6.6..+7.0% on `dumps wide_arrays`), and the
+    extension's changed layout or profile — the 26 new tests are part of the
+    gate-inclusive profile — leans on the parse rows by about a point, the
+    mechanism the E26-P5 correction named and the macos-arm64 VM could not
+    resolve. macos-arm64 (an M1 VM): every row inside its floor — `dumps flat`
+    +0.8% / +1.1% small and +0.4% / −0.3% medium, `dumps users` +0.6% / +0.1%,
+    `dumps wide_arrays` −1.7% / −0.4%, small `dumps mixed` +3.5% / +2.3% (four
+    and five of six, inside floors of 4.9% / 5.2%), the parse rows inside 7–21%
+    raw floors. Neutral on arm64, as the M1 windows read.
+- - Acceptance A/B, macos-x86_64 (the i7-8700B, frame pointer pinned): the fix
+    does not recover this build's cost — `dumps flat` **+1.9% / +1.5%** small
+    (six and five of six blocks positive; interval \[+1.5, +2.1\] against a 3.7%
+    A/A floor) and +1.4% / +2.1% medium (five of six; floor 1.7% / 1.0%), `dumps users` +1.2% / +1.3% small and +0.2% / +5.5% medium (inside 4–5% floors),
+    `dumps mixed`, `dumps wide_arrays` and every parse row inside their floors.
+    Consistently signed but inside the floors on the record rows: the
+    frame-pointer build's record-writer cost (H2's residual `this` reloads, H3's
+    per-record call) is untouched by this change, and the element-loop epoch
+    compare may cost it a little. So the fix is a Linux-x86 gain (about half of
+    main's loss on the serializer rows), neutral on arm64, and not a gain on the
+    Darwin x86 build; the lever CODEGEN.md's control names for that build is
+    freeing the frame pointer (`-fomit-frame-pointer`, Linux clang's default at
+    -O3), which puts `this` back in a register — E26-P7 below.
+- - Review (2026-09-07 04:10, `build/evidence/P6-REVIEW/REVIEW.md`, a
+    non-author Opus reviewer; not refuted): the user-code sites enumerated from
+    the code match the counter's bumps — `latch()`'s three call sites, the two
+    latched releases — with every error path returning through the loops; a
+    121-case adversarial matrix (six sites × four mutations × two depths × two
+    modes, plus a `__del__` that re-enters `dumps` on the list being written) is
+    byte-identical between main and the branch and clean under ASan+UBSan, and
+    the same matrix on a build with the bumps removed is a SIGSEGV with ASan's
+    heap-use-after-free at the element read. Two required fixes, applied: the
+    two cycle-warning tests depended on pytest's warnings plugin resetting
+    `__warningregistry__` (they now run under `warnings.catch_warnings()` with
+    `simplefilter("always")` and pass with `-p no:warnings`), and IMPL.md's
+    arm64 `write_mapping_body` cell read 40 where the loop has 36 instructions
+    in every revision (the four `Ltmp` markers counted as instructions) — no
+    arm64 win was ever there. Noted for the record: the change moves the failure
+    mode — main's unconditional re-read was safe against any user-code site, the
+    counter is safe only while the four-step enumeration stays complete
+    (complete today, verified twice); a future missed step would cost a
+    use-after-free rather than wrong output, which the member's comment and the
+    new tests guard. The reviewer's out-of-scope flag — the Linux parse control
+    rows moved +0.75..+1.4% as consistently as the serializer rows improved — is
+    E26-P7b.
+- - Acceptance A/B with the profile's share removed (run 34073739543, branch
+    `exp/p6-acceptance2`; A = `exp/p7b-tests-only` f955ed0 = main plus the same
+    26 tests, B = the P6 branch, so both profiles see the same suite and the
+    difference is the code). linux-x86_64, an EPYC 7763: `dumps wide_arrays`
+    **−5.8% / −5.4%** (zero of six blocks positive; intervals \[−6.0, −5.5\] and
+    \[−6.0, −5.1\] against floors of 0.4% / 0.6%), `dumps users` **−2.5% / −2.6%**
+    small and **−2.2% / −2.2%** medium (zero or one of six; intervals clear of
+    1.1–3.0% floors), `dumps flat` +0.4% / −0.3% small and +0.1% / −1.2% medium
+    (inside this draw's 5% flat floors), `dumps mixed` −0.3..−0.9% (inside), the
+    parse rows `loads wide_arrays` +0.8% / −0.5% (four of six; \[−1.1, −0.04\]
+    raw), `loads users` +0.6%, `loads mixed` +1.4% (six of six; \[+0.4, +2.1\]
+    against a 2.5% raw floor — inside, consistently signed, the same order as
+    the layout noise the P7b control showed in the other direction). The code
+    alone is worth about −5.6% on arrays of scalars and −2.4% on records on
+    Linux x86, larger than the first acceptance read because that B arm carried
+    the tests' profile cost.
+- - The same clean acceptance on macos-x86_64 (the i7 VM) resolved nothing:
+    this draw's A/A floors ran 4–24% (the VM pool degraded through the night —
+    2% floors at 02:30, 10–17% after 04:30), and every row sits inside them:
+    `dumps flat` −0.7% / −0.3% small and +0.6% / −0.3% medium, `dumps users`
+    −1.9% / −2.7% small, `dumps wide_arrays` −2.5% / −2.7%, `dumps mixed` −0.6%
+    / −1.2% small and +0.1% / −2.5% medium, the parse rows +0.1..+3.8% (five of
+    six on `loads wide_arrays`, inside a 24% raw floor). Read with the first
+    acceptance draw (floors 1–4%, `dumps flat` +1.5..+2.1%), the P6 code alone
+    is at worst neutral on the frame-pointer build and its record-writer cost
+    there is what E26-P7's flag addresses; a quieter i7 draw is owed before that
+    leg's number is quoted.
+- - Windows check (T4's cross-platform clause; run 34085356001, branch
+    `exp/p6-windows-ab` 5411e60 = `exp/p6p7-integration` plus T3's driver, A =
+    2ac7dbe; both arms built by `scripts/pgo_build_clang_cl.py` on one
+    windows-latest runner, an AMD Zen 4 (Family 25 Model 17); T3's estimator
+    with a six-block A/A; every launch's md5 on the logs): B/A normalised —
+    small `dumps flat` **−2.0% / −2.5%** (zero of six blocks positive; intervals
+    \[−2.6, −1.2\] and \[−3.2, −1.4\] against floors of 1.6% / 1.9%), medium `dumps users` **−4.4% / −3.8%** (zero of six; \[−6.8, −1.7\] against 0.8%), medium
+    `dumps flat` −1.5% / −3.1% and small `dumps users` −1.1% / −1.2% and `dumps mixed` −1.3% (inside floors of 1.5–8%), medium `dumps mixed` −14% / −9%
+    discarded — the rival's raw time jumped +17.7% and the A/A floor on that row
+    is 12–27% — and small `dumps wide_arrays` **+3.3% / +2.8%** (five of six;
+    \[−0.1, +6.4\] and \[+0.4, +6.0\] against floors of 4.3% / 3.9%: inside, and
+    mostly the rival moving — raw strata +1.0% / +0.7%, raw rival −2.4%); the
+    parse rows and `dump mixed` (a real file write) inside their floors. The
+    Linux gain on arrays of scalars does not appear under clang-cl's codegen,
+    and the sign there stays unresolved; no serializer row is worse past its
+    floor on any leg. The clang-cl x64 build has no frame pointer to free, so
+    E26-P7 is inert here by construction.
+- Outcome: accepted with E26-P7 — the code alone (profile held equal) reads
+  linux-x86_64 `dumps wide_arrays` −5.6% and `dumps users` −2.4%, arm64
+  neutral, and the frame-pointer flag takes the Darwin x86 record rows by
+  2–3%; T4's cross-platform clause is met (Linux x86 gain, Darwin x86 gain from
+  the flag, arm64 neutral on two hosts, Windows flat/users gain with
+  wide_arrays inconclusive); integrated with the P0 branches on
+  `exp/p0p6-integration` for the human; E26-P8 (the profile) is the next
+  item
+
+## E26-P7 — free the frame pointer on x86-64 builds
+
+- - Opened 2026-09-07 04:30 · owner: lead · from E26-P6: CODEGEN.md's
+    -fomit-frame-pointer control shows `this` back in a callee-saved register in
+    `write_mapping_body`'s prepared-key loop (35/2 → 34/2 instructions/frame
+    ops, the before's shape) once %rbp is free, and the acceptance A/B read the
+    Darwin x86 build (frame pointer pinned) at +1.4.. +2.1% on `dumps flat` for
+    the P6 change while the Linux build (no frame pointer) gained. Linux clang
+    already omits the frame pointer at -O3; Apple clang keeps it.
+- - Change: `setup.py` appends `-fomit-frame-pointer` on x86-64 POSIX builds
+    (branch `exp/p7-x86-nofp`, forked from the reviewed P6 branch d5365b3);
+    arm64 unchanged. Predeclared before the run: A = d5365b3 (P6), B = P6 + the
+    flag, both x86 legs, the same rows and reading rule as E26-P6. Prediction:
+    macos-x86_64 `dumps flat` and `dumps mixed` improve by several percent (the
+    record writer's `this` reloads and the fused writer's prologue both shrink);
+    linux-x86_64 inside its floors (the flag is already the default there, so a
+    move would mean the flag is not the only difference); parse rows unchanged
+    on both.
+- - Result, linux-x86_64 (run 34072322704, an EPYC 9V74; A = d5365b3, B =
+    8044fbb; md5s verified): every row inside its floor — `dumps flat` +0.5% /
+    +0.2%, `dumps wide_arrays` −0.2% / −0.4%, `dumps users` −0.7% / −0.9%, parse
+    rows ±0.4% — as predicted for a build where the flag is already the default.
+    The macos-x86_64 leg is the measurement.
+- - Result, macos-x86_64 (the same run; the i7-8700B; A = d5365b3 at
+    a405b22a…, B = 8044fbb at 25d3df03…; md5s verified): B/A normalised,
+    ABBA-block paired — medium `dumps flat` **−3.4% / −3.2%** (one and two of
+    six blocks positive; intervals \[−5.9, −3.2\] and \[−7.8, −3.1\] against A/A
+    floors of 2.4% / 4.0% — both clear), small `dumps flat` −1.5% / −1.7%
+    (\[−5.4, −3.3\] bytes against a 5.0% floor — inside), `dumps mixed` −2.8% /
+    −1.4% medium and −2.0% / −1.4% small, `dumps users` −1.7% / +0.8% medium and
+    −1.7% / −1.8% small, `dumps wide_arrays` −4.0% / −2.4% (zero of six
+    positive; \[−6.4, −1.1\] against a 10.8% floor), the parse rows −3.1..−0.7% —
+    seventeen of eighteen rows negative, but this VM draw's A/A floors ran 2–25%
+    (the noisiest window of the night), so only the medium flat row is resolved.
+    Frames per arm: `write` 0x88 → 0x78, `write_scalar_run` 0x48 → 0x38,
+    `build_schema` 0x68 → 0x48 — the freed %rbp shows as one slot fewer in each.
+    A confirmation draw is dispatched (run 34075068617); the flag is read on the
+    two together.
+- - Confirmation draw (run 34075068617; the i7 VM at floors of 0.3–3.5% on the
+    serializer rows this time; A = d5365b3 at ccfb6255…, B = 8044fbb at
+    25d3df03…; md5s verified): B/A normalised, ABBA-block paired — medium `dumps flat` **−2.4% / −2.0%** (zero of six blocks positive; intervals \[−2.9, −2.0\]
+    and \[−2.5, −1.7\] against floors of 0.3% / 1.8%), small `dumps flat` **−2.1%
+    / −2.4%** (\[−2.4, −2.0\] against 2.5% — at the edge; str \[−3.6, −2.7\] against
+    1.6% — clear), `dumps mixed` **−1.7% / −1.6%** medium and −2.1% / −1.6%
+    small (zero to two of six; intervals clear of 0.8–1.7% floors), `dumps users` −3.1% / −3.4% medium and −2.9% / −2.2% small (one or two of six;
+    inside this draw's 2.4–8% floors on those rows), `dumps wide_arrays` −3.6% /
+    −3.6% (\[−6.0, −1.3\] against 3.0% — marginal), the parse rows −3.1..+0.0%
+    inside 6–11% raw floors. The two i7 draws agree in direction on every
+    serializer row and the quiet one resolves flat and mixed; Linux reads inside
+    its floors on both draws (the flag is its default). Accepted:
+    `-fomit-frame-pointer` on x86-64 builds is worth 2–3% on the Darwin x86
+    serializer rows, nothing on Linux, and arm64 is untouched by construction.
+- - Restated (2026-09-07 07:20, from T3's single estimator with raw columns):
+    the flag's evidence is strata's own movement on the confirmation draw —
+    medium `dumps flat` raw strata −1.9% (rival +0.9%, normalised −2.4%) and
+    medium `dumps mixed` raw strata −1.2% (rival +0.6%, normalised −1.7%); the
+    first draw's medium `dumps flat` −3.4% and the confirmation draw's two small
+    rows were rival movement (raw strata +0.7%, +0.8%, −0.7% against rival
+    +4.5%, +3.1%, +1.9%) and are not evidence for it. Accepted magnitude: about
+    1–2% on the Darwin x86 record rows, not 2–3%; direction unchanged, Linux
+    neutral, arm64 untouched.
+- Outcome: accepted on the confirmation draw's medium rows at 1–2%; on
+  `exp/p6p7-integration` with the P6 change
+
+## E26-P7b — the profile's share of the P6 parse-row lean
+
+- - Opened 2026-09-07 04:30 · owner: lead · from E26-P6's acceptance A/B on
+    linux-x86_64: the parse control rows moved +0.75..+1.4% (six of six blocks
+    on `loads wide_arrays`) although no parse source changed. The gate-inclusive
+    PGO recipe merges the test suites' profiles, and the P6 branch adds 26
+    serializer tests to the gate, so every function's profile counts and layout
+    can move.
+- - Design: branch `exp/p7b-tests-only` = main 2ac7dbe plus only
+    `tests/unit/test_dumps_user_step_counter.py` (and the A/B workflow files); A
+    = 2ac7dbe, B = that branch, linux-x86_64 only. Prediction if the profile is
+    the mechanism: `loads wide_arrays` reads about +1% with the serializer rows
+    unmoved; if it reads inside its floor, the lean is the P6 code's layout (or
+    link order) and the profile hypothesis is dropped for the second time.
+- - Result (run 34072326424, linux-x86_64, an AMD EPYC 7763; A = 2ac7dbe at
+    d6dd4eb9…, B = f955ed0 at 42f3dc21…, the source identical, 26 tests added to
+    the gate; 25 + 9 launches, md5s verified): B/A normalised, ABBA-block paired
+    — `dumps wide_arrays` **+3.7% / +3.5%** (five of six blocks; interval \[+3.5,
+    +4.0\] against a 0.8% floor), small `dumps users` +1.5% / +0.9% (six of six;
+    \[+1.2, +2.0\], floor 1.0%), `dumps flat` **−1.7% / −0.8%** small and −1.2% /
+    −0.5% medium (\[−2.0, −1.5\] on small bytes, floor 1.4%), `dumps mixed` +1.0%
+    / +0.4% and the parse rows `loads wide_arrays` −1.4% (one of six; \[−1.35,
+    0.00\] against a 2.6% raw floor), `loads mixed` +0.9%, `loads users` +0.3% —
+    inside their floors. Reading: the profile's share is real and large on the
+    serializer — with no source change, 26 more gate tests move `dumps wide_arrays` by nearly four percent and `dumps flat` by nearly two, in
+    opposite directions — and it does not explain the P6 parse-row lean
+    (opposite sign here, both draws near their floors: unattributed noise at the
+    1–1.5% level). Two consequences. First, E26-P6's acceptance A/B understated
+    the code: its B arm carried this profile cost, so the code alone is worth
+    more than −4.1% on `dumps wide_arrays`; the clean comparison — the P6 branch
+    against main plus the same tests — is dispatched as run E26-P6/acceptance2.
+    Second, and systemic: under the shipped recipe every test added to the gate
+    is a performance change of several percent on some row, in a direction
+    nobody chose; the training-only recipe (E26-P2) lost on the fixed source
+    because its training workload covers less of the serializer than the suite
+    does, not because test counts are good counts. E26-P8 below.
+- Outcome: measured on Linux; the profile's share on the serializer is
+  several percent per test-suite change (see E26-P8), the parse-row lean
+  not reproduced
+
+## E26-P8 — a PGO profile that does not move with the test suite
+
+- - Opened 2026-09-07 04:45 · owner: open · from E26-P7b: the shipped recipe
+    merges the two gate pytest runs' profiles with the training run (47.5% of
+    all counts on 2026-09-06), so the profile — and with it the layout, inlining
+    and hot/cold splits of every function — changes whenever a test is added, in
+    directions nobody chose: 26 serializer tests moved `dumps wide_arrays` +3.7%
+    and `dumps flat` −1.7% on linux-x86_64 with the source untouched. E26-P2's
+    training-only recipe was the right shape and lost (E26-P5b: +3.3–6.3% on the
+    serializer rows) because the training workload covers less of the serializer
+    than the suite does, not because test counts are good counts.
+- - Design: keep the profile training-only (the E26-P2 scripts on
+    `archive/exp/e26-p2-profile`, 0747d73) and grow `pgo_training.py`'s workload
+    until it reads at least as well as the gate-inclusive profile on the fixed
+    source on both x86 machine classes and the M1 — records of the small tier's
+    shapes in bytes and str, wide arrays of every scalar kind, nested and mixed
+    documents, the cursor and NDJSON paths — chosen from the API's surface,
+    never from the benchmark datasets or seed 42 (the plan's rule). Acceptance:
+    the same-runner A/B of the two recipes on the same source inside the floors
+    or better on every row on three legs, then a five-platform sample. Until
+    then, every change that adds tests to the gate must be priced with a
+    tests-only control like E26-P7b before its A/B is read.
 - Outcome: open
+
+## T0 (plan of 2026-09-07) — inventory and reconciliation
+
+- - 2026-09-07 06:00 · owner: lead. The plan
+    `docs/performance/fable-5.1-opus-5-plan-2026-09-07.md` (with
+    `ci-review-2026-09-07.md`) supersedes the September-6 draft's order. Safe
+    production source: 79fa3df (checkout 2ac7dbe); the working tree's only
+    source-affecting staged files are the diagnostic `ab_x86.yml` and
+    `ab_blocks.py`. Reconciliation of the work that landed while the review was
+    written: E26-P6's x86 mechanism, acceptance runs, review and fix branch
+    (`exp/p6-x86-regs` d5365b3), E26-P7 (frame pointer, accepted on two i7
+    draws), E26-P7b (the profile's share) and E26-P8 (opened) are all above.
+    Under the plan they map to T4 candidate 1 ("reduce unnecessary list-storage
+    refreshes", proof reviewed, Linux evidence with the profile held equal) plus
+    a build-flag change the plan does not list; T4's acceptance rule still owes
+    T3's single estimator recomputed over the saved TSVs and a Windows check, so
+    the integration branch `exp/p6p7-integration` (7f66e81) is held, not handed
+    over. E26-P6's macos-arm64 same-VM A/B answers part of T5 (`loads` rows
+    unmoved within 7–14% floors; the file-load rows not yet executed). E26-P8 is
+    T5's profile-recipe note read the other way: the review's finding 8 and P7b
+    agree that the gate-inclusive recipe moves parser and serializer layout with
+    the test suite. The leak in finding 1 is the ledger's E26-FIX2b. Evidence by
+    run and host is under `build/evidence/E26-P5/`, `E26-P6/`, `E26-P7/`,
+    `E26-P7b/`, `P6-REVIEW/`, `P5B-REVIEW/`, `P5-REVIEW-*`.
+- - Dispatch (2026-09-07 06:05): T1 (Ownership: the private-cache key leak,
+    `python_dumps_output.h`), T2 (Reporting: report validation, regression
+    coverage, transactional fetch) and T3 (Measurement: one A/B estimator, the
+    driver's restore-and-persist repairs, rival per operation, three-arm
+    handling, the profile step in bytes mode) run in parallel in isolated
+    worktrees with non-overlapping allowed files; T3's sidecars wait for T2's
+    `harness.py`. Each returns to a reviewer other than its author before
+    integration.
+- - Integration (08:20): `exp/p0-integration` c9344cc = main + T1 + T2 + T3
+    after their follow-ups, two merge commits, no conflicts; gates on this host:
+    fmt/lint clean, gated install, C++ 15/15, 2,188 Python tests, the ASan gate.
+    The human fast-forwards it (scratchpad `staging_plan_p0.txt`). T4's Windows
+    check for the held P6+P7 branch runs as `exp/p6-windows-ab` (5411e60 =
+    `exp/p6p7-integration` + T3's driver, A = 2ac7dbe, both built by
+    `pgo_build_clang_cl.py` on one windows-latest runner; run 34085356001) —
+    predeclared: the P6 code alone read −5.6% on `dumps wide_arrays` and −2.4%
+    on `dumps users` on Linux x86 with the profile held equal; clang-cl's x64
+    build has no frame pointer to free, so the flag is inert there; a Windows
+    reading inside its floors or better on every serializer row satisfies T4's
+    cross-platform clause, a cost past its floor sends the change back.
+- Outcome: reconciled; T1–T3 delivered, reviewed and integrated on a
+  branch; T4's Windows check in flight
+
+## T1 — release the private schema cache's owned keys (E26-FIX2b)
+
+- - 2026-09-07 06:35 · author: an Opus worker · branch
+    `exp/t1-private-cache-leak` a417333 (parent 2ac7dbe), +55/−1 in
+    `python_dumps_output.h` only: `~SchemaCacheLease` releases the private
+    state's remembered keys through the existing `DepthSchemas::invalidate` on
+    every way of every depth when `fallback_` is set; `Schema` is made move-only
+    (deleted copies, defaulted noexcept moves, static_asserts) so
+    `schemas_.resize` keeps relocating by move and no destructor turns it into a
+    copy — the double-decrement trap the plan named. Lifetime argument: the
+    lease is the first local of `dumps_to_python` so it is destroyed last, after
+    every Frame, RowLock and the output; it runs on every return path and during
+    unwinding; only exact `str` keys are ever remembered, so the release can
+    neither re-enter nor clobber a pending error; ownership stays one reference
+    per stored pointer and `forget` is idempotent; the shared per-thread state
+    stays immortal (its shutdown policy, now stated in a comment). Reproduced
+    first on unmodified 2ac7dbe (refcount +100 over 100 re-entrant calls), reads
+    0 after. Tests: `tests/unit/test_dumps_private_cache.py`, 28 cases on fresh
+    threads (both modes, 24-key rows, prepared and wide schemas, five levels,
+    three leases deep, the warnings-hook re-entry, failing inner calls,
+    UnicodeEncodeError in `build_schema`, shared-cache controls); 21 fail on the
+    unfixed build. Gates in the worktree: fmt/lint clean, C++ 15/15, gated
+    install, 2,101 Python tests, ASan gate clean, `make gate` passed, and the
+    same on CPython 3.10.20. No timing; the walk's functions are byte-identical
+    in source, but the 28 added gate tests move the profile (E26-P7b), so the
+    change is priced with a tests-only control before any row is attributed to
+    it.
+- Review (`build/evidence/T1-REVIEW/REVIEW.md`, not refuted): the leak
+  reproduced on 2ac7dbe (+100 in both modes) and absent on a417333 in the
+  reviewer's own fresh processes and worktrees; every refutation attempt
+  failed — 64-miss retirement inside a private state, an exception out
+  of `build_schema`'s failure arm, the outer call failing after the inner
+  succeeded, three leases deep with 70 levels (relocation by move proven
+  at run time), a key whose last reference is the cache's, a `str`
+  subclass key (never cached), 20 threads with nested calls, and `dumps`
+  from an `atexit` handler and from `__del__` at finalization — all
+  exactly 0 drift and clean under ASan+UBSan. Required before acceptance:
+  the tests-only PGO control (28 added gate tests move the profile), run
+  as `exp/t1-ab` (A = `exp/t1-tests-only`, main plus the test file; B =
+  the fix) on three legs; optional: the vacuous `noexcept` static_assert,
+  two coverage cases, one line in docs/bindings/SKILL.md — applied in a
+  follow-up.
+- - Control design corrected (07:35): the tests-only arm (main plus the leak
+    tests, `exp/t1-tests-only` 8fe57af) cannot build — 21 of the 28 tests fail
+    on the unfixed source by design, so its gated install fails (run
+    34079726524, cancelled). The clean control is the fix WITHOUT its test file
+    against main (`exp/t1-source-ab` 6aece1c, A = 2ac7dbe): both arms pass the
+    same 2,073-test gate, so the profile sees one suite on both and the
+    difference is the destructor's source effect (run 34080402187, three legs,
+    A/A at six blocks). The tests' own profile effect is the recipe's property
+    (E26-P8), not the fix's.
+- - Source-alone A/B (run 34080402187, `exp/t1-source-ab` 6aece1c = the fix
+    without its test file, against main 2ac7dbe; both arms under the same
+    2,073-test gate; A/A at six blocks; md5s verified per launch). linux-x86_64
+    (an EPYC 9V74): every serializer row slightly faster — `dumps flat` −0.9% /
+    −0.7% medium (\[−1.2, −0.7\], floor 0.6%: clears) and −1.0% / −1.4% small
+    (\[−1.3, −0.7\], floor 0.6%: clears), `dumps users` −1.1% / −0.5% medium
+    (\[−1.3, −0.5\], floor 0.5%: clears) and −0.7% / −0.7% small, `dumps mixed`
+    −0.9% / −0.6% medium (\[−1.2, −0.3\], floor 0.7%: at the edge) and −0.6% /
+    −0.3% small (inside), `dumps wide_arrays` −0.9% / −1.0% (\[−1.2, −0.6\], floor
+    1.7%: inside); the parse rows +0.7% / −0.3% (`loads wide_arrays`), +1.7%
+    (`loads mixed`, \[+0.0, +3.0\] against a 2.9% raw floor — inside), +0.9%
+    (`loads users`, inside). macos-arm64 (an M1 VM): every row inside its floor
+    (`dumps flat` +2.0% / +0.6% medium against 2.1% / 3.1%, the rest within
+    ±1.4%). The destructor's source effect is zero or slightly favourable — a
+    cold out-of-line routine shifting layout — and T1's acceptance clause is
+    satisfied on two legs; the i7 leg's draw follows.
+- - The i7 leg (the same run): every row inside this VM's 2.4–18% floors
+    (`dumps flat` +0.4% / −0.2% medium and +1.3% / +2.1% small against 2.4–3.3%,
+    `dumps wide_arrays` −3.9% / −3.0% against 5.7% / 4.9%, the parse rows
+    −1.1..+0.6%). Three legs, no cost anywhere: T1's acceptance clause is
+    satisfied.
+- Outcome: reviewed not refuted; source-alone A/B clean on three legs;
+  the follow-up (the vacuous assertion, two coverage cases, the bindings
+  doc line) landed as a961a43; ready to integrate
+
+## T2 — evidence gates on a declared workload
+
+- - 2026-09-07 06:35 · author: an Opus worker · branch `exp/t2-evidence-gates`
+    aed6fb6. `harness.validate_report` is the one validity and completeness
+    check (ERROR rows, non-finite, negative or zero timings, unusable RSS, min ≤
+    median ≤ p95, duplicate keys, unreadable rows kept as `Report.malformed`, an
+    empty report, a declared row without a usable strata measurement — all
+    fatal; extra and uncomparable rows disclosed); the workload is declared
+    (`WORKLOAD_DATASETS`, `QUERY_LABELS`, `workload_rows()` = the 27 strata
+    rows, `CI_PLATFORMS` = five legs) and verified against all eight committed
+    reports. `supportability_check` requires strata in every declared row and
+    category and fails an empty report (3.0x bound kept); `ci_summary` takes
+    both denominators from the declaration, adds an Evidence section (complete /
+    unverified / INCOMPLETE / INVALID / MISMATCH / MISSING per platform),
+    cross-checks each report's commit and platform against `run_info.json`,
+    exits 1 when evidence is missing or misattributed, and never lets an invalid
+    platform shrink the goal; `regression_check` fails on zero matched entries,
+    a baseline row absent from the candidate or a missing metric, reports new
+    rows as ungated, keeps the thresholds; `ci_fetch` verifies identity and
+    coverage before placing and swaps a staged replacement atomically (a failing
+    second write leaves the previous set and `run_info.json` byte-identical);
+    `make bench-check` runs the regression gate through the Make interface. 37
+    new tests through the CLIs' exit codes; all eight false passes the review
+    reproduced now fail; regenerating `ci_summary.md` from the committed reports
+    reproduces 128/135 byte-for-byte except the Evidence section and one caption
+    word. `make test` green (15/15, 2,111). Owed by the lead: the benchmarking
+    docs for the new flags and exit codes.
+- Review (`build/evidence/T2-REVIEW/REVIEW.md`, not refuted): every
+  false-pass case closes with the documented exit code, the declared
+  workload matches `bench_main.run` and all eight committed reports,
+  ranking rules and thresholds are byte-identical, 128/135 reproduces.
+  Required before T9 publishes from this summary: only declared
+  platforms may count toward the headline and the tally (an undeclared
+  `windows-arm64` report could read "Goal met on 6/5" or hide a MISSING
+  leg behind "5/5"), section cells take their numerator from declared
+  rows only, and `ci_fetch` must recover or name a fetch's leftover
+  `.previous-*`/`.staging-*` siblings after a hard interrupt; non-blocking:
+  qualify the Evidence closing sentence when provenance is unverified,
+  a documented exit code for a placement `OSError`, one convention for an
+  invalid report body across the CLIs, `BENCH_CI_FLAGS` — applied in a
+  follow-up.
+- - Follow-up (547ee70): only declared platforms count toward the headline,
+    the tally and the section cells; leftover `.previous-*`/`.staging-*`
+    siblings are recovered or named and refused; the Evidence closing sentence
+    qualifies unverified provenance; a placement `OSError` has a documented exit
+    code; one convention for an invalid report body; `BENCH_CI_FLAGS` reaches
+    `make bench-ci`.
+- Outcome: reviewed not refuted; follow-up landed
+
+## T3 — one A/B estimator and a recoverable driver
+
+- - 2026-09-07 06:35 · author: an Opus worker · branch `exp/t3-ab-estimator`
+    1f5a58a. `benchmarks/ab_blocks.py` is the single analysis: chronological
+    ABBA blocks validated from the launch order, normalised launch = strata
+    median / the operation's rival in the same process (`RIVAL_BY_ENGINE`: dumps
+    → orjson-bytes, loads → orjson-loads, file ops → their compositions), block
+    effect = mean(B)/mean(A) − 1, aggregate = median of block effects,
+    whole-block bootstrap (2,000 resamples, seed 42) for the interval and the
+    A/A floor; raw strata, raw rival and normalised effect from one packet;
+    `ab_floor.py` and `ab_builds.py --analyze` are views of it; misordered
+    launches, a non-baseline tail, a third arm without `--pair`, missing rival
+    rows and non-finite samples are refused. The driver persists every launch's
+    samples as it goes, restores the original extension in a `finally` on both
+    paths and verifies its hash, and refuses to run from a process that imported
+    the target; `rows_probe.py` identifies the machine portably (no
+    unconditional `os.getloadavg`) and gains real `load`, `ndload` and `dump`
+    operations; `ab_x86.yml`'s perf loop measures bytes. 24 tests, a
+    known-effect fixture under linear drift recovered to 1e-4. Recomputation of
+    the saved packets: E26-P6's headline reproduces exactly (run 34065637472:
+    `dumps wide_arrays` +7.01%, `dumps flat` +3.61% / +3.98%); E26-P7's
+    confirmation draw re-reads with two corrections — small `dumps flat` −2.13%
+    \[−2.71, −1.80\] clears its 1.28% floor (the ledger had called it at the
+    edge), but on that draw small `dumps flat` and small `dumps wide_arrays`
+    move because orjson slowed (+3.1% and +1.9% raw) while strata read +0.8% and
+    −0.7% raw, so the flag's acceptance rests on the medium rows (`dumps flat`
+    −2.4%, `dumps mixed` −1.7%, strata itself faster) and the two small rows are
+    not evidence for it. Every saved A/A floor comes from two blocks; the
+    workflow's A/A is raised to six before a small effect is certified on a
+    floor.
+- Review (`build/evidence/T3-REVIEW/REVIEW.md`, not refuted): an
+  independent 30-line implementation of the statistic matches the
+  recomputed tables on both packets to 0.005 pp; the rival table matches
+  `bench_main`'s compositions; every rejection fires on crafted
+  fixtures; the driver persisted six launches through a `kill -9` and
+  restored the extension on both paths. Required before a deciding
+  campaign: the driver must not overwrite an existing `.ab_original` (a
+  crashed campaign's only copy of the original), one `min_samples`
+  default across the views, and the workflow's A/A at the candidate's
+  block count (a two-block bootstrap interval covers ~51%, six ~94%) —
+  applied in a follow-up. The reviewer extended the E26-P7 re-reading to
+  the FIRST i7 draw: its headline medium `dumps flat` −3.4% was entirely
+  rival movement (raw strata +0.7%, raw rival +4.5%), so E26-P7's
+  accepted magnitude is restated below.
+- - Follow-up (5aa05d8, finished by the lead after the worker stalled for an
+    hour with its edits half-applied; its worktree diff was taken as the base
+    and the gates re-run): the driver refuses to run over a stale `.ab_original`
+    whose hash differs from the target and restores from it first; one
+    `DEFAULT_MIN_SAMPLES` across the four views; the workflow's A/A at the
+    candidate's block count with a warning below four blocks; `--pair` lists
+    dropped launches; the first i7 draw recomputed with raw columns
+    (`build/evidence/T3-AB-ESTIMATOR/REPORT.md`, Follow-up): its medium `dumps flat` −3.4% is rival movement, its small `dumps wide_arrays` −4.0% is
+    strata's (zero of six positive) against a 4.7% floor, so E26-P7's evidence
+    stays the confirmation draw's medium record rows. 33 tests; fmt/lint clean;
+    C++ 15/15; `tests/unit` 875 passed.
+- Outcome: reviewed not refuted; follow-up landed; E26-P7 restated
 
 ## E26-P5 — integration and final standings
 
@@ -757,6 +1372,29 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
     strata 1.38e9 instructions and 842k first-level instruction misses against
     orjson's 1.50e9 and 1.29M, so the x86 cost is not instruction count or
     i-cache in that simulation).
+- - Correction (2026-09-07 02:30, on a reader's challenge that the moves are
+    not x86-only): recomputed over every row and leg, the rows whose
+    strata/best-rival ratio is worse than the 32c5fa4 sample by at least 0.03 on
+    BOTH new samples are — x86 serializer: linux-x86_64 `dumps flat` 0.78x →
+    0.83x / 1.02x, macos-x86_64 `dumps flat` 0.77x → 0.84x / 0.83x, windows
+    `dumps flat` 0.80x → 1.08x / 0.86x and `dumps nested` 0.69x → 0.73x / 0.97x;
+    **macos-arm64 parse rows**: `loads wide_arrays` 0.80x → 0.85x / 0.84x, `load wide_arrays` 0.80x → 0.84x / 0.84x, `load users` 0.66x → 0.71x / 0.71x,
+    `search $..orders[*].total` 0.30x → 0.33x / 0.34x; file-write rows on three
+    legs (linux-arm64 `dump mixed` 0.88x → 0.94x / 0.97x, macos-x86_64 `dump flat`/`mixed`/`nested`, windows `load mixed` 0.68x → 0.78x / 0.80x). The
+    Neoverse-N2's in-memory serializer rows did not move at all (`dumps flat`
+    0.77x → 0.80x / 0.78x, `users` 0.79x → 0.78x / 0.77x, `nested` and
+    `wide_arrays` ±0.01) — it shows neither the M1's gain nor the x86 loss,
+    which fits the register-budget mechanism (AAPCS64 on both arm64 cores) but
+    not a "gain on arm64" claim; the sentence above that said the arm64 legs
+    improved as predicted is true of macos-arm64's serializer rows only. The
+    macos-arm64 parse rows are a second open signal: the parse source is
+    unchanged, the M1 window read `loads wide_arrays` at 0.0% / +0.2% for the
+    fixes under the shipped recipe, and what did change on every leg is the PGO
+    profile itself — the recipe merges the gate suites' runs and the gate grew
+    by about 180 serializer tests, so every leg's layout moved, parse code
+    included. Two draws on shared M1 VMs cannot separate that from host
+    variance; the macos-arm64 leg is added to the same-runner A/B (E26-P6) so
+    both revisions are timed on one VM.
 - Outcome: reviewed in its first composition; recomposed after E26-P5b and
   reviewed again (`build/evidence/P5B-REVIEW/REVIEW.md`, 2026-09-07: not
   refuted on the measurement, provenance, identity and roll all reproduced;

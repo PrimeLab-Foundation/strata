@@ -197,7 +197,7 @@ rows measured (`dumps flat`, `users`, `mixed`) and +1.5–1.7% on `loads wide_ar
 docs/performance/experiment-ledger.md), and the −9% it had shown on `dumps flat`
 was the contaminated profile's damage to the earlier source, which the source
 fix removed. Keep the gate runs in the profile until a training workload reads
-at least as well on the fixed source.
+at least as well on the fixed source. The other side of that coin (E26-P7b): with the gate runs in the profile, adding tests moves benchmark rows by several percent — price any change that adds gate tests with a tests-only control before reading its A/B. On x86-64 the build omits the frame pointer (`setup.py`, E26-P7): SysV leaves five callee-saved registers with %rbp pinned, and the serializer's record writer spilled `this` per key on the Darwin build until it was freed.
 
 ## C++ tests — target: ONE harness
 
