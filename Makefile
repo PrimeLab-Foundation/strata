@@ -13,6 +13,7 @@ VPY := $(VENV)/bin/python
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
+        probe-ab-analyze probe-ab-floor \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -186,6 +187,7 @@ probe-ab-builds: venv  ## A-B-B-A rounds over two extension builds (BUILD_A, BUI
 		--target $(shell $(VPY) -c 'import strata._strata as m; print(m.__file__)') \
 		--out $(PROBE_OUT) --blocks $(PROBE_BLOCKS) --repeat $(PROBE_REPEAT)
 
+# tier:dataset:op — op is dumps, loads, load, ndload or dump.
 PROBE_ROWS ?= --row small:mixed:dumps --row small:mixed:loads
 
 probe-ab-rows: venv  ## A-B-B-A rounds over two builds on named tier:dataset:op rows (BUILD_A, BUILD_B, PROBE_ROWS, PROBE_OUT)
@@ -193,6 +195,16 @@ probe-ab-rows: venv  ## A-B-B-A rounds over two builds on named tier:dataset:op 
 		--build A=$(BUILD_A) --build B=$(BUILD_B) \
 		--target $(shell $(VPY) -c 'import strata._strata as m; print(m.__file__)') \
 		--out $(PROBE_OUT) $(PROBE_ROWS) --blocks $(PROBE_BLOCKS) --repeat $(PROBE_REPEAT)
+
+# The one A/B analysis: effect, block-bootstrap interval and, with PROBE_AA,
+# the A/A floor in the same estimator (benchmarks/ab_blocks.py).
+PROBE_AA ?=
+
+probe-ab-analyze: venv  ## Read a driver TSV: effect + interval + A/A floor (PROBE_OUT, PROBE_AA)
+	$(PROBE_RUN) benchmarks/ab_blocks.py $(PROBE_OUT) $(if $(PROBE_AA),--aa $(PROBE_AA),)
+
+probe-ab-floor: venv  ## Read an A/A TSV as the session's resolution floor (PROBE_OUT)
+	$(PROBE_RUN) benchmarks/ab_floor.py $(PROBE_OUT)
 
 # ---------------------------------------------------------------------------
 # Lint / format

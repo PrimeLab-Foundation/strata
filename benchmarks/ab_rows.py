@@ -3,11 +3,16 @@
 The only difference from `benchmarks/ab_builds.py` is which unit of work each
 launch runs: `rows_probe.py` takes `--row tier:dataset:op` and can therefore
 put the small *and* medium `dumps flat` rows and the `loads flat` control in
-one process, which the P0 probe's single `--tier` cannot.
+one process, which the P0 probe's single `--tier` cannot. It also reaches the
+file operations — `load`, NDJSON `load` and `dump` — which the `dumps`-only
+probe cannot measure at all.
 
 Everything that decides a number is imported from `ab_builds` unchanged —
-`_digest`, `_check_target` and, above all, `analyze`. This file contains no
-statistics of its own.
+`drive` (the swap, the incremental TSV, the restore in `finally`), `_digest`,
+`_check_target` and `analyze`, which is itself a view over
+`benchmarks/ab_blocks`. This file contains no statistics of its own, and its
+`--min-samples` default is `ab_blocks.DEFAULT_MIN_SAMPLES`, so a packet this
+driver reads back is judged valid by exactly the rule the other views apply.
 
 usage:
   ab_rows.py --build A=<so> --build B=<so> --target <so> --out <tsv>
@@ -19,28 +24,16 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 from pathlib import Path
 
-from benchmarks import ab_builds, ab_rounds
+from benchmarks import ab_blocks, ab_builds
 
 
 def run(args: argparse.Namespace) -> int:
-    builds: dict[str, Path] = {}
-    for entry in args.build:
-        tag, _, path = entry.partition("=")
-        if not path:
-            raise SystemExit(f"--build wants TAG=PATH, got {entry!r}")
-        builds[tag] = Path(path).resolve()
-        if not builds[tag].exists():
-            raise SystemExit(f"no such build: {builds[tag]}")
+    builds = ab_builds.parse_builds(args.build)
     target = ab_builds._check_target(Path(args.target))
-
-    order = list(args.order) * args.blocks + list(args.tail)
-    unknown = sorted(set(order) - set(builds))
-    if unknown:
-        raise SystemExit(f"order names builds that were not given: {unknown}")
+    order = ab_builds.plan_order(args.order, args.blocks, args.tail, builds)
 
     print(f"# target   {target}", file=sys.stderr)
     for tag, path in builds.items():
@@ -48,11 +41,7 @@ def run(args: argparse.Namespace) -> int:
     print(f"# order    {''.join(order)} ({len(order)} launches)", file=sys.stderr)
     print(f"# rows     {' '.join(args.row)}  repeat={args.repeat}", file=sys.stderr)
 
-    lines: list[str] = ["\t".join(ab_rounds.TSV_HEADER)]
-    import shutil
-
-    for index, tag in enumerate(order):
-        shutil.copy2(builds[tag], target)
+    def command_for(index: int, tag: str) -> list[str]:
         command = [
             sys.executable,
             "benchmarks/rows_probe.py",
@@ -66,24 +55,21 @@ def run(args: argparse.Namespace) -> int:
         ]
         for spec in args.row:
             command += ["--row", spec]
-        result = subprocess.run(  # noqa: S603
-            command,
-            cwd=ab_builds.PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-            env={**os.environ, "PYTHONPATH": str(ab_builds.PROJECT_ROOT)},
-            check=True,
-        )
-        sys.stderr.write(result.stderr)
-        sys.stderr.flush()
-        lines.extend(line for line in result.stdout.splitlines() if line.strip())
+        return command
 
-    Path(args.out).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"# wrote {args.out}", file=sys.stderr)
-    return ab_builds.analyze(argparse.Namespace(analyze=args.out, baseline_build=order[0]))
+    ab_builds.drive(
+        order,
+        builds,
+        target,
+        Path(args.out),
+        ab_builds.subprocess_launch(command_for, dict(os.environ)),
+    )
+    return ab_builds.analyze(
+        argparse.Namespace(analyze=args.out, baseline_build=order[0], min_samples=args.min_samples)
+    )
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", action="append", default=[], help="TAG=PATH")
     parser.add_argument("--target", required=True)
@@ -93,6 +79,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--blocks", type=int, default=6)
     parser.add_argument("--tail", default="A")
     parser.add_argument("--repeat", type=int, default=60)
+    parser.add_argument("--min-samples", type=int, default=ab_blocks.DEFAULT_MIN_SAMPLES)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     if len(args.build) < 2:
         parser.error("measuring needs --build TAG=PATH twice")
@@ -100,4 +92,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except ab_blocks.AnalysisError as error:
+        print(f"error: {error}", file=sys.stderr)
+        raise SystemExit(2) from None
