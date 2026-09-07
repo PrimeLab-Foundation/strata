@@ -7,12 +7,21 @@ The previous implementation kept the two definitions separate; the parser
 looked for a heading the writer had stopped emitting, and silently found zero
 rows (docs/benchmarking/SKILL.md).
 
+It also owns the *declared workload* and the *validity* of a report, for the
+same reason: every gate (`supportability_check`, `ci_summary`,
+`regression_check`, `ci_fetch`) has to agree on what a complete, readable run
+looks like, and each one deciding for itself is how a gate comes to pass on
+evidence that is not there. `WORKLOADS` names the rows a run is expected to
+contain and `validate_report` is the single check; a tool chooses its
+expectation and its exit code, never its own notion of validity.
+
 Protocol constants come from docs/context/benchmarks.md.
 """
 
 from __future__ import annotations
 
 import gc
+import math
 import platform
 import re
 import statistics
@@ -43,6 +52,75 @@ COLUMNS = ("dataset", "library", "min_ms", "median_ms", "p95_ms", "rss_mb", "spe
 
 ERROR_MARKER = "ERROR"
 
+MEASURED_LIBRARY = "strata"
+
+# ---------------------------------------------------------------------------
+# The declared workload
+#
+# What a run is *expected* to contain, declared here rather than inferred from
+# whatever survived parsing. The reviewed gates counted the rows they were
+# given: a report missing a dataset, a platform that never uploaded, or a
+# library that vanished from a row all shrank the objective instead of failing
+# it (docs/performance/ci-review-2026-09-07.md, finding 2).
+#
+# `WORKLOAD_DATASETS` and `QUERY_LABELS` mirror the CI benchmark job
+# (.github/workflows/benchmark.yml) and the bench-small/medium/large Make
+# targets, which pass the same six datasets; the dispatch below mirrors
+# `bench_main.run` -- .ndjson goes to `load (ndjson)`, every other dataset to
+# loads/dumps/load/dump, and the users shape additionally to query/search once
+# per JSONPath expression. That is 27 strata rows per platform.
+# ---------------------------------------------------------------------------
+
+WORKLOAD_DATASETS = (
+    "users.json",
+    "users.ndjson",
+    "flat.json",
+    "nested.json",
+    "wide_arrays.json",
+    "mixed.json",
+)
+
+# bench_main.QUERIES, by their report labels.
+QUERY_LABELS = ("$[*].id", "$[*].orders[*].total", "$..total")
+
+# The platform/architecture legs of the CI benchmark job. A leg that did not
+# report is missing evidence, not a smaller goal.
+CI_PLATFORMS = ("linux-arm64", "linux-x86_64", "macos-arm64", "macos-x86_64", "windows-x86_64")
+
+
+def workload_rows(
+    datasets: tuple[str, ...] = WORKLOAD_DATASETS,
+    query_labels: tuple[str, ...] = QUERY_LABELS,
+) -> tuple[tuple[str, str], ...]:
+    """The (section, dataset) rows `bench_main.run` produces for `datasets`."""
+    rows: list[tuple[str, str]] = []
+    for name in datasets:
+        if name.endswith((".ndjson", ".jsonl")):
+            rows.append(("load (ndjson)", name))
+            continue
+        rows.extend((("loads", name), ("dumps", name), ("load", name), ("dump", name)))
+        if name.rsplit(".", 1)[0] == "users":
+            for label in query_labels:
+                rows.append(("query", f"{name} {label}"))
+                rows.append(("search", f"{name} {label}"))
+    return tuple(rows)
+
+
+# Named expectations a tool can be pointed at. "ci" is the declared 27-row
+# workload; "none" is an explicitly scoped diagnostic -- validity is still
+# checked, completeness is not claimed.
+WORKLOADS: dict[str, tuple[tuple[str, str], ...] | None] = {
+    "ci": workload_rows(),
+    "none": None,
+}
+
+
+def resolve_workload(name: str) -> tuple[tuple[str, str], ...] | None:
+    """The expected rows of a named workload; `ValueError` if it has no name."""
+    if name not in WORKLOADS:
+        raise ValueError(f"unknown workload {name!r}; expected one of {sorted(WORKLOADS)}")
+    return WORKLOADS[name]
+
 
 @dataclass(frozen=True)
 class Measurement:
@@ -68,10 +146,183 @@ class Report:
     environment: dict[str, str] = field(default_factory=dict)
     measurements: list[Measurement] = field(default_factory=list)
     excluded: dict[str, str] = field(default_factory=dict)
+    # Table rows the parser could not read. Kept rather than dropped: a row
+    # silently skipped is a measurement that disappears from every count.
+    malformed: list[str] = field(default_factory=list)
 
     @property
     def has_errors(self) -> bool:
         return any(m.failed for m in self.measurements)
+
+
+# ---------------------------------------------------------------------------
+# Validity and completeness -- one check, four gates
+# ---------------------------------------------------------------------------
+
+# A problem that makes the evidence unusable: the run failed, a number is not
+# a number, a row is there twice, a row the parser could not read, or a
+# declared row that nobody measured. Everything else is disclosed, not fatal.
+FATAL_KINDS = frozenset({"error", "invalid", "duplicate", "malformed", "missing"})
+
+
+@dataclass(frozen=True)
+class Problem:
+    """One reason a report cannot be counted, or must be counted with a caveat."""
+
+    kind: str  # error | invalid | duplicate | malformed | missing | extra | uncomparable
+    where: str  # section|dataset[|library], or the report name
+    detail: str
+
+    @property
+    def fatal(self) -> bool:
+        return self.kind in FATAL_KINDS
+
+    def __str__(self) -> str:
+        return f"{self.kind} {self.where}: {self.detail}"
+
+
+@dataclass(frozen=True)
+class Validation:
+    """The verdict on one report: what is wrong, and what was actually measured."""
+
+    name: str
+    problems: tuple[Problem, ...] = ()
+    expected: tuple[tuple[str, str], ...] | None = None
+    measured: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        """True when nothing fatal was found -- valid *and*, if a workload was
+        declared, complete."""
+        return not any(problem.fatal for problem in self.problems)
+
+    @property
+    def valid(self) -> bool:
+        """True when the numbers themselves are usable, missing rows aside."""
+        return not any(problem.fatal and problem.kind != "missing" for problem in self.problems)
+
+    @property
+    def complete(self) -> bool:
+        return self.expected is not None and not self.of("missing")
+
+    def of(self, *kinds: str) -> tuple[Problem, ...]:
+        return tuple(problem for problem in self.problems if problem.kind in kinds)
+
+    def describe(self) -> str:
+        """A one-line count of what was found, for a CLI or a report line."""
+        counts: dict[str, int] = {}
+        for problem in self.problems:
+            counts[problem.kind] = counts.get(problem.kind, 0) + 1
+        if not counts:
+            body = "no problems"
+        else:
+            body = ", ".join(f"{count} {kind}" for kind, count in sorted(counts.items()))
+        if self.expected is None:
+            return f"{self.name}: {body} (no declared workload)"
+        return f"{self.name}: {len(self.measured)}/{len(self.expected)} declared rows, {body}"
+
+
+def _metric_problems(measurement: Measurement, where: str) -> list[Problem]:
+    problems: list[Problem] = []
+    for metric, value in (
+        ("min_ms", measurement.min_ms),
+        ("median_ms", measurement.median_ms),
+        ("p95_ms", measurement.p95_ms),
+    ):
+        if value is None:
+            problems.append(Problem("invalid", where, f"{metric} is absent"))
+        elif not math.isfinite(value):
+            problems.append(Problem("invalid", where, f"{metric} is not finite ({value})"))
+        elif value < 0.0:
+            problems.append(Problem("invalid", where, f"{metric} is negative ({value})"))
+    # A zero median is not a fast row, it is an unmeasured one -- and every
+    # ratio in the gates divides by it.
+    if measurement.median_ms == 0.0:
+        problems.append(Problem("invalid", where, "median_ms is zero"))
+    rss = measurement.rss_mb
+    if rss is not None and (not math.isfinite(rss) or rss < 0.0):
+        problems.append(Problem("invalid", where, f"rss_mb is not a usable size ({rss})"))
+    if problems:
+        return problems
+    low, median, high = measurement.min_ms, measurement.median_ms, measurement.p95_ms
+    if not (low <= median <= high):  # type: ignore[operator]
+        problems.append(
+            Problem("invalid", where, f"min/median/p95 out of order ({low}, {median}, {high})")
+        )
+    return problems
+
+
+def validate_report(
+    report: Report,
+    *,
+    expected: tuple[tuple[str, str], ...] | None = None,
+    library: str = MEASURED_LIBRARY,
+) -> Validation:
+    """Check one report for validity and, when `expected` is given, completeness.
+
+    Validity is: every table row readable, no ERROR rows, every timing finite
+    and ordered min <= median <= p95, every (section, dataset, library) entry
+    present once, and at least one measurement. Completeness is: every declared
+    row carries a usable `library` measurement.
+
+    Rows outside the declared workload are reported as `extra` and rows with no
+    rival to rank against as `uncomparable` -- both disclosed, neither fatal:
+    extra evidence is still evidence, and a competitor with no native
+    equivalent is a documented exclusion (docs/context/benchmarks.md).
+    """
+    problems: list[Problem] = []
+    for line in report.malformed:
+        problems.append(Problem("malformed", report.name or "report", f"unreadable row: {line}"))
+
+    if not report.measurements:
+        problems.append(Problem("invalid", report.name or "report", "no measurements at all"))
+
+    seen: set[tuple[str, str, str]] = set()
+    usable: dict[tuple[str, str], set[str]] = {}
+    for measurement in report.measurements:
+        where = f"{measurement.section}|{measurement.dataset}|{measurement.library}"
+        entry = (measurement.section, measurement.dataset, measurement.library)
+        if entry in seen:
+            problems.append(Problem("duplicate", where, "measured more than once"))
+            continue
+        seen.add(entry)
+        if measurement.failed:
+            detail = f"{ERROR_MARKER} ({measurement.error})" if measurement.error else ERROR_MARKER
+            problems.append(Problem("error", where, detail))
+            continue
+        found = _metric_problems(measurement, where)
+        problems.extend(found)
+        if not found:
+            usable.setdefault((measurement.section, measurement.dataset), set()).add(
+                measurement.library
+            )
+
+    for row in sorted(usable):
+        libraries = usable[row]
+        if library in libraries and len(libraries) == 1:
+            problems.append(
+                Problem("uncomparable", f"{row[0]}|{row[1]}", f"no rival measured beside {library}")
+            )
+
+    measured: tuple[tuple[str, str], ...] = ()
+    if expected is not None:
+        measured = tuple(row for row in expected if library in usable.get(row, ()))
+        for row in expected:
+            if row not in measured:
+                problems.append(
+                    Problem("missing", f"{row[0]}|{row[1]}", f"no usable {library} measurement")
+                )
+        for row in sorted(set(usable) - set(expected)):
+            problems.append(
+                Problem("extra", f"{row[0]}|{row[1]}", "row is outside the declared workload")
+            )
+
+    return Validation(
+        name=report.name or "report",
+        problems=tuple(problems),
+        expected=expected,
+        measured=measured,
+    )
 
 
 def peak_rss_mb() -> float | None:
@@ -265,7 +516,13 @@ def render_report(report: Report) -> str:
 
 
 def parse_report(text: str, name: str = "") -> Report:
-    """Read back a rendered report. The inverse of `render_report`."""
+    """Read back a rendered report. The inverse of `render_report`.
+
+    A table row inside a section that this parser cannot read is kept in
+    `Report.malformed` instead of being dropped: a silently skipped row is a
+    measurement that disappears from every count downstream
+    (docs/performance/ci-review-2026-09-07.md, finding 2).
+    """
     report = Report(name=name)
     section = ""
     titles = {key: title for key, title in SECTIONS}
@@ -287,9 +544,12 @@ def parse_report(text: str, name: str = "") -> Report:
         if not match or not section:
             continue
         cells = [c.strip() for c in match.group("cells").split("|")]
-        if len(cells) != len(COLUMNS) or cells[0] in ("dataset", "---"):
+        if cells and cells[0] in ("dataset", "---"):
             continue
-        if set(cells[0]) <= {"-"}:
+        if cells and set(cells[0]) <= {"-"}:
+            continue
+        if len(cells) != len(COLUMNS):
+            report.malformed.append(stripped)
             continue
 
         dataset, library = cells[0], cells[1]
@@ -298,27 +558,43 @@ def parse_report(text: str, name: str = "") -> Report:
                 Measurement(section=section, dataset=dataset, library=library, error=cells[-1]),
             )
             continue
+        values = [_read_cell(cell) for cell in cells[2:6]]
+        if any(value is _UNREADABLE for value in values):
+            report.malformed.append(stripped)
+            continue
         report.measurements.append(
             Measurement(
                 section=section,
                 dataset=dataset,
                 library=library,
-                min_ms=_read_cell(cells[2]),
-                median_ms=_read_cell(cells[3]),
-                p95_ms=_read_cell(cells[4]),
-                rss_mb=_read_cell(cells[5]),
+                min_ms=values[0],
+                median_ms=values[1],
+                p95_ms=values[2],
+                rss_mb=values[3],
             ),
         )
     return report
 
 
-def _read_cell(cell: str) -> float | None:
+class _Unreadable:
+    """A cell that is neither a number nor the "-" absent marker."""
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return "<unreadable cell>"
+
+
+# One sentinel, so "the writer left this out" and "this is not a number" stay
+# distinguishable: the first is a `None` metric, the second a malformed row.
+_UNREADABLE = _Unreadable()
+
+
+def _read_cell(cell: str) -> float | None | _Unreadable:
     if cell == "-":
         return None
     try:
         return float(cell)
     except ValueError:
-        return None
+        return _UNREADABLE
 
 
 def baseline_key(report_name: str, section: str, dataset: str) -> str:

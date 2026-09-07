@@ -11,7 +11,7 @@ VPY := $(VENV)/bin/python
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
         test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
-        bench-data bench-small bench-medium bench-large bench-all bench-baseline \
+        bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
         clean clean-venv scripts-executable help
 
@@ -154,12 +154,28 @@ bench-baseline: venv  ## Record the small tier as the regression baseline
 	PYTHONPATH=. $(VPY) -m benchmarks.regression_check \
 		$(BENCH_REPORTS)/bench_results_small.md --save-baseline
 
-bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+# The gate itself, through the one user-facing interface: >2% median/p95 or
+# >5% RSS against benchmarks/results/baseline.json is fix-or-revert, and a
+# comparison that covers less than the baseline's scope for this report is
+# missing evidence, not a pass (docs/context/benchmarks.md).
+BENCH_REPORT ?= $(BENCH_REPORTS)/bench_results_small.md
 
-bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+bench-check: venv  ## Gate a benchmark report against the recorded baseline (BENCH_REPORT)
+	PYTHONPATH=. $(VPY) -m benchmarks.regression_check $(BENCH_REPORT)
+
+# Flags forwarded to both halves of the CI standings pipeline. They share
+# --expect, --expect-platforms and --allow-incomplete, and a deliberately
+# scoped run has to say so to both: fetching a partial run and then summarizing
+# it as if it were complete is exactly the false pass these gates exist to
+# stop. E.g. `make bench-ci BENCH_CI_FLAGS=--allow-incomplete`.
+BENCH_CI_FLAGS ?=
+
+bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary (BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch $(BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
+
+bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports (BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
 
 # ---------------------------------------------------------------------------
 # Diagnostic probes
