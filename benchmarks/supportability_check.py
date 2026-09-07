@@ -5,13 +5,27 @@ exercise (docs/context/convention.md § Platform supportability). Absolute
 times mean nothing across machines, so this check gates on what *is*
 platform-independent:
 
-  - the run produced no ERROR rows (a library that failed is a broken build);
+  - the report is valid and complete: every declared row of the workload
+    carries a usable strata measurement, every number is finite and ordered,
+    no row is duplicated, no row is unreadable, and there are no ERROR rows
+    (a library that failed is a broken build);
   - strata appears in every section the report contains (a category that
     silently vanished is a dispatch or build defect);
   - no row falls behind the best rival by more than ``--max-ratio`` (default
     3.0x) — loose on purpose, because its job is to catch a fast path that
     quietly fell back to scalar or misfired on foreign hardware, not to
     relitigate standings on a noisy shared runner.
+
+The completeness half is new, and it is the point: the reviewed tripwire
+checked only the rows it happened to receive, so an empty report, a dataset
+that never ran, or a `nan` median all passed it
+(docs/performance/ci-review-2026-09-07.md, finding 2). The 3.0x bound is
+deliberately unchanged.
+
+``--expect`` names the workload to require: ``ci`` (the declared 27-row suite,
+the default — the CI legs and every bench-small/medium/large tier run it) or
+``none`` for an explicitly scoped diagnostic report, where validity is still
+checked and completeness is not claimed.
 
 Exit codes: 0 pass, 1 tripwire fired, 2 usage/report error.
 """
@@ -22,9 +36,16 @@ import argparse
 import sys
 from pathlib import Path
 
-from benchmarks.harness import parse_report
+from benchmarks.harness import (
+    MEASURED_LIBRARY,
+    WORKLOADS,
+    parse_report,
+    resolve_workload,
+    validate_report,
+)
 
 DEFAULT_MAX_RATIO = 3.0
+DEFAULT_WORKLOAD = "ci"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,6 +57,12 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_MAX_RATIO,
         help="worst allowed strata-time / best-rival-time per row",
     )
+    parser.add_argument(
+        "--expect",
+        default=DEFAULT_WORKLOAD,
+        choices=sorted(WORKLOADS),
+        help="the declared workload every strata row of which must be present",
+    )
     args = parser.parse_args(argv)
 
     if not args.report.is_file():
@@ -43,35 +70,37 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     report = parse_report(args.report.read_text(encoding="utf-8"), name=args.report.name)
+    expected = resolve_workload(args.expect)
+    validation = validate_report(report, expected=expected)
 
-    failures: list[str] = []
-    sections_with_strata: set[str] = set()
+    failures: list[str] = [str(problem) for problem in validation.problems if problem.fatal]
+
     rows: dict[tuple[str, str], dict[str, float]] = {}
-
+    sections_with_strata: set[str] = set()
     for measurement in report.measurements:
-        if measurement.failed:
-            failures.append(
-                f"{measurement.section}|{measurement.dataset}|{measurement.library}: "
-                f"ERROR ({measurement.error})"
-            )
+        if measurement.failed or measurement.median_ms is None:
             continue
-        if measurement.library == "strata":
+        if measurement.library == MEASURED_LIBRARY:
             sections_with_strata.add(measurement.section)
-        if measurement.median_ms:
-            rows.setdefault((measurement.section, measurement.dataset), {})[measurement.library] = (
-                measurement.median_ms
-            )
+        rows.setdefault((measurement.section, measurement.dataset), {})[measurement.library] = (
+            measurement.median_ms
+        )
 
     all_sections = {m.section for m in report.measurements}
     for section in sorted(all_sections - sections_with_strata):
         failures.append(f"{section}: strata produced no measurement at all")
+    if expected is not None:
+        for section in sorted({section for section, _ in expected} - sections_with_strata):
+            failures.append(f"{section}: declared category with no strata measurement")
 
     for (section, dataset), libraries in sorted(rows.items()):
-        strata_ms = libraries.get("strata")
-        rivals = {name: ms for name, ms in libraries.items() if name != "strata"}
+        strata_ms = libraries.get(MEASURED_LIBRARY)
+        rivals = {name: ms for name, ms in libraries.items() if name != MEASURED_LIBRARY}
         if strata_ms is None or not rivals:
             continue
         best_rival = min(rivals.values())
+        if best_rival <= 0:
+            continue  # flagged as an invalid median above; no ratio to compute
         ratio = strata_ms / best_rival
         if ratio > args.max_ratio:
             failures.append(
@@ -79,13 +108,22 @@ def main(argv: list[str] | None = None) -> int:
                 f"(limit {args.max_ratio:.1f}x) — a fast path is misfiring on this platform"
             )
 
+    disclosed = [str(problem) for problem in validation.problems if not problem.fatal]
+
     if failures:
         sys.stderr.write("SUPPORTABILITY TRIPWIRE (docs/context/convention.md):\n")
         for failure in failures:
             sys.stderr.write(f"  {failure}\n")
+        for note in disclosed:
+            sys.stderr.write(f"  (disclosed) {note}\n")
         return 1
 
-    print(f"supportability: {len(rows)} rows within {args.max_ratio:.1f}x, no ERROR rows")
+    for note in disclosed:
+        print(f"note: {note}")
+    print(
+        f"supportability: {validation.describe()}; "
+        f"{len(rows)} rows within {args.max_ratio:.1f}x, no ERROR rows"
+    )
     return 0
 
 

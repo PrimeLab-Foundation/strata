@@ -5,6 +5,13 @@ tests never noticed, because they only covered the library functions while
 `main()` itself crashed (docs/benchmarking/SKILL.md). So `main()` is exercised
 end to end here, through argv and exit codes, and the report format is tested
 as a round trip so the writer and the parser cannot drift apart.
+
+Since the 2026-09-07 review they also pin coverage: a gate that matched no
+baseline entry, or matched only some of them, reported success
+(docs/performance/ci-review-2026-09-07.md, finding 3). Thresholds and the
+full-report-name key contract are unchanged; the scoped fixtures below say
+`--expect none`, because they deliberately carry one row rather than the
+declared 27-row workload.
 """
 
 import json
@@ -22,9 +29,12 @@ from benchmarks.regression_check import (
     MEDIAN_TOLERANCE,
     RSS_TOLERANCE,
     compare,
+    coverage,
     extract,
     main,
 )
+
+SCOPED = ("--expect", "none")
 
 
 def _report(name="bench_results_small.md", *, strata_median=10.0, rss=50.0, error=None):
@@ -159,14 +169,14 @@ def test_main_saves_a_baseline_then_passes_against_it(tmp_path):
     report_path = _write(tmp_path, _report())
     baseline = tmp_path / "baseline.json"
 
-    assert main([str(report_path), "--baseline", str(baseline), "--save-baseline"]) == 0
+    assert main([str(report_path), "--baseline", str(baseline), "--save-baseline", *SCOPED]) == 0
     assert baseline.is_file()
     assert json.loads(baseline.read_text())
 
-    assert main([str(report_path), "--baseline", str(baseline)]) == 0
+    assert main([str(report_path), "--baseline", str(baseline), *SCOPED]) == 0
 
 
-def test_main_fails_on_a_regression(tmp_path):
+def test_main_fails_on_a_regression(tmp_path, capsys):
     baseline = tmp_path / "baseline.json"
     main(
         [
@@ -174,15 +184,19 @@ def test_main_fails_on_a_regression(tmp_path):
             "--baseline",
             str(baseline),
             "--save-baseline",
+            *SCOPED,
         ]
     )
 
     slower = _write(tmp_path, _report(strata_median=20.0), filename="slower.md")
-    # A different filename keys differently, so the entry must match to compare.
-    assert main([str(slower), "--baseline", str(baseline)]) == 0
+    # A different filename keys differently, so nothing matches -- and a gate
+    # that compared nothing is missing evidence, not a pass. This exact case
+    # printed "compared 0 of 1 entries / no regressions" and exited 0.
+    assert main([str(slower), "--baseline", str(baseline), *SCOPED]) == 1
+    assert "no baseline entries recorded for slower.md" in capsys.readouterr().err
 
     same_name = _write(tmp_path, _report(strata_median=20.0))
-    assert main([str(same_name), "--baseline", str(baseline)]) == 1
+    assert main([str(same_name), "--baseline", str(baseline), *SCOPED]) == 1
 
 
 def test_main_passes_on_an_improvement(tmp_path):
@@ -193,11 +207,11 @@ def test_main_passes_on_an_improvement(tmp_path):
             "--baseline",
             str(baseline),
             "--save-baseline",
+            *SCOPED,
         ]
     )
-    assert (
-        main([str(_write(tmp_path, _report(strata_median=10.0))), "--baseline", str(baseline)]) == 0
-    )
+    improved = _write(tmp_path, _report(strata_median=10.0))
+    assert main([str(improved), "--baseline", str(baseline), *SCOPED]) == 0
 
 
 def test_main_refuses_a_missing_report(tmp_path):
@@ -206,14 +220,15 @@ def test_main_refuses_a_missing_report(tmp_path):
 
 def test_main_refuses_to_gate_without_a_baseline(tmp_path):
     report_path = _write(tmp_path, _report())
-    assert main([str(report_path), "--baseline", str(tmp_path / "absent.json")]) == 2
+    assert main([str(report_path), "--baseline", str(tmp_path / "absent.json"), *SCOPED]) == 2
 
 
-def test_main_refuses_a_report_containing_error_rows(tmp_path):
+def test_main_refuses_a_report_containing_error_rows(tmp_path, capsys):
     report_path = _write(tmp_path, _report(error="TypeError"))
     baseline = tmp_path / "baseline.json"
     baseline.write_text("{}", encoding="utf-8")
-    assert main([str(report_path), "--baseline", str(baseline)]) == 2
+    assert main([str(report_path), "--baseline", str(baseline), *SCOPED]) == 2
+    assert "not gateable evidence" in capsys.readouterr().err
 
 
 def test_main_refuses_a_report_it_cannot_find_strata_in(tmp_path):
@@ -231,14 +246,96 @@ def test_main_refuses_a_report_it_cannot_find_strata_in(tmp_path):
         ),
     )
     report_path = _write(tmp_path, report)
-    assert main([str(report_path), "--baseline", str(tmp_path / "b.json")]) == 2
+    assert main([str(report_path), "--baseline", str(tmp_path / "b.json"), *SCOPED]) == 2
 
 
 def test_main_merges_into_an_existing_baseline(tmp_path):
     baseline = tmp_path / "baseline.json"
     baseline.write_text(json.dumps({"other|loads|x.json": {"median_ms": 1.0}}), encoding="utf-8")
 
-    main([str(_write(tmp_path, _report())), "--baseline", str(baseline), "--save-baseline"])
+    main(
+        [str(_write(tmp_path, _report())), "--baseline", str(baseline), "--save-baseline", *SCOPED]
+    )
     saved = json.loads(baseline.read_text())
     assert "other|loads|x.json" in saved  # unrelated entries survive
     assert baseline_key("bench_results_small.md", "loads", "users.json") in saved
+
+
+# ---------------------------------------------------------------------------
+# Coverage: a gate that compares nothing does not pass
+# ---------------------------------------------------------------------------
+
+
+def test_coverage_names_the_scope_the_gate_claims():
+    baseline = {
+        "r.md|loads|a.json": {"median_ms": 1.0, "p95_ms": 1.0, "rss_mb": 1.0},
+        "r.md|loads|b.json": {"median_ms": 1.0, "p95_ms": 1.0},
+        "other.md|loads|a.json": {"median_ms": 1.0},
+    }
+    current = {
+        "r.md|loads|a.json": {"median_ms": 1.0, "p95_ms": 1.0},  # rss disappeared
+        "r.md|loads|c.json": {"median_ms": 1.0, "p95_ms": 1.0},  # never gated before
+    }
+    covered = coverage(baseline, current, "r.md")
+    # The scope is the baseline's entries for this report -- not the current
+    # report's rows, which cannot show a row that vanished.
+    assert covered.scope == ("r.md|loads|a.json", "r.md|loads|b.json")
+    assert covered.missing_rows == ("r.md|loads|b.json",)
+    assert covered.missing_metrics == ("r.md|loads|a.json rss_mb",)
+    assert covered.ungated == ("r.md|loads|c.json",)
+    assert not covered.complete
+
+
+def _complete_paths(tmp_path, complete_report, **kwargs):
+    report = complete_report(name="bench", **kwargs)
+    path = tmp_path / "bench_results_small.md"
+    path.write_text(render_report(report), encoding="utf-8")
+    return path, tmp_path / "baseline.json"
+
+
+def test_the_declared_workload_gates_end_to_end(tmp_path, capsys, complete_report):
+    report_path, baseline = _complete_paths(tmp_path, complete_report)
+    assert main([str(report_path), "--baseline", str(baseline), "--save-baseline"]) == 0
+    assert main([str(report_path), "--baseline", str(baseline)]) == 0
+    out = capsys.readouterr().out
+    assert "compared 27 of 27 baseline entries for bench_results_small.md" in out
+    assert "no regressions" in out
+
+
+def test_a_report_short_of_the_declared_workload_is_not_gateable(tmp_path, capsys, complete_report):
+    full, baseline = _complete_paths(tmp_path, complete_report)
+    assert main([str(full), "--baseline", str(baseline), "--save-baseline"]) == 0
+
+    # The baseline keys on the full report name, so the candidate keeps it.
+    short = complete_report(drop=(("dumps", "mixed.json"),))
+    full.write_text(render_report(short), encoding="utf-8")
+    assert main([str(full), "--baseline", str(baseline)]) == 2
+    assert "not gateable evidence" in capsys.readouterr().err
+
+
+def test_a_row_that_disappeared_is_missing_evidence(tmp_path, capsys, complete_report):
+    full, baseline = _complete_paths(tmp_path, complete_report)
+    assert main([str(full), "--baseline", str(baseline), "--save-baseline"]) == 0
+
+    short = complete_report(drop=(("dumps", "mixed.json"),))
+    full.write_text(render_report(short), encoding="utf-8")
+    # Scoped, so the report's own completeness is not the subject: what fails
+    # is that the baseline's scope is no longer covered.
+    assert main([str(full), "--baseline", str(baseline), *SCOPED]) == 1
+    err = capsys.readouterr().err
+    assert "MISSING EVIDENCE" in err
+    assert "missing row: bench_results_small.md|dumps|mixed.json" in err
+
+
+def test_a_new_category_is_named_and_ungated(tmp_path, capsys, complete_report):
+    report_path, baseline = _complete_paths(tmp_path, complete_report)
+    assert main([str(report_path), "--baseline", str(baseline), "--save-baseline"]) == 0
+
+    saved = json.loads(baseline.read_text())
+    del saved["bench_results_small.md|dumps|mixed.json"]
+    baseline.write_text(json.dumps(saved), encoding="utf-8")
+
+    assert main([str(report_path), "--baseline", str(baseline)]) == 0
+    out = capsys.readouterr().out
+    assert "ungated (no baseline evidence yet): bench_results_small.md|dumps|mixed.json" in out
+    assert "compared 26 of 26 baseline entries" in out

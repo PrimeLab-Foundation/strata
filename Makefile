@@ -11,7 +11,7 @@ VPY := $(VENV)/bin/python
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
         test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
-        bench-data bench-small bench-medium bench-large bench-all bench-baseline \
+        bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
         clean clean-venv scripts-executable help
 
@@ -153,6 +153,15 @@ bench-all: bench-data bench-small bench-medium bench-large  ## Data plus every t
 bench-baseline: venv  ## Record the small tier as the regression baseline
 	PYTHONPATH=. $(VPY) -m benchmarks.regression_check \
 		$(BENCH_REPORTS)/bench_results_small.md --save-baseline
+
+# The gate itself, through the one user-facing interface: >2% median/p95 or
+# >5% RSS against benchmarks/results/baseline.json is fix-or-revert, and a
+# comparison that covers less than the baseline's scope for this report is
+# missing evidence, not a pass (docs/context/benchmarks.md).
+BENCH_REPORT ?= $(BENCH_REPORTS)/bench_results_small.md
+
+bench-check: venv  ## Gate a benchmark report against the recorded baseline (BENCH_REPORT)
+	PYTHONPATH=. $(VPY) -m benchmarks.regression_check $(BENCH_REPORT)
 
 bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary
 	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch
