@@ -26,6 +26,7 @@
 #include <memory>
 #include <new>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace strata::bindings {
@@ -309,6 +310,20 @@ class SchemaCacheLease {
         bool prepared = false;
         bool wide = false; ///< some span exceeded a slot: emit from the blob
 
+        /// Move-only, deliberately. `keys` holds *owned* references, so the
+        /// one relocation this type sees -- `State::schemas` growing when a
+        /// deeper level is first written -- must transfer them. A copy would
+        /// duplicate the raw pointers into a second slot and hand
+        /// `release_keys` two releases for one reference; deleting it makes
+        /// that the compiler's rule rather than a comment's. No destructor is
+        /// declared here on purpose: one would suppress the implicit moves and
+        /// silently turn that relocation back into a copy.
+        Schema() = default;
+        Schema(Schema&&) noexcept = default;
+        Schema& operator=(Schema&&) noexcept = default;
+        Schema(const Schema&) = delete;
+        Schema& operator=(const Schema&) = delete;
+
         void remember(PyObject* const* other, Py_ssize_t count) {
             // The one step that can allocate, taken before anything is
             // mutated: a throw here leaves the way exactly as it was, rather
@@ -504,7 +519,20 @@ class SchemaCacheLease {
         state_ = fallback_.get();
     }
 
+    /// Ends the lease. The private state dies with the call, and its schemas
+    /// own the keys they remembered, so they are released here -- the shared
+    /// state's are not, because it outlives every call by design (see
+    /// shared()).
+    ///
+    /// Safe on the exceptional exit too, and this is the last local of
+    /// dumps_to_python to be destroyed, so every Frame, RowLock and the
+    /// Serializer itself have already gone: nothing borrows these keys any
+    /// more. The release cannot run user code or disturb a pending exception
+    /// either -- only exact `str` keys are ever remembered (python_dumps.cpp
+    /// `exact_keys`), and a `str` has neither `__del__` nor weakrefs.
     ~SchemaCacheLease() {
+        if (fallback_)
+            release_keys(*fallback_);
         if (owns_flag_)
             busy_ = false;
     }
@@ -518,9 +546,25 @@ class SchemaCacheLease {
     [[nodiscard]] State& state() noexcept { return *state_; }
 
   private:
+    /// Release every owned key a private state remembered, way by way.
+    ///
+    /// `invalidate` un-matches the way before it releases, so the state is
+    /// left consistent rather than half torn down -- it is about to be freed,
+    /// but a slot that still matched a shape whose keys are gone is exactly
+    /// the hazard E26-FIX2 closed, and there is no second rule here.
+    static void release_keys(State& state) noexcept {
+        for (DepthSchemas& depth : state.schemas) {
+            for (size_t way = 0; way < DepthSchemas::kWays; ++way)
+                depth.invalidate(way);
+        }
+    }
+
     [[nodiscard]] static State* shared() {
         // Deliberately leaked: a destructor after interpreter shutdown could
-        // not legally Py_DECREF the owned keys anyway. Default-initialized,
+        // not legally Py_DECREF the owned keys anyway. That is the whole of
+        // the shutdown policy -- the *private* state a re-entrant lease takes
+        // is released instead, but inside the call that made it, with the
+        // interpreter running (see ~SchemaCacheLease). Default-initialized,
         // not value-initialized: the staged rows are scratch that is always
         // written before it is read, and zeroing 25 KB per thread would buy
         // nothing.
@@ -536,6 +580,16 @@ class SchemaCacheLease {
 };
 
 inline thread_local bool SchemaCacheLease::busy_ = false;
+
+// The keys a schema slot remembers are owned references, released one by one
+// when a private lease ends. The only relocation such a slot ever sees is
+// `State::schemas` growing as a deeper level is first written, and it has to
+// move: a copy would leave two slots holding the same raw pointers, and the
+// release would run twice on one reference.
+static_assert(std::is_nothrow_move_constructible_v<SchemaCacheLease::DepthSchemas>,
+              "schema slots must relocate by move, never by copy");
+static_assert(!std::is_copy_constructible_v<SchemaCacheLease::DepthSchemas>,
+              "schema slots own key references and must not be copyable");
 
 #if PY_VERSION_HEX >= 0x030B0000 && PY_VERSION_HEX < 0x030F0000
 #define STRATA_RAW_DICT_WALK 1
