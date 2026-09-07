@@ -28,6 +28,7 @@ The steps, in the order the header lists them:
 import gc
 import json
 import sys
+import warnings
 
 import pytest
 
@@ -112,16 +113,13 @@ def test_a_growing_list_is_followed_after_a_cycle_warning(mode, cycle_policy):
     def showwarning(*args, **kwargs):
         once.fire()
 
-    previous = strata.__dict__  # keep a name bound; the hook lives on warnings
-    del previous
-    import warnings
-
-    saved = warnings.showwarning
-    warnings.showwarning = showwarning
-    try:
+    # PyErr_WarnEx deduplicates through __warningregistry__; the filter reset
+    # keeps the warning firing on every run, not only when pytest's warnings
+    # plugin has cleared the registry between items.
+    with warnings.catch_warnings():
+        warnings.simplefilter("always")
+        warnings.showwarning = showwarning
         out = _dump(root, mode)
-    finally:
-        warnings.showwarning = saved
 
     assert once.fired == 1
     # The cyclic element emits `[null]`; then the loop re-derives the bounds
@@ -139,14 +137,13 @@ def test_a_shrinking_list_ends_where_the_cycle_warning_left_it(mode, cycle_polic
 
     once = _Once(root.clear)
 
-    import warnings
-
-    saved = warnings.showwarning
-    warnings.showwarning = lambda *args, **kwargs: once.fire()
-    try:
+    # PyErr_WarnEx deduplicates through __warningregistry__; the filter reset
+    # keeps the warning firing on every run, not only when pytest's warnings
+    # plugin has cleared the registry between items.
+    with warnings.catch_warnings():
+        warnings.simplefilter("always")
+        warnings.showwarning = lambda *args, **kwargs: once.fire()
         out = _dump(root, mode)
-    finally:
-        warnings.showwarning = saved
 
     assert once.fired == 1
     assert out == "[[null]]"
