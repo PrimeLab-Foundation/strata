@@ -82,9 +82,12 @@
  *    Ordinary documents run no user code and so pay no reference counting at
  *    all; a document that does pays O(depth) once per event.
  *  - **Freshness.** No borrowed pointer *into* a container's storage survives
- *    a step that can run user code. A list's `ob_item`/`ob_size` are re-read
- *    per element, so the loop follows the live list exactly as stdlib json's
- *    encoder does. A dict's row is read once and *registered* from the first
+ *    a step that can run user code. A list's `ob_item`/`ob_size` are
+ *    re-derived after every element that ran one -- `user_steps_` counts the
+ *    steps and every site above bumps it, so the loop follows the live list
+ *    exactly as stdlib json's encoder does, while an element that ran nothing
+ *    (every element of an ordinary document) leaves the bounds where they
+ *    are. A dict's row is read once and *registered* from the first
  *    non-scalar value on, so a record emits the row the serializer read --
  *    which is what makes the general and the fused writer agree byte for byte
  *    even here. Dicts too wide for that row take `PyDict_Next`, which
@@ -357,14 +360,24 @@ class Serializer {
 
         out_.ensure(1);
         out_.put('[');
-        // A list's ob_item and ob_size are re-read per element instead of
-        // being hoisted: user code running below this loop can resize the
-        // list, which moves the item array out from under a hoisted pointer
-        // (that read freed memory, and crashed on a reallocation). stdlib
-        // json's encoder re-reads for the same reason, and this loop follows
-        // the list the same way -- a shrunk list ends here, an appended
-        // element is written. A tuple cannot change, so it is read once.
-        const bool from_list = PyList_Check(object) != 0;
+        // A list's ob_item and ob_size are re-derived after any element that
+        // ran user code, instead of being hoisted across the whole loop: that
+        // code can resize the list, which moves the item array out from under
+        // a hoisted pointer (that read freed memory, and crashed on a
+        // reallocation). stdlib json's encoder re-reads for the same reason,
+        // and this loop follows the list the same way -- a shrunk list ends
+        // here, an appended element is written.
+        //
+        // "Ran user code" is `user_steps_`, the walk's own counter, whose
+        // three bump sites are enumerated at its declaration. `seen` carries
+        // the last value this loop has synchronised with, so an element costs
+        // one load and one compare, and everything else -- the list-or-tuple
+        // test included -- sits in the block that only a step reaches. An
+        // element that did not move the counter cannot have
+        // resized the list, so the bounds stay loop-invariant; re-deriving
+        // them after every element instead put both on the frame on x86-64
+        // and made the back edge a store-to-load forward
+        // (build/evidence/E26-P6/IMPL.md).
         Py_ssize_t size = PySequence_Fast_GET_SIZE(object);
         PyObject** items = PySequence_Fast_ITEMS(object);
 
@@ -378,6 +391,7 @@ class Serializer {
         Py_ssize_t index = write_scalar_run(items, size);
 
         DeferredOpen open_container(*this);
+        uint64_t seen = user_steps_;
         for (; index < size; ++index) {
             if (index != 0) {
                 out_.ensure(1);
@@ -392,9 +406,13 @@ class Serializer {
             const bool ok = Py_TYPE(item) == &PyDict_Type ? write_record_fused(item) : write(item);
             if (!ok)
                 return false;
-            if (from_list) {
-                items = reinterpret_cast<PyListObject*>(object)->ob_item;
-                size = Py_SIZE(object);
+            if (user_steps_ != seen) [[unlikely]] {
+                seen = user_steps_;
+                // A tuple cannot have changed; the macros answer for both, as
+                // in write_sequence_body, and this costs nothing until a step
+                // has actually run.
+                size = PySequence_Fast_GET_SIZE(object);
+                items = PySequence_Fast_ITEMS(object);
             }
         }
         out_.ensure(1);
@@ -418,8 +436,9 @@ class Serializer {
                 return false;
             // Re-read for the reason the main loop does: the Frame keeps the
             // sequence alive, but user code below can still have moved its
-            // items. This path is the depth boundary, so it pays the macro's
-            // type test rather than hoisting it.
+            // items. This path is the depth boundary -- one sequence per
+            // document at most -- so it re-reads unconditionally and pays the
+            // macro's type test, rather than consulting `user_steps_`.
             size = PySequence_Fast_GET_SIZE(object);
             items = PySequence_Fast_ITEMS(object);
         }
@@ -710,10 +729,25 @@ class Serializer {
      * document with no array-of-records — `flat`, `wide_arrays` — must not
      * fetch this body at all, and write_sequence must stay the small loop
      * every array in every document runs (inlined here it costs write_sequence
-     * +545 instructions and +80 frame bytes under the profile). What it no
-     * longer carries either way is a staging array: the row is the leased row
-     * of this nesting level (SchemaCacheLease::StagedRow), so neither this
-     * function nor any function it is folded into declares one.
+     * +545 instructions and +80 frame bytes under the profile, on AArch64).
+     *
+     * It is out of line on **x86-64 too**, and that was checked rather than
+     * assumed: this attribute arrived with the re-entrancy fix, and the same
+     * revision lost 2–6% on the x86 serializer rows, so E26-P6 proposed
+     * letting x86-64 inline the body again as it did through 32c5fa4. Its own
+     * codegen refuses that. Inlined into write_sequence on this source, the
+     * per-key loop of every record goes from 10 to 23 frame-relative
+     * accesses on the Darwin/frame-pointer view and 11 to 17 with
+     * `-fomit-frame-pointer`, because write_sequence's own loop-carried
+     * values then compete for the five allocatable callee-saved GPRs with the
+     * record loop's — a cost per *key*, against out-of-lining's one call per
+     * *record*. 32c5fa4's inlined form paid only 9 because it carried neither
+     * the deferred frame nor the row lock the fix requires
+     * (build/evidence/E26-P6/IMPL.md §3).
+     *
+     * What this function carries no version of is a staging array: the row is
+     * the leased row of this nesting level (SchemaCacheLease::StagedRow), so
+     * neither this function nor any function it is folded into declares one.
      */
     [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
 #if defined(STRATA_RAW_DICT_WALK)
@@ -919,7 +953,7 @@ class Serializer {
         // path runs and raises exactly as before.
         if (cacheable && count > 0 && all_scalar &&
             open_.size() < static_cast<size_t>(depth_limit_))
-            return write_mapping_body(object, keys, values, count, own_from);
+            return write_mapping_body(object, count, own_from);
 
         const Frame frame(*this, object);
         if (frame.repeated())
@@ -937,7 +971,7 @@ class Serializer {
             out_.write("{}", 2);
             return true;
         }
-        return write_mapping_body(object, keys, values, count, own_from);
+        return write_mapping_body(object, count, own_from);
     }
 
     // One out-of-line copy, deliberately. It was force-inlined into both call
@@ -949,13 +983,20 @@ class Serializer {
     // of this body plus the fused writer's own loop were three copies of the
     // key-emit machinery in hot text; this keeps one.
     ///
+    /// The staged keys and values are *not* parameters: this level's row is
+    /// `staged_row(map_depth_)`, the very row the caller filled, so passing
+    /// its two halves would spend two of SysV x86-64's six integer argument
+    /// registers re-stating what one index recomputes. With them the signature
+    /// took all six, which cost `this` its callee-saved register and reloaded
+    /// it from the frame twice per key in the loop below
+    /// (build/evidence/E26-P6/CODEGEN.md §4a, H2). AAPCS64 never noticed.
+    ///
     /// @param own_from The first index of the staged row that outlives a step
     ///        that can run user code: the index just past the first value that
     ///        can run any, or @p count for an all-scalar record, whose empty
     ///        range registers nothing.
-    [[nodiscard]] STRATA_NOINLINE_HOT bool
-    write_mapping_body(PyObject* object, PyObject* const* keys, PyObject* const* values,
-                       Py_ssize_t count, Py_ssize_t own_from) {
+    [[nodiscard]] STRATA_NOINLINE_HOT bool write_mapping_body(PyObject* object, Py_ssize_t count,
+                                                              Py_ssize_t own_from) {
         // Documents are overwhelmingly made of records that share a schema, so
         // the same keys get escape-scanned and quoted once per record.
         // Remembering the previous object's keys turns all of that into one
@@ -970,6 +1011,12 @@ class Serializer {
         const size_t depth = map_depth_;
         if (depth >= kMaxCachedDepth)
             return write_mapping_uncached(object);
+
+        // The row the caller staged for this level, re-derived rather than
+        // passed: same address, two argument registers cheaper (see above).
+        SchemaCacheLease::StagedRow& staged = staged_row(depth);
+        PyObject* const* const keys = staged.keys;
+        PyObject* const* const values = staged.values;
 
         // From the first value that can run user code on, the staged row is
         // registered: that code can empty the dict these pointers are borrowed
@@ -1262,6 +1309,9 @@ class Serializer {
             owner_->rows_ = node_->next;
             if (!node_->latched)
                 return;
+            // Latched, so these releases can reach zero and run a `__del__`
+            // -- the fourth user-code step, same as close_container's.
+            ++owner_->user_steps_;
             for (unsigned index = node_->first; index < node_->last; ++index)
                 Py_DECREF(node_->row[index]);
         }
@@ -1310,6 +1360,10 @@ class Serializer {
      * at the first one already latched.
      */
     STRATA_COLD_FN void latch() noexcept {
+        // Before the ownership work, so a step that raises still leaves the
+        // counter moved: every borrowed loop bound above is then stale by
+        // assumption, which is the safe answer.
+        ++user_steps_;
         while (owned_ < open_.size()) {
             Py_INCREF(open_[owned_]);
             ++owned_;
@@ -1327,6 +1381,11 @@ class Serializer {
         open_.pop_back();
         if (owned_ > open_.size()) {
             owned_ = open_.size();
+            // This release can reach zero and fire a `__del__` or a weakref
+            // callback -- the fourth user-code step -- so the counter moves
+            // before it runs and every enclosing element loop re-derives its
+            // bounds. A container the walk never latched does not get here.
+            ++user_steps_;
             Py_DECREF(container);
         }
     }
@@ -1347,6 +1406,48 @@ class Serializer {
 
     StagedOutput& out_;
     std::vector<PyObject*> open_;
+    /**
+     * Counts the walk's user-code steps: bumped once at every point where
+     * this file's contract says Python can run, and never reset.
+     *
+     * The sites are exactly the four the file header enumerates, and the
+     * bumps sit at these three places:
+     *
+     *   1. `latch()`, at its head -- it is called immediately before each of
+     *      the three steps that *invoke* user code (the cycle warning from
+     *      `emit_cycle_placeholder` and from `Frame::handle_cycle`, an `int`
+     *      subclass's `__str__`, and a large exact `int`'s `_pylong` decimal
+     *      conversion, both in `write_int`);
+     *   2. `close_container()`, on the arm that releases a latched container
+     *      -- step 4, a `__del__` or weakref callback out of the walk's own
+     *      `Py_DECREF`;
+     *   3. `~RowLock`, on the arm that releases a latched row -- step 4
+     *      again, from the other guard that holds the walk's references.
+     *
+     * `write_sequence` reads it across each element and re-derives the list's
+     * `ob_item`/`ob_size` only when it moved: an element that ran nothing
+     * cannot have resized the list. Re-reading unconditionally costs SysV
+     * x86-64 two frame stores and a memory back-edge compare per element,
+     * because five allocatable callee-saved registers do not hold the loop's
+     * live set (build/evidence/E26-P6/CODEGEN.md §4b and IMPL.md §2.2).
+     *
+     * Sixty-four bits, not thirty-two, so "the counter moved" needs no
+     * wraparound argument: one walk cannot take 2^64 steps, and the loop
+     * compares for equality rather than order. The wider load and compare are
+     * one instruction either way on both supported architectures.
+     *
+     * Sites 2 and 3 are belt and braces: a release can only fire user code
+     * from a *latched* guard, and a guard is latched only if `latch()` ran
+     * between the guard's registration and its destruction -- both inside the
+     * same element, so site 1 already moved the counter before any observer
+     * checks it. They are bumped anyway, on branches that are not taken on
+     * ordinary documents, so that a future change to that structural argument
+     * cannot silently un-freshen the loop.
+     *
+     * A new step added below this walk without a bump is a use-after-free;
+     * see the header's "a lazily-resolved static ... is a fifth step".
+     */
+    uint64_t user_steps_ = 0;
     /// `open_[0 … owned_)` hold a strong reference; the rest are borrowed.
     size_t owned_ = 0;
     /// Innermost registered staged row; see RowLock.
