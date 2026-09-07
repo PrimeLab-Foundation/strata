@@ -1,5 +1,46 @@
 # September 7 plan execution
 
+## Published revision follow-up
+
+The human published `75cfb422ede723193706740309d7509adf327f2b` on
+`work/september-7-plan`. Two complete five-platform benchmark runs now measure
+that exact revision:
+
+| Platform       | Run 34143749167 | Run 34143751498 |
+| -------------- | --------------- | --------------- |
+| Linux ARM64    | 26/27           | 26/27           |
+| Linux x86_64   | 27/27           | 27/27           |
+| macOS ARM64    | 25/27           | 27/27           |
+| macOS x86_64   | 26/27           | 27/27           |
+| Windows x86_64 | 24/27           | 26/27           |
+| Total          | 128/135         | 133/135         |
+
+[First run](https://github.com/PrimeLab-Foundation/strata/actions/runs/34143749167)
+and [second run](https://github.com/PrimeLab-Foundation/strata/actions/runs/34143751498)
+both passed every PGO build and supportability job. No rounded ties were
+reported. Linux ARM64 `dumps mixed` missed against orjson by 8.00% / 2.29%;
+Windows `dumps mixed` missed by 3.33% / 1.46%. Other misses appeared only in
+the first run: macOS ARM file dump flat/mixed, macOS Intel dumps mixed, and
+Windows file dump nested/mixed. Neither run establishes the 135/135 objective.
+
+`make bench-ci` fetched the second run and regenerated
+`docs/benchmarks/ci_summary.md` and all five report/companion pairs. Every
+platform has complete, verified provenance. Whole artifact sets and run
+metadata for both runs are archived under
+`build/evidence/september-7-plan/ci-<run-id>/`; the cross-run inventory is
+`pushed-ci-comparison.json`. The latest summary is not a replacement for the
+less favorable first run. Local failed regression gates remain unresolved.
+
+[Draft PR #1](https://github.com/PrimeLab-Foundation/strata/pull/1) triggers the
+correctness matrix, which only runs on main pushes or pull requests.
+[Correctness run 34143887223](https://github.com/PrimeLab-Foundation/strata/actions/runs/34143887223)
+completed successfully, including all Python-version endpoints, coverage,
+lint, fuzz sanitizers, and the macOS bindings sanitizer gate.
+PGO runs inside each Benchmarks supportability job: `PGO+LTO build (gate tests on both phases)` on POSIX and `clang-cl PGO build (gate tests on both phases)`
+on Windows. It is not a separate job in the correctness workflow.
+
+## Pre-publication execution record
+
 Branch: `work/september-7-plan`, based on
 `3f45c9c751b1500b7b27992411209f1382670a91`. No commits or pushes were made.
 The original three untracked review/plan documents were preserved.

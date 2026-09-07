@@ -1,5 +1,17 @@
 # Experiment ledger
 
+## Published September 7 verification: `75cfb42`
+
+Two complete same-revision benchmark runs, 34143749167 and 34143751498,
+passed PGO and supportability on all five platforms and scored **128/135**
+and **133/135**. Linux ARM64 and Windows `dumps mixed` missed in both runs;
+the other misses varied. There are no rounded ties. `make bench-ci` refreshed
+the tracked reports, raw companions, and `ci_summary.md` from the second run.
+Both whole artifact sets remain archived. This completes the two-run evidence
+collection, but does not satisfy 135/135 or resolve the local failed regression
+gate. Details and exact per-platform counts are in
+[the execution record](plan-execution-2026-09-07.md#published-revision-follow-up).
+
 ## September 7 plan continuation on `work/september-7-plan`
 
 Baseline: `3f45c9c`, the current main integration. The three pre-existing
