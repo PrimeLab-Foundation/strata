@@ -7,9 +7,12 @@ name: A/B x86
 # the same PGO recipe on one runner, then alternates their extensions in one
 # interpreter slot with orjson timed in the same process as the drift
 # control (benchmarks/ab_rows.py -> rows_probe.py, the instrument P0 built
-# and E26-P5/P5b used on the M1). An A/A block of the base revision gives the
-# floor. On Linux it also records perf per arm and reads the serializer's
-# frame sizes and stack-protector sites from the two binaries.
+# and E26-P5/P5b used on the M1). An A/A run of the base revision against
+# itself gives the floor, at the same block count as the comparison: the
+# floor is a bootstrap over blocks, so a control with fewer blocks than the
+# candidate is a weaker interval read as if it were the same one. On Linux it
+# also records perf per arm and reads the serializer's frame sizes and
+# stack-protector sites from the two binaries.
 #
 # Diagnostic only: nothing here writes docs/benchmarks/ or gates anything.
 
@@ -33,7 +36,9 @@ jobs:
   ab:
     name: A/B (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 150
+    # Two PGO builds, then 2 x (4 x blocks + 1) launches: the A/A run now
+    # matches the comparison's block count instead of running two blocks.
+    timeout-minutes: 210
     strategy:
       fail-fast: false
       matrix:
@@ -109,16 +114,31 @@ jobs:
       - name: A-B-B-A rounds, then an A/A floor
         run: |
           TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
-          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
+          # The file rows (load / ndload / dump) are real file operations, not
+          # a subtraction of two in-memory medians; rows_probe.py mirrors
+          # bench_main's rival compositions for each of them.
+          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row small:wide_arrays:load --row small:users:ndload --row small:wide_arrays:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
             --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/R1.stderr
+          # The same block count as the comparison: the floor is
+          # max(|ci low|, |ci high|) of a bootstrap over blocks, and a
+          # two-block control resamples two values -- ~51% coverage in
+          # simulation against ~94% at six, which is not a floor a small
+          # effect can be certified against (ab_blocks.MIN_CONTROL_BLOCKS,
+          # which makes the tools say so when it is not met).
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A.so \
-            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks 2 --repeat "${{ inputs.repeat }}" 2> ab/AA.stderr
+            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/AA.stderr
           for w in R1 AA; do
             PYTHONPATH=. .venv/bin/python benchmarks/ab_builds.py --analyze ab/$w.tsv > ab/${w}_analyze.txt
             PYTHONPATH=. .venv/bin/python benchmarks/ab_floor.py ab/$w.tsv > ab/${w}_floor.txt
-            .venv/bin/python benchmarks/ab_blocks.py ab/$w.tsv > ab/${w}_blocks.txt
           done
+          # One estimator: R1's effect and interval printed beside the A/A
+          # floor of the same statistic. ab_builds --analyze and ab_floor are
+          # views over benchmarks/ab_blocks.py, so the three files agree by
+          # construction.
+          PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py ab/R1.tsv --aa ab/AA.tsv \
+            --json ab/R1_effect.json > ab/R1_blocks.txt
+          PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py ab/AA.tsv > ab/AA_blocks.txt
           echo "== R1 block-paired, normalised"; cat ab/R1_blocks.txt
           echo "== AA"; cat ab/AA_blocks.txt
 
@@ -130,14 +150,14 @@ jobs:
               nm -S --size-sort -C arms/$arm.so | grep -E 'Serializer|dumps' > ab/symbols.$arm.txt || true
               objdump -d -C --no-show-raw-insn arms/$arm.so | awk '
                 /^[0-9a-f]+ <.*>:$/ { fn=$0; sub(/^[0-9a-f]+ </,"",fn); sub(/>:$/,"",fn); printed=0; chk=0; next }
-                /sub +\$0x[0-9a-f]+,%rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %d\n", fn, strtonum(substr($0,RSTART+1,RLENGTH-1)); printed=1 }
+                /sub[ \t]+\$0x[0-9a-f]+,%rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %d\n", fn, strtonum(substr($0,RSTART+1,RLENGTH-1)); printed=1 }
                 /__stack_chk_fail/ { printf "%s stack_chk\n", fn }
               ' | grep -E 'Serializer' | sort | uniq -c | sort -k2 > ab/frames.$arm.txt || true
             else
               nm -m arms/$arm.so | grep -E 'Serializer' | c++filt > ab/symbols.$arm.txt || true
               otool -tvV arms/$arm.so | awk '
                 /^_.*:$/ { fn=$0; sub(/:$/,"",fn); printed=0; next }
-                /subq +\$0x[0-9a-f]+, %rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %s\n", fn, substr($0,RSTART+1,RLENGTH-1); printed=1 }
+                /subq[ \t]+\$0x[0-9a-f]+, %rsp/ && !printed { match($0,/\$0x[0-9a-f]+/); printf "%s frame %s\n", fn, substr($0,RSTART+1,RLENGTH-1); printed=1 }
                 /___stack_chk_fail|___stack_chk_guard/ { printf "%s stack_chk\n", fn }
               ' | c++filt | grep -E 'Serializer' | sort | uniq -c | sort -k2 > ab/frames.$arm.txt || true
             fi
@@ -160,8 +180,12 @@ jobs:
           import json, time, strata
           doc = json.load(open("benchmarks/data/generated/small/$ds.json"))
           end = time.perf_counter() + 4.0
+          # return_type="bytes": the CI `dumps` row and rows_probe's
+          # strata-bytes engine both measure the bytes call, and the public
+          # default is text. Profiling the text call would attribute this row
+          # to a different code path than the one it is behind on.
           while time.perf_counter() < end:
-              strata.dumps(doc)
+              strata.dumps(doc, return_type="bytes")
           PY
               $PERF report -i ab/perf.$arm.$ds.data --stdio --no-children --sort symbol 2>/dev/null | grep -v '^#' | grep -v '^$' | head -40 > ab/perf_report.$arm.$ds.txt || true
             done

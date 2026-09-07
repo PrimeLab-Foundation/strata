@@ -372,6 +372,15 @@ def _compile_args() -> list[str]:
         args.extend(_optimization_args()[0])
         return args
     args = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
+    if platform.machine() in ("x86_64", "AMD64"):
+        # SysV x86-64 leaves five allocatable callee-saved registers with %rbp
+        # pinned and six without. Linux clang already omits the frame pointer
+        # at -O3; Apple clang keeps it, and on that build the serializer's
+        # record writer evicts `this` to the stack in its per-key loop
+        # (E26-P6, build/evidence/E26-P6/CODEGEN.md). One flag makes the
+        # x86-64 builds the same shape; arm64 keeps its frame pointer (the
+        # AAPCS64 register file never runs out here).
+        args.append("-fomit-frame-pointer")
     # -march=native tunes for the build host; a universal2 wheel targets two
     # architectures at once and cannot use it. STRATA_MARCH names a target
     # explicitly (e.g. x86-64-v3 for a build a cache simulator can run: the

@@ -11,8 +11,9 @@ VPY := $(VENV)/bin/python
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
         test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
-        bench-data bench-small bench-medium bench-large bench-all bench-baseline \
+        bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
+        probe-ab-analyze probe-ab-floor \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -154,12 +155,28 @@ bench-baseline: venv  ## Record the small tier as the regression baseline
 	PYTHONPATH=. $(VPY) -m benchmarks.regression_check \
 		$(BENCH_REPORTS)/bench_results_small.md --save-baseline
 
-bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+# The gate itself, through the one user-facing interface: >2% median/p95 or
+# >5% RSS against benchmarks/results/baseline.json is fix-or-revert, and a
+# comparison that covers less than the baseline's scope for this report is
+# missing evidence, not a pass (docs/context/benchmarks.md).
+BENCH_REPORT ?= $(BENCH_REPORTS)/bench_results_small.md
 
-bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports
-	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary
+bench-check: venv  ## Gate a benchmark report against the recorded baseline (BENCH_REPORT)
+	PYTHONPATH=. $(VPY) -m benchmarks.regression_check $(BENCH_REPORT)
+
+# Flags forwarded to both halves of the CI standings pipeline. They share
+# --expect, --expect-platforms and --allow-incomplete, and a deliberately
+# scoped run has to say so to both: fetching a partial run and then summarizing
+# it as if it were complete is exactly the false pass these gates exist to
+# stop. E.g. `make bench-ci BENCH_CI_FLAGS=--allow-incomplete`.
+BENCH_CI_FLAGS ?=
+
+bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary (BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch $(BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
+
+bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports (BENCH_CI_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
 
 # ---------------------------------------------------------------------------
 # Diagnostic probes
@@ -186,6 +203,7 @@ probe-ab-builds: venv  ## A-B-B-A rounds over two extension builds (BUILD_A, BUI
 		--target $(shell $(VPY) -c 'import strata._strata as m; print(m.__file__)') \
 		--out $(PROBE_OUT) --blocks $(PROBE_BLOCKS) --repeat $(PROBE_REPEAT)
 
+# tier:dataset:op — op is dumps, loads, load, ndload or dump.
 PROBE_ROWS ?= --row small:mixed:dumps --row small:mixed:loads
 
 probe-ab-rows: venv  ## A-B-B-A rounds over two builds on named tier:dataset:op rows (BUILD_A, BUILD_B, PROBE_ROWS, PROBE_OUT)
@@ -193,6 +211,16 @@ probe-ab-rows: venv  ## A-B-B-A rounds over two builds on named tier:dataset:op 
 		--build A=$(BUILD_A) --build B=$(BUILD_B) \
 		--target $(shell $(VPY) -c 'import strata._strata as m; print(m.__file__)') \
 		--out $(PROBE_OUT) $(PROBE_ROWS) --blocks $(PROBE_BLOCKS) --repeat $(PROBE_REPEAT)
+
+# The one A/B analysis: effect, block-bootstrap interval and, with PROBE_AA,
+# the A/A floor in the same estimator (benchmarks/ab_blocks.py).
+PROBE_AA ?=
+
+probe-ab-analyze: venv  ## Read a driver TSV: effect + interval + A/A floor (PROBE_OUT, PROBE_AA)
+	$(PROBE_RUN) benchmarks/ab_blocks.py $(PROBE_OUT) $(if $(PROBE_AA),--aa $(PROBE_AA),)
+
+probe-ab-floor: venv  ## Read an A/A TSV as the session's resolution floor (PROBE_OUT)
+	$(PROBE_RUN) benchmarks/ab_floor.py $(PROBE_OUT)
 
 # ---------------------------------------------------------------------------
 # Lint / format
