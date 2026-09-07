@@ -30,8 +30,12 @@ The estimator, stated once:
   is made of. Resampling launches instead would report an interval for a
   different statistic.
 * **The A/A control** is the identical estimator over two launches of the same
-  binary, with a comparable block count. Its interval half-width is the floor:
-  an effect inside it is not resolvable in that session.
+  binary, with a comparable block count. Its floor is `max(|ci low|, |ci
+  high|)` — the further of the interval's two ends from zero — and an effect
+  inside it is not resolvable in that session. A control of fewer than
+  `MIN_CONTROL_BLOCKS` blocks is reported with a warning: a bootstrap can only
+  resample the block effects it has, and two of them do not make a 95%
+  interval.
 * **Raw strata, raw rival and normalised** effects are printed from the same
   packet, side by side. A rival that moved as much as strata did is drift; a
   rival that moved on its own is a shared-process effect, and the reader is
@@ -46,7 +50,7 @@ row, a non-finite or non-positive sample, and a launch with fewer samples than
 
 usage:
   ab_blocks.py <tsv> [<tsv> ...] [--baseline A] [--pair A:B]
-               [--aa <tsv>] [--min-samples 10] [--json <path>]
+               [--aa <tsv>] [--min-samples N] [--json <path>]
 """
 
 from __future__ import annotations
@@ -64,6 +68,20 @@ from pathlib import Path
 BOOTSTRAP_SEED = 42
 BOOTSTRAP_RESAMPLES = 2000
 BLOCK = 4
+
+# The one minimum every front end applies. `ab_floor.py`, `ab_builds.py
+# --analyze` and `ab_rows.py` all take their default from here, so the three
+# views of one packet cannot disagree about whether it is valid: a packet with
+# short launches is refused by all of them or by none (the 7 September review's
+# T3 follow-up, defect 2).
+DEFAULT_MIN_SAMPLES = 10
+
+# Below this many blocks the bootstrap interval is not a 95% interval: it can
+# only resample the block effects that exist, so a two-block control's interval
+# spans its two block effects and nothing else. A simulation of the estimator
+# (4000 synthetic sessions) measures ~51% coverage at two blocks against ~94%
+# at six, which is why a floor from a short control is announced as one.
+MIN_CONTROL_BLOCKS = 4
 
 # The rival for a strata engine, per operation. `rows_probe.py` names its
 # engines after the call it timed, and the canonical row's composition
@@ -124,7 +142,7 @@ def _tag_key(tag: str) -> tuple[str, int, str]:
     return (tag, int(digits) if digits else -1, digits)
 
 
-def read_launches(path: Path, *, min_samples: int = 10) -> list[Launch]:
+def read_launches(path: Path, *, min_samples: int = DEFAULT_MIN_SAMPLES) -> list[Launch]:
     """Parse a driver TSV into launches, in the order they ran.
 
     Order comes from the `tag` column (`L00`, `L01`, ...), which the drivers
@@ -210,6 +228,7 @@ class Structure:
     leading: list[Launch]
     trailing: list[Launch]
     launches: list[Launch]
+    dropped: list[Launch]
 
 
 def build_structure(
@@ -247,6 +266,7 @@ def build_structure(
     other = others[0]
 
     by_index = {launch.index: launch for launch in launches}
+    kept = {launch.index for launch in selected}
     blocks: list[Block] = []
     position = 0
     # Baseline launches before the first block: the mirror of the trailing
@@ -299,6 +319,7 @@ def build_structure(
         leading=leading,
         trailing=trailing,
         launches=selected,
+        dropped=[launch for launch in launches if launch.index not in kept],
     )
 
 
@@ -316,7 +337,12 @@ class Interval:
 
     @property
     def floor(self) -> float:
-        """The half an effect must exceed to be distinguishable from nothing."""
+        """`max(|low|, |high|)`: the interval end furthest from zero.
+
+        An effect smaller than this is inside the interval an A/A session —
+        two builds known to be identical — produced, so the session cannot
+        distinguish it from nothing.
+        """
         return max(abs(self.low), abs(self.high))
 
 
@@ -431,7 +457,7 @@ def analyze(
     *,
     baseline: str | None = None,
     pair: tuple[str, str] | None = None,
-    min_samples: int = 10,
+    min_samples: int = DEFAULT_MIN_SAMPLES,
 ) -> Analysis:
     """Read one driver TSV and produce the packet's single analysis."""
     launches = read_launches(path, min_samples=min_samples)
@@ -490,12 +516,43 @@ def _percent(value: float | None) -> str:
     return "     -" if value is None else f"{value * 100:+.2f}%"
 
 
+def control_warning(control: Analysis) -> str | None:
+    """The sentence a short A/A control must be printed with, or None.
+
+    A floor is quoted as if it were a 95% bound; from two blocks it is not
+    one, and a reader comparing a small effect against it deserves to be told
+    so on the same page (the 7 September review's T3 follow-up, defect 3).
+    """
+    count = len(control.structure.blocks)
+    if count >= MIN_CONTROL_BLOCKS:
+        return None
+    return (
+        f"WARNING: the A/A control has {count} block"
+        f"{'' if count == 1 else 's'}; a bootstrap over fewer than "
+        f"{MIN_CONTROL_BLOCKS} blocks resamples too few values to be a 95% interval "
+        "(~51% coverage at two blocks in simulation, ~94% at six). Read this "
+        "floor as a lower bound on the session's true floor, and re-run the "
+        "control with the candidate's block count before certifying an effect "
+        "on the floor alone."
+    )
+
+
 def render(analysis: Analysis, *, control: Analysis | None = None, detail: bool = True) -> str:
     """The packet as text: identity, structure, effects, then drift."""
     structure = analysis.structure
+    selected = {launch.tag for launch in structure.launches}
     lines = [
         f"file: {analysis.path}",
-        "launches: " + " ".join(f"{launch.tag}:{launch.build}" for launch in structure.launches),
+        # Every launch in the file, including the ones `--pair` dropped: a
+        # gap in the tag sequence is not a readable account of what was left
+        # out (the 7 September review's T3 follow-up, defect 5).
+        "launches: "
+        + " ".join(
+            f"{launch.tag}:{launch.build}" + ("" if launch.tag in selected else "(dropped)")
+            for launch in sorted(
+                structure.launches + structure.dropped, key=lambda launch: launch.index
+            )
+        ),
         f"baseline: {structure.base}   candidate: {structure.other}   "
         f"blocks: {len(structure.blocks)}   "
         f"leading: {' '.join(launch.tag for launch in structure.leading) or 'none'}   "
@@ -505,6 +562,9 @@ def render(analysis: Analysis, *, control: Analysis | None = None, detail: bool 
     ]
     if control is not None:
         lines.append(f"A/A control: {control.path} ({len(control.structure.blocks)} blocks)")
+        warning = control_warning(control)
+        if warning is not None:
+            lines.append(warning)
     lines.append("")
     header = (
         f"{'row':<22}{'engine':<14}{'rival':<14}{'blk':>4}"
@@ -538,7 +598,8 @@ def render(analysis: Analysis, *, control: Analysis | None = None, detail: bool 
     lines.append("ci: bootstrap over whole blocks of the median block effect (2000 resamples).")
     if control is not None:
         lines.append(
-            "A/A: the identical estimator on two launches of one binary; floor = its wider half."
+            "A/A: the identical estimator on two launches of one binary; "
+            "floor = max(|ci low|, |ci high|)."
         )
     if structure.trailing:
         lines.append("")
@@ -563,6 +624,9 @@ def to_json(analysis: Analysis, control: Analysis | None = None) -> dict:
         "launches": [
             {"tag": launch.tag, "build": launch.build} for launch in analysis.structure.launches
         ],
+        "dropped": [
+            {"tag": launch.tag, "build": launch.build} for launch in analysis.structure.dropped
+        ],
         "rows": [],
     }
     for series in analysis.series:
@@ -583,6 +647,7 @@ def to_json(analysis: Analysis, control: Analysis | None = None) -> dict:
             if match is not None:
                 entry["aa_effect"] = match.effect
                 entry["aa_floor"] = match.interval.floor
+                entry["aa_blocks"] = len(control.structure.blocks)
         payload["rows"].append(entry)
     return payload
 
@@ -594,7 +659,7 @@ def _pair(text: str) -> tuple[str, str]:
     return (first, second)
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("tsv", nargs="+", type=Path)
     parser.add_argument("--baseline", default=None, help="the build label of arm A")
@@ -602,16 +667,23 @@ def main(argv: list[str] | None = None) -> int:
         "--pair", type=_pair, default=None, help="A:B, when the packet has three arms"
     )
     parser.add_argument("--aa", type=Path, default=None, help="an A/A packet to read as the floor")
-    parser.add_argument("--min-samples", type=int, default=10)
+    parser.add_argument("--min-samples", type=int, default=DEFAULT_MIN_SAMPLES)
     parser.add_argument("--json", type=Path, default=None, help="write the analysis as JSON too")
     parser.add_argument("--no-detail", action="store_true", help="omit the per-block effects")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     control = None
     if args.aa is not None:
         control = analyze(
             args.aa, baseline=args.baseline, pair=args.pair, min_samples=args.min_samples
         )
+        warning = control_warning(control)
+        if warning is not None:
+            print(warning, file=sys.stderr)
 
     payloads = []
     for index, path in enumerate(args.tsv):

@@ -16,10 +16,11 @@ silently produced no normalised reading at all for the `loads` rows; the rival
 is now chosen per operation by `ab_blocks.RIVAL_BY_ENGINE`.
 
 What it adds to `ab_blocks.py` is the framing: the effect column is noise by
-construction, and the `floor` column — the wider half of the block-bootstrap
-interval — is the number a candidate effect must exceed before it is an
-effect at all. Two blocks is a weak floor and the block count is printed so a
-reader can see when that is what they have.
+construction, and the `floor` column — `max(|ci low|, |ci high|)`, the end of
+the block-bootstrap interval furthest from zero — is the number a candidate
+effect must exceed before it is an effect at all. A control of fewer than
+`ab_blocks.MIN_CONTROL_BLOCKS` blocks cannot carry a 95% interval at all, and
+says so in its own output rather than leaving the block count to be noticed.
 
 usage: ab_floor.py <tsv> [<tsv> ...] [--baseline A] [--pair A:B] [--min-samples N]
 """
@@ -52,18 +53,25 @@ def render_floor(analysis: ab_blocks.Analysis) -> str:
     lines += [
         "",
         "effect/ci: the same block estimator ab_blocks.py reports -- known to be zero here.",
-        "floor:     the wider half of the interval; an effect below it is not resolvable.",
+        "floor:     max(|ci low|, |ci high|); an effect below it is not resolvable.",
     ]
+    warning = ab_blocks.control_warning(analysis)
+    if warning is not None:
+        lines += ["", warning]
     return "\n".join(lines)
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("tsv", nargs="+", type=Path)
     parser.add_argument("--baseline", default=None)
     parser.add_argument("--pair", type=ab_blocks._pair, default=None)
-    parser.add_argument("--min-samples", type=int, default=10)
-    args = parser.parse_args(argv)
+    parser.add_argument("--min-samples", type=int, default=ab_blocks.DEFAULT_MIN_SAMPLES)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     for index, path in enumerate(args.tsv):
         if index:

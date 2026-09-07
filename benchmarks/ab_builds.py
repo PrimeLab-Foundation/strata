@@ -22,8 +22,12 @@ Safety, all four rules learned the hard way (the 7 September review, finding 5):
 * The driver overwrites the extension of the checkout it lives in and refuses
   any other target. Point it at another tree's `.so` and it exits.
 * The extension that was installed when the run started is **copied aside
-  first and restored in a `finally`**, then re-hashed. A campaign that ends —
-  or crashes — must not leave one of its arms installed as the product.
+  first and restored in a `finally`**, then re-hashed. That covers a run that
+  finishes and a run that raises — including a failing launch. It cannot
+  cover a signal: a `kill -9` (or a lost machine) leaves an arm installed and
+  the saved copy behind as `<target>.ab_original`. The recovery is the *next*
+  run, which finds that copy and puts the original back before taking one of
+  its own; the original is never overwritten by an arm.
 * Every completed launch's samples are **appended to the TSV and flushed
   immediately**, so a failure at launch 19 keeps launches 0-18 instead of
   discarding the whole session.
@@ -36,6 +40,10 @@ usage:
   ab_builds.py --build A=<so> --build B=<so> --target <so> --out <tsv>
                [--order ABBA] [--blocks 3] [--tail A] [--repeat 60]
   ab_builds.py --analyze <tsv> [--baseline-build A] [--min-samples N]
+
+The `--min-samples` default is `ab_blocks.DEFAULT_MIN_SAMPLES`, shared with
+`ab_blocks.py` and `ab_floor.py`: the three views of a packet agree on whether
+it is valid.
 """
 
 from __future__ import annotations
@@ -121,15 +129,54 @@ class InstalledExtension:
     The restore is unconditional (`finally` in `drive`) and is followed by a
     hash check, because "the run finished, so the tree is clean" is exactly the
     assumption that left arm A installed after a successful campaign.
+
+    A `<target>.ab_original` that is already there when this object is built
+    is a previous campaign's saved product — the state a signal leaves, since
+    a killed driver never reaches its `finally`. Copying the target over it,
+    which this class used to do unconditionally, destroys the only copy of the
+    product and then "restores" an arm over it (the 7 September review's T3
+    follow-up, defect 1). So the leftover copy decides what happens: identical
+    to the installed file, the previous run did restore and the copy is stale
+    scrap this run reuses as its own backup; different, the installed file is
+    that run's arm and the copy is the product, put back before anything else.
     """
 
     def __init__(self, target: Path) -> None:
         self.target = _check_target(target)
         if not self.target.exists():
             raise SystemExit(f"no extension to swap at {self.target}")
-        self.digest = _digest(self.target)
         self.backup = self.target.with_name(self.target.name + ".ab_original")
-        shutil.copy2(self.target, self.backup)
+        if self.backup.exists():
+            self._recover()
+        else:
+            shutil.copy2(self.target, self.backup)
+        self.digest = _digest(self.target)
+
+    def _recover(self) -> None:
+        """Read the leftover backup before writing anything."""
+        saved = _digest(self.backup)
+        if saved == _digest(self.target):
+            print(
+                f"# {self.backup} matches the installed extension: a stale backup of an "
+                "intact original, reused as this run's backup",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+        print(
+            f"# {self.backup} (md5={saved}) is not the installed extension "
+            f"(md5={_digest(self.target)}): a previous run was killed before it could "
+            f"restore. Putting {self.target} back from it before this run starts.",
+            file=sys.stderr,
+            flush=True,
+        )
+        shutil.copy2(self.backup, self.target)
+        restored = _digest(self.target)
+        if restored != saved:
+            raise SystemExit(
+                f"recovery failed: {self.target} is {restored}, the saved original was "
+                f"{saved}; the saved copy is kept at {self.backup}"
+            )
 
     def install(self, source: Path) -> str:
         shutil.copy2(source, self.target)
@@ -272,7 +319,9 @@ def run(args: argparse.Namespace) -> int:
         return command
 
     drive(order, builds, target, Path(args.out), subprocess_launch(command_for, args.env))
-    return analyze(argparse.Namespace(analyze=args.out, baseline_build=order[0]))
+    return analyze(
+        argparse.Namespace(analyze=args.out, baseline_build=order[0], min_samples=args.min_samples)
+    )
 
 
 def analyze(args: argparse.Namespace) -> int:
@@ -282,10 +331,15 @@ def analyze(args: argparse.Namespace) -> int:
     which is also what `ab_floor.py` prints and what the reading rule in the
     ledger refers to. This file contributes the per-launch view and nothing
     else, so `--analyze` and `ab_blocks.py` cannot report two different effects
-    for one packet (the 7 September review, finding 4).
+    for one packet (the 7 September review, finding 4). The minimum sample
+    count comes from there too: a packet the other views refuse as too short
+    is refused here as well, rather than read at a laxer default.
     """
     path = Path(args.analyze)
-    launches = ab_blocks.read_launches(path, min_samples=getattr(args, "min_samples", 1))
+    min_samples = getattr(args, "min_samples", None)
+    if min_samples is None:
+        min_samples = ab_blocks.DEFAULT_MIN_SAMPLES
+    launches = ab_blocks.read_launches(path, min_samples=min_samples)
     engines = sorted({engine for launch in launches for engine, _ in launch.samples})
     datasets = sorted({row for launch in launches for _, row in launch.samples})
 
@@ -305,13 +359,13 @@ def analyze(args: argparse.Namespace) -> int:
     analysis = ab_blocks.analyze(
         path,
         baseline=args.baseline_build,
-        min_samples=getattr(args, "min_samples", 1),
+        min_samples=min_samples,
     )
     print(ab_blocks.render(analysis))
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--analyze", help="read a TSV this tool wrote and report, without measuring"
@@ -326,7 +380,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repeat", type=int, default=60)
     parser.add_argument("--tier", default="small")
     parser.add_argument("--dataset", action="append", default=None)
-    parser.add_argument("--min-samples", type=int, default=1)
+    parser.add_argument("--min-samples", type=int, default=ab_blocks.DEFAULT_MIN_SAMPLES)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     args.env = dict(os.environ)
 
@@ -339,4 +398,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except ab_blocks.AnalysisError as error:
+        print(f"error: {error}", file=sys.stderr)
+        raise SystemExit(2) from None

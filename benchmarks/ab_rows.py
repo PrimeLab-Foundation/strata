@@ -10,7 +10,9 @@ probe cannot measure at all.
 Everything that decides a number is imported from `ab_builds` unchanged —
 `drive` (the swap, the incremental TSV, the restore in `finally`), `_digest`,
 `_check_target` and `analyze`, which is itself a view over
-`benchmarks/ab_blocks`. This file contains no statistics of its own.
+`benchmarks/ab_blocks`. This file contains no statistics of its own, and its
+`--min-samples` default is `ab_blocks.DEFAULT_MIN_SAMPLES`, so a packet this
+driver reads back is judged valid by exactly the rule the other views apply.
 
 usage:
   ab_rows.py --build A=<so> --build B=<so> --target <so> --out <tsv>
@@ -25,7 +27,7 @@ import os
 import sys
 from pathlib import Path
 
-from benchmarks import ab_builds
+from benchmarks import ab_blocks, ab_builds
 
 
 def run(args: argparse.Namespace) -> int:
@@ -67,7 +69,7 @@ def run(args: argparse.Namespace) -> int:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build", action="append", default=[], help="TAG=PATH")
     parser.add_argument("--target", required=True)
@@ -77,7 +79,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--blocks", type=int, default=6)
     parser.add_argument("--tail", default="A")
     parser.add_argument("--repeat", type=int, default=60)
-    parser.add_argument("--min-samples", type=int, default=1)
+    parser.add_argument("--min-samples", type=int, default=ab_blocks.DEFAULT_MIN_SAMPLES)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
     if len(args.build) < 2:
         parser.error("measuring needs --build TAG=PATH twice")
@@ -85,4 +92,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except ab_blocks.AnalysisError as error:
+        print(f"error: {error}", file=sys.stderr)
+        raise SystemExit(2) from None

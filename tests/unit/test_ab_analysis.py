@@ -24,12 +24,13 @@ launch out of order, a non-finite sample — must not produce a number at all.
 
 from __future__ import annotations
 
+import argparse
 import math
 from pathlib import Path
 
 import pytest
 
-from benchmarks import ab_blocks, ab_builds, ab_floor
+from benchmarks import ab_blocks, ab_builds, ab_floor, ab_rows
 
 ORDER = "ABBAABBAABBAA"  # three complete blocks and a trailing baseline
 DRIFT = 0.015  # per launch, applied to both engines
@@ -49,6 +50,7 @@ def _session(
     drop_rival_at: str | None = None,
     start: int = 0,
     baseline: str = "A",
+    samples: int = SAMPLES,
 ) -> list[str]:
     """A TSV body whose true block effect is `effect` on the affected row.
 
@@ -68,7 +70,7 @@ def _session(
             row_effect = effect if row in ENGINE_RIVAL else 0.0
             strata_ms = 1.0 * host * ((1.0 + row_effect) if candidate else 1.0)
             rival_ms = 2.0 * host * ((1.0 + rival_effect) if candidate else 1.0)
-            for number in range(SAMPLES):
+            for number in range(samples):
                 # A deterministic ripple, so the medians are not identical
                 # across launches and the bootstrap has something to resample.
                 jitter = 1.0 + 0.001 * ((number % 5) - 2)
@@ -242,8 +244,6 @@ def test_ab_floor_and_ab_builds_print_the_estimator_s_numbers(tmp_path, capsys):
     assert expected in floor_text
     assert "orjson-loads" in floor_text  # the loads row has a rival here too
 
-    import argparse
-
     assert (
         ab_builds.analyze(
             argparse.Namespace(analyze=str(path), baseline_build="A", min_samples=SAMPLES)
@@ -413,3 +413,160 @@ def test_every_probe_engine_has_a_rival_in_the_analysis():
         "strata-dump",
     ):
         assert engine in ab_blocks.RIVAL_BY_ENGINE
+
+
+# --- one minimum, one verdict on a packet's validity ------------------------
+
+
+def test_every_front_end_shares_one_min_samples_default():
+    """Three views of one packet must agree on whether it is readable.
+
+    `ab_builds.analyze` and `ab_rows.run` used to default to one sample per
+    launch while `ab_blocks` and `ab_floor` demanded ten, so a short packet
+    was refused by two tools and reported by the third (the 7 September
+    review's T3 follow-up, defect 2).
+    """
+    default = ab_blocks.DEFAULT_MIN_SAMPLES
+    assert default == 10
+    for module in (ab_blocks, ab_floor, ab_builds, ab_rows):
+        assert module.build_parser().get_default("min_samples") == default
+
+
+def test_a_short_packet_is_refused_by_every_front_end(tmp_path):
+    """Five samples a launch, read at the shared default: nobody accepts it."""
+    path = _write(tmp_path, _session(samples=5), name="short.tsv")
+
+    with pytest.raises(ab_blocks.AnalysisError, match="fewer than the required 10"):
+        ab_blocks.main([str(path)])
+    with pytest.raises(ab_blocks.AnalysisError, match="fewer than the required 10"):
+        ab_floor.main([str(path)])
+    with pytest.raises(ab_blocks.AnalysisError, match="fewer than the required 10"):
+        ab_builds.main(["--analyze", str(path)])
+    # The same call without a `min_samples` attribute at all: the fallback in
+    # `ab_builds.analyze` is the shared default, not the old 1.
+    with pytest.raises(ab_blocks.AnalysisError, match="fewer than the required 10"):
+        ab_builds.analyze(argparse.Namespace(analyze=str(path), baseline_build="A"))
+
+
+# --- a short A/A control announces that it is one ---------------------------
+
+
+def test_a_two_block_control_is_announced_as_a_weak_floor(tmp_path, capsys):
+    """A floor from two blocks is not a 95% bound and must not read as one."""
+    candidate = _write(tmp_path, _session())
+    control = _write(tmp_path, _session("ABBAABBAA", effect=0.0), name="AA.tsv")
+    assert (
+        ab_blocks.main([str(candidate), "--aa", str(control), "--min-samples", str(SAMPLES)]) == 0
+    )
+    captured = capsys.readouterr()
+    assert "WARNING: the A/A control has 2 blocks" in captured.out
+    assert "51% coverage" in captured.out
+    assert "WARNING" in captured.err  # and on stderr, where a CI log keeps it
+    assert "max(|ci low|, |ci high|)" in captured.out  # not "the wider half"
+
+
+def test_a_four_block_control_carries_no_warning(tmp_path, capsys):
+    control = _write(tmp_path, _session("ABBA" * 4 + "A", effect=0.0), name="AA4.tsv")
+    candidate = _write(tmp_path, _session())
+    assert (
+        ab_blocks.main([str(candidate), "--aa", str(control), "--min-samples", str(SAMPLES)]) == 0
+    )
+    captured = capsys.readouterr()
+    assert "A/A control" in captured.out
+    assert "WARNING" not in captured.out and "WARNING" not in captured.err
+
+
+def test_ab_floor_warns_on_its_own_short_control(tmp_path, capsys):
+    control = _write(tmp_path, _session("ABBAABBAA", effect=0.0), name="AA.tsv")
+    assert ab_floor.main([str(control), "--min-samples", str(SAMPLES)]) == 0
+    text = capsys.readouterr().out
+    assert "WARNING: the A/A control has 2 blocks" in text
+    assert "max(|ci low|, |ci high|)" in text
+
+
+# --- --pair says what it dropped -------------------------------------------
+
+
+def test_pair_names_the_launches_it_dropped(tmp_path):
+    """A gap in the tag sequence is not an account of what was left out."""
+    lines = _session("ABBA", effect=EFFECT)
+    lines += _session("ACCA", effect=0.09, start=4)
+    path = _write(tmp_path, lines, name="three.tsv")
+
+    analysis = ab_blocks.analyze(path, pair=("A", "C"), min_samples=SAMPLES)
+    assert [launch.tag for launch in analysis.structure.dropped] == ["L01", "L02"]
+    launches = [
+        line for line in ab_blocks.render(analysis).splitlines() if line.startswith("launches:")
+    ]
+    assert launches == [
+        "launches: L00:A L01:B(dropped) L02:B(dropped) L03:A L04:A L05:C L06:C L07:A"
+    ]
+    assert ab_blocks.to_json(analysis)["dropped"] == [
+        {"tag": "L01", "build": "B"},
+        {"tag": "L02", "build": "B"},
+    ]
+
+
+# --- a killed campaign's original survives the next run ---------------------
+
+
+def test_a_stale_backup_matching_the_target_is_reused(tmp_path, monkeypatch, capsys):
+    """`.ab_original` equal to the installed file is scrap from a finished run."""
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    original = target.read_bytes()
+    backup = target.with_name(target.name + ".ab_original")
+    backup.write_bytes(original)
+
+    ab_builds.drive(list("ABBAA"), _arms(tmp_path), target, tmp_path / "run.tsv", lambda i, t: [])
+
+    assert target.read_bytes() == original
+    assert not backup.exists()
+    assert "matches the installed extension" in capsys.readouterr().err
+
+
+def test_a_killed_campaigns_original_is_restored_not_clobbered(tmp_path, monkeypatch, capsys):
+    """The state a `kill -9` leaves: an arm installed, the product aside.
+
+    The driver used to copy the target over that backup unconditionally, so
+    the next run saved the *arm* as the original, "restored" it and deleted
+    the only copy of the product (the 7 September review's T3 follow-up,
+    defect 1).
+    """
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    original = target.read_bytes()
+    arms = _arms(tmp_path)
+    backup = target.with_name(target.name + ".ab_original")
+    backup.write_bytes(original)
+    target.write_bytes(arms["B"].read_bytes())  # the killed run's arm, still installed
+
+    ab_builds.drive(list("ABBAA"), arms, target, tmp_path / "run.tsv", lambda i, t: [])
+
+    assert target.read_bytes() == original
+    assert not backup.exists()
+    message = capsys.readouterr().err
+    assert "killed before it could restore" in message
+    # and what it put back at the end is the product, not the arm it found
+    assert f"restored {target} to md5={ab_builds._digest(target)}" in message
+
+
+def test_the_recovered_original_is_what_a_failing_run_puts_back(tmp_path, monkeypatch):
+    """Recovery then failure: the product is still the product afterwards."""
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    original = target.read_bytes()
+    arms = _arms(tmp_path)
+    target.with_name(target.name + ".ab_original").write_bytes(original)
+    target.write_bytes(arms["A"].read_bytes())
+
+    def launch(index, tag):
+        if index == 2:
+            raise SystemExit("launch 02 (B) failed with 1")
+        return [f"L{index:02d}\t{tag}\tstrata-bytes\trow\t0\t1.0"]
+
+    with pytest.raises(SystemExit):
+        ab_builds.drive(list("ABBAA"), arms, target, tmp_path / "run.tsv", launch)
+
+    assert target.read_bytes() == original
+    assert not target.with_name(target.name + ".ab_original").exists()

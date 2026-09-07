@@ -7,9 +7,12 @@ name: A/B x86
 # the same PGO recipe on one runner, then alternates their extensions in one
 # interpreter slot with orjson timed in the same process as the drift
 # control (benchmarks/ab_rows.py -> rows_probe.py, the instrument P0 built
-# and E26-P5/P5b used on the M1). An A/A block of the base revision gives the
-# floor. On Linux it also records perf per arm and reads the serializer's
-# frame sizes and stack-protector sites from the two binaries.
+# and E26-P5/P5b used on the M1). An A/A run of the base revision against
+# itself gives the floor, at the same block count as the comparison: the
+# floor is a bootstrap over blocks, so a control with fewer blocks than the
+# candidate is a weaker interval read as if it were the same one. On Linux it
+# also records perf per arm and reads the serializer's frame sizes and
+# stack-protector sites from the two binaries.
 #
 # Diagnostic only: nothing here writes docs/benchmarks/ or gates anything.
 
@@ -33,7 +36,9 @@ jobs:
   ab:
     name: A/B (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 150
+    # Two PGO builds, then 2 x (4 x blocks + 1) launches: the A/A run now
+    # matches the comparison's block count instead of running two blocks.
+    timeout-minutes: 210
     strategy:
       fail-fast: false
       matrix:
@@ -115,8 +120,14 @@ jobs:
           ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row small:wide_arrays:load --row small:users:ndload --row small:wide_arrays:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
             --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/R1.stderr
+          # The same block count as the comparison: the floor is
+          # max(|ci low|, |ci high|) of a bootstrap over blocks, and a
+          # two-block control resamples two values -- ~51% coverage in
+          # simulation against ~94% at six, which is not a floor a small
+          # effect can be certified against (ab_blocks.MIN_CONTROL_BLOCKS,
+          # which makes the tools say so when it is not met).
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A.so \
-            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks 2 --repeat "${{ inputs.repeat }}" 2> ab/AA.stderr
+            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/AA.stderr
           for w in R1 AA; do
             PYTHONPATH=. .venv/bin/python benchmarks/ab_builds.py --analyze ab/$w.tsv > ab/${w}_analyze.txt
             PYTHONPATH=. .venv/bin/python benchmarks/ab_floor.py ab/$w.tsv > ab/${w}_floor.txt
