@@ -1,9 +1,4 @@
-name: Profile
-
-# On this branch the file profile.yml IS the A/B workflow (ab_x86.yml with
-# its inputs fixed: A = 2ac7dbe, the main this branch forks from; B = this
-# ref), because the dispatch API only resolves workflow names that exist on
-# the default branch.
+name: A/B x86
 
 # Same-machine A-B-B-A of two revisions on the x86 legs (E26-P6). The five-
 # platform samples can only compare strata against its rivals within one
@@ -20,6 +15,19 @@ name: Profile
 
 on:
   workflow_dispatch:
+    inputs:
+      base_ref:
+        description: "revision A (the before)"
+        default: "32c5fa4"
+      cand_ref:
+        description: "revision B (the after); the checkout that runs the probe"
+        default: "main"
+      blocks:
+        description: "ABBA blocks"
+        default: "6"
+      repeat:
+        description: "repeats per row per launch"
+        default: "60"
 
 jobs:
   ab:
@@ -54,6 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.cand_ref }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -82,7 +91,7 @@ jobs:
 
       - name: Build A (base) with the same recipe in a worktree
         run: |
-          git worktree add ../base 2ac7dbe
+          git worktree add ../base "${{ inputs.base_ref }}"
           cd ../base
           make install-bench
           make pgo
@@ -102,9 +111,9 @@ jobs:
           TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
           ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
-            --target "$TARGET" --out ab/R1.tsv $ROWS --blocks 6 --repeat 60 2> ab/R1.stderr
+            --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/R1.stderr
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A.so \
-            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks 2 --repeat 60 2> ab/AA.stderr
+            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks 2 --repeat "${{ inputs.repeat }}" 2> ab/AA.stderr
           for w in R1 AA; do
             PYTHONPATH=. .venv/bin/python benchmarks/ab_builds.py --analyze ab/$w.tsv > ab/${w}_analyze.txt
             PYTHONPATH=. .venv/bin/python benchmarks/ab_floor.py ab/$w.tsv > ab/${w}_floor.txt
