@@ -68,7 +68,10 @@ buffer and to_chars integer formatting are in place. M10 added, on the dumps
 side: the staged output buffer (raw stores, one string append per 8KB), the
 homogeneous int/float/bool/str array runs, the micro-decimal dtoa tier, the
 SWAR escape-scan tier, and the per-depth schema cache — thread-local, leased
-across calls, keys owned. On the loads side: single-scan number conversion
+across calls, keys owned. A re-entrant call finds that lease busy and takes a
+*private* state, which releases its remembered keys as the call ends, while the
+shared per-thread state stays immortal and holds its own for the life of the
+thread. On the loads side: single-scan number conversion
 with the exact-arithmetic double path, one-lookup dict inserts
 (`PyDict_SetDefault` for FirstWins), **speculative key matching**
 (`try_match_key` through the parser hook, per-depth predictions owning their

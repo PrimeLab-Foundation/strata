@@ -31,11 +31,13 @@ The cache is thread-local, so every body that depends on cache state runs on a
 fresh thread — a shape remembered by one test must not reach the next.
 """
 
+import gc
 import itertools
 import json
 import sys
 import threading
 import warnings
+import weakref
 
 import pytest
 
@@ -95,6 +97,33 @@ def reentrant(callback):
             return int.__str__(self)
 
     return Reentrant(BIG)
+
+
+class Sentinel:
+    """Inert and weakref-capable, so its collection is observable."""
+
+    __slots__ = ("__weakref__",)
+
+
+class SlotClearer(int):
+    """Beyond int64, so `__str__` runs inside the walk (api.md) — and drops the
+    record the walk has already written out of the document that held it.
+
+    Lists are followed live, element by element, so replacing element 0 while
+    the walk stands on element 1 is well defined and leaves the output alone.
+    Its only purpose is to release a record mid-call: the keys that record held
+    then have exactly one owner left, the schema slot that remembered them.
+    """
+
+    def __new__(cls, document, sentinel):
+        value = int.__new__(cls, BIG)
+        value.document = document
+        value.sentinel = sentinel
+        return value
+
+    def __str__(self):
+        self.document[0] = None
+        return int.__str__(self)
 
 
 def key_delta(document, keys, mode, calls=100):
@@ -208,6 +237,77 @@ def test_a_nested_nested_call_releases_its_own_private_state(mode):
         return key_delta(outer, [middle_key, inner_key], mode, calls=50)
 
     assert in_fresh_cache(body) == [0, 0]
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_a_nested_call_that_retires_a_depth_releases_every_way(mode):
+    """Shapes that never repeat retire the depth, and the release runs anyway.
+
+    Past 64 misses at one depth `DepthSchemas` retires it, and the 64th miss
+    invalidated a way to make room. Those ways are already invalidated when the
+    lease ends, so `release_keys` invalidates them a *second* time — the double
+    release the ownership rule has to survive. It does because `forget()` is
+    idempotent: an emptied `keys` releases nothing. A drift of `-1` here would
+    be one reference released twice.
+    """
+
+    def body():
+        keys = [fresh_key(f"retire{index}") for index in range(200)]
+        records = [{key: 1} for key in keys]
+
+        def nested():
+            for record in records:
+                strata.dumps(record, return_type=mode)
+
+        outer = [reentrant(nested)]
+        return key_delta(outer, keys, mode, calls=5)
+
+    assert in_fresh_cache(body) == [0] * 200
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_a_nested_call_frees_the_keys_it_is_the_last_owner_of(mode):
+    """The release is a real deallocation, not just a lowered count.
+
+    Every other case keeps its keys alive in an enclosing scope, so the lease's
+    `Py_DECREF` only decrements. Here the record is dropped from the document
+    *while the same nested call is still walking it* (`SlotClearer`), leaving
+    the private schema slot as the keys' only owner — so `release_keys` is what
+    frees them, and this is the case that would report a use-after-free under
+    the ASan gate if the release ran while anything still read `key_row`.
+
+    The keys are never named outside the callback, so correctness is checked
+    structurally: `json.loads` builds its own strings and pins nothing.
+    """
+    watched = []
+    verdicts = []
+
+    def body():
+        def nested():
+            sentinel = Sentinel()
+            watched.append(weakref.ref(sentinel))
+            document = [{fresh_key("last-owner"): 1, fresh_key("last-owner"): 2}, None]
+            document[1] = SlotClearer(document, sentinel)
+            output = strata.dumps(document, return_type=mode)
+            parsed = json.loads(output.decode() if mode == "bytes" else output)
+            verdicts.append(
+                document[0] is None
+                and parsed[1] == BIG
+                and len(parsed) == 2
+                and len(parsed[0]) == 2
+                and sorted(parsed[0].values()) == [1, 2],
+            )
+
+        outer = [reentrant(nested)]
+        for _ in range(200):
+            strata.dumps(outer, return_type=mode)
+
+    in_fresh_cache(body)
+    # `document` and its `SlotClearer` are a cycle, so the callback's scope
+    # needs a collection before the sentinel can go.
+    gc.collect()
+    assert verdicts == [True] * 200
+    assert [reference() for reference in watched] == [None] * 200
 
 
 def test_a_warning_hook_that_serializes_releases_its_keys():

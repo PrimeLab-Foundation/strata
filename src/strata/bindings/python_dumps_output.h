@@ -318,9 +318,16 @@ class SchemaCacheLease {
         /// that the compiler's rule rather than a comment's. No destructor is
         /// declared here on purpose: one would suppress the implicit moves and
         /// silently turn that relocation back into a copy.
+        ///
+        /// The moves are defaulted *without* an explicit `noexcept`: written
+        /// out, the specification would be believed rather than computed
+        /// (C++20 P1286R2), and a future throwing member would call
+        /// `std::terminate` mid-relocation instead of failing the
+        /// `is_nothrow_move_constructible_v` assertion below. Deduced, that
+        /// assertion is a real guard.
         Schema() = default;
-        Schema(Schema&&) noexcept = default;
-        Schema& operator=(Schema&&) noexcept = default;
+        Schema(Schema&&) = default;
+        Schema& operator=(Schema&&) = default;
         Schema(const Schema&) = delete;
         Schema& operator=(const Schema&) = delete;
 
