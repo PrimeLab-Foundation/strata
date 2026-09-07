@@ -461,8 +461,11 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   scope retirement per input as wave 22 did for the parse-side predictor.
   Not the row's cause (the P0 reordered-records control shows no schema
   rotation effect); a robustness item for P4.
-- Outcome: accepted on two i7 draws; on `exp/p6p7-integration` with the P6
-  change
+- Historical outcome entry: "accepted on two i7 draws; on
+  `exp/p6p7-integration` with the P6 change". Correction (2026-09-07): this
+  attribution is unsupported by `cb22551`, whose source still permanently
+  retires the cache. Reopened under the benchmark-lead plan; do not treat
+  those i7 draws as evidence for per-document recovery.
 
 ## E26-P3 — keep the dict writer's staging rows out of the per-value dispatcher
 

@@ -13,7 +13,7 @@ VPY := $(VENV)/bin/python
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
-        probe-ab-analyze probe-ab-floor probe-file-costs bench-supportability \
+        probe-ab-analyze probe-ab-floor probe-file-costs probe-schema-recovery bench-supportability \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -23,6 +23,9 @@ BENCH_REPEAT ?= 10
 BENCH_WARMUP ?= 2
 FILE_COST_DATASET ?= benchmarks/data/generated/small/mixed.json
 FILE_COST_OUTPUT ?= build/evidence/file-costs.json
+SCHEMA_RECOVERY_OUTPUT ?= build/evidence/schema-recovery.json
+probe-schema-recovery: venv  ## Diagnose the effect of unrelated schema churn on later serialization
+	PYTHONPATH=. $(VPY) -m benchmarks.schema_recovery --repeat $(PROBE_REPEAT) --output $(SCHEMA_RECOVERY_OUTPUT)
 probe-file-costs: venv  ## Real-file diagnostic phase controls with raw samples
 	PYTHONPATH=. $(VPY) -m benchmarks.file_costs --dataset $(FILE_COST_DATASET) --output $(FILE_COST_OUTPUT) --repeat $(PROBE_REPEAT)
 bench-supplementary: venv  ## NDJSON search and folder controls; separate supplementary v1 scope

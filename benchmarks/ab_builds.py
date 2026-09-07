@@ -50,6 +50,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
+import re
 import os
 import shutil
 import statistics
@@ -242,6 +244,28 @@ def _check_target(target: Path) -> Path:
     return resolved
 
 
+def _check_build_identity(path: Path) -> None:
+    """Refuse unverified or known-incompatible arms before swapping anything."""
+    sidecar = path.with_name(path.name + ".build.json")
+    try:
+        metadata = json.loads(sidecar.read_text())
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"missing or invalid build identity for {path}: {exc}") from exc
+    if metadata.get("extension_sha256") != hashlib.sha256(path.read_bytes()).hexdigest():
+        raise SystemExit(f"build identity hash mismatch: {path}")
+    # Older identities have no explicit ABI field. Their compiler include
+    # paths still identify versioned CPython headers on POSIX. Unversioned
+    # Windows include paths cannot establish ABI compatibility this way.
+    versions = set(
+        re.findall(r"python(3\.\d+)(?:/|\\|\")", json.dumps(metadata.get("commands", [])))
+    )
+    current = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if versions and versions != {current}:
+        raise SystemExit(
+            f"incompatible Python headers for {path}: {sorted(versions)}; running {current}"
+        )
+
+
 def parse_builds(entries: list[str]) -> dict[str, Path]:
     builds: dict[str, Path] = {}
     for entry in entries:
@@ -251,6 +275,7 @@ def parse_builds(entries: list[str]) -> dict[str, Path]:
         builds[tag] = Path(path).resolve()
         if not builds[tag].exists():
             raise SystemExit(f"no such build: {builds[tag]}")
+        _check_build_identity(builds[tag])
     return builds
 
 

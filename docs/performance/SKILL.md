@@ -21,6 +21,19 @@ historical E26-P8 or establish a quiet-machine regression pass. Keep canonical
 and interleaved evidence distinct; details and remaining dependencies are in
 [the execution record](plan-execution-2026-09-07.md).
 
+## Benchmark-lead campaign (2026-09-07)
+
+No runtime optimization accepted. Per-document schema recovery repairs the
+reproduced history cliff (15.33 us warm versus 21.46 us after churn on the
+baseline; 14.17 versus 14.10 us on the prototype), but its canonical gate
+failed. The combined schema/file-newline prototype passed correctness and
+ASan/UBSan, then failed canonical regression checks in all three sizes and
+lost the small file `dump flat` row. Six-block, 60-sample ABBA and matching
+A/A controls found no resolved normalized gain beyond the corresponding
+floor. Both prototypes were removed from production and preserved as
+selectable patch experiments. Do not count either as a win or revive it as an
+accepted optimization. See the [plan and complete execution decision](benchmark-lead-plan-2026-09-07.md).
+
 ## What won (chronological — all on the pre-reset main line, `backup/pre-reset-main`, tip `c0e3b5a`)
 
 | Commit               | Technique                                                                                                                  | Effect / rationale                                                                |

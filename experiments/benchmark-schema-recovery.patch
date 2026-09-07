@@ -1,0 +1,141 @@
+diff --git a/src/strata/bindings/python_dumps_output.h b/src/strata/bindings/python_dumps_output.h
+index 74aee98..d858853 100644
+--- a/src/strata/bindings/python_dumps_output.h
++++ b/src/strata/bindings/python_dumps_output.h
+@@ -514,6 +514,15 @@ class SchemaCacheLease {
+             State* const state = shared();
+             if (state != nullptr) {
+                 busy_ = true;
++                // Churn disables speculation only for the current document.
++                // Preserve prepared ways and their owned keys, but give the
++                // next input a fresh miss budget. This idle shared lease has
++                // no live rows; re-entrant calls below acquire private state
++                // and never reset the outer serializer's cache.
++                for (DepthSchemas& depth : state->schemas) {
++                    depth.misses = 0;
++                    depth.retired = false;
++                }
+                 state_ = state;
+                 owns_flag_ = true;
+                 return;
+diff --git a/tests/unit/test_dumps_reentrancy.py b/tests/unit/test_dumps_reentrancy.py
+index 9e024e4..427334c 100644
+--- a/tests/unit/test_dumps_reentrancy.py
++++ b/tests/unit/test_dumps_reentrancy.py
+@@ -59,11 +59,9 @@ def _dump(obj, mode):
+ def _on_a_fresh_thread(call):
+     """Run `call` on a new thread and re-raise whatever it raised.
+ 
+-    The schema cache is thread-local and a depth retires after 64 misses,
+-    never to un-retire (E26-AUDIT §3): under the canonical run order
+-    `tests/py/`'s random corpus retires the shallow depths on the main thread,
+-    and `write_record_fused` then bails to `write_mapping` for the rest of the
+-    process. A fused-writer test that runs there proves nothing.
++    The schema cache is thread-local. A fresh thread isolates prepared ways
++    and owned keys from previous tests; retirement itself is now scoped to
++    one serialization call.
+     """
+     box = {}
+ 
+@@ -327,12 +325,12 @@ def test_the_fused_record_writer_survives_a_mutated_record(mode, action):
+ def test_the_fused_writer_and_the_general_path_agree_under_mutation(mode):
+     """Two identical documents, one emitted fused and one not, byte for byte.
+ 
+-    A retired thread routes every record through `write_mapping`; a fresh one
+-    routes the tail of the list through `write_record_fused`. The row both
+-    emit is the row they read, so the bytes match.
++    Churn earlier in the same document routes later records through
++    `write_mapping`; without that prefix they use `write_record_fused`.
++    The row both emit is the row they read, so the suffix bytes match.
+     """
+ 
+-    def build():
++    def build(prefix=()):
+         record = {"a": 8, "b": None, "c": "x"}
+ 
+         def mutate():
+@@ -342,14 +340,16 @@ def test_the_fused_writer_and_the_general_path_agree_under_mutation(mode):
+         record["b"] = [_big_trigger(_Once(mutate))]
+         doc = [{"a": index, "b": [index], "c": "x"} for index in range(8)]
+         doc.append(record)
+-        return _dump(doc, mode)
++        out = _dump([*prefix, *doc], mode)
++        if prefix:
++            prefix_text = _compact(prefix)
++            assert out.startswith(prefix_text[:-1] + ",")
++            return "[" + out[len(prefix_text) :]
++        return out
+ 
+     def retire_then_build():
+-        # 200 one-off shapes at depth 1 push `select` past its 64-miss
+-        # retirement, so the same document is emitted by write_mapping.
+-        for index in range(200):
+-            strata.dumps([{f"one_off_{index}": index}])
+-        return build()
++        # Retirement must occur inside this call; a prior call now recovers.
++        return build([{f"one_off_{index}": index} for index in range(200)])
+ 
+     assert _on_a_fresh_thread(build) == _on_a_fresh_thread(retire_then_build)
+ 
+diff --git a/tests/unit/test_dumps_schema_recovery.py b/tests/unit/test_dumps_schema_recovery.py
+new file mode 100644
+index 0000000..8be82ab
+--- /dev/null
++++ b/tests/unit/test_dumps_schema_recovery.py
+@@ -0,0 +1,56 @@
++"""A document's schema churn must not disable caching of later documents.
++
++Output follows api.md's serialization contract. Owned-key counts additionally
++pin recovery without timing assertions or a public cache-inspection API.
++"""
++
++import json
++import sys
++
++import pytest
++
++import strata
++
++
++@pytest.mark.parametrize("mode", ["str", "bytes"])
++@pytest.mark.parametrize("history", ["one-call", "separate-calls", "failed-call"])
++def test_stable_schema_recovers_after_unrelated_documents(mode, history):
++    churn = [{f"unrelated-recovery-key-{i}": i} for i in range(200)]
++    if history == "separate-calls":
++        for record in churn:
++            strata.dumps([record], return_type=mode)
++    elif history == "failed-call":
++        with pytest.raises(TypeError):
++            strata.dumps([*churn, object()], return_type=mode)
++    else:
++        strata.dumps(churn, return_type=mode)
++
++    key = "".join(["stable", "-recovery-owned-key"])
++    records = [{key: i} for i in range(10)]
++    before = sys.getrefcount(key)
++    for _ in range(3):
++        assert json.loads(strata.dumps(records, return_type=mode)) == records
++    assert sys.getrefcount(key) == before + 1
++
++    # Retirement still bounds work within one adversarial document and releases
++    # its previous exact-string keys, including the recovered stable schema.
++    strata.dumps(churn, return_type=mode)
++    assert sys.getrefcount(key) == before
++
++
++@pytest.mark.parametrize("mode", ["str", "bytes"])
++def test_reentrant_churn_does_not_retire_outer_schema(mode):
++    key = "".join(["outer", "-recovery-owned-key"])
++    records = [{key: i} for i in range(10)]
++    strata.dumps(records, return_type=mode)
++
++    class Nested(int):
++        def __str__(self):
++            strata.dumps([{f"nested-churn-{i}": i} for i in range(200)])
++            return "7"
++
++    doc = [*records, {key: Nested(2**70)}, *records]
++    expected = [*records, {key: 7}, *records]
++    before = sys.getrefcount(key)
++    assert json.loads(strata.dumps(doc, return_type=mode)) == expected
++    assert sys.getrefcount(key) == before

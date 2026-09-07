@@ -1,0 +1,302 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..dd1d7a0 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -1496,7 +1496,7 @@ bool set_cycle_policy(std::string_view name) noexcept {
+     return true;
+ }
+ 
+-PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
++PyObject* dumps_to_python(PyObject* object, bool as_bytes, bool trailing_newline) {
+     SchemaCacheLease lease;
+     if (!lease.ok())
+         return PyErr_NoMemory();
+@@ -1516,13 +1516,21 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
+         // round trip cost 13 us on the Windows runners and 13 us on macOS
+         // against 2 us for an exact-fit block (benchmarks/
+         // alloc_roundtrip_probe.py; docs/decisions.md 2026-09-03).
+-        static thread_local size_t size_hint = kDumpsInitialCapacity;
++        // File output includes its newline before sealing the private bytes
++        // object. Keep its exact-size hint independent of public dumps():
++        // alternating those APIs must not cause a resize on every call.
++        static thread_local size_t size_hints[2] = {kDumpsInitialCapacity, kDumpsInitialCapacity};
++        size_t& size_hint = size_hints[trailing_newline ? 1 : 0];
+         StagedOutput staged;
+         if (!staged.init_bytes(size_hint))
+             return PyErr_NoMemory();
+         Serializer serializer(staged, lease.state());
+         if (!serializer.write(object))
+             return nullptr;
++        if (trailing_newline) {
++            staged.ensure(1);
++            staged.put('\n');
++        }
+         PyObject* result = staged.take_bytes();
+         if (result != nullptr)
+             size_hint = static_cast<size_t>(PyBytes_GET_SIZE(result));
+diff --git a/src/strata/bindings/python_files.cpp b/src/strata/bindings/python_files.cpp
+index 2c0c535..af5a176 100644
+--- a/src/strata/bindings/python_files.cpp
++++ b/src/strata/bindings/python_files.cpp
+@@ -20,7 +20,6 @@
+ #ifndef _WIN32
+ #include <fcntl.h>
+ #include <sys/stat.h>
+-#include <sys/uio.h>
+ #include <unistd.h>
+ #else
+ #include <fcntl.h>
+@@ -222,7 +221,10 @@ PyObject* load_from_file(const char* path, const char* return_type, bool iterato
+ }
+ 
+ PyObject* dump_to_file(PyObject* object, const char* path) {
+-    PyRef text(dumps_to_python(object, /*as_bytes=*/true));
++    // Add the newline while the result is still private and writable. This
++    // avoids a second Windows write without copying a sealed bytes object.
++    // Serialization still finishes before opening or truncating the file.
++    PyRef text(dumps_to_python(object, /*as_bytes=*/true, /*trailing_newline=*/true));
+     if (!text)
+         return nullptr;
+ 
+@@ -242,43 +244,39 @@ PyObject* dump_to_file(PyObject* object, const char* path) {
+     // neither it nor creation alone can be trusted.
+     constexpr mode_t kDocumentedMode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+     const int fd = ::open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, kDocumentedMode);
++#else
++    const int fd = ::_open(path, _O_WRONLY | _O_CREAT | _O_TRUNC | _O_BINARY | _O_NOINHERIT,
++                           _S_IREAD | _S_IWRITE);
++#endif
+     if (fd < 0) {
+         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+         return nullptr;
+     }
+ 
+-    // One vectored write covers the document and the documented trailing
+-    // newline: the newline cannot be appended to the exact-sized immutable
+-    // bytes object, and a second write() syscall for one byte was a
+-    // measurable share of the per-call floor that decides the small-document
+-    // dump rows (folder dump repeats it per group file).
+-    char newline = '\n';
+-    struct iovec parts[2];
+-    parts[0].iov_base = data;
+-    parts[0].iov_len = static_cast<size_t>(size);
+-    parts[1].iov_base = &newline;
+-    parts[1].iov_len = 1;
+-    int active = 0;
+-    while (active < 2) {
+-        const ssize_t wrote = ::writev(fd, parts + active, 2 - active);
++    const char* cursor = data;
++    size_t remaining = static_cast<size_t>(size);
++    while (remaining > 0) {
++        constexpr size_t kMaxSlice = size_t{1} << 30;
++        const size_t chunk = remaining > kMaxSlice ? kMaxSlice : remaining;
++#ifndef _WIN32
++        const ssize_t wrote = ::write(fd, cursor, chunk);
++#else
++        const int wrote = ::_write(fd, cursor, static_cast<unsigned int>(chunk));
++#endif
+         if (wrote <= 0) {
+             if (wrote < 0 && errno == EINTR)
+                 continue;
++            if (wrote == 0)
++                errno = EIO;
+             PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+-            ::close(fd);
++            (void)close_descriptor(fd);
+             return nullptr;
+         }
+-        auto consumed = static_cast<size_t>(wrote);
+-        while (active < 2 && consumed >= parts[active].iov_len) {
+-            consumed -= parts[active].iov_len;
+-            ++active;
+-        }
+-        if (active < 2 && consumed != 0) {
+-            parts[active].iov_base = static_cast<char*>(parts[active].iov_base) + consumed;
+-            parts[active].iov_len -= consumed;
+-        }
++        cursor += wrote;
++        remaining -= static_cast<size_t>(wrote);
+     }
+ 
++#ifndef _WIN32
+     struct stat status;
+     if (::fstat(fd, &status) != 0 || (status.st_mode & 07777) != kDocumentedMode) {
+         if (::fchmod(fd, kDocumentedMode) != 0) {
+@@ -287,47 +285,11 @@ PyObject* dump_to_file(PyObject* object, const char* path) {
+             return nullptr;
+         }
+     }
+-    if (::close(fd) != 0) {
+-        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+-        return nullptr;
+-    }
+-#else
+-    // Same raw-descriptor shape as the POSIX branch, in CRT spelling: stdio's
+-    // fwrite pays a buffer copy and a FILE lock per call, and dropping it was
+-    // the dominant share of the small-document dump win on the POSIX side
+-    // (dump mixed 1.25x -> 1.03x there). Windows has no writev, so the
+-    // documented trailing newline is a second _write; there is no mode
+-    // enforcement here — the exact-0644 contract is POSIX-only (api.md).
+-    const int fd = ::_open(path, _O_WRONLY | _O_CREAT | _O_TRUNC | _O_BINARY | _O_NOINHERIT,
+-                           _S_IREAD | _S_IWRITE);
+-    if (fd < 0) {
+-        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+-        return nullptr;
+-    }
+-    const char* cursor = data;
+-    size_t remaining = static_cast<size_t>(size);
+-    while (remaining > 0) {
+-        const unsigned int chunk =
+-            remaining > (1u << 30) ? (1u << 30) : static_cast<unsigned int>(remaining);
+-        const int wrote = ::_write(fd, cursor, chunk);
+-        if (wrote <= 0) {
+-            PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+-            ::_close(fd);
+-            return nullptr;
+-        }
+-        cursor += wrote;
+-        remaining -= static_cast<size_t>(wrote);
+-    }
+-    if (::_write(fd, "\n", 1) != 1) { // documented trailing newline
+-        PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+-        ::_close(fd);
+-        return nullptr;
+-    }
+-    if (::_close(fd) != 0) {
++#endif
++    if (close_descriptor(fd) != 0) {
+         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+         return nullptr;
+     }
+-#endif
+     Py_RETURN_NONE;
+ }
+ 
+diff --git a/src/strata/bindings/python_types.h b/src/strata/bindings/python_types.h
+index 3eb5770..c062683 100644
+--- a/src/strata/bindings/python_types.h
++++ b/src/strata/bindings/python_types.h
+@@ -48,7 +48,9 @@ inline constexpr size_t kDumpsInitialCapacity = 1024;
+ inline constexpr const char* kDepthExceededMessage = "Maximum nesting depth exceeded";
+ 
+ /// Serialize @p object to JSON as `str`, or as `bytes` when @p as_bytes.
+-[[nodiscard]] PyObject* dumps_to_python(PyObject* object, bool as_bytes);
++/// trailing_newline is internal to file output and is used only with as_bytes.
++[[nodiscard]] PyObject* dumps_to_python(PyObject* object, bool as_bytes,
++                                        bool trailing_newline = false);
+ 
+ /// Resolve everything the serializer would otherwise resolve lazily *inside*
+ /// a walk. Call once, from module init: the raw-dict layout proof allocates
+diff --git a/tests/py/test_json_parity.py b/tests/py/test_json_parity.py
+index 923d60e..710264d 100644
+--- a/tests/py/test_json_parity.py
++++ b/tests/py/test_json_parity.py
+@@ -18,6 +18,20 @@ import pytest
+ 
+ import strata
+ 
++
++def test_file_output_matches_memory_output_after_schema_churn(tmp_path):
++    """api.md: file output adds one newline and retains serialization parity."""
++    strata.dumps([{f"one-off-schema-{i}": i} for i in range(200)])
++    path = tmp_path / "roundtrip.json"
++    for size in (10, 8192, 1, 32768, 10):
++        value = [{"text": "x" * size, "unicode": "é", "enabled": True}]
++        expected = strata.dumps(value, return_type="bytes")
++        strata.dump(value, path)
++        assert path.read_bytes() == expected + b"\n"
++        assert json.loads(path.read_bytes()) == value
++        assert strata.load(path) == value
++
++
+ SEED = 20260809
+ 
+ 
+diff --git a/tests/unit/test_load_dump.py b/tests/unit/test_load_dump.py
+index f8e0dfe..843c496 100644
+--- a/tests/unit/test_load_dump.py
++++ b/tests/unit/test_load_dump.py
+@@ -8,6 +8,8 @@ invalid-line policy that the whole NDJSON contract rests on.
+ import json
+ import os
+ import stat
++import subprocess
++import sys
+ 
+ import pytest
+ 
+@@ -184,6 +186,74 @@ def test_dump_truncates_an_existing_file(tmp_path):
+     assert path.read_text(encoding="utf-8") == '{"a":1}\n'
+ 
+ 
++@pytest.mark.parametrize("length", [0, 1, 4093, 4094, 8190, 8191, 32766, 65536])
++def test_dump_newline_across_output_boundaries_and_memory_calls(tmp_path, length):
++    # api.md: file output adds exactly one newline; dumps never adds one.
++    path = tmp_path / "output.json"
++    value = {"text": "x" * length, "escaped": "\n\t\"", "unicode": "é"}
++    for payload in (value, value, {}, value, [], value):
++        expected = strata.dumps(payload, return_type="bytes")
++        strata.dump(payload, path)
++        assert path.read_bytes() == expected + b"\n"
++        assert strata.dumps(payload, return_type="bytes") == expected
++        assert strata.dumps(payload).encode() == expected
++
++
++def test_failed_serialization_does_not_truncate_file(tmp_path):
++    path = tmp_path / "existing.json"
++    original = b'{"preserve":true}\n'
++    path.write_bytes(original)
++    for value, error in ((object(), TypeError), ({"bad": "\ud800"}, UnicodeEncodeError)):
++        with pytest.raises(error):
++            strata.dump(value, path)
++        assert path.read_bytes() == original
++
++
++@pytest.mark.skipif(os.name == "nt", reason="POSIX resource limits")
++def test_partial_file_write_failure_closes_descriptor(tmp_path):
++    # A real short write followed by EFBIG exercises the native loop; mocking
++    # Python os.write would not affect C++ write(). Limit only a child process.
++    code = """
++import errno, os, resource, signal, sys
++sys.path.insert(0, sys.argv[3])
++import strata
++signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
++original_limit = resource.getrlimit(resource.RLIMIT_FSIZE)
++resource.setrlimit(resource.RLIMIT_FSIZE, (4096, original_limit[1]))
++target = sys.argv[1]
++sentinel = os.open(sys.argv[2], os.O_WRONLY | os.O_CREAT, 0o600)
++os.close(sentinel)
++try:
++    try:
++        strata.dump({'value': 'x' * 16384}, target)
++    except OSError as error:
++        assert error.errno == errno.EFBIG, error
++    else:
++        raise AssertionError('expected a failed partial write')
++    assert os.stat(target).st_size == 4096
++    check = os.open(sys.argv[2], os.O_WRONLY)
++    assert check == sentinel, (check, sentinel)
++    os.close(check)
++finally:
++    # Instrumented builds flush a profile at exit; never truncate that file.
++    resource.setrlimit(resource.RLIMIT_FSIZE, original_limit)
++"""
++    result = subprocess.run(
++        [
++            sys.executable,
++            "-c",
++            code,
++            str(tmp_path / "limited.json"),
++            str(tmp_path / "sentinel"),
++            os.path.dirname(os.path.dirname(strata.__file__)),
++        ],
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    assert result.returncode == 0, result.stderr
++
++
+ @pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+ def test_dump_writes_mode_0644(tmp_path):
+     path = tmp_path / "out.json"

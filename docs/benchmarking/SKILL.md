@@ -424,3 +424,24 @@ bench_main/Makefile/CI; `docs/benchmarks/ci/bench_results_<os>-<arch>.md` +
 (ci_fetch → ci_summary); `benchmarks/results/baseline.json` by
 regression_check; `build/pgo/bench_results_pgo.md` by the PGO pipeline.
 Generated data under `benchmarks/data/generated/` stays gitignored.
+
+## Benchmark-lead diagnostics
+
+`make probe-schema-recovery` measures stable records in fresh processes before
+and after unrelated schema churn. It is a diagnostic scope, not a canonical
+row. `.github/workflows/ab_x86.yml` now prepares same-machine PGO ABBA and
+matching identical-binary controls on all five platforms, including Windows
+and Linux ARM64. File mixed/flat/nested are explicit control rows. Artifacts
+retain both binaries, build identities and PGO inputs. Dispatch after the
+human publishes the branch; an unpublished local candidate has no CI score.
+The CLI drivers require hash-matching `.build.json` sidecars and reject known
+incompatible versioned Python headers before any swap. Older Windows build
+identities use unversioned include paths, so this check alone does not prove
+ABI compatibility there; both workflow builds use the same interpreter.
+
+The workflow's `experiment` choice applies `none`, `schema-recovery`,
+`file-newline`, or `combined` from the checked-in patches before candidate
+build/test gates. These runtime changes are unaccepted and absent from
+production. For a fresh unchanged-source build control, choose `none` and
+set both refs to the same published revision. See
+[experiment instructions](../../experiments/benchmark-lead.md).

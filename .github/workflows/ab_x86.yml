@@ -1,6 +1,6 @@
-name: A/B x86
+name: A/B performance
 
-# Same-machine A-B-B-A of two revisions on the x86 legs (E26-P6). The five-
+# Same-machine A-B-B-A of two revisions on all five platforms. The five-
 # platform samples can only compare strata against its rivals within one
 # run; two revisions land on two runners, and the Windows leg drew three
 # processor models in three draws. This workflow builds BOTH revisions with
@@ -21,10 +21,19 @@ on:
     inputs:
       base_ref:
         description: "revision A (the before)"
-        default: "32c5fa4"
+        default: "75cfb42"
       cand_ref:
-        description: "revision B (the after); the checkout that runs the probe"
-        default: "main"
+        description: "revision B; empty uses the dispatched workflow revision"
+        default: ""
+      experiment:
+        description: "Optional isolated prototype (not accepted production code)"
+        type: choice
+        default: none
+        options:
+          - none
+          - schema-recovery
+          - file-newline
+          - combined
       blocks:
         description: "ABBA blocks"
         default: "6"
@@ -48,6 +57,11 @@ jobs:
             cc: clang
             cxx: clang++
             archflags: ""
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+            cc: clang
+            cxx: clang++
+            archflags: ""
           - os: macos-15-intel
             platform: macos-x86_64
             cc: cc
@@ -63,11 +77,15 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
       PYTHON: python
+      EXPERIMENT: ${{ inputs.experiment }}
+      BASE_REF: ${{ inputs.base_ref }}
+      AB_BLOCKS: ${{ inputs.blocks }}
+      AB_REPEAT: ${{ inputs.repeat }}
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.cand_ref }}
+          ref: ${{ inputs.cand_ref || github.sha }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -86,22 +104,50 @@ jobs:
           { echo "platform ${{ matrix.platform }}"; uname -a; python -c "import platform; print(platform.processor(), platform.machine())"; \
             (grep -m1 'model name' /proc/cpuinfo || sysctl -n machdep.cpu.brand_string) 2>/dev/null; nproc 2>/dev/null || sysctl -n hw.ncpu; } | tee ab/cpu.txt
 
+      - name: Apply the selected isolated experiment
+        shell: bash
+        run: |
+          patches=()
+          case "$EXPERIMENT" in
+            none|"") ;;
+            schema-recovery) patches=(experiments/benchmark-schema-recovery.patch) ;;
+            file-newline) patches=(experiments/benchmark-file-newline.patch) ;;
+            combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
+            *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
+          esac
+          mkdir -p ab
+          echo "$EXPERIMENT" > ab/experiment.txt
+          if [ "${#patches[@]}" -gt 0 ]; then
+            git apply --check "${patches[@]}"
+            git apply "${patches[@]}"
+            cp "${patches[@]}" ab/
+            if [ -f tests/unit/test_dumps_schema_recovery.py ]; then
+              git add -N tests/unit/test_dumps_schema_recovery.py
+            fi
+          fi
+
       - name: Build B (candidate) with PGO+LTO, gate tests on both phases
         run: |
           make install-bench
           make pgo
           mkdir -p arms
-          cp "$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')" arms/B.so
+          binary=$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')
+          cp "$binary" arms/B.so
+          cp "$binary.build.json" arms/B.so.build.json
+          cp -R build/pgo ab/profile-B
           echo "B $(git rev-parse --short HEAD) $(md5sum arms/B.so 2>/dev/null || md5 -q arms/B.so)" | tee -a ab/arms.txt
 
       - name: Build A (base) with the same recipe in a worktree
         run: |
-          git worktree add ../base "${{ inputs.base_ref }}"
+          git worktree add ../base "$BASE_REF"
           cd ../base
           make install-bench
           make pgo
           cd "$GITHUB_WORKSPACE"
-          cp "$(../base/.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')" arms/A.so
+          binary=$(../base/.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')
+          cp "$binary" arms/A.so
+          cp "$binary.build.json" arms/A.so.build.json
+          cp -R ../base/build/pgo ab/profile-A
           echo "A $(git -C ../base rev-parse --short HEAD) $(md5sum arms/A.so 2>/dev/null || md5 -q arms/A.so)" | tee -a ab/arms.txt
 
       - name: Datasets (small and medium)
@@ -117,9 +163,9 @@ jobs:
           # The file rows (load / ndload / dump) are real file operations, not
           # a subtraction of two in-memory medians; rows_probe.py mirrors
           # bench_main's rival compositions for each of them.
-          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row small:wide_arrays:load --row small:users:ndload --row small:wide_arrays:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
+          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row small:wide_arrays:load --row small:users:ndload --row small:wide_arrays:dump --row small:mixed:dump --row small:flat:dump --row small:nested:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
-            --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/R1.stderr
+            --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" 2> ab/R1.stderr
           # The same block count as the comparison: the floor is
           # max(|ci low|, |ci high|) of a bootstrap over blocks, and a
           # two-block control resamples two values -- ~51% coverage in
@@ -127,7 +173,7 @@ jobs:
           # effect can be certified against (ab_blocks.MIN_CONTROL_BLOCKS,
           # which makes the tools say so when it is not met).
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A.so \
-            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks "${{ inputs.blocks }}" --repeat "${{ inputs.repeat }}" 2> ab/AA.stderr
+            --target "$TARGET" --out ab/AA.tsv $ROWS --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" 2> ab/AA.stderr
           for w in R1 AA; do
             PYTHONPATH=. .venv/bin/python benchmarks/ab_builds.py --analyze ab/$w.tsv > ab/${w}_analyze.txt
             PYTHONPATH=. .venv/bin/python benchmarks/ab_floor.py ab/$w.tsv > ab/${w}_floor.txt
@@ -143,6 +189,7 @@ jobs:
           echo "== AA"; cat ab/AA_blocks.txt
 
       - name: Serializer symbols, frame sizes and stack-protector sites per arm
+        if: matrix.platform != 'linux-arm64'
         shell: bash
         run: |
           for arm in A B; do
@@ -200,4 +247,101 @@ jobs:
           name: ab-${{ matrix.platform }}
           path: |
             ab/
+            arms/
+          if-no-files-found: ignore
+
+  ab-windows:
+    name: A/B (windows-x86_64)
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      EXPERIMENT: ${{ inputs.experiment }}
+      BASE_REF: ${{ inputs.base_ref }}
+      AB_BLOCKS: ${{ inputs.blocks }}
+      AB_REPEAT: ${{ inputs.repeat }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.cand_ref || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Apply the selected isolated experiment
+        shell: bash
+        run: |
+          patches=()
+          case "$EXPERIMENT" in
+            none|"") ;;
+            schema-recovery) patches=(experiments/benchmark-schema-recovery.patch) ;;
+            file-newline) patches=(experiments/benchmark-file-newline.patch) ;;
+            combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
+            *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
+          esac
+          mkdir -p ab
+          echo "$EXPERIMENT" > ab/experiment.txt
+          if [ "${#patches[@]}" -gt 0 ]; then
+            git apply --check "${patches[@]}"
+            git apply "${patches[@]}"
+            cp "${patches[@]}" ab/
+            if [ -f tests/unit/test_dumps_schema_recovery.py ]; then
+              git add -N tests/unit/test_dumps_schema_recovery.py
+            fi
+          fi
+
+      - name: Build candidate with clang-cl PGO and full gates
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          python -m pip install -U pip setuptools wheel
+          python -m pip install -e ".[dev,bench]"
+          python scripts/pgo_build_clang_cl.py
+          mkdir -p arms ab
+          candidate_binary=$(python -c 'import strata._strata as m; print(m.__file__)')
+          cp "$candidate_binary" arms/B.pyd
+          cp "$candidate_binary.build.json" arms/B.pyd.build.json
+          cp -R build/pgo ab/profile-B
+          python -m pip freeze --exclude-editable > ab/constraints.txt
+          python -c "import platform; print(platform.platform(), platform.processor())" > ab/cpu.txt
+
+      - name: Build baseline in its own environment
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          git worktree add ../base "$BASE_REF"
+          constraints="$GITHUB_WORKSPACE/ab/constraints.txt"
+          cd ../base
+          python -m venv .venv
+          .venv/Scripts/python -m pip install -U pip setuptools wheel
+          .venv/Scripts/python -m pip install -c "$constraints" -e ".[dev,bench]"
+          PATH="$(pwd)/.venv/Scripts:$PATH" .venv/Scripts/python scripts/pgo_build_clang_cl.py
+          baseline_binary=$(.venv/Scripts/python -c 'import strata._strata as m; print(m.__file__)')
+          cd "$GITHUB_WORKSPACE"
+          cp "$baseline_binary" arms/A.pyd
+          cp "$baseline_binary.build.json" arms/A.pyd.build.json
+          cp -R ../base/build/pgo ab/profile-A
+
+      - name: Generate comparison datasets
+        run: |
+          PYTHONPATH=. python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/small --num-users 1000 --max-orders 10 --max-items 5 --records 500
+          PYTHONPATH=. python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
+
+      - name: Serial ABBA and matching identical-binary control
+        run: |
+          target_binary=$(python -c 'import strata._strata as m; print(m.__file__)')
+          rows=(--row small:mixed:dumps --row small:flat:dumps --row small:users:dumps --row small:wide_arrays:dumps --row small:mixed:dump --row small:flat:dump --row small:nested:dump --row small:wide_arrays:loads --row medium:mixed:dumps --row medium:users:dumps)
+          PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/B.pyd --target "$target_binary" --out ab/R1.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/R1.txt 2> ab/R1.stderr
+          PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/A.pyd --target "$target_binary" --out ab/AA.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/AA.txt 2> ab/AA.stderr
+          PYTHONPATH=. python benchmarks/ab_blocks.py ab/R1.tsv --aa ab/AA.tsv --json ab/comparison.json > ab/comparison.txt
+          cat ab/comparison.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ab-windows-x86_64
+          path: |
+            ab/
+            arms/
           if-no-files-found: ignore

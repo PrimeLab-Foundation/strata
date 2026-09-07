@@ -570,3 +570,29 @@ def test_the_recovered_original_is_what_a_failing_run_puts_back(tmp_path, monkey
 
     assert target.read_bytes() == original
     assert not target.with_name(target.name + ".ab_original").exists()
+
+
+@pytest.mark.parametrize("case", ["missing", "hash", "abi", "valid"])
+def test_build_preflight_rejects_unverified_or_incompatible_arms(tmp_path, case):
+    import hashlib
+    import json
+    import sys
+
+    arm = tmp_path / "B.so"
+    arm.write_bytes(b"a native build")
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    metadata = {
+        "extension_sha256": hashlib.sha256(arm.read_bytes()).hexdigest(),
+        "commands": [[f"-I/include/python{version}"]],
+    }
+    if case == "hash":
+        metadata["extension_sha256"] = "incorrect"
+    elif case == "abi":
+        metadata["commands"] = [["-I/include/python3.99"]]
+    if case != "missing":
+        arm.with_name("B.so.build.json").write_text(json.dumps(metadata))
+    if case == "valid":
+        assert ab_builds.parse_builds([f"B={arm}"]) == {"B": arm.resolve()}
+    else:
+        with pytest.raises(SystemExit):
+            ab_builds.parse_builds([f"B={arm}"])
