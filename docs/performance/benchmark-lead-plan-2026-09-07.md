@@ -256,3 +256,42 @@ workflow shell syntax, full prototype patch applicability and tests-only
 baseline patch selection passed. The repository baseline is unchanged.
 Native publication of E26-P9 remains the next dependency; no commit or push
 was performed by this session.
+
+
+### E26-P9 complete native result and confirmation
+
+Native run [34166567410](https://github.com/PrimeLab-Foundation/strata/actions/runs/34166567410)
+completed all five platforms successfully with both refs pinned to
+`5802ff3ccf926029ed59791aa9ce294f22663cdb`. Build/test success is not performance
+acceptance. Raw Strata mixed-bytes timing changes (negative is faster):
+
+| Platform | Small | Medium |
+| --- | --- | --- |
+| Linux ARM64 | -5.61% | -5.14% |
+| Linux x86_64 | -0.36% | +1.88% |
+| macOS ARM64 | -2.43% | +1.28% |
+| macOS x86_64 | -5.95% | -6.10% |
+| Windows x86_64 | -1.85% | -2.00% |
+
+Linux x86 medium mixed bytes has a normalized +2.21% change, interval
++1.09..+5.17%, exceeding its 0.96% A/A floor. Windows mixed-byte estimates
+remain below their noise floors. macOS ARM medium has a normalized gain
+while its raw Strata time increased; do not describe that as a speedup.
+Artifacts for all five platforms are retained under
+`build/evidence/benchmark-lead/native-nested-34166567410/`.
+
+One confirmation run,
+[34186143209](https://github.com/PrimeLab-Foundation/strata/actions/runs/34186143209),
+uses the same pinned refs, six blocks, 60 samples and matched-test PGO recipe.
+This checks repeatability of the target gains and the Linux x86 regression;
+it does not replace the first result or relax any gate. If the regression
+persists, investigate the affected generated code and revise or reject the
+prototype before integration. Do not rerun until a favorable result appears.
+
+The objective remains every declared row on every supported platform, not
+merely successful CI jobs. After an acceptable candidate is established:
+run the full correctness and sanitizer gates, pass canonical regression checks
+across small/medium/large tiers, and obtain two complete canonical five-platform
+benchmark runs. Fetch those reports with `make bench-ci` to regenerate
+`ci_summary.md`; the current canonical result remains 133/135. No runtime
+optimization has yet been accepted from these isolated experiments.
