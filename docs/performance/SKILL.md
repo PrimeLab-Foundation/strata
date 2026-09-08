@@ -347,3 +347,11 @@ Native `validation=canonical` now supplies complete before/candidate reports
 and unchanged gates, closing the scope gap in the selected-row comparisons.
 P9 remains unaccepted; do not equate successful workflow execution or 27/27
 standings with a passed regression gate.
+
+E26-P9a narrows that isolated dispatch experiment to Linux ARM64, where the
+full native candidate reaches 27/27 with mixed median -2.923% and only two
+p95 breaches. It preserves the original dispatch elsewhere. Those two failures
+(+2.014% wide-array file dump p95 and +3.616% ID-query p95) remain unresolved;
+an unchanged-source canonical control and fresh Windows profiling are pending.
+The narrower patch is not production code. See the execution plan and ledger
+for selection, tests, preserved failures and publication dependencies.

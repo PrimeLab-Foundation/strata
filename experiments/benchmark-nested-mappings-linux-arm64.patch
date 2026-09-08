@@ -1,0 +1,55 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..0a21456 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -175,7 +175,13 @@ class Serializer {
+         if (type == &PyLong_Type)
+             return write_int(object);
+         if (type == &PyDict_Type)
++#if defined(__linux__) && defined(__aarch64__)
++            // Trial nested fusion on Linux ARM64; other targets retain the
++            // original dispatch pending independent validation.
++            return write_record_fused(object);
++#else
+             return write_mapping(object);
++#endif
+         if (type == &PyList_Type)
+             return write_sequence(object);
+         if (object == Py_None) {
+diff --git a/tests/unit/test_dumps_reentrancy.py b/tests/unit/test_dumps_reentrancy.py
+index 9e024e4..6053030 100644
+--- a/tests/unit/test_dumps_reentrancy.py
++++ b/tests/unit/test_dumps_reentrancy.py
+@@ -713,3 +713,32 @@ def test_concurrent_mutating_dumps_on_several_threads(mode):
+         thread.join()
+ 
+     assert results == {f"t{index}": f"[{BIG_TEXT}]" for index in range(4)}
++
++
++@pytest.mark.parametrize("mode", MODES)
++@pytest.mark.parametrize("nested", (False, True))
++def test_warm_exact_mapping_dispatch_preserves_row_during_reentrant_clear(mode, nested):
++    """api.md: cached root/nested dicts emit their staged row under mutation."""
++
++    def run():
++        def wrap(value):
++            return {"outer": value} if nested else value
++
++        warm = {"big": 1, "child": {"value": 2}, "tail": [3, 4]}
++        for _ in range(3):
++            _dump(wrap(warm), mode)
++        doc = {"big": None, "child": {"value": 2}, "tail": [3, 4]}
++        expected = _compact(wrap({**doc, "big": BIG}))
++
++        def mutate():
++            doc.clear()
++            for index in range(100):
++                strata.dumps({f"private-{index}": index})
++
++        once = _Once(mutate)
++        doc["big"] = _big_trigger(once)
++        assert _dump(wrap(doc), mode) == expected
++        assert once.fired == 1
++        assert doc == {}
++
++    _on_a_fresh_thread(run)

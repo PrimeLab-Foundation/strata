@@ -92,3 +92,34 @@ datasets first with `make bench-data`. An existing output directory is refused
 so a later run cannot overwrite failed evidence. Each arm uses a staged copy
 of the same facade and validates the imported extension's location. A child
 failure leaves the installed package untouched.
+
+## Linux ARM64-only nested mappings (E26-P9a)
+
+`benchmark-nested-mappings-linux-arm64.patch` keeps P9's guarded dispatch only
+when both `__linux__` and `__aarch64__` are defined. Other platforms retain
+`write_mapping`; the public API, cached row ownership and fallback rules are
+unchanged. The four mutation cases remain part of both arms' training sources.
+Select `experiment=nested-mappings-linux-arm64` in the native A/B workflow,
+with both refs pinned to the same published revision.
+
+This narrows an unaccepted experiment; it does not resolve or waive the two
+Linux ARM64 p95 breaches from run 34253218374. Its Linux path is the existing
+P9 implementation, while the other targets keep their original dispatch.
+The full Darwin translation unit preprocesses identically before and after,
+and platform-selection checks cover all five targets. No extra local timing
+claim is made from code that preprocesses identically on the development Mac.
+
+The unchanged-source canonical control is
+[34257791864](https://github.com/PrimeLab-Foundation/strata/actions/runs/34257791864).
+The existing profiling workflow is running at
+[34257653984](https://github.com/PrimeLab-Foundation/strata/actions/runs/34257653984).
+Both were dispatched from `5bbec773f53580b4adf1f1c6c86c5e01d725cfe3` before
+this revision; they cannot validate the new platform selection.
+
+The updated profiling workflow accepts `scope=windows`. It additionally
+archives the initial PGO extension and build metadata, plus 60-sample real-file
+phase controls for mixed/flat/nested under `profile-windows-pgo`. Collection
+happens before the later plain-toolchain rebuilds. Phase controls use Strata's
+Python syscall composition and are diagnostic, not rival standings or native
+instruction attribution. This collection requires publication of the updated
+workflow; it is not part of the already-running profiling job.

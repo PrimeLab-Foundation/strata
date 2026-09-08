@@ -366,3 +366,58 @@ preflight, preserved failed gates and continued checks of later tiers.
 All 16 workflow shell steps passed syntax validation. No runtime source or
 published performance baseline was changed. The next native canonical run
 requires the human's commit/push of this workflow and runner first.
+
+### E26-P9a: narrow by platform and investigate the remaining tails
+
+Full native canonical run
+[34253218374](https://github.com/PrimeLab-Foundation/strata/actions/runs/34253218374)
+completed with failed regression gates on all five platforms. Baseline/candidate
+standings were Linux ARM64 26/27 -> 27/27, Linux x86 and both Macs 27/27 ->
+27/27, and Windows 25/27 -> 25/27. Thus the candidate totals 133/135 against
+132/135 for this run's baseline. Candidate Windows misses are mixed `dumps`
+(1.037x orjson) and mixed file `dump` (1.023x). These are patched diagnostic
+standings, not a replacement for `ci_summary.md`.
+
+Gate breaches by platform: Linux ARM64 2, Linux x86 18, macOS ARM 16,
+macOS Intel 22, Windows 32. All ten archived binaries match their sidecars
+and record complete compilation. Linux ARM64's only breaches are:
+
+- Wide-array file dump p95 1.771473 -> 1.807150 ms (+2.014%); median
+  +0.377%. Orjson's median/p95 move +2.440%/+4.217% in that row.
+- ID query p95 0.113280 -> 0.117376 ms (+3.616%); median +0.066%.
+  Both arms' first/second-half query medians remain near 0.102 ms.
+
+The 60-sample p95 reads the fourth-largest observation. These results do not
+establish a sustained throughput regression, but both remain gate failures.
+Raw tail inspection is retained in `p9-linux-arm64/tail-audit.json`; neither
+rounding the first breach to 2% nor changing the thresholds is permitted.
+
+Implement `experiments/benchmark-nested-mappings-linux-arm64.patch`, selectable
+as `nested-mappings-linux-arm64`. Only Linux ARM64 receives P9's dispatch;
+other targets retain the original call. Baseline and candidate keep the same
+four mutation tests. This is an isolated, unaccepted candidate, not an ARM
+tail fix. The whole Darwin preprocessed serializer is byte-identical before
+and after (SHA256 `a22c66e6a305fc3c57ffe2a91751ce8541233e6c4e61f1362860e47686f45b55`).
+Predicate checks cover Linux ARM64/x86, macOS ARM64/x86 and Windows x86.
+`make test` with the patch applied passed 15 C++ suites/2,252 Python tests;
+then the runtime/test patch was removed again. Evidence is in
+`build/evidence/benchmark-lead/p9-linux-arm64/`.
+
+Two authorized investigations are running, pinned to the published `5bbec77`:
+
+- Unchanged-source canonical comparison:
+  [34257791864](https://github.com/PrimeLab-Foundation/strata/actions/runs/34257791864),
+  both refs identical, `experiment=none`, 60 repeats. This includes fresh-PGO
+  build variation and runner variation; it is not an identical-binary A/A and
+  cannot by itself waive P9's failures.
+- Fresh profiling, including Windows decomposition:
+  [34257653984](https://github.com/PrimeLab-Foundation/strata/actions/runs/34257653984).
+
+The profiler update adds a Windows-only scope for subsequent runs and archives
+PGO identity plus real-file phase controls before plain-toolchain rebuilds.
+This makes the Windows serialization and file-cost investigations separable.
+It does not revive the rejected newline prototype or establish a Windows fix.
+The new narrowed candidate and Windows file collection require publication;
+first read the pending control/profile results, then validate the narrowed
+candidate with the complete native canonical gate. No production runtime or
+published regression baseline has been changed.

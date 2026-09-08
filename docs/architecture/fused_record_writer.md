@@ -106,3 +106,21 @@ remain unchanged. No new inlining, scalar-kind cache or per-record storage.
 Compare mixed plus flat/users/nested/wide and root-dict mutation/depth
 controls. Reject unless gains clear the paired noise floor without a
 canonical regression; this does not revive rejected broad footprint changes.
+
+## E26-P9a: restrict the nested dispatch experiment to Linux ARM64
+
+The full native P9 comparison (34253218374) reaches 27/27 on Linux ARM64,
+with mixed serialization median -2.923%, but still fails two p95 metrics.
+Other platforms show broader gate failures and Windows retains two misses.
+The next isolated patch therefore selects nested fusion only under
+`defined(__linux__) && defined(__aarch64__)`. It preserves the original
+exact-dict dispatch elsewhere. No schema state, allocation policy, ownership
+rule, or public behavior changes beyond the already-tested P9 dispatch.
+
+The platform restriction prevents applying an unqualified optimization to the
+other targets; it is not a fix for the Linux p95 failures. Keep both arms'
+mutation-test sources matched and retain the full canonical gate on every
+platform. Original and narrowed preprocessed Darwin translation units are
+byte-identical. The five-platform predicate check selects fusion only on Linux
+ARM64. Native validation of the narrowed patch is still required before
+production integration.

@@ -1508,3 +1508,20 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   runner before considering integration. The runtime patch remains isolated;
   see the [execution plan](benchmark-lead-plan-2026-09-07.md) for complete
   results and the next published-run configuration.
+
+## E26-P9a — restrict nested mapping fusion to Linux ARM64
+
+- Scope: preserve P9's dispatch only for Linux ARM64; original dispatch on
+  Linux x86, both Macs and Windows. No API, allocation or ownership changes.
+- Evidence: full native P9 scores 27/27 on Linux ARM64 with mixed median
+  -2.923%, but wide-array file dump p95 +2.014% and ID-query p95 +3.616%
+  still fail. Other platforms have 16–32 metric breaches.
+  Windows remains 25/27. This does not qualify the broad P9 for integration.
+- Validation: the narrowed patch passes all 2,252 Python tests and 15 C++
+  suites on the development Mac; the complete preprocessed Darwin serializer
+  is identical to baseline. Predicate checks select the new path only on
+  Linux ARM64. Full Linux execution of the narrowed revision is pending.
+- Outcome: isolated, unaccepted patch with matched-test native workflow
+  selection. Unchanged-source canonical control 34257791864 and profiling
+  run 34257653984 are pending. The original Linux p95 failures remain failed;
+  the platform restriction does not repair them.

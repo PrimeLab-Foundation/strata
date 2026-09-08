@@ -12,9 +12,18 @@ name: Profile
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "Profile every platform or focus on the remaining Windows gaps"
+        type: choice
+        default: all
+        options:
+          - all
+          - windows
 
 jobs:
   profile-linux:
+    if: inputs.scope != 'windows'
     name: perf (linux-x86_64)
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -178,6 +187,7 @@ jobs:
   # them ahead. Counters, the per-element floor and the decomposition, on
   # the PGO+LTO build the benchmark leg measures.
   profile-linux-arm64:
+    if: inputs.scope != 'windows'
     name: perf (linux-arm64)
     runs-on: ubuntu-24.04-arm
     # The serializer steps below add a few minutes of cold sweeps to a job
@@ -595,6 +605,26 @@ jobs:
         shell: bash
         run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
 
+      - name: Preserve Windows PGO identity and real-file phase controls
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          import strata._strata as extension
+          output = Path("profile_windows")
+          output.mkdir(exist_ok=True)
+          binary = Path(extension.__file__)
+          shutil.copy2(binary, output / binary.name)
+          identity = binary.with_name(binary.name + ".build.json")
+          shutil.copy2(identity, output / identity.name)
+          PY
+          for dataset in mixed flat nested; do
+            PYTHONPATH=. python -m benchmarks.file_costs \
+              --dataset "benchmarks/data/generated/small/$dataset.json" \
+              --output "profile_windows/file_costs_$dataset.json" --repeat 60
+          done
+
       # The parse-side twin: loads flat is the row this leg reads behind
       # msgspec on two of three runner generations while every POSIX leg
       # leads it; per-kind subsets name which value parser MSVC mistreats.
@@ -675,6 +705,13 @@ jobs:
         shell: bash
         run: PYTHONPATH=. python benchmarks/alloc_roundtrip_probe.py
 
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: profile-windows-pgo
+          path: profile_windows/
+          if-no-files-found: warn
+
   # The `dump flat` row lives on macos-arm64 and nowhere else: three of four
   # five-platform samples ranked strata first there, the third read strata
   # median 0.511 ms against orjson's 0.474 while strata's *minimum* led
@@ -686,6 +723,7 @@ jobs:
   # in the one process-free sequence so the run's own spread is visible
   # inside a single log.
   dump-flat-macos:
+    if: inputs.scope != 'windows'
     name: dump flat phases (macos-arm64)
     runs-on: macos-latest
     timeout-minutes: 60
