@@ -257,7 +257,6 @@ baseline patch selection passed. The repository baseline is unchanged.
 Native publication of E26-P9 remains the next dependency; no commit or push
 was performed by this session.
 
-
 ### E26-P9 complete native result and confirmation
 
 Native run [34166567410](https://github.com/PrimeLab-Foundation/strata/actions/runs/34166567410)
@@ -265,12 +264,12 @@ completed all five platforms successfully with both refs pinned to
 `5802ff3ccf926029ed59791aa9ce294f22663cdb`. Build/test success is not performance
 acceptance. Raw Strata mixed-bytes timing changes (negative is faster):
 
-| Platform | Small | Medium |
-| --- | --- | --- |
-| Linux ARM64 | -5.61% | -5.14% |
-| Linux x86_64 | -0.36% | +1.88% |
-| macOS ARM64 | -2.43% | +1.28% |
-| macOS x86_64 | -5.95% | -6.10% |
+| Platform       | Small  | Medium |
+| -------------- | ------ | ------ |
+| Linux ARM64    | -5.61% | -5.14% |
+| Linux x86_64   | -0.36% | +1.88% |
+| macOS ARM64    | -2.43% | +1.28% |
+| macOS x86_64   | -5.95% | -6.10% |
 | Windows x86_64 | -1.85% | -2.00% |
 
 Linux x86 medium mixed bytes has a normalized +2.21% change, interval
@@ -295,3 +294,75 @@ across small/medium/large tiers, and obtain two complete canonical five-platform
 benchmark runs. Fetch those reports with `make bench-ci` to regenerate
 `ci_summary.md`; the current canonical result remains 133/135. No runtime
 optimization has yet been accepted from these isolated experiments.
+
+### Native confirmation and full-workload validation (September 8)
+
+Confirmation run [34186143209](https://github.com/PrimeLab-Foundation/strata/actions/runs/34186143209)
+completed all five platforms. Raw mixed-bytes changes for small/medium were
+Linux ARM64 -5.68%/-4.93%, Linux x86 -1.61%/+0.79%, macOS ARM
++3.20%/-2.56%, macOS Intel -9.72%/-1.84%, and Windows -2.21%/-1.43%.
+The Linux x86 medium normalized effect became +0.18%, interval
+-0.69..+0.93%, within its 0.80% A/A floor; the first run's regression did
+not repeat. Windows remains unresolved. All 20 archived binaries across the
+two runs match their sidecar hashes and record complete compilation. Both
+arms have identical test/training-source and training-data manifests on all
+ten platform/run pairs. Verification is retained in
+`build/evidence/benchmark-lead/native-nested-verification.json`.
+
+These selected-row results justify checking the full workload, not accepting
+P9. A fixed new-session local sequence uses the same archived matched-test
+PGO binaries, A then B per tier, at 60/20/10 repeats for small/medium/large.
+Reports and unchanged-threshold gates are retained in
+`build/evidence/benchmark-lead/p9/full-gate/`; earlier failed comparisons are
+preserved. Small and medium each rank 27/27 in both arms but fail regression
+checks. Small mixed median is +2.6% and p95 +11.5%; medium mixed median
++10.1% and p95 +26.5%. Unchanged parser/query controls also worsen. This
+remains a failed acceptance, not evidence that the production optimization
+has landed.
+
+The fixed sequence completed: both arms rank 27/27 in all three tiers, but
+small/medium/large have 14/24/16 regression-metric breaches respectively.
+Large includes users serialization p95 +265.2%, users parsing p95 +61.4%,
+and whole-process query RSS +51.8%. The original installed binary was
+restored and verified against SHA256
+`959543f23a19cc9d0ba026fc5c74aabc92c1ae56f0ce899ade388ea0777e2aae`.
+
+A separate, non-timing cache-history probe rejects the proposed retirement
+explanation for this canonical prefix: after 126 serialization calls per
+users/flat/nested/wide dataset, new keys are still retained at dictionary
+depths 1–3, as in a fresh process. The positive churn control disables
+retention at depth 1. The existing history-cliff bug is real, but this probe
+does not establish it as the cause of P9's failed canonical checks. Do not
+combine schema recovery with P9 on that unsupported explanation. Script and
+results are retained in `p9/full-gate/history.py` and `history.json`.
+
+The new `validation=canonical` option on the native A/B workflow runs the
+complete small-tier 27-row suite on each of the five runners and applies the
+same-machine regression gate. It preserves matched-test PGO for P9 and
+archives both canonical reports, full-precision samples and failures.
+`make probe-canonical-builds` exposes the same operation locally, including
+multiple tiers. Arms use staged facades and never replace the installed
+extension or metadata. Existing output directories are refused.
+
+Next publication should run this canonical validation with both refs pinned
+to the published revision and `experiment=nested-mappings`, `repeat=60`.
+The runtime patch remains isolated until these outstanding gates are resolved.
+Only subsequent clean production `benchmark.yml` runs can update the canonical
+135-row tracker; this diagnostic workflow deliberately cannot relabel patched
+binaries as a clean production SHA.
+
+The new staging runner was exercised end to end with the identical archived
+A binary on both arms, small tier at 60 repeats. Both companions identify
+SHA256 `82dc285413125ed40e7f3d1ea5403171adc50926ec6053064566249489c7a57c`.
+That unchanged-binary control still fails 16 canonical metrics, including
+parser medians and +12.1% whole-process query RSS. Evidence is under
+`p9/canonical-AA/`. This demonstrates variation without an extension change;
+it does not retroactively pass P9 or establish a per-row noise allowance.
+The installed original binary and its matching metadata remain intact.
+
+Validation of the retained tooling: `make test` passed 15 C++ suites and
+2,248 Python tests, including staging cleanup on child failure, dataset
+preflight, preserved failed gates and continued checks of later tiers.
+All 16 workflow shell steps passed syntax validation. No runtime source or
+published performance baseline was changed. The next native canonical run
+requires the human's commit/push of this workflow and runner first.

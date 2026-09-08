@@ -23,6 +23,14 @@ protocol, fairness, regression thresholds — is `docs/context/benchmarks.md`.
 This doc holds the deep detail behind it, described from the previous
 implementation (`backup/pre-reset-main`) as the blueprint.
 
+`make probe-canonical-builds` stages compatible before/candidate binaries in
+fresh child processes and produces full canonical reports plus unchanged
+regression gates. The native A/B workflow exposes this as
+`validation=canonical` for its complete small-tier matrix. These patched-build
+reports are diagnostic evidence, not clean commit standings; a successful
+selected-row A/B job alone cannot satisfy the full regression gate. Usage is
+in [the experiment guide](../../experiments/benchmark-lead.md).
+
 ## Harness internals (blueprint)
 
 Orchestrator `benchmarks/bench_main.py` (seed 42; exploratory runs repeat 3,

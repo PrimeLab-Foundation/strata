@@ -13,7 +13,7 @@ VPY := $(VENV)/bin/python
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
-        probe-ab-analyze probe-ab-floor probe-file-costs probe-schema-recovery bench-supportability \
+        probe-ab-analyze probe-ab-floor probe-file-costs probe-schema-recovery probe-canonical-builds bench-supportability \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -24,6 +24,9 @@ BENCH_WARMUP ?= 2
 FILE_COST_DATASET ?= benchmarks/data/generated/small/mixed.json
 FILE_COST_OUTPUT ?= build/evidence/file-costs.json
 SCHEMA_RECOVERY_OUTPUT ?= build/evidence/schema-recovery.json
+CANONICAL_BUILD_FLAGS ?=
+probe-canonical-builds: venv  ## Full canonical before/candidate reports and unchanged regression gates
+	PYTHONPATH=. $(VPY) -m benchmarks.canonical_builds $(CANONICAL_BUILD_FLAGS)
 probe-schema-recovery: venv  ## Diagnose the effect of unrelated schema churn on later serialization
 	PYTHONPATH=. $(VPY) -m benchmarks.schema_recovery --repeat $(PROBE_REPEAT) --output $(SCHEMA_RECOVERY_OUTPUT)
 probe-file-costs: venv  ## Real-file diagnostic phase controls with raw samples

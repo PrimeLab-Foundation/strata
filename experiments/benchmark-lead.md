@@ -64,3 +64,31 @@ For `nested-mappings`, the baseline worktree receives the patch's test-file
 change too; those contracts pass on both implementations. Pin both refs to
 the same published revision for matched test/training source, as in the local
 comparison. Only the candidate receives the runtime dispatch change.
+
+## Full canonical validation before integration
+
+The native A/B workflow also accepts `validation=canonical`. It builds the
+same two arms, then runs the complete 27-row small-tier canonical suite for
+each in a fresh process. It applies the unchanged median/p95/RSS regression
+thresholds and fails the job on a breach. Reports, raw samples, provenance,
+comparison baselines and gate output are archived under `ab/canonical/` even
+when the gate fails. The default `paired` mode retains the selected-row ABBA
+and A/A experiments.
+
+After publication, pin both refs to that same revision and select
+`experiment=nested-mappings`, `validation=canonical`, `repeat=60`. This closes
+the full-workload evidence gap in the earlier native selected-row runs.
+Patched diagnostic builds still cannot replace clean canonical CI standings.
+
+Locally, already-built compatible binaries can be checked without replacing
+the installed extension or its metadata:
+
+```sh
+make probe-canonical-builds CANONICAL_BUILD_FLAGS="--before build/evidence/A.so --candidate build/evidence/B.so --output build/evidence/canonical-pair --tier small --tier medium --tier large --repeat 60"
+```
+
+Keep the build-produced `.build.json` beside each binary and generate the
+datasets first with `make bench-data`. An existing output directory is refused
+so a later run cannot overwrite failed evidence. Each arm uses a staged copy
+of the same facade and validates the imported extension's location. A child
+failure leaves the installed package untouched.

@@ -339,3 +339,11 @@ checks both fail regression gates. Do not ship on the paired gains alone.
 The tested prototype is preserved in `experiments/benchmark-nested-mappings.patch`,
 absent from production, for native investigation after publication. See the
 [ledger](experiment-ledger.md#e26-p9--reuse-the-fused-writer-for-nested-exact-dictionaries).
+
+Two native five-platform runs subsequently reproduced roughly 5–6% raw
+mixed-serialization gains on Linux ARM64 and gains on macOS Intel; Windows
+remains unresolved. A full local follow-up still fails regression checks.
+Native `validation=canonical` now supplies complete before/candidate reports
+and unchanged gates, closing the scope gap in the selected-row comparisons.
+P9 remains unaccepted; do not equate successful workflow execution or 27/27
+standings with a passed regression gate.

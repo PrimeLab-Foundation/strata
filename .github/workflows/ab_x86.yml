@@ -1,4 +1,5 @@
 name: A/B performance
+run-name: "${{ inputs.experiment }} / ${{ inputs.validation || 'paired' }} / five platforms"
 
 # Same-machine A-B-B-A of two revisions on all five platforms. The five-
 # platform samples can only compare strata against its rivals within one
@@ -14,7 +15,8 @@ name: A/B performance
 # also records perf per arm and reads the serializer's frame sizes and
 # stack-protector sites from the two binaries.
 #
-# Diagnostic only: nothing here writes docs/benchmarks/ or gates anything.
+# Diagnostic artifacts never replace docs/benchmarks/. Canonical mode applies
+# the same-machine regression gate to complete before/candidate reports.
 
 on:
   workflow_dispatch:
@@ -36,8 +38,15 @@ on:
           - nested-mappings
           - combined
       blocks:
-        description: "ABBA blocks"
+        description: "ABBA blocks (paired mode)"
         default: "6"
+      validation:
+        description: "Selected-row ABBA or full canonical small-tier regression gate"
+        type: choice
+        default: paired
+        options:
+          - paired
+          - canonical
       repeat:
         description: "repeats per row per launch"
         default: "60"
@@ -165,6 +174,7 @@ jobs:
             --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
 
       - name: A-B-B-A rounds, then an A/A floor
+        if: inputs.validation != 'canonical'
         run: |
           TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
           # The file rows (load / ndload / dump) are real file operations, not
@@ -194,6 +204,11 @@ jobs:
           PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py ab/AA.tsv > ab/AA_blocks.txt
           echo "== R1 block-paired, normalised"; cat ab/R1_blocks.txt
           echo "== AA"; cat ab/AA_blocks.txt
+
+      - name: Full canonical before/candidate reports and regression gate
+        if: inputs.validation == 'canonical'
+        run: |
+          make probe-canonical-builds CANONICAL_BUILD_FLAGS="--before arms/A.so --candidate arms/B.so --output ab/canonical --tier small --repeat $AB_REPEAT"
 
       - name: Serializer symbols, frame sizes and stack-protector sites per arm
         if: matrix.platform != 'linux-arm64'
@@ -342,6 +357,7 @@ jobs:
           PYTHONPATH=. python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
 
       - name: Serial ABBA and matching identical-binary control
+        if: inputs.validation != 'canonical'
         run: |
           target_binary=$(python -c 'import strata._strata as m; print(m.__file__)')
           rows=(--row small:mixed:dumps --row small:flat:dumps --row small:users:dumps --row small:wide_arrays:dumps --row small:mixed:dump --row small:flat:dump --row small:nested:dump --row small:wide_arrays:loads --row medium:mixed:dumps --row medium:users:dumps)
@@ -349,6 +365,11 @@ jobs:
           PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/A.pyd --target "$target_binary" --out ab/AA.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/AA.txt 2> ab/AA.stderr
           PYTHONPATH=. python benchmarks/ab_blocks.py ab/R1.tsv --aa ab/AA.tsv --json ab/comparison.json > ab/comparison.txt
           cat ab/comparison.txt
+
+      - name: Full canonical before/candidate reports and regression gate
+        if: inputs.validation == 'canonical'
+        run: |
+          PYTHONPATH=. python -m benchmarks.canonical_builds --before arms/A.pyd --candidate arms/B.pyd --output ab/canonical --tier small --repeat "$AB_REPEAT"
 
       - uses: actions/upload-artifact@v4
         if: always()

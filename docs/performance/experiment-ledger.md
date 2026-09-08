@@ -1493,3 +1493,18 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   selectable after publication. Correctness: both PGO phases passed 15 C++
   suites/2,249 Python tests, and candidate ASan/UBSan passed all 2,249 tests.
   Evidence: `build/evidence/benchmark-lead/p9/`.
+- Native follow-up: both five-platform runs 34166567410 and 34186143209
+  completed. Linux ARM64 raw small/medium mixed gains repeat at about 5–6%.
+  macOS Intel also improves in both runs; Windows remains unresolved. Linux
+  x86 medium's first normalized +2.21% regression does not repeat (+0.18%
+  in the confirmation, within the 0.80% floor). All 20 binaries match their
+  sidecars; all ten A/B pairs have matched test/training-source and data
+  manifests. These are selected-row comparisons, not a canonical acceptance.
+- Full-workload follow-up: a fixed new-session local small/medium/large
+  sequence retains its reports in `p9/full-gate/`. Small and medium both
+  rank 27/27 for each arm but fail unchanged regression thresholds, including
+  mixed serialization and unchanged parser/query controls. Add native
+  `validation=canonical` to measure every declared small-tier row on each
+  runner before considering integration. The runtime patch remains isolated;
+  see the [execution plan](benchmark-lead-plan-2026-09-07.md) for complete
+  results and the next published-run configuration.
