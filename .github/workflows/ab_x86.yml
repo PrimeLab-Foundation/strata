@@ -38,6 +38,7 @@ on:
           - nested-mappings
           - nested-mappings-linux-arm64
           - float-digit-count
+          - record-int-reserve
           - combined
       blocks:
         description: "ABBA blocks (paired mode)"
@@ -127,6 +128,7 @@ jobs:
             nested-mappings) patches=(experiments/benchmark-nested-mappings.patch) ;;
             nested-mappings-linux-arm64) patches=(experiments/benchmark-nested-mappings-linux-arm64.patch) ;;
             float-digit-count) patches=(experiments/benchmark-float-digit-count.patch) ;;
+            record-int-reserve) patches=(experiments/benchmark-record-int-reserve.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac
@@ -155,9 +157,10 @@ jobs:
       - name: Build A (base) with the same recipe in a worktree
         run: |
           git worktree add ../base "$BASE_REF"
-          if [ "$EXPERIMENT" = "nested-mappings" ] || [ "$EXPERIMENT" = "nested-mappings-linux-arm64" ]; then
-            # The new mutation contracts pass on both implementations. Train
-            # both PGO builds with them so only the runtime dispatch differs.
+          if [ "$EXPERIMENT" = "nested-mappings" ] || [ "$EXPERIMENT" = "nested-mappings-linux-arm64" ] ||
+             [ "$EXPERIMENT" = "record-int-reserve" ]; then
+            # The new regression contracts pass on both implementations. Train
+            # both PGO builds with them so only the runtime implementation differs.
             git -C ../base apply --include=tests/unit/test_dumps_reentrancy.py "$GITHUB_WORKSPACE/experiments/benchmark-$EXPERIMENT.patch"
           fi
           cd ../base
@@ -308,6 +311,7 @@ jobs:
             nested-mappings) patches=(experiments/benchmark-nested-mappings.patch) ;;
             nested-mappings-linux-arm64) patches=(experiments/benchmark-nested-mappings-linux-arm64.patch) ;;
             float-digit-count) patches=(experiments/benchmark-float-digit-count.patch) ;;
+            record-int-reserve) patches=(experiments/benchmark-record-int-reserve.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac
@@ -340,9 +344,10 @@ jobs:
         run: |
           export PATH="/c/Program Files/LLVM/bin:$PATH"
           git worktree add ../base "$BASE_REF"
-          if [ "$EXPERIMENT" = "nested-mappings" ] || [ "$EXPERIMENT" = "nested-mappings-linux-arm64" ]; then
-            # The new mutation contracts pass on both implementations. Train
-            # both PGO builds with them so only the runtime dispatch differs.
+          if [ "$EXPERIMENT" = "nested-mappings" ] || [ "$EXPERIMENT" = "nested-mappings-linux-arm64" ] ||
+             [ "$EXPERIMENT" = "record-int-reserve" ]; then
+            # The new regression contracts pass on both implementations. Train
+            # both PGO builds with them so only the runtime implementation differs.
             git -C ../base apply --include=tests/unit/test_dumps_reentrancy.py "$GITHUB_WORKSPACE/experiments/benchmark-$EXPERIMENT.patch"
           fi
           constraints="$GITHUB_WORKSPACE/ab/constraints.txt"

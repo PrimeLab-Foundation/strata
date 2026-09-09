@@ -397,3 +397,10 @@ code-layout change, but gives no resolved mixed serialization gain. No-go;
 retain the isolated patch and evidence rather than repeating the same lookup
 micro-optimization. Latest Windows PGO profiling instead has records-only
 1.157x and strings 0.771x; earlier subset rankings are not stable attribution.
+
+E26-P14 combines cached-key emission and an exact compact integer under one
+reservation. Matched PGO screening resolves roughly 8% faster flat records,
+and the full small-tier report preserves a 6.85% median gain there. However,
+23 full-report timing/RSS breaches keep it unaccepted. Native investigation
+uses the isolated `record-int-reserve` workflow selector with matched tests;
+see the ledger and fused-writer architecture note for constraints.

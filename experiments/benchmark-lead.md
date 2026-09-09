@@ -192,3 +192,15 @@ P13 outcome: no-go. Both PGO builds pass all tests; the disassembly confirms
 exactly sixteen changed instruction words and unchanged code layout. Six
 paired blocks and the identical-binary control resolve no mixed bytes gain.
 Keep the patch isolated; do not promote it on the load-count hypothesis alone.
+
+## Cached-key and compact-integer reservation (P14)
+
+`benchmark-record-int-reserve.patch` reserves space for the cached key slot
+and exact compact integer together, then formats the integer directly. It
+avoids the general value dispatch and second capacity check for that case.
+All other values retain the original emission and ownership path; the shortcut
+is compiled only with CPython 3.12+'s compact-integer API. The architecture
+note in `docs/architecture/fused_record_writer.md` gives the reservation and
+lifetime proof. Two fresh-thread cases exercise cached 24-field records,
+integer boundaries and output growth in str/bytes modes. Matched PGO baseline
+and candidate use identical tests; this remains an isolated prototype.

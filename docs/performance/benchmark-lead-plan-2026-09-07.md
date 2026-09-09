@@ -467,3 +467,13 @@ intended loads but does not improve mixed serialization. Keep it isolated.
 The next record-path investigation should examine emission and reservation
 costs rather than cache-way comparison order; retain all ownership and
 reentrancy protections. No production optimization is accepted yet.
+
+P14 combines the cached key and exact compact integer under one reservation.
+Both matched PGO builds pass all correctness tests; paired flat bytes improves
+7.88% raw and 7.51% normalized beyond the 1.17% control floor. Full local
+small-tier flat median improves 6.85%, but 23 timing/RSS checks fail, including
+mixed median +3.0%. Keep P14 isolated. After publication, use native
+`record-int-reserve` with `validation=canonical`, 60 repeats, and both refs
+pinned to the published SHA;
+the baseline receives the same two regression tests. No production benchmark
+or accepted baseline changes until the complete gates pass.

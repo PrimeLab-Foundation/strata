@@ -1698,3 +1698,36 @@ no reason to advance this mechanism. No-go: no full canonical or native run
 is justified by the local screen. Production source, binary and metadata
 are restored. Evidence is retained under `build/evidence/benchmark-lead/p13/`,
 and the prototype remains in `experiments/benchmark-schema-key-first.patch`.
+
+## E26-P14 — combine cached-key and compact-integer reservation
+
+Published checkpoint 4933c08 contains the prior negative experiments. P14
+moves the exact compact-integer case into the fused record emitter, reserving
+key-slot scratch plus the integer writer's maximum window once. Existing
+row verification, reentrant ownership and all non-compact fallbacks remain.
+Two fresh-thread output-growth cases supplement the existing numeric and
+mutation suites. Matched-test PGO validation is complete; the prototype
+is isolated in `experiments/benchmark-record-int-reserve.patch` and evidence
+is under `build/evidence/benchmark-lead/p14/`. Results follow.
+
+P14 local screening: both PGO arms pass 15 C++ suites and 2,251 Python tests
+in each phase; exact binary hashes, complete compilation and matching training
+inputs verify. Six ABBA blocks of 60 samples plus six identical-binary A/A
+blocks resolve flat-record bytes raw -7.88%, normalized -7.51% (interval
+-8.10% to -7.16%, floor 1.17%); str raw -6.88%, normalized -6.50% (interval
+-7.37% to -6.22%, floor 1.71%). Small/medium mixed bytes raw -0.38%/-0.66%
+remain unresolved. Full small-tier canonical validation is complete. The
+native `record-int-reserve` selector applies the isolated patch and gives
+both PGO arms its two boundary cases; use the same published revision for
+both refs. Native measurement and full acceptance are still outstanding.
+
+P14 full local small-tier report (60 samples) ranks both arms 27/27 and
+preserves the flat dumps median gain (-6.85%), but fails 23 unchanged checks.
+Mixed dumps median +3.0% / p95 +10.7%, nested dumps p95 +5.8%, and several
+parser, file and query timings breach; whole-process RSS increases by
+5.4–7.5% in multiple rows. All failures are retained in
+`p14/canonical/gate-small.txt`; they are not waived as noise. P14 remains
+unaccepted. The substantial flat-record gain justifies native investigation
+with full validation, not production integration. ASan/UBSan validation of the
+new reservation path passes all 2,251 Python tests. Production source, tests,
+binary and metadata are restored; the prototype remains only in its patch.

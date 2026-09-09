@@ -124,3 +124,21 @@ platform. Original and narrowed preprocessed Darwin translation units are
 byte-identical. The five-platform predicate check selects fusion only on Linux
 ARM64. Native validation of the narrowed patch is still required before
 production integration.
+
+## P14 experiment: one reservation for a cached key and compact integer
+
+The isolated trial reserves `17 + kInt64BufferSize` bytes when a staged value
+is an exact compact integer on CPython 3.12+. The existing 16-byte key-slot
+copy (plus optional comma) precedes direct integer formatting inside that
+reservation. Other values retain the existing emission and deferred ownership
+path. CPython versions without the compact-value API retain that path too.
+
+Only exact compact integers take the shortcut: bools, subclasses and large
+integers do not. Compact conversion and formatting cannot run Python, so the
+shortcut needs no additional references and cannot invalidate schema or row
+storage. The entire key row is still verified before output. If an earlier
+value ran a callback, the existing row lock owns the remaining staged values.
+The reservation covers both the key's scratch store and the integer writer's
+maximum store window; failure propagates through existing allocation handling.
+The experiment may lose through extra type checks or register pressure and
+must pass matched PGO performance gates before integration.

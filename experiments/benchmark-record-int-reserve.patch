@@ -1,0 +1,58 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..6ae3a85 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -809,7 +809,13 @@ class Serializer {
+             // Re-indexed per iteration: a nested object may grow schemas_
+             // and move its elements (the write_mapping_body hazard).
+             const Schema& slot_row = schemas_[depth].ways[way];
+-            out_.ensure(17);
++            PyObject* const value = row[static_cast<size_t>(index)];
++#if PY_VERSION_HEX >= 0x030C0000
++            const bool compact_int = Py_TYPE(value) == &PyLong_Type && is_compact_int(value);
++#else
++            constexpr bool compact_int = false;
++#endif
++            out_.ensure(17 + (compact_int ? util::kInt64BufferSize : 0));
+             char* cursor = out_.cursor();
+             *cursor = ',';
+             const auto skip = static_cast<size_t>(index != 0);
+@@ -817,7 +823,14 @@ class Serializer {
+                         slot_row.slots + static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
+                         SchemaCacheLease::kSlotBytes);
+             out_.advance(skip + slot_row.spans[static_cast<size_t>(index)]);
+-            PyObject* const value = row[static_cast<size_t>(index)];
++#if PY_VERSION_HEX >= 0x030C0000
++            if (compact_int) {
++                const auto number =
++                    PyUnstable_Long_CompactValue(reinterpret_cast<PyLongObject*>(value));
++                out_.advance(util::format_int64(static_cast<int64_t>(number), out_.cursor()));
++                continue;
++            }
++#endif
+             if (!open_container.armed() && !is_plain_scalar(value)) {
+                 // The one moment two things become true at once: this dict
+                 // must be findable in open_ while a container child walks, and
+diff --git a/tests/unit/test_dumps_reentrancy.py b/tests/unit/test_dumps_reentrancy.py
+index 9e024e4..f9d49b7 100644
+--- a/tests/unit/test_dumps_reentrancy.py
++++ b/tests/unit/test_dumps_reentrancy.py
+@@ -713,3 +713,18 @@ def test_concurrent_mutating_dumps_on_several_threads(mode):
+         thread.join()
+ 
+     assert results == {f"t{index}": f"[{BIG_TEXT}]" for index in range(4)}
++
++
++@pytest.mark.parametrize("mode", MODES)
++def test_cached_record_integer_reservations_across_output_growth(mode):
++    """api.md: exact output across integer widths and staged-buffer growth."""
++    numbers = [0, -1, 10**6, -(10**8), 2**30 - 1, -(2**30 - 1), 2**30, -(2**30), BIG]
++    keys = tuple(f"field_{i}" for i in range(24))
++    rows = [
++        {key: numbers[(i + row) % len(numbers)] for i, key in enumerate(keys)} for row in range(100)
++    ]
++
++    def check():
++        assert _dump(rows, mode) == _compact(rows)
++
++    _on_a_fresh_thread(check)
