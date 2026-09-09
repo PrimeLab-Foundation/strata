@@ -14,16 +14,17 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "Profile every platform or focus on the remaining Windows gaps"
+        description: "Full profiles, Windows controls, or focused ARM64 mixed interleave"
         type: choice
         default: all
         options:
           - all
           - windows
+          - arm64-interleaved
 
 jobs:
   profile-linux:
-    if: inputs.scope != 'windows'
+    if: inputs.scope == 'all'
     name: perf (linux-x86_64)
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -187,7 +188,7 @@ jobs:
   # them ahead. Counters, the per-element floor and the decomposition, on
   # the PGO+LTO build the benchmark leg measures.
   profile-linux-arm64:
-    if: inputs.scope != 'windows'
+    if: inputs.scope == 'all'
     name: perf (linux-arm64)
     runs-on: ubuntu-24.04-arm
     # The serializer steps below add a few minutes of cold sweeps to a job
@@ -572,6 +573,7 @@ jobs:
           if-no-files-found: ignore
 
   decompose-windows:
+    if: inputs.scope != 'arm64-interleaved'
     name: decompose (windows-x86_64)
     runs-on: windows-latest
     timeout-minutes: 60
@@ -726,7 +728,7 @@ jobs:
   # in the one process-free sequence so the run's own spread is visible
   # inside a single log.
   dump-flat-macos:
-    if: inputs.scope != 'windows'
+    if: inputs.scope == 'all'
     name: dump flat phases (macos-arm64)
     runs-on: macos-latest
     timeout-minutes: 60
@@ -774,3 +776,39 @@ jobs:
 
       - name: dump flat phases (second pass)
         run: PYTHONPATH=. .venv/bin/python benchmarks/dump_flat_phases.py
+
+  profile-arm64-interleaved:
+    if: inputs.scope == 'arm64-interleaved'
+    name: mixed interleave (linux-arm64, PGO)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    env:
+      CC: clang
+      CXX: clang++
+      PYTHON: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install compiler and sampling tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
+          sudo sysctl -w kernel.perf_event_paranoid=1
+      - name: Install development and benchmark dependencies with tests
+        run: make install-bench
+      - name: Build PGO and LTO with both correctness gates
+        run: make pgo
+      - name: Sample resident and interleaved mixed calls
+        run: |
+          PERF_BINARY=$(rg --files /usr/lib/linux-tools -g perf | head -1)
+          test -n "$PERF_BINARY"
+          make probe-native-interleaved NATIVE_PROFILE_FLAGS="--perf $PERF_BINARY --output build/native-interleaved --rounds 20000"
+      - name: Preserve samples, binary identity and complete annotations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-interleaved-linux-arm64
+          path: build/native-interleaved/
+          if-no-files-found: error

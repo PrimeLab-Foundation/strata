@@ -2,19 +2,27 @@
 round-robin with a gc.collect() before every call.
 
 Used by .github/workflows/profile.yml. A perf record of this process shows
-strata's frames alongside the other engines'; comparing strata's *relative*
-frame shares here against the isolated spin names the code that pays for the
-interleave — the frame whose share grows is the predictor/cache victim.
+strata's frames alongside the other engines'. The resident control warms all
+engines but then invokes only Strata. Changes in relative frame shares are
+descriptive evidence, not proof of a cache or predictor bottleneck.
 """
 
+import argparse
 import gc
 import json
-import sys
 import time
+from pathlib import Path
 
 
-def main() -> int:
-    rounds = int(sys.argv[1]) if len(sys.argv) > 1 else 800
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("rounds", type=int, nargs="?", default=800)
+    parser.add_argument("--condition", choices=("interleaved", "resident"), default="interleaved")
+    parser.add_argument("--metadata", type=Path)
+    args = parser.parse_args(argv)
+    if args.rounds < 1:
+        parser.error("rounds must be positive")
+    rounds = args.rounds
     with open("benchmarks/data/generated/small/mixed.json") as handle:
         data = json.load(handle)
 
@@ -35,13 +43,37 @@ def main() -> int:
     for call in calls:
         call()
 
+    if args.metadata:
+        from benchmarks.provenance import capture
+
+        provenance = capture(
+            [Path("benchmarks/data/generated/small/mixed.json")],
+            {"strata": strata, "orjson": orjson, "msgspec": msgspec, "ujson": ujson, "json": json},
+            repeat=rounds,
+            warmup=1,
+        )
+        provenance["protocol"] = {
+            "name": "mixed-native-profile-v1",
+            "condition": args.condition,
+            "rounds": rounds,
+            "warmup": "one call to each encoder",
+            "gc": "collect before each call",
+            "loop_order": ["strata"]
+            if args.condition == "resident"
+            else ["strata", "orjson", "ujson", "msgspec", "json"],
+        }
+        args.metadata.write_text(json.dumps(provenance, indent=2) + "\n")
+
+    if args.condition == "resident":
+        calls = calls[:1]
+
     start = time.perf_counter()
     for _ in range(rounds):
         for call in calls:
             gc.collect()
             call()
     elapsed = time.perf_counter() - start
-    print(f"interleaved: {rounds} rounds x 5 libraries, {elapsed:.2f}s total")
+    print(f"{args.condition}: {rounds} rounds x {len(calls)} libraries, {elapsed:.2f}s total")
     return 0
 
 

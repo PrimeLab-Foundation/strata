@@ -425,3 +425,10 @@ code grows further to 1,388 ARM64 instructions. Matched PGO correctness passes;
 paired/A/A screening still shows no mixed gain and users bytes +2.36% raw,
 +2.07% normalized beyond its floor. No-go. Source reuse alone does not prove
 smaller code; inspect codegen before repeating this scalar reservation line.
+
+P17 adds `make probe-native-interleaved` and the focused ARM64 profile scope.
+Existing ARM64 annotations came from hot calls, while the synthetic cold
+record was dominated by the cache sweep. Preserve native rival-interleaved
+samples and matching resident controls before attributing the mixed deficit
+to another scalar fast path. Software CPU-clock samples do not measure cache
+misses, and relative frame shares alone do not establish causality.

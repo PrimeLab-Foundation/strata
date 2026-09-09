@@ -500,3 +500,11 @@ Reject it too. End this scalar reservation line. The next implementation
 needs native instruction-level evidence for the remaining mixed-record
 overhead, with a codegen check that the proposed cost actually decreases;
 neither source factoring nor a win on flat records establishes that mechanism.
+
+P17 fills the native attribution gap before another optimization: the ARM64
+annotations previously came from hot calls or synthetic sweeping, not the
+five-encoder interleave. Run the focused `Profile` scope `arm64-interleaved`
+on the published revision. Verify child/build identities and retained samples;
+compare Strata's sampled instructions under resident and interleaved conditions.
+Relative shares alone cannot establish causality. Choose a bounded runtime
+change only after this evidence and a codegen check identify an actual cost.

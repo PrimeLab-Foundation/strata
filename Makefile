@@ -33,6 +33,9 @@ STRING_IDENTITY_DATASET ?= benchmarks/data/generated/small/mixed.json
 STRING_IDENTITY_OUTPUT ?= build/evidence/string-identity.json
 probe-string-identity: venv  ## Value-preserving string object-sharing diagnostic
 	PYTHONPATH=. $(VPY) -m benchmarks.string_identity --dataset $(STRING_IDENTITY_DATASET) --output $(STRING_IDENTITY_OUTPUT) --repeat $(PROBE_REPEAT)
+.PHONY: probe-native-interleaved
+probe-native-interleaved: venv  ## Linux CPU-clock samples and full annotations under rival interleave
+	PYTHONPATH=. $(VPY) -m benchmarks.native_interleaved_profile $(NATIVE_PROFILE_FLAGS)
 probe-file-costs: venv  ## Real-file diagnostic phase controls with raw samples
 	PYTHONPATH=. $(VPY) -m benchmarks.file_costs --dataset $(FILE_COST_DATASET) --output $(FILE_COST_OUTPUT) --repeat $(PROBE_REPEAT)
 bench-supplementary: venv  ## NDJSON search and folder controls; separate supplementary v1 scope

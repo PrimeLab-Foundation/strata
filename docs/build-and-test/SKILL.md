@@ -311,3 +311,17 @@ The C++ suite is built **unsanitized** here: the staged CMake cache is seeded wi
 7. pyproject Homepage/Repository are `github.com/example/strata` placeholders.
 8. Stale doc references in scripts/workflow comments may point at pre-restructure
    paths; canonical docs are `docs/`.
+
+### Focused native mixed profiling
+
+`Profile` accepts `scope=arm64-interleaved` for one Linux ARM64 PGO job.
+It runs `make probe-native-interleaved NATIVE_PROFILE_FLAGS="--perf <perf-binary> --output <new-directory> --rounds 20000"`.
+The two conditions warm all five encoders; resident mode then calls only
+Strata, while interleaved mode calls all five with GC before each call.
+The output directory must be new. A verified complete extension and matching
+child identities are required. Raw software CPU-clock samples, the exact
+binary and build manifest, CPU/tool facts, complete global and Strata reports,
+and annotations for eight sampled Strata symbols are retained. Command errors
+or no sampled Strata symbols fail visibly, preserving available artifacts.
+These samples include process startup and GC; relative frame shares are not
+hardware cache-miss counts or proof of the cause of a timing deficit.

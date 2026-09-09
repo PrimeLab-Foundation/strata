@@ -1853,3 +1853,24 @@ Its frame remains 176 bytes, with 55 static frame-relative instructions.
 The intended code-footprint reduction is therefore falsified for this build.
 No-go: retain the isolated patch and do not dispatch full canonical or native
 validation. Production source, tests, binary and metadata are restored.
+
+## E26-P17 — profile the actual native interleave before another runtime change
+
+P14 through P16 do not close the mixed-data deficit. Reviewing the existing
+ARM64 workflow shows that its retained instruction annotations are selected
+from hot calls; the other cold record uses a synthetic 64 MB cache sweep,
+whose samples are dominated by copying. Neither annotates the five-encoder
+interleave that reproduced the remaining deficit. The existing x86 interleave
+report does not fill that ARM64 evidence gap.
+
+Add focused `scope=arm64-interleaved` profiling with a PGO build and two
+20,000-round conditions: all encoders resident but only Strata invoked, and
+all five invoked in canonical dumps order, with GC before each call. Archive
+complete reports and top-eight Strata symbol annotations, raw samples, actual
+binary/hash/manifest, CPU/tool facts and each child's provenance. Use software
+CPU-clock sampling explicitly; this is instruction-location evidence, not a
+cache-counter or canonical performance result. No production runtime changes.
+Three tests pin complete C++ clone names and both warmup/GC/call-order controls.
+Local `make test` passes 15 C++ suites and 2,252 Python tests; workflow shell
+syntax checks pass. Native collection is the next step before selecting a
+new runtime mechanism. No scalar-reservation prototype is reintroduced.
