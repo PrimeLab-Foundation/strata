@@ -404,3 +404,24 @@ and the full small-tier report preserves a 6.85% median gain there. However,
 23 full-report timing/RSS breaches keep it unaccepted. Native investigation
 uses the isolated `record-int-reserve` workflow selector with matched tests;
 see the ledger and fused-writer architecture note for constraints.
+
+P14 native run 34346286916 is complete: all five canonical gates fail,
+both arms total 131/135, and mixed remains behind on Linux ARM64 (1.0222x)
+and Windows (1.0417x). Flat dumps improves on four platforms but regresses
+4.54% on Mac Intel. All ten binary identities and matched training inputs
+verify. Reject integration; diagnostic standings do not replace 133/135
+in the clean production summary.
+
+E26-P15 tries the combined reservation for exact short ASCII record values,
+independently of P14. Both matched PGO arms pass correctness, but six paired
+blocks plus matching A/A show no mixed gain and users bytes +2.89% raw,
++2.57% normalized beyond its control floor. The fused writer grows from 883
+to 1,214 ARM64 instructions even though its frame shrinks. No-go; retain the
+isolated patch and do not repeat the same inline copy/dispatch expansion.
+The flat-record gain alone does not justify its users regression.
+
+E26-P16 shares the existing string writer after the reservation, but generated
+code grows further to 1,388 ARM64 instructions. Matched PGO correctness passes;
+paired/A/A screening still shows no mixed gain and users bytes +2.36% raw,
++2.07% normalized beyond its floor. No-go. Source reuse alone does not prove
+smaller code; inspect codegen before repeating this scalar reservation line.

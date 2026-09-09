@@ -477,3 +477,26 @@ mixed median +3.0%. Keep P14 isolated. After publication, use native
 pinned to the published SHA;
 the baseline receives the same two regression tests. No production benchmark
 or accepted baseline changes until the complete gates pass.
+
+P14 native run 34346286916 has now completed. All five gates fail; both
+arms total 131/135, and Linux ARM64/Windows mixed remain behind. Reject
+integration and preserve the patch as evidence. The clean production summary
+is regenerated and remains 133/135 at 75cfb42. No rerun of the same candidate
+is planned; the failed canonical checks remain authoritative.
+
+P15 independently combined key and short ASCII-value reservations. Matched
+PGO and boundary tests pass, but the paired screen shows no mixed gain and
+a resolved users regression. Reject this inline expansion; its fused body
+grows by 331 ARM64 instructions. Keep the patch isolated and retain all raw
+samples. Further scalar reservation work needs a shared emission body that
+avoids duplicating the scan and fallback machinery, followed by codegen and
+matched-PGO screening before native validation. Do not combine P14 and P15
+or treat either flat-record gain as evidence that mixed is fixed.
+
+P16 tested that shared-body follow-up with the same boundary tests and PGO
+baseline. The compiler expands the fused body further to 1,388 instructions;
+mixed remains unchanged and users bytes regresses 2.36% raw beyond its floor.
+Reject it too. End this scalar reservation line. The next implementation
+needs native instruction-level evidence for the remaining mixed-record
+overhead, with a codegen check that the proposed cost actually decreases;
+neither source factoring nor a win on flat records establishes that mechanism.

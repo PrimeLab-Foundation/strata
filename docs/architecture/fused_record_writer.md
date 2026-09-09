@@ -142,3 +142,30 @@ The reservation covers both the key's scratch store and the integer writer's
 maximum store window; failure propagates through existing allocation handling.
 The experiment may lose through extra type checks or register pressure and
 must pass matched PGO performance gates before integration.
+
+## P15 experiment: one reservation for a cached key and short ASCII value
+
+This independent prototype starts from production, without P14. Exact compact
+ASCII strings whose combined key and string scratch window fits the existing
+4096-byte reservation cap reserve once before the key copy. Their value uses
+the existing copy-until-escape primitive; a clean copy commits the quotes and
+payload. An escape hit rolls back the opening quote and uses the original
+string writer. Longer strings, Unicode and subclasses use the original path.
+No speculative output is exposed, and the cached key remains committed once.
+
+The combined reservation covers 17 key bytes plus the value length, two quotes
+and 16 scratch bytes. Direct header access is restricted to exact compact
+ASCII values. Neither their byte access nor copying calls Python. Complete
+key verification, schema re-indexing and ownership of values after callbacks
+are unchanged. The additional branch, code footprint and repeated scan on an
+escape hit are explicit regression risks. This is a bounded emission trial,
+not a revival of cached scalar-kind prediction; full performance gates remain
+required before adoption.
+
+P16 tests the same reservation through the existing string writer instead of
+duplicating its clean-copy arm. A private `pre_reserved` argument suppresses
+only that writer's initial capacity check; all escaping, spanning and failure
+handling stays shared. Its sole true caller is the fused exact-ASCII branch
+with the combined reservation proved above. All other calls retain the default
+false argument. This tests P15's duplication cost with identical boundary
+tests, not a change to string semantics or a claim that P15's loss is explained.

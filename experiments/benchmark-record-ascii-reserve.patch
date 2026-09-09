@@ -1,0 +1,68 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..f4f2ff0 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -809,7 +809,16 @@ class Serializer {
+             // Re-indexed per iteration: a nested object may grow schemas_
+             // and move its elements (the write_mapping_body hazard).
+             const Schema& slot_row = schemas_[depth].ways[way];
+-            out_.ensure(17);
++            PyObject* const value = row[static_cast<size_t>(index)];
++            const bool ascii =
++                Py_TYPE(value) == &PyUnicode_Type && PyUnicode_IS_COMPACT_ASCII(value);
++            const size_t length = ascii ? static_cast<size_t>(PyUnicode_GET_LENGTH(value)) : 0;
++            constexpr size_t kKeyScratch = SchemaCacheLease::kSlotBytes + 1;
++            constexpr size_t kStringScratch = 2 + 16;
++            constexpr size_t kCombinedScratch = kKeyScratch + kStringScratch;
++            const bool fused_ascii =
++                ascii && length <= StagedOutput::kMaxReservation - kCombinedScratch;
++            out_.ensure(fused_ascii ? kCombinedScratch + length : kKeyScratch);
+             char* cursor = out_.cursor();
+             *cursor = ',';
+             const auto skip = static_cast<size_t>(index != 0);
+@@ -817,7 +826,20 @@ class Serializer {
+                         slot_row.slots + static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
+                         SchemaCacheLease::kSlotBytes);
+             out_.advance(skip + slot_row.spans[static_cast<size_t>(index)]);
+-            PyObject* const value = row[static_cast<size_t>(index)];
++            if (fused_ascii) {
++                const char* data = static_cast<const char*>(PyUnicode_DATA(value));
++                out_.put('"');
++                const size_t clean = util::copy_until_escape(data, length, out_.cursor());
++                if (clean == length) {
++                    out_.advance(length);
++                    out_.put('"');
++                    continue;
++                }
++                out_.rewind(1);
++                if (!write_string_bytes(data, length))
++                    return false;
++                continue;
++            }
+             if (!open_container.armed() && !is_plain_scalar(value)) {
+                 // The one moment two things become true at once: this dict
+                 // must be findable in open_ while a container child walks, and
+diff --git a/tests/unit/test_dumps_reentrancy.py b/tests/unit/test_dumps_reentrancy.py
+index 9e024e4..5ee4869 100644
+--- a/tests/unit/test_dumps_reentrancy.py
++++ b/tests/unit/test_dumps_reentrancy.py
+@@ -713,3 +713,19 @@ def test_concurrent_mutating_dumps_on_several_threads(mode):
+         thread.join()
+ 
+     assert results == {f"t{index}": f"[{BIG_TEXT}]" for index in range(4)}
++
++
++@pytest.mark.parametrize("mode", MODES)
++def test_cached_record_ascii_reservations_across_output_growth(mode):
++    """api.md: exact string escaping and output across reservation boundaries."""
++    values = ["", "x", "a" * 15, "b" * 16, "c" * 17, "d" * 4061, "e" * 4062]
++    values += ['quote"slash\\line\n', "\x00\x1f", "snowman \u2603", "z" * 8193]
++    keys = tuple(f"field_{i}" for i in range(24))
++    rows = [
++        {key: values[(i + row) % len(values)] for i, key in enumerate(keys)} for row in range(20)
++    ]
++
++    def check():
++        assert _dump(rows, mode) == json.dumps(rows, separators=(",", ":"), ensure_ascii=False)
++
++    _on_a_fresh_thread(check)

@@ -1757,3 +1757,99 @@ Linux ARM64 mixed changes +9.99%, +8.00% and +8.51%. The shared movement
 supports runner variation as a contributor, without attributing every failed
 metric or waiving any candidate gate. Evidence and verification are retained
 under `build/evidence/benchmark-lead/native-control-34257791864/`.
+
+P14 native validation is complete. All ten saved binaries match their
+manifests and complete compilation; both arms have identical training sources,
+data and recipes on each platform. Every canonical gate fails. The table
+contains raw Strata median changes within each A/B run, not noise-adjusted
+effects or production standings.
+
+| Platform       | A / B wins | Failed checks | Flat dumps median | Mixed dumps median |
+| -------------- | ---------- | ------------- | ----------------- | ------------------ |
+| Linux ARM64    | 26 / 26    | 2             | -5.81%            | -4.02%             |
+| Linux x86-64   | 26 / 27    | 8             | -3.88%            | -10.83%            |
+| macOS ARM64    | 27 / 27    | 12            | -17.68%           | -8.93%             |
+| macOS x86-64   | 27 / 27    | 31            | +4.54%            | -1.53%             |
+| Windows x86-64 | 25 / 24    | 20            | -9.15%            | +2.42%             |
+
+Both arms total 131/135. Linux ARM64 mixed still trails orjson at 1.0222x;
+its failed checks are mixed dumps p95 +7.27% and ID query p95 +4.56%.
+The mixed median's raw improvement accompanies orjson -4.47%, so it does
+not close the deficit. Windows mixed still trails at 1.0417x, with median
++2.42% and p95 +30.17%; mixed file dump also trails and wide-array file
+dump becomes a third miss. Mac Intel flat dumps regresses despite the gain
+on the other four platforms. Full reports, gates, binary verification and
+raw effects are retained under
+`build/evidence/benchmark-lead/native-record-int-34346286916/` (`audit.json`).
+No-go for integration. Regenerating `ci_summary.md` still yields the clean
+production result 133/135 from run 34143751498 at 75cfb42, unchanged.
+
+## E26-P15 — combine cached-key and short ASCII reservation
+
+P14's native Linux ARM64 result still trails on mixed serialization. The
+mixed input's outer cached records contain 375 integer fields and 500 string
+fields. Test a separate reservation/emission shortcut for exact compact ASCII
+values, starting from production without P14. The existing copy-until-escape
+primitive handles the clean value; an escape hit rolls back the quote and
+delegates to the original writer. Combined scratch remains within the existing
+reservation cap. No schema kind prediction or ownership policy changes.
+
+Two fresh-thread cases cover both output modes, full-width key rows, buffer
+growth, the combined reservation boundary, escapes, Unicode and long strings.
+The first baseline attempt exposed a test-oracle mismatch: the shared helper
+uses stdlib's ASCII escaping default, while Strata emits UTF-8. The new test
+now explicitly uses `ensure_ascii=False`; the failed attempt is retained as
+`p15/pgo-A-failed-oracle.log`. No timing used that failed build. Both measured
+arms use the corrected identical tests. The architecture proof is in
+`docs/architecture/fused_record_writer.md`; the prototype is isolated in
+`experiments/benchmark-record-ascii-reserve.patch`. Validation is in progress.
+
+Both matched PGO arms pass 15 C++ suites and 2,251 Python tests in both
+phases. Exact binary hashes, complete compilation and identical training
+sources/data verify (`p15/verification.json`). Six ABBA blocks of 60 samples
+plus six identical-binary A/A blocks show no mixed bytes gain: small raw
++0.49%, normalized +0.97% (interval -1.24% to +1.72%, floor 0.87%); medium
+raw +0.75%, normalized +0.23% (interval -0.04% to +1.28%, floor 1.41%).
+Users bytes regresses raw +2.89%, normalized +2.57% (interval +1.92% to
++3.64%, floor 1.60%); users str is also slower, normalized +2.08% (interval
++1.47% to +2.76%, floor 1.08%). Flat bytes improves raw -5.32%, normalized
+-5.63% (interval -6.20% to -4.33%, floor 0.91%), but does not justify the
+users regression or advance the remaining mixed-data deficit.
+
+Disassembly shows the fused writer growing from 883 to 1,214 instructions,
+while its stack frame shrinks from 192 to 176 bytes. Static frame-relative
+instruction count falls from 66 to 51; this is not dynamic spill attribution.
+The larger body supports retaining the code-footprint risk, without proving
+the cause of the users regression. Both disassemblies and `codegen.json` are
+retained beside the timing evidence. No-go: no full canonical or native run
+is justified. Production source, tests, binary and metadata are restored;
+`make test` passes all 15 C++ suites and 2,249 Python tests.
+
+## E26-P16 — share the string writer after the combined reservation
+
+P16 removes P15's duplicate clean-copy and escape fallback arm. The existing
+private string writer accepts a default-false `pre_reserved` argument;
+only the fused exact-short-ASCII caller passes true after its combined
+reservation. The same growth, escape and Unicode tests apply. The baseline
+is the retained P15 A build (539e264fa47f1e1ca388eb97006a64494fb018b2ab93e4e38f0457c6feee230a),
+with identical test sources and training data verified against the new PGO
+candidate. This is a separate prototype from production, not a composition
+with the integer shortcut. Evidence is under `build/evidence/benchmark-lead/p16/`;
+the isolated patch is `experiments/benchmark-record-ascii-shared.patch`.
+
+The candidate passes 15 C++ suites and 2,251 Python tests in both PGO phases;
+saved binaries and matched training inputs verify. Six ABBA blocks of 60
+samples plus six new identical-binary A/A blocks show small mixed bytes raw
+-0.04%, normalized +0.70% (interval -1.04% to +1.20%, floor 2.18%); medium
+raw +0.10%, normalized +0.17% (interval -0.59% to +1.34%, floor 0.79%).
+Users bytes still regresses raw +2.36%, normalized +2.07% (interval +1.31%
+to +2.33%, floor 0.59%); str raw +2.08%, normalized +1.94% (interval +1.55%
+to +2.16%, floor 0.64%). Flat bytes improves raw -5.76%, normalized -5.47%
+(interval -5.83% to -4.39%, floor 0.56%). No mixed gain resolves.
+
+Sharing source does not reduce the generated body: the fused writer grows
+further to 1,388 ARM64 instructions versus P15's 1,214 and baseline's 883.
+Its frame remains 176 bytes, with 55 static frame-relative instructions.
+The intended code-footprint reduction is therefore falsified for this build.
+No-go: retain the isolated patch and do not dispatch full canonical or native
+validation. Production source, tests, binary and metadata are restored.
