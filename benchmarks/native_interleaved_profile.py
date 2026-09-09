@@ -19,11 +19,11 @@ import sys
 
 
 def sampled_symbols(report: str, limit: int = 8) -> list[str]:
-    """Retain complete demangled names, including spaces and clone suffixes."""
+    """Keep printed user symbols, including shares rounded to zero by perf."""
     symbols = []
     for line in report.splitlines():
         match = re.match(r"^\s*([0-9.]+)%\s+\[\.\]\s+(.+?)\s*$", line)
-        if match and float(match[1]) > 0 and match[2] not in symbols:
+        if match and match[2] not in symbols:
             symbols.append(match[2])
     return symbols[:limit]
 

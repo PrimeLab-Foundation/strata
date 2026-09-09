@@ -1889,3 +1889,61 @@ binary discovery. No timing or sampling result was produced. Replace that
 dependency with a Bash glob and verify CPU-clock recording immediately after
 tool installation, before building. Archive the built extension and PGO input
 manifest even if later collection fails. The failed run log is retained.
+
+P17 run 34354876762 at adca5de succeeds on Neoverse-N2. Both conditions
+use the same verified PGO binary (4020b53544fd9597c206df2e168029219f0cd5b36a128b60c809a484a393611b),
+matching dataset hashes and canonical callables. CPU-clock collection retains
+132,792 resident and 701,108 interleaved samples, with zero lost samples.
+The loops take 44.22s and 233.80s respectively; those totals include GC and
+rival calls and are not Strata latency comparisons. Full artifacts and
+verification are under `build/evidence/benchmark-lead/native-interleaved-34354876762/`.
+
+Per-function annotation counts (resident -> interleaved): general write
+1,578 -> 1,691; fused record 871 -> 884; mapping body 231 -> 231; string
+writer 218 -> 198. One pair does not establish a resolved function-level
+regression. In the general writer, address c180 is the compare following
+the dependent power-of-ten load in Dragonbox significand digit counting;
+its local sampled-period share is 2.09% -> 3.67%. That location supports a
+bounded codegen/performance experiment, not a cache-miss attribution. The
+fused writer's type-check locations remain prominent in both conditions.
+The collector also now retains printed symbols whose global percentage
+rounds to 0.00%; a displayed zero did not mean zero captured samples.
+
+## E26-P18 — bit-indexed significand digit-count buckets
+
+Use one bit-indexed pair of base decimal count and threshold after Dragonbox,
+instead of the fixed-point multiply and dependent threshold-index sequence.
+This is independent of P11's 16/17-digit branch and keeps generic integer
+counting and the micro-decimal fast path unchanged. The private constexpr
+1 KiB table is validated against a division-based oracle at all 64 interval
+endpoints. Output stores, rounding and format layout are unchanged. The
+larger table is a cache-footprint risk, so codegen and matched PGO paired/A/A
+screening precede any acceptance claim. Architecture proof:
+`docs/architecture/float_digit_count.md`; isolated patch:
+`experiments/benchmark-significand-buckets.patch`.
+
+Both fresh PGO arms pass both test phases (15 C++ suites and 2,252 Python
+cases per phase). Binary identities and matching recipe, training data and
+workload-source manifests verify. ARM64 codegen replaces the target's 12
+instructions with 9, including a paired threshold/base load; the disassembled
+format_double body decreases from 1,020 to 1,015 instructions.
+
+Six paired ABBA blocks, repeat 60, with six matching identical-binary A/A
+blocks show medium mixed bytes -1.25% raw / -1.14% normalized
+(CI -1.61..-0.84%, floor 0.59%) and str -1.10% / -0.96%
+(CI -1.42..-0.69%, floor 0.60%). Small mixed bytes reads -0.82% raw /
+-1.36% normalized (CI -1.49..-0.68%, floor 0.83%); str -0.91% /
+-0.88% (CI -1.38..-0.11%, floor 0.87%). Small intervals overlap their
+control floors, so their gains are not fully resolved. No control row has
+a resolved regression. This supports one full canonical small-tier gate;
+it is not production qualification. Evidence: `build/evidence/benchmark-lead/p18/`.
+
+The full canonical small-tier screen (repeat 60, all 27 rows) fails 38
+checks: examples include users file-dump median +5.5% and p95 +9.8%, nested
+dumps RSS +12.1%, and flat loads median +5.4%. Rival timings also move
+(e.g. flat file-load orjson 0.695 -> 0.732 ms alongside Strata
+0.605 -> 0.638 ms), and RSS is shared across libraries in each dataset
+report. These observations do not attribute every failure to this code,
+but do not waive any gate. No-go for integration; retain the local medium
+mixed gain as diagnostic evidence only. No favorable rerun or native
+qualification is claimed. Production source, binary and metadata are restored.

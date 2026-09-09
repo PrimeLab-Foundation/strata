@@ -508,3 +508,22 @@ on the published revision. Verify child/build identities and retained samples;
 compare Strata's sampled instructions under resident and interleaved conditions.
 Relative shares alone cannot establish causality. Choose a bounded runtime
 change only after this evidence and a codegen check identify an actual cost.
+
+P17 completed on Neoverse-N2 in run 34354876762 with verified matching binary
+and dataset identities. The fused writer has almost unchanged sample counts;
+a notable general-writer location is the dependent threshold load/comparison
+in Dragonbox digit counting. P18 tests a bit-indexed base/threshold pair there,
+with a compile-time endpoint oracle and the existing float precision suite.
+Keep the generic integer and micro-decimal paths unchanged. Require evidence
+that the dependency chain is removed, then paired/A/A and canonical gates;
+raw sample shares alone do not justify integration.
+
+P18 passes correctness and improves the local medium mixed paired screen,
+but fails 38 full canonical checks. It remains isolated. Production is
+still 133/135. Next, investigate the general writer's repeated exact-type
+loads observed in P17: establish whether one type-pointer load can be reused
+across dispatch branches without crossing a user-code callback, then inspect
+PGO codegen before another matched experiment. Do not repeat scalar record
+reservation expansion or compose rejected patches. Any candidate must pass
+the unchanged full gate and native Linux ARM64/Windows validation before
+integration and a new clean five-platform standings run.

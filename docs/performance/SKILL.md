@@ -432,3 +432,14 @@ record was dominated by the cache sweep. Preserve native rival-interleaved
 samples and matching resident controls before attributing the mixed deficit
 to another scalar fast path. Software CPU-clock samples do not measure cache
 misses, and relative frame shares alone do not establish causality.
+
+P17's completed Neoverse-N2 interleave profile identifies the dependent
+Dragonbox digit-count threshold sequence as a bounded hypothesis, without
+proving cache-miss causality. P18 replaces that sequence with a constexpr
+bit-indexed base/threshold table. ARM64 codegen shrinks the sequence from
+12 to 9 instructions; matched PGO tests pass. Paired/A/A medium mixed gains
+about 1.1–1.3% raw, while small mixed intervals overlap their floors.
+The full canonical small gate fails 38 checks, including latency and RSS.
+Keep `experiments/benchmark-significand-buckets.patch` isolated; do not infer
+production qualification from the narrower paired gain. Evidence and
+interference observations are recorded in the experiment ledger.

@@ -1,0 +1,75 @@
+diff --git a/src/strata/util/dtoa.cpp b/src/strata/util/dtoa.cpp
+index 574a873..8ef47e8 100644
+--- a/src/strata/util/dtoa.cpp
++++ b/src/strata/util/dtoa.cpp
+@@ -35,6 +35,7 @@
+ 
+ #include "strata/third_party/dragonbox/dragonbox.h"
+ 
++#include <array>
+ #include <cmath>
+ #include <cstring>
+ 
+@@ -50,6 +51,53 @@ using detail::kDigitPairs;
+ using detail::shift16_right;
+ using detail::write_digits_fixed;
+ 
++struct DigitBucket {
++    uint64_t threshold;
++    uint64_t base;
++};
++
++alignas(16) constexpr auto kSignificandBuckets = [] {
++    std::array<DigitBucket, 64> buckets{};
++    for (unsigned bit = 0; bit < buckets.size(); ++bit) {
++        const uint64_t lower = uint64_t{1} << bit;
++        size_t base = 1;
++        while (base < 19 && lower >= detail::kPow10[base])
++            ++base;
++        buckets[bit] = {detail::kPow10[base], base};
++    }
++    return buckets;
++}();
++
++constexpr bool valid_significand_buckets() {
++    const auto reference = [](uint64_t value) {
++        size_t count = 1;
++        while (value >= 10) {
++            value /= 10;
++            ++count;
++        }
++        return count;
++    };
++    for (unsigned bit = 0; bit < kSignificandBuckets.size(); ++bit) {
++        const uint64_t lower = uint64_t{1} << bit;
++        const uint64_t upper = bit == 63 ? ~uint64_t{0} : (uint64_t{1} << (bit + 1)) - 1;
++        const auto bucket = kSignificandBuckets[bit];
++        if (bucket.threshold <= lower || reference(lower) != bucket.base ||
++            reference(upper) != bucket.base + static_cast<size_t>(upper >= bucket.threshold))
++            return false;
++    }
++    return true;
++}
++static_assert(valid_significand_buckets());
++static_assert(sizeof(kSignificandBuckets) == 1024);
++
++// A binary magnitude interval crosses at most one decimal boundary.
++// Dragonbox's nonzero significand is the only caller of this private path.
++[[nodiscard]] size_t significand_digit_count(uint64_t value) noexcept {
++    assert(value != 0);
++    const auto bucket = kSignificandBuckets[detail::highest_set_bit(value)];
++    return bucket.base + static_cast<size_t>(value >= bucket.threshold);
++}
++
+ /// The exponent suffix digits: two for 0..99, three above (`e+05`, `e+308`).
+ [[nodiscard]] char* write_exponent(int value, char* out) noexcept {
+     if (value >= 100) {
+@@ -174,7 +222,7 @@ size_t format_double(double value, char* out, size_t capacity) noexcept {
+     const auto decimal = jkj::dragonbox::to_decimal(value, jkj::dragonbox::policy::sign::ignore,
+                                                     jkj::dragonbox::policy::trailing_zero::remove);
+     const uint64_t digits = decimal.significand;
+-    const auto length = decimal_digit_count(digits);
++    const auto length = significand_digit_count(digits);
+     // value = digits * 10^exponent; the scientific exponent is where the
+     // leading digit sits.
+     const auto scientific_exponent = static_cast<int32_t>(length) + decimal.exponent - 1;
