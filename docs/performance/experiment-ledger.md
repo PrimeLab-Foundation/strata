@@ -1731,3 +1731,29 @@ unaccepted. The substantial flat-record gain justifies native investigation
 with full validation, not production integration. ASan/UBSan validation of the
 new reservation path passes all 2,251 Python tests. Production source, tests,
 binary and metadata are restored; the prototype remains only in its patch.
+
+### Native P14 validation and same-source control audit
+
+[P14 run 34346286916](https://github.com/PrimeLab-Foundation/strata/actions/runs/34346286916)
+uses b7abe5079fd4bf1df8da5c854c667f3665f26c08 for both refs,
+`record-int-reserve`, canonical validation and 60 repeats on all five
+platforms. Both arms receive the same regression tests. It is an isolated
+candidate investigation, not a clean production standings run.
+
+The previously completed
+[same-source control 34257791864](https://github.com/PrimeLab-Foundation/strata/actions/runs/34257791864)
+has now been fully downloaded and audited. All ten binaries match their
+manifests, compilation is complete, and both arms have matching PGO recipes,
+workload sources and training data at 5bbec773f53580b4adf1f1c6c86c5e01d725cfe3.
+These are separate PGO builds of the same source, not an identical-binary A/A.
+The unchanged gates fail 30 checks on Linux ARM64, 28 on Linux x86, 10 on
+Mac ARM64, 48 on Mac Intel and 11 on Windows. Within-run standings total
+132/135 for A and 131/135 for B; Windows moves 25/27 to 24/27, Linux ARM64
+stays 26/27, and the other three stay 27/27.
+
+Mac Intel mixed dumps median changes +51.99% for Strata, +42.50% for orjson
+and +44.60% for msgspec; nested dumps changes +85.64%, +66.37% and +54.05%.
+Linux ARM64 mixed changes +9.99%, +8.00% and +8.51%. The shared movement
+supports runner variation as a contributor, without attributing every failed
+metric or waiving any candidate gate. Evidence and verification are retained
+under `build/evidence/benchmark-lead/native-control-34257791864/`.

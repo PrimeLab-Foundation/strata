@@ -97,9 +97,10 @@ change loop (tests both layers + benchmarks + docs). No conclusion, no merge.
 
 ## Commits
 
-- **All commits and pushes are made by the human.** The agent never runs
-  `git commit` or `git push`; it prepares the change and hands over a short,
-  ready-to-use commit message.
+- Commits and pushes require user authorization. Once authorized, the agent
+  may commit and push completed, validated changes without asking again.
+  Otherwise, prepare the change and hand over a short, ready-to-use commit
+  message.
 - Message style: imperative summary of what changed and why it is
   faster/safer (one line, ≤ 72 chars; a short body only when truly needed);
   mention refreshed benchmark results when applicable.
