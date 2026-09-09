@@ -27,10 +27,14 @@ def test_profile_condition_keeps_warmup_and_gc_contract(tmp_path, monkeypatch, c
     dataset.parent.mkdir(parents=True)
     dataset.write_text('{}')
     counts = Counter()
+    sequence = []
 
     def encoder(name):
         def call(*args, **kwargs):
             counts[name] += 1
+            sequence.append(name)
+            if name == 'json':
+                assert kwargs == {'separators': (',', ':')}
             return b'{}'
 
         return call
@@ -38,7 +42,13 @@ def test_profile_condition_keeps_warmup_and_gc_contract(tmp_path, monkeypatch, c
     monkeypatch.setitem(sys.modules, 'orjson', SimpleNamespace(dumps=encoder('orjson')))
     monkeypatch.setitem(sys.modules, 'ujson', SimpleNamespace(dumps=encoder('ujson')))
     monkeypatch.setitem(
-        sys.modules, 'msgspec', SimpleNamespace(json=SimpleNamespace(encode=encoder('msgspec')))
+        sys.modules,
+        'msgspec',
+        SimpleNamespace(
+            json=SimpleNamespace(
+                Encoder=lambda: SimpleNamespace(encode=encoder('msgspec')),
+            )
+        ),
     )
     monkeypatch.setattr(strata, 'dumps', encoder('strata'))
     monkeypatch.setattr(profile_interleaved.json, 'dumps', encoder('json'))
@@ -48,3 +58,6 @@ def test_profile_condition_keeps_warmup_and_gc_contract(tmp_path, monkeypatch, c
     expected_rivals = 4 if condition == 'interleaved' else 1
     assert all(counts[name] == expected_rivals for name in ('orjson', 'ujson', 'msgspec', 'json'))
     assert counts['gc'] == (15 if condition == 'interleaved' else 3)
+    warmup_order = ['strata', 'orjson', 'msgspec', 'ujson', 'json']
+    loop_order = warmup_order if condition == 'interleaved' else ['strata']
+    assert sequence == warmup_order + [item for name in loop_order for item in ('gc', name)] * 3

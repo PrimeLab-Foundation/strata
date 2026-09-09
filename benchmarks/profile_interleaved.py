@@ -32,15 +32,17 @@ def main(argv=None) -> int:
 
     import strata
 
-    encode = msgspec.json.encode
-    calls = (
-        lambda: strata.dumps(data, return_type="bytes"),
-        lambda: orjson.dumps(data),
-        lambda: ujson.dumps(data),
-        lambda: encode(data),
-        lambda: json.dumps(data),
-    )
-    for call in calls:
+    from benchmarks.bench_main import _dumps_callables
+
+    libraries = {
+        "strata": strata,
+        "orjson": orjson,
+        "msgspec": msgspec,
+        "ujson": ujson,
+        "json": json,
+    }
+    calls = _dumps_callables(libraries, data)
+    for call in calls.values():
         call()
 
     if args.metadata:
@@ -48,7 +50,7 @@ def main(argv=None) -> int:
 
         provenance = capture(
             [Path("benchmarks/data/generated/small/mixed.json")],
-            {"strata": strata, "orjson": orjson, "msgspec": msgspec, "ujson": ujson, "json": json},
+            libraries,
             repeat=rounds,
             warmup=1,
         )
@@ -58,18 +60,16 @@ def main(argv=None) -> int:
             "rounds": rounds,
             "warmup": "one call to each encoder",
             "gc": "collect before each call",
-            "loop_order": ["strata"]
-            if args.condition == "resident"
-            else ["strata", "orjson", "ujson", "msgspec", "json"],
+            "loop_order": ["strata"] if args.condition == "resident" else list(calls),
         }
         args.metadata.write_text(json.dumps(provenance, indent=2) + "\n")
 
     if args.condition == "resident":
-        calls = calls[:1]
+        calls = {"strata": calls["strata"]}
 
     start = time.perf_counter()
     for _ in range(rounds):
-        for call in calls:
+        for call in calls.values():
             gc.collect()
             call()
     elapsed = time.perf_counter() - start

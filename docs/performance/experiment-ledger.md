@@ -1874,3 +1874,11 @@ Three tests pin complete C++ clone names and both warmup/GC/call-order controls.
 Local `make test` passes 15 C++ suites and 2,252 Python tests; workflow shell
 syntax checks pass. Native collection is the next step before selecting a
 new runtime mechanism. No scalar-reservation prototype is reintroduced.
+
+The first dispatch, 34353507880 at 4bb8acc, was cancelled during its PGO
+build, before sampling: review found the legacy profile helper used a
+different encoder order, msgspec entry point and stdlib formatting from the
+canonical harness. The worker now uses `bench_main._dumps_callables` directly;
+its tests pin the exact warmup/loop sequence, msgspec Encoder entry point,
+and compact stdlib separators. This is a protocol correction before evidence
+collection, not a rerun selected from unfavorable performance results.
