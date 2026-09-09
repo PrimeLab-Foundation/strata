@@ -460,3 +460,10 @@ is not evidence for a Strata-specific cache fix. The Windows PGO profile now
 archives the value-preserving control. Publish the prepared workflow and
 probe changes before native investigation; local and remote remain at
 663c480 as of this check. Do not dispatch an old revision expecting new code.
+
+P13 tested first-key-first cache lookup with matched PGO, exact disassembly
+comparison, six paired blocks and an identical-binary control. It changes the
+intended loads but does not improve mixed serialization. Keep it isolated.
+The next record-path investigation should examine emission and reservation
+costs rather than cache-way comparison order; retain all ownership and
+reentrancy protections. No production optimization is accepted yet.

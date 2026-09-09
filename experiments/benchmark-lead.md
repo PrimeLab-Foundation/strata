@@ -173,3 +173,22 @@ the 60-sample full small-tier comparison fails ten regression checks despite
 27/27 standings in both arms. The isolated `float-digit-count` native A/B
 selector is available for investigation after publication; Windows has not
 measured this patch. See E26-P11 in the ledger for all retained results.
+
+## First-key-first fused schema lookup (P13)
+
+`benchmark-schema-key-first.patch` reverses two side-effect-free comparisons
+in the fused record writer's four-way cache lookup. First-key identity is
+checked before record size. Three of mixed.json's four schemas have three
+fields, so size rejects few candidates; first-key identity distinguishes all
+four. Hypothesis: short-circuit the count load on unrelated keys. The compiler
+may already combine or reorder the loads, making the change ineffective.
+
+The match predicate, chosen way, fallback, cached-key ownership, staged row,
+reentrancy protection, output and errors are identical. Existing schema and
+mutation tests cover this unchanged predicate. Compare matched gate-inclusive
+PGO builds and retain the patch only as an experiment until all gates pass.
+
+P13 outcome: no-go. Both PGO builds pass all tests; the disassembly confirms
+exactly sixteen changed instruction words and unchanged code layout. Six
+paired blocks and the identical-binary control resolve no mixed bytes gain.
+Keep the patch isolated; do not promote it on the load-count hypothesis alone.

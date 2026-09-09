@@ -383,3 +383,17 @@ changes both Strata and orjson timings; the local control cannot attribute
 this to a Strata-specific cache mechanism. Use `make probe-string-identity`
 and the archived Windows PGO control before considering prefetch or sharing
 changes. See the ledger for raw evidence and limits.
+
+P11/P12 native follow-up on 971fe87: both workflows complete, but the float
+count patch does not resolve small mixed gains on Windows or Linux ARM64.
+Windows string pooling also provides no resolved Strata leaf-list gain and
+slows the full tree. Neither mechanism qualifies for production; retain the
+local canonical failures and consult the ledger's native results before
+repeating these experiments.
+
+E26-P13: checking first-key identity before size in the fused schema lookup
+changes exactly sixteen ARM64 instruction words under matched PGO, with no
+code-layout change, but gives no resolved mixed serialization gain. No-go;
+retain the isolated patch and evidence rather than repeating the same lookup
+micro-optimization. Latest Windows PGO profiling instead has records-only
+1.157x and strings 0.771x; earlier subset rankings are not stable attribution.

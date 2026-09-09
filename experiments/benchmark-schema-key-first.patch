@@ -1,0 +1,13 @@
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -772,8 +772,8 @@
+         PyObject* const first_key = entries[0].me_key;
+         size_t way = SchemaCacheLease::DepthSchemas::kMiss;
+         for (size_t candidate = 0; candidate < SchemaCacheLease::DepthSchemas::kWays; ++candidate) {
+-            if (depth_schemas.counts[candidate] == size &&
+-                depth_schemas.first_keys[candidate] == first_key) {
++            if (depth_schemas.first_keys[candidate] == first_key &&
++                depth_schemas.counts[candidate] == size) {
+                 way = candidate;
+                 break;
+             }

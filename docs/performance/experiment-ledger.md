@@ -1644,3 +1644,57 @@ serialize-before-truncate and newline semantics in any subsequent prototype.
   binary and file controls. Native measurement awaits publication.
 - Evidence: `build/evidence/benchmark-lead/p12/string-identity.json` and log.
   No production hot path or canonical benchmark protocol changed.
+
+### P11/P12 native results on 971fe87
+
+Both [A/B 34315373617](https://github.com/PrimeLab-Foundation/strata/actions/runs/34315373617)
+and [Windows profile 34315375872](https://github.com/PrimeLab-Foundation/strata/actions/runs/34315375872)
+completed successfully. All ten A/B binaries match their manifests and have
+complete compilation. Workflow success is not a passed canonical gate:
+this run selected paired validation, and P11's local canonical failure stands.
+
+Small mixed bytes raw changes: Linux ARM64 -0.462%, Windows -0.830%,
+Linux x86 -1.395%, Mac ARM64 -0.923%, Mac Intel -2.381%. None resolves a
+small-row gain against both its interval and A/A floor. Windows normalized
+-0.492% has interval -0.929% to +1.384%, floor 2.530%; Linux ARM64 normalized
+-0.271% has interval -0.583% to +1.476%, floor 0.987%. Medium mixed resolves
+small normalized gains on Linux ARM64 (-0.614%, floor 0.427%) and Linux x86
+(-1.465%, floor 1.416%), but these do not prove the remaining small-row deficits
+closed. Windows medium is particularly noisy (15.213% floor). Windows small
+users str mode moves adversely: raw +1.48%, normalized +5.23%, beyond its
+interval and floor. No production integration is justified by these results.
+
+Windows P12 pooling finds no resolved extracted-string gain for Strata:
+0.9951x (0.9417–1.0612), versus orjson 0.9590x (0.9234–0.9793). The pooled
+full tree is slower than its unpooled clone for Strata: 1.0747x
+(1.0162–1.1192), versus orjson 1.0078x (0.9914–1.0267). This does not support
+pooling user strings or attributing the deficit to duplicate string objects.
+Artifacts are retained under `native-float-34315373617/` and
+`windows-strings-34315375872/` within `build/evidence/benchmark-lead/`.
+
+## E26-P13 — first-key-first fused schema lookup
+
+The initial PGO block of Windows profile 34315375872 measures mixed paired
+1.1316x orjson (interval 1.1232–1.1409), records-only 1.157x, strings 0.771x,
+and full-precision float bucket 1.041x. This differs from the prior profile's
+subset ordering; the older string deficit is not a stable optimization target.
+The log is retained in `windows-strings-34315375872/profile.log`.
+
+P13 reverses the fused lookup's size/key comparisons. Three of the four
+mixed schemas share a size, while their first keys differ, so first-key-first
+may reject wrong ways without loading counts. The same two conditions still
+must hold; no ownership or output behavior changes. Both matched PGO arms passed 15 C++ suites and 2,249 Python tests in both
+phases. Manifests confirm identical training sources/data and complete
+compilation; saved binaries match their hashes. Disassembly differs at only
+16 instruction words, all in the four cache-way comparisons; every instruction
+address and the 219,240-byte text-section size is unchanged. The intended
+load-order change is real, without a surrounding code-layout change.
+
+Six ABBA blocks of 60 samples plus six identical-binary A/A blocks find no
+mixed bytes gain: small raw +0.13%, normalized -0.03% (interval -1.08% to
++2.03%, floor 1.45%); medium raw +0.06%, normalized -0.49% (interval -1.28%
+to +0.06%, floor 0.68%). Flat, nested, users and wide-array controls provide
+no reason to advance this mechanism. No-go: no full canonical or native run
+is justified by the local screen. Production source, binary and metadata
+are restored. Evidence is retained under `build/evidence/benchmark-lead/p13/`,
+and the prototype remains in `experiments/benchmark-schema-key-first.patch`.
