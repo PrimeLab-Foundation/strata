@@ -796,19 +796,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang llvm cmake linux-tools-common linux-tools-generic
           sudo sysctl -w kernel.perf_event_paranoid=1
+      - name: Verify sampling support before building
+        run: |
+          PERF_CANDIDATES=(/usr/lib/linux-tools/*/perf)
+          test -x "${PERF_CANDIDATES[0]}"
+          "${PERF_CANDIDATES[0]}" --version
+          "${PERF_CANDIDATES[0]}" record -e cpu-clock:u -o "$RUNNER_TEMP/perf-preflight.data" -- python -c 'sum(range(1000000))'
+          printf 'PERF_BINARY=%s\n' "${PERF_CANDIDATES[0]}" >> "$GITHUB_ENV"
       - name: Install development and benchmark dependencies with tests
         run: make install-bench
       - name: Build PGO and LTO with both correctness gates
         run: make pgo
       - name: Sample resident and interleaved mixed calls
         run: |
-          PERF_BINARY=$(rg --files /usr/lib/linux-tools -g perf | head -1)
-          test -n "$PERF_BINARY"
           make probe-native-interleaved NATIVE_PROFILE_FLAGS="--perf $PERF_BINARY --output build/native-interleaved --rounds 20000"
       - name: Preserve samples, binary identity and complete annotations
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: native-interleaved-linux-arm64
-          path: build/native-interleaved/
+          path: |
+            build/native-interleaved/
+            python/strata/*.so
+            python/strata/*.so.build.json
+            build/pgo/strata.profdata.inputs.json
           if-no-files-found: error

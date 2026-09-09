@@ -1882,3 +1882,10 @@ canonical harness. The worker now uses `bench_main._dumps_callables` directly;
 its tests pin the exact warmup/loop sequence, msgspec Encoder entry point,
 and compact stdlib separators. This is a protocol correction before evidence
 collection, not a rerun selected from unfavorable performance results.
+
+Corrected run 34354095181 at 2b28b82 passed the PGO build and correctness
+stages but failed before collection because the runner lacked `rg` for perf
+binary discovery. No timing or sampling result was produced. Replace that
+dependency with a Bash glob and verify CPU-clock recording immediately after
+tool installation, before building. Archive the built extension and PGO input
+manifest even if later collection fails. The failed run log is retained.
