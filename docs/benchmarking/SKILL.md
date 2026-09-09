@@ -457,3 +457,14 @@ set both refs to the same published revision. See
 Canonical `bench-small`, `bench-medium`, and `bench-large` accept
 `BENCH_REPEAT` and `BENCH_WARMUP` (defaults 10 and 2); all declared workloads
 and regression thresholds remain unchanged.
+
+### String identity control
+
+`make probe-string-identity` records value-preserving object-sharing controls
+for mixed serialization. `STRING_IDENTITY_DATASET`, `STRING_IDENTITY_OUTPUT`
+and `PROBE_REPEAT` select the input, JSON artifact and sample count. It checks
+per-engine byte equivalence, compares original/cloned/pooled trees and string
+leaf lists, and saves raw alternating-round samples plus build provenance.
+This is a diagnostic, excluded from canonical standings and acceptance gates.
+The Windows profile workflow archives it with the initial PGO binary before
+plain rebuilds. See E26-P12 in the performance ledger for interpretation.

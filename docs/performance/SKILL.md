@@ -355,3 +355,31 @@ p95 breaches. It preserves the original dispatch elsewhere. Those two failures
 an unchanged-source canonical control and fresh Windows profiling are pending.
 The narrower patch is not production code. See the execution plan and ledger
 for selection, tests, preserved failures and publication dependencies.
+
+September 9 follow-up: narrowed native run 34265403380 also fails all five
+gates (candidate 132/135; Linux ARM64 27/27). Two ARM64 tail failures coincide
+with rival spikes; mixed file load remains unresolved. Windows PGO profile
+34265407120 shows records-only leading, but mixed scalars and full-precision
+floats trailing. Prioritize those serializer mechanisms; the large Python
+open/truncate control alone does not justify a file-opening rewrite. Exact
+measurements and retained failures are in the ledger's September 9 follow-up.
+
+E26-P10 (September 9) rejects resuming exact float/string runs after a mixed
+list transition on the development Mac. Matched-test PGO passes all tests,
+but small/medium mixed bytes raw +0.31%/+0.55% gives no gain; nested and wide
+arrays worsen beyond the session A/A floors. Keep the patch isolated. This
+is not a Windows measurement; see the ledger before revisiting the mechanism.
+
+E26-P11 (September 9) tests direct thresholds for 16/17-digit Dragonbox
+significands, keeping the generic counter for shorter results. Both matched
+PGO arms pass all tests. Paired bytes gains remain unresolved; the full
+small-tier gate fails ten checks despite both arms ranking 27/27. No-go for
+integration; keep the patch isolated. The native workflow selector permits
+investigation after publication, not acceptance. See the ledger for failures.
+
+E26-P12 (September 9): mixed string values are clean ASCII, so duplicate
+escape-scan removal does not target their cost. Value-preserving pooling
+changes both Strata and orjson timings; the local control cannot attribute
+this to a Strata-specific cache mechanism. Use `make probe-string-identity`
+and the archived Windows PGO control before considering prefetch or sharing
+changes. See the ledger for raw evidence and limits.

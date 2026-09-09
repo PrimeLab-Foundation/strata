@@ -37,6 +37,7 @@ on:
           - file-newline
           - nested-mappings
           - nested-mappings-linux-arm64
+          - float-digit-count
           - combined
       blocks:
         description: "ABBA blocks (paired mode)"
@@ -125,6 +126,7 @@ jobs:
             file-newline) patches=(experiments/benchmark-file-newline.patch) ;;
             nested-mappings) patches=(experiments/benchmark-nested-mappings.patch) ;;
             nested-mappings-linux-arm64) patches=(experiments/benchmark-nested-mappings-linux-arm64.patch) ;;
+            float-digit-count) patches=(experiments/benchmark-float-digit-count.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac
@@ -305,6 +307,7 @@ jobs:
             file-newline) patches=(experiments/benchmark-file-newline.patch) ;;
             nested-mappings) patches=(experiments/benchmark-nested-mappings.patch) ;;
             nested-mappings-linux-arm64) patches=(experiments/benchmark-nested-mappings-linux-arm64.patch) ;;
+            float-digit-count) patches=(experiments/benchmark-float-digit-count.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac

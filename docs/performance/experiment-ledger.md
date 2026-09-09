@@ -1525,3 +1525,122 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   selection. Unchanged-source canonical control 34257791864 and profiling
   run 34257653984 are pending. The original Linux p95 failures remain failed;
   the platform restriction does not repair them.
+
+### September 9 native follow-up
+
+Narrowed canonical run [34265403380](https://github.com/PrimeLab-Foundation/strata/actions/runs/34265403380)
+finished with all five regression gates failed. Linux ARM64 again reaches
+27/27, but the candidate totals 132/135; this remains an unaccepted experiment.
+Its three ARM64 failures are wide-array file dump p95 +30.043%, nested loads
+p95 +10.201%, and mixed file load p95 +3.435%.
+
+Raw sample inspection changes the tail investigation: wide-array file dump's
+four slowest candidate rounds are 0–3 for Strata, orjson and msgspec alike.
+Their p95 changes are +30.043%, +24.725% and +21.329%, respectively, while
+medians change -0.748%, -0.864% and -0.030%. Nested loads also slows across
+engines around rounds 8–15: orjson p95 +12.036%, msgspec +14.025%.
+This supports shared interference, without proving the candidate harmless.
+Mixed file load remains unresolved: Strata median +1.642% and p95 +3.435%,
+versus orjson -0.146%/-0.027% and msgspec -1.014%/-0.103%.
+No samples are dropped and no failed gate is waived. The derived audit is
+retained with the downloaded canonical reports as `tail-rival-audit.json`.
+
+Windows-only profile [34265407120](https://github.com/PrimeLab-Foundation/strata/actions/runs/34265407120)
+passed. Its initial clang-cl PGO block, before the plain rebuilds, reports
+mixed serialization at 1.1091x orjson in alternating pairs (interval
+1.0909–1.1364), float subset 1.204x, string subset 1.240x, but records-only
+0.967x. Homogeneous full-precision floats remain behind at 1.147x; most
+homogeneous string buckets lead. Thus the next serializer experiment should
+investigate heterogeneous scalar dispatch and full-precision float emission,
+not assume record fusion resolves Windows.
+
+File phase controls show mixed serialization 52.20 microseconds and
+open/truncate 170.75 microseconds, but the canonical rivals also open and
+truncate on every call. These Python composition controls do not establish
+a Strata-specific opening overhead. Defer a file-opening rewrite until a
+matched rival control or native profile identifies such overhead. Preserve
+serialize-before-truncate and newline semantics in any subsequent prototype.
+
+## E26-P10 — resume exact scalar runs after heterogeneous elements
+
+- Hypothesis: the sequence writer stops specialized scalar emission after the
+  first type transition. Resume its existing float and string loops at later
+  absolute indices to avoid general per-element dispatch on subsequent runs.
+- Contract and risks: see `experiments/benchmark-lead.md`. Twelve new cases
+  pin separators at block boundaries, string fallbacks, non-finite floats,
+  and the live-list contract after a callback replaces the tail.
+- Validation: both matched-test gate-inclusive PGO builds pass 15 C++ suites
+  and 2,260 Python tests. Build hashes and complete compilation verify;
+  workload source manifests and training data match. The initial baseline
+  attempt caught a new test oracle using escaped Unicode; correcting it to
+  `ensure_ascii=False` restored the specified UTF-8 expectation before both
+  measured builds. The failed attempt is retained separately.
+- Six ABBA blocks of 60 samples plus six identical-binary A/A blocks, with
+  trailing baselines, found no mixed gain: small/medium bytes raw +0.31%/+0.55%,
+  normalized +0.87%/+0.33%, both unresolved against their intervals and floors.
+  Nested bytes costs +1.51% raw, +1.61% normalized (interval +0.02% to +2.24%,
+  floor 1.38%); wide-array bytes +1.37% raw, +1.03% normalized (interval
+  +0.47% to +1.55%, floor 0.83%). Parsing control raw +0.12% is unresolved.
+- Outcome: no-go on the development Mac; no full canonical or native run is
+  justified by this screen. This does not measure Windows performance. Keep
+  the prototype and its tests only in
+  `experiments/benchmark-resume-scalar-runs.patch`; production source and
+  extension are restored. Evidence, both PGO profiles, binaries, raw TSVs,
+  controls and analysis remain under `build/evidence/benchmark-lead/p10/`.
+
+## E26-P11 — direct digit count for long Dragonbox significands
+
+- Mechanism: count 16/17-digit binary64 significands using direct thresholds;
+  retain the generic counter below 10^15. The maximum width follows from the
+  existing Dragonbox binary64 conversion contract, not the benchmark dataset.
+- No conversion, rounding, output, allocation or Python ownership changes.
+  Existing independent float-format reference tests cover full-writer output.
+- Matched gate-inclusive PGO and paired screening are complete. Keep
+  `experiments/benchmark-float-digit-count.patch` isolated; it is not qualified.
+- Both PGO arms passed 15 C++ suites and 2,248 Python tests in both phases;
+  complete compilation and binary hashes verify, with identical workload
+  source manifests and training data. Evidence is retained under
+  `build/evidence/benchmark-lead/p11/`.
+- Six 60-sample ABBA blocks plus six identical-binary A/A blocks: small/medium
+  mixed bytes raw -2.74%/-2.25%, normalized -2.09%/-1.08%. These bytes gains
+  remain unresolved: small interval -2.55% to +3.55%, floor 2.24%; medium
+  interval -2.01% to -0.30%, floor 1.31%. Preserve the small row's +7.60%
+  normalized block; no outlier removal. Medium str mode resolves -1.51%
+  normalized against a 1.38% floor. Wide-array bytes raw +0.11%, normalized
+  +0.86% (interval +0.34% to +1.02%, floor 0.44%) is an adverse control.
+- Full local small-tier canonical validation (60 samples, all 27 rows)
+  ranks both arms 27/27 but fails ten unchanged regression checks: mixed
+  dumps median +2.3% / p95 +12.0%, users dumps median +4.2% / p95 +21.7%,
+  wide-array dumps p95 +3.1%, wide-array file dump p95 +3.3%, mixed loads
+  p95 +4.5%, mixed file load p95 +4.3%, nested file load p95 +2.4%, ID query
+  median +3.3%. Reports and failures remain in `p11/canonical/`.
+- Outcome: no-go for integration. The native A/B workflow has an isolated
+  `float-digit-count` selector for investigation after publication; no native
+  run has measured this patch. Both refs must use the same published revision.
+  Production source and the original extension/metadata are restored. Do not
+  rerun unchanged local comparisons looking for a passing draw or substitute
+  selected-row gains for the failed canonical gate.
+
+## E26-P12 — value-preserving string identity control
+
+- Inspection: all 750 mixed-data string values are ASCII and contain no
+  escapes. Removing duplicate escape scans would not address this row.
+  There are 258 distinct values but 502 distinct string objects, unlike the
+  synthetic buckets that reuse a small set of string objects.
+- Added `make probe-string-identity`: original and cloned full trees, pooled
+  full tree, original string leaves and pooled string leaves. Both tree
+  controls clone containers; pooling only changes equal string-value sharing.
+  Per-engine byte equivalence is checked before timing. Fixture creation is
+  untimed; shared alternating rounds retain all samples, ordering, exact
+  build identity and object counts. Pooling reduces 502 objects to 258.
+- Local production PGO, 60 pairs: pooled/original extracted strings measure
+  0.8536x for Strata (interval 0.7486–0.9286) and 0.8889x for orjson
+  (0.8432–0.9709). Full pooled/cloned trees measure 1.0639x for Strata
+  (1.0156–1.1682) and 1.0672x for orjson (1.0117–1.1042).
+- Outcome: these controls move both engines and do not establish a
+  Strata-specific instruction or cache bottleneck. Do not add string pooling
+  or prefetching to production based on them. The Windows profile workflow
+  now saves the same diagnostic before any plain rebuild, beside its PGO
+  binary and file controls. Native measurement awaits publication.
+- Evidence: `build/evidence/benchmark-lead/p12/string-identity.json` and log.
+  No production hot path or canonical benchmark protocol changed.

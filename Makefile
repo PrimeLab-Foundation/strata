@@ -13,7 +13,7 @@ VPY := $(VENV)/bin/python
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
-        probe-ab-analyze probe-ab-floor probe-file-costs probe-schema-recovery probe-canonical-builds bench-supportability \
+        probe-ab-analyze probe-ab-floor probe-string-identity probe-file-costs probe-schema-recovery probe-canonical-builds bench-supportability \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -29,6 +29,10 @@ probe-canonical-builds: venv  ## Full canonical before/candidate reports and unc
 	PYTHONPATH=. $(VPY) -m benchmarks.canonical_builds $(CANONICAL_BUILD_FLAGS)
 probe-schema-recovery: venv  ## Diagnose the effect of unrelated schema churn on later serialization
 	PYTHONPATH=. $(VPY) -m benchmarks.schema_recovery --repeat $(PROBE_REPEAT) --output $(SCHEMA_RECOVERY_OUTPUT)
+STRING_IDENTITY_DATASET ?= benchmarks/data/generated/small/mixed.json
+STRING_IDENTITY_OUTPUT ?= build/evidence/string-identity.json
+probe-string-identity: venv  ## Value-preserving string object-sharing diagnostic
+	PYTHONPATH=. $(VPY) -m benchmarks.string_identity --dataset $(STRING_IDENTITY_DATASET) --output $(STRING_IDENTITY_OUTPUT) --repeat $(PROBE_REPEAT)
 probe-file-costs: venv  ## Real-file diagnostic phase controls with raw samples
 	PYTHONPATH=. $(VPY) -m benchmarks.file_costs --dataset $(FILE_COST_DATASET) --output $(FILE_COST_OUTPUT) --repeat $(PROBE_REPEAT)
 bench-supplementary: venv  ## NDJSON search and folder controls; separate supplementary v1 scope

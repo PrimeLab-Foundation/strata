@@ -1,0 +1,88 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..88fe43a 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -393,6 +393,17 @@ class Serializer {
+         DeferredOpen open_container(*this);
+         uint64_t seen = user_steps_;
+         for (; index < size; ++index) {
++            // Resume exact scalar runs after a different element type. These
++            // writers cannot run Python, so the current item array stays valid.
++            Py_ssize_t end = index;
++            if (Py_TYPE(items[index]) == &PyFloat_Type)
++                end = run_floats(items, size, index);
++            else if (Py_TYPE(items[index]) == &PyUnicode_Type)
++                end = run_strings(items, size, index);
++            if (end != index) {
++                index = end - 1;
++                continue;
++            }
+             if (index != 0) {
+                 out_.ensure(1);
+                 out_.put(',');
+@@ -502,8 +513,7 @@ class Serializer {
+     static_assert(kScalarRunBlock * (util::kDoubleBufferSize + 1) <= StagedOutput::kMaxReservation,
+                   "a scalar-run block must fit one reservation");
+ 
+-    [[nodiscard]] Py_ssize_t run_floats(PyObject** items, Py_ssize_t size) {
+-        Py_ssize_t index = 0;
++    [[nodiscard]] Py_ssize_t run_floats(PyObject** items, Py_ssize_t size, Py_ssize_t index = 0) {
+         while (index < size) {
+             const Py_ssize_t block_end = std::min<Py_ssize_t>(size, index + kScalarRunBlock);
+             out_.ensure(static_cast<size_t>(block_end - index) * (util::kDoubleBufferSize + 1));
+@@ -634,8 +644,7 @@ class Serializer {
+ 
+     /// Clean short ASCII strings, quoted straight into the stage. The first
+     /// element needing escapes, non-ASCII text, or real length ends the run.
+-    [[nodiscard]] Py_ssize_t run_strings(PyObject** items, Py_ssize_t size) {
+-        Py_ssize_t index = 0;
++    [[nodiscard]] Py_ssize_t run_strings(PyObject** items, Py_ssize_t size, Py_ssize_t index = 0) {
+         for (; index < size; ++index) {
+             PyObject* item = items[index];
+             if (Py_TYPE(item) != &PyUnicode_Type || !PyUnicode_IS_COMPACT_ASCII(item))
+diff --git a/tests/unit/test_dumps_reentrancy.py b/tests/unit/test_dumps_reentrancy.py
+index 9e024e4..af9256e 100644
+--- a/tests/unit/test_dumps_reentrancy.py
++++ b/tests/unit/test_dumps_reentrancy.py
+@@ -713,3 +713,41 @@ def test_concurrent_mutating_dumps_on_several_threads(mode):
+         thread.join()
+ 
+     assert results == {f"t{index}": f"[{BIG_TEXT}]" for index in range(4)}
++
++
++@pytest.mark.parametrize("mode", MODES)
++@pytest.mark.parametrize("length", [1, 63, 64, 65, 129])
++def test_scalar_runs_after_container_preserve_separators(mode, length):
++    """api.md: exact JSON output across scalar runs and fallback boundaries."""
++    value = [
++        {"head": 1},
++        *[i / 7 for i in range(length)],
++        "clean",
++        'a"b',
++        "é",
++        "x" * 5000,
++        {"middle": 2},
++        *[str(i) for i in range(length)],
++        None,
++        -0.0,
++        float("inf"),
++        "tail",
++    ]
++    expected = value.copy()
++    expected[-2] = None
++    assert _dump(value, mode) == json.dumps(expected, separators=(",", ":"), ensure_ascii=False)
++
++
++@pytest.mark.parametrize("mode", MODES)
++def test_scalar_runs_follow_list_replacement_after_callback(mode):
++    """api.md mutation: a callback can replace the tail before a resumed run."""
++    value = [{"head": 1}, 1.5, "old"]
++
++    class ReplaceTail(int):
++        def __str__(self):
++            value[2:] = [i / 7 for i in range(65)] + ["clean", 'a"b', "tail"]
++            return BIG_TEXT
++
++    value[1] = ReplaceTail(BIG)
++    expected = [{"head": 1}, BIG] + [i / 7 for i in range(65)] + ["clean", 'a"b', "tail"]
++    assert _dump(value, mode) == json.dumps(expected, separators=(",", ":"), ensure_ascii=False)

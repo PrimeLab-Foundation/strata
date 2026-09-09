@@ -1,0 +1,16 @@
+--- a/src/strata/util/dtoa.cpp
++++ b/src/strata/util/dtoa.cpp
+@@ -174,7 +174,12 @@
+     const auto decimal = jkj::dragonbox::to_decimal(value, jkj::dragonbox::policy::sign::ignore,
+                                                     jkj::dragonbox::policy::trailing_zero::remove);
+     const uint64_t digits = decimal.significand;
+-    const auto length = decimal_digit_count(digits);
++    // Dragonbox's binary64 significand has at most seventeen digits. Long
++    // results avoid the generic bit-width estimate and power-table lookup;
++    // short significands retain the existing counter.
++    const size_t length = digits >= 1000000000000000ULL
++                              ? 16u + static_cast<size_t>(digits >= 10000000000000000ULL)
++                              : decimal_digit_count(digits);
+     // value = digits * 10^exponent; the scientific exponent is where the
+     // leading digit sits.
+     const auto scientific_exponent = static_cast<int32_t>(length) + decimal.exponent - 1;

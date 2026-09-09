@@ -123,3 +123,53 @@ happens before the later plain-toolchain rebuilds. Phase controls use Strata's
 Python syscall composition and are diagnostic, not rival standings or native
 instruction attribution. This collection requires publication of the updated
 workflow; it is not part of the already-running profiling job.
+
+## Resumed scalar runs (P10)
+
+`benchmark-resume-scalar-runs.patch` lets the main sequence loop resume the
+existing exact float and compact ASCII string writers after another element
+kind. It passes an absolute start index, preserving the comma rules; an
+escaped, non-ASCII or long string returns to the existing general writer.
+The depth-boundary loop retains its original implementation. There is no
+new scalar classification cache or float conversion algorithm.
+
+Inputs, emitted JSON and errors are unchanged. The resumed loops hold only
+borrowed exact scalar pointers and cannot invoke Python. After a callback,
+the outer loop still refreshes the list size and item pointer before the next
+iteration. Existing output reservations cover float blocks and string copy
+scratch. Twelve focused cases cover block boundaries, separators, escape and
+Unicode fallback, non-finite floats, and callback-driven tail replacement.
+
+Hypothesis: recovering direct scalar emission after a container or type
+transition reduces the heterogeneous-list dispatch cost seen in the Windows
+PGO profile. Risk: extra checks on record-heavy lists and repeated failed
+string eligibility checks may outweigh that saving. Build both arms with the
+same tests and gate-inclusive PGO; reject on unresolved regressions. The patch
+is an unaccepted experiment and is not linked into production.
+
+Local outcome: no-go. Matched-test PGO and the twelve new cases pass, but
+six-block paired screening finds no mixed gain and slower nested/wide-array
+serialization beyond the session control floors. No Windows claim follows
+from this Mac result. The production source, tests and binary are restored;
+see E26-P10 in the ledger for retained measurements and hashes in evidence.
+
+## Full-precision significand digit count (P11)
+
+`benchmark-float-digit-count.patch` replaces the generic digit counter only
+for Dragonbox significands at or above 10^15: binary64's maximum seventeen
+significant digits make the answer 16 plus a comparison against 10^16.
+Shorter results keep the existing counter. Conversion, trailing-zero removal,
+short-decimal probing, layout, errors and allocation remain unchanged.
+
+Hypothesis: avoid the bit-width estimate and dependent power-table access on
+full-precision float emission. The extra threshold branch may cost shorter
+results; matched PGO and mixed/record/array controls decide whether to proceed.
+Existing float precision tests compare the full writer with an independent
+reference over boundary values and random bit patterns, beyond a round-trip
+check alone. This remains an isolated experiment pending measurement.
+
+Local P11 outcome: no-go for integration. Both PGO arms pass all tests, but
+the 60-sample full small-tier comparison fails ten regression checks despite
+27/27 standings in both arms. The isolated `float-digit-count` native A/B
+selector is available for investigation after publication; Windows has not
+measured this patch. See E26-P11 in the ledger for all retained results.

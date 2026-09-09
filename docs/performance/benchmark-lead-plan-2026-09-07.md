@@ -421,3 +421,42 @@ The new narrowed candidate and Windows file collection require publication;
 first read the pending control/profile results, then validate the narrowed
 candidate with the complete native canonical gate. No production runtime or
 published regression baseline has been changed.
+
+### September 9: revised next experiment after native results
+
+The narrowed run 34265403380 is complete and unaccepted: Linux ARM64 27/27,
+all-platform candidate 132/135, all five regression gates failed. Correlated
+rival tails support interference for two ARM64 failures; mixed file load
+remains unresolved. Keep the existing patch isolated and retain every sample.
+See the ledger's September 9 follow-up for the exact comparisons.
+
+Windows PGO profiling 34265407120 identifies full-precision floats and mixed
+scalar workloads as the next serializer targets; records-only already leads.
+Inspect the scalar dispatch and float emission code, form one bounded
+prototype, and measure matched-test PGO against the retained baseline before
+native canonical validation. File opening dominates a Python phase control
+but is shared by competitors, so it is not yet an evidenced optimization.
+
+P10 tested resuming float/string runs after heterogeneous elements. It passes
+correctness but provides no local mixed gain and worsens nested/wide-array
+serialization. The patch remains isolated; do not dispatch it as a candidate
+for integration. Continue with full-precision float emission, whose Windows
+homogeneous bucket independently trails at 1.147x, preserving the existing
+short-decimal path and shortest-round-trip oracle.
+
+P11 isolates a direct 16/17-digit count after Dragonbox conversion. Both PGO
+arms pass all correctness tests; local paired bytes gains remain unresolved
+and a wide-array control moves adversely. Full small-tier validation ranks both arms 27/27 but fails ten regression
+checks, including mixed dumps median +2.3% and users median +4.2%. P11 is
+unaccepted. The `float-digit-count` native workflow selector applies only this
+patch; both refs must name the same published revision to match tests and
+training sources. Native Windows measurement is needed before any claim
+about its deficit. No production change has been accepted.
+
+P12 checks object sharing before choosing a string optimization. All mixed
+strings are clean ASCII; the real values occupy 502 objects for 258 distinct
+values. Pooling equal values changes local timings for both engines, so this
+is not evidence for a Strata-specific cache fix. The Windows PGO profile now
+archives the value-preserving control. Publish the prepared workflow and
+probe changes before native investigation; local and remote remain at
+663c480 as of this check. Do not dispatch an old revision expecting new code.

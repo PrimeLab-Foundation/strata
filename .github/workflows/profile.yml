@@ -605,7 +605,7 @@ jobs:
         shell: bash
         run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py
 
-      - name: Preserve Windows PGO identity and real-file phase controls
+      - name: Preserve Windows PGO identity and file/string controls
         shell: bash
         run: |
           python - <<'PY'
@@ -624,6 +624,9 @@ jobs:
               --dataset "benchmarks/data/generated/small/$dataset.json" \
               --output "profile_windows/file_costs_$dataset.json" --repeat 60
           done
+          PYTHONPATH=. python -m benchmarks.string_identity \
+            --dataset benchmarks/data/generated/small/mixed.json \
+            --output profile_windows/string_identity_mixed.json --repeat 60
 
       # The parse-side twin: loads flat is the row this leg reads behind
       # msgspec on two of three runner generations while every POSIX leg
