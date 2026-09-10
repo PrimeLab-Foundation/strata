@@ -443,3 +443,12 @@ The full canonical small gate fails 38 checks, including latency and RSS.
 Keep `experiments/benchmark-significand-buckets.patch` isolated; do not infer
 production qualification from the narrower paired gain. Evidence and
 interference observations are recorded in the experiment ledger.
+
+E26-P19 shares a sequence item's type across plain-scalar classification,
+exact-dict dispatch and an overload of the general writer. The writer-entry
+load disappears, but PGO ARM64 code grows 3,001 -> 3,016 instructions and
+its frame 208 -> 224 bytes. Both PGO test phases pass; six paired/A/A blocks
+show no resolved gain on any screened row (small mixed raw +0.77/+1.30%,
+medium +0.47/+0.44%). Reject integration and retain the isolated patch.
+P17's f494 is a GOT load of PyDict_Type, not this removed ob_type load;
+do not conflate the two or repeat type-argument plumbing without new evidence.

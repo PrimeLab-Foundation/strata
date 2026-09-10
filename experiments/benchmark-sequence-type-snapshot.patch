@@ -1,0 +1,49 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..69c4ad2 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -159,13 +159,14 @@ class Serializer {
+         : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(state.schemas),
+           staged_rows_(state.rows), lock_nodes_(state.locks) {}
+ 
+-    [[nodiscard]] bool write(PyObject* object) {
++    [[nodiscard]] bool write(PyObject* object) { return write(object, Py_TYPE(object)); }
++
++    [[nodiscard]] bool write(PyObject* object, PyTypeObject* const type) {
+         // Exact types first: one pointer compare instead of a flag load per
+         // candidate, and real data is exact types essentially always.
+         // Subclasses fall to the flag-check chain below, whose one semantic
+         // ordering is bool before int (bool subclasses int and must never
+         // print as a number).
+-        PyTypeObject* const type = Py_TYPE(object);
+         if (type == &PyUnicode_Type)
+             return write_string(object);
+         if (type == &PyFloat_Type) {
+@@ -398,12 +399,13 @@ class Serializer {
+                 out_.put(',');
+             }
+             PyObject* const item = items[index];
+-            if (!open_container.armed() && !is_plain_scalar(item))
++            PyTypeObject* const type = Py_TYPE(item);
++            if (!open_container.armed() && !is_plain_scalar(item, type))
+                 open_container.arm(object);
+             // Array-of-records is the shape the certified rows are made of
+             // (docs/architecture/fused_record_writer.md): exact dicts take
+             // the one-pass emit, everything else the general dispatch.
+-            const bool ok = Py_TYPE(item) == &PyDict_Type ? write_record_fused(item) : write(item);
++            const bool ok = type == &PyDict_Type ? write_record_fused(item) : write(item, type);
+             if (!ok)
+                 return false;
+             if (user_steps_ != seen) [[unlikely]] {
+@@ -703,7 +705,10 @@ class Serializer {
+     /// a value that can run Python has to arm the container and register the
+     /// row before it is written.
+     [[nodiscard]] static bool is_plain_scalar(PyObject* value) noexcept {
+-        PyTypeObject* type = Py_TYPE(value);
++        return is_plain_scalar(value, Py_TYPE(value));
++    }
++
++    [[nodiscard]] static bool is_plain_scalar(PyObject* value, PyTypeObject* type) noexcept {
+         if (type == &PyUnicode_Type || type == &PyFloat_Type)
+             return true;
+         if (type == &PyLong_Type)

@@ -527,3 +527,13 @@ PGO codegen before another matched experiment. Do not repeat scalar record
 reservation expansion or compose rejected patches. Any candidate must pass
 the unchanged full gate and native Linux ARM64/Windows validation before
 integration and a new clean five-platform standings run.
+
+P19 closes the sequence type-reuse hypothesis: correctness passes, but the
+extra argument grows the PGO writer's frame and yields no resolved paired
+win. The sampled P17 instruction was a global PyDict_Type load, while the
+general entry already cached ob_type. Production remains unchanged.
+Next investigate whether the exact-dict dispatch can keep its global type
+address outside the sequence loop without adding per-call serializer state
+or extending the type argument through the writer. Verify the resulting
+loop instructions and register pressure before committing to another timing
+experiment; a source-level local alone may already be optimized identically.

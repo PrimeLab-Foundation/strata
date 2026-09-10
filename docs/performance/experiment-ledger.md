@@ -1947,3 +1947,35 @@ report. These observations do not attribute every failure to this code,
 but do not waive any gate. No-go for integration; retain the local medium
 mixed gain as diagnostic evidence only. No favorable rerun or native
 qualification is claimed. Production source, binary and metadata are restored.
+
+## E26-P19 — sequence type snapshot
+
+The P17 f494 sample is a GOT load of PyDict_Type, not an ob_type reload.
+The general write entry already caches Py_TYPE. P19 instead tests sharing
+one per-item type snapshot across the heterogeneous sequence loop's plain
+scalar check, exact-dict dispatch and general writer entry. No Python callback
+lies between capture and dispatch; no snapshot survives a call or iteration.
+Design: `docs/architecture/sequence_type_snapshot.md`. Extra argument/register
+pressure is the main risk. Fresh matched PGO and codegen checks precede timing.
+
+Both P19 PGO arms pass both phases (15 C++ suites, 2,252 Python tests).
+Binary hashes verify and recipe, workload sources and training data match.
+A is b1c501990691990fb840282e091fee6ec70a2992c542b15fa32b3eadc31c7edc;
+B is 88c141a7100ec57238a060f755fde72d387226cc971ab7df6910c1d184317686.
+The supplied-type entry removes its ob_type load, but the general writer
+increases from 3,001 to 3,016 ARM64 instructions and its frame from 208 to
+224 bytes. The fused writer increases from 883 to 884 instructions, with
+its 192-byte frame unchanged. This is a measured register/code-size tradeoff,
+not evidence of a timing win. Evidence: `build/evidence/benchmark-lead/p19/`;
+patch: `experiments/benchmark-sequence-type-snapshot.patch`.
+
+Six paired ABBA blocks at repeat 60 plus six identical-binary A/A blocks
+show no resolved gain. Small mixed bytes is +0.77% raw / +0.77% normalized
+(CI +0.02..+3.04%, floor 1.42%); str +1.30% / +0.91%
+(CI -0.41..+3.28%, floor 2.43%). Medium mixed bytes is +0.47% raw /
++0.82% normalized (CI -0.07..+1.69%, floor 1.28%); str +0.44% /
++0.66% (CI +0.24..+1.06%, floor 1.55%). The adverse estimates are not
+resolved beyond the control floors. No other screened row shows a resolved
+gain. No-go: no full canonical or native run justified. The removed type
+load does not establish a speedup, and P17's sampled global type load remains.
+Production source, binary and matching sidecar are restored.
