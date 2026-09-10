@@ -461,3 +461,13 @@ P21 keeps sequence traversal out of line. It shrinks general write from
 paired/A/A blocks show no mixed gain and users str +1.29% normalized
 (CI +0.93..+1.46%, floor 0.26%). Reject both for integration. A verified
 instruction/footprint reduction still requires a net workload win.
+
+P22 removes fused-row checks already implied by compact combined dictionary
+counts and schema first-key selection. The full value snapshot and all tail
+checks remain. Both PGO arms pass correctness with matched new tests, but
+local mixed paired effects are unresolved and the full canonical gate fails
+six checks (including mixed dumps p95 +10%). Keep the patch isolated.
+Native paired diagnostics may test the N2-specific mechanism; they do not
+waive the failed local gate or qualify production. The workflow selector is
+`fused-tail-verification`; dispatch identical base and candidate revisions
+containing the new tests to preserve matched training inputs.

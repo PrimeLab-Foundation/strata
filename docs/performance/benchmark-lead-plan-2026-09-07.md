@@ -548,3 +548,11 @@ emission costs separately using the existing native artifact, then identify
 whether duplicated key checks can be removed while preserving the complete
 pre-emission mutation-safe row snapshot. Keep the proven re-entrancy guards;
 require an invariant proof and codegen evidence before another prototype.
+
+P22 implements the verification hypothesis as an isolated patch. Invariant
+proof and deletion/tail regression tests pass both PGO phases. The local
+paired screen is unresolved; full canonical validation fails six checks.
+Keep production unchanged. Next inspect matched native A/B and A/A results
+on Linux ARM64 and Windows, retaining all five platforms' control rows and
+build identities. A native effect would motivate resolving the failed gate,
+not bypassing it; absent a resolved gain, close the hypothesis.

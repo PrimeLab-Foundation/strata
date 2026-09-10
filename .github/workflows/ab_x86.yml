@@ -39,6 +39,7 @@ on:
           - nested-mappings-linux-arm64
           - float-digit-count
           - record-int-reserve
+          - fused-tail-verification
           - combined
       blocks:
         description: "ABBA blocks (paired mode)"
@@ -129,6 +130,7 @@ jobs:
             nested-mappings-linux-arm64) patches=(experiments/benchmark-nested-mappings-linux-arm64.patch) ;;
             float-digit-count) patches=(experiments/benchmark-float-digit-count.patch) ;;
             record-int-reserve) patches=(experiments/benchmark-record-int-reserve.patch) ;;
+            fused-tail-verification) patches=(experiments/benchmark-fused-tail-verification.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac
@@ -312,6 +314,7 @@ jobs:
             nested-mappings-linux-arm64) patches=(experiments/benchmark-nested-mappings-linux-arm64.patch) ;;
             float-digit-count) patches=(experiments/benchmark-float-digit-count.patch) ;;
             record-int-reserve) patches=(experiments/benchmark-record-int-reserve.patch) ;;
+            fused-tail-verification) patches=(experiments/benchmark-fused-tail-verification.patch) ;;
             combined) patches=(experiments/benchmark-schema-recovery.patch experiments/benchmark-file-newline.patch) ;;
             *) echo "Unknown experiment: $EXPERIMENT" >&2; exit 2 ;;
           esac

@@ -1,0 +1,32 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..90870aa 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -766,7 +766,7 @@ class Serializer {
+         if (schemas_.size() <= depth)
+             schemas_.resize(depth + 1);
+         auto& depth_schemas = schemas_[depth];
+-        if (depth_schemas.retired || entries[0].me_value == nullptr)
++        if (depth_schemas.retired)
+             return write_mapping(object);
+ 
+         PyObject* const first_key = entries[0].me_key;
+@@ -792,12 +792,13 @@ class Serializer {
+         // this pass has in hand, in storage the call leases rather than in
+         // this frame (docs/architecture/fused_record_writer.md).
+         PyObject** const row = staged_row(depth).values;
+-        for (Py_ssize_t index = 0; index < size; ++index) {
+-            PyObject* const value = entries[index].me_value;
+-            if (value == nullptr ||
+-                schema.key_row[static_cast<size_t>(index)] != entries[index].me_key)
++        // Equal entry/live counts exclude holes, and selecting the way
++        // already matched key zero. Keep the full snapshot before emission.
++        row[0] = entries[0].me_value;
++        for (Py_ssize_t index = 1; index < size; ++index) {
++            if (schema.key_row[static_cast<size_t>(index)] != entries[index].me_key)
+                 return write_mapping(object);
+-            row[static_cast<size_t>(index)] = value;
++            row[static_cast<size_t>(index)] = entries[index].me_value;
+         }
+ 
+         const MappingDepth level(map_depth_);

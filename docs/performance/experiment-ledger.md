@@ -2032,3 +2032,48 @@ normalized (CI -2.59..+2.85%, floor 3.39%), str +0.90% / +0.76%
 no full canonical/native run justified. The codegen mechanism is real but
 insufficient: shrinking the writer and hoisting this global load do not
 outweigh the changed call boundary. Production is restored.
+
+## E26-P22 — remove redundant fused-row verification
+
+The compact combined-unicode gate requires dk_nentries == ma_used before
+verification; this excludes holes. Schema selection already matches the
+first key, and cache publication preserves first_keys == key_row\[0\]. Omit
+per-value null checks and the first key's duplicate check; still copy the
+entire row before output and verify every tail key. Proof and CPython source:
+`docs/architecture/fused_verification.md`. Mirrored contract tests cover
+holes/reinsertions, one-key records and differing tails sharing a first key.
+Fresh PGO arms include the same tests. P17's verification loop contains the
+redundant branches; instruction samples motivate measurement, not speed claims.
+
+Both PGO phases pass in both arms (15 C++ suites, 2,256 Python tests).
+Binary and training identities verify. A hash:
+f81dbdd90c3cd0ae10fced51cfe3c796c1b0edee26a1b07f3fdb48edbae4577f;
+B hash: c1ed94b8ba2d2c9d08198751255f66b426f3f66436d9c7c3b5351184d5e0368e.
+The fused writer is 883 -> 886 ARM64 instructions, with its 192-byte frame
+unchanged. Removing loop checks is not the same as shrinking the full body.
+Evidence: `build/evidence/benchmark-lead/p22/`; isolated patch:
+`experiments/benchmark-fused-tail-verification.patch`.
+
+Six paired ABBA blocks at repeat 60 plus six identical-binary A/A blocks
+show no resolved mixed effect or adverse control effect. Small mixed bytes
+is -0.37% raw / +0.73% normalized (CI -0.13..+2.25%, floor 1.26%);
+str -1.84% / -0.12% (CI -1.07..+0.57%, floor 2.52%). Medium bytes
+-0.49% / -0.42% (CI -1.57..+0.85%, floor 0.66%); str -0.82% /
++0.09% (CI -1.60..+0.99%, floor 1.02%). Proceed to a full canonical
+small-tier local report and a native diagnostic comparison: the removed
+branches occur in the P17 N2 profile, and a neutral Mac screen does not
+establish the target platform's effect. Neither step waives canonical gates.
+The workflow selector uses identical base/candidate revisions so both include
+the new regression tests, with only the runtime patch applied to B.
+
+The full local canonical small-tier gate compares 27/27 rows and fails six
+checks: mixed dumps p95 +10.0%, nested dumps p95 +3.3%, mixed loads median
++2.2%, wide-array loads p95 +2.9%, wide-array file-load p95 +4.4%, recursive
+total query p95 +2.2%. Integration remains disallowed. Native paired results
+will answer the target-platform mechanism only and cannot replace these
+failures or qualify production. Sanitizer validation is in progress.
+
+P22's instrumented candidate passes the ASan+UBSan binding gate: 2,256
+Python tests, 73 seconds. Source is restored afterward; the developer's
+production extension is unchanged. No memory-safety failure was detected,
+but performance qualification is still blocked by the six canonical checks.
