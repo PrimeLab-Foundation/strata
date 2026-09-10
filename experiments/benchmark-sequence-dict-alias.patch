@@ -1,0 +1,21 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..0b9da91 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -392,6 +392,7 @@ class Serializer {
+ 
+         DeferredOpen open_container(*this);
+         uint64_t seen = user_steps_;
++        PyTypeObject* const dict_type = &PyDict_Type;
+         for (; index < size; ++index) {
+             if (index != 0) {
+                 out_.ensure(1);
+@@ -403,7 +404,7 @@ class Serializer {
+             // Array-of-records is the shape the certified rows are made of
+             // (docs/architecture/fused_record_writer.md): exact dicts take
+             // the one-pass emit, everything else the general dispatch.
+-            const bool ok = Py_TYPE(item) == &PyDict_Type ? write_record_fused(item) : write(item);
++            const bool ok = Py_TYPE(item) == dict_type ? write_record_fused(item) : write(item);
+             if (!ok)
+                 return false;
+             if (user_steps_ != seen) [[unlikely]] {

@@ -537,3 +537,14 @@ address outside the sequence loop without adding per-call serializer state
 or extending the type argument through the writer. Verify the resulting
 loop instructions and register pressure before committing to another timing
 experiment; a source-level local alone may already be optimized identically.
+
+P20/P21 close the planned global-address investigation. A const alias is
+machine-code identical. Outlining sequence traversal does hoist the address
+and shrink general write, but yields no mixed gain and a resolved users-str
+slowdown. Neither is integrated; production remains 133/135.
+Next target the remaining work within a mixed record rather than scalar
+entry/sequence plumbing: measure the schema verification and cached-key
+emission costs separately using the existing native artifact, then identify
+whether duplicated key checks can be removed while preserving the complete
+pre-emission mutation-safe row snapshot. Keep the proven re-entrancy guards;
+require an invariant proof and codegen evidence before another prototype.

@@ -452,3 +452,12 @@ show no resolved gain on any screened row (small mixed raw +0.77/+1.30%,
 medium +0.47/+0.44%). Reject integration and retain the isolated patch.
 P17's f494 is a GOT load of PyDict_Type, not this removed ob_type load;
 do not conflate the two or repeat type-argument plumbing without new evidence.
+
+P20's const local alias of PyDict_Type produces identical address/instruction
+pairs across the full extension under P19 A's frozen profile. Do not repeat
+source-only hoisting: the compiler already knows the global address.
+P21 keeps sequence traversal out of line. It shrinks general write from
+3,001 to 2,089 instructions and hoists the global address into x26, but six
+paired/A/A blocks show no mixed gain and users str +1.29% normalized
+(CI +0.93..+1.46%, floor 0.26%). Reject both for integration. A verified
+instruction/footprint reduction still requires a net workload win.

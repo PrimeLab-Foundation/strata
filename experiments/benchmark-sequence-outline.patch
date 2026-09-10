@@ -1,0 +1,13 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 62c02d7..3e52036 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -337,7 +337,7 @@ class Serializer {
+         return true;
+     }
+ 
+-    [[nodiscard]] bool write_sequence(PyObject* object) {
++    [[nodiscard]] STRATA_NOINLINE_HOT bool write_sequence(PyObject* object) {
+         // The frame answers two questions -- "is this list already open above
+         // me?" and "is the nesting too deep?" -- and only descending into a
+         // container child can make either matter for the *next* level. So the

@@ -1979,3 +1979,56 @@ resolved beyond the control floors. No other screened row shows a resolved
 gain. No-go: no full canonical or native run justified. The removed type
 load does not establish a speedup, and P17's sampled global type load remains.
 Production source, binary and matching sidecar are restored.
+
+## E26-P20 — explicit sequence dict-type alias
+
+Test whether expressing the global PyDict_Type address as a const local before
+the sequence loop changes register allocation. This does not change lifetime,
+callbacks, output or dispatch order. Unlike P19 it adds no writer argument.
+Use P19 A's frozen PGO profile for a codegen-only comparison before spending
+on fresh training or timing. A local alias may optimize identically: the
+compiler already knows the global address, and may deliberately rematerialize
+it to avoid another live register. Patch:
+`experiments/benchmark-sequence-dict-alias.patch`; evidence:
+`build/evidence/benchmark-lead/p20/`. No speed claim from this build.
+
+P20 result: identical 55,503 address/instruction-word pairs across the full
+local extension disassembly, using the same verified profile hash
+22c39c1fecd901cf95158fe6c89945295f08ae00e8940410112c11c12448dc5e.
+The test-gated build passes. No timing run is justified for identical code;
+retain as a no-op result and restore production.
+
+## E26-P21 — out-of-line sequence traversal
+
+Following P20's identical codegen, separate sequence traversal from the general
+writer using its existing STRATA_NOINLINE_HOT macro. The hypothesis is reduced
+dispatch footprint/register interference, at the cost of a call per sequence.
+No behavior, state or allocation change. Design:
+`docs/architecture/sequence_outline.md`. Use fresh PGO for the changed CFG;
+P19's unmodified A is the baseline only if training identities still match.
+
+The first P21 build failed before training: STRATA_NOINLINE is not defined
+in this translation unit. Use its existing portable STRATA_NOINLINE_HOT
+macro instead. Retain the compiler-failure log; no timing was collected.
+
+Corrected P21 passes both PGO phases (15 C++ suites, 2,252 Python tests).
+Recipe, workload sources and training data match P19 A; candidate hash
+53c8f7ac9a3b29cd6294781f6ea59ee10eceba2762ed2b21ffbfbd48686de87f.
+The general writer shrinks 3,001 -> 2,089 instructions and frame 208 -> 160
+bytes. Sequence traversal is 521 instructions with a 128-byte frame; fused
+record remains 883 instructions with a 192-byte frame. The loop compares the
+item's type directly against x26 at 4878, removing the in-loop GOT load seen
+in baseline at 1b30/30d0. This establishes the proposed codegen mechanism,
+not its net timing benefit; the extra sequence call still needs measurement.
+
+Six paired ABBA blocks (repeat 60) and six matching identical-binary A/A
+blocks show no resolved mixed gain: small bytes +0.82% raw / -0.98%
+normalized (CI -2.59..+2.85%, floor 3.39%), str +0.90% / +0.76%
+(CI -1.01..+1.63%, floor 1.96%); medium bytes +0.41% / +0.67%
+(CI -0.21..+1.20%, floor 2.14%), str +0.69% / +0.60%
+(CI -1.06..+2.29%, floor 2.58%). Users str regresses +1.08% raw /
++1.29% normalized (CI +0.93..+1.46%, floor 0.26%); bytes is
++1.38% / +1.57% (CI +0.70..+2.53%, floor 1.37%). No-go for integration;
+no full canonical/native run justified. The codegen mechanism is real but
+insufficient: shrinking the writer and hoisting this global load do not
+outweigh the changed call boundary. Production is restored.

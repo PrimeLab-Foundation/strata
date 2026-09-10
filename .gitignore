@@ -81,3 +81,6 @@ benchmarks/data/*.ndjson
 .percall
 # Build-produced metadata is bound to the adjacent local binary.
 *.build.json
+
+# Temporary extension backup used by the self-restoring A/B driver.
+*.ab_original
