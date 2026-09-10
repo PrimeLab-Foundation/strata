@@ -2077,3 +2077,10 @@ P22's instrumented candidate passes the ASan+UBSan binding gate: 2,256
 Python tests, 73 seconds. Source is restored afterward; the developer's
 production extension is unchanged. No memory-safety failure was detected,
 but performance qualification is still blocked by the six canonical checks.
+
+Native run 34443158775 failed at checkout because actions/checkout treated
+abbreviated cand_ref 94ae9ad as a branch/tag. No build or timing occurred.
+The failure log is retained. Corrected run 34443212708 pins both refs to
+94ae9ad60dff752afde297a37e8797bbaadcf2a4 (full SHA), six paired/A/A blocks,
+repeat 60, experiment fused-tail-verification. Results are pending:
+https://github.com/PrimeLab-Foundation/strata/actions/runs/34443212708

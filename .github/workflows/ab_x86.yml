@@ -22,10 +22,10 @@ on:
   workflow_dispatch:
     inputs:
       base_ref:
-        description: "revision A (the before)"
+        description: "revision A (branch, tag, or full 40-character SHA)"
         default: "75cfb42"
       cand_ref:
-        description: "revision B; empty uses the dispatched workflow revision"
+        description: "revision B (branch/tag/full SHA); empty uses workflow revision"
         default: ""
       experiment:
         description: "Optional isolated prototype (not accepted production code)"
