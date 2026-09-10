@@ -1508,6 +1508,32 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   runner before considering integration. The runtime patch remains isolated;
   see the [execution plan](benchmark-lead-plan-2026-09-07.md) for complete
   results and the next published-run configuration.
+- Review (2026-09-10, independent of the author): **the patch as written has
+  a correctness defect.** `write_record_fused` has no `open_` scan; the only
+  cycle checks are `write_sequence`'s `std::find` before it dispatches an
+  element and `write_mapping`'s `Frame::repeated()`. P9 sends every exact
+  dict to the fused writer, so a cyclic dict whose shape is already prepared
+  at the re-entry depth is emitted once more before the placeholder, and the
+  bytes depend on the thread's schema-cache history. Confirmed by a
+  differential test of seven shapes on plain gated builds of HEAD and the
+  patch, each shape warmed three times (`build/evidence/benchmark-lead/p9/ cycle-defect/`): five differ — `{"name":"root","self":<self>}` reads
+  `{"name":"root","self":null}` on HEAD and
+  `{"name":"root","self":{"name":"root","self":null}}` with P9; a two-level
+  self-reference, two mutually recursive dicts, a 24-key self-reference and
+  an a→b→a pair likewise; the two list-mediated shapes are identical because
+  the sequence loop's check still fires. `cycle_policy="error"` still raises,
+  one level later. The 2,249-test run did not catch it because
+  `test_config.py`'s cycle case never warms the shape at depth 2 first, and
+  the patch's own test is a characterization test that passes unchanged on
+  HEAD (verified). Repair if revived: hoist the `std::find` /
+  `emit_cycle_placeholder()` pair to the fused writer's entry — one linear
+  scan of a usually empty vector, but in the hot record loop, so every
+  P9 number above must be re-measured after it. The reviewer also judged
+  P9a's `#if defined(__linux__) && defined(__aarch64__)` dispatch
+  unacceptable under the styleguide (a policy switch, not an implementation
+  with a portable twin; compiled in on one of five legs). P14 was found
+  correct (reservation 17 + 20 bytes, compact ints cannot run Python, bools
+  excluded by the exact-type test, growth handled by `overflow`).
 
 ## E26-P9a — restrict nested mapping fusion to Linux ARM64
 
@@ -2082,5 +2108,23 @@ Native run 34443158775 failed at checkout because actions/checkout treated
 abbreviated cand_ref 94ae9ad as a branch/tag. No build or timing occurred.
 The failure log is retained. Corrected run 34443212708 pins both refs to
 94ae9ad60dff752afde297a37e8797bbaadcf2a4 (full SHA), six paired/A/A blocks,
-repeat 60, experiment fused-tail-verification. Results are pending:
+repeat 60, experiment fused-tail-verification:
 https://github.com/PrimeLab-Foundation/strata/actions/runs/34443212708
+
+Native result (2026-09-10, all five legs, `ab_blocks.py` with each leg's own
+six-block A/A floor; every arm's binary matches its sidecar, both arms name
+94ae9ad, recipes and training inputs match; `verification-all.json` beside
+the artifacts). On the target N2 the patch resolves only small gains on the
+record rows: small `dumps users` −1.22% normalised (interval −1.42..−1.11%,
+floor 0.15%), medium `dumps flat` −0.55% (−0.73..−0.28%, floor 0.30%),
+medium `dumps mixed` −0.53% (−0.88..−0.45%, floor 0.40%); small `dumps mixed`
+−0.53% is inside its 1.27% floor. On both x86 legs it costs the flat record
+rows, and the raw strata column says it is strata slowing, not the rival:
+linux-x86_64 small `dumps flat` +5.38% (raw strata +5.37%, interval
++4.90..+6.43%, floor 0.72%, 6/6 blocks), medium +5.08% (+4.21..+5.51%, floor
+1.40%, 6/6), small file `dump flat` +3.10% (+2.69..+3.24%, floor 0.45%, 6/6);
+windows-x86_64 small `dumps flat` bytes +3.36% (raw +3.31%, interval
++3.10..+3.62%, floor 2.15%, 6/6). The two macOS VMs resolve nothing (floors
+1.7–19%). Outcome: **no-go** — under 1.5% on the row it targets and a 3–5%
+x86 cost in the fused writer's flat-record path, the same SysV-sensitive code
+that E26-P6 priced. The hypothesis is closed; the patch stays isolated.

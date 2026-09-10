@@ -74,6 +74,7 @@ from benchmarks.harness import (
     resolve_workload,
     validate_report,
 )
+from benchmarks.provenance import companion, validate_companion
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DEST = PROJECT_ROOT / "docs" / "benchmarks" / "ci"
@@ -178,6 +179,10 @@ def _verify(
 
     for key in sorted(found):
         report = read_report(found[key])
+        try:
+            validate_companion(found[key], found[key].read_text(encoding="utf-8"))
+        except ValueError as error:
+            identity.append(f"{key}: provenance companion: {error}")
         if not report.measurements:
             identity.append(f"{key}: {found[key].name} contains no measurements")
             continue
@@ -320,8 +325,6 @@ def _place(
         text = source.read_text(encoding="utf-8")
         files[f"bench_results_{key}.md"] = "\n".join(text.splitlines()) + "\n"
         sources[key] = source.relative_to(scratch).as_posix()
-        from benchmarks.provenance import companion, validate_companion
-
         if validate_companion(source, text) is not None:
             sidecar = companion(source)
             files[f"bench_results_{key}.json"] = sidecar.read_text(encoding="utf-8")
@@ -450,7 +453,12 @@ def main(argv: list[str] | None = None) -> int:
                     problems=coverage,
                     expected_platforms=expected_platforms,
                 )
-            except (OSError, ValueError) as error:
+            except ValueError as error:
+                # An evidence defect the verification above should have
+                # caught: report it as such, not as a filesystem failure.
+                sys.stderr.write(f"error: companion evidence is invalid: {error}\n")
+                return 1
+            except OSError as error:
                 # Documented as exit 3: the evidence was fine, the filesystem
                 # was not. `_install` has already restored the previous set or
                 # said where it is; a traceback here would be neither.

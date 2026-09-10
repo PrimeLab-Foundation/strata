@@ -73,3 +73,25 @@ def test_regression_is_retained_and_does_not_skip_later_tiers(tmp_path, monkeypa
     assert (output / "gate-medium.txt").read_text() == "PASS"
     with pytest.raises(FileExistsError):
         runner.run(tmp_path / "A", tmp_path / "B", output, tmp_path, ["small"], 10)
+
+
+def test_child_keeps_its_import_check_without_python_optimize(tmp_path, monkeypatch):
+    """The staged-import check must survive an inherited PYTHONOPTIMIZE."""
+    from benchmarks import canonical_builds
+
+    binary = tmp_path / "A.so"
+    binary.write_bytes(b"a native build")
+    binary.with_name("A.so.build.json").write_text("{}")
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        seen["env"] = kwargs.get("env")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(canonical_builds.subprocess, "run", fake_run)
+    monkeypatch.setenv("PYTHONOPTIMIZE", "1")
+    canonical_builds.measure(binary, tmp_path / "out" / "report.md", tmp_path, "small", 10)
+    assert seen["env"] is not None and "PYTHONOPTIMIZE" not in seen["env"]
+    bootstrap = seen["command"][2]
+    assert "raise SystemExit" in bootstrap and "\nassert " not in bootstrap

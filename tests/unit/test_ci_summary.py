@@ -214,7 +214,7 @@ def test_run_info_provenance_is_reported(tmp_path):
     assert code == 0
     assert "Benchmarks run 31392004866" in text
     assert "main @ 16b0a58fe1ed0da3d139b64f59d66cea9822f4a3" in text
-    assert "unverified: run 31392004866 records no report map" in text
+    assert "verified against run 31392004866 (16b0a58); the manifest records no report map" in text
 
 
 def test_no_reports_is_a_usage_error(tmp_path, capsys):

@@ -11,11 +11,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 
 def sampled_symbols(report: str, limit: int = 8) -> list[str]:
@@ -43,7 +43,7 @@ def main(argv=None) -> int:
     sidecar = Path(str(binary) + ".build.json")
     identity = json.loads(sidecar.read_text())
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
-    if identity['extension_sha256'] != digest or not identity['complete_compilation']:
+    if identity["extension_sha256"] != digest or not identity["complete_compilation"]:
         raise ValueError("a verified, completely compiled extension is required")
     shutil.copy2(binary, args.output / binary.name)
     shutil.copy2(sidecar, args.output / sidecar.name)
@@ -83,7 +83,7 @@ def main(argv=None) -> int:
             args.output / f"{condition}.log",
         )
         observed = json.loads(metadata.read_text())
-        if observed['extension']['sha256'] != digest:
+        if observed["extension"]["sha256"] != digest:
             raise ValueError("profile child measured a different extension")
         run(
             [

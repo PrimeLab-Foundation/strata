@@ -146,3 +146,63 @@ def test_missing_clean_source_commit_is_invalid(tmp_path):
     }
     write_report(path, report)
     assert not validate_report(read_report(path)).ok
+
+
+def test_a_failed_diff_is_not_a_clean_tree(monkeypatch, tmp_path):
+    """A timed-out or failing `git diff` leaves cleanliness unknown, never False."""
+    from scripts import build_identity
+
+    def fake(command, **kwargs):
+        if command[1:3] == ["rev-parse", "--show-toplevel"]:
+            return str(tmp_path)
+        if command[1:3] == ["rev-parse", "HEAD"]:
+            return "a" * 40
+        if command[1] == "diff":
+            return None
+        return ""
+
+    monkeypatch.setattr(build_identity, "command_output", fake)
+    identity = build_identity.source_identity(tmp_path)
+    assert identity["commit"] == "a" * 40
+    assert identity["dirty"] is None and identity["patch_sha256"] is None
+    assert "unknown" in identity["limitation"]
+
+
+def test_an_empty_diff_is_a_clean_tree(monkeypatch, tmp_path):
+    from scripts import build_identity
+
+    def fake(command, **kwargs):
+        if command[1:3] == ["rev-parse", "--show-toplevel"]:
+            return str(tmp_path)
+        if command[1:3] == ["rev-parse", "HEAD"]:
+            return "b" * 40
+        return ""
+
+    monkeypatch.setattr(build_identity, "command_output", fake)
+    identity = build_identity.source_identity(tmp_path)
+    assert identity["dirty"] is False and identity["untracked_sha256"] == {}
+
+
+def test_the_report_flag_line_is_a_digest_without_paths():
+    """The Markdown line names the options once; the commands stay in the companion."""
+    from benchmarks.bench_main import _flag_digest
+
+    commands = [
+        [
+            "clang++",
+            "-I/usr/include/python3.14",
+            "-O3",
+            "-c",
+            "src/strata/util/scan.cpp",
+            "-o",
+            "/tmp/build/scan.o",
+            "-arch",
+            "arm64",
+            "-std=c++20",
+        ],
+        ["clang++", "-O3", "-flto=thin", "/tmp/build/scan.o", "-o", "python/strata/_strata.so"],
+        ["cl.exe", "/O2", "/std:c++20", "/Tpsrc\\strata\\util\\scan.cpp", "/Fobuild\\scan.obj"],
+    ]
+    digest = _flag_digest(commands)
+    assert digest.startswith("-O3 -arch arm64 -std=c++20 -flto=thin /O2 /std:c++20 (3 recorded")
+    assert "/tmp/" not in digest and "python3.14" not in digest and "scan" not in digest

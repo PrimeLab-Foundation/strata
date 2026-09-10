@@ -470,4 +470,8 @@ six checks (including mixed dumps p95 +10%). Keep the patch isolated.
 Native paired diagnostics may test the N2-specific mechanism; they do not
 waive the failed local gate or qualify production. The workflow selector is
 `fused-tail-verification`; dispatch identical base and candidate revisions
-containing the new tests to preserve matched training inputs.
+containing the new tests to preserve matched training inputs. Native result
+(run 34443212708): no-go — at most −1.5% on the N2's record rows and a
+resolved +3–5% on both x86 legs' `dumps flat` (6/6 blocks, strata itself
+slowing). Closed; do not retry removing the fused row's checks without a
+codegen reason for the x86 flat-record cost.

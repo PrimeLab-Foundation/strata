@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -31,10 +32,16 @@ import pathlib, sys
 stage = pathlib.Path(sys.argv.pop(1))
 sys.path.insert(0, str(stage))
 import strata._strata as extension
-assert pathlib.Path(extension.__file__).resolve().parent == stage / 'strata'
+if pathlib.Path(extension.__file__).resolve().parent != stage / 'strata':
+    raise SystemExit('staged extension was not the one imported: ' + extension.__file__)
 from benchmarks.bench_main import main
 raise SystemExit(main())
 """
+
+
+def child_environment() -> dict[str, str]:
+    """The child must keep its import check: -O would strip a bare assert."""
+    return {key: value for key, value in os.environ.items() if key != "PYTHONOPTIMIZE"}
 
 
 def measure(binary: Path, output: Path, data: Path, tier: str, repeat: int) -> None:
@@ -69,7 +76,7 @@ def measure(binary: Path, output: Path, data: Path, tier: str, repeat: int) -> N
         ]
         for dataset in DATASETS:
             command.extend(("--dataset", str(data / tier / dataset)))
-        subprocess.run(command, cwd=PROJECT_ROOT, check=True)
+        subprocess.run(command, cwd=PROJECT_ROOT, check=True, env=child_environment())
 
 
 def run(

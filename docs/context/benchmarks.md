@@ -123,9 +123,10 @@ companion. The companion retains chronological samples in milliseconds,
 full-precision aggregates, exclusions, dataset hashes, protocol parameters,
 Python/dependency versions, checkout identity, and the measured extension's
 path/hash. Build-produced `*.build.json` records the actual compiler commands,
-tool versions, source identity, and PGO profile/input identities. An incremental
-build preserves an existing matching identity; missing historical identities
-remain unknown. Report-time environment variables are not build evidence.
+tool versions, source identity, and PGO profile/input identities. A rebuild
+that compiles nothing keeps an existing identity whose hash still matches; a
+partial recompile records an incomplete identity with no source attribution;
+missing historical identities remain unknown. Report-time environment variables are not build evidence.
 
 All report gates validate a present companion and use its full-precision
 measurements. Missing companions for marked reports, changed report hashes,
@@ -143,8 +144,10 @@ do not replace its before evidence with candidate measurements.
 
 `make bench-supplementary BENCH_SUPPLEMENTARY_TIER=medium` produces a
 separate six-row `supplementary-v1` report: three NDJSON searches and folder
-load/dump/search against a Strata per-file loop. It checks ordered results
-and exact dumped bytes before timing. Both folder arms include discovery or
+load/dump/search against a Strata per-file loop. Rival compositions follow
+the canonical harness's rule (a different result set is excluded and
+recorded); the per-file-loop controls must match strata's ordered results or
+exact dumped bytes before timing. Both folder arms include discovery or
 grouping. `BENCH_REPORTS`, `BENCH_REPEAT`, and `BENCH_WARMUP` select its output
 directory and protocol. Its denominator never changes the canonical 135 rows.
 The monthly supplementary workflow measures medium/large on Linux x86,

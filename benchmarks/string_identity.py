@@ -9,8 +9,8 @@ is outside timing; this does not justify interning user data in production.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import strata

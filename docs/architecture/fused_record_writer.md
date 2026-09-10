@@ -107,6 +107,16 @@ Compare mixed plus flat/users/nested/wide and root-dict mutation/depth
 controls. Reject unless gains clear the paired noise floor without a
 canonical regression; this does not revive rejected broad footprint changes.
 
+Review outcome (2026-09-10): as written the experiment changes cycle
+output. The fused writer relies on its one caller, the sequence loop, having
+scanned `open_` for the element before dispatch; `write_mapping` carries its
+own `Frame::repeated()` check. Routing every exact dict here therefore emits
+a cyclic dict once more before the placeholder whenever its shape is
+prepared at the re-entry depth (confirmed on five of seven shapes;
+`build/evidence/benchmark-lead/p9/cycle-defect/`). Any revival must add the
+`std::find(open_.begin(), open_.end(), object)` check at the fused writer's
+entry and re-measure, since that scan lands in the hot record loop.
+
 ## E26-P9a: restrict the nested dispatch experiment to Linux ARM64
 
 The full native P9 comparison (34253218374) reaches 27/27 on Linux ARM64,

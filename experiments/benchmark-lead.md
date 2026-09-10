@@ -11,10 +11,14 @@ measurements are described in
 | `benchmark-file-newline.patch`    | Append the newline before sealing private bytes, with a separate size hint; use contiguous partial writes | Boundary sizes, alternating output modes, serialize-before-truncate, real short-write failure and descriptor cleanup |
 
 After the human pushes the branch, dispatch **A/B performance**
-(`.github/workflows/ab_x86.yml`). Choose `none`, `schema-recovery`,
-`file-newline`, `nested-mappings`, or `combined` in `experiment`. The workflow checks and applies
+(`.github/workflows/ab_x86.yml`). Choose one of the `experiment` selectors
+(`none`, `schema-recovery`, `file-newline`, `nested-mappings`,
+`nested-mappings-linux-arm64`, `float-digit-count`, `record-int-reserve`,
+`fused-tail-verification`, `combined`). The workflow checks and applies
 exactly those patches before building the candidate with production PGO and
-its full test gates. Both binaries, identities, profiles, selected patch and
+its full test gates; any selector other than `none` requires `base_ref` to be
+the candidate's own revision, and the base worktree receives the patches'
+test hunks, so the two profiles train on one suite. Both binaries, identities, profiles, selected patch and
 raw samples are uploaded. Baseline and candidate run on the same machine;
 A/A uses the same block/sample counts. Windows and Linux ARM64 are included.
 
@@ -60,10 +64,10 @@ Canonical Make targets now accept `BENCH_REPEAT` and `BENCH_WARMUP`; their
 defaults remain 10 and 2. Increasing samples preserves the workload and gate
 thresholds. It does not make a failed regression pass.
 
-For `nested-mappings`, the baseline worktree receives the patch's test-file
-change too; those contracts pass on both implementations. Pin both refs to
-the same published revision for matched test/training source, as in the local
-comparison. Only the candidate receives the runtime dispatch change.
+For every selector the baseline worktree receives the patch's test hunks
+too (the new contracts pass on both implementations), and the workflow
+refuses a `base_ref` other than the candidate's revision, as in the local
+comparison. Only the candidate receives the runtime change.
 
 ## Full canonical validation before integration
 
@@ -204,3 +208,23 @@ note in `docs/architecture/fused_record_writer.md` gives the reservation and
 lifetime proof. Two fresh-thread cases exercise cached 24-field records,
 integer boundaries and output growth in str/bytes modes. Matched PGO baseline
 and candidate use identical tests; this remains an isolated prototype.
+
+## Later prototypes (P15–P22): index
+
+Each patch below is an isolated, unaccepted prototype with its own ledger
+entry (`docs/performance/experiment-ledger.md`, heading `E26-P<n>`) and raw
+evidence under `build/evidence/benchmark-lead/p<n>/`. None is production
+code; none is a workflow selector except `fused-tail-verification`.
+
+| Patch                                     | Entry   | Hypothesis                                                                                 | Outcome                                                                                          |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `benchmark-record-ascii-reserve.patch`    | E26-P15 | One reservation for a cached key and a short exact-ASCII value                             | No-go: no mixed gain, `dumps users` +2.6% normalised, fused body 883 → 1,214 instructions        |
+| `benchmark-record-ascii-shared.patch`     | E26-P16 | P15 through the shared string writer with a `pre_reserved` argument                        | No-go: body grows further to 1,388 instructions, `dumps users` +2.1%                             |
+| `benchmark-significand-buckets.patch`     | E26-P18 | Bit-indexed digit-count table after Dragonbox (`docs/architecture/float_digit_count.md`)   | No-go: medium mixed −1.1% resolved locally, but the full small-tier gate fails 38 checks         |
+| `benchmark-sequence-type-snapshot.patch`  | E26-P19 | Share one item-type snapshot across the sequence loop's checks                             | No-go: writer grows 3,001 → 3,016 instructions, no resolved gain                                 |
+| `benchmark-sequence-dict-alias.patch`     | E26-P20 | Const local alias of `PyDict_Type` before the sequence loop                                | No-op: machine code identical under a frozen profile                                             |
+| `benchmark-sequence-outline.patch`        | E26-P21 | Out-of-line sequence traversal (`docs/architecture/sequence_outline.md`)                   | No-go: writer shrinks and the global load hoists, but `dumps users` str +1.3% and no mixed gain  |
+| `benchmark-fused-tail-verification.patch` | E26-P22 | Drop the fused row's null and first-key checks (`docs/architecture/fused_verification.md`) | No-go natively: ≤1.5% on the N2's record rows, +3–5% on both x86 legs' `dumps flat` (6/6 blocks) |
+
+Every patch applies cleanly to the tree it is documented against (`git apply --check`), and each was reverted after its measurement; the production
+serializer is unchanged by all of them.

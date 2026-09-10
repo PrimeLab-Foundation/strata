@@ -278,7 +278,8 @@ def validate_report(
     """
     problems: list[Problem] = []
     for line in report.malformed:
-        problems.append(Problem("malformed", report.name or "report", f"unreadable row: {line}"))
+        detail = line if line.startswith("provenance companion:") else f"unreadable row: {line}"
+        problems.append(Problem("malformed", report.name or "report", detail))
 
     if not report.measurements:
         problems.append(Problem("invalid", report.name or "report", "no measurements at all"))
@@ -425,14 +426,12 @@ def _git_commit() -> str:
 
 def _cpu_name() -> str:
     if sys.platform.startswith("linux"):
-        from pathlib import Path
-
         try:
             for line in Path("/proc/cpuinfo").read_text().splitlines():
                 key, _, value = line.partition(":")
                 if key.strip() in {"model name", "Hardware", "Model"} and value.strip():
                     return value.strip()
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             pass
     if sys.platform == "darwin":
         try:
@@ -607,7 +606,7 @@ def read_report(path) -> Report:
     try:
         data = validate_companion(path, text)
     except (ValueError, OSError) as error:
-        report.malformed.append(str(error))
+        report.malformed.append(f"provenance companion: {error}")
     else:
         if data is not None:
             report.provenance = data["provenance"]

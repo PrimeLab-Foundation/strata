@@ -30,8 +30,8 @@ def command_output(
         return None
     if result.returncode != 0 and not allow_failure:
         return None
-    output = (result.stdout + result.stderr).decode("utf-8", errors="replace").strip()
-    return output or None
+    # An empty result is a result ("nothing differs"); only a failure is None.
+    return (result.stdout + result.stderr).decode("utf-8", errors="replace").strip()
 
 
 def source_identity(root: Path) -> dict:
@@ -57,15 +57,23 @@ def source_identity(root: Path) -> dict:
     # Untracked source is part of a dirty checkout too. Ignored build outputs
     # are deliberately excluded, as are the bytes of any external files.
     names = command_output(["git", "ls-files", "--others", "--exclude-standard"], cwd=root)
+    if patch is None or names is None:
+        # A diff that failed or timed out is not a clean tree: consumers treat
+        # anything but `dirty: False` as unverified, which is the honest state.
+        return {
+            "commit": commit,
+            "dirty": None,
+            "patch_sha256": None,
+            "untracked_sha256": {},
+            "limitation": "git diff or ls-files failed; the checkout's cleanliness is unknown",
+        }
     untracked = {
-        name: file_hash(root / name)
-        for name in (names or "").splitlines()
-        if (root / name).is_file()
+        name: file_hash(root / name) for name in names.splitlines() if (root / name).is_file()
     }
     return {
         "commit": commit,
         "dirty": bool(patch or untracked),
-        "patch_sha256": hashlib.sha256((patch or "").encode()).hexdigest(),
+        "patch_sha256": hashlib.sha256(patch.encode()).hexdigest(),
         "untracked_sha256": untracked,
     }
 

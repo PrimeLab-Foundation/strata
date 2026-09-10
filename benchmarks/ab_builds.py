@@ -51,8 +51,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import os
+import re
 import shutil
 import statistics
 import subprocess
@@ -148,10 +148,16 @@ class InstalledExtension:
         if not self.target.exists():
             raise SystemExit(f"no extension to swap at {self.target}")
         self.backup = self.target.with_name(self.target.name + ".ab_original")
+        # The build identity beside the extension describes *that* binary;
+        # every swap moves it too, or provenance capture refuses the arm.
+        self.sidecar = self.target.with_name(self.target.name + ".build.json")
+        self.sidecar_backup = self.sidecar.with_name(self.sidecar.name + ".ab_original")
         if self.backup.exists():
             self._recover()
         else:
             shutil.copy2(self.target, self.backup)
+            if self.sidecar.exists():
+                shutil.copy2(self.sidecar, self.sidecar_backup)
         self.digest = _digest(self.target)
 
     def _recover(self) -> None:
@@ -173,6 +179,7 @@ class InstalledExtension:
             flush=True,
         )
         shutil.copy2(self.backup, self.target)
+        self._restore_sidecar()
         restored = _digest(self.target)
         if restored != saved:
             raise SystemExit(
@@ -180,8 +187,19 @@ class InstalledExtension:
                 f"{saved}; the saved copy is kept at {self.backup}"
             )
 
+    def _restore_sidecar(self) -> None:
+        if self.sidecar_backup.exists():
+            shutil.copy2(self.sidecar_backup, self.sidecar)
+        elif self.sidecar.exists():
+            self.sidecar.unlink()
+
     def install(self, source: Path) -> str:
         shutil.copy2(source, self.target)
+        source_sidecar = source.with_name(source.name + ".build.json")
+        if source_sidecar.exists():
+            shutil.copy2(source_sidecar, self.sidecar)
+        elif self.sidecar.exists():
+            self.sidecar.unlink()
         digest = _digest(self.target)
         if digest != _digest(source):
             raise SystemExit(f"copy of {source} to {self.target} did not land: {digest}")
@@ -189,6 +207,7 @@ class InstalledExtension:
 
     def restore(self) -> None:
         shutil.copy2(self.backup, self.target)
+        self._restore_sidecar()
         digest = _digest(self.target)
         if digest != self.digest:
             raise SystemExit(
@@ -196,6 +215,8 @@ class InstalledExtension:
                 f"the saved copy is kept at {self.backup}"
             )
         self.backup.unlink()
+        if self.sidecar_backup.exists():
+            self.sidecar_backup.unlink()
 
 
 def drive(

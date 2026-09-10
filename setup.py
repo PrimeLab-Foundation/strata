@@ -117,18 +117,27 @@ class TestGatedBuildExt(build_ext):
             print(f"+ compiling with {self.compiler.cc}, plain /O2 (no LTCG)", flush=True)
         commands = []
         source = _BUILD_IDENTITY["source_identity"](PROJECT_ROOT)
-        command_method = "call" if hasattr(self.compiler, "call") else "spawn"
-        spawn = getattr(self.compiler, command_method)
+        # Every compiler class in setuptools' distutils routes through
+        # `spawn` (MSVC overrides it, which an instance attribute shadows);
+        # record any `call` too rather than choose, so a future entry point
+        # cannot leave `commands` empty without a trace.
+        originals = {}
+        for method in ("spawn", "call"):
+            original = getattr(self.compiler, method, None)
+            if original is None:
+                continue
+            originals[method] = original
 
-        def record_spawn(command, **kwargs):
-            commands.append([str(part) for part in command])
-            return spawn(command, **kwargs)
+            def record(command, _original=original, **kwargs):
+                commands.append([str(part) for part in command])
+                return _original(command, **kwargs)
 
-        setattr(self.compiler, command_method, record_spawn)
+            setattr(self.compiler, method, record)
         try:
             super().build_extensions()
         finally:
-            setattr(self.compiler, command_method, spawn)
+            for method, original in originals.items():
+                setattr(self.compiler, method, original)
         for extension in self.extensions:
             write_identity(
                 Path(self.get_ext_fullpath(extension.name)),

@@ -447,9 +447,16 @@ incompatible versioned Python headers before any swap. Older Windows build
 identities use unversioned include paths, so this check alone does not prove
 ABI compatibility there; both workflow builds use the same interpreter.
 
-The workflow's `experiment` choice applies `none`, `schema-recovery`,
-`file-newline`, `nested-mappings`, or `combined` from the checked-in patches before candidate
-build/test gates. These runtime changes are unaccepted and absent from
+The workflow's `experiment` choice applies one of the checked-in patches
+before the candidate's build/test gates: `none`, `schema-recovery`,
+`file-newline`, `nested-mappings`, `nested-mappings-linux-arm64`,
+`float-digit-count`, `record-int-reserve`, `fused-tail-verification`, or
+`combined` (schema recovery plus file newline only); `validation=canonical`
+replaces the selected-row ABBA with the full small-tier report and gate on
+each runner. An isolated experiment requires `base_ref` to name the
+candidate's own revision (the workflow refuses otherwise) and applies the
+selected patches' test hunks to the base worktree too, so both PGO profiles
+train on one test suite and only the runtime differs between the arms. These runtime changes are unaccepted and absent from
 production. For a fresh unchanged-source build control, choose `none` and
 set both refs to the same published revision. See
 [experiment instructions](../../experiments/benchmark-lead.md).

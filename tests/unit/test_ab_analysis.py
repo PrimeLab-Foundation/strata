@@ -596,3 +596,22 @@ def test_build_preflight_rejects_unverified_or_incompatible_arms(tmp_path, case)
     else:
         with pytest.raises(SystemExit):
             ab_builds.parse_builds([f"B={arm}"])
+
+
+def test_the_build_identity_travels_with_the_swapped_extension(tmp_path, monkeypatch):
+    """provenance.capture reads the sidecar beside the binary: it must describe that binary."""
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    sidecar = target.with_name(target.name + ".build.json")
+    sidecar.write_text('{"extension_sha256": "original"}')
+    arms = _arms(tmp_path)
+    arms["B"].with_name(arms["B"].name + ".build.json").write_text('{"extension_sha256": "B"}')
+
+    installed = ab_builds.InstalledExtension(target)
+    installed.install(arms["B"])
+    assert sidecar.read_text() == '{"extension_sha256": "B"}'
+    installed.install(arms["A"])
+    assert not sidecar.exists(), "an arm without an identity leaves none behind"
+    installed.restore()
+    assert sidecar.read_text() == '{"extension_sha256": "original"}'
+    assert not sidecar.with_name(sidecar.name + ".ab_original").exists()

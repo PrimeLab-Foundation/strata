@@ -55,6 +55,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from benchmarks.ci_fetch import RUN_INFO_NAME, platform_key
+
+# The file name is the leg a fetched report is attributed to.
+REPORT_PREFIX = "bench_results_"
 from benchmarks.harness import (
     CI_PLATFORMS,
     MEASURED_LIBRARY,
@@ -210,20 +213,19 @@ def check_provenance(key: str, report: Report, run_info: dict | None) -> tuple[s
             return "unverified: measured binary has no build source identity", True
         if source.get("dirty") is not False:
             return "MISMATCH: measured binary was built from dirty or unknown source", False
-    try:
-        actual = platform_key(report.environment)
-    except ValueError:
-        return "unverified: report platform identity unavailable", True
-    if actual != key:
-        return f"MISMATCH: report platform {actual} is not {key}", False
+    # `key` comes from the report's own environment; the file name is what
+    # attributes it to a leg, so a macOS report saved as the linux-arm64 file
+    # is the misattribution this check exists to catch.
+    stem = Path(report.name).stem if report.name else ""
+    if stem.startswith(REPORT_PREFIX) and stem[len(REPORT_PREFIX) :] != key:
+        return f"MISMATCH: {report.name} holds a {key} report", False
     if not run_info:
         return "unverified: no run_info.json beside the reports", True
     head = str(run_info.get("head_sha") or "").strip()
     run_id = run_info.get("run_id")
     reports = run_info.get("reports")
-    if not isinstance(reports, dict) or not reports:
-        return f"unverified: run {run_id} records no report map", True
-    if isinstance(reports, dict) and reports and key not in reports:
+    mapped = isinstance(reports, dict) and bool(reports)
+    if mapped and key not in reports:
         return f"MISMATCH: run {run_id} does not list a {key} report", False
     if not commit or commit == "unknown":
         return f"unverified: the report records no commit (run {run_id})", True
@@ -231,6 +233,11 @@ def check_provenance(key: str, report: Report, run_info: dict | None) -> tuple[s
         return f"unverified: run {run_id} records no head_sha", True
     if not (head.startswith(commit) or commit.startswith(head)):
         return f"MISMATCH: report commit {commit} is not run {run_id}'s {head[:12]}", False
+    if not mapped:
+        return (
+            f"verified against run {run_id} ({head[:7]}); the manifest records no report map",
+            True,
+        )
     return f"verified against run {run_id} ({head[:7]})", True
 
 

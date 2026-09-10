@@ -10,6 +10,7 @@ from pathlib import Path
 
 from benchmarks.bench_main import (
     QUERIES,
+    _drop_disagreeing,
     _load_competitors,
     _load_query_libraries,
     _run_section,
@@ -108,10 +109,14 @@ def run(json_path: Path, ndjson_path: Path, *, repeat: int, warmup: int) -> Repo
         [json_path, ndjson_path], {**libraries, **engines}, repeat=repeat, warmup=warmup
     )
     report.provenance["protocol"]["name"] = "supplementary-v1"
-    report.provenance["protocol"]["preflight_calls"] = 2
+    report.provenance["protocol"]["preflight_calls"] = (
+        "one call per library per row for equivalence; folder dump adds one call per arm "
+        "and two byte comparisons"
+    )
     report.provenance["protocol"]["equivalence_calls_per_library"] = "included in preflight_calls"
     report.provenance["protocol"]["equivalence"] = (
-        "ordered results or exact file bytes before timing"
+        "rivals: the canonical harness's rule (a different result set is excluded and "
+        "recorded); strata-loop controls: ordered results or exact file bytes"
     )
     report.excluded["external engines (folder operations)"] = (
         "no native equivalent; strata-loop control"
@@ -120,8 +125,11 @@ def run(json_path: Path, ndjson_path: Path, *, repeat: int, warmup: int) -> Repo
     if "orjson" not in libraries:
         report.excluded["composed NDJSON search"] = "requires orjson"
     for query in QUERIES:
-        calls = ndjson_calls(libraries, engines, ndjson_path, query)
-        equivalent(calls)
+        # Rivals follow the canonical rule: a composition that computes a
+        # different result set is excluded and recorded, never timed against.
+        calls = _drop_disagreeing(
+            ndjson_calls(libraries, engines, ndjson_path, query), report, query["label"]
+        )
         _run_section(report, "search (ndjson)", query["label"], calls, repeat=repeat, warmup=warmup)
 
     records = [

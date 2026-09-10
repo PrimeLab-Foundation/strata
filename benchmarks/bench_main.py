@@ -36,6 +36,30 @@ from benchmarks.provenance import capture, write_report
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+_DIGEST_SKIP = ("-I", "-o", "-L", "-l", "/Tp", "/Tc", "/Fo", "/I", "/LIBPATH", "/OUT", "/Fe")
+
+
+def _flag_digest(commands: list) -> str:
+    """The distinct options the compiler and linker ran with, once each.
+
+    The full commands live in the JSON companion; the Markdown line is for a
+    reader, and twelve kilobytes of include paths is not.
+    """
+    seen: list[str] = []
+    for command in commands:
+        previous = ""
+        for part in command[1:]:
+            text = str(part)
+            # An MSVC option is one segment (`/O2`, `/std:c++20`); a POSIX
+            # path has a second slash, and `.o` files are not options.
+            option = text.startswith("-") or (text.startswith("/") and text.count("/") == 1)
+            keep = option and not text.startswith(_DIGEST_SKIP) and text not in ("-c", "/c")
+            if (keep or previous in ("-arch", "-target")) and text not in seen:
+                seen.append(text)
+            previous = text
+    return f"{' '.join(seen)} ({len(commands)} recorded commands; see the JSON companion)"
+
+
 def _load_competitors() -> tuple[dict, dict[str, str]]:
     """Import what is available; name what is not."""
     available: dict = {}
@@ -311,7 +335,7 @@ def run(datasets: list[Path], *, name: str, repeat: int, warmup: int) -> Report:
     if build and build.get("source") and build["source"].get("commit"):
         report.environment["commit"] = build["source"]["commit"]
     report.environment["compiler_flags"] = (
-        json.dumps(build["commands"], separators=(",", ":"))
+        _flag_digest(build["commands"])
         if build and build["commands"]
         else "unknown (legacy or incremental build; see provenance)"
     )

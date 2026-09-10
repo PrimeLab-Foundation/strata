@@ -112,3 +112,34 @@ def test_supplementary_cli_rejects_missing_required_rows(tmp_path, monkeypatch, 
     monkeypatch.setattr(supplementary, "run", lambda *args, **kwargs: report)
     monkeypatch.setattr(supplementary, "write_report", lambda *args: None)
     assert supplementary.main(["--data", str(tmp_path), "--output", str(tmp_path / "out.md")]) == 1
+
+
+def test_ndjson_rivals_follow_the_canonical_disagreement_rule(tmp_path):
+    """A rival composition that computes a different result set is excluded, not timed."""
+    from benchmarks.bench_main import _drop_disagreeing
+    from benchmarks.harness import Report
+
+    records = [
+        {"id": 1, "orders": [{"total": 2}, {"total": 3}]},
+        {"id": 4, "orders": [{"total": 5}]},
+    ]
+    path = tmp_path / "users.ndjson"
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+    libraries, excluded = _load_competitors()
+    engines = _load_query_libraries(excluded)
+    if "orjson" not in libraries or "jmespath" not in engines:
+        pytest.skip("the composed rivals need orjson and jmespath")
+    flattening = {
+        "strata": "$[*].orders[*].total",
+        "jmespath": "[].orders[].total",
+        "jsonpath_ng": "$[*].orders[*].total",
+    }
+    report = Report("supplementary-v1")
+    kept = _drop_disagreeing(ndjson_calls(libraries, engines, path, flattening), report, "totals")
+    assert "orjson+jmespath" in kept
+    assert kept["orjson+jmespath"]() == [2, 3, 5] == kept["strata"]()
+
+    projecting = dict(flattening, jmespath="[*].orders[*].total")
+    kept = _drop_disagreeing(ndjson_calls(libraries, engines, path, projecting), report, "totals")
+    assert "orjson+jmespath" not in kept
+    assert "orjson+jmespath (totals)" in report.excluded

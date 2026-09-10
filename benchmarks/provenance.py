@@ -137,7 +137,11 @@ def validate_companion(path: Path, markdown: str) -> dict | None:
                 and not re.fullmatch("[0-9a-f]{40}", source.get("commit") or "")
             ):
                 raise ValueError("clean build source has no valid commit")
-            if source and source.get("commit") and not source["commit"].startswith(commit):
+            if (
+                source
+                and source.get("commit")
+                and (not commit or not source["commit"].startswith(commit))
+            ):
                 raise ValueError("report commit does not match measured binary source")
         from benchmarks.harness import Measurement, parse_report
 

@@ -23,7 +23,7 @@ on:
     inputs:
       base_ref:
         description: "revision A (branch, tag, or full 40-character SHA)"
-        default: "75cfb42"
+        default: "75cfb422ede723193706740309d7509adf327f2b"
       cand_ref:
         description: "revision B (branch/tag/full SHA); empty uses workflow revision"
         default: ""
@@ -136,13 +136,23 @@ jobs:
           esac
           mkdir -p ab
           echo "$EXPERIMENT" > ab/experiment.txt
+          : > ab/patches.txt
+          for patch in "${patches[@]}"; do echo "$patch" >> ab/patches.txt; done
+          # Matched training: an isolated experiment compares one runtime
+          # change under one test and training source, so the base must be
+          # the candidate's own revision (E26-P7b: a test-suite difference
+          # alone moves rows by several percent through the gate-inclusive
+          # profile). Refuse anything else before an hour of building.
+          base_commit=$(git rev-parse --verify "$BASE_REF^{commit}")
+          if [ "${#patches[@]}" -gt 0 ] && [ "$base_commit" != "$(git rev-parse HEAD)" ]; then
+            echo "experiment=$EXPERIMENT needs base_ref to name this checkout's revision: $base_commit != $(git rev-parse HEAD)" >&2
+            exit 2
+          fi
           if [ "${#patches[@]}" -gt 0 ]; then
             git apply --check "${patches[@]}"
             git apply "${patches[@]}"
             cp "${patches[@]}" ab/
-            if [ -f tests/unit/test_dumps_schema_recovery.py ]; then
-              git add -N tests/unit/test_dumps_schema_recovery.py
-            fi
+            git ls-files --others --exclude-standard -- tests | while read -r added; do git add -N "$added"; done
           fi
 
       - name: Build B (candidate) with PGO+LTO, gate tests on both phases
@@ -159,12 +169,14 @@ jobs:
       - name: Build A (base) with the same recipe in a worktree
         run: |
           git worktree add ../base "$BASE_REF"
-          if [ "$EXPERIMENT" = "nested-mappings" ] || [ "$EXPERIMENT" = "nested-mappings-linux-arm64" ] ||
-             [ "$EXPERIMENT" = "record-int-reserve" ]; then
-            # The new regression contracts pass on both implementations. Train
-            # both PGO builds with them so only the runtime implementation differs.
-            git -C ../base apply --include=tests/unit/test_dumps_reentrancy.py "$GITHUB_WORKSPACE/experiments/benchmark-$EXPERIMENT.patch"
-          fi
+          # Every selected patch's test hunks go to the base as well (a no-op
+          # for a patch without any), so both PGO builds train on one suite
+          # and only the runtime implementation differs between the arms.
+          while read -r patch; do
+            [ -n "$patch" ] || continue
+            git -C ../base apply --include='tests/*' "$GITHUB_WORKSPACE/$patch"
+          done < ab/patches.txt
+          git -C ../base ls-files --others --exclude-standard -- tests | while read -r added; do git -C ../base add -N "$added"; done
           cd ../base
           make install-bench
           make pgo
@@ -279,7 +291,7 @@ jobs:
           path: |
             ab/
             arms/
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   ab-windows:
     name: A/B (windows-x86_64)
@@ -320,13 +332,23 @@ jobs:
           esac
           mkdir -p ab
           echo "$EXPERIMENT" > ab/experiment.txt
+          : > ab/patches.txt
+          for patch in "${patches[@]}"; do echo "$patch" >> ab/patches.txt; done
+          # Matched training: an isolated experiment compares one runtime
+          # change under one test and training source, so the base must be
+          # the candidate's own revision (E26-P7b: a test-suite difference
+          # alone moves rows by several percent through the gate-inclusive
+          # profile). Refuse anything else before an hour of building.
+          base_commit=$(git rev-parse --verify "$BASE_REF^{commit}")
+          if [ "${#patches[@]}" -gt 0 ] && [ "$base_commit" != "$(git rev-parse HEAD)" ]; then
+            echo "experiment=$EXPERIMENT needs base_ref to name this checkout's revision: $base_commit != $(git rev-parse HEAD)" >&2
+            exit 2
+          fi
           if [ "${#patches[@]}" -gt 0 ]; then
             git apply --check "${patches[@]}"
             git apply "${patches[@]}"
             cp "${patches[@]}" ab/
-            if [ -f tests/unit/test_dumps_schema_recovery.py ]; then
-              git add -N tests/unit/test_dumps_schema_recovery.py
-            fi
+            git ls-files --others --exclude-standard -- tests | while read -r added; do git add -N "$added"; done
           fi
 
       - name: Build candidate with clang-cl PGO and full gates
@@ -347,12 +369,14 @@ jobs:
         run: |
           export PATH="/c/Program Files/LLVM/bin:$PATH"
           git worktree add ../base "$BASE_REF"
-          if [ "$EXPERIMENT" = "nested-mappings" ] || [ "$EXPERIMENT" = "nested-mappings-linux-arm64" ] ||
-             [ "$EXPERIMENT" = "record-int-reserve" ]; then
-            # The new regression contracts pass on both implementations. Train
-            # both PGO builds with them so only the runtime implementation differs.
-            git -C ../base apply --include=tests/unit/test_dumps_reentrancy.py "$GITHUB_WORKSPACE/experiments/benchmark-$EXPERIMENT.patch"
-          fi
+          # Every selected patch's test hunks go to the base as well (a no-op
+          # for a patch without any), so both PGO builds train on one suite
+          # and only the runtime implementation differs between the arms.
+          while read -r patch; do
+            [ -n "$patch" ] || continue
+            git -C ../base apply --include='tests/*' "$GITHUB_WORKSPACE/$patch"
+          done < ab/patches.txt
+          git -C ../base ls-files --others --exclude-standard -- tests | while read -r added; do git -C ../base add -N "$added"; done
           constraints="$GITHUB_WORKSPACE/ab/constraints.txt"
           cd ../base
           python -m venv .venv
@@ -392,4 +416,4 @@ jobs:
           path: |
             ab/
             arms/
-          if-no-files-found: ignore
+          if-no-files-found: warn
