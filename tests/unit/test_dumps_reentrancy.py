@@ -713,3 +713,58 @@ def test_concurrent_mutating_dumps_on_several_threads(mode):
         thread.join()
 
     assert results == {f"t{index}": f"[{BIG_TEXT}]" for index in range(4)}
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("nested", (False, True))
+def test_warm_exact_mapping_dispatch_preserves_row_during_reentrant_clear(mode, nested):
+    """api.md: cached root/nested dicts emit their staged row under mutation."""
+
+    def run():
+        def wrap(value):
+            return {"outer": value} if nested else value
+
+        warm = {"big": 1, "child": {"value": 2}, "tail": [3, 4]}
+        for _ in range(3):
+            _dump(wrap(warm), mode)
+        doc = {"big": None, "child": {"value": 2}, "tail": [3, 4]}
+        expected = _compact(wrap({**doc, "big": BIG}))
+
+        def mutate():
+            doc.clear()
+            for index in range(100):
+                strata.dumps({f"private-{index}": index})
+
+        once = _Once(mutate)
+        doc["big"] = _big_trigger(once)
+        assert _dump(wrap(doc), mode) == expected
+        assert once.fired == 1
+        assert doc == {}
+
+    _on_a_fresh_thread(run)
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("warmed", (False, True))
+def test_a_record_emptied_to_scalars_is_emitted_below_itself_on_every_path(mode, warmed):
+    """api.md: the row read on entry is what a dict emits; reached again below
+    itself after user code left it holding plain scalars only, it is written
+    in full by every writer, whether or not its shapes are prepared."""
+
+    def run():
+        if warmed:
+            for _ in range(3):
+                _dump({"big": 1, "child": [{"s": 1}]}, mode)
+        doc = {"big": None, "child": None}
+        doc["child"] = [doc]
+
+        def mutate():
+            doc.clear()
+            doc["s"] = 1
+
+        once = _Once(mutate)
+        doc["big"] = _big_trigger(once)
+        assert _dump(doc, mode) == _compact({"big": BIG, "child": [{"s": 1}]})
+        assert once.fired == 1
+
+    _on_a_fresh_thread(run)
