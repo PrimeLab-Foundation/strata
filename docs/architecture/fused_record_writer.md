@@ -123,8 +123,9 @@ by construction. The element loop's records are not probed, as before. Three
 ways of probing them were measured and declined (the ledger's E26-P9 revival
 entry): the unconditional scan costs `dumps users` about 2% (its item records
 sit five containers deep); deciding the first container in the verification
-pass, so the emit loop could arm by index, costs `dumps flat` 13–20% on every
-runner; a probe at the first container value with the record's bytes taken
+pass, so the emit loop could arm by index, costs `dumps flat` 8–20% depending
+on the runner (20% on the EPYC, 8% on the i7), six of six blocks past floor on
+every leg; a probe at the first container value with the record's bytes taken
 back through a mark on the staged output costs users 4%. Every one of them
 is per-record work on records of three fields, where a handful of
 instructions is a percent. The element-loop gap is recorded in

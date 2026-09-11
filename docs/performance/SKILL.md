@@ -332,6 +332,19 @@ comparison is meaningful, which is the point of running both orders.
 
 ## E26-P9: nested exact mapping dispatch (September 8)
 
+Revived and accepted for integration on 2026-09-11 (`exp/p9-fused-dicts`):
+exact dicts reached as values or as the root enter the fused writer through
+a probe of the open-container stack that hands a cycle to the general
+writer; the array element loop is unchanged. Against the tests-only arm on
+the five runners (run 34568043329) it reads N2 `dumps mixed` −5.8%/−6.1%
+and `dumps users` −3.5%, EPYC `dumps flat` −4.5% and users −1.8%, gains on
+both Macs' mixed or nested rows, no Windows row resolved past its floor, and one resolved loss of +0.3% (N2 small `dumps wide_arrays`). Three ways of also
+probing the element loop's records were measured and declined — 2% on
+`dumps users` for an unconditional scan, 8–20% on `dumps flat` for a
+verification-pass classification, 4% on users for a probe at the first
+container value with the record's bytes taken back — every one per-record
+work on three-field records. Details: the ledger's E26-P9 revival bullets.
+
 A one-call dispatch change reuses the existing fused record writer for exact
 root/nested dictionaries. Matched-test PGO A/B finds roughly 2.2% lower mixed
 and 9.5% lower nested serialization time, but the 10- and 60-sample canonical

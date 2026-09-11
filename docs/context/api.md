@@ -201,7 +201,11 @@ strata.config.set(key, value); strata.config.get(key); strata.config.list()
   `ignore` while reporting `warn`, do not reproduce) | `"error"` | `"ignore"`.
   On an actual cycle: `"warn"` emits `null` for the cyclic reference and
   raises `RuntimeWarning`; `"error"` raises `ValueError`; `"ignore"` emits
-  `null` silently.
+  `null` silently. One placement caveat (docs/decisions.md, 2026-09-11): a
+  repeated **dict** reached as a list element, whose shape the thread's
+  serializer cache already holds, is emitted once more before the
+  placeholder, so the `null` lands one container late; the warning, the
+  `"error"` policy and the bound on recursion are unaffected.
 
 Config state is process-global at the map level. `duplicate_key_policy` is
 consumed via a **thread-local** variable — it does not propagate to other

@@ -1566,13 +1566,61 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
     file `dump nested` −7.4%; i7 `dumps flat` +4.7%/+5.9% past 2.2%/0.7%
     floors, mixed inside floors; M1 VM medium flat +2.3% at its floor;
     Windows small `dumps mixed` +1.7% normalised (raw +1.2%, floor 1.4%), a
-    second draw of that leg (run 34523596127) +2.0% (raw +0.6%). On the M1
-    itself the dispatch moves no mixed row. The first dispatch (runs
-    34523593547, 34523596127) lost both Linux legs to a `NameError` in the
-    harness's Linux-only CPU-name reader, fixed on `work/benchmark-lead`
-    (3f3425b). What the dispatch alone costs and returns, with the value-path
-    probe and no element-loop probe, is the measurement now owed: P against
-    T on the five legs.
+    second draw of that leg (run 34523596127) +2.0% (raw +0.6%).
+    On the M1 itself that probe plus the dispatch moved no mixed row. The
+    first dispatch (runs 34523593547, 34523596127) lost both Linux legs to a
+    `NameError` in the harness's Linux-only CPU-name reader, fixed on
+    `work/benchmark-lead` (3f3425b).
+  - The branch as it stands (the value-path probe, the element loop unprobed)
+    on the M1 against the tests-only arm (`p9/local-screen/local3_P3.tsv`
+    with `local2_AA.tsv`; PGO arms, six blocks of sixty): `dumps users`
+    −0.05%/−0.22% inside floors of 0.55%/1.20%; medium `dumps mixed` −1.53%
+    (interval −1.77..−0.90%, floor 1.51%), small −2.84% unresolved (interval
+    to +1.62%); small file `dump nested` −5.24% (−8.62..−1.04%, floor 3.50%);
+    flat inside its floors; small `dumps wide_arrays` +1.28% (raw +0.84%,
+    interval +0.53..+2.34%, floor 0.91%), the one resolved loss here, on a
+    row that runs no probe.
+  - **Native, the decisive draw** (run 34568043329, 6739050 against b490f81,
+    `experiment=none`, six blocks of sixty, matched recipe and training data,
+    every arm's binary matching its sidecar; evidence
+    `p9/native-dispatch-vs-tests-34568043329/`). Normalised effect, then the
+    interval and the leg's own floor. N2 (linux-arm64): `dumps mixed`
+    **−5.77%** small (−7.44..−3.16%, floor 1.25%) and **−6.14%** medium
+    (−6.78..−5.81%, floor 1.08%); `dumps users` −3.51%/−3.44%; small file
+    `dump nested` −3.91%, `dump mixed` −1.37%; medium `dumps flat` −0.32%;
+    the one resolved loss on any leg: small `dumps wide_arrays` +0.32% (raw
+    +0.18%, floor 0.26%); the parse rows inside their floors. EPYC
+    (linux-x86_64): `dumps flat` −4.53%/−4.77%, `dumps users` −1.82%/−1.14%,
+    file `dump nested` −2.83%; `dumps mixed` −1.57%/+0.70% inside floors of
+    1.78%/1.51%. M1 VM (macos-arm64): medium `dumps mixed` −1.97% (−5.54..−1.00%, floor 1.58%), medium `dumps flat` −1.72% (interval to +1.52%, floor 1.48%); nothing else past a floor of 1.5–8%. i7
+    (macos-x86_64): small `dumps mixed` −3.66% (−4.46..−0.93%, floor 2.76%),
+    file `dump nested` −3.45%; medium `dumps flat` +0.97% inside its 1.94%
+    floor. Windows (Zen 4, clang-cl PGO): no row resolved outside its floor (medium `dumps users` +1.00% against a 0.89% floor, interval −3.89..+3.11%); small `dumps mixed` −1.32% normalised, raw −1.36%. On the two rows behind in
+    the latest five-platform sample (N2 `dumps mixed` 1.023x, Windows `dumps mixed` 1.015x) this reads −6% and about −1.4% of strata's own time;
+    whether the second flips is for the two samples of the integrated
+    revision to say.
+  - Branch review (2026-09-11; contract/docs and perf/style lenses complete,
+    the correctness lens re-run after a session limit): six findings
+    confirmed of ten, the four refuted ones (the test docstring, api.md's
+    scope, the decision entry's standing, the wrapper's inlining growth) each
+    traced on the artifacts. Applied: the M1 screen above was unreported;
+    "13–20% on every runner" was 8–20% depending on the runner; a "1.5% on
+    plain builds" figure had no evidence in the repository and is dropped;
+    the emptied-to-scalars parity test re-entered only through a list
+    element, so it now runs both routes and a container-valued re-entry pins
+    the probe's hand-off to the general writer's frame; the wrapper's doc
+    block had landed between the fused writer's own block and its function (a
+    comment-only move; the object code is byte-identical). Recorded as the
+    next runtime follow-up, not done now: the probe precedes the fused
+    writer's fallback checks, so a value dict the fused writer rejects (a
+    schema miss, a wide or retired shape, depth past 64) pays the probe and
+    then `write_mapping`'s own frame scan — canonical rows hit their schemas
+    and pay one, a dict chain deeper than 64 levels pays twice its O(depth)
+    scan per level; the fix is to move the probe after the last fallback,
+    gated by the caller, and re-measure.
+  - Outcome: **accepted for integration on the measurement above**, pending
+    the plan's two five-platform samples of the integrated revision. The
+    element-loop gap stays recorded in docs/decisions.md (2026-09-11).
 
 ## E26-P9a — restrict nested mapping fusion to Linux ARM64
 

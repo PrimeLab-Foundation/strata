@@ -746,17 +746,21 @@ def test_warm_exact_mapping_dispatch_preserves_row_during_reentrant_clear(mode, 
 
 @pytest.mark.parametrize("mode", MODES)
 @pytest.mark.parametrize("warmed", (False, True))
-def test_a_record_emptied_to_scalars_is_emitted_below_itself_on_every_path(mode, warmed):
+@pytest.mark.parametrize("route", ("list_element", "dict_value"))
+def test_a_record_emptied_to_scalars_is_emitted_below_itself_on_every_path(route, warmed, mode):
     """api.md: the row read on entry is what a dict emits; reached again below
     itself after user code left it holding plain scalars only, it is written
     in full by every writer, whether or not its shapes are prepared."""
 
+    def wrap(inner):
+        return [inner] if route == "list_element" else inner
+
     def run():
         if warmed:
             for _ in range(3):
-                _dump({"big": 1, "child": [{"s": 1}]}, mode)
+                _dump({"big": 1, "child": wrap({"s": 1})}, mode)
         doc = {"big": None, "child": None}
-        doc["child"] = [doc]
+        doc["child"] = wrap(doc)
 
         def mutate():
             doc.clear()
@@ -764,7 +768,36 @@ def test_a_record_emptied_to_scalars_is_emitted_below_itself_on_every_path(mode,
 
         once = _Once(mutate)
         doc["big"] = _big_trigger(once)
-        assert _dump(doc, mode) == _compact({"big": BIG, "child": [{"s": 1}]})
+        assert _dump(doc, mode) == _compact({"big": BIG, "child": wrap({"s": 1})})
+        assert once.fired == 1
+
+    _on_a_fresh_thread(run)
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("warmed", (False, True))
+def test_a_record_holding_a_container_below_itself_is_the_placeholder(warmed, mode):
+    """api.md: a dict reached again as a value while open above, still holding
+    a container, is the cycle placeholder under "warn" -- the general writer's
+    frame answers the same way whether or not its shapes are prepared."""
+
+    def run():
+        if warmed:
+            for _ in range(3):
+                _dump({"big": 1, "child": {"s": [1]}}, mode)
+        doc = {"big": None, "child": None}
+        doc["child"] = doc
+
+        def mutate():
+            doc.clear()
+            doc["s"] = [1]
+
+        once = _Once(mutate)
+        doc["big"] = _big_trigger(once)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert _dump(doc, mode) == _compact({"big": BIG, "child": None})
+        assert [str(w.message) for w in caught] == ["Circular reference detected"]
         assert once.fired == 1
 
     _on_a_fresh_thread(run)
