@@ -1534,6 +1534,45 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   with a portable twin; compiled in on one of five legs). P14 was found
   correct (reservation 17 + 20 bytes, compact ints cannot run Python, bools
   excluded by the exact-type test, growth handled by `overflow`).
+- Revived 2026-09-10/11 on `exp/p9-fused-dicts` as two commits with matched
+  tests: (T) the mirrored cycle-contract tests (`test_dumps_cycles_fused.py`:
+  six shapes, cold and warmed, three policies, both output types, plus
+  records whose scalar prefix carries the output across the stage and block
+  boundaries), the patch's mutation test and an emptied-to-scalars parity
+  test — all of which the unchanged tree passes; (P) the dispatch, entering
+  through `write_record_fused_value`, which probes `open_` before the row
+  and hands a hit to `write_mapping`. Three ways of probing the element
+  loop's records as well were built, measured and declined, each on the
+  runners or on M1 PGO arms against the tests-only arm (six blocks of
+  sixty, matched recipe and training data; evidence under
+  `build/evidence/benchmark-lead/p9/native-*` and `p9/local-screen`):
+  - deciding the first container in the verification pass so the emit loop
+    arms by index (run 34545656328): `dumps flat` +16.7%/+13.9% on the N2,
+    +20.1%/+16.4% on the EPYC, +12.6%/+10.5% on the M1 VM, +10.6%/+8.2% on
+    the i7, +12.7% on Windows, six of six blocks past floors under 2%;
+    `dumps users` N2 +5.2%; reproduced on the M1 (flat +14.3%/+13.2%);
+  - the unconditional scan before the row (the review's plain-build shape),
+    M1 PGO arms: flat and mixed inside their floors, `dumps users` +2.3%
+    (six of six, floor 0.27%) — the five-deep scan on the item records;
+  - a probe at the first container value with the record's bytes taken
+    back through a mark on the staged output, M1 PGO arms: `dumps users`
+    +4.0%/+4.1%, medium mixed +1.8%, flat inside its floor — the mark and
+    the probe block are per-record work on three-field records.
+    The dispatch measured against the first of those probes (run
+    34545658395, matched tests): N2 `dumps mixed` −4.2%/−3.7% (small/medium),
+    small file `dump nested` −2.7%, `dump mixed` −1.7%, users inside its
+    floor, `dumps wide_arrays` +0.5% (floor 0.3%); EPYC `dumps mixed`
+    −5.1%/−2.1%, users −4.1%/−4.1%, flat −1.6%/−2.0%, wide_arrays −8.0%,
+    file `dump nested` −7.4%; i7 `dumps flat` +4.7%/+5.9% past 2.2%/0.7%
+    floors, mixed inside floors; M1 VM medium flat +2.3% at its floor;
+    Windows small `dumps mixed` +1.7% normalised (raw +1.2%, floor 1.4%), a
+    second draw of that leg (run 34523596127) +2.0% (raw +0.6%). On the M1
+    itself the dispatch moves no mixed row. The first dispatch (runs
+    34523593547, 34523596127) lost both Linux legs to a `NameError` in the
+    harness's Linux-only CPU-name reader, fixed on `work/benchmark-lead`
+    (3f3425b). What the dispatch alone costs and returns, with the value-path
+    probe and no element-loop probe, is the measurement now owed: P against
+    T on the five legs.
 
 ## E26-P9a — restrict nested mapping fusion to Linux ARM64
 

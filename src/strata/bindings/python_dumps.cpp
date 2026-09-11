@@ -175,7 +175,7 @@ class Serializer {
         if (type == &PyLong_Type)
             return write_int(object);
         if (type == &PyDict_Type)
-            return write_mapping(object);
+            return write_record_fused_value(object);
         if (type == &PyList_Type)
             return write_sequence(object);
         if (object == Py_None) {
@@ -749,6 +749,28 @@ class Serializer {
      * the leased row of this nesting level (SchemaCacheLease::StagedRow), so
      * neither this function nor any function it is folded into declares one.
      */
+    /**
+     * A record reached as another dict's value, or as the root, takes the
+     * same one-pass emit as a record reached as an array element (E26-P9);
+     * the fused writer falls back to write_mapping for every shape it does
+     * not hold prepared. One thing the general writer did for these records
+     * that the fused writer does not: its Frame probes open_ before it
+     * writes, so a dict already open above -- a cycle -- is the placeholder
+     * and not one more copy of itself. The probe lives here, on this path
+     * alone, and hands a hit to write_mapping, which then applies its own
+     * rules (a record of plain scalars is emitted even when open above, a
+     * cycle frame answers otherwise) so the bytes stay the general writer's.
+     * The array element loop's records are not probed, as before this
+     * change (docs/decisions.md, 2026-09-11): a probe there is paid by every
+     * record of every dataset, and the loop's own probe of the list it walks
+     * bounds the recursion one container later.
+     */
+    [[nodiscard]] bool write_record_fused_value(PyObject* object) {
+        if (!open_.empty() && std::find(open_.begin(), open_.end(), object) != open_.end())
+            return write_mapping(object);
+        return write_record_fused(object);
+    }
+
     [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
 #if defined(STRATA_RAW_DICT_WALK)
         if (!rawdict::available())

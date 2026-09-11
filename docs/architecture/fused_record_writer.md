@@ -108,14 +108,27 @@ controls. Reject unless gains clear the paired noise floor without a
 canonical regression; this does not revive rejected broad footprint changes.
 
 Review outcome (2026-09-10): as written the experiment changes cycle
-output. The fused writer relies on its one caller, the sequence loop, having
-scanned `open_` for the element before dispatch; `write_mapping` carries its
-own `Frame::repeated()` check. Routing every exact dict here therefore emits
-a cyclic dict once more before the placeholder whenever its shape is
-prepared at the re-entry depth (confirmed on five of seven shapes;
-`build/evidence/benchmark-lead/p9/cycle-defect/`). Any revival must add the
-`std::find(open_.begin(), open_.end(), object)` check at the fused writer's
-entry and re-measure, since that scan lands in the hot record loop.
+output. The fused writer had no probe of `open_`: the sequence loop probes
+the list it walks, not the record it dispatches, and `write_mapping` carries
+its own `Frame::repeated()`. So a dict already open above was emitted once
+more before the placeholder whenever its shape was prepared at the re-entry
+depth: on the unchanged tree for a repeated dict reached as a list element,
+and with P9 for dict values too (five of seven shapes;
+`build/evidence/benchmark-lead/p9/cycle-defect/`).
+
+Resolution (2026-09-11): the dispatch enters through
+`write_record_fused_value`, which probes `open_` before the row and hands a
+hit to `write_mapping`, so the value path's bytes are the general writer's
+by construction. The element loop's records are not probed, as before. Three
+ways of probing them were measured and declined (the ledger's E26-P9 revival
+entry): the unconditional scan costs `dumps users` about 2% (its item records
+sit five containers deep); deciding the first container in the verification
+pass, so the emit loop could arm by index, costs `dumps flat` 13–20% on every
+runner; a probe at the first container value with the record's bytes taken
+back through a mark on the staged output costs users 4%. Every one of them
+is per-record work on records of three fields, where a handful of
+instructions is a percent. The element-loop gap is recorded in
+docs/decisions.md (2026-09-11).
 
 ## E26-P9a: restrict the nested dispatch experiment to Linux ARM64
 
