@@ -1029,7 +1029,48 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
     or better on every row on three legs, then a five-platform sample. Until
     then, every change that adds tests to the gate must be priced with a
     tests-only control like E26-P7b before its A/B is read.
-- Outcome: open
+- Step 1 measured (2026-09-11/12; evidence `build/evidence/benchmark-lead/p8/`,
+  arms `exp/p8-b1`, `exp/p8-b2`, `exp/p8-b12`, `exp/p8-b12t`). First an exact
+  per-process attribution of main's profile (the training run is the one raw
+  profile with no cycle or re-entrancy counts; entry counts checked by
+  re-instrumenting each unit and letting the profile reader propagate them,
+  TRAIN + TESTS = ALL for every one of 424 functions; `p8/analysis/`): the
+  tests are 55.35% of all counts, and the fused record writer's training
+  entries fall back 70.8% of the time — 58% at the retired-depth check,
+  because the corpus varied a key at depth two on every record and gave two
+  top-level shapes one (count, first key) pair, retiring both depths inside
+  the first document; 13% at `entry_array() == nullptr`, because the training
+  payload is `strata.loads`'s, whose presized dicts carry a general-kind keys
+  table (E26-P23). Two arms fix those in the scripts alone, under the
+  unchanged recipe: b1 builds the serializer's payload with `json.loads` (one
+  strata-parsed arm kept); b2 gives the top-level shapes distinct key counts
+  under one first key, keeps every optional list under a key every record
+  carries, and moves the varying key to depth nine below a chain of one-key
+  dicts; b12 is both. The training counters move as designed (the README's
+  table: presized fallbacks 18,985 → 364, retired 86,341 → 17,706, the emit
+  loop four times hotter, the general writer's training entries 260,226 →
+  18,250). The rows do not: M1 screens against main's arm (fresh A/A, six
+  blocks of sixty) read every row inside its floor for all three arms, b1's
+  small file `dump nested` −2.3% the one resolved figure; runner A/B
+  34645895948 (34f1805 against b12): N2 `dumps users` +1.1..+1.4% and five
+  parse rows +1.4..+1.9% (`loads users`, `loads mixed`, `loads` and `load wide_arrays`, NDJSON `load users`) resolved against floors under 1%, `dumps flat` −0.5..−0.9%, mixed inside; M2 Pro VM and Windows no row past a floor; EPYC `dumps users` −1.9% medium and −2.6% small in its favour, small `dumps wide_arrays` (str) +1.4% against, the rest inside floors that reach 9% on that draw; i7 small `dumps flat` +1.9% and `loads mixed` +1.7% against, nothing else resolved. Every arm's binary matches its sidecar; the arms' training sources differ by design (`native-p8-corpus-34645895948/verification-all.json`).
+  The 2026-08-15 reading holds with the fused writer in place: the corpus's
+  job is branch coverage, and shaping its hot phase after the cache's rules
+  moves training counts, not layouts, and on the N2 moves the parse rows the
+  wrong way.
+- Step 2 measured the same night: the training-only recipe (b12t: the gate
+  runs' profiles written to `build/pgo/discard/` and never merged, only the
+  training run's, recipe `training-only-posix-v1`) on the b12 workload,
+  against main's arm on a quiet M1 (load 2.7, fresh A/A, `p8q_b12t`): `dumps flat` +12.9% medium and +11.7% small, medium `dumps mixed` +1.3..+1.4%,
+  small `dumps users` +0.7..+1.5%, six of six; `wide_arrays` inside. E26-P5b's
+  loss is larger with the fuller workload, not smaller: whatever the suite's
+  bytes-mode `dumps` calls teach the profile about the flat path, the
+  workload's do not, and the attribution above does not yet say what it is.
+- Outcome: **step 1 closed as measured, no arm adopted; the corpus and the
+  recipe stay as they are.** The recipe question stays open with two data
+  points against training-only and the attribution tooling to price the next
+  attempt; the presize mechanism moves to E26-P23 as a source fix. Branches
+  kept as the record.
 
 ## T0 (plan of 2026-09-07) — inventory and reconciliation
 
