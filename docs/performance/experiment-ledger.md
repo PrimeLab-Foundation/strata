@@ -1632,14 +1632,27 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   draw whose every row, parse rows included, reads about 20% faster than
   that sample's (strata 0.053 ms, orjson 0.050) — a row at the report's
   resolution (0.001 ms on 0.05–0.07 ms) on hosts that differ, which the
-  dispatch's own A/B read inside its floors with tests matched, leaving the
-  added tests' profile shift (E26-P7b) as the one candidate still to price:
-  run 34594107636, the tests-only commit against 3f3425b on the five legs.
+  dispatch's own A/B read inside its floors with tests matched, leaving the added tests' profile shift (E26-P7b) as the one candidate still to price.
   Windows `dumps mixed` 1.03x/1.03x and file `dump mixed` 1.03x/1.03x on a
   Family 25 Model 1 host (75cfb42's draw was Model 17); macos-arm64 file
   `dump mixed` 1.06x on one draw and 0.86x on the other of the same M2 Pro
   VM class, strata 0.168 against 0.090 ms between them. No 135/135 is
   claimed.
+- The profile shift priced (run 34594271053: the tests-only commit b490f81
+  against 3f3425b, source unchanged, `experiment=none`, six blocks of
+  sixty; a first dispatch, 34594107636, failed at checkout on a mistyped
+  base commit and measured nothing). linux-x86_64: `dumps flat`
+  +3.44%/+3.37% (small/medium, floors 0.66%), small `dumps wide_arrays`
+  +0.70% (floor 0.28%), `dumps mixed` −0.02%/−0.18% inside floors of
+  2.52%/2.58%, users inside. N2: `dumps flat` −1.90%/−1.80%, `dumps users`
+  −2.48%/−1.68%, small `dumps wide_arrays` −0.68%, all resolved in strata's
+  favour; `dumps mixed` inside floors. M1 VM and Windows: nothing past a
+  floor. So the added tests move the profile as E26-P7b said tests do —
+  against the EPYC's flat records, for the N2's — and do not touch the
+  x86 `dumps mixed` row; the dispatch's own draw then reads that row
+  neutral with tests matched. The x86 legs' `dumps mixed` standings of
+  1.03–1.07x are rival and host movement at the report's resolution, the
+  coin band the campaign has met on other legs before. The i7 leg, in last: no row resolved either way — medium `dumps mixed` +2.9% normalised on an interval spanning zero (−1.6..+4.4%), small `dumps mixed` −6.6% inside a 9.8% floor, flat and users inside theirs.
 
 ## E26-P9a — restrict nested mapping fusion to Linux ARM64
 
