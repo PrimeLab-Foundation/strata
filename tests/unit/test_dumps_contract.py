@@ -723,7 +723,11 @@ def test_dict_layouts_the_raw_walk_has_to_refuse():
     """python_dumps_output.h `rawdict`: split tables and tables whose entry
     count disagrees with the size fall back to `PyDict_Next`, and the fused
     writer refuses them outright. The fallback is invisible in the output --
-    which is exactly what these pin."""
+    which is exactly what these pin.
+
+    Refusal is now only true of split tables and of layouts the runtime proof
+    did not accept: a *general*-kind table is compacted into the shape the
+    walks read rather than refused (test_dumps_general_tables.py)."""
 
     class Instance:
         def __init__(self, index):
@@ -757,6 +761,41 @@ def test_dict_layouts_the_raw_walk_has_to_refuse():
     shared = {"x": 1, "y": 2}
     _both_modes([{"id": index, "inner": shared} for index in range(6)])
     _both_modes({"a": shared, "b": {"c": shared}, "d": [shared, shared]})
+
+
+def test_dict_layouts_the_raw_walk_now_compacts():
+    """The sibling of the test above, for the layout that stopped being a
+    refusal: a general-kind table (any dict that ever held a non-`str` key,
+    and every record `strata.loads` presizes) is copied into the walk's
+    `{key, value}` shape once, out of line. Split tables, which the copy must
+    never touch, stay next to it here so the two are read together.
+    The exhaustive matrix lives in test_dumps_general_tables.py."""
+
+    class Instance:
+        def __init__(self, index):
+            self.alpha = index
+            self.beta = "two"
+
+    def general(pairs):
+        document = {0: None}
+        document.pop(0)
+        for key, value in pairs:
+            document[key] = value
+        return document
+
+    for width in (4, 11, 24, 25):
+        pairs = [(f"k{index}", index) for index in range(width)]
+        assert strata.dumps(general(pairs)) == strata.dumps(dict(pairs))
+        _both_modes([general(pairs) for _ in range(6)])
+    # Split tables interleaved with general ones at one depth: the compaction
+    # gates on `ma_values` before the kind, so neither borrows the other's
+    # path.
+    _both_modes(
+        [
+            Instance(index).__dict__ if index % 2 else general([("alpha", index)])
+            for index in range(8)
+        ],
+    )
 
 
 def test_schemas_that_never_repeat_still_serialize_exactly():
