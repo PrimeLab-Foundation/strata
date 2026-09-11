@@ -20,6 +20,11 @@ import strata
 
 MODES = ("str", "bytes")
 WIDE_KEYS = tuple(f"k{index}" for index in range(24))
+# One key past the fused writer's width, and dict nesting past the depth the
+# schema cache holds: shapes the fused writer hands back to the general
+# writer, whose own frame must then find the cycle.
+WIDER_KEYS = tuple(f"k{index}" for index in range(25))
+DEEP_LEVELS = 70
 
 
 def _self():
@@ -56,6 +61,39 @@ def _pair():
     first = {"name": "a", "self": None}
     first["self"] = {"name": "b", "self": first}
     return first
+
+
+def _wider():
+    document = dict.fromkeys(WIDER_KEYS[:-1], 1)
+    document[WIDER_KEYS[-1]] = document
+    return document
+
+
+class _Key(str):
+    """A `str` subclass key keeps its dict out of the schema cache (api.md)."""
+
+
+def _subclass_key():
+    document = {"name": "root"}
+    document[_Key("self")] = document
+    return document
+
+
+def _deep():
+    root = {"k": None}
+    node = root
+    for _ in range(DEEP_LEVELS - 1):
+        node["k"] = {"k": None}
+        node = node["k"]
+    node["k"] = root
+    return root
+
+
+def _deep_warm():
+    document = 0
+    for _ in range(DEEP_LEVELS):
+        document = {"k": document}
+    return document
 
 
 # (label, cyclic document, expected bytes, an acyclic document of the same
@@ -102,6 +140,30 @@ CASES = [
         _pair,
         '{"name":"a","self":{"name":"b","self":null}}',
         {"name": "root", "self": {"name": "x", "self": {"name": "y", "self": 1}}},
+    ),
+    # The three shapes below are rejected by the fused writer -- too wide, a
+    # key the schema cache refuses, a depth past the cached ones -- so the
+    # null is the general writer's frame's, warmed or not.
+    (
+        "wider",
+        _wider,
+        "{" + ",".join(f'"{key}":1' for key in WIDER_KEYS[:-1]) + ',"k24":null}',
+        {
+            **dict.fromkeys(WIDER_KEYS[:-1], 1),
+            WIDER_KEYS[-1]: {**dict.fromkeys(WIDER_KEYS[:-1], 1), WIDER_KEYS[-1]: 0},
+        },
+    ),
+    (
+        "subclass_key",
+        _subclass_key,
+        '{"name":"root","self":null}',
+        {"name": "root", _Key("self"): {"name": "x", _Key("self"): 1}},
+    ),
+    (
+        "deep",
+        _deep,
+        '{"k":' * DEEP_LEVELS + "null" + "}" * DEEP_LEVELS,
+        _deep_warm(),
     ),
 ]
 
