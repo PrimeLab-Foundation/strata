@@ -108,6 +108,8 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 | `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition  |
 | `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                      |
 | `python_dumps.cpp`                        | `dumps` + all serialization fast paths                                                     |
+| `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                  |
+| `python_rawdict.h`                        | The runtime-proved raw dict-entry walk and the general-table compaction                    |
 | `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
 | `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                   |
 | `python_ndjson.cpp`                       | `NdjsonStream` type                                                                        |
@@ -184,7 +186,7 @@ sense checked as a pair.
 
 ### The raw dict walk's runtime proof
 
-`rawdict` (`python_dumps_output.h`) reads a dict's entry array directly —
+`rawdict` (`python_rawdict.h`) reads a dict's entry array directly —
 `PyDict_Next` re-validates and re-dispatches per call, profiled at 8% of a
 record-heavy dump. The layout is CPython-internal, so it is mirrored minimally,
 version-gated to 3.11–3.14 (`STRATA_RAW_DICT_WALK`), and **proved at runtime**
