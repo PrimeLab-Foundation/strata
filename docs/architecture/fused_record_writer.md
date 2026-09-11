@@ -42,6 +42,24 @@ collect-then-emit per record:
   has in hand, not a second read of the dict, and holding it is what lets the
   fused writer emit the same bytes as the general path under mutation.
 
+  Since E26-P23 (2026-09-12) the entry array the pass walks is not always the
+  dict's own. A `DICT_KEYS_GENERAL` table — 24-byte `{hash, key, value}`
+  entries, which is what `_PyDict_NewPresized` and therefore every record
+  `strata.loads` builds above five keys has — is **compacted** into the
+  16-byte `{key, value}` shape first, by one `cold`, out-of-line pass into the
+  lease's single 25-entry scratch, on the branch that used to return nullptr
+  and send the record to `write_mapping`. There is deliberately no second
+  instantiation of this body and no runtime stride or layout flag: the ledger
+  already priced both (a second instantiation trains cold under the
+  gate-inclusive profile, `dumps mixed` +5–18%; a flag live across the
+  verification loop is `dumps flat` +2–3.5%), so the only shape left is one
+  that makes the two layouts identical *before* the loop starts. The
+  verification loop, the emit loop and `write_mapping`'s collection loop are
+  unchanged instruction for instruction, and the compacted array obeys the
+  same rule as the raw one — dead the moment the staged row is filled, now
+  for a second reason as well, since a nested record's compaction overwrites
+  the one scratch.
+
   That row is **leased, not a local array** — one per dict nesting level, in
   the same per-thread state as the schemas it serves
   (`SchemaCacheLease::StagedRow`), and shared with `write_mapping`'s
