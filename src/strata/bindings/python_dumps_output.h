@@ -723,10 +723,17 @@ enum : unsigned {
 /// general table compacted into @p scratch.
 ///
 /// The unicode path is `entry_array` verbatim -- the same three loads and the
-/// same two branches, so its instruction stream is unchanged; only the
-/// already-emitted null edge gains a target. That target is a `cold` call, so
-/// no profile can place it in the fallthrough between the loads above and the
-/// width guards below.
+/// same two branches -- so no instruction is added where it matters: the edge
+/// that already existed gains a target, and that target is a `cold` call, so
+/// no profile can grow it or place its body in the fallthrough. Verified by
+/// disassembly on both ISAs, not assumed: the fused verification loop and
+/// `write_mapping`'s collection loop come out identical instruction for
+/// instruction, and both writers keep their frame size and their count of
+/// frame-relative accesses (docs/decisions.md, 2026-09-12).
+///
+/// `entry_count` is written through, never address-escaped to the cold
+/// callee: the compaction returns its count instead of taking an out
+/// parameter, so the caller's variable stays a promotable SSA value.
 [[nodiscard]] inline const Entry* fused_entry_array(PyObject* dict, Py_ssize_t* entry_count,
                                                     Entry* scratch) {
     const Entry* entries = entry_array(dict, entry_count);

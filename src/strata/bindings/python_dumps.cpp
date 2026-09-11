@@ -782,7 +782,11 @@ class Serializer {
         // in the first case and the compacted count in the second, and the
         // compaction only accepts a table whose two agree, so the width check
         // below rejects a holed general table exactly as it rejects a holed
-        // unicode one. Nothing on the unicode path reads the scratch pointer.
+        // unicode one. The unicode path never reads the scratch, but it does
+        // carry one load of the pointer: the scheduler hoists it above the
+        // branch, off a cache line this frame is already on. Measured at no
+        // cost -- json-built payloads read 0.995-1.006x across an alternating
+        // A/B of two plain builds (docs/decisions.md, 2026-09-12).
         //
         // Written as one expression, like write_mapping's, so the two
         // refusals -- an unproved layout and an unwalkable table -- still
@@ -1515,8 +1519,9 @@ class Serializer {
     SchemaCacheLease::RowNode* lock_nodes_;
 #if defined(STRATA_RAW_DICT_WALK)
     /// Where a general-kind table is compacted into the `{key, value}` shape
-    /// both walks read. Leased from the same state, and loaded only inside
-    /// the cold arm of each accessor -- the unicode path never reads it.
+    /// both walks read. Leased from the same state; only the cold arm of each
+    /// accessor dereferences it, though the pointer load itself is scheduled
+    /// ahead of the branch in both writers.
     rawdict::Entry* general_scratch_;
 #endif
 };
