@@ -90,14 +90,29 @@ NUMBERS = [
 def _record(rng: random.Random, index: int) -> dict:
     """One record of a few rotating shapes, so the profile carries the paths the
     benchmark rows measure: records whose keys repeat (the prepared-key emit,
-    the schema cache's four-way select), long scalar runs (the run writers),
-    and -- kept at depth one, where they cannot retire the top level -- the
-    cache's miss and retire paths. A varying key on every top-level record
-    made every one of them a miss, retired that depth after 64, and profiled
-    the uncached walk as the hot path: the MSVC PGO build then read the
-    record path 1.78x behind orjson where the plain build read 1.17x."""
+    the schema cache's four-way select, the parser's key predictor), long
+    scalar runs (the run writers), and the cache's miss and retire paths.
+
+    The cache selects a way by (key count, first key) and, after 64 misses at
+    one dict depth, retires that depth for the thread's life
+    (python_dumps_output.h, DepthSchemas::select). So every shape here keeps
+    one key row -- optional content is a value change under a key every record
+    carries, never a key that comes and goes -- the top-level shapes carry
+    distinct key counts, and the one varying key sits at a depth of its own,
+    below a chain of one-key dicts, where the retirement it trains reaches no
+    depth a repeating shape uses. The previous corpus varied a key at depth
+    two on every record and gave two top-level shapes one (count, first key)
+    pair with different rows: both depths retired within the first document,
+    and the profile carried the fallback as the hot path (E26-P8)."""
+    long_runs = index % 8 == 0
+
+    def run(count: int, make) -> list:
+        # Long homogeneous runs every eighth record: the scalar-run writers
+        # take whole 64-element blocks at a time, which short lists never reach.
+        return [make() for _ in range(rng.randint(64, 200) if long_runs else rng.randint(0, 3))]
+
     record = {
-        # Stable keys — the cache should hit on these every time.
+        # Stable keys -- the cache should hit on these every time.
         "id": index,
         "name": rng.choice(PLAIN),
         "active": rng.choice([True, False]),
@@ -107,24 +122,25 @@ def _record(rng: random.Random, index: int) -> dict:
         "missing": None,
         "tags": [rng.choice(PLAIN) for _ in range(rng.randint(0, 6))],
         "numbers": [rng.choice(NUMBERS) for _ in range(rng.randint(0, 8))],
+        "series": run(0, lambda: rng.random() * 1000),
+        "ids": run(0, lambda: index + rng.randint(0, 200)),
+        "names": run(0, lambda: rng.choice(PLAIN)),
     }
-    # Three shapes rotate at the top level: the four-way select hits after the
-    # first sighting of each and every record after that emits prepared keys.
+    # Three shapes rotate at the top level with distinct key counts under one
+    # first key: three (count, first key) pairs fit the four ways, and every
+    # record after the first of its shape emits prepared keys.
     shape = index % 3
-    if shape == 1:
+    if shape >= 1:
         record["rank"] = index % 97
-    elif shape == 2:
+    if shape == 2:
         record["ratio"] = rng.random()
-        del record["missing"]
-    # Varying keys at depth one: misses, remembers and, after 64, retirement
-    # of that depth — the cold paths, trained without evicting the hot one.
-    record["extra"] = {f"field_{index % 512}": rng.random()}
-    # Long homogeneous runs every eighth record: the scalar-run writers take
-    # whole 64-element blocks at a time, which short lists never reach.
-    if index % 8 == 0:
-        record["series"] = [rng.random() * 1000 for _ in range(rng.randint(64, 200))]
-        record["ids"] = list(range(index, index + rng.randint(64, 200)))
-        record["names"] = [rng.choice(PLAIN) for _ in range(rng.randint(64, 200))]
+    # Varying keys: misses, remembers and, after 64, retirement -- at depth
+    # nine, below a chain of one-key dicts that repeat, so the cold paths are
+    # trained without evicting a hot depth.
+    churn: dict = {f"field_{index % 512}": rng.random()}
+    for _ in range(7):
+        churn = {"deeper": churn}
+    record["extra"] = churn
     # Nested objects, occasionally deep, to exercise the recursion guard's
     # shallow path and the container-reuse logic.
     depth = rng.choice([0, 1, 2, 2, 3, 6])
@@ -132,7 +148,7 @@ def _record(rng: random.Random, index: int) -> dict:
     for _ in range(depth):
         nested = {"child": nested, "sibling": [rng.choice(PLAIN)]}
     record["nested"] = nested
-    # A wide array of small objects — the common shape in real payloads.
+    # A wide array of small objects -- the common shape in real payloads.
     record["items"] = [
         {
             "sku": f"sku-{rng.randint(0, 99999)}",
