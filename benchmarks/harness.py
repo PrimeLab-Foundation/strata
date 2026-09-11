@@ -29,6 +29,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # docs/context/benchmarks.md: warmup >= 1, repeat >= 3 exploratory, and
 # regression-gate comparisons use the median of >= 10 repeats.

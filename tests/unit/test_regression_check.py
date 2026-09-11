@@ -354,3 +354,27 @@ def test_the_exit_codes_are_in_the_help_and_match_supportability(capsys):
     out = capsys.readouterr().out
     assert "Exit codes:" in out
     assert "not gateable evidence" in out
+
+
+def test_linux_cpu_name_reads_proc_cpuinfo(monkeypatch):
+    """The Linux branch of the environment description runs only on the runners."""
+    from benchmarks import harness
+
+    class FakePath:
+        def __init__(self, target):
+            self.target = target
+
+        def read_text(self):
+            assert self.target == "/proc/cpuinfo"
+            return "processor\t: 0\nmodel name\t: Fake CPU @ 1GHz\n"
+
+    monkeypatch.setattr(harness.sys, "platform", "linux")
+    monkeypatch.setattr(harness, "Path", FakePath)
+    assert harness._cpu_name() == "Fake CPU @ 1GHz"
+
+    class BrokenPath(FakePath):
+        def read_text(self):
+            raise UnicodeDecodeError("utf-8", b"", 0, 1, "bad")
+
+    monkeypatch.setattr(harness, "Path", BrokenPath)
+    assert isinstance(harness._cpu_name(), str)
