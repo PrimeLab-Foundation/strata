@@ -1468,31 +1468,38 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
 ## E26-P9 — reuse the fused writer for nested exact dictionaries
 
 - Opened 2026-09-08 on `c9a337d`; not accepted.
+
 - Named cost: native ARM64 hot profile 34146265191 places 8.48% in
   `write_mapping_body`. Exact dictionaries reached through the scalar
   dispatcher currently bypass the fused writer. Reuse the existing guarded,
   out-of-line path for those dictionaries, including root dictionaries.
+
 - Preserve all existing fallbacks, staged mutation semantics, recursion limits
   and private leases. Add no cache state or duplicated scalar machinery.
+
 - Decide with production-PGO mixed/flat/users/nested/wide controls, root/nested
   mutation contracts and sanitizers. Reject a gain below the matching floor
   or unresolved canonical regressions. Baseline binary/provenance retained.
+
 - Local result: paired, matched-test production PGO ABBA (six blocks, 60
   samples, matched A/A) found small mixed bytes -2.21% (raw -1.44%, interval
   -3.17..-0.26%, floor 1.36%), medium mixed bytes -1.81% (floor 1.23%),
   and nested bytes -9.51% (raw -9.33%, floor 1.14%). Flat/wide effects stayed
   within their A/A floors. The two PGO workload-source and training-data
   manifests are identical; the runtime source delta is one dispatch call.
+
 - Both canonical checks failed: initial 10-sample comparison had 15 metric
   breaches; a predeclared 60-sample confirmation had 18, despite both builds
   ranking 27/27 in that confirmation. Preserve all reports; no baseline
   replaced. The confirmation's failures include parser/query controls and
   process RSS, so the paired serializer gains do not resolve the gate.
+
 - Outcome: **not accepted for production**. Reverted runtime/tests into
   `experiments/benchmark-nested-mappings.patch`; native investigation is
   selectable after publication. Correctness: both PGO phases passed 15 C++
   suites/2,249 Python tests, and candidate ASan/UBSan passed all 2,249 tests.
   Evidence: `build/evidence/benchmark-lead/p9/`.
+
 - Native follow-up: both five-platform runs 34166567410 and 34186143209
   completed. Linux ARM64 raw small/medium mixed gains repeat at about 5–6%.
   macOS Intel also improves in both runs; Windows remains unresolved. Linux
@@ -1500,6 +1507,7 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   in the confirmation, within the 0.80% floor). All 20 binaries match their
   sidecars; all ten A/B pairs have matched test/training-source and data
   manifests. These are selected-row comparisons, not a canonical acceptance.
+
 - Full-workload follow-up: a fixed new-session local small/medium/large
   sequence retains its reports in `p9/full-gate/`. Small and medium both
   rank 27/27 for each arm but fail unchanged regression thresholds, including
@@ -1508,6 +1516,7 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   runner before considering integration. The runtime patch remains isolated;
   see the [execution plan](benchmark-lead-plan-2026-09-07.md) for complete
   results and the next published-run configuration.
+
 - Review (2026-09-10, independent of the author): **the patch as written has
   a correctness defect.** `write_record_fused` has no `open_` scan; the only
   cycle checks are `write_sequence`'s `std::find` before it dispatches an
@@ -1534,6 +1543,7 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   with a portable twin; compiled in on one of five legs). P14 was found
   correct (reservation 17 + 20 bytes, compact ints cannot run Python, bools
   excluded by the exact-type test, growth handled by `overflow`).
+
 - Revived 2026-09-10/11 on `exp/p9-fused-dicts` as two commits with matched
   tests: (T) the mirrored cycle-contract tests (`test_dumps_cycles_fused.py`:
   six shapes, cold and warmed, three policies, both output types, plus
@@ -1546,6 +1556,7 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   runners or on M1 PGO arms against the tests-only arm (six blocks of
   sixty, matched recipe and training data; evidence under
   `build/evidence/benchmark-lead/p9/native-*` and `p9/local-screen`):
+
   - deciding the first container in the verification pass so the emit loop
     arms by index (run 34545656328): `dumps flat` +16.7%/+13.9% on the N2,
     +20.1%/+16.4% on the EPYC, +12.6%/+10.5% on the M1 VM, +10.6%/+8.2% on
@@ -1621,6 +1632,7 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   - Outcome: **accepted for integration on the measurement above**; merged
     as c20ac86 (2026-09-11). The element-loop gap stays recorded in
     docs/decisions.md (2026-09-11).
+
 - Two five-platform samples of c20ac86 (runs 34590005443 and 34590027501,
   17 s apart, `benchmark.yml`, PGO on every leg; both archived whole under
   `p9/ci-<run>/`, the second placed in `docs/benchmarks/ci/`): **131/135**
@@ -1638,6 +1650,7 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   `dump mixed` 1.06x on one draw and 0.86x on the other of the same M2 Pro
   VM class, strata 0.168 against 0.090 ms between them. No 135/135 is
   claimed.
+
 - The profile shift priced (run 34594271053: the tests-only commit b490f81
   against 3f3425b, source unchanged, `experiment=none`, six blocks of
   sixty; a first dispatch, 34594107636, failed at checkout on a mistyped
@@ -1653,6 +1666,54 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
   neutral with tests matched. The x86 legs' `dumps mixed` standings of
   1.03–1.07x are rival and host movement at the report's resolution, the
   coin band the campaign has met on other legs before. The i7 leg, in last: no row resolved either way — medium `dumps mixed` +2.9% normalised on an interval spanning zero (−1.6..+4.4%), small `dumps mixed` −6.6% inside a 9.8% floor, flat and users inside theirs.
+
+- Probe-placement follow-up (2026-09-11, evening; the review's "move the
+  probe after the last fallback, gated by the caller, and re-measure"). Two
+  designs, both on `exp/p9-probe-placement`'s tests-only commit 8012f43
+  (three cycle cases the fused writer rejects — 25 keys, a `str` subclass
+  key, a 70-level chain — mirrored into `test_dumps_cycles_fused.py`; they
+  pass on main's build): 9ec69c0 makes `write_record_fused` a `template <bool kProbe>`, `write()` calling the probing instantiation and the
+  element loop the other, the probe after the key-row match; 4329952
+  (`exp/p9-probe-flag`) keeps one body with a runtime `probe` argument in
+  the same place. Both are byte-identical to c20ac86 on every cyclic shape
+  (the seven-shape differential and the 124 contract cases), both gates
+  green on both PGO phases. **The template copy (9ec69c0): no-go.** M1
+  screen against the tests-only arm (`p9/local-screen/local4_Q.tsv` with a
+  fresh A/A floor, `local4_AA.tsv`; PGO arms, six blocks of sixty): `dumps mixed` +17.8% medium and +17.9% small, small file `dump nested` +35.3%,
+  small `dumps users` +3.0% and medium +0.9%, all six of six blocks against
+  floors of 0.7–5%; `flat` and `wide_arrays` inside theirs. Plain builds of
+  the two commits are equal on every path-isolating shape (`path_probe.py`:
+  records with one child dict 124.4 against 124.2 µs), so the cost is the
+  profile's: under the gate-inclusive recipe the value-path copy trains
+  mostly on fallbacks (the training corpus's per-record `extra` dict carries
+  512 distinct keys, a way miss on every record, and the suite's cycle and
+  mutation cases add theirs), and its success epilogue is laid out behind
+  its fallback tail (`ret` at +2708 after the `write_mapping` jump at +2040,
+  where the element copy and the old body read +1284 and +1416 before
+  theirs); a `sample` of a mixed loop puts 16% of the run on that epilogue.
+  Runner A/B 34620403974 (8012f43 against 9ec69c0, `experiment=none`, six
+  blocks of sixty; evidence `p9/native-probe-placement-34620403974/`): N2
+  `dumps mixed` +5.2% small and +6.0% medium, `dumps users` +2.9% and
+  +2.4–2.9%, six of six against floors under 1%, `flat` −0.5..−1.0%; EPYC
+  `dumps flat` +3.2..+3.6% and file `dump nested` +2.5% (six of six),
+  `mixed` and `users` inside floors — E26-P6's x86 layout sensitivity again
+  (the value copy compiled to 461 instructions against the element copy's
+  747, `write()` 4,256 → 4,160); M2 Pro VM (macos-arm64) `dumps mixed` +16.1% small and +16.5% medium, file `dump nested` +26.4%, six of six against floors of 3.5–8%, `users` and `flat` inside theirs; i7 (macos-x86_64) `dumps flat` +2.9% medium and +1.3% small resolved, file `dump nested` −3.4% resolved, `mixed` inside; Windows (Zen 4, clang-cl PGO) file `dump nested` +2.7% resolved, every other row inside floors of 0.7–23%. Every arm's binary matches its sidecar and both arms trained on one recipe and one suite on every leg (`verification-all.json`). **The runtime flag (4329952): no-go.** One
+  body of 932 instructions against 882 with nine more stack accesses — the
+  flag is live across the verification loop of every record — and the M1
+  screen (`local4_A.tsv`) reads `dumps flat` +3.0% medium and +2.2% small,
+  `dumps users` +0.9% and +1.4%, medium `dumps mixed` +2.5%, six of six;
+  `wide_arrays` inside its floor. Not dispatched.
+
+  - Outcome: **closed as measured; main keeps the probe ahead of the fused
+    writer's fallbacks.** What that costs is one O(depth) scan more on a
+    value dict the fused writer rejects — a way miss, a wide, retired or
+    `str`-subclass-keyed shape, a chain past 64 levels — and never a
+    canonical row; what either fix costs is a canonical row. The three
+    rejected-shape cases stay on the branch: a test addition alone moves
+    rows under this recipe (E26-P7b), and they pin what the general
+    writer's frame already does. docs/decisions.md (2026-09-11) and the
+    negative-results table carry the reading.
 
 ## E26-P9a — restrict nested mapping fusion to Linux ARM64
 

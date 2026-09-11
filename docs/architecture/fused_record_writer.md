@@ -129,7 +129,7 @@ every leg; a probe at the first container value with the record's bytes taken
 back through a mark on the staged output costs users 4%. Every one of them
 is per-record work on records of three fields, where a handful of
 instructions is a percent. The element-loop gap is recorded in
-docs/decisions.md (2026-09-11).
+docs/decisions.md (2026-09-11). The probe's place ahead of the fallbacks was itself re-measured (the ledger's probe-placement follow-up, 2026-09-11): behind them, as a second instantiation the value-path copy trains cold under the gate-inclusive profile (`dumps mixed` +5–18%, file `dump nested` +35% on the M1), and as a runtime flag the flag is a spill through every record's verification loop (`dumps flat` +2–3.5%); the one scan more on a rejected value dict is the cheaper side.
 
 ## E26-P9a: restrict the nested dispatch experiment to Linux ARM64
 
