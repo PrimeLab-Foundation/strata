@@ -116,10 +116,7 @@ depth: on the unchanged tree for a repeated dict reached as a list element,
 and with P9 for dict values too (five of seven shapes;
 `build/evidence/benchmark-lead/p9/cycle-defect/`).
 
-Resolution (2026-09-11): the dispatch enters through
-`write_record_fused_value`, which probes `open_` before the row and hands a
-hit to `write_mapping`, so the value path's bytes are the general writer's
-by construction. The element loop's records are not probed, as before. Three
+Resolution (2026-09-11): the dispatch enters the fused writer's `kProbe` instantiation, which probes `open_` after the last fallback check -- so a record the writer rejects is probed once, by the general writer's own frame -- and hands a hit to `write_mapping`, so the value path's bytes are the general writer's by construction. The element loop calls the other instantiation, and neither carries a flag argument across the verification loop (its register budget is E26-P6's subject). The element loop's records are not probed, as before. Three
 ways of probing them were measured and declined (the ledger's E26-P9 revival
 entry): the unconditional scan costs `dumps users` about 2% (its item records
 sit five containers deep); deciding the first container in the verification
