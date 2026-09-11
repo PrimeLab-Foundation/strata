@@ -124,9 +124,9 @@ namespace strata::bindings {
 
 namespace {
 
-// STRATA_COLD_FN / STRATA_NOINLINE_HOT are defined in python_dumps_output.h,
-// which needs them for the raw walk's own cold bodies. One definition serves
-// both files.
+// STRATA_COLD_FN / STRATA_NOINLINE_HOT are defined in python_types.h: the
+// raw walk's own cold bodies need them too, and there is exactly one
+// definition so no `#else` arm can silently expand to nothing here.
 
 /**
  * What to do when a container contains itself.
