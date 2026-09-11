@@ -1618,9 +1618,28 @@ to `docs/decisions.md` and `docs/performance/SKILL.md`.
     and pay one, a dict chain deeper than 64 levels pays twice its O(depth)
     scan per level; the fix is to move the probe after the last fallback,
     gated by the caller, and re-measure.
-  - Outcome: **accepted for integration on the measurement above**, pending
-    the plan's two five-platform samples of the integrated revision. The
-    element-loop gap stays recorded in docs/decisions.md (2026-09-11).
+  - Outcome: **accepted for integration on the measurement above**; merged
+    as c20ac86 (2026-09-11). The element-loop gap stays recorded in
+    docs/decisions.md (2026-09-11).
+- Two five-platform samples of c20ac86 (runs 34590005443 and 34590027501,
+  17 s apart, `benchmark.yml`, PGO on every leg; both archived whole under
+  `p9/ci-<run>/`, the second placed in `docs/benchmarks/ci/`): **131/135**
+  and **132/135**. The N2 reads 27/27 on both — `dumps mixed` 0.969x and
+  0.952x, strata 0.062/0.060 ms against 0.066 ms on 75cfb42's sample with
+  orjson unmoved at 0.063–0.065 ms: the row the campaign was opened on,
+  closed by the code as the A/B predicted. Behind: linux-x86_64 `dumps mixed` 1.03x on an EPYC 7763 (strata 0.067 ms against 0.065 on the 9V74
+  draw of 75cfb42's sample, orjson 0.065 against 0.070) and 1.06x on a 9V74
+  draw whose every row, parse rows included, reads about 20% faster than
+  that sample's (strata 0.053 ms, orjson 0.050) — a row at the report's
+  resolution (0.001 ms on 0.05–0.07 ms) on hosts that differ, which the
+  dispatch's own A/B read inside its floors with tests matched, leaving the
+  added tests' profile shift (E26-P7b) as the one candidate still to price:
+  run 34594107636, the tests-only commit against 3f3425b on the five legs.
+  Windows `dumps mixed` 1.03x/1.03x and file `dump mixed` 1.03x/1.03x on a
+  Family 25 Model 1 host (75cfb42's draw was Model 17); macos-arm64 file
+  `dump mixed` 1.06x on one draw and 0.86x on the other of the same M2 Pro
+  VM class, strata 0.168 against 0.090 ms between them. No 135/135 is
+  claimed.
 
 ## E26-P9a — restrict nested mapping fusion to Linux ARM64
 

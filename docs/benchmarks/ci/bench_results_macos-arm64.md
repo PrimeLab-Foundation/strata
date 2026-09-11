@@ -4,13 +4,13 @@ Machine-written by `make bench-*`. Do not hand-edit.
 
 `speedup_vs_strata` above 1.00 means that library is faster than strata.
 
-- commit: 75cfb422ede723193706740309d7509adf327f2b
+- commit: c20ac86eedff410e10c973bc3b1f19f6e9a5f56e
 - python: 3.12.10
 - implementation: CPython
 - platform: macOS-26.6.2-arm64-arm-64bit
 - machine: arm64
-- processor: Apple M1 (Virtual)
-- compiler_flags: [["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_document.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_document.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_dumps.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_dumps.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_files.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_files.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_folder.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_folder.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_jsonpath.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_jsonpath.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_loads.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_loads.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_module.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_module.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/bindings/python_ndjson.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_ndjson.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/json/json_cursor.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_cursor.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/json/json_document.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_document.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/json/json_parse.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_parse.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/json/json_serialize.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_serialize.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/json/ndjson_stream.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/ndjson_stream.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/search/jsonpath_compile.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/search/jsonpath_compile.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/search/jsonpath_eval.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/search/jsonpath_eval.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/util/dtoa.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/util/dtoa.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/util/folder.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/util/folder.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-arch","arm64","-Iinclude","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-I/Users/runner/work/strata/strata/.venv/include","-I/Library/Frameworks/Python.framework/Versions/3.12/include/python3.12","-c","src/strata/util/scan.cpp","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/util/scan.o","-std=c++20","-O3","-D_LIBCPP_DISABLE_AVAILABILITY","-march=native","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"],["c++","-fno-strict-overflow","-Wsign-compare","-Wunreachable-code","-fno-common","-dynamic","-DNDEBUG","-g","-O3","-Wall","-g","-bundle","-undefined","dynamic_lookup","-g","-arch","arm64","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_document.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_dumps.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_files.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_folder.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_jsonpath.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_loads.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_module.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/bindings/python_ndjson.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_cursor.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_document.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_parse.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/json_serialize.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/json/ndjson_stream.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/search/jsonpath_compile.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/search/jsonpath_eval.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/util/dtoa.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/util/folder.o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmp6hlxwzdg.build-temp/src/strata/util/scan.o","-o","/var/folders/d8/hvxvltxn0fl4rmnd52sncbth0000gn/T/tmptov0dg1t.build-lib/strata/_strata.cpython-312-darwin.so","-flto=thin","-fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata"]]
+- processor: Apple M2 Pro (Virtual)
+- compiler_flags: -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g -O3 -Wall -arch arm64 -std=c++20 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/Users/runner/work/strata/strata/build/pgo/strata.profdata -bundle -undefined (19 recorded commands; see the JSON companion)
 - repeats: 10
 - warmup: 2
 - provenance_schema: 1
@@ -19,160 +19,160 @@ Machine-written by `make bench-*`. Do not hand-edit.
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 6.048 | 7.653 | 8.703 | 67.891 | 1.00x |
-| users.json | orjson | 9.215 | 11.802 | 14.025 | 67.891 | 0.65x |
-| users.json | msgspec | 8.998 | 12.187 | 15.065 | 67.891 | 0.63x |
-| users.json | ujson | 12.411 | 15.826 | 23.845 | 67.891 | 0.48x |
-| users.json | pysimdjson | 123.183 | 138.283 | 162.916 | 67.891 | 0.06x |
-| users.json | json | 15.307 | 16.469 | 76.024 | 67.891 | 0.46x |
-| flat.json | strata | 0.604 | 0.635 | 0.695 | 96.516 | 1.00x |
-| flat.json | orjson | 0.782 | 0.821 | 0.887 | 96.516 | 0.77x |
-| flat.json | msgspec | 0.740 | 0.771 | 0.847 | 96.516 | 0.82x |
-| flat.json | ujson | 1.197 | 1.246 | 1.430 | 96.516 | 0.51x |
-| flat.json | pysimdjson | 12.454 | 12.686 | 13.782 | 96.516 | 0.05x |
-| flat.json | json | 1.402 | 1.452 | 1.499 | 96.516 | 0.44x |
-| nested.json | strata | 0.527 | 0.534 | 0.569 | 96.531 | 1.00x |
-| nested.json | orjson | 0.755 | 0.768 | 0.820 | 96.531 | 0.69x |
-| nested.json | msgspec | 0.696 | 0.706 | 0.726 | 96.531 | 0.76x |
-| nested.json | ujson | 1.184 | 1.195 | 1.236 | 96.531 | 0.45x |
-| nested.json | pysimdjson | 10.546 | 10.587 | 10.689 | 96.531 | 0.05x |
-| nested.json | json | 1.444 | 1.458 | 1.515 | 96.531 | 0.37x |
-| wide_arrays.json | strata | 3.005 | 3.123 | 3.291 | 100.344 | 1.00x |
-| wide_arrays.json | orjson | 3.722 | 3.855 | 4.169 | 100.344 | 0.81x |
-| wide_arrays.json | msgspec | 4.153 | 4.252 | 4.398 | 100.344 | 0.73x |
-| wide_arrays.json | ujson | 5.058 | 5.512 | 5.817 | 100.344 | 0.57x |
-| wide_arrays.json | pysimdjson | 62.500 | 65.094 | 65.636 | 100.344 | 0.05x |
-| wide_arrays.json | json | 6.819 | 7.165 | 7.328 | 100.344 | 0.44x |
-| mixed.json | strata | 0.138 | 0.143 | 0.179 | 101.203 | 1.00x |
-| mixed.json | orjson | 0.174 | 0.192 | 0.264 | 101.203 | 0.75x |
-| mixed.json | msgspec | 0.187 | 0.201 | 0.238 | 101.203 | 0.71x |
-| mixed.json | ujson | 0.242 | 0.374 | 0.549 | 101.203 | 0.38x |
-| mixed.json | pysimdjson | 2.641 | 2.733 | 2.801 | 101.203 | 0.05x |
-| mixed.json | json | 0.360 | 0.399 | 0.427 | 101.203 | 0.36x |
+| users.json | strata | 5.104 | 5.321 | 6.262 | 71.109 | 1.00x |
+| users.json | orjson | 7.679 | 8.255 | 9.417 | 71.109 | 0.64x |
+| users.json | msgspec | 7.610 | 7.908 | 9.426 | 71.109 | 0.67x |
+| users.json | ujson | 9.889 | 10.277 | 12.098 | 71.109 | 0.52x |
+| users.json | pysimdjson | 110.977 | 113.454 | 121.810 | 71.109 | 0.05x |
+| users.json | json | 12.654 | 12.987 | 13.873 | 71.109 | 0.41x |
+| flat.json | strata | 0.479 | 0.481 | 0.497 | 107.125 | 1.00x |
+| flat.json | orjson | 0.577 | 0.579 | 0.608 | 107.125 | 0.83x |
+| flat.json | msgspec | 0.591 | 0.594 | 0.608 | 107.125 | 0.81x |
+| flat.json | ujson | 0.864 | 0.869 | 0.881 | 107.125 | 0.55x |
+| flat.json | pysimdjson | 10.589 | 10.637 | 10.671 | 107.125 | 0.05x |
+| flat.json | json | 1.118 | 1.126 | 1.148 | 107.125 | 0.43x |
+| nested.json | strata | 0.406 | 0.414 | 0.424 | 107.156 | 1.00x |
+| nested.json | orjson | 0.559 | 0.559 | 0.567 | 107.156 | 0.74x |
+| nested.json | msgspec | 0.564 | 0.565 | 0.616 | 107.156 | 0.73x |
+| nested.json | ujson | 0.810 | 0.812 | 0.829 | 107.156 | 0.51x |
+| nested.json | pysimdjson | 9.333 | 9.350 | 9.412 | 107.156 | 0.04x |
+| nested.json | json | 1.209 | 1.220 | 1.226 | 107.156 | 0.34x |
+| wide_arrays.json | strata | 2.466 | 2.500 | 2.806 | 110.969 | 1.00x |
+| wide_arrays.json | orjson | 2.827 | 2.895 | 3.332 | 110.969 | 0.86x |
+| wide_arrays.json | msgspec | 3.279 | 3.374 | 4.119 | 110.969 | 0.74x |
+| wide_arrays.json | ujson | 4.330 | 4.377 | 4.791 | 110.969 | 0.57x |
+| wide_arrays.json | pysimdjson | 58.113 | 58.211 | 60.834 | 110.969 | 0.04x |
+| wide_arrays.json | json | 5.485 | 5.504 | 5.833 | 110.969 | 0.45x |
+| mixed.json | strata | 0.099 | 0.105 | 0.142 | 110.984 | 1.00x |
+| mixed.json | orjson | 0.127 | 0.142 | 0.173 | 110.984 | 0.74x |
+| mixed.json | msgspec | 0.141 | 0.150 | 0.173 | 110.984 | 0.70x |
+| mixed.json | ujson | 0.175 | 0.215 | 0.300 | 110.984 | 0.49x |
+| mixed.json | pysimdjson | 2.252 | 2.329 | 2.752 | 110.984 | 0.05x |
+| mixed.json | json | 0.269 | 0.288 | 0.328 | 110.984 | 0.36x |
 
 ## dumps -- dumps (in-memory serialization)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 1.515 | 1.612 | 2.042 | 75.594 | 1.00x |
-| users.json | orjson | 2.308 | 2.560 | 2.820 | 75.594 | 0.63x |
-| users.json | msgspec | 3.008 | 3.199 | 3.926 | 75.594 | 0.50x |
-| users.json | ujson | 9.072 | 9.318 | 11.314 | 75.594 | 0.17x |
-| users.json | json | 15.530 | 16.437 | 17.849 | 75.594 | 0.10x |
-| flat.json | strata | 0.238 | 0.261 | 0.267 | 96.531 | 1.00x |
-| flat.json | orjson | 0.282 | 0.297 | 0.363 | 96.531 | 0.88x |
-| flat.json | msgspec | 0.333 | 0.374 | 0.581 | 96.531 | 0.70x |
-| flat.json | ujson | 0.795 | 0.854 | 1.069 | 96.531 | 0.31x |
-| flat.json | json | 1.451 | 1.583 | 1.786 | 96.531 | 0.16x |
-| nested.json | strata | 0.133 | 0.142 | 0.153 | 96.531 | 1.00x |
-| nested.json | orjson | 0.216 | 0.233 | 0.249 | 96.531 | 0.61x |
-| nested.json | msgspec | 0.275 | 0.293 | 0.338 | 96.531 | 0.48x |
-| nested.json | ujson | 0.985 | 1.070 | 1.148 | 96.531 | 0.13x |
-| nested.json | json | 1.593 | 1.660 | 1.773 | 96.531 | 0.09x |
-| wide_arrays.json | strata | 1.156 | 1.212 | 1.870 | 100.344 | 1.00x |
-| wide_arrays.json | orjson | 1.530 | 1.733 | 3.082 | 100.344 | 0.70x |
-| wide_arrays.json | msgspec | 2.239 | 2.486 | 4.569 | 100.344 | 0.49x |
-| wide_arrays.json | ujson | 5.133 | 5.342 | 7.472 | 100.344 | 0.23x |
-| wide_arrays.json | json | 12.283 | 12.881 | 14.125 | 100.344 | 0.09x |
-| mixed.json | strata | 0.048 | 0.052 | 0.062 | 101.203 | 1.00x |
-| mixed.json | orjson | 0.052 | 0.060 | 0.074 | 101.203 | 0.87x |
-| mixed.json | msgspec | 0.060 | 0.179 | 0.282 | 101.203 | 0.29x |
-| mixed.json | ujson | 0.180 | 0.198 | 0.218 | 101.203 | 0.26x |
-| mixed.json | json | 0.381 | 0.395 | 0.424 | 101.203 | 0.13x |
+| users.json | strata | 1.275 | 1.333 | 1.407 | 77.719 | 1.00x |
+| users.json | orjson | 1.909 | 1.935 | 2.357 | 77.719 | 0.69x |
+| users.json | msgspec | 2.438 | 2.474 | 2.591 | 77.719 | 0.54x |
+| users.json | ujson | 7.506 | 7.626 | 8.164 | 77.719 | 0.17x |
+| users.json | json | 14.135 | 14.529 | 15.141 | 77.719 | 0.09x |
+| flat.json | strata | 0.167 | 0.169 | 0.181 | 107.156 | 1.00x |
+| flat.json | orjson | 0.206 | 0.208 | 0.219 | 107.156 | 0.81x |
+| flat.json | msgspec | 0.260 | 0.261 | 0.274 | 107.156 | 0.65x |
+| flat.json | ujson | 0.617 | 0.619 | 0.633 | 107.156 | 0.27x |
+| flat.json | json | 1.185 | 1.201 | 1.209 | 107.156 | 0.14x |
+| nested.json | strata | 0.104 | 0.105 | 0.129 | 107.172 | 1.00x |
+| nested.json | orjson | 0.183 | 0.185 | 0.203 | 107.172 | 0.57x |
+| nested.json | msgspec | 0.240 | 0.245 | 0.265 | 107.172 | 0.43x |
+| nested.json | ujson | 0.710 | 0.737 | 0.778 | 107.172 | 0.14x |
+| nested.json | json | 1.474 | 1.502 | 1.596 | 107.172 | 0.07x |
+| wide_arrays.json | strata | 0.902 | 0.912 | 0.929 | 110.969 | 1.00x |
+| wide_arrays.json | orjson | 1.083 | 1.204 | 1.430 | 110.969 | 0.76x |
+| wide_arrays.json | msgspec | 1.785 | 1.801 | 1.815 | 110.969 | 0.51x |
+| wide_arrays.json | ujson | 3.807 | 3.811 | 3.840 | 110.969 | 0.24x |
+| wide_arrays.json | json | 10.487 | 10.870 | 11.066 | 110.969 | 0.08x |
+| mixed.json | strata | 0.029 | 0.030 | 0.048 | 110.984 | 1.00x |
+| mixed.json | orjson | 0.036 | 0.038 | 0.057 | 110.984 | 0.79x |
+| mixed.json | msgspec | 0.041 | 0.044 | 0.052 | 110.984 | 0.69x |
+| mixed.json | ujson | 0.143 | 0.152 | 0.171 | 110.984 | 0.20x |
+| mixed.json | json | 0.301 | 0.319 | 0.348 | 110.984 | 0.09x |
 
 ## load -- load (file to tree)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 6.610 | 6.800 | 7.205 | 90.359 | 1.00x |
-| users.json | orjson | 9.724 | 10.168 | 10.249 | 90.359 | 0.67x |
-| users.json | msgspec | 9.281 | 9.774 | 10.056 | 90.359 | 0.70x |
-| users.json | ujson | 12.763 | 13.710 | 14.192 | 90.359 | 0.50x |
-| users.json | json | 15.823 | 16.073 | 16.465 | 90.359 | 0.42x |
-| flat.json | strata | 0.629 | 0.690 | 0.728 | 96.531 | 1.00x |
-| flat.json | orjson | 0.886 | 0.970 | 1.163 | 96.531 | 0.71x |
-| flat.json | msgspec | 0.781 | 0.831 | 0.928 | 96.531 | 0.83x |
-| flat.json | ujson | 1.124 | 1.256 | 1.329 | 96.531 | 0.55x |
-| flat.json | json | 1.361 | 1.533 | 1.615 | 96.531 | 0.45x |
-| nested.json | strata | 0.545 | 0.590 | 0.656 | 96.531 | 1.00x |
-| nested.json | orjson | 0.852 | 1.030 | 1.156 | 96.531 | 0.57x |
-| nested.json | msgspec | 0.726 | 0.792 | 0.821 | 96.531 | 0.74x |
-| nested.json | ujson | 1.023 | 1.099 | 1.149 | 96.531 | 0.54x |
-| nested.json | json | 1.422 | 1.532 | 1.609 | 96.531 | 0.38x |
-| wide_arrays.json | strata | 3.178 | 3.386 | 3.603 | 101.188 | 1.00x |
-| wide_arrays.json | orjson | 3.748 | 4.101 | 4.429 | 101.188 | 0.83x |
-| wide_arrays.json | msgspec | 4.338 | 4.686 | 5.037 | 101.188 | 0.72x |
-| wide_arrays.json | ujson | 5.766 | 6.005 | 6.162 | 101.188 | 0.56x |
-| wide_arrays.json | json | 7.102 | 7.486 | 7.805 | 101.188 | 0.45x |
-| mixed.json | strata | 0.202 | 0.220 | 0.259 | 101.203 | 1.00x |
-| mixed.json | orjson | 0.405 | 0.457 | 0.500 | 101.203 | 0.48x |
-| mixed.json | msgspec | 0.292 | 0.316 | 0.361 | 101.203 | 0.70x |
-| mixed.json | ujson | 0.354 | 0.392 | 0.532 | 101.203 | 0.56x |
-| mixed.json | json | 0.433 | 0.470 | 0.559 | 101.203 | 0.47x |
+| users.json | strata | 5.363 | 5.456 | 6.514 | 91.266 | 1.00x |
+| users.json | orjson | 7.825 | 8.086 | 8.930 | 91.266 | 0.67x |
+| users.json | msgspec | 7.916 | 8.100 | 9.063 | 91.266 | 0.67x |
+| users.json | ujson | 10.695 | 10.917 | 13.536 | 91.266 | 0.50x |
+| users.json | json | 12.791 | 13.125 | 15.075 | 91.266 | 0.42x |
+| flat.json | strata | 0.503 | 0.504 | 0.526 | 107.156 | 1.00x |
+| flat.json | orjson | 0.630 | 0.638 | 0.643 | 107.156 | 0.79x |
+| flat.json | msgspec | 0.623 | 0.626 | 0.660 | 107.156 | 0.80x |
+| flat.json | ujson | 0.898 | 0.907 | 0.922 | 107.156 | 0.56x |
+| flat.json | json | 1.149 | 1.167 | 1.238 | 107.156 | 0.43x |
+| nested.json | strata | 0.431 | 0.450 | 0.473 | 107.172 | 1.00x |
+| nested.json | orjson | 0.627 | 0.653 | 0.670 | 107.172 | 0.69x |
+| nested.json | msgspec | 0.625 | 0.632 | 0.651 | 107.172 | 0.71x |
+| nested.json | ujson | 0.835 | 0.872 | 0.894 | 107.172 | 0.52x |
+| nested.json | json | 1.306 | 1.346 | 1.368 | 107.172 | 0.33x |
+| wide_arrays.json | strata | 2.592 | 2.600 | 2.612 | 110.969 | 1.00x |
+| wide_arrays.json | orjson | 2.969 | 2.997 | 3.075 | 110.969 | 0.87x |
+| wide_arrays.json | msgspec | 3.473 | 3.499 | 4.008 | 110.969 | 0.74x |
+| wide_arrays.json | ujson | 4.576 | 4.615 | 5.011 | 110.969 | 0.56x |
+| wide_arrays.json | json | 5.660 | 5.708 | 5.763 | 110.969 | 0.46x |
+| mixed.json | strata | 0.122 | 0.134 | 0.155 | 110.984 | 1.00x |
+| mixed.json | orjson | 0.170 | 0.198 | 0.290 | 110.984 | 0.68x |
+| mixed.json | msgspec | 0.173 | 0.180 | 0.192 | 110.984 | 0.74x |
+| mixed.json | ujson | 0.219 | 0.240 | 0.395 | 110.984 | 0.56x |
+| mixed.json | json | 0.302 | 0.325 | 0.498 | 110.984 | 0.41x |
 
 ## load (ndjson) -- load (NDJSON file to records)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.ndjson | strata | 6.542 | 6.956 | 7.190 | 96.516 | 1.00x |
-| users.ndjson | orjson | 11.186 | 11.988 | 12.251 | 96.516 | 0.58x |
-| users.ndjson | msgspec | 11.207 | 11.888 | 12.320 | 96.516 | 0.59x |
-| users.ndjson | ujson | 13.842 | 14.904 | 15.496 | 96.516 | 0.47x |
-| users.ndjson | json | 18.887 | 19.189 | 21.107 | 96.516 | 0.36x |
+| users.ndjson | strata | 5.413 | 5.442 | 5.595 | 107.094 | 1.00x |
+| users.ndjson | orjson | 9.314 | 9.430 | 10.204 | 107.094 | 0.58x |
+| users.ndjson | msgspec | 9.548 | 9.614 | 10.260 | 107.094 | 0.57x |
+| users.ndjson | ujson | 11.886 | 11.953 | 12.817 | 107.094 | 0.46x |
+| users.ndjson | json | 15.478 | 15.623 | 16.930 | 107.094 | 0.35x |
 
 ## dump -- dump (tree to file)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 1.984 | 2.315 | 3.495 | 90.781 | 1.00x |
-| users.json | orjson | 2.867 | 3.273 | 3.768 | 90.781 | 0.71x |
-| users.json | msgspec | 3.662 | 3.904 | 4.301 | 90.781 | 0.59x |
-| users.json | ujson | 10.076 | 10.916 | 11.864 | 90.781 | 0.21x |
-| users.json | json | 18.335 | 19.266 | 22.832 | 90.781 | 0.12x |
-| flat.json | strata | 0.328 | 0.412 | 0.469 | 96.531 | 1.00x |
-| flat.json | orjson | 0.374 | 0.439 | 0.533 | 96.531 | 0.94x |
-| flat.json | msgspec | 0.427 | 0.500 | 0.641 | 96.531 | 0.82x |
-| flat.json | ujson | 0.881 | 0.988 | 1.077 | 96.531 | 0.42x |
-| flat.json | json | 1.445 | 1.639 | 1.906 | 96.531 | 0.25x |
-| nested.json | strata | 0.279 | 0.321 | 0.663 | 96.531 | 1.00x |
-| nested.json | orjson | 0.374 | 0.418 | 0.573 | 96.531 | 0.77x |
-| nested.json | msgspec | 0.440 | 0.626 | 0.823 | 96.531 | 0.51x |
-| nested.json | ujson | 1.059 | 1.132 | 1.439 | 96.531 | 0.28x |
-| nested.json | json | 1.817 | 1.894 | 2.269 | 96.531 | 0.17x |
-| wide_arrays.json | strata | 1.455 | 1.570 | 1.781 | 101.188 | 1.00x |
-| wide_arrays.json | orjson | 1.776 | 2.088 | 2.365 | 101.188 | 0.75x |
-| wide_arrays.json | msgspec | 2.598 | 2.792 | 3.308 | 101.188 | 0.56x |
-| wide_arrays.json | ujson | 5.416 | 5.825 | 6.644 | 101.188 | 0.27x |
-| wide_arrays.json | json | 12.470 | 13.207 | 14.233 | 101.188 | 0.12x |
-| mixed.json | strata | 0.216 | 0.246 | 0.289 | 101.203 | 1.00x |
-| mixed.json | orjson | 0.212 | 0.275 | 0.342 | 101.203 | 0.89x |
-| mixed.json | msgspec | 0.218 | 0.356 | 0.460 | 101.203 | 0.69x |
-| mixed.json | ujson | 0.373 | 0.411 | 0.452 | 101.203 | 0.60x |
-| mixed.json | json | 0.535 | 0.601 | 0.634 | 101.203 | 0.41x |
+| users.json | strata | 1.488 | 1.512 | 1.659 | 101.328 | 1.00x |
+| users.json | orjson | 2.167 | 2.220 | 2.557 | 101.328 | 0.68x |
+| users.json | msgspec | 2.724 | 2.886 | 7.989 | 101.328 | 0.52x |
+| users.json | ujson | 7.932 | 8.101 | 13.349 | 101.328 | 0.19x |
+| users.json | json | 14.309 | 14.933 | 15.840 | 101.328 | 0.10x |
+| flat.json | strata | 0.239 | 0.255 | 0.265 | 107.156 | 1.00x |
+| flat.json | orjson | 0.279 | 0.281 | 0.344 | 107.156 | 0.91x |
+| flat.json | msgspec | 0.332 | 0.339 | 0.373 | 107.156 | 0.75x |
+| flat.json | ujson | 0.705 | 0.711 | 0.726 | 107.156 | 0.36x |
+| flat.json | json | 1.264 | 1.328 | 1.508 | 107.156 | 0.19x |
+| nested.json | strata | 0.175 | 0.188 | 0.212 | 107.172 | 1.00x |
+| nested.json | orjson | 0.253 | 0.261 | 0.320 | 107.172 | 0.72x |
+| nested.json | msgspec | 0.332 | 0.368 | 0.381 | 107.172 | 0.51x |
+| nested.json | ujson | 0.767 | 0.815 | 1.088 | 107.172 | 0.23x |
+| nested.json | json | 1.526 | 1.605 | 1.659 | 107.172 | 0.12x |
+| wide_arrays.json | strata | 1.121 | 1.334 | 1.600 | 110.969 | 1.00x |
+| wide_arrays.json | orjson | 1.303 | 1.499 | 1.846 | 110.969 | 0.89x |
+| wide_arrays.json | msgspec | 1.957 | 2.204 | 2.616 | 110.969 | 0.61x |
+| wide_arrays.json | ujson | 4.140 | 5.125 | 5.694 | 110.969 | 0.26x |
+| wide_arrays.json | json | 10.932 | 12.302 | 14.240 | 110.969 | 0.11x |
+| mixed.json | strata | 0.083 | 0.090 | 0.127 | 110.984 | 1.00x |
+| mixed.json | orjson | 0.094 | 0.105 | 0.148 | 110.984 | 0.86x |
+| mixed.json | msgspec | 0.096 | 0.110 | 0.201 | 110.984 | 0.82x |
+| mixed.json | ujson | 0.204 | 0.223 | 0.311 | 110.984 | 0.41x |
+| mixed.json | json | 0.361 | 0.377 | 0.469 | 110.984 | 0.24x |
 
 ## query -- query (JSONPath over an in-memory tree)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json $[*].id | strata | 0.070 | 0.090 | 0.135 | 90.828 | 1.00x |
-| users.json $[*].id | jmespath | 0.309 | 0.391 | 0.460 | 90.828 | 0.23x |
-| users.json $[*].id | jsonpath-ng | 1.670 | 1.819 | 1.906 | 90.828 | 0.05x |
-| users.json $[*].orders[*].total | strata | 0.349 | 0.498 | 0.580 | 91.000 | 1.00x |
-| users.json $[*].orders[*].total | jmespath | 1.952 | 2.044 | 2.290 | 91.000 | 0.24x |
-| users.json $[*].orders[*].total | jsonpath-ng | 11.788 | 12.605 | 12.731 | 91.000 | 0.04x |
-| users.json $..total | strata | 1.313 | 1.467 | 1.733 | 91.062 | 1.00x |
-| users.json $..total | jsonpath-ng | 191.809 | 195.728 | 219.667 | 91.062 | 0.01x |
+| users.json $[*].id | strata | 0.034 | 0.042 | 0.063 | 101.391 | 1.00x |
+| users.json $[*].id | jmespath | 0.222 | 0.237 | 0.320 | 101.391 | 0.18x |
+| users.json $[*].id | jsonpath-ng | 1.257 | 1.285 | 1.782 | 101.391 | 0.03x |
+| users.json $[*].orders[*].total | strata | 0.199 | 0.205 | 0.252 | 101.500 | 1.00x |
+| users.json $[*].orders[*].total | jmespath | 1.376 | 1.403 | 1.442 | 101.500 | 0.15x |
+| users.json $[*].orders[*].total | jsonpath-ng | 8.737 | 8.812 | 8.981 | 101.500 | 0.02x |
+| users.json $..total | strata | 1.066 | 1.213 | 1.351 | 101.625 | 1.00x |
+| users.json $..total | jsonpath-ng | 166.745 | 169.854 | 183.828 | 101.625 | 0.01x |
 
 ## search -- search (JSONPath over a file)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json $[*].id | strata | 3.780 | 4.049 | 4.334 | 90.922 | 1.00x |
-| users.json $[*].id | orjson+jmespath | 10.759 | 11.966 | 12.671 | 90.922 | 0.34x |
-| users.json $[*].id | orjson+jsonpath-ng | 12.709 | 13.081 | 13.538 | 90.922 | 0.31x |
-| users.json $[*].orders[*].total | strata | 4.047 | 4.201 | 4.469 | 91.031 | 1.00x |
-| users.json $[*].orders[*].total | orjson+jmespath | 12.811 | 13.601 | 14.452 | 91.031 | 0.31x |
-| users.json $[*].orders[*].total | orjson+jsonpath-ng | 25.591 | 27.858 | 31.294 | 91.031 | 0.15x |
-| users.json $..total | strata | 8.206 | 8.551 | 9.646 | 91.109 | 1.00x |
-| users.json $..total | orjson+jsonpath-ng | 203.756 | 207.456 | 208.956 | 91.109 | 0.04x |
+| users.json $[*].id | strata | 2.973 | 3.000 | 3.137 | 101.438 | 1.00x |
+| users.json $[*].id | orjson+jmespath | 8.026 | 8.296 | 9.869 | 101.438 | 0.36x |
+| users.json $[*].id | orjson+jsonpath-ng | 9.149 | 9.294 | 11.091 | 101.438 | 0.32x |
+| users.json $[*].orders[*].total | strata | 3.027 | 3.126 | 3.451 | 101.578 | 1.00x |
+| users.json $[*].orders[*].total | orjson+jmespath | 9.101 | 9.485 | 9.881 | 101.578 | 0.33x |
+| users.json $[*].orders[*].total | orjson+jsonpath-ng | 18.344 | 18.612 | 21.242 | 101.578 | 0.17x |
+| users.json $..total | strata | 6.499 | 6.654 | 6.929 | 101.688 | 1.00x |
+| users.json $..total | orjson+jsonpath-ng | 174.274 | 178.137 | 179.101 | 101.688 | 0.04x |
 

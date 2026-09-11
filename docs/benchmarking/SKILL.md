@@ -18,6 +18,12 @@ records diagnostic real-file phase controls. The canonical tracker remains
 135 rows. Usage and limits are in [the benchmark contract](../context/benchmarks.md)
 and [execution record](../performance/plan-execution-2026-09-07.md).
 
+September 11: the E26-P9 revision c20ac86 (exact dict values through the
+fused record writer, probed for cycles on that path) sampled 131/135 and
+132/135 with the Neoverse-N2 at 27/27 on both draws; the rows behind are
+the x86 legs' `dumps mixed` and Windows file `dump mixed` — docs/decisions.md
+(2026-09-11) and the ledger's E26-P9 revival bullets.
+
 The canonical contract — competitor/feature matrix, datasets, run commands,
 protocol, fairness, regression thresholds — is `docs/context/benchmarks.md`.
 This doc holds the deep detail behind it, described from the previous
