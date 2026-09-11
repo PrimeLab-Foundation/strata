@@ -175,7 +175,7 @@ class Serializer {
         if (type == &PyLong_Type)
             return write_int(object);
         if (type == &PyDict_Type)
-            return write_record_fused_value(object);
+            return write_record_fused(object, true);
         if (type == &PyList_Type)
             return write_sequence(object);
         if (object == Py_None) {
@@ -403,7 +403,8 @@ class Serializer {
             // Array-of-records is the shape the certified rows are made of
             // (docs/architecture/fused_record_writer.md): exact dicts take
             // the one-pass emit, everything else the general dispatch.
-            const bool ok = Py_TYPE(item) == &PyDict_Type ? write_record_fused(item) : write(item);
+            const bool ok =
+                Py_TYPE(item) == &PyDict_Type ? write_record_fused(item, false) : write(item);
             if (!ok)
                 return false;
             if (user_steps_ != seen) [[unlikely]] {
@@ -712,30 +713,6 @@ class Serializer {
     }
 
     /**
-     * A record reached as another dict's value, or as the root, takes the
-     * same one-pass emit as a record reached as an array element (E26-P9);
-     * the fused writer falls back to write_mapping for every shape it does
-     * not hold prepared. One thing the general writer did for these records
-     * that the fused writer does not: its Frame probes open_ before it
-     * writes, so a dict already open above -- a cycle -- is the placeholder
-     * and not one more copy of itself. The probe lives here, on this path
-     * alone, and hands a hit to write_mapping, which then applies its own
-     * rules (a record of plain scalars is emitted even when open above, a
-     * cycle frame answers otherwise) so the bytes stay the general writer's.
-     * The array element loop's records are not probed, as before this
-     * change (docs/decisions.md, 2026-09-11): a probe there is paid by every
-     * record of every dataset, and the loop's own probe of the list it walks
-     * bounds the recursion one container later. Codegen (2026-09-11 review,
-     * both ISAs): this wrapper inlines into write() as two tail calls, with
-     * no new spill and write()'s frame unchanged.
-     */
-    [[nodiscard]] bool write_record_fused_value(PyObject* object) {
-        if (!open_.empty() && std::find(open_.begin(), open_.end(), object) != open_.end())
-            return write_mapping(object);
-        return write_record_fused(object);
-    }
-
-    /**
      * One-pass emit for a record inside an array-of-records
      * (docs/architecture/fused_record_writer.md): the entry array is walked
      * once, the schema way resolves from the first key, keys emit from the
@@ -772,8 +749,26 @@ class Serializer {
      * What this function carries no version of is a staging array: the row is
      * the leased row of this nesting level (SchemaCacheLease::StagedRow), so
      * neither this function nor any function it is folded into declares one.
+     *
+     * A record reached as another dict's value, or as the root, takes this
+     * same one-pass emit (E26-P9) with `probe` set. The general writer's
+     * Frame probes `open_` before it writes a dict, and the element loop
+     * probes the list it walks instead, so a dict already open above -- a
+     * cycle -- would otherwise be one more copy of itself before the
+     * placeholder. The probe sits after the last fallback, so a record this
+     * writer rejects (a way miss, a wide or retired shape, the depth
+     * boundary) is probed once, by write_mapping's own frame; a hit is handed
+     * to write_mapping, whose rules (a record of plain scalars is emitted
+     * even when open above, a cycle frame answers otherwise) keep the bytes
+     * the general writer's. The element loop's records are not probed
+     * (docs/decisions.md, 2026-09-11): a probe there is paid by every record
+     * of every dataset, and the loop's own probe of the list bounds the
+     * recursion one container later. One body, not two instantiations: the
+     * gate-inclusive profile trains a value-path-only copy mostly on
+     * fallbacks and lays its success path out cold (E26-P9 follow-up in the
+     * ledger).
      */
-    [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
+    [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object, bool probe) {
 #if defined(STRATA_RAW_DICT_WALK)
         if (!rawdict::available())
             return write_mapping(object);
@@ -823,6 +818,8 @@ class Serializer {
                 return write_mapping(object);
             row[static_cast<size_t>(index)] = value;
         }
+        if (probe && !open_.empty() && std::find(open_.begin(), open_.end(), object) != open_.end())
+            return write_mapping(object);
 
         const MappingDepth level(map_depth_);
         out_.ensure(1);
