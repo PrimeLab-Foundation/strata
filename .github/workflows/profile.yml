@@ -20,6 +20,7 @@ on:
         options:
           - all
           - windows
+          - windows-codegen
           - arm64-interleaved
 
 jobs:
@@ -574,8 +575,62 @@ jobs:
             cg.*.out
           if-no-files-found: ignore
 
+  # The Windows leg's shipped build, with symbols. Everything the serializer
+  # pays on that leg and not on the others is an ABI or toolchain fact
+  # (callee-saved xmm6-xmm15, rsi/rdi, no shrink-wrapping, funclet-based C++
+  # EH, MSVC's STL and UCRT headers), and the only way to read those facts is
+  # the disassembly of the binary the benchmark measures. `_CL_`/`_LINK_` are
+  # read by clang-cl and link.exe themselves, so the recipe's own command
+  # lines are untouched; /Z7 and /DEBUG change no code, and /OPT:REF,ICF
+  # restores what /DEBUG would otherwise switch off. Dash spellings, because
+  # Git Bash rewrites slash-led values into paths.
+  codegen-windows:
+    if: inputs.scope == 'windows-codegen'
+    name: codegen (windows-x86_64)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install strata and the competitor set (test-gated build)
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install -e ".[dev,bench]"
+      - name: clang-cl PGO build with a PDB (the build the benchmark leg measures)
+        env:
+          _CL_: -Z7
+          _LINK_: -DEBUG:FULL -OPT:REF -OPT:ICF -PDB:${{ github.workspace }}\codegen\_strata.pdb
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          mkdir -p codegen
+          python scripts/pgo_build_clang_cl.py
+          binary=$(python -c 'import strata._strata as m; print(m.__file__)')
+          cp "$binary" "$binary.build.json" codegen/
+          cp build/pgo/strata.profdata codegen/ || true
+          ls -la codegen
+      - name: Generate the small-tier datasets
+        run: |
+          PYTHONPATH=. python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+      - name: Decompose dumps mixed on this build
+        run: PYTHONPATH=. python benchmarks/decompose_dumps_mixed.py | tee codegen/decompose_dumps_mixed.txt
+      - name: Nested-container probe on this build
+        run: PYTHONPATH=. python benchmarks/nested_container_probe.py 40 | tee codegen/nested_container_probe.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codegen-windows-x86_64
+          path: codegen/
+          if-no-files-found: warn
+
   decompose-windows:
-    if: inputs.scope != 'arm64-interleaved'
+    if: inputs.scope == 'all' || inputs.scope == 'windows'
     name: decompose (windows-x86_64)
     runs-on: windows-latest
     timeout-minutes: 60
