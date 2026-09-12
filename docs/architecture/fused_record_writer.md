@@ -105,7 +105,11 @@ that record).
   **zero** keys has no first key and therefore cannot take that loop — the
   fused writer refuses `size == 0` before it reads `entries[0]`, and
   `write_mapping` writes `{}` itself; a width of at least one is now a
-  precondition of `write_mapping_body`, not only of `DepthSchemas::select`.
+  precondition of `write_mapping_body`, not only of `DepthSchemas::select`, and
+  each emit loop asserts it — stripped under `NDEBUG`, so the precondition costs
+  release codegen nothing and every debug and sanitizer build checks it on every
+  record. A caller that broke it would emit `}` with no `{`: invalid JSON,
+  silently, which is the failure this file already records once.
   And the two branches the slot loop does *not* cover — a span too wide for an
   inline slot, and a shape whose bytes are not prepared yet — keep an
   `ensure`/`put` pair of their own. Both writers emit through the single

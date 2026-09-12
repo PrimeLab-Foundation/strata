@@ -894,7 +894,12 @@ class Serializer {
         // compiler can prove disjoint from the output object's own fields, so
         // an advance after it re-reads the buffer reference and its cursor.
         // Both stores land in room `ensure` has already reserved, so their
-        // order relative to the bookkeeping is free.
+        // order relative to the bookkeeping is free. Measured on this change
+        // alone, applied to main's source with nothing else (E26-P24): −3
+        // instructions in each dict writer on arm64 and in their per-key loops,
+        // and instruction-neutral on x86-64, whose addressing had folded one of
+        // the two reloads already. It is the whole of the fused writer's
+        // per-key gain.
         out_.advance(1 + row.spans[static_cast<size_t>(index)]);
         if (index != 0) {
             *cursor = ',';

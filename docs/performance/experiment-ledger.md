@@ -2563,19 +2563,26 @@ gates.
 **Hypothesis.** The one canonical row still behind on any platform is Windows
 `dumps mixed` (1.06x and 1.08x on two samples of main: strata 0.075 ms against
 orjson 0.069 on 500 records). `benchmarks/decompose_dumps_mixed.py` localised it
-to the nested values rather than the records or the scalars, and
-`benchmarks/nested_container_probe.py` (branch `exp/win-mixed-probe`, evidence
-`build/evidence/benchmark-lead/mixed-2026-09-12/`) then priced one container at
-a time: the extra cost per record of a *one-key nested dict* is strata 25.8 ns
-on the M1, 45.0 on Linux x86_64 and 59.2 on Windows, against orjson's 26.6 /
-23.9 / 28.7 — strata's cost to **open** a container grows 2.3x from arm64 to
-the Windows build while orjson's is flat, and per-key cost beyond the first is
-at parity or better everywhere. The probe also ruled out the obvious suspects:
+to the nested values rather than the records or the scalars, and the
+nested-container probe (`exp/win-mixed-probe`, a14ecf2; the copy used here is
+retained as `build/evidence/benchmark-lead/p24/nested_container_probe.py`, which
+extends that commit's 14 rows to 18) then priced one container at a time: the
+extra cost per record of a *one-key nested dict* is strata 45.0 ns on Linux
+x86_64 and 59.2 on Windows against orjson's 23.9 / 28.7
+(`build/evidence/benchmark-lead/mixed-2026-09-12/linux_x86_probe_all.log`,
+`windows_probe_all.log`), while on this M1 the same figure is 23.8 against 19.5
+(computed from `p24/nested/nested_ab.log`'s A arm, which is main's source: the
+`value-dict1` row minus the `scalars-only` row, for each library) — strata's cost
+to **open** a container grows about 2.5x from arm64 to the Windows build while
+orjson's grows 1.5x, and per-key cost beyond the first is at parity or better
+everywhere (on the M1 a *second* key inside that dict costs strata 15.8 ns
+against orjson's 28.9). The first cut of this entry quoted an M1 pair of
+25.8 against 26.6 for the same row; that pair appears in none of the retained
+evidence and is withdrawn in favour of the two numbers above. The probe also ruled out the obvious suspects:
 the two dict writers are within 2 ns of each other on every leg (so it is not
-either writer's choice), a value whose type rotates per record costs nothing
-(so it is not the type ladder), and lists are strata's strength. So: remove
-fixed work from the path that opens a dict, portably, with byte-identical
-output.
+either writer's choice), a value whose type rotates per record costs nothing (so
+it is not the type ladder), and lists are strata's strength. So: remove fixed
+work from the path that opens a dict, portably, with byte-identical output.
 
 **Mechanism — four trims.**
 
@@ -2586,93 +2593,260 @@ output.
    `prepare_dumps_runtime()` still forces the proof at import; the constructor
    is in any case a *safer* place to resolve it than mid-walk, because it runs
    before `write()` and therefore outside every frame and staged row (the
-   FIX1-REVIEW hazard).
+   FIX1-REVIEW hazard). It is also a per-*call* cost against a per-*dict*
+   saving, which the per-call rows below price rather than assume.
 2. `open_.size()` and `schemas_.size()` become plain `size_t` members,
    `open_count_` and `schema_depths_`, each maintained by the one function that
    mutates its container — `push_open`/`close_container` and `grow_schemas`. The
-   depth check every container pays, the growth check every dict pays,
-   `latch()`'s loop bound and `write_record_fused_value`'s emptiness probe are
-   then one load and one compare instead of two loads, a subtract and a shift.
-   The cycle probes still read `open_`'s iterators, which they need anyway.
+   depth check every container pays, the growth check every dict pays and
+   `latch()`'s loop bound are then one load and one compare instead of a
+   vector's two-pointer size computation. `grow_schemas` grows monotonically and
+   re-reads the vector's size, so a stale counter cannot shrink a table that
+   live frames hold rows of. The cycle probes still read `open_`'s iterators,
+   which they need anyway — **and so does `write_record_fused_value`'s emptiness
+   probe.** That probe was moved to the counter in the first cut of this change
+   and moved back by the review: `!open_.empty()` compiles into the very
+   two-pointer load and compare `std::find`'s own begin-vs-end entry test
+   performs anyway, a counter is a field clang cannot fold with that test, and
+   the probe paid a load and a branch of its own for nothing — `write()` grew
+   +2 instructions on arm64 and +3 on x86-64, on the path this change exists to
+   speed up. The counter is for the depth checks only.
 3. The opening brace is folded into the first key's reservation. `emit_slot_key`
    stores `{` where a later key stores `,`, inside the same 17-byte window, so
    `ensure(1)` + `put('{')` — one capacity check, one store, one size update,
-   and on arm64 ten instructions — disappears from every record. The window is
-   unchanged, so the str-mode contract (a small constant that fits the stage) is
-   unchanged. Its precondition is recorded as an invariant in
-   `docs/architecture/fused_record_writer.md`: a zero-width dict has no first
-   key to carry the brace, so it must not reach the slot loop.
+   and on the fast path ten arm64 / eight x86-64 instructions — disappears from
+   every record. The window is unchanged, so the str-mode contract (a small
+   constant that fits the stage) is unchanged. Its precondition is recorded as
+   an invariant in `docs/architecture/fused_record_writer.md` and is now an
+   `assert` in each emit loop, so every debug and sanitizer build checks it: a
+   zero-width dict has no first key to carry the brace and must not reach a slot
+   loop.
 4. Inside the same emitter the size update is taken **before** the bytes are
-   stored. The slot copy writes through a pointer no compiler can prove
-   disjoint from the output object's own fields, so an advance placed after it
-   re-reads the buffer reference and its cursor: two loads per key, on both
-   ISAs and in both dict writers.
+   stored. The slot copy writes through a pointer no compiler can prove disjoint
+   from the output object's own fields, so an advance placed after it re-reads
+   the buffer reference and its cursor: two loads per key, in both dict writers
+   on arm64.
 
-Both writers emit through the one `emit_slot_key` — which is what keeps them
-byte-identical — and it carries the new `STRATA_INLINE_HOT`, because left to
-the optimizer it came back as an out-of-line call in the record writer's per-key
-loop (four argument moves, a call and a return for a fifteen-instruction body).
-The macro sits beside `STRATA_COLD_FN` in `python_types.h` with the same three
-arms and the same one-definition rule.
+Both writers emit through the one `emit_slot_key`, which is what keeps them
+byte-identical. It is a plain `inline` member: the `STRATA_INLINE_HOT`
+(`always_inline`) this shipped with was withdrawn by the review because it is
+inert — with and without the attribute Apple clang 21.0.0 emits **byte-identical
+assembly for the whole translation unit** in six configurations
+(`-O3 -march=native`, `-O3`, `-O2`, `-Os`; arm64 and the x86-64 leg's flags), and
+`emit_slot_key` has no out-of-line symbol in any of them. The macro is gone from
+`python_types.h` with a note saying why there is no third placement macro. The
+`[[likely]]` on `index != 0` went with it: it is false on *every* iteration of a
+one-key record — the shape this change targets — and it made clang move the
+brace store out of line, costing `write_record_fused` three x86-64 instructions
+for nothing on arm64.
 
-**Codegen** (standalone `-S` of `python_dumps.cpp`, arm64 `-O3 -march=native`
-and `clang -target x86_64-apple-macos -O3 -fomit-frame-pointer -march=x86-64-v3`; instructions per symbol, frame bytes from the prologue's
-stack adjustment):
+**Codegen.** Standalone `-S` of `python_dumps.cpp`, arm64
+`-O3 -march=native -arch arm64` and
+`-target x86_64-apple-macos -O3 -fomit-frame-pointer -march=x86-64-v3`, both with
+`-std=c++20 -DNDEBUG` (a release compile: the two new `assert`s are stripped, and
+the ASan extension, which compiles without `-DNDEBUG`, runs them). Apple clang
+21.0.0. **Counting rule**, stated so the absolute numbers are reproducible and
+not only the deltas (the first cut's were not): a symbol's region runs from its
+label to the `.cfi_endproc` that closes it, so every block clang laid out inside
+the symbol counts, cold ones included; an instruction is a line in that region
+that is not a directive, a label, blank or a comment; `_OUTLINED_FUNCTION_*` are
+separate symbols and are never folded into a caller; frame bytes are the
+prologue's own `sub sp, sp, #N` / `subq $N, %rsp`, with a pre-indexed
+`stp …, [sp, #-N]!` reported as `+N`. The script and both ISAs' assembly are
+retained (`build/evidence/benchmark-lead/p24/codegen/`).
 
-| symbol               | arm64 before | arm64 after   | x86-64 before | x86-64 after |
-| -------------------- | ------------ | ------------- | ------------- | ------------ |
-| `write`              | 287 / 80     | 289 / 80      | 191 / 24      | 194 / 24     |
-| `write_sequence`     | 571 / 144    | 569 / 144     | 488 / 88      | 481 / 88     |
-| `write_record_fused` | 330 / 144    | **281** / 144 | 315 / 72      | **269** / 72 |
-| `write_mapping`      | 417 / 144    | **401** / 144 | 428 / 72      | **402** / 72 |
-| `write_mapping_body` | 584 / 144    | 616 / 160     | 579 / 104     | 621 / 104    |
+Instructions / frame bytes, per symbol, for main, the first cut (`head`, 7155c33)
+and the shipped source after the review's three withdrawals (`fixed`):
 
-The per-key loops, counting the fallthrough fast path of one iteration: the
-fused writer's 37 → **35** on arm64 and 37 → 37 on x86-64;
-`write_mapping_body`'s slot loop 31 → **25** on arm64 and 29 → **25** on
-x86-64. Spill and reload counts are unchanged in every function on both ISAs
-except `write_mapping_body`, whose text grew because clang now peels the slot
-loop's first iteration itself — the brace fold made that peel profitable, and
-it is the compiler's choice, not a second instantiation in the source.
+| symbol                   | arm64 main | arm64 head    | arm64 fixed   |
+| ------------------------ | ---------- | ------------- | ------------- |
+| `write`                  | 281 / 80   | 283 / 80      | **281** / 80  |
+| `write_sequence`         | 451 / 144  | 449 / 144     | 449 / 144     |
+| `write_record_fused`     | 342 / 144  | 293 / **160** | 293 / **160** |
+| `write_mapping`          | 340 / 144  | 314 / 144     | 314 / 144     |
+| `write_mapping_body`     | 568 / 144  | 600 / **160** | 600 / **160** |
+| `write_mapping_uncached` | 84 / 96    | 84 / 96       | 84 / 96       |
+| `Serializer::Serializer` | inlined    | 67 / 0 (+48)  | 67 / 0 (+48)  |
 
-**Probe** (M1-class Mac, plain `-O3` builds of main's source and this one, the
-unmodified probe from `exp/win-mixed-probe`, six interleaved rounds of eighty
-per arm, medians of the round medians, 500 records per document):
+| symbol                   | x86-64 main | x86-64 head  | x86-64 fixed |
+| ------------------------ | ----------- | ------------ | ------------ |
+| `write`                  | 184 / 24    | 187 / 24     | **184** / 24 |
+| `write_sequence`         | 400 / 88    | 393 / 88     | 393 / 88     |
+| `write_record_fused`     | 322 / 72    | 276 / 72     | **273** / 72 |
+| `write_mapping`          | 338 / 72    | 301 / **56** | 301 / **56** |
+| `write_mapping_body`     | 566 / 104   | 608 / 104    | 608 / 104    |
+| `write_mapping_uncached` | 115 / 24    | 115 / 24     | 115 / 24     |
+| `Serializer::Serializer` | inlined     | inlined      | inlined      |
 
-| document       | before ns/record | after ns/record | delta |
-| -------------- | ---------------- | --------------- | ----- |
-| `scalars-only` | 24.6             | 23.6            | −4.3% |
-| `value-dict1`  | 52.3             | 51.3            | −1.9% |
-| `value-dict2`  | 69.1             | 66.5            | −3.8% |
-| `value-list0`  | 35.0             | 33.9            | −3.1% |
-| `value-list2`  | 54.0             | 52.5            | −2.7% |
-| `value-dict8`  | 160.2            | 161.8           | +0.9% |
-| `value-dict16` | 285.2            | 286.0           | +0.3% |
+Four cells of the first cut's table
+were wrong and are corrected above: `write_record_fused`'s arm64 frame
+(144 → **160**, published as unchanged), `write_mapping`'s arm64 delta (−26, not
+−16 — the published arm64 figure was the x86 one), its x86-64 delta (−37, not
+−26) and its x86-64 frame (72 → **56**, unreported). Every other delta
+reproduces; the absolute counts do not, because the first cut's counting rule was
+not recorded, which is why this one is. `write_record_fused`'s x86-64 delta
+becomes −49 rather than −46 once the `[[likely]]` comes out. The sentence "spill and reload counts are unchanged in every function
+on both ISAs except `write_mapping_body`" was false and is replaced by the
+measured traffic: arm64 `write_record_fused` 14 → **15** frame stores (17 loads
+unchanged), `write_mapping_body` 20 → **25** loads, everything else unchanged;
+x86-64 `write_record_fused` 34 → **31** loads, `write_mapping` 35 → **31**,
+`write_mapping_body` 49 → **60**, `write_sequence` 0 → 2 stores. The commit
+message of 0afc011 and the first `docs/decisions.md` line for this entry say
+"every frame size unchanged"; three frames moved — arm64 `write_record_fused` and
+`write_mapping_body` +16 each, x86-64 `write_mapping` −16 — and the log's line is
+superseded by a later one rather than rewritten, the log being append-only. The
+commit message stands as written: this branch's three commits are the base of a
+running five-platform A/B and are not rewritten for a correction the ledger and
+the log can carry.
 
-Eleven of the probe's fourteen rows improve by 1.6–4.7%; the two widest nested
-dicts and `value-list16` read +0.0..+0.9%, which is at this machine's draw
-spread (the before arm's own rounds span 1.4% on `scalars-only`). The gain is
-per *record*, not per nested container: the outer record is a dict too, so the
-probe's "open cost" column (a row minus `scalars-only`) barely moves while every
-absolute row falls.
+**Which trim did what**, from three intermediate builds compiled the same way
+(`main`; `reorder_only` = main plus trim 4 only; `nofold` = the shipped source
+minus trim 3), arm64 / x86-64 instructions:
 
-**Canonical rows** (`benchmarks/dumps_rows_probe.py`, small tier, six ABBA
-blocks of sixty, 720 samples per cell, orjson in the same launches as the drift
-control):
+| step                   | `write_record_fused` | `write_mapping` | `write_mapping_body` | `write_sequence` |
+| ---------------------- | -------------------- | --------------- | -------------------- | ---------------- |
+| trim 4 (the reorder)   | −3 / 0               | 0 / 0           | −3 / 0               | 0 / 0            |
+| trims 1+2 (the hoists) | −28 / −31            | −26 / −37       | −5 / −5              | −2 / −7          |
+| trim 3 (the fold)      | −18 / −18            | 0 / 0           | +40 / +47            | 0 / 0            |
 
-| row           | strata bytes | strata str | orjson (drift) |
-| ------------- | ------------ | ---------- | -------------- |
-| `nested`      | **−3.76%**   | −3.26%     | +0.44%         |
-| `mixed`       | **−1.09%**   | −1.93%     | +0.11%         |
-| `users`       | **−1.05%**   | −0.21%     | −0.40%         |
-| `flat`        | **−0.80%**   | −1.08%     | +0.13%         |
-| `wide_arrays` | +0.38%       | +0.64%     | +0.66%         |
+So the two writers' shrink is the guarded-static hoist, as the mechanism claims;
+and the arm64 frame growth is **the fold's**, not the counters' — `nofold` keeps
+both writers at 144 bytes and 14 spill stores, and the fold is what takes
+`write_record_fused` to 160 with 15. The cause is visible in the loop preheader:
+arm64 if-converts the separator to `cmp`/`csel w8, w24, w25`/`strb`, with *both*
+constants hoisted above the loop (`mov w24,#123`, `mov w25,#44`), one more
+loop-live register than main's single comma. `write_mapping_body` grows on both
+ISAs because clang now peels the slot loop's first iteration itself (brace
+immediates per symbol 1 → 2 on both ISAs) — the compiler's choice, not a second
+instantiation in the source, and its per-record cost still falls.
 
-`flat` is the row the register-pressure constraint protects (21 keys per record,
-the widest canonical shape) and it is a gain, not a loss. `wide_arrays` moves
-with orjson in the same launches, which is the drift control saying the machine
-moved, not the change: that row is four keys and four 64-element arrays, almost
-no dict work.
+x86-64 does **not** keep a branch, contrary to the code comment this shipped
+with: with the `[[likely]]` removed it if-converts too, to
+`testq`/`movl $44`/`movl $123`/`cmovel`/`movb`, with the constants materialised in
+the loop body and no frame change. The lever-(b) note below is corrected
+accordingly.
+
+Per-key loops, counted as *the loop's own blocks on the fallthrough path*
+(clang's `in Loop: Header=` annotations give the membership; a conditional branch
+is not taken, an unconditional one is followed, the walk stops when it leaves the
+loop — `codegen/per_key_loop.py`, with every counted instruction printed in
+`codegen/per_key_loop.txt`). This rule is not the first cut's, whose rule was not
+recoverable, so the numbers differ from the published 37/35 and 31/25:
+
+- the fused writer's key-and-value loop: arm64 47 → **44**, x86-64 57 → 57 —
+  and `reorder_only` already reads 44 / 57, so **the whole of the fused loop's
+  per-key gain is trim 4, not the fold**. The fold's benefit in that writer is
+  the per-record `ensure(1)`/`put('{')` block it deletes: ten instructions on
+  arm64, eight on x86-64, on the fast path.
+- `write_mapping_body`'s slot loop: arm64 36 → 33 (trim 4) → **29** (the fold),
+  x86-64 34 → 34 → **29**.
+
+**Measurement builds.** Every number below comes from `make pgo` — the
+gate-inclusive PGO+LTO recipe, both suites run on both phases — and the two arms
+are **tests-matched**: arm A is main's `src/` with this branch's final tests, arm
+B is the reviewed source (2eccf36, whose `src/` differs from the tip's only in a
+comment -- both compile to identical assembly, checked), so the profile's
+test-suite component is identical and the difference between arms is the source
+change alone (the separation E26-P7b showed
+is necessary). No build in this entry, or anywhere in this work, used
+`SKIP_TESTS`; the arms' `*.build.json` are retained beside their `.so`
+(`p24/arms/`), recording `-O3 -flto=thin -fprofile-use=…`, 19 translation units,
+recipe `gate-inclusive-posix-v1`, and `dirty: false` for arm B at the reviewed
+commit (arm A records `dirty: true`, which is exactly what it is: main's `src/`
+in a checkout of that commit). The first cut's numbers were plain `-O3`
+universal2 builds with no retained samples; they are superseded by these.
+
+**Canonical rows** (`benchmarks/dumps_rows_probe.py` through
+`benchmarks/ab_builds.py`, small tier, six ABBA blocks of sixty per draw, orjson
+in the same launches as the drift control, the one estimator in
+`benchmarks/ab_blocks.py`). Two draws, and an A/A control of the same binary
+against itself over four blocks whose floor is `max(|ci low|, |ci high|)`:
+
+| row           | draw 1 bytes                | draw 2 bytes                | draw 1 str | draw 2 str | orjson drift    | A/A floor |
+| ------------- | --------------------------- | --------------------------- | ---------- | ---------- | --------------- | --------- |
+| `nested`      | **−3.59%** \[−3.75, −2.74\] | **−3.66%** \[−4.27, −2.87\] | −3.16%     | −3.44%     | −0.27% / −0.63% | 0.84%     |
+| `mixed`       | **−2.31%** \[−2.78, −1.23\] | **−2.85%** \[−4.46, −1.39\] | −2.47%     | −2.81%     | −0.55% / −0.00% | 2.49%     |
+| `users`       | **−2.51%** \[−2.74, −2.34\] | **−2.74%** \[−3.13, −2.52\] | −2.53%     | −2.54%     | −0.41% / −0.14% | 0.44%     |
+| `flat`        | **−0.57%** \[−0.73, −0.10\] | **−0.79%** \[−1.78, −0.46\] | −0.69%     | −1.06%     | −0.05% / −0.34% | 0.62%     |
+| `wide_arrays` | −0.62% \[−1.10, −0.12\]     | +0.78% \[−1.39, +1.32\]     | −0.44%     | +0.70%     | +0.46% / +0.12% | 0.88%     |
+
+`nested` and `users` resolve past their floors on both draws and in both return
+types. `flat` — the row the register-pressure constraint protects, 21 keys per
+record — is a gain on both draws, just past its floor. `mixed` is a gain of
+2.3–2.9% on both draws with an entirely negative interval, but its own A/A floor
+is 2.49%, so it is at the edge of what this session can resolve. `wide_arrays`
+changes sign between draws and sits inside its floor: not resolved either way,
+which is what four keys and four 64-element arrays should read as.
+
+**Per-container probe** (the nested-container probe, both PGO arms, A-B-B-A over
+eight launches, each launch's own medians of sixty with `gc.collect()` per
+iteration, 500 records per document; the table is the median of each arm's launch
+medians, and **all 18 of the probe's rows are shown**, which the first cut's
+seven-of-fourteen table was not):
+
+| document         | A ns/record | B ns/record | delta  | orjson drift |
+| ---------------- | ----------- | ----------- | ------ | ------------ |
+| `scalars-only`   | 21.5        | 20.5        | −4.65% | +0.41%       |
+| `third-scalar`   | 27.2        | 26.1        | −4.04% | +0.61%       |
+| `value-dict0`    | 34.7        | 32.9        | −5.19% | −0.31%       |
+| `value-list0`    | 30.1        | 29.2        | −2.99% | +0.62%       |
+| `value-float`    | 40.2        | 38.7        | −3.73% | +0.19%       |
+| `value-int`      | 28.4        | 27.6        | −2.82% | +1.50%       |
+| `value-str`      | 27.8        | 26.8        | −3.60% | +0.28%       |
+| `value-dict1`    | 45.3        | 43.7        | −3.53% | +0.92%       |
+| `value-dict2`    | 61.1        | 59.0        | −3.44% | +0.28%       |
+| `value-dict4`    | 89.4        | 87.9        | −1.68% | +0.00%       |
+| `value-dict8`    | 146.5       | 145.1       | −0.96% | +0.31%       |
+| `value-dict16`   | 262.2       | 261.3       | −0.34% | +0.21%       |
+| `value-list1`    | 41.1        | 39.8        | −3.16% | +0.00%       |
+| `value-list2`    | 49.0        | 47.5        | −3.06% | +0.43%       |
+| `value-list5`    | 74.5        | 73.3        | −1.61% | −0.72%       |
+| `value-list16`   | 167.0       | 165.8       | −0.72% | −3.14%       |
+| `value-list64`   | 573.8       | 572.2       | −0.28% | −5.37%       |
+| `value-rotating` | 41.2        | 39.9        | −3.16% | +0.58%       |
+
+Every row improves, by a nearly constant **0.8–2.1 ns per record** — which is the
+shape the mechanism predicts and the first cut described correctly: the gain is
+per *record*, not per nested container, because the outer record is a dict too.
+The two rows the first cut read as small regressions (`value-dict8` +0.9%,
+`value-dict16` +0.3%) are −0.96% and −0.34% here; on a PGO build with a drift
+control they were noise in a plain-`-O3` pair.
+
+**The per-call trade, priced rather than asserted.** Trim 1 moves work from
+per-dict to per-call, and both tables above use 500-record documents, where a
+per-call cost is amortised five hundred times. `p24/percall_probe.py` is one
+container per call (batches of 200 calls per sample, six ABBA blocks of sixty,
+same estimator, with a four-block A/A control):
+
+| row               | bytes  | str    | A/A floor (bytes / str) | resolved        |
+| ----------------- | ------ | ------ | ----------------------- | --------------- |
+| `percall-scalar`  | +1.26% | +0.84% | 1.17% / 0.38%           | yes, a cost     |
+| `percall-empty`   | +2.65% | +6.10% | 0.99% / 0.67%           | yes, a cost     |
+| `percall-record1` | −1.17% | +1.59% | 0.54% / 0.62%           | yes, both signs |
+| `percall-record3` | +0.62% | +1.36% | 0.42% / 0.28%           | yes, a cost     |
+| `percall-nested1` | +0.74% | −2.24% | 5.38% / 4.66%           | no              |
+
+So the trade is real and small: entering `dumps` on a single scalar costs about
+**1 ns more per call** (the `percall-scalar` row has no dict at all, so the only
+thing it can see is the constructor, which arm64 also made a 67-instruction
+out-of-line function), and a `{}` root about 3 ns. Against that, any document
+with more than a handful of containers gains 0.8–2.1 ns per record. The cost is
+acknowledged rather than hidden: it is paid once per call, it is under 3 ns, and
+the only workloads it dominates are ones that serialize a single scalar or empty
+container per call.
+
+**Byte-identity.** 13 512 comparisons against stdlib
+`json.dumps(…, separators=(",", ":"), ensure_ascii=False)` in both return types,
+0 mismatches, run on a fresh thread (an empty `thread_local` schema cache) and
+again on the warm main thread: the five canonical small-tier datasets whole and
+record by record, then the adversarial sweep the three reviews used (key byte
+widths 0–29 in seven character classes across the 16-byte slot boundary, dict
+widths 0–30 across the 24/25 `kMaxSchemaKeys` seam, empty dicts interleaved at
+three depths, dict depths 1–120 across the 64-level `kMaxCachedDepth` seam,
+`str`-subclass keys alone and interleaved, wide and narrow schemas alternating at
+one depth, tuples, `2**70`, `-0.0`, `1e300`), then 1 500 seeded random documents
+built from repeated shapes. Script and log: `p24/differential.py`,
+`p24/differential_plain_o3.log`.
 
 **Rejected on their own codegen**, all three worth re-reading before they are
 proposed again:
@@ -2685,13 +2859,16 @@ proposed again:
    `flat`'s twenty-one, on exactly the row E26-P6 showed is one live value from
    regressing.
 2. *Select the separator byte between two registers* instead of branching on the
-   first key. The second constant costs x86-64 the same spill (+2 instructions
-   per key, frame 72 → 88). Two immediate stores under a branch taken once per
-   record cost nothing, and clang if-converts them back to a `csel` on arm64,
-   where a register is free.
+   first key. This lever is now moot rather than rejected, and the note that
+   rejected it was wrong twice: both ISAs if-convert the two-arm branch on their
+   own (arm64 `csel`, x86-64 `cmovel`), so what ships *is* a select between two
+   registers; and arm64's register is not free — the second loop-live constant is
+   where `write_record_fused`'s frame grows 16 bytes and takes one more spill
+   store, measured against the same source with the fold removed. Writing the
+   select by hand changes nothing the compiler does not already do.
 3. *Hold the prepared row across the emit loop and reload it when `schemas_`
-   grew* — the `user_steps_` pattern applied to the schema table. The re-index
-   it replaces is already one load off `this` plus one off the vector, with the
+   grew* — the `user_steps_` pattern applied to the schema table. The re-index it
+   replaces is already one load off `this` plus one off the vector, with the
    whole stride folded into an induction variable, so a load-compare-branch
    reload test is a net loss and it spilled the loop bound on arm64.
    Independently: `user_steps_` cannot be that test, because an all-scalar
@@ -2699,22 +2876,66 @@ proposed again:
    counter of the table's own size can. The per-key re-index stays.
 
 Also rejected: folding `write_sequence`'s `[` the way the brace folded. A list's
-first element is emitted by seven bodies — the five scalar runs, the general
-loop and `write_sequence_body` — each with its own "first element bare"
-convention, so the fold means passing a separator byte through the runs, which
-is the carried-value cost E26-P6 and the E26-P9 probe-placement follow-up both
-priced, for one reservation per list. The comment at the bracket says so.
+first element is emitted by seven bodies — the five scalar runs, the general loop
+and `write_sequence_body` — each with its own "first element bare" convention, so
+the fold means passing a separator byte through the runs, which is the
+carried-value cost E26-P6 and the E26-P9 probe-placement follow-up both priced,
+for one reservation per list. The comment at the bracket says so.
+
+And withdrawn by the review, with the measurement that withdrew it: the
+`open_count_` emptiness probe (trim 2, above), the `always_inline` on the key
+emitter, and the `[[likely]]` on the separator test.
 
 **Not measured here, and deliberately out of scope.** Two further items the
 codegen exposed. `is_plain_scalar` is an out-of-line call per key on both ISAs
 and in both revisions — per-key work, not per-open. And the separator could
 disappear entirely if `build_schema` baked it into the prepared bytes (slot 0 as
-`{"key":`, the rest as `,"key":`), which removes the branch and the byte store
+`{"key":`, the rest as `,"key":`), which removes the select and the byte store
 but widens `Schema::slots` by 50%, against the cache argument that put those
 bytes inline in the first place. Neither belongs in a trim of the open path.
 
-**Outcome: go** on the evidence above — a same-machine A/B with a drift
-control, no canonical row behind past its own noise, both suites and the ASan
-gate green. Five-platform CI remains the acceptance gate for the Windows row
-this exists to move; the M1 cannot decide that one, only show the mechanism is
-real and cheap on the architecture it can measure.
+**Evidence** — `build/evidence/benchmark-lead/p24/`:
+
+- `arms/armA_tests_only.so`, `arms/armB_fixed.so` and each one's `.build.json`
+  and `…_profile.inputs.json`: the two measured PGO+LTO builds and their
+  identities. `arms/armAA_copy.so` is arm A again, for the A/A controls.
+- `rows/aa_control.{tsv,txt}`, `rows/rows_ab_draw1.{tsv,txt}`,
+  `rows/rows_ab_draw2.{tsv,txt}`: every canonical-row sample, one line per
+  sample, with the estimator's output beside it.
+- `percall/percall_ab.{tsv,txt}`, `percall/percall_aa.{tsv,txt}` and
+  `percall_probe.py`, `run_ab.py`: the per-call arm.
+- `nested/nested_ab.log` and `nested_container_probe.py`: all eight launches of
+  the per-container probe, verbatim, tagged by arm.
+- `codegen/`: `take_codegen.py`, `per_key_loop.py`, `report_codegen.py`, the
+  `codegen.json` they produce, `codegen_table.txt`, `per_key_loop.txt`, the
+  compile command beside each `.s`, and both ISAs' assembly for `main`,
+  `reorder_only`, `nofold`, `head` and the shipped source.
+- `differential.py` and `differential_plain_o3.log`: the byte-identity run.
+- `gates/`: the `make pgo` logs for both arms, `make_test_final.log` (2530
+  passed against the shipped build) and the ASan gate's log (2529 passed, 1
+  skipped). The ASan extension is compiled **without** `-DNDEBUG` — checked in
+  its own `build.json` — so the two new `assert`s are live in that run rather
+  than merely present in the source.
+
+**Outcome: go** on what was actually measured, which is: a tests-matched A/B of
+two `make pgo` builds on one M1-class Mac — six ABBA blocks of sixty per draw,
+two draws, orjson in the same launches as the drift control, and an A/A control
+of the same binary that says what this session can resolve. Four canonical rows
+improve, `nested` and `users` past their floors on both draws, `flat` just past
+its own, `mixed` by 2.3–2.9% with an interval that is entirely negative but a
+floor that is 2.49%, and `wide_arrays` unresolved in both directions. All 18
+per-container rows improve. The canonical 27-row regression gate was **not** run
+on this revision — `make bench-check` compares against a same-machine baseline
+whose own identical-binary control breaches it under load (E26-P9), and this
+campaign reads A/B evidence instead; what is claimed here is no resolved loss on
+any measured row, not a canonical gate pass. Both suites (2530 tests) and the
+ASan+UBSan gate are green, with no `SKIP_TESTS` anywhere, and the shipped
+extension is a gated `make install` of the reviewed commit with `dirty: false`.
+Five-platform CI remains the acceptance gate for the Windows row this exists to
+move; the M1 cannot decide that one, only show the mechanism is real and cheap on
+the architecture it can measure. **One sample is owed:** the five-platform A/B
+that ran while this was under review measured 7155c33 against c6783e1, i.e. the
+source *before* the review's fixes. The merged source differs from it in the
+three withdrawals above, so a new five-platform sample of the tip against the
+same tests-only base is the outstanding evidence, and the Windows row's verdict
+waits on it.
