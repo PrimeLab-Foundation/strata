@@ -2939,3 +2939,26 @@ source *before* the review's fixes. The merged source differs from it in the
 three withdrawals above, so a new five-platform sample of the tip against the
 same tests-only base is the outstanding evidence, and the Windows row's verdict
 waits on it.
+
+- Five-platform A/B of the first cut (run 34686936643, the tests-only arm
+  c6783e1 against 7155c33 — i.e. before the open-count probe and the
+  `always_inline` were withdrawn; `experiment=none`, six blocks of sixty,
+  every arm's binary matching its sidecar, training matched): **seventeen
+  resolved gains, no resolved loss on any leg.** Windows (the leg whose
+  `dumps mixed` is the one row still behind): small `dumps mixed`
+  **−5.06%/−5.75%** against a 1.3% floor, small `dumps users` −8.17%/−8.87%,
+  medium `dumps users` −6.33%/−6.67%, file `dump nested` −2.46%; medium
+  `dumps mixed` reads raw −5.38% inside a 25.9% floor. i7: small `dumps mixed` −7.14%, medium −5.82%, medium `dumps users` −5.54%, file `dump nested` −3.70%. EPYC: medium `dumps mixed` −4.05%, small −3.02%, file
+  `dump mixed` −2.11%, file `dump nested` −5.27%. N2: `dumps mixed`
+  −1.57%/−2.15%, `dumps flat` −0.80%/−0.79%, `dumps users` −0.58%/−0.70%.
+  M2 Pro VM: nothing resolved against floors of 1.3–7%, every serializer row
+  leaning the same way. Evidence
+  `build/evidence/benchmark-lead/p24/native-p24-open-cost-34686936643/`.
+  The arithmetic on the standing: Windows `dumps mixed` reads 1.06x and 1.08x
+  on the two samples of ec53f93, so −5.1% of strata's own time puts it near
+  1.03x — most of the gap, not all of it on those draws.
+- A five-platform A/B of the **fixed** tip is owed and dispatched (run
+  34690375277: the tests-matched base db073e86 against 9631aa6). The
+  withdrawn pieces cost `write` three instructions on x86-64 and two on
+  arm64, so the fixed tip should read no worse; the row's verdict is that
+  run's.
