@@ -2985,3 +2985,35 @@ waits on it.
   gains across the five legs, no resolved loss anywhere, output byte-identical
   over 13,512 differential comparisons, both gates green with no build
   outside the gated path.
+
+- Two five-platform samples of the merged revision b32d398 (runs 34693842452
+  and 34693855300, 13 s apart; archived under
+  `build/evidence/benchmark-lead/p24/ci-<run>/`, the second placed in
+  `docs/benchmarks/ci/`): **133/135** and **131/135** — the same count as the
+  revision before, and the row the trims were built for did not flip. What
+  the absolute times say about why:
+
+  | leg, `dumps mixed`    | strata        | orjson        | ratio         |
+  | --------------------- | ------------- | ------------- | ------------- |
+  | linux-x86_64, ec53f93 | 0.065 / 0.092 | 0.071 / 0.122 | 0.92x / 0.75x |
+  | linux-x86_64, b32d398 | 0.050 / 0.048 | 0.048 / 0.048 | 1.04x / 1.00x |
+  | windows, ec53f93      | 0.076 / 0.075 | 0.071 / 0.069 | 1.07x / 1.09x |
+  | windows, b32d398      | 0.079 / 0.073 | 0.073 / 0.070 | 1.08x / 1.04x |
+
+  The EPYC draws are a third faster for **both** engines than the earlier
+  pair (orjson 0.071 → 0.048), so that leg's ratio moved with its host, not
+  with the code: at 0.048 ms a single reporting unit is 2%. Windows kept the
+  same processor model throughout and its two samples of **one** binary read
+  0.079 and 0.073 — an 8% spread between draws 13 s apart, wider than the
+  6.89% the same-runner A/B resolved on that leg. So the standings instrument
+  cannot see this change on this row, which is exactly the separation the
+  campaign's protocol assumes: the paired A/B decides whether code is faster,
+  the samples decide rank, and a rank at 1.04x with a ±4% sampling spread is
+  a coin band, not a measurement.
+
+- Standing after the trims: linux-x86_64 `dumps mixed` 1.05x and 1.01x,
+  Windows `dumps mixed` 1.07x and 1.05x, plus two one-off cells in the second
+  sample only (Windows file `dump mixed` 1.17x, macos-arm64 file `dump mixed`
+  1.04x against msgspec). Windows `dumps mixed` is the one row behind on
+  every sample of every revision this session: 1.06, 1.08, 1.07, 1.05x. No
+  135/135 is claimed.
