@@ -17,6 +17,7 @@ from __future__ import annotations
 import gc
 import statistics
 import sys
+import threading
 import time
 
 import orjson
@@ -66,6 +67,59 @@ def documents() -> dict[str, list]:
     return docs
 
 
+def on_a_fresh_thread(call):
+    """The schema cache is per thread, so a pass that means to start cold, or
+    to keep a retirement it caused, runs on a thread of its own."""
+    box: list = []
+
+    def run() -> None:
+        box.append(call())
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    thread.join()
+    return box[0]
+
+
+def retire_nested_depth() -> None:
+    """Present more distinct shapes at the nested depth than the cache holds
+    ways for, past the 64 misses that retire it (python_dumps_output.h,
+    DepthSchemas::select), so every later dict at that depth takes the general
+    writer instead of the fused record writer."""
+    churn = [
+        {"kind": "c", "id": i, "value": {f"c{i}_{j}": j for j in range(1 + i % 3)}}
+        for i in range(96)
+    ]
+    for _ in range(3):
+        strata.dumps(churn, return_type="bytes")
+
+
+def fused_against_general(repeat: int) -> None:
+    """The same documents through both dict writers in one build: fresh on a
+    thread of its own, then again after that thread's nested depth retires."""
+    docs = {name: doc for name, doc in documents().items() if name.startswith("value-dict")}
+    print()
+    print(
+        f"{'document':16s} {'fused ms':>9s} {'general ms':>11s} {'general-fused':>14s} "
+        f"{'orjson ms':>10s}  ratios against orjson"
+    )
+    for name, doc in docs.items():
+
+        def both(d=doc):
+            fused = median_call(lambda: strata.dumps(d, return_type="bytes"), repeat)
+            retire_nested_depth()
+            general = median_call(lambda: strata.dumps(d, return_type="bytes"), repeat)
+            return fused, general
+
+        fused, general = on_a_fresh_thread(both)
+        o = median_call(lambda d=doc: orjson.dumps(d), repeat)
+        print(
+            f"{name:16s} {fused:9.4f} {general:11.4f} "
+            f"{(general - fused) * 1e6 / RECORDS:+13.1f}ns {o:10.4f}  "
+            f"fused {fused / o:.3f}  general {general / o:.3f}"
+        )
+
+
 def main() -> int:
     repeat = int(sys.argv[1]) if len(sys.argv) > 1 else 60
     docs = documents()
@@ -90,6 +144,7 @@ def main() -> int:
             f"{name:16s} {s:10.4f} {o:10.4f} {s / o:7.3f} "
             f"{s * 1e6 / RECORDS:13.1f} {o * 1e6 / RECORDS:13.1f}  {extra}"
         )
+    fused_against_general(repeat)
     return 0
 
 
