@@ -46,7 +46,14 @@ def documents() -> dict[str, list]:
     def with_value(make) -> list:
         return [{**base(i), "value": make(i)} for i in range(RECORDS)]
 
-    docs = {"scalars-only": [base(i) for i in range(RECORDS)]}
+    docs: dict[str, list] = {}
+    docs["scalars-only"] = [base(i) for i in range(RECORDS)]
+    # One more scalar key at the record's own depth, against one key inside a
+    # nested dict below it: the pair separates the cost of a key from the cost
+    # of opening a container at all.
+    docs["third-scalar"] = [{**base(i), "value": i * 3} for i in range(RECORDS)]
+    docs["value-dict0"] = with_value(lambda i: {})
+    docs["value-list0"] = with_value(lambda i: [])
     docs["value-float"] = with_value(lambda i: 0.11133106816568039 + i)
     docs["value-int"] = with_value(lambda i: 100000 + i)
     docs["value-str"] = with_value(lambda i: f"v{i}")
