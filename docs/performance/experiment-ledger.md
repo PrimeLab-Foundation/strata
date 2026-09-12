@@ -3029,3 +3029,34 @@ waits on it.
   travel 94–138%. The goal's remaining work is one row on one platform, and
   the measurement of it is in the generated document rather than in this
   entry.
+
+## E26-P25 — the Windows regression since 32c5fa4
+
+- Opened 2026-09-12 · owner: lead · from the history of
+  `docs/benchmarks/ci_summary.md` itself, which records the goal moving from
+  **1 row to close** (09-06, the sample of 32c5fa4) to **4 rows** (today).
+  The file keeps one sample per revision, so the series was reconstructed from
+  git into `build/evidence/benchmark-lead/history/<revision>/ci/` and read
+  through `make bench-cross`; the reading is
+  `docs/benchmarks/cross_sample_history.md`.
+- What that shows across the seven recorded draws (32c5fa4, 79fa3df, 75cfb42,
+  c20ac86, ec53f93, b32d398, ec04112): **Windows held both mixed rows on
+  09-06 and has been behind on every sample since** — `dumps mixed` 0.986x
+  then 1.015–1.082x, file `dump mixed` 0.990x then 0.995–1.169x — and that
+  series is comparable, the rivals on that leg moving only 12–17% across the
+  whole span. The same span improved the N2's `dumps mixed` from 1.031x to
+  0.987x, which is the fused-writer work. Every other cell that has appeared
+  behind sits in a row where a rival moved 59–275% between draws and
+  therefore says nothing.
+- The step is between 32c5fa4 and 79fa3df, the revision that carried the
+  re-entrancy correctness fixes (the use-after-free under mutation and the
+  surrogate-key defect) whose machinery E26-P6 priced at 2–7% on the x86
+  serializer rows with orjson flat. E26-P6, P7, P9, P23 and P24 have since
+  recovered part of it on that leg — P24 alone 6.89% on `dumps mixed` — and
+  Windows has not returned to 0.986x.
+- Dispatched to measure the whole difference directly rather than infer it:
+  run 34712026697, a same-runner paired A/B of 32c5fa4 against ec04112 on all
+  five legs. Its tests differ between the arms by a whole campaign, so the
+  reading includes the profile effect the gate-inclusive recipe carries
+  (E26-P7b) — that is the total the standings see, which is the question.
+- Outcome: open.
