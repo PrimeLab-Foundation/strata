@@ -3015,3 +3015,17 @@ waits on it.
   reading in this entry — that the linux-x86_64 row had become a parity row —
   overstated what samples whose rivals move by that much can say. The numbers
   themselves live in the generated document, not here.
+
+- Two five-platform samples of ec04112 (runs 34709994931 and 34710005274),
+  the revision after both measurement tools were merged and with every
+  accepted change of this campaign in it: **132/135** and **131/135**, with
+  linux-arm64, linux-x86_64, macos-x86_64 at 27/27 on both draws and
+  macos-arm64 at 27/27 on one. Regenerating `docs/benchmarks/cross_sample.md`
+  over all six samples of the last three revisions leaves the same single
+  entry under *behind on every draw*: **windows-x86_64 `dumps mixed`**, six
+  draws, 1.052–1.076x. Windows' other two cells (file `dump mixed`, file
+  `dump flat`) change rank between draws with their rivals moving 12–16%, and
+  the macos-arm64 cells that appear in one sample each move with rivals that
+  travel 94–138%. The goal's remaining work is one row on one platform, and
+  the measurement of it is in the generated document rather than in this
+  entry.
