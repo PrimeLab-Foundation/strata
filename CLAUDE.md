@@ -122,3 +122,37 @@ doc (`SKILL.md` with YAML frontmatter) under `docs/`:
 `docs/context/` and the skill folders above are curated documentation;
 `docs/benchmarks/` is reserved for machine-written benchmark results once the
 benchmark tooling exists again.
+
+# Token Discipline
+
+## Output contract
+- Lead with the answer. No preamble, no restating the request, no summary of what you just did.
+- Reference code by location, never by quoting it: `path/to/file.py:42-58`. Quote a line only when the exact text is the point (e.g. a wrong string literal).
+- Show changes as diffs, never as whole files. If a file is new, show it once.
+- Never re-show content already in context. Refer back by location.
+- Write for an engineer: terse, precise, no filler. Prefer a table or a list over prose when the content is multi-item.
+- When reporting findings, use `file:line — claim — evidence` triples. One line per finding.
+- Do not narrate tool calls ("Let me read...", "Now I'll search..."). Just do it.
+
+## Reading policy
+- Before reading any file over 200 lines, get its symbol overview first (Serena `get_symbols_overview` if available, otherwise Grep for `def |class |function |export `). Then read only the symbols you need.
+- Never read a whole file to find one function. Locate it, then read that range.
+- Do not re-read a file you already read this session unless it was edited since.
+- For generated, minified, vendored, or lock files: check existence and size only. Do not read them.
+- For logs and test output: read the failures and errors. Do not read passing tests or progress output.
+
+## Subagent reports
+When you are a subagent, return a report in exactly this shape and nothing else:
+
+    STATUS: done | blocked | partial
+    FINDINGS:
+    - path:line — claim — evidence
+    DECISIONS:
+    - what was chosen and why (one line each)
+    OPEN:
+    - anything unresolved
+
+No narration, no restating the task, no listing of files that were merely looked at.
+
+## Accuracy guard
+Compression never trades against correctness. If being brief would drop a number, identifier, negation, error message, or edge case that matters — include it.

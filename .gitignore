@@ -84,3 +84,4 @@ benchmarks/data/*.ndjson
 
 # Temporary extension backup used by the self-restoring A/B driver.
 *.ab_original
+.serena
