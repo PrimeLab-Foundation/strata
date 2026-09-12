@@ -36,15 +36,26 @@ struct JsonValue;
 // and there must be exactly one definition: a second spelling whose `#else`
 // arm expands to nothing would hand an out-of-lining decision the codegen
 // argument depends on back to the optimizer, silently and per compiler.
+// The third annotation is the opposite decision, for the opposite reason: a
+// token emitter small enough that a call costs more than its body, written once
+// so two writers cannot drift apart, and reached from more call sites than the
+// inliner's own budget will take it to. Measured, not assumed: left to the
+// optimizer, the serializer's shared key emitter came back as an out-of-line
+// call in the record writer's per-key loop -- four argument moves, a call and a
+// return in place of fifteen inline instructions (E26-P24 in
+// docs/performance/experiment-ledger.md). Same one-definition rule as above.
 #if defined(__clang__) || defined(__GNUC__)
 #define STRATA_COLD_FN __attribute__((noinline, cold))
 #define STRATA_NOINLINE_HOT __attribute__((noinline))
+#define STRATA_INLINE_HOT [[gnu::always_inline]] inline
 #elif defined(_MSC_VER)
 #define STRATA_COLD_FN __declspec(noinline)
 #define STRATA_NOINLINE_HOT __declspec(noinline)
+#define STRATA_INLINE_HOT __forceinline
 #else
 #define STRATA_COLD_FN
 #define STRATA_NOINLINE_HOT
+#define STRATA_INLINE_HOT inline
 #endif
 
 namespace strata::bindings {

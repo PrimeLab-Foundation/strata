@@ -94,7 +94,10 @@
  *    re-validates against the dict on every call. The row itself is *leased*,
  *    one per nesting level, not a local array: see
  *    SchemaCacheLease::StagedRow for why no function on this walk may carry
- *    one in its frame.
+ *    one in its frame. The *prepared-key* row a record emits from is re-indexed
+ *    per key for a different reason, and `user_steps_` is deliberately not its
+ *    test: a nested record can relocate the schema table by growing it while
+ *    running no user code at all (`grow_schemas`).
  *
  * The schema cache is part of the same contract: it *owns* the keys it
  * remembers, so it only ever remembers exact `str` objects, whose release
@@ -144,9 +147,30 @@ class Serializer {
     using Schema = SchemaCacheLease::Schema;
 
   public:
+    /**
+     * Resolve, once per call, everything the per-container path would
+     * otherwise re-derive per container.
+     *
+     * `rawdict::available()` is a guarded function-local static: every
+     * consultation is the guard's load and test before the value's. Both dict
+     * writers asked it per dict; this asks it once, and the writers load a
+     * member off a `this` they already hold. Reading it here rather than mid-walk
+     * is also the safer place by this file's own rule -- the layout proof
+     * allocates dicts, so the one point it may resolve must be outside any
+     * frame; `prepare_dumps_runtime()` still forces it at import, and this
+     * constructor runs before `write()` either way.
+     *
+     * `schema_depths_` mirrors `schemas_.size()` for the same reason the
+     * open-container count mirrors `open_.size()`: the growth check is then one
+     * load and one compare instead of a vector's two-pointer size computation.
+     * The leased table survives calls, so it starts at whatever the lease holds.
+     */
     Serializer(StagedOutput& out, SchemaCacheLease::State& state)
-        : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(state.schemas),
-          staged_rows_(state.rows), lock_nodes_(state.locks)
+        : out_(out), schema_depths_(state.schemas.size()), depth_limit_(Py_GetRecursionLimit()),
+#if defined(STRATA_RAW_DICT_WALK)
+          raw_dict_ok_(rawdict::available()),
+#endif
+          schemas_(state.schemas), staged_rows_(state.rows), lock_nodes_(state.locks)
 #if defined(STRATA_RAW_DICT_WALK)
           ,
           general_scratch_(state.general)
@@ -344,7 +368,7 @@ class Serializer {
         // overwhelming majority -- never touch the open_ vector at all.
         if (std::find(open_.begin(), open_.end(), object) != open_.end())
             return emit_cycle_placeholder();
-        if (open_.size() >= static_cast<size_t>(depth_limit_)) {
+        if (open_count_ >= static_cast<size_t>(depth_limit_)) {
             const Frame frame(*this, object);
             if (frame.repeated())
                 return frame.handle_cycle();
@@ -353,6 +377,16 @@ class Serializer {
             return write_sequence_body(object);
         }
 
+        // The dict writers fold their opening brace into the first key's
+        // reservation (`emit_slot_key`); the bracket deliberately keeps its
+        // own. A list's first element is emitted by one of *seven* bodies --
+        // the five scalar runs, this loop and write_sequence_body -- each with
+        // its own "first element bare" convention, and every one of them would
+        // have to take the bracket as a separator byte for the fold to be
+        // byte-identical. That is a separator argument through the runs, which
+        // is the carried-value cost E26-P6 and the E26-P9 follow-up both
+        // priced, for one reservation per *list* (E26-P24 in
+        // docs/performance/experiment-ledger.md).
         out_.ensure(1);
         out_.put('[');
         // A list's ob_item and ob_size are re-derived after any element that
@@ -730,7 +764,7 @@ class Serializer {
      * no new spill and write()'s frame unchanged.
      */
     [[nodiscard]] bool write_record_fused_value(PyObject* object) {
-        if (!open_.empty() && std::find(open_.begin(), open_.end(), object) != open_.end())
+        if (open_count_ != 0 && std::find(open_.begin(), open_.end(), object) != open_.end())
             return write_mapping(object);
         return write_record_fused(object);
     }
@@ -782,7 +816,61 @@ class Serializer {
      * decision explicit instead of leaving it to the inliner's remaining
      * budget on the next unrelated edit.
      */
-    STRATA_COLD_FN void grow_schemas(size_t depth) { schemas_.resize(depth + 1); }
+    /// Both growth sites route here, which is what keeps `schema_depths_` and
+    /// `schemas_.size()` one fact -- the growth check on every dict reads the
+    /// counter.
+    STRATA_COLD_FN void grow_schemas(size_t depth) {
+        schemas_.resize(depth + 1);
+        schema_depths_ = depth + 1;
+    }
+
+    /**
+     * Emit `<sep>"key":` for slot @p index of @p row.
+     *
+     * One separator byte and the slot's fixed 16-byte copy, under one
+     * reservation of 17 -- exactly the window this has always written. @p sep
+     * is `'{'` for a record's first key and `','` for every key after it, and
+     * *that is the whole of the opening brace*: it rides the first key's
+     * reservation instead of taking an `ensure`/`put` pair of its own, which is
+     * one capacity check, one store and one size update fewer per dict
+     * (E26-P24).
+     *
+     * The first key is no longer special in the copy, either: the payload lands
+     * at a fixed `+1` in every iteration, where it used to land at `+skip` with
+     * `skip` computed from `index != 0` and added to the advance. The caller's
+     * `index != 0 ? ',' : '{'` costs what that computation did -- a compare and
+     * a select -- so the brace comes out free at every record width, rather
+     * than by peeling key 0 (measured: a peel is worth 23 instructions a record
+     * on arm64 and costs SysV x86-64 a second induction variable, a spill per
+     * key and 21-key `flat` records more than it saves; E26-P24).
+     *
+     * Both dict writers emit their keys through this one body, which is what
+     * keeps them byte-identical; `STRATA_INLINE_HOT` is what keeps that from
+     * costing a call per key (see the macro's own note).
+     */
+    STRATA_INLINE_HOT void emit_slot_key(const Schema& row, Py_ssize_t index) {
+        out_.ensure(1 + SchemaCacheLease::kSlotBytes);
+        char* cursor = out_.cursor();
+        // The size update is taken *before* the bytes are stored, and that is
+        // worth two loads per key: the copy writes through a pointer no
+        // compiler can prove disjoint from the output object's own fields, so
+        // an advance after it re-reads the buffer reference and its cursor.
+        // Both stores land in room `ensure` has already reserved, so their
+        // order relative to the bookkeeping is free.
+        out_.advance(1 + row.spans[static_cast<size_t>(index)]);
+        // Two immediate stores on two arms, not one byte selected between two
+        // registers: the select is a register the *slot-offset* induction
+        // variable then does not get, and SysV x86-64 spilled it once per key
+        // for it (E26-P24). The branch is taken once per record and predicts.
+        if (index != 0) [[likely]] {
+            *cursor = ',';
+        } else {
+            *cursor = '{';
+        }
+        std::memcpy(cursor + 1,
+                    row.slots + static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
+                    SchemaCacheLease::kSlotBytes);
+    }
 
     /**
      * One-pass emit for a record inside an array-of-records
@@ -834,7 +922,7 @@ class Serializer {
         // With it, the placement is byte-for-byte what it was before the
         // general half existed. Re-verify with the disassembly, not by
         // reading: the attribute only raises the cost of getting it wrong.
-        if (!rawdict::available()) [[unlikely]]
+        if (!raw_dict_ok_) [[unlikely]]
             return write_mapping(object);
         Py_ssize_t entry_count = 0;
         const rawdict::Entry* entries = rawdict::entry_array(object, &entry_count);
@@ -863,12 +951,16 @@ class Serializer {
             entry_count = live;
         }
         const Py_ssize_t size = PyDict_GET_SIZE(object);
+        // `size == 0` is a fallback, not a width check, and it has to be tested
+        // before `entries[0]` below: the emit loop's first iteration is what
+        // writes the opening brace (`emit_slot_key`), so a zero-width record has
+        // to be somebody else's -- write_mapping writes `{}`.
         if (size == 0 || size > kMaxSchemaKeys || entry_count != size)
             return write_mapping(object);
         const size_t depth = map_depth_ + 1; // what MappingDepth will make it
-        if (depth >= kMaxCachedDepth || open_.size() >= static_cast<size_t>(depth_limit_))
+        if (depth >= kMaxCachedDepth || open_count_ >= static_cast<size_t>(depth_limit_))
             return write_mapping(object);
-        if (schemas_.size() <= depth)
+        if (schema_depths_ <= depth)
             grow_schemas(depth);
         auto& depth_schemas = schemas_[depth];
         if (depth_schemas.retired || entries[0].me_value == nullptr)
@@ -912,22 +1004,15 @@ class Serializer {
         }
 
         const MappingDepth level(map_depth_);
-        out_.ensure(1);
-        out_.put('{');
         DeferredOpen open_container(*this);
         RowLock values_lock;
         for (Py_ssize_t index = 0; index < size; ++index) {
-            // Re-indexed per iteration: a nested object may grow schemas_
-            // and move its elements (the write_mapping_body hazard).
-            const Schema& slot_row = schemas_[depth].ways[way];
-            out_.ensure(17);
-            char* cursor = out_.cursor();
-            *cursor = ',';
-            const auto skip = static_cast<size_t>(index != 0);
-            std::memcpy(cursor + skip,
-                        slot_row.slots + static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
-                        SchemaCacheLease::kSlotBytes);
-            out_.advance(skip + slot_row.spans[static_cast<size_t>(index)]);
+            // Re-indexed per iteration rather than held across it: a nested
+            // object may grow `schemas_` and move its elements (the
+            // write_mapping_body hazard). Holding it and reloading on a change
+            // of `schema_depths_` was tried and is not cheaper -- see E26-P24.
+            // The brace is key 0's separator; `emit_slot_key` says why.
+            emit_slot_key(schemas_[depth].ways[way], index);
             PyObject* const value = row[static_cast<size_t>(index)];
             if (!open_container.armed() && !is_plain_scalar(value)) {
                 // The one moment two things become true at once: this dict
@@ -985,7 +1070,7 @@ class Serializer {
 #if defined(STRATA_RAW_DICT_WALK)
         Py_ssize_t entry_count = 0;
         const rawdict::Entry* entries =
-            rawdict::available() ? rawdict::entry_array(object, &entry_count) : nullptr;
+            raw_dict_ok_ ? rawdict::entry_array(object, &entry_count) : nullptr;
         if (entries == nullptr) {
             // The fused writer's cold edge again, with the hole-tolerant
             // compaction behind it: this writer takes any width and any hole,
@@ -1075,8 +1160,7 @@ class Serializer {
         // record data skips the frame entirely. The depth guard keeps the
         // depth-limit contract byte-identical: at the boundary the framed
         // path runs and raises exactly as before.
-        if (cacheable && count > 0 && all_scalar &&
-            open_.size() < static_cast<size_t>(depth_limit_))
+        if (cacheable && count > 0 && all_scalar && open_count_ < static_cast<size_t>(depth_limit_))
             return write_mapping_body(object, count, own_from);
 
         const Frame frame(*this, object);
@@ -1115,6 +1199,12 @@ class Serializer {
     /// it from the frame twice per key in the loop below
     /// (build/evidence/E26-P6/CODEGEN.md §4a, H2). AAPCS64 never noticed.
     ///
+    /// @param count Keys in the staged row, **at least one**: both call sites
+    ///        send a zero-width dict elsewhere (`write_mapping` writes `{}`
+    ///        itself) and `DepthSchemas::select` already relies on it. The slot
+    ///        loop below now relies on it too -- the opening brace is its first
+    ///        key's separator byte, so a zero-width record would reach the
+    ///        closing brace having written no opening one.
     /// @param own_from The first index of the staged row that outlives a step
     ///        that can run user code: the index just past the first value that
     ///        can run any, or @p count for an all-scalar record, whose empty
@@ -1148,8 +1238,8 @@ class Serializer {
         // before it is already written, so what reaches the output is the row
         // the serializer read -- which is the row the fused writer emits too.
         RowLock values_lock(*this, lock_node(depth, 0), values, own_from, count);
-        if (schemas_.size() <= depth)
-            schemas_.resize(depth + 1);
+        if (schema_depths_ <= depth)
+            grow_schemas(depth);
 
         // Preparing the bytes costs about what writing them costs, so a schema
         // seen once would pay for a cache it never uses — measurably so on
@@ -1166,35 +1256,37 @@ class Serializer {
             prepared = true;
         }
 
-        out_.ensure(1);
-        out_.put('{');
         if (prepared && !schemas_[depth].ways[way].wide) {
+            // `"key":` — quotes, escapes and colon, prepared once, read from
+            // the schema's *inline* slot row: one separator byte plus one fixed
+            // 16-byte copy at a fixed stride, so the whole key stream for a
+            // record is one contiguous struct. That keeps the emit warm under
+            // the harness's per-call gc.collect(), whose traversal re-warms
+            // every dict's own internals while evicting heap side-structures (a
+            // blob/offsets layout paid cold hops per record under exactly that
+            // condition).
+            //
+            // The brace as key 0's separator, exactly as in the fused writer's
+            // loop: the two writers have to agree byte for byte, so they emit
+            // through the one `emit_slot_key`. Re-indexed every iteration
+            // rather than held by reference: a nested object may grow
+            // `schemas_` and move its elements.
             for (Py_ssize_t index = 0; index < count; ++index) {
-                // `"key":` — quotes, escapes and colon, prepared once, read
-                // from the schema's *inline* slot row: fused comma plus one
-                // fixed 16-byte copy at a fixed stride, so the whole key
-                // stream for a record is one contiguous struct. That keeps
-                // the emit warm under the harness's per-call gc.collect(),
-                // whose traversal re-warms every dict's own internals while
-                // evicting heap side-structures (a blob/offsets layout paid
-                // cold hops per record under exactly that condition).
-                //
-                // Re-indexed every iteration rather than held by reference: a
-                // nested object may grow `schemas_` and move its elements.
-                const Schema& schema = schemas_[depth].ways[way];
-                out_.ensure(17);
-                char* cursor = out_.cursor();
-                *cursor = ',';
-                const auto skip = static_cast<size_t>(index != 0);
-                std::memcpy(cursor + skip,
-                            schema.slots +
-                                static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
-                            SchemaCacheLease::kSlotBytes);
-                out_.advance(skip + schema.spans[static_cast<size_t>(index)]);
+                emit_slot_key(schemas_[depth].ways[way], index);
                 if (!write(values[index]))
                     return false;
             }
-        } else if (prepared) {
+            out_.ensure(1);
+            out_.put('}');
+            return true;
+        }
+
+        // The two fallbacks: a schema some span was too wide for, and a shape
+        // seen only once. Both keep the brace of their own, which the hot loop
+        // above folded into its first key.
+        out_.ensure(1);
+        out_.put('{');
+        if (prepared) {
             // Some span exceeded its slot: emit every key from the blob.
             for (Py_ssize_t index = 0; index < count; ++index) {
                 const Schema& schema = schemas_[depth].ways[way];
@@ -1328,7 +1420,7 @@ class Serializer {
             // the container out of its parent's slot. That is also what makes
             // every pointer this scan compares safe to compare against.
             if (!repeated_)
-                owner_.open_.push_back(container);
+                owner_.push_open(container);
         }
 
         ~Frame() {
@@ -1342,7 +1434,7 @@ class Serializer {
         [[nodiscard]] bool repeated() const noexcept { return repeated_; }
 
         [[nodiscard]] bool within_depth_limit() const {
-            if (static_cast<int>(owner_.open_.size()) <= owner_.depth_limit_)
+            if (static_cast<int>(owner_.open_count_) <= owner_.depth_limit_)
                 return true;
             PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
             return false;
@@ -1395,7 +1487,7 @@ class Serializer {
         DeferredOpen& operator=(const DeferredOpen&) = delete;
 
         void arm(PyObject* container) {
-            owner_.open_.push_back(container);
+            owner_.push_open(container);
             container_ = container;
         }
 
@@ -1488,7 +1580,7 @@ class Serializer {
         // counter moved: every borrowed loop bound above is then stale by
         // assumption, which is the safe answer.
         ++user_steps_;
-        while (owned_ < open_.size()) {
+        while (owned_ < open_count_) {
             Py_INCREF(open_[owned_]);
             ++owned_;
         }
@@ -1500,11 +1592,22 @@ class Serializer {
         }
     }
 
+    /// Push a container on `open_`. The only writer of the stack, so
+    /// `open_count_ == open_.size()` is a structural fact rather than a
+    /// convention two call sites have to remember: the depth checks and
+    /// `latch()` then read one integer instead of computing a vector's size
+    /// from its two pointers.
+    void push_open(PyObject* container) {
+        open_.push_back(container);
+        ++open_count_;
+    }
+
     /// Pop a container off `open_`, releasing it if the walk had latched it.
     void close_container(PyObject* container) {
         open_.pop_back();
-        if (owned_ > open_.size()) {
-            owned_ = open_.size();
+        --open_count_;
+        if (owned_ > open_count_) {
+            owned_ = open_count_;
             // This release can reach zero and fire a `__del__` or a weakref
             // callback -- the fourth user-code step -- so the counter moves
             // before it runs and every enclosing element loop re-derives its
@@ -1530,6 +1633,12 @@ class Serializer {
 
     StagedOutput& out_;
     std::vector<PyObject*> open_;
+    /// `open_.size()`, maintained by `push_open` and `close_container` -- the
+    /// only two functions that touch the stack. Every container pays the depth
+    /// check, and `std::vector::size()` is two loads, a subtract and a shift;
+    /// this is one load. The cycle probes still read `open_`'s iterators, which
+    /// they need anyway.
+    size_t open_count_ = 0;
     /**
      * Counts the walk's user-code steps: bumped once at every point where
      * this file's contract says Python can run, and never reset.
@@ -1577,7 +1686,16 @@ class Serializer {
     /// Innermost registered staged row; see RowLock.
     SchemaCacheLease::RowNode* rows_ = nullptr;
     size_t map_depth_ = 0; ///< dict nesting, independent of frame elision
+    /// `schemas_.size()`, maintained by `grow_schemas` -- the only function
+    /// that resizes the table. Read on the growth check of every dict, which
+    /// was a vector's two-pointer size computation before.
+    size_t schema_depths_;
     int depth_limit_;
+#if defined(STRATA_RAW_DICT_WALK)
+    /// `rawdict::available()`, resolved once in the constructor: both dict
+    /// writers consulted the guarded static per dict.
+    bool raw_dict_ok_;
+#endif
 
     // One prepared schema per nesting depth; leased, so it survives the call.
     std::vector<SchemaCacheLease::DepthSchemas>& schemas_;
