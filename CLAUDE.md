@@ -137,7 +137,7 @@ benchmark tooling exists again.
 
 ## Reading policy
 
-<!-- markdownlint-disable-next-line MD038 -- the grep pattern's trailing space is meant literally -->
+<!-- markdownlint-disable-next-line MD038 -- the trailing space in the grep pattern is meant literally -->
 
 - Before reading any file over 200 lines, get its symbol overview first (Serena `get_symbols_overview` if available, otherwise Grep for `def |class |function |export `). Then read only the symbols you need.
 - Never read a whole file to find one function. Locate it, then read that range.
