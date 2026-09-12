@@ -2990,48 +2990,28 @@ waits on it.
   and 34693855300, 13 s apart; archived under
   `build/evidence/benchmark-lead/p24/ci-<run>/`, the second placed in
   `docs/benchmarks/ci/`): **133/135** and **131/135** — the same count as the
-  revision before, and the row the trims were built for did not flip. What
-  the absolute times say about why:
+  revision before, and the row the trims were built for did not flip.
 
-  | leg, `dumps mixed`    | strata        | orjson        | ratio         |
-  | --------------------- | ------------- | ------------- | ------------- |
-  | linux-x86_64, ec53f93 | 0.065 / 0.092 | 0.071 / 0.122 | 0.92x / 0.75x |
-  | linux-x86_64, b32d398 | 0.050 / 0.048 | 0.048 / 0.048 | 1.04x / 1.00x |
-  | windows, ec53f93      | 0.076 / 0.075 | 0.071 / 0.069 | 1.07x / 1.09x |
-  | windows, b32d398      | 0.079 / 0.073 | 0.073 / 0.070 | 1.08x / 1.04x |
+- Which rows that leaves is no longer a matter of reading ratios by hand.
+  `make bench-cross` (`benchmarks/cross_sample.py`, tests in
+  `tests/unit/test_cross_sample.py`) reads the four archived samples of the
+  two revisions through the validated report path and writes
+  `docs/benchmarks/cross_sample.md`: every library's own median per draw, the
+  ratio, the host, and a verdict per row — behind on every draw, ahead on
+  every draw, or a rank the draw decided, with the widest spread an unchanged
+  rival showed across the samples as the scale of what one sample can
+  resolve. Its reading of these four samples, on the five rows the campaign
+  has been working:
 
-  The EPYC draws are a third faster for **both** engines than the earlier
-  pair (orjson 0.071 → 0.048), so that leg's ratio moved with its host, not
-  with the code: at 0.048 ms a single reporting unit is 2%. Windows kept the
-  same processor model throughout and its two samples of **one** binary read
-  0.079 and 0.073 — an 8% spread between draws 13 s apart, wider than the
-  6.89% the same-runner A/B resolved on that leg. So the standings instrument
-  cannot see this change on this row, which is exactly the separation the
-  campaign's protocol assumes: the paired A/B decides whether code is faster,
-  the samples decide rank, and a rank at 1.04x with a ±4% sampling spread is
-  a coin band, not a measurement.
+  - **one row is behind on every draw**: windows-x86_64 `dumps mixed`, and on
+    a leg whose rivals held still between draws — the deficit the trims cut
+    into and did not erase;
+  - **four rows have a rank the draw decided**, three of them where an
+    unchanged rival moved 87–155% between samples (linux-x86_64 `dumps mixed`, macos-arm64 file `dump mixed` and `dumps flat`) and one where the
+    rivals held (windows-x86_64 file `dump mixed`, won on one draw of four);
+  - the remaining twenty rows are ahead on every draw.
 
-- Standing after the trims: linux-x86_64 `dumps mixed` 1.05x and 1.01x,
-  Windows `dumps mixed` 1.07x and 1.05x, plus two one-off cells in the second
-  sample only (Windows file `dump mixed` 1.17x, macos-arm64 file `dump mixed`
-  1.04x against msgspec). Windows `dumps mixed` is the one row behind on
-  every sample of every revision this session: 1.06, 1.08, 1.07, 1.05x. No
-  135/135 is claimed.
-
-- A correction to how the x86 standings on this row should be read, from the
-  rivals' own absolute times. On linux-x86_64 `dumps mixed`, across the four
-  samples of the two revisions, **orjson** — an unchanged binary — reads
-  0.071, 0.122, 0.048, 0.048 ms and **msgspec** 0.089, 0.096, 0.068, 0.068,
-  while strata reads 0.065, 0.092, 0.050, 0.048. The two samples of b32d398
-  agree to the microsecond on all three engines; the two samples of ec53f93
-  agree with nothing, including each other. Read the agreeing pair and this
-  row is **parity on a clean host** (1.00x and 1.04x, a 0–2 µs difference on
-  48 µs), and the 27/27 that leg recorded on both samples of ec53f93 rested
-  on draws where every rival ran 50–150% slower than it does on a quiet one.
-  The same-runner A/B of the trims on that leg read this row −4.66%/−3.54%,
-  so the code moved the right way while the rank moved the other way: what
-  changed between the sample pairs is the host, not the serializer.
-  The accounting for the goal follows the agreeing evidence, not the
-  favourable draw: **two rows need real work, not one** — linux-x86_64
-  `dumps mixed` at parity and Windows `dumps mixed` 4–8% behind on a leg
-  whose parse rows prove its host is stable.
+  So the standing to work is Windows, on the two mixed rows, and the earlier
+  reading in this entry — that the linux-x86_64 row had become a parity row —
+  overstated what samples whose rivals move by that much can say. The numbers
+  themselves live in the generated document, not here.
