@@ -169,7 +169,9 @@ jobs:
           if [ -f "$binary.build.json" ]; then
             cp "$binary.build.json" arms/B.so.build.json
           else
-            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            # Python, not sha256sum: the Windows job hands this step a
+            # backslash path that the shell tools will not open.
+            digest=$(python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$BIN")
             printf '{"schema_version": 1, "unknown": "the candidate revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/B.so.build.json
           fi
           cp -R build/pgo ab/profile-B
@@ -199,7 +201,9 @@ jobs:
           if [ -f "$binary.build.json" ]; then
             cp "$binary.build.json" arms/A.so.build.json
           else
-            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            # Python, not sha256sum: the Windows job hands this step a
+            # backslash path that the shell tools will not open.
+            digest=$(python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$BIN")
             printf '{"schema_version": 1, "unknown": "the baseline revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/A.so.build.json
           fi
           cp -R ../base/build/pgo ab/profile-A
@@ -385,7 +389,9 @@ jobs:
           if [ -f "$candidate_binary.build.json" ]; then
             cp "$candidate_binary.build.json" arms/B.pyd.build.json
           else
-            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            # Python, not sha256sum: the Windows job hands this step a
+            # backslash path that the shell tools will not open.
+            digest=$(python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$BIN")
             printf '{"schema_version": 1, "unknown": "the candidate revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/B.pyd.build.json
           fi
           cp -R build/pgo ab/profile-B
@@ -420,7 +426,9 @@ jobs:
           if [ -f "$baseline_binary.build.json" ]; then
             cp "$baseline_binary.build.json" arms/A.pyd.build.json
           else
-            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            # Python, not sha256sum: the Windows job hands this step a
+            # backslash path that the shell tools will not open.
+            digest=$(python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" "$BIN")
             printf '{"schema_version": 1, "unknown": "the baseline revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/A.pyd.build.json
           fi
           cp -R ../base/build/pgo ab/profile-A
