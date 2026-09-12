@@ -2499,6 +2499,22 @@ change.
     EPYC small file `dump wide_arrays` +1.27% on a loaded draw. Merging is
     the user's call; two five-platform samples follow it.
 
+- Two five-platform samples of the merged revision ec53f93 (runs 34681733282
+  and 34681741789, 14 s apart, PGO on every leg; archived whole under
+  `build/evidence/benchmark-lead/p23/ci-<run>/`, the second placed in
+  `docs/benchmarks/ci/`): **133/135** and **131/135** — the best standing
+  recorded. The first has four platforms at 27/27, linux-x86_64 among them:
+  its `dumps mixed`, behind on both samples of c20ac86, is #1. The second
+  keeps both Linux legs and the i7 at 27/27 and adds three coin-band cells
+  (macos-arm64 `dumps flat` 1.01x, Windows file `dump nested` 1.00x, both at
+  the report's resolution). One row is behind on both draws and on the same
+  host (Family 25 Model 1): **Windows `dumps mixed`, 1.06x and 1.08x** —
+  strata 0.076/0.075 ms against orjson 0.071/0.069, a stable 6 µs on 500
+  records, about 12 ns per record. Windows file `dump mixed` reads 1.01x with
+  the same 6 µs inside a 386 µs row, so the file phase is not the gap: the
+  serialization is. No 135/135 is claimed; the goal now rests on one row of
+  one platform.
+
 **Disassembly method and codegen.** Each ISA compiled at the flags its legs
 build with, from a `git archive main` tree and the branch tree in turn:
 arm64 `clang++ -O3 -std=c++20 -DNDEBUG -march=native`, x86-64
