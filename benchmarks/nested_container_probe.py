@@ -189,6 +189,7 @@ def main() -> int:
     print()
     docs = documents()
     base_s = base_o = None
+    rival_deltas: dict[str, float] = {}
     print(
         f"{'document':16s} {'strata ms':>10s} {'orjson ms':>10s} {'ratio':>7s} "
         f"{'strata ns/rec':>13s} {'orjson ns/rec':>13s}  delta vs scalars-only (ns/record)"
@@ -200,6 +201,8 @@ def main() -> int:
             base_s, base_o = s, o
         ds = (s - base_s) * 1e6 / RECORDS
         do = (o - base_o) * 1e6 / RECORDS
+        if name != "scalars-only":
+            rival_deltas[name] = do
         extra = (
             ""
             if name == "scalars-only"
@@ -209,6 +212,19 @@ def main() -> int:
             f"{name:16s} {s:10.4f} {o:10.4f} {s / o:7.3f} "
             f"{s * 1e6 / RECORDS:13.1f} {o * 1e6 / RECORDS:13.1f}  {extra}"
         )
+    # A draw where the rival's own cost falls as the document grows measured
+    # the machine, not the library: every variant adds one value to the same
+    # 500 records, so orjson's delta against `scalars-only` can only be
+    # positive. Say so rather than let a throttled runner read as a finding.
+    backwards = [name for name, delta in rival_deltas.items() if delta < -1.0]
+    if backwards:
+        print()
+        print(
+            f"UNUSABLE DRAW: orjson is faster on {len(backwards)} row(s) that only add work "
+            f"({', '.join(backwards[:4])}{'...' if len(backwards) > 4 else ''}). "
+            "The runner was loaded; re-run before reading anything above."
+        )
+        return 1
     fused_against_general(repeat)
     return 0
 
