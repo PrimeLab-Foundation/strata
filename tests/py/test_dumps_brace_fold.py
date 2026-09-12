@@ -7,14 +7,21 @@ on the paths that deliberately do not: a shape seen once (keys written the plain
 way), a span too wide for an inline slot (the blob fallback), and a zero-width
 dict, which has no first key to carry the brace and must reach `write_mapping`.
 
-Every assertion is against stdlib `json` compact output, the oracle named in
+Every byte assertion is against stdlib `json` compact output, the oracle named in
 docs/context/workflow.md, and every one repeats the document: the schema cache
 remembers a shape on its first sighting and prepares its bytes on the second, so
 the first call exercises the plain key walk and the later ones the slot loop.
+Because an oracle comparison passes whether or not the prepared path ran, the
+file also carries one *liveness* assertion, on the documented mutation rule
+(`test_a_narrow_record_is_emitted_as_the_row_read_on_entry`): that one fails the
+moment a narrow record stops being emitted from its staged row.
 """
 
 import json
+import sys
 import threading
+
+import pytest
 
 import strata
 
@@ -163,20 +170,97 @@ def test_a_document_longer_than_the_stage_opens_every_record():
 def test_the_open_container_count_still_bounds_the_depth():
     """The depth check reads a counter now, not the open-container vector.
 
-    Dicts and lists share that stack, so the limit has to answer the same for a
-    document nested either way, and for one that alternates.
+    So the bound itself is re-pinned here, at the real limit rather than near it:
+    N open containers serialize and one more raises, where N is
+    `sys.getrecursionlimit()` at the moment of the call (docs/context/api.md).
+    Dicts and lists share that stack, so the answer has to be the same for a
+    document nested either way and for one that alternates, and the container
+    that goes one past the limit is a list in all three cases. The limit is
+    lowered and restored in a try/finally, per the styleguide's deep-nesting
+    rule; the exact boundary for each shape on its own is pinned in
+    tests/unit/test_dumps_contract.py.
     """
 
+    def stack_depth():
+        depth = 0
+        frame = sys._getframe()
+        while frame is not None:
+            depth += 1
+            frame = frame.f_back
+        return depth
+
     def body():
-        limit = 96
-        for build in (
+        builds = (
             lambda node: {'child': node},
             lambda node: [node],
             lambda node: {'child': [node]},
-        ):
-            node = 1
-            for _ in range(limit):
-                node = build(node)
-            assert strata.dumps(node) == compact(node)
+        )
+        saved = sys.getrecursionlimit()
+        # Room for the interpreter's own frames; the serializer's containers are
+        # C++ frames, not Python ones.
+        limit = max(300, stack_depth() + 120)
+        try:
+            sys.setrecursionlimit(limit)
+            for build in builds:
+                # `{'child': [node]}` opens two containers per level.
+                per_level = 2 if build(1) == {'child': [1]} else 1
+                node = 1
+                for _ in range(limit // per_level):
+                    node = build(node)
+                at_limit = strata.dumps(node)
+                # It really did emit that many containers (the leaf is a bare 1).
+                assert at_limit.count('{') + at_limit.count('[') == limit // per_level * per_level
+                for return_type in ('str', 'bytes'):
+                    with pytest.raises(ValueError, match='^Maximum serialization depth exceeded$'):
+                        strata.dumps([node], return_type=return_type)
+        finally:
+            sys.setrecursionlimit(saved)
+
+    in_fresh_cache(body)
+
+
+def test_a_narrow_record_is_emitted_as_the_row_read_on_entry():
+    """The file's liveness guard: it fails if the prepared-slot path stops running.
+
+    Every other assertion here compares against stdlib `json`, so all of them
+    would still pass with the fold, the schema cache and the fused writer
+    removed. This one cannot: docs/context/api.md's mutation rule says a dict of
+    **at most 24** exact-`str` keys is emitted as the row the serializer read on
+    entry, while a wider one is followed live -- and that difference exists only
+    because the narrow record is emitted from a staged row through the prepared
+    slot loop. The user code is the one api.md names for this: `__str__` of an
+    `int` subclass beyond int64.
+    """
+
+    class Grower(int):
+        """Adds a key to the record being emitted, from inside its own `__str__`."""
+
+        target = None
+
+        def __str__(self):
+            if Grower.target is not None:
+                Grower.target['added'] = 'late'
+            return int.__str__(self)
+
+    def emit(width, return_type):
+        record = {f'k{index}': index for index in range(width - 1)}
+        record['big'] = Grower(2**70)
+        Grower.target = record
+        try:
+            out = strata.dumps(record, return_type=return_type)
+        finally:
+            Grower.target = None
+        return out.decode() if return_type == 'bytes' else out
+
+    def body():
+        for return_type in ('str', 'bytes'):
+            for width in (1, 2, 24):
+                text = emit(width, return_type)
+                # The row read on entry: the key user code added is not in it.
+                assert '"added"' not in text
+                assert text.endswith('"big":1180591620717411303424}')
+            # Past kMaxSchemaKeys the same dict is followed live, and does show it.
+            text = emit(25, return_type)
+            assert text.endswith('"big":1180591620717411303424,"added":"late"}')
 
     in_fresh_cache(body)

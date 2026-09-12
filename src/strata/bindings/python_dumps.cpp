@@ -112,6 +112,7 @@
 #include "strata/util/scan.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
@@ -762,9 +763,18 @@ class Serializer {
      * bounds the recursion one container later. Codegen (2026-09-11 review,
      * both ISAs): this wrapper inlines into write() as two tail calls, with
      * no new spill and write()'s frame unchanged.
+     *
+     * The emptiness test is `open_.empty()` and **not** `open_count_`, which
+     * every *depth* check reads: `empty()` compiles to the very two-pointer
+     * load and compare `std::find`'s own begin-vs-end entry test needs, so the
+     * short-circuit costs nothing, while a separate counter is a field clang
+     * cannot fold with that test -- it cannot prove the two agree -- and the
+     * probe then pays a load and a branch of its own ahead of a test it still
+     * performs. Measured: +2 instructions in `write()` on arm64 and +3 on
+     * x86-64, on the path this file exists to make fast (E26-P24 review).
      */
     [[nodiscard]] bool write_record_fused_value(PyObject* object) {
-        if (open_count_ != 0 && std::find(open_.begin(), open_.end(), object) != open_.end())
+        if (!open_.empty() && std::find(open_.begin(), open_.end(), object) != open_.end())
             return write_mapping(object);
         return write_record_fused(object);
     }
@@ -818,37 +828,65 @@ class Serializer {
      */
     /// Both growth sites route here, which is what keeps `schema_depths_` and
     /// `schemas_.size()` one fact -- the growth check on every dict reads the
-    /// counter.
+    /// counter. The growth is monotone and the counter is taken *from the
+    /// vector* rather than from the argument, so the two cannot disagree in the
+    /// destructive direction: were a future edit to resize the table directly
+    /// and leave the counter stale low, this would otherwise shrink it, freeing
+    /// `DepthSchemas` rows -- and, on a re-entrant lease, the keys
+    /// `release_keys` owes -- out from under the frames still holding them.
     STRATA_COLD_FN void grow_schemas(size_t depth) {
-        schemas_.resize(depth + 1);
-        schema_depths_ = depth + 1;
+        if (schemas_.size() < depth + 1)
+            schemas_.resize(depth + 1);
+        schema_depths_ = schemas_.size();
     }
 
     /**
-     * Emit `<sep>"key":` for slot @p index of @p row.
+     * Emit one separator byte and `"key":` for slot @p index of @p row.
+     *
+     * The separator byte is chosen *here*, from @p index and nothing else:
+     * `'{'` for a record's first key (@p index == 0) and `','` for every key
+     * after it. Nothing is passed in, and *that is the whole of the opening
+     * brace* -- it rides the first key's reservation instead of taking an
+     * `ensure`/`put` pair of its own, which is one capacity check, one store
+     * and one size update fewer per dict (E26-P24).
      *
      * One separator byte and the slot's fixed 16-byte copy, under one
-     * reservation of 17 -- exactly the window this has always written. @p sep
-     * is `'{'` for a record's first key and `','` for every key after it, and
-     * *that is the whole of the opening brace*: it rides the first key's
-     * reservation instead of taking an `ensure`/`put` pair of its own, which is
-     * one capacity check, one store and one size update fewer per dict
-     * (E26-P24).
+     * reservation of 17 -- exactly the window this has always written. The
+     * first key is no longer special in the copy, either: the payload lands at
+     * a fixed `+1` in every iteration, where it used to land at `+skip` with
+     * `skip` computed from `index != 0` and added to the advance. The
+     * `index != 0` test costs what that computation did -- a compare and a
+     * select -- so the brace comes out free at every record width, rather than
+     * by peeling key 0 (measured: a peel is worth 23 instructions a record on
+     * arm64 and costs SysV x86-64 a second induction variable, a spill per key
+     * and 21-key `flat` records more than it saves; E26-P24).
      *
-     * The first key is no longer special in the copy, either: the payload lands
-     * at a fixed `+1` in every iteration, where it used to land at `+skip` with
-     * `skip` computed from `index != 0` and added to the advance. The caller's
-     * `index != 0 ? ',' : '{'` costs what that computation did -- a compare and
-     * a select -- so the brace comes out free at every record width, rather
-     * than by peeling key 0 (measured: a peel is worth 23 instructions a record
-     * on arm64 and costs SysV x86-64 a second induction variable, a spill per
-     * key and 21-key `flat` records more than it saves; E26-P24).
+     * What the two ISAs actually make of the two-arm branch, read off the
+     * shipped source's disassembly rather than assumed (E26-P24's review):
+     * *neither* keeps a branch. arm64 if-converts to `cmp`/`csel`/`strb` with
+     * both constants hoisted above the loop (`mov w24,#123`, `mov w25,#44`), and
+     * that second loop-live constant is where this writer's arm64 frame grows 16
+     * bytes and takes one more spill store -- the fold's price, measured against
+     * the same source with the fold removed. x86-64 if-converts too, to
+     * `testq`/`movl $44`/`movl $123`/`cmovel`/`movb`, with the constants
+     * materialised in the loop body and no frame change. A `[[likely]]` on
+     * `index != 0` was tried and dropped: it is false on *every* iteration of
+     * the one-key records this change exists to speed up, and it did exactly
+     * what that says -- clang moved the brace store out of line and cost
+     * `write_record_fused` three x86-64 instructions, for nothing on arm64.
+     * The layout stays the optimizer's to pick from the shape of the code,
+     * which is the rule this file's other placement notes follow.
      *
      * Both dict writers emit their keys through this one body, which is what
-     * keeps them byte-identical; `STRATA_INLINE_HOT` is what keeps that from
-     * costing a call per key (see the macro's own note).
+     * keeps them byte-identical. `inline` and no attribute: the always_inline
+     * this shipped with is inert here -- byte-identical assembly for the whole
+     * translation unit, with and without it, in six configurations
+     * (`-O3 -march=native`, `-O3`, `-O2`, `-Os`; arm64 and the x86-64 leg's
+     * flags) and no out-of-line `emit_slot_key` symbol in any of them -- so the
+     * file does not carry a third placement macro it cannot defend with a
+     * number.
      */
-    STRATA_INLINE_HOT void emit_slot_key(const Schema& row, Py_ssize_t index) {
+    inline void emit_slot_key(const Schema& row, Py_ssize_t index) {
         out_.ensure(1 + SchemaCacheLease::kSlotBytes);
         char* cursor = out_.cursor();
         // The size update is taken *before* the bytes are stored, and that is
@@ -858,11 +896,7 @@ class Serializer {
         // Both stores land in room `ensure` has already reserved, so their
         // order relative to the bookkeeping is free.
         out_.advance(1 + row.spans[static_cast<size_t>(index)]);
-        // Two immediate stores on two arms, not one byte selected between two
-        // registers: the select is a register the *slot-offset* induction
-        // variable then does not get, and SysV x86-64 spilled it once per key
-        // for it (E26-P24). The branch is taken once per record and predicts.
-        if (index != 0) [[likely]] {
+        if (index != 0) {
             *cursor = ',';
         } else {
             *cursor = '{';
@@ -1006,6 +1040,14 @@ class Serializer {
         const MappingDepth level(map_depth_);
         DeferredOpen open_container(*this);
         RowLock values_lock;
+        // The precondition the brace fold creates, made executable: the loop's
+        // first iteration is what opens the object, so a zero-width record would
+        // reach the closing brace having written no opening one -- invalid JSON,
+        // silently, which is the shape of a bug this file has had before (see
+        // write_mapping_body's own note). The `size == 0` fallback above is what
+        // holds it; NDEBUG strips this, so release codegen is untouched and the
+        // debug and sanitizer builds check it on every record they emit.
+        assert(size > 0);
         for (Py_ssize_t index = 0; index < size; ++index) {
             // Re-indexed per iteration rather than held across it: a nested
             // object may grow `schemas_` and move its elements (the
@@ -1225,6 +1267,13 @@ class Serializer {
         const size_t depth = map_depth_;
         if (depth >= kMaxCachedDepth)
             return write_mapping_uncached(object);
+
+        // The documented precondition, executable: the slot loop below opens the
+        // object with its first key's separator byte, so a zero-width record
+        // would emit `}` with no `{`. Both callers send one elsewhere; NDEBUG
+        // strips this, so it costs release codegen nothing and the debug and
+        // sanitizer builds check every record.
+        assert(count > 0);
 
         // The row the caller staged for this level, re-derived rather than
         // passed: same address, two argument registers cheaper (see above).
@@ -1634,10 +1683,13 @@ class Serializer {
     StagedOutput& out_;
     std::vector<PyObject*> open_;
     /// `open_.size()`, maintained by `push_open` and `close_container` -- the
-    /// only two functions that touch the stack. Every container pays the depth
+    /// only two functions that touch the stack. Every container pays the *depth*
     /// check, and `std::vector::size()` is two loads, a subtract and a shift;
-    /// this is one load. The cycle probes still read `open_`'s iterators, which
-    /// they need anyway.
+    /// this is one load. That is the whole of what the counter is for: the
+    /// cycle probes still read `open_`'s iterators, which they need anyway, and
+    /// `write_record_fused_value`'s emptiness test stays on `open_.empty()`
+    /// because that one compiles into `std::find`'s own entry test while the
+    /// counter cannot (see that function's note).
     size_t open_count_ = 0;
     /**
      * Counts the walk's user-code steps: bumped once at every point where
