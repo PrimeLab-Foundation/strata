@@ -127,8 +127,66 @@ def fused_against_general(repeat: int) -> None:
         )
 
 
+def report_writer_state() -> None:
+    """Say which dict writer this build actually runs, and on which tables.
+
+    Nothing exposes `rawdict::available()`, but its two consequences are
+    observable. The fused record writer is the only path that emits a repeated
+    dict reached as a list element once more before the cycle placeholder
+    (docs/context/api.md, cycle_policy), so the shape of that output says
+    whether the raw walk proved out. And a record `strata.loads` built carries
+    a general-kind table, which only the compaction accepts (E26-P23), so its
+    round trip against the same data built by the stdlib parser says whether
+    that half proved out too. A leg where either reads "off" is paying
+    `PyDict_Next` per dict, which no amount of tuning above it can recover.
+    """
+    import json as _json
+    import warnings
+
+    keys = [f"k{index}" for index in range(6)]
+
+    def record(inner):
+        shape = {key: index for index, key in enumerate(keys)}
+        shape[keys[-1]] = inner
+        return shape
+
+    # The repeat sits one dict depth below the element, so the warm document
+    # has to prepare that depth too -- the cache is keyed by dict depth.
+    warm = [record([record([record(0)])])]
+    for _ in range(3):
+        strata.dumps(warm, return_type="bytes")
+    cyclic = record(None)
+    cyclic[keys[-1]] = [cyclic]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        emitted = strata.dumps([cyclic])
+    # The early form is one record then the placeholder, the late form emits
+    # the repeat once more first: one brace against two.
+    late = emitted.count("{") >= 2
+    print(
+        f"fused record writer: {'live' if late else 'OFF (raw walk refused)'}  ({emitted[:60]}...)"
+    )
+
+    text = _json.dumps([{f"f{i}": i for i in range(11)} for _ in range(500)])
+    built_by_stdlib = _json.loads(text)
+    built_by_strata = strata.loads(text)
+    for _ in range(3):
+        strata.dumps(built_by_stdlib, return_type="bytes")
+        strata.dumps(built_by_strata, return_type="bytes")
+    stdlib_ms = median_call(lambda: strata.dumps(built_by_stdlib, return_type="bytes"), 40)
+    strata_ms = median_call(lambda: strata.dumps(built_by_strata, return_type="bytes"), 40)
+    ratio = strata_ms / stdlib_ms
+    state = "live" if ratio < 1.2 else "OFF (general tables take the general writer)"
+    print(
+        f"general-table compaction: {state}  "
+        f"(strata-parsed {strata_ms:.4f} ms / stdlib-parsed {stdlib_ms:.4f} ms = {ratio:.3f})"
+    )
+
+
 def main() -> int:
     repeat = int(sys.argv[1]) if len(sys.argv) > 1 else 60
+    report_writer_state()
+    print()
     docs = documents()
     base_s = base_o = None
     print(
