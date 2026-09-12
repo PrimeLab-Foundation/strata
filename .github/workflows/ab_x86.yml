@@ -165,10 +165,12 @@ jobs:
           # A revision from before the provenance layer emits no sidecar
           # (docs/context/benchmarks.md: missing historical identities stay
           # unknown). Record that instead of failing the comparison.
+          BIN="$binary"
           if [ -f "$binary.build.json" ]; then
             cp "$binary.build.json" arms/B.so.build.json
           else
-            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "candidate" > arms/B.so.build.json
+            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            printf '{"schema_version": 1, "unknown": "the candidate revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/B.so.build.json
           fi
           cp -R build/pgo ab/profile-B
           echo "B $(git rev-parse --short HEAD) $(md5sum arms/B.so 2>/dev/null || md5 -q arms/B.so)" | tee -a ab/arms.txt
@@ -193,10 +195,12 @@ jobs:
           # A revision from before the provenance layer emits no sidecar
           # (docs/context/benchmarks.md: missing historical identities stay
           # unknown). Record that instead of failing the comparison.
+          BIN="$binary"
           if [ -f "$binary.build.json" ]; then
             cp "$binary.build.json" arms/A.so.build.json
           else
-            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "baseline" > arms/A.so.build.json
+            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            printf '{"schema_version": 1, "unknown": "the baseline revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/A.so.build.json
           fi
           cp -R ../base/build/pgo ab/profile-A
           echo "A $(git -C ../base rev-parse --short HEAD) $(md5sum arms/A.so 2>/dev/null || md5 -q arms/A.so)" | tee -a ab/arms.txt
@@ -377,10 +381,12 @@ jobs:
           # A revision from before the provenance layer emits no sidecar
           # (docs/context/benchmarks.md: missing historical identities stay
           # unknown). Record that instead of failing the comparison.
+          BIN="$candidate_binary"
           if [ -f "$candidate_binary.build.json" ]; then
             cp "$candidate_binary.build.json" arms/B.pyd.build.json
           else
-            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "candidate" > arms/B.pyd.build.json
+            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            printf '{"schema_version": 1, "unknown": "the candidate revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/B.pyd.build.json
           fi
           cp -R build/pgo ab/profile-B
           python -m pip freeze --exclude-editable > ab/constraints.txt
@@ -410,10 +416,12 @@ jobs:
           # A revision from before the provenance layer emits no sidecar
           # (docs/context/benchmarks.md: missing historical identities stay
           # unknown). Record that instead of failing the comparison.
+          BIN="$baseline_binary"
           if [ -f "$baseline_binary.build.json" ]; then
             cp "$baseline_binary.build.json" arms/A.pyd.build.json
           else
-            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "baseline" > arms/A.pyd.build.json
+            digest=$(sha256sum "$BIN" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$BIN" | cut -d' ' -f1)
+            printf '{"schema_version": 1, "unknown": "the baseline revision predates build identity", "extension_sha256": "%s", "complete_compilation": null, "source": {"commit": null}}\n' "$digest" > arms/A.pyd.build.json
           fi
           cp -R ../base/build/pgo ab/profile-A
 
