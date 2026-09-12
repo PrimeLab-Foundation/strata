@@ -735,6 +735,55 @@ class Serializer {
         return write_record_fused(object);
     }
 
+#if defined(STRATA_RAW_DICT_WALK)
+    /**
+     * The general half of each writer's entry-array edge: the layout bit,
+     * then the compaction, into this lease's scratch.
+     *
+     * Both are members, and neither takes the scratch as a parameter,
+     * precisely so that nothing about the scratch is materialized before the
+     * call: `this` is already live in both writers, and the callee loads
+     * `general_scratch_` off it on the arm that actually uses it. The
+     * accessor shape this replaces (a free function taking `Entry*`) cost the
+     * *unicode* path one dead load per record in `write_record_fused` on both
+     * ISAs, and two in `write_mapping` on x86-64 — a frame reload of `this`
+     * plus the field — because the argument had to exist before the branch.
+     *
+     * `noinline` + `cold` keep the bodies out of the hot writers' text: on ELF
+     * — both Linux legs — that is `.text.unlikely.`, and the whole probe chain
+     * in python_rawdict.h carries the same attribute for the same reason. The
+     * *call site* is one block on an edge that already ended in a tail call,
+     * which is all the attribute can promise; where the placer puts that block
+     * under `-fprofile-use` is measured, not asserted (E26-P23 in
+     * docs/performance/experiment-ledger.md).
+     */
+    [[nodiscard]] STRATA_COLD_FN Py_ssize_t compact_general_exact(PyObject* object) noexcept {
+        if (!rawdict::general_available())
+            return -1;
+        return rawdict::compact_general_exact_unchecked(object, general_scratch_);
+    }
+
+    /// The same for `write_mapping`, which tolerates holes and any width.
+    [[nodiscard]] STRATA_COLD_FN Py_ssize_t compact_general_holes(PyObject* object) noexcept {
+        if (!rawdict::general_available())
+            return -1;
+        return rawdict::compact_general_holes_unchecked(object, general_scratch_);
+    }
+#endif
+
+    /**
+     * Grow the per-depth schema table. Out of line and `cold` because it is
+     * reached once per depth per lease and the inliner otherwise pulls
+     * `std::vector::resize` — its `__append` call *and* a `DepthSchemas`
+     * destructor loop — into `write_record_fused`'s prologue, between the
+     * width checks and the schema-way chain. Measured while the general walk
+     * landed: that inlining alone was most of the instruction growth the
+     * compaction was credited with (~14 of 22 on arm64). Naming it keeps the
+     * decision explicit instead of leaving it to the inliner's remaining
+     * budget on the next unrelated edit.
+     */
+    STRATA_COLD_FN void grow_schemas(size_t depth) { schemas_.resize(depth + 1); }
+
     /**
      * One-pass emit for a record inside an array-of-records
      * (docs/architecture/fused_record_writer.md): the entry array is walked
@@ -775,29 +824,44 @@ class Serializer {
      */
     [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
 #if defined(STRATA_RAW_DICT_WALK)
-        Py_ssize_t entry_count = 0;
-        // A unicode table's own entry array, or -- on the branch that already
-        // refused everything else, out of line and `cold` -- a general table
-        // compacted into this lease's scratch. `entry_count` is `dk_nentries`
-        // in the first case and the compacted count in the second, and the
-        // compaction only accepts a table whose two agree, so the width check
-        // below rejects a holed general table exactly as it rejects a holed
-        // unicode one. The unicode path never reads the scratch, but it does
-        // carry one load of the pointer: the scheduler hoists it above the
-        // branch, off a cache line this frame is already on. Measured at no
-        // cost -- json-built payloads read 0.995-1.006x across an alternating
-        // A/B of two plain builds (docs/decisions.md, 2026-09-12).
-        //
-        // Written as one expression, like write_mapping's, so the two
-        // refusals -- an unproved layout and an unwalkable table -- still
-        // share a single `write_mapping` tail edge; two separate edges let
-        // block placement pull their merged epilogue into the hot prologue.
-        const rawdict::Entry* entries =
-            rawdict::available()
-                ? rawdict::fused_entry_array(object, &entry_count, general_scratch_)
-                : nullptr;
-        if (entries == nullptr)
+        // `[[unlikely]]` is load-bearing, and it is about *placement*, not
+        // about this test's cost: a refused layout means a future CPython
+        // moved the keys table, which is rare by construction. Without the
+        // hint clang merges this refusal with the one below it and lays the
+        // merged epilogue in the fallthrough of this very branch, so the
+        // unicode path takes a branch where it used to fall through and the
+        // first dict-layout load moves ~150 bytes further from the entry.
+        // With it, the placement is byte-for-byte what it was before the
+        // general half existed. Re-verify with the disassembly, not by
+        // reading: the attribute only raises the cost of getting it wrong.
+        if (!rawdict::available()) [[unlikely]]
             return write_mapping(object);
+        Py_ssize_t entry_count = 0;
+        const rawdict::Entry* entries = rawdict::entry_array(object, &entry_count);
+        if (entries == nullptr) {
+            // The edge that already refused everything but a combined unicode
+            // table. A *general* table -- what `_PyDict_NewPresized` hands
+            // strata's own parser for every record above five keys, 3.11-3.14
+            // -- is compacted into this lease's scratch instead, out of line
+            // and `cold`. Nothing above this point moved: `entry_array` is
+            // still inlined into the same three loads and two branches, and
+            // the scratch is found by the callee off `this`, so the unicode
+            // path loads nothing new (measured per ISA: the E26-P23 ledger
+            // entry; `write`, `write_sequence`, `write_mapping_body` and both
+            // per-key loops are instruction-identical to the revision before
+            // this change, on arm64 and on x86-64 at the flags the x86 legs
+            // build with).
+            //
+            // `entry_count` becomes the compacted count, and the compaction
+            // accepts only a table whose `dk_nentries` equals its size, so the
+            // width check below rejects a holed general table exactly as it
+            // rejects a holed unicode one.
+            const Py_ssize_t live = compact_general_exact(object);
+            if (live < 0)
+                return write_mapping(object);
+            entries = general_scratch_;
+            entry_count = live;
+        }
         const Py_ssize_t size = PyDict_GET_SIZE(object);
         if (size == 0 || size > kMaxSchemaKeys || entry_count != size)
             return write_mapping(object);
@@ -805,7 +869,7 @@ class Serializer {
         if (depth >= kMaxCachedDepth || open_.size() >= static_cast<size_t>(depth_limit_))
             return write_mapping(object);
         if (schemas_.size() <= depth)
-            schemas_.resize(depth + 1);
+            grow_schemas(depth);
         auto& depth_schemas = schemas_[depth];
         if (depth_schemas.retired || entries[0].me_value == nullptr)
             return write_mapping(object);
@@ -920,14 +984,21 @@ class Serializer {
 
 #if defined(STRATA_RAW_DICT_WALK)
         Py_ssize_t entry_count = 0;
-        // Same accessor shape as the fused writer's, with the hole-tolerant
-        // compaction behind it: a general table arrives here with its deleted
-        // slots already removed, so `entry_count` is the live count and the
-        // skip below simply never fires for it.
         const rawdict::Entry* entries =
-            rawdict::available()
-                ? rawdict::mapping_entry_array(object, &entry_count, general_scratch_)
-                : nullptr;
+            rawdict::available() ? rawdict::entry_array(object, &entry_count) : nullptr;
+        if (entries == nullptr) {
+            // The fused writer's cold edge again, with the hole-tolerant
+            // compaction behind it: this writer takes any width and any hole,
+            // so a general table arrives with its deleted slots already
+            // removed, `entry_count` is the live count, and the skip below
+            // simply never fires for it. Same reason as there for finding the
+            // scratch in the callee rather than passing it.
+            const Py_ssize_t live = compact_general_holes(object);
+            if (live >= 0) {
+                entries = general_scratch_;
+                entry_count = live;
+            }
+        }
         if (entries != nullptr) {
             for (Py_ssize_t index = 0; index < entry_count; ++index) {
                 PyObject* value = entries[index].me_value;

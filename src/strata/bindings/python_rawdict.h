@@ -8,6 +8,13 @@
  * self-contained: it needs `PyRef` and nothing else of the serializer. Both
  * dict writers in python_dumps.cpp read a record through it, and the layout
  * proof that gates it resolves once at import, in `prepare_dumps_runtime`.
+ *
+ * Everything here is either inlined into a writer's hot path (`entry_array`,
+ * the two `*_available` bits) or runs once per process / on an already-refused
+ * edge — and everything in the second group carries `STRATA_COLD_FN`. That is
+ * not decoration: on ELF, `cold` is what puts a body in `.text.unlikely.`, and
+ * the probe chain below is ~3.3 KB of import-only code that would otherwise be
+ * emitted inside the serializer's hot cluster on the Linux legs.
  */
 
 #include "python_types.h"
@@ -140,8 +147,13 @@ constexpr Py_ssize_t kScratchEntries = 25;
 /// a holed or over-wide general dict is refused at the same three loads it
 /// costs today, and the scan is bounded by the dict's *size*, never by
 /// `dk_nentries` (which a dict that once held a million keys still carries).
-[[nodiscard]] inline Py_ssize_t compact_general_exact_unchecked(PyObject* dict,
-                                                                Entry* out) noexcept {
+///
+/// `_unchecked` because the layout bit is the caller's: the serializer's cold
+/// wrapper tests `general_available()` first, and the probe below calls this
+/// *before* that bit exists -- running it against the `PyDict_Next` oracle is
+/// what establishes it.
+[[nodiscard]] inline STRATA_COLD_FN Py_ssize_t
+compact_general_exact_unchecked(PyObject* dict, Entry* out) noexcept {
     Py_ssize_t nentries = 0;
     const GeneralEntry* source = general_entries(dict, &nentries);
     if (source == nullptr)
@@ -164,8 +176,8 @@ constexpr Py_ssize_t kScratchEntries = 25;
 /// this dict is not a walkable general table. The cap is what bounds the scan
 /// on a sparse table; `write_mapping`'s own walk is `dk_nentries`-long either
 /// way, so nothing here is longer than the fallback it replaces.
-[[nodiscard]] inline Py_ssize_t compact_general_holes_unchecked(PyObject* dict,
-                                                                Entry* out) noexcept {
+[[nodiscard]] inline STRATA_COLD_FN Py_ssize_t
+compact_general_holes_unchecked(PyObject* dict, Entry* out) noexcept {
     Py_ssize_t nentries = 0;
     const GeneralEntry* source = general_entries(dict, &nentries);
     if (source == nullptr)
@@ -189,7 +201,7 @@ constexpr Py_ssize_t kScratchEntries = 25;
 /// probe reaches the production shape (a general table whose live keys are
 /// all exact `str`) without calling `_PyDict_NewPresized` and so without
 /// resting the proof on one internal API's current behaviour.
-[[nodiscard]] inline PyObject* probe_subclass_key() {
+[[nodiscard]] inline STRATA_COLD_FN PyObject* probe_subclass_key() {
     PyRef bases(PyTuple_Pack(1, reinterpret_cast<PyObject*>(&PyUnicode_Type)));
     PyRef namespace_dict(PyDict_New());
     if (!bases || !namespace_dict)
@@ -202,7 +214,8 @@ constexpr Py_ssize_t kScratchEntries = 25;
 }
 
 /// Insert `"<prefix><index>": index` for @p index in [0, count) into @p dict.
-[[nodiscard]] inline bool probe_fill_str(PyObject* dict, const char* prefix, int count) {
+[[nodiscard]] inline STRATA_COLD_FN bool probe_fill_str(PyObject* dict, const char* prefix,
+                                                        int count) {
     char name[32];
     for (int index = 0; index < count; ++index) {
         std::snprintf(name, sizeof(name), "%s%d", prefix, index);
@@ -216,7 +229,7 @@ constexpr Py_ssize_t kScratchEntries = 25;
 /// Insert `index: index` for @p index in [0, count) into @p dict. Integer
 /// keys are the cheapest way to a wide general table -- and the first one is
 /// what makes the table general at all.
-[[nodiscard]] inline bool probe_fill_int(PyObject* dict, int count) {
+[[nodiscard]] inline STRATA_COLD_FN bool probe_fill_int(PyObject* dict, int count) {
     for (int index = 0; index < count; ++index) {
         PyRef key(PyLong_FromLong(index));
         PyRef value(PyLong_FromLong(index));
@@ -227,7 +240,7 @@ constexpr Py_ssize_t kScratchEntries = 25;
 }
 
 /// Walk @p dict's unicode entry array in lock step with `PyDict_Next`.
-[[nodiscard]] inline bool probe_unicode_dict(PyObject* dict, bool wide) {
+[[nodiscard]] inline STRATA_COLD_FN bool probe_unicode_dict(PyObject* dict, bool wide) {
     Py_ssize_t entry_count = 0;
     const Entry* entries = entry_array(dict, &entry_count);
     if (entries == nullptr)
@@ -270,8 +283,8 @@ constexpr Py_ssize_t kScratchEntries = 25;
 /// long strings with unrelated hashes; the wide witness's integer keys hash
 /// to themselves, so there the check is weaker than the pointer comparisons
 /// beside it -- stated rather than claimed away.
-[[nodiscard]] inline bool probe_general_dict(PyObject* dict, Entry* scratch, bool wide,
-                                             bool holed) {
+[[nodiscard]] inline STRATA_COLD_FN bool probe_general_dict(PyObject* dict, Entry* scratch,
+                                                            bool wide, bool holed) {
     auto* keys =
         reinterpret_cast<const KeysPrefix*>(reinterpret_cast<PyDictObject*>(dict)->ma_keys);
     if (keys->dk_kind != kKindGeneral)
@@ -349,7 +362,7 @@ enum : unsigned {
 /// layout leaves the other's fast path alone; each half's failure only turns
 /// its own walk off, and both resolve together at import
 /// (`prepare_dumps_runtime`) so no walk can be the first to allocate a dict.
-[[nodiscard]] inline unsigned probe_unicode_layout() {
+[[nodiscard]] inline STRATA_COLD_FN unsigned probe_unicode_layout() {
     PyRef small(PyDict_New());
     PyRef big(PyDict_New());
     PyRef wide(PyDict_New());
@@ -369,7 +382,7 @@ enum : unsigned {
     return kProvedUnicode;
 }
 
-[[nodiscard]] inline unsigned probe_general_layout() {
+[[nodiscard]] inline STRATA_COLD_FN unsigned probe_general_layout() {
     Entry scratch[kScratchEntries];
     // (1) A narrow table with exact `str` keys and a real hole. The subclass
     // key is what makes the table general; it is removed again so the live
@@ -412,7 +425,7 @@ enum : unsigned {
 
 /// Both proofs, as a bitmask. Leaves no exception set: a refusal is a
 /// disabled fast path, never an error the caller has to notice.
-[[nodiscard]] inline unsigned probe_layout() {
+[[nodiscard]] inline STRATA_COLD_FN unsigned probe_layout() {
     unsigned proved = probe_unicode_layout();
     if (proved != 0)
         proved |= probe_general_layout();
@@ -432,65 +445,20 @@ enum : unsigned {
 
 [[nodiscard]] inline bool general_available() { return (proved_layouts() & kProvedGeneral) != 0; }
 
-/// The gated, out-of-line forms the writers reach. `noinline` plus `cold`
-/// together are what keep the compaction out of the hot writers' text and out
-/// of their fallthrough, whatever `-fprofile-use` learns about how often a
-/// general table arrives -- the test suite trains this path warm.
-[[nodiscard]] inline STRATA_COLD_FN Py_ssize_t compact_general_exact(PyObject* dict,
-                                                                     Entry* out) noexcept {
-    if (!general_available())
-        return -1;
-    return compact_general_exact_unchecked(dict, out);
-}
-
-[[nodiscard]] inline STRATA_COLD_FN Py_ssize_t compact_general_holes(PyObject* dict,
-                                                                     Entry* out) noexcept {
-    if (!general_available())
-        return -1;
-    return compact_general_holes_unchecked(dict, out);
-}
-
-/// The fused writer's accessor: a unicode table's own entry array, or a
-/// general table compacted into @p scratch.
-///
-/// The unicode path is `entry_array` verbatim -- the same three loads and the
-/// same two branches -- so no instruction is added where it matters: the edge
-/// that already existed gains a target, and that target is a `cold` call, so
-/// no profile can grow it or place its body in the fallthrough. Verified by
-/// disassembly on both ISAs, not assumed: the fused verification loop and
-/// `write_mapping`'s collection loop come out identical instruction for
-/// instruction, and both writers keep their frame size and their count of
-/// frame-relative accesses (docs/decisions.md, 2026-09-12).
-///
-/// `entry_count` is written through, never address-escaped to the cold
-/// callee: the compaction returns its count instead of taking an out
-/// parameter, so the caller's variable stays a promotable SSA value.
-[[nodiscard]] inline const Entry* fused_entry_array(PyObject* dict, Py_ssize_t* entry_count,
-                                                    Entry* scratch) {
-    const Entry* entries = entry_array(dict, entry_count);
-    if (entries != nullptr)
-        return entries;
-    const Py_ssize_t live = compact_general_exact(dict, scratch);
-    if (live < 0)
-        return nullptr;
-    *entry_count = live;
-    return scratch;
-}
-
-/// `write_mapping`'s accessor: the same, with holes compacted away. Its
-/// caller's loop bound is then the live count rather than `dk_nentries`, and
-/// the loop's own `me_value == nullptr` skip simply never fires.
-[[nodiscard]] inline const Entry* mapping_entry_array(PyObject* dict, Py_ssize_t* entry_count,
-                                                      Entry* scratch) {
-    const Entry* entries = entry_array(dict, entry_count);
-    if (entries != nullptr)
-        return entries;
-    const Py_ssize_t live = compact_general_holes(dict, scratch);
-    if (live < 0)
-        return nullptr;
-    *entry_count = live;
-    return scratch;
-}
+// How a writer reaches the general half. There is deliberately no accessor
+// here that takes the scratch as an argument: a `scratch` parameter has to be
+// materialized before the call, and the compiler schedules that load onto the
+// *unicode* path, where it is dead (measured: one load in `write_record_fused`
+// on both ISAs, two in `write_mapping` on x86-64, since `this` had to be
+// reloaded from the frame to reach it). Instead each writer keeps
+// `entry_array` inline exactly as it was, and its `nullptr` edge calls a cold
+// member that finds the lease's scratch off `this` -- already live in a
+// register in both writers. The unicode path then loads nothing it did not
+// load before the general half existed, on either ISA, and its per-key loops
+// come back from the compiler unchanged -- verbatim on arm64, and on x86-64
+// modulo frame-slot renumbering, with `write_mapping`'s collection loop one
+// memory operand better. Per-ISA counts and the method: E26-P23 in
+// docs/performance/experiment-ledger.md (docs/decisions.md, 2026-09-12).
 
 } // namespace rawdict
 #endif // STRATA_RAW_DICT_WALK
