@@ -8,7 +8,7 @@ records wider than five keys (``python_builder.h`` ``new_mapping``) -- is
 DICT_KEYS_GENERAL, 24-byte ``{hash, key, value}`` entries. The serializer
 reads both: a general table is compacted into the unicode shape once, out of
 line, and the two hot walks see one layout
-(``python_dumps_output.h`` ``rawdict``).
+(``python_rawdict.h`` ``rawdict``).
 
 Every assertion here is a *parity* assertion, because that is the whole
 contract: a general table's bytes are its unicode twin's bytes and stdlib
@@ -25,6 +25,7 @@ file and its byte-identical mirror in ``tests/py/``.
 """
 
 import ctypes
+import gc
 import json
 import sys
 import sysconfig
@@ -158,6 +159,43 @@ def _dk_nentries(document):
     return ctypes.c_ssize_t.from_address(_keys_table(document) + 24).value
 
 
+def _prefix_is_plausible():
+    """Check the mirrored prefix against fresh witnesses before trusting it.
+
+    ``_MA_KEYS_OFFSET`` is computed from the documented field order, but a
+    future 3.x inside the version window could still move a field ahead of
+    ``ma_keys`` -- and then everything below dereferences whatever integer
+    happens to sit there. So each kind gets a witness whose answers are known
+    in advance: the pointer has to be a non-null aligned address, the kind one
+    CPython defines, and ``dk_nentries`` at least the dict's size. An
+    arbitrary tag word passes none of those. This is the test's own guard, not
+    the serializer's -- the C++ side reads ``ma_keys`` through the real struct
+    from the CPython headers and never computes an offset.
+    """
+    for witness in ({"a": 1, "b": 2, "c": 3}, general(items(8))):
+        address = _keys_table(witness)
+        if not address or address % _WORD:
+            return False
+        if ctypes.c_uint8.from_address(address + 10).value not in (0, 1, 2):
+            return False
+        if ctypes.c_ssize_t.from_address(address + 24).value < len(witness):
+            return False
+    return True
+
+
+_PREFIX_PLAUSIBLE = _LAYOUT_READABLE and _prefix_is_plausible()
+_NO_LAYOUT = "the keys-table layout is only mirrored for CPython 3.11-3.14 with the GIL"
+_MOVED_PREFIX = "the mirrored PyDictObject prefix moved -- re-audit _MA_KEYS_OFFSET"
+
+
+def _require_layout():
+    """Skip, loudly and distinguishably, when the canary cannot read."""
+    if not _LAYOUT_READABLE:
+        pytest.skip(_NO_LAYOUT)
+    if not _PREFIX_PLAUSIBLE:
+        pytest.skip(_MOVED_PREFIX)
+
+
 # ---------------------------------------------------------------------------
 # 1. A general table dumps like its unicode twin, at every width
 # ---------------------------------------------------------------------------
@@ -169,15 +207,19 @@ def test_general_tables_dump_like_their_unicode_twins():
     Widths 1..26 straddle both boundaries that matter -- CPython's presize
     no-op boundary at five members, and ``kMaxSchemaKeys`` at 24.
     """
-    for width in range(1, 27):
-        pairs = items(width)
-        _matches_its_unicode_twin(general(pairs), unicode_twin(pairs))
-        # And as records of an array, which is the shape the fused record
-        # writer serves.
-        _matches_its_unicode_twin(
-            [general(items(width, first)) for first in range(6)],
-            [unicode_twin(items(width, first)) for first in range(6)],
-        )
+
+    def work():
+        for width in range(1, 27):
+            pairs = items(width)
+            _matches_its_unicode_twin(general(pairs), unicode_twin(pairs))
+            # And as records of an array, which is the shape the fused record
+            # writer serves.
+            _matches_its_unicode_twin(
+                [general(items(width, first)) for first in range(6)],
+                [unicode_twin(items(width, first)) for first in range(6)],
+            )
+
+    _on_a_fresh_thread(work)
 
 
 # ---------------------------------------------------------------------------
@@ -243,56 +285,68 @@ def test_general_tables_with_holes_and_refills():
     A holed general table is refused by the fused writer exactly as a holed
     unicode one is -- the compaction only accepts a table whose
     ``dk_nentries`` equals its size."""
-    records = []
-    twins = []
-    for width in (1, 4, 24):
-        keys = [f"field_{index}" for index in range(width)]
-        for deleted in range(width):
-            full = [(key, None) for key in keys]
-            for _ in range(8):
-                records.append(general(full))
-                twins.append(unicode_twin(full))
-            hole = general(full)
-            hole_twin = unicode_twin(full)
-            del hole[keys[deleted]]
-            del hole_twin[keys[deleted]]
-            reinserted = dict(hole)
-            reinserted_twin = dict(hole_twin)
-            reinserted[keys[deleted]] = [deleted, True]
-            reinserted_twin[keys[deleted]] = [deleted, True]
-            records.extend([hole, reinserted, general(full)])
-            twins.extend([hole_twin, reinserted_twin, unicode_twin(full)])
-    for _ in range(3):
-        _matches_its_unicode_twin(records, twins)
+
+    def work():
+        records = []
+        twins = []
+        for width in (1, 4, 24):
+            keys = [f"field_{index}" for index in range(width)]
+            for deleted in range(width):
+                full = [(key, None) for key in keys]
+                for _ in range(8):
+                    records.append(general(full))
+                    twins.append(unicode_twin(full))
+                hole = general(full)
+                hole_twin = unicode_twin(full)
+                del hole[keys[deleted]]
+                del hole_twin[keys[deleted]]
+                reinserted = dict(hole)
+                reinserted_twin = dict(hole_twin)
+                reinserted[keys[deleted]] = [deleted, True]
+                reinserted_twin[keys[deleted]] = [deleted, True]
+                records.extend([hole, reinserted, general(full)])
+                twins.extend([hole_twin, reinserted_twin, unicode_twin(full)])
+        for _ in range(3):
+            _matches_its_unicode_twin(records, twins)
+
+    _on_a_fresh_thread(work)
 
 
 def test_general_tables_holed_after_their_last_resize():
     """``general_holed`` punches the hole after the table stopped growing, so
     ``dk_nentries`` really does exceed the size -- the case a hole punched
     before the fill would not reach, because the resize compacts it away."""
-    for width in (1, 6, 11, 24, 30):
-        pairs = items(width)
-        _matches_its_unicode_twin(general_holed(pairs), unicode_twin(pairs))
-        _matches_its_unicode_twin(
-            [general_holed(items(width, first)) for first in range(6)],
-            [unicode_twin(items(width, first)) for first in range(6)],
-        )
+
+    def work():
+        for width in (1, 6, 11, 24, 30):
+            pairs = items(width)
+            _matches_its_unicode_twin(general_holed(pairs), unicode_twin(pairs))
+            _matches_its_unicode_twin(
+                [general_holed(items(width, first)) for first in range(6)],
+                [unicode_twin(items(width, first)) for first in range(6)],
+            )
+
+    _on_a_fresh_thread(work)
 
 
 def test_general_tables_grown_past_their_usable_size():
     """A presized table grown past ``dk_usable`` resizes and stays general.
     Nothing pinned that before."""
-    grown = []
-    twins = []
-    for row in range(6):
-        document = general(items(6, row))
-        twin = unicode_twin(items(6, row))
-        for index in range(6, 30):
-            document[f"field_{index}"] = index + row
-            twin[f"field_{index}"] = index + row
-        grown.append(document)
-        twins.append(twin)
-    _matches_its_unicode_twin(grown, twins)
+
+    def work():
+        grown = []
+        twins = []
+        for row in range(6):
+            document = general(items(6, row))
+            twin = unicode_twin(items(6, row))
+            for index in range(6, 30):
+                document[f"field_{index}"] = index + row
+                twin[f"field_{index}"] = index + row
+            grown.append(document)
+            twins.append(twin)
+        _matches_its_unicode_twin(grown, twins)
+
+    _on_a_fresh_thread(work)
 
 
 # ---------------------------------------------------------------------------
@@ -304,21 +358,25 @@ def test_general_tables_past_the_schema_width():
     """``kMaxSchemaKeys`` is 24 and the compaction scratch holds 25, so the
     truncation boundary is detected in the collection loop rather than by a
     second walk. 24/25/26/40 keys must all come out right."""
-    for width in (23, 24, 25, 26, 40):
-        pairs = items(width)
-        _matches_its_unicode_twin(general(pairs), unicode_twin(pairs))
-        _matches_its_unicode_twin(general_holed(pairs), unicode_twin(pairs))
+
+    def work():
+        for width in (23, 24, 25, 26, 40):
+            pairs = items(width)
+            _matches_its_unicode_twin(general(pairs), unicode_twin(pairs))
+            _matches_its_unicode_twin(general_holed(pairs), unicode_twin(pairs))
+            _matches_its_unicode_twin(
+                [general(items(width, first)) for first in range(4)],
+                [unicode_twin(items(width, first)) for first in range(4)],
+            )
+        # Mixed widths at one depth, so the cache is asked about both sides of
+        # the boundary in one document.
+        widths = (24, 25, 24, 25, 26, 24)
         _matches_its_unicode_twin(
-            [general(items(width, first)) for first in range(4)],
-            [unicode_twin(items(width, first)) for first in range(4)],
+            [general(items(width)) for width in widths],
+            [unicode_twin(items(width)) for width in widths],
         )
-    # Mixed widths at one depth, so the cache is asked about both sides of
-    # the boundary in one document.
-    widths = (24, 25, 24, 25, 26, 24)
-    _matches_its_unicode_twin(
-        [general(items(width)) for width in widths],
-        [unicode_twin(items(width)) for width in widths],
-    )
+
+    _on_a_fresh_thread(work)
 
 
 # ---------------------------------------------------------------------------
@@ -368,20 +426,23 @@ def test_general_records_nested_under_general_records():
         ]
         return inner
 
-    for width in (3, 11, 23, 24, 25):
-        for depth in (1, 2, 3):
-            _matches_its_unicode_twin(
-                [level(depth, width, seed, general) for seed in range(4)],
-                [level(depth, width, seed, unicode_twin) for seed in range(4)],
-            )
-    # General leaves under unicode parents and the other way round, so the
-    # scratch is entered and left at alternating levels.
-    mixed = [
-        {"id": index, "inner": leaf(11, index), "rows": [leaf(7, index), leaf(25, index)]}
-        for index in range(6)
-    ]
-    _both_modes(mixed)
-    _both_modes([general([("id", index), ("rows", [{"a": index}] * 3)]) for index in range(6)])
+    def work():
+        for width in (3, 11, 23, 24, 25):
+            for depth in (1, 2, 3):
+                _matches_its_unicode_twin(
+                    [level(depth, width, seed, general) for seed in range(4)],
+                    [level(depth, width, seed, unicode_twin) for seed in range(4)],
+                )
+        # General leaves under unicode parents and the other way round, so the
+        # scratch is entered and left at alternating levels.
+        mixed = [
+            {"id": index, "inner": leaf(11, index), "rows": [leaf(7, index), leaf(25, index)]}
+            for index in range(6)
+        ]
+        _both_modes(mixed)
+        _both_modes([general([("id", index), ("rows", [{"a": index}] * 3)]) for index in range(6)])
+
+    _on_a_fresh_thread(work)
 
 
 # ---------------------------------------------------------------------------
@@ -510,23 +571,42 @@ def test_the_placeholder_lands_one_container_late_on_both_kinds():
     would still pass if the runtime layout proof refused the general table and
     the compaction silently stopped happening, because the fallback's bytes
     are identical by construction. This one would not.
+
+    The expectation is taken from the unicode twin at run time rather than
+    written down, because *where* the placeholder lands is a property of the
+    fused record writer running at all: on CPython 3.10 there is no raw dict
+    walk (``python_rawdict.h`` gates it at 3.11) and the writer is a
+    pass-through, and on any build whose runtime layout proof refuses, both
+    kinds take ``write_mapping`` and place the ``null`` a container earlier.
+    Pinning either literal would make one of those builds fail on a
+    difference this file is not about. What it does pin -- and what fails the
+    moment a general table stops reaching the same writer as its twin -- is
+    that the two agree byte for byte.
     """
     keys = [f"k{index}" for index in range(6)]
-    emitted = (
-        '{"k0":0,"k1":1,"k2":2,"k3":3,"k4":4,"k5":[{"k0":0,"k1":1,"k2":2,"k3":3,"k4":4,"k5":null}]}'
-    )
+    prefix = '{"k0":0,"k1":1,"k2":2,"k3":3,"k4":4,'
+    one_container_late = prefix + '"k5":[{"k0":0,"k1":1,"k2":2,"k3":3,"k4":4,"k5":null}]}'
+    in_the_right_container = prefix + '"k5":[null]}'
 
     def build(factory, tail):
         return factory([(key, index) for index, key in enumerate(keys[:-1])] + [(keys[-1], tail)])
 
+    def emitted(factory):
+        warm = [build(factory, [build(factory, [1])]) for _ in range(8)]
+        strata.dumps(warm)
+        cyclic = build(factory, None)
+        cyclic[keys[-1]] = [cyclic]
+        produced = strata.dumps(cyclic)
+        assert strata.dumps(cyclic, return_type="bytes") == produced.encode()
+        return produced
+
     def run():
-        for factory in (unicode_twin, general):
-            warm = [build(factory, [build(factory, [1])]) for _ in range(8)]
-            strata.dumps(warm)
-            cyclic = build(factory, None)
-            cyclic[keys[-1]] = [cyclic]
-            assert strata.dumps(cyclic) == emitted
-            assert strata.dumps(cyclic, return_type="bytes") == emitted.encode()
+        expected = emitted(unicode_twin)
+        # Whichever of the two the writer produces, it is one of them: a
+        # third answer is a bug in the placeholder itself, not a placement
+        # difference, and would otherwise slip through the parity assertion.
+        assert expected in (one_container_late, in_the_right_container)
+        assert emitted(general) == expected
 
     _with_cycle_policy("ignore", run)
 
@@ -558,19 +638,77 @@ def test_str_subclass_keys_on_a_general_table():
 
 
 # ---------------------------------------------------------------------------
-# 9. The coverage canary
+# 9. Mutation from inside the walk, on a general table
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(
-    not _LAYOUT_READABLE,
-    reason="the keys-table layout is only mirrored for CPython 3.11-3.14 with the GIL",
-)
+def test_mutating_a_general_record_mid_emit_keeps_the_row_read_on_entry():
+    """api.md § dumps, "Mutation during serialization": a dict of at most 24
+    exact-``str`` keys, below 64 levels of dict nesting, "is emitted as the
+    row read on entry". The clause now covers general tables too -- they reach
+    the same two writers -- and nothing executed it on that layout:
+    test_dumps_reentrancy.py, its review twin and test_dumps_cycles_fused.py
+    build every dict from a literal, which is always DICT_KEYS_UNICODE.
+
+    The mutation runs at the sanctioned user-code step that needs neither a
+    warnings filter nor an interpreter setting: ``__str__`` of an ``int``
+    subclass beyond int64. It fires in the *middle* of the row, clears the
+    record and refills it with 40 other keys, then collects -- so the keys the
+    writer borrowed and the values it has not written yet are all orphaned
+    while the row is staged, which is what the row lock exists for. The bytes
+    must be the row read on entry, and the same for both layouts.
+    """
+
+    class _Mutating(int):
+        victim = None
+
+        def __str__(self):
+            self.victim.clear()
+            for index in range(40):
+                self.victim[f"late_{index}"] = index
+            gc.collect()
+            return int.__str__(self)
+
+    big = 2**70
+
+    def emitted(factory, width, mode):
+        # One record per call: the mutation is destructive, so a second dump
+        # of the same object would be measuring the refilled dict.
+        # Warm the depth first, so this shape reaches the fused record writer.
+        strata.dumps([factory(items(width)) for _ in range(8)])
+        record = factory(items(width))
+        trigger = _Mutating(big)
+        trigger.victim = record
+        record[f"field_{width // 2}"] = trigger
+        if mode == "bytes":
+            return strata.dumps([record], return_type="bytes").decode()
+        return strata.dumps([record])
+
+    def run():
+        for width in (4, 11, 23):
+            row = [
+                f'"field_{index}":{big if index == width // 2 else index}' for index in range(width)
+            ]
+            expected = "[{" + ",".join(row) + "}]"
+            for mode in ("str", "bytes"):
+                assert emitted(general, width, mode) == expected
+                assert emitted(unicode_twin, width, mode) == expected
+
+    _on_a_fresh_thread(run)
+
+
+# ---------------------------------------------------------------------------
+# 10. The coverage canary
+# ---------------------------------------------------------------------------
+
+
 def test_the_general_layout_is_actually_exercised():
     """A maintenance signal, deliberately separate from the parity tests: if
     CPython stops giving these shapes a general table, the corpus above stops
     covering the compaction and would rot green. Reading the layout is what
-    tells us, and the offsets are computed rather than assumed."""
+    tells us, and the offsets are computed rather than assumed -- and
+    validated against known witnesses before anything is dereferenced."""
+    _require_layout()
     assert _dk_kind(general(items(8))) == _KIND_GENERAL
     assert _dk_kind(unicode_twin(items(8))) == _KIND_UNICODE
     assert _dk_kind(json.loads('{"a":1,"b":2,"c":3,"d":4,"e":5,"f":6}')) == _KIND_UNICODE
@@ -595,7 +733,7 @@ def test_the_general_layout_is_actually_exercised():
 
 
 # ---------------------------------------------------------------------------
-# 10. The producer side: what makes these tables general in the first place
+# 11. The producer side: what makes these tables general in the first place
 # ---------------------------------------------------------------------------
 
 
@@ -613,8 +751,7 @@ def test_the_builder_presizes_records_above_five_members():
         assert _dk_kind(wide[0]) == _KIND_UNICODE
         assert [_dk_kind(record) for record in wide[1:]] == [_KIND_GENERAL] * 3
 
-    if not _LAYOUT_READABLE:
-        pytest.skip("the keys-table layout is only mirrored for CPython 3.11-3.14 with the GIL")
+    _require_layout()
     _on_a_fresh_thread(work)
 
 
@@ -630,7 +767,7 @@ def test_the_size_hint_is_per_depth_and_survives_across_calls():
         text = json.dumps([{"a": 1, "b": 2}, {"a": 3, "b": 4}])
         parsed = strata.loads(text)
         assert parsed == json.loads(text)
-        if _LAYOUT_READABLE:
+        if _PREFIX_PLAUSIBLE:
             assert _dk_kind(parsed[0]) == _KIND_GENERAL
         nested = strata.loads('[{"x":{"y":1}}]')
         assert nested == [{"x": {"y": 1}}]

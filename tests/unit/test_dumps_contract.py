@@ -720,7 +720,7 @@ def test_genuine_subclasses_serialize_as_their_base_types(return_type):
 
 
 def test_dict_layouts_the_raw_walk_has_to_refuse():
-    """python_dumps_output.h `rawdict`: split tables and tables whose entry
+    """python_rawdict.h `rawdict`: split tables and tables whose entry
     count disagrees with the size fall back to `PyDict_Next`, and the fused
     writer refuses them outright. The fallback is invisible in the output --
     which is exactly what these pin.
