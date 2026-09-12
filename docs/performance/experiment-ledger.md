@@ -3039,6 +3039,7 @@ waits on it.
   git into `build/evidence/benchmark-lead/history/<revision>/ci/` and read
   through `make bench-cross`; the reading is
   `docs/benchmarks/cross_sample_history.md`.
+
 - What that shows across the seven recorded draws (32c5fa4, 79fa3df, 75cfb42,
   c20ac86, ec53f93, b32d398, ec04112): **Windows held both mixed rows on
   09-06 and has been behind on every sample since** — `dumps mixed` 0.986x
@@ -3048,17 +3049,20 @@ waits on it.
   0.987x, which is the fused-writer work. Every other cell that has appeared
   behind sits in a row where a rival moved 59–275% between draws and
   therefore says nothing.
+
 - The step is between 32c5fa4 and 79fa3df, the revision that carried the
   re-entrancy correctness fixes (the use-after-free under mutation and the
   surrogate-key defect) whose machinery E26-P6 priced at 2–7% on the x86
   serializer rows with orjson flat. E26-P6, P7, P9, P23 and P24 have since
   recovered part of it on that leg — P24 alone 6.89% on `dumps mixed` — and
   Windows has not returned to 0.986x.
+
 - Dispatched to measure the whole difference directly rather than infer it:
   run 34712026697, a same-runner paired A/B of 32c5fa4 against ec04112 on all
   five legs. Its tests differ between the arms by a whole campaign, so the
   reading includes the profile effect the gate-inclusive recipe carries
   (E26-P7b) — that is the total the standings see, which is the question.
+
 - Refuted, with the instrument built for it: **the raw dict walk is live on
   Windows.** Nothing exposes `rawdict::available()`, so
   `benchmarks/nested_container_probe.py` now reports the two consequences that
@@ -3071,15 +3075,51 @@ waits on it.
   silently refused. The same draw prices what E26-P24 recovered there: the
   two-scalar-record baseline 1.208x → 1.057x, one nested single-key dict's gap
   over orjson +30.5 → +25.8 ns, a two-key dict's +18.9 → +12.9 ns.
+
 - One Windows draw had to be discarded and the probe now refuses its like:
   run 34712159233 read orjson *faster* on six rows that only add work to the
   same 500 records, which measures a throttled runner. The probe exits
   non-zero on a rival delta below −1 ns rather than letting such a draw read
   as a finding.
+
 - The first attempt at the attribution A/B (run 34712026697) failed on every
   leg at `cp "$binary.build.json"`: 32c5fa4 predates the provenance layer and
   emits no sidecar. The base built and passed both gates; only the copy
   failed. `ab_x86.yml` now records `unknown` for an arm without a manifest
   instead of failing the comparison, which is what
   docs/context/benchmarks.md already says about historical identities.
-- Outcome: open — the attribution A/B is re-dispatched (run 34713122631).
+
+- **The attribution, five legs, same runner (runs 34714318890 and
+  34716921570, 32c5fa4 against 44cd3d4; the arms' test suites differ by a
+  whole campaign, so the reading is the total a standing sees).** It
+  overturns the premise this entry opened with.
+
+  | leg            | gained since 32c5fa4                                                | lost since 32c5fa4                         |
+  | -------------- | ------------------------------------------------------------------- | ------------------------------------------ |
+  | linux-arm64    | `dumps mixed` −8.0%/−8.2%, `users` −5.9%/−6.8%, `dump nested` −5.4% | `dumps wide_arrays` +2.9%                  |
+  | macos-arm64    | `flat` −9.0%/−10.0%, `users` −8.6%/−9.5%, `mixed` −6.1%             | none                                       |
+  | linux-x86_64   | `mixed` −3.5%/−4.4%, `users` −3.4%/−5.9%, `dump nested` −6.3%       | `flat` +1.9%/+2.3%, `dump flat` +2.5%      |
+  | macos-x86_64   | `mixed` −2.9%/−3.7%, `dump nested` −2.6%                            | **`flat` +8.1%/+9.4%**, `dump flat` +4.2%  |
+  | windows-x86_64 | **`mixed` −2.8%**, `users` −2.2%/−4.4%                              | **`flat` +10.1%/+8.9%**, `dump flat` +3.5% |
+
+  So **Windows `dumps mixed` did not regress — it improved 2.8%.** Its
+  standing looked lost because the 09-06 sample drew 0.0690 ms for strata on
+  a row whose two samples of one binary differ by 8% (0.073 and 0.079 on
+  b32d398), while every rival held still across all seven draws (orjson
+  0.069–0.075 ms, msgspec 0.091–0.102). The row is genuinely behind on every
+  sample of every revision, and it was behind before that draw flattered it.
+
+- What *did* regress is `dumps flat` on x86 — **+10.1% on Windows, +9.4% on
+  the i7, +2.3% on the EPYC** — with `dumps wide_arrays` +2.9% on the N2. No
+  standing shows it, because those rows lead by 13–23%. A static diff of the
+  two arms names the mechanism: at 32c5fa4 the fused record writer was
+  **inlined into the sequence loop** (that build carries no
+  `write_record_fused` symbol); the re-entrancy fix put it out of line, where
+  it stayed. E26-P6 already tried re-inlining it on x86-64 and the codegen
+  refused — 23 frame-relative accesses per key against out-lining's one call
+  per record — so the obvious lever is measured-dead and a different one is
+  needed.
+
+- Outcome: **closed as measured.** The premise is refuted: no Windows `dumps mixed` regression exists; that row's deficit predates the window and is the
+  goal's remaining work. The x86 `flat` regression is real, resolved on three
+  legs, costs no standing today, and is carried forward as its own item.
