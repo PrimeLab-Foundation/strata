@@ -404,6 +404,15 @@ def _compile_args() -> list[str]:
         # /Zc:__cplusplus: MSVC otherwise reports __cplusplus as 199711L and
         # the C++20 guards in the headers misfire.
         args = ["/std:c++20", "/O2", "/Zc:__cplusplus"]
+        # MSVC's STL routes `std::find` over a pointer range to an out-of-line
+        # vectorized helper (`__std_find_trivial_8`, a CPU-dispatch load and a
+        # call through a thunk) where libc++ and libstdc++ inline the loop. The
+        # serializer's cycle probe is exactly that call, over an open-container
+        # stack one to three entries deep, once per list and nested dict --
+        # and the call also costs the caller its volatile registers. The
+        # generic STL bodies are what the POSIX legs already compile
+        # (E26-P26 in docs/performance/experiment-ledger.md).
+        args.append("/D_USE_STD_VECTOR_ALGORITHMS=0")
         if platform.machine() in ("AMD64", "x86_64"):
             args.append("/arch:AVX2")
         if _compiler_kind() == "clang-cl":

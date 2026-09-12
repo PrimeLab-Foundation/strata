@@ -35,7 +35,9 @@
 
 #include "strata/third_party/dragonbox/dragonbox.h"
 
+#include <bit>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 
 namespace strata::util {
@@ -157,8 +159,12 @@ size_t format_double(double value, char* out, size_t capacity) noexcept {
     if (const size_t fast = format_micro_decimal(value, out); fast != 0)
         return fast;
 
+    // The sign bit, read directly. `std::signbit` is the same test under
+    // libc++ and libstdc++, but MSVC's <cmath> spells it as a call to the
+    // UCRT's `_dsign`, which clang-cl cannot see through: a DLL call per
+    // float, and an xmm6 save to keep `value` alive across it.
     size_t written = 0;
-    if (std::signbit(value))
+    if ((std::bit_cast<uint64_t>(value) >> 63) != 0)
         out[written++] = '-';
     if (value == 0.0) {
         out[written++] = '0';
