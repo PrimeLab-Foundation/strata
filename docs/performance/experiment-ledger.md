@@ -2465,6 +2465,40 @@ change.
   retained strata-parsed arm produces, and the attribute and the profile
   agree. Branches kept.
 
+- The pair measured (run 34670240916, `exp/p23-b1-tests` 56478bc against
+  `exp/p23-b1` c4d7260: the same source change with the training payload built
+  by `json.loads`, tests and payload matched between the arms, six blocks of
+  sixty). The mechanism check first, on the candidate's own training profile:
+  `compact_general_*` falls from 2.4 M counts to about 24 k — the handful its
+  retained strata-parsed arm produces — and the fused writer trains on
+  json-built records again (152 k). The rows follow. **The Windows
+  disqualifier is gone**: small `dumps mixed` reads +1.15% inside a 5.44%
+  floor (raw +0.90%) where the unpaired change read +4.32% resolved, and
+  medium `dumps users` halves to +1.69% bytes (inside its 1.73% floor) and
+  +1.44% str (resolved against a 1.31% floor) — the one Windows row still
+  against, on a row strata leads by a wide margin rather than one of the two
+  it trails. N2: `dumps mixed` **−1.31%/−1.19%** and small `dumps users`
+  −0.18%/−0.21% resolved gains, and the unpaired arm's two losses (small
+  `dumps wide_arrays` +0.52%, `loads wide_arrays` +0.28%) are gone, both
+  inside their floors. i7: medium `dumps users` −2.41% and small `dumps flat`
+  −1.25% resolved gains, nothing against. M2 Pro VM: small file `dump wide_arrays` −2.91% gain, nothing against. EPYC drew a loaded runner (its
+  own A/A floors reach 10–13% on the record rows), so its −2.5..−5.6% figures
+  on `dumps mixed` and `dumps users` are unresolved; its one resolved figure
+  is small file `dump wide_arrays` +1.27% against a 0.97% floor. The M1
+  screen of the same pair against its own A/A floor resolves nothing against
+  it and reads small `dumps wide_arrays` −0.98%/−1.06% and medium `dumps mixed` −0.80% in its favour. The round trip the change exists for is
+  unchanged by the pairing: 1.42x → 1.08x at six keys, 1.41x → 1.14x at
+  eleven, 1.45x → 1.05x at twenty-four of the json-built twin, and five-key
+  records (below the presize boundary) stay at 1.00x.
+
+  - Outcome: **the pair is the candidate for integration** — the source
+    change and the training payload together, because the payload is what
+    keeps the compaction cold in the profile and neither half stands without
+    the other on Windows. Two residual resolved losses, both marginal and
+    both on rows strata leads: Windows medium `dumps users` (str) +1.44% and
+    EPYC small file `dump wide_arrays` +1.27% on a loaded draw. Merging is
+    the user's call; two five-platform samples follow it.
+
 **Disassembly method and codegen.** Each ISA compiled at the flags its legs
 build with, from a `git archive main` tree and the branch tree in turn:
 arm64 `clang++ -O3 -std=c++20 -DNDEBUG -march=native`, x86-64
