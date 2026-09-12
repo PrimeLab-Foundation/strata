@@ -2349,3 +2349,195 @@ windows-x86_64 small `dumps flat` bytes +3.36% (raw +3.31%, interval
 1.7–19%). Outcome: **no-go** — under 1.5% on the row it targets and a 3–5%
 x86 cost in the fused writer's flat-record path, the same SysV-sensitive code
 that E26-P6 priced. The hypothesis is closed; the patch stays isolated.
+
+## E26-P23 — compact general-kind keys tables
+
+**Hypothesis.** A `strata.loads` → `strata.dumps` round trip pays 25–39% over
+the same data parsed by stdlib `json`, and the cause is a keys-table layout,
+not the serializer's algorithm. CPython 3.11–3.14 gives a dict one of two
+combined layouts: `DICT_KEYS_UNICODE` (16-byte `{key, value}` entries) and
+`DICT_KEYS_GENERAL` (24-byte `{hash, key, value}`). `_PyDict_NewPresized` —
+which the builder calls for every record whose depth hint is above five
+members (`python_builder.h` `new_mapping`) — always returns a *general* table,
+whatever the key types, and a general table never converts back (CPython
+clamps `dictresize`'s `unicode` parameter on a general source, so `.copy()`,
+`dict(d)`, `{**d}`, `update` and delete-then-reinsert all preserve it).
+`rawdict::entry_array` refused that kind outright, so every such record lost
+both the raw walk and the fused record writer while its `json.loads`-built
+twin kept both. The `> 5` boundary is CPython's own presize no-op
+(`minused <= USABLE_FRACTION(PyDict_MINSIZE) == 5` short-circuits to
+`PyDict_New`), measured on 3.11.15/3.12.3/3.13.12/3.14.7 rather than derived —
+neither constant is in an installed header.
+
+**Mechanism.** On the branch that already returned nullptr, one `cold`,
+out-of-line pass copies the table's `{key, value}` pairs into a per-lease
+25-entry scratch (`SchemaCacheLease::State::general`, one slot past
+`kMaxSchemaKeys` so `write_mapping`'s `too_many` break still fires in-loop),
+and both hot walks then read the single 16-byte shape they always read. The
+fused writer's arm triages `ma_values`, the kind and `dk_nentries == ma_used`
+before reading one 24-byte entry, so a holed or over-wide general dict costs
+the three loads it cost before and the copy is bounded by the dict's *size*,
+never by a stale `dk_nentries`; the hole-tolerant, 25-capped form serves
+`write_mapping`, whose own walk was `dk_nentries`-long already. The kind test
+is `== DICT_KEYS_GENERAL` exactly and `ma_values != nullptr` is tested first,
+because a split table's kind is `DICT_KEYS_SPLIT` and `DK_IS_UNICODE` is true
+for it. Gated by a runtime layout proof, now a two-bit mask resolved at import
+(`prepare_dumps_runtime` forces `proved_layouts()`, not `available()`).
+
+**Three designs rejected before this one**, all recorded in the
+negative-results table of docs/performance/SKILL.md:
+
+1. *A runtime entry stride (16 or 24) instead of a compaction.* The stride is
+   live across the fused writer's per-key verification loop — the loop E26-P6
+   showed is one value from losing `this` to the frame, and where the E26-P9
+   probe-placement follow-up priced a carried flag at `dumps flat` +2.2–3.0%
+   (M1, `local4_A.tsv`). Worse on x86-64: 24 has no scale-3 encoding.
+2. *A second, per-layout instantiation of the fused body.* This is the E26-P9
+   template experiment again: a second instantiation trains cold under the
+   gate-inclusive PGO recipe (`dumps mixed` +5–18%, file `dump nested` +35% on
+   the M1). A cold twin of `write_mapping`'s classification loop would also be
+   a second definition of behaviour, which convention.md forbids.
+3. *A producer-side fix — make `loads` build unicode-kind tables.*
+   `_PyDict_FromItems` is the only exported presized-*unicode* constructor and
+   is `PyAPI_FUNC` only on 3.13/3.14 (a plain `extern`, local symbol, on
+   3.11/3.12), so it fixes two of the four affected versions and does not link
+   on MSVC for the other two; it is last-wins only, so three of four
+   `duplicate_key_policy` values cannot use it; and it would cost the parse
+   path the `loads flat` −5–7% the presize is worth, to fix a serializer-side
+   mismatch.
+
+**A/B protocol and result.** The canonical suite cannot demonstrate this fix:
+every benchmark row builds its `dumps` payload with `json.loads`
+(benchmarks/bench_main.py:371), so no canonical row contains a general-kind
+dict. The evidence is therefore a path probe, and the canonical A/B is proof
+of no harm. Probe (micro-benchmark protocol, docs/context/benchmarks.md): 500
+records of *w* keys built both ways in one process, `strata.dumps(bytes)`, min
+of 200 with `gc.collect()` per iteration, three readings per width; the ratio
+is within-process, hence comparable across builds. Strata-built / json-built,
+main → this change: **w5 0.99 → 0.99** (below the presize boundary: the
+control that identifies the mechanism, and it must not move), **w6 1.42 →
+1.07**, **w11 1.35–1.45 → 1.12–1.15**, **w24 1.42 → 1.04**. The earlier PGO
+arms read the same shape (M: w5 1.00, w6 1.33–1.44, w11 1.42–1.44, w24 1.45;
+P23: w5 0.97–1.00, w6 1.08–1.13, w11 1.13–1.19). The residual is expected: a
+general record still pays the compaction and reads 50% more cache lines.
+
+**M1 PGO screen** (build/evidence/benchmark-lead/p23/, arms M = main 34f1805
+and P23 = 8c30efc, both PGO+LTO under the gate-inclusive recipe on Python
+3.14; `p23.tsv`, eight rows, six ABBA blocks of sixty, against the fresh A/A
+floor `p23_AA.tsv`): every row inside its floor except `dumps flat` — medium
+str +1.1% and small +1.2/+2.1% normalised, 6/6 — where raw strata reads
++0.4..+0.9% and orjson −0.2..−1.8% in the same launches, i.e. mostly rival
+movement at this resolution. `mixed`, `users`, `nested` and `wide_arrays` are
+inside. Runner A/B (run 34665612473, the tests-only arm ca5346c against
+8d10320, `experiment=none`, six blocks of sixty, every arm's binary matching
+its sidecar): the change is a gain on both Linux legs and a **loss on
+Windows**. N2 `dumps flat` −1.50%/−1.73% (medium/small), `dumps mixed`
+−1.21%/−1.92%, `dumps users` −0.53%, all resolved against floors under
+0.5%; against it, small `dumps wide_arrays` +0.52% and `loads wide_arrays`
++0.28%, resolved at the report's resolution. EPYC `dumps flat` −2.05%/−1.96%,
+`dumps mixed` −2.32%/−1.40%, `dumps users` −1.88%/−2.03%, file `dump flat`
+−1.24%, nothing against. Both Macs resolve nothing either way. Windows (Zen 4,
+clang-cl PGO, CPython 3.12): medium `dumps users` **+2.46%** and small `dumps mixed` **+4.32%**, six of six blocks against floors of 1.25% and 1.46% — on
+the leg whose `dumps mixed` is one of the rows still behind.
+
+The Windows mechanism, read from the two arms' own profiles (both uploaded
+with the run): the training workload's serializer payload is
+`strata.loads`'s, so on the candidate every one of its records is a general
+table and the training run records **2.4 M counts inside the compaction**
+(`compact_general_*`, zero on the base), while `write_mapping`'s raw-walk
+block goes from 0.98 M to 1.74 M counts because those records stop taking
+`PyDict_Next`. The `cold` attribute says the compaction is rare and the
+profile says it is hot; block placement believes the profile. The divergence
+is identical on all five legs — the profiles are deterministic and match to
+the count — so what differs is only how each toolchain spends it, and
+clang-cl spends it on the hot unicode path that the benchmark rows measure.
+This is the E26-P7b/E26-P8 coupling once more, now inside a single source
+change.
+
+- Outcome: **not merged.** The source change is what it claims on three of
+  five legs and the round trip it exists for is fixed (1.45x → 1.08x at six
+  keys, 1.43x → 1.14x at eleven, 1.45x → 1.05x at twenty-four of the
+  json-built twin), but a resolved loss on Windows `dumps mixed` is
+  disqualifying while that row is behind. The next arm pairs it with the
+  training payload built by `json.loads` (E26-P8's b1 arm, neutral on its
+  own): the workload then trains the writers on the same table kind the
+  benchmark measures, the compaction's counters fall to the handful its
+  retained strata-parsed arm produces, and the attribute and the profile
+  agree. Branches kept.
+
+- The pair measured (run 34670240916, `exp/p23-b1-tests` 56478bc against
+  `exp/p23-b1` c4d7260: the same source change with the training payload built
+  by `json.loads`, tests and payload matched between the arms, six blocks of
+  sixty). The mechanism check first, on the candidate's own training profile:
+  `compact_general_*` falls from 2.4 M counts to about 24 k — the handful its
+  retained strata-parsed arm produces — and the fused writer trains on
+  json-built records again (152 k). The rows follow. **The Windows
+  disqualifier is gone**: small `dumps mixed` reads +1.15% inside a 5.44%
+  floor (raw +0.90%) where the unpaired change read +4.32% resolved, and
+  medium `dumps users` halves to +1.69% bytes (inside its 1.73% floor) and
+  +1.44% str (resolved against a 1.31% floor) — the one Windows row still
+  against, on a row strata leads by a wide margin rather than one of the two
+  it trails. N2: `dumps mixed` **−1.31%/−1.19%** and small `dumps users`
+  −0.18%/−0.21% resolved gains, and the unpaired arm's two losses (small
+  `dumps wide_arrays` +0.52%, `loads wide_arrays` +0.28%) are gone, both
+  inside their floors. i7: medium `dumps users` −2.41% and small `dumps flat`
+  −1.25% resolved gains, nothing against. M2 Pro VM: small file `dump wide_arrays` −2.91% gain, nothing against. EPYC drew a loaded runner (its
+  own A/A floors reach 10–13% on the record rows), so its −2.5..−5.6% figures
+  on `dumps mixed` and `dumps users` are unresolved; its one resolved figure
+  is small file `dump wide_arrays` +1.27% against a 0.97% floor. The M1
+  screen of the same pair against its own A/A floor resolves nothing against
+  it and reads small `dumps wide_arrays` −0.98%/−1.06% and medium `dumps mixed` −0.80% in its favour. The round trip the change exists for is
+  unchanged by the pairing: 1.42x → 1.08x at six keys, 1.41x → 1.14x at
+  eleven, 1.45x → 1.05x at twenty-four of the json-built twin, and five-key
+  records (below the presize boundary) stay at 1.00x.
+
+  - Outcome: **the pair is the candidate for integration** — the source
+    change and the training payload together, because the payload is what
+    keeps the compaction cold in the profile and neither half stands without
+    the other on Windows. Two residual resolved losses, both marginal and
+    both on rows strata leads: Windows medium `dumps users` (str) +1.44% and
+    EPYC small file `dump wide_arrays` +1.27% on a loaded draw. Merging is
+    the user's call; two five-platform samples follow it.
+
+**Disassembly method and codegen.** Each ISA compiled at the flags its legs
+build with, from a `git archive main` tree and the branch tree in turn:
+arm64 `clang++ -O3 -std=c++20 -DNDEBUG -march=native`, x86-64
+`clang++ -target x86_64-apple-macos -O3 -std=c++20 -DNDEBUG -fomit-frame-pointer -march=x86-64-v3` (setup.py:419-437 — a Darwin build
+sidecar records the universal2 command, which is neither leg's). Instructions
+per function counted from `-S` output; loops compared as opcode plus operand
+shape, registers normalised, so "identical" means identical modulo register
+renaming. Result (main → this change): `write`, `write_sequence`,
+`write_mapping_body`, `write_mapping_uncached` **+0 on both ISAs**;
+`write_record_fused` 328 → 342 arm64 and 311 → 322 x86-64; `write_mapping`
+331 → 340 and 324 → 338; `dumps_to_python` +7 and +4. Frames: arm64 unchanged
+(144 bytes in both writers); x86-64 `write_record_fused` 88 → 72 bytes with
+44 → 41 frame-relative accesses. Loops: arm64 `write_mapping`'s collection
+loop verbatim in all ten regions and the fused writer's loops likewise except
+one earlier fold of the entry array's base address; x86-64 the same sequences
+apart from frame-slot renumbering, with `write_mapping`'s collection loop
+*better* than main's — `_PyBool_Type` moves out of a GOT memory operand into a
+preamble-hoisted register.
+
+**What the review changed.** (a) The accessor no longer takes the scratch as
+an argument: that shape cost the *unicode* path one dead load per record in
+`write_record_fused` on both ISAs and two in `write_mapping` on x86-64 (a
+frame reload of `this`, then the field), because the argument had to exist
+before the branch. Each writer now keeps `entry_array` inlined as before and
+hands its `nullptr` edge to a `cold` member that finds the scratch off `this`.
+(b) `[[unlikely]]` on the layout-proof refusal: without it clang merges the
+two refusals and lays the merged epilogue in the fallthrough of that branch,
+so the unicode path takes a branch where it used to fall through and the first
+dict-layout load moves ~150 bytes further from the function entry. With it the
+placement is main's. (c) `schemas_.resize` moved behind a `cold` `grow_schemas`
+member: the inliner had pulled `std::vector::resize` — its `__append` call and
+a `DepthSchemas` destructor loop — into `write_record_fused`, which was most
+of the +22 instructions the compaction was first credited with. (d) Every
+import-time probe in python_rawdict.h carries `STRATA_COLD_FN`: on ELF that is
+what moves a body to `.text.unlikely.` (verified on a minimal TU at the same
+clang), and ~3.3 KB of once-per-process code was sitting in hot `.text`
+between `Serializer::write` and the rest of the writer cluster on the two
+Linux legs.
+
+**Outcome: go.** Merged on the branch with its tests; the round-trip ratio is
+the evidence, the canonical A/B and the five-leg runner A/B are the no-harm
+gates.

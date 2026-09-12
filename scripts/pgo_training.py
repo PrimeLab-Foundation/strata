@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+import json
 import sys
 import time
 from pathlib import Path
@@ -36,7 +37,14 @@ def run(train_json: Path, train_ndjson: Path, work_dir: Path) -> None:
     work_dir.mkdir(parents=True, exist_ok=True)
 
     text = train_json.read_text(encoding="utf-8")
-    data = strata.loads(text)
+    # The serializer's payload is built by CPython's own parser. A dict that
+    # strata's parser presizes -- six keys and more (python_builder.h,
+    # new_mapping) -- carries a general keys table, which the fused record
+    # writer cannot walk, so a strata-parsed corpus trained that writer on its
+    # fallback for every record but the first (E26-P8). One strata-parsed arm
+    # below keeps that fallback covered.
+    data = json.loads(text)
+    parsed = strata.loads(text)
     # A slice keeps the round-trip steps affordable under instrumentation.
     sample = data[: max(1, len(data) // 20)]
     sample_text = strata.dumps(sample)
@@ -59,6 +67,11 @@ def run(train_json: Path, train_ndjson: Path, work_dir: Path) -> None:
     _step("dumps(bytes)", lambda: strata.dumps(data, return_type="bytes"), repeat=3)
     _step("dumps(sample, bytes)", lambda: strata.dumps(sample, return_type="bytes"), repeat=5)
     _step("dumps(sample)", lambda: strata.dumps(sample), repeat=5)
+    _step(
+        "dumps(parsed sample, bytes)",
+        lambda: strata.dumps(parsed[: max(1, len(parsed) // 20)], return_type="bytes"),
+        repeat=2,
+    )
 
     print("[3/7] load")
     _step("load(json)", lambda: strata.load(str(train_json)))

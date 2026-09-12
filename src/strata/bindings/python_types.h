@@ -27,6 +27,26 @@ namespace strata {
 struct JsonValue;
 }
 
+// Cold-path annotation: keeps rare paths out of the serializer's hot text.
+// The benchmark condition interleaves five engines per round; on x86's small
+// L1I every byte of hot footprint refaults per call, and these functions run
+// once per schema, once per cycle, or never.
+//
+// Defined here rather than in python_dumps.cpp because both files need them
+// and there must be exactly one definition: a second spelling whose `#else`
+// arm expands to nothing would hand an out-of-lining decision the codegen
+// argument depends on back to the optimizer, silently and per compiler.
+#if defined(__clang__) || defined(__GNUC__)
+#define STRATA_COLD_FN __attribute__((noinline, cold))
+#define STRATA_NOINLINE_HOT __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define STRATA_COLD_FN __declspec(noinline)
+#define STRATA_NOINLINE_HOT __declspec(noinline)
+#else
+#define STRATA_COLD_FN
+#define STRATA_NOINLINE_HOT
+#endif
+
 namespace strata::bindings {
 
 // --- Entry points shared between the binding translation units -------------

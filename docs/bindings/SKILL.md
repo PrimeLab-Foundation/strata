@@ -108,6 +108,8 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 | `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition  |
 | `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                      |
 | `python_dumps.cpp`                        | `dumps` + all serialization fast paths                                                     |
+| `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                  |
+| `python_rawdict.h`                        | The runtime-proved raw dict-entry walk and the general-table compaction                    |
 | `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
 | `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                   |
 | `python_ndjson.cpp`                       | `NdjsonStream` type                                                                        |
@@ -173,7 +175,65 @@ every bulk build/serialize. Thread safety comes from thread-local state
 
 `_PyDict_SetItem_KnownHash` (forward-declared to skip the `Py_BUILD_CORE` guard),
 `_PyDict_NewPresized`, `PyUnstable_Long_IsCompact/CompactValue`,
-`PyUnicode_IS_COMPACT_ASCII`. Audit these on every new CPython version.
+`PyUnicode_IS_COMPACT_ASCII`, and the keys-table layout the serializer mirrors:
+`PyDictKeysObject`'s prefix, both entry structs (`PyDictUnicodeEntry`, 16 bytes,
+and `PyDictKeyEntry`, 24 bytes with the hash first) and the `DictKeysKind` tags
+`DICT_KEYS_GENERAL`/`UNICODE`/`SPLIT`. Audit these on every new CPython version
+— and audit `_PyDict_NewPresized` **together with** `DICT_KEYS_GENERAL`: the
+presize is what makes strata's own records general-kind, and the serializer's
+compaction is what reads them, so the two halves of that invariant only make
+sense checked as a pair.
+
+### The raw dict walk's runtime proof
+
+`rawdict` (`python_rawdict.h`) reads a dict's entry array directly —
+`PyDict_Next` re-validates and re-dispatches per call, profiled at 8% of a
+record-heavy dump. The layout is CPython-internal, so it is mirrored minimally,
+version-gated to 3.11–3.14 (`STRATA_RAW_DICT_WALK`), and **proved at runtime**
+before first use: `probe_layout()` builds witness dicts and walks each one raw
+and via `PyDict_Next`, comparing key and value pointers in lock step, requiring
+both walks to end together and the live count to equal `PyDict_GET_SIZE`.
+
+The proof is a **bitmask**, `{kProvedUnicode, kProvedGeneral}`, resolved in one
+guarded static (`proved_layouts()`) with two accessors, so a future CPython
+changing one layout cannot cost the other its fast path. `prepare_dumps_runtime`
+forces it at import — the probe allocates GC-tracked dicts, and a collection
+mid-walk would be a user-code step the serializer's four-step enumeration does
+not allow.
+
+Witnesses, and what each is for:
+
+- unicode: 4 keys with a hole, 36 keys, and 200 keys — the last because both
+  older witnesses sat at `1 << dk_log2_index_bytes == DK_SIZE`, so the
+  index-width scaling `entry_base` computes was never exercised;
+- general: a narrow exact-`str`-keyed table reached through a `str`-subclass
+  key (no internal symbol, and independent of `_PyDict_NewPresized`'s current
+  behaviour) with a hole punched *after* its last resize, a hole-free twin, and
+  a 200-integer-key table at `dk_log2_size == 9`. Each also checks
+  `me_hash == PyObject_Hash(key)`, the only check that catches a reordering
+  inside the entry struct, and both compactions are compared against
+  `PyDict_Next` on the same witness.
+
+Any mismatch disables that kind's walk for the process and every caller keeps
+`PyDict_Next`, with identical bytes — that fallback is the portable twin the
+convention requires. Split tables (`ma_values != nullptr`, checked *first*) and
+any other kind are always refused; the general test is `== DICT_KEYS_GENERAL`
+exactly, never `!= DICT_KEYS_UNICODE`, because `DK_IS_UNICODE` is true for a
+split table whose `me_value` fields are meaningless.
+
+How a writer reaches the general half is a codegen decision, not a taste one.
+Each writer keeps `rawdict::entry_array` inlined exactly as it was and hands
+its `nullptr` edge to a `cold` **member** of `Serializer`
+(`compact_general_exact`, `compact_general_holes`) that finds the lease's
+scratch off `this`. Do not "simplify" that into a free accessor taking the
+scratch as an argument: an argument has to be materialized before the call, and
+the compiler schedules that load onto the unicode path, where it is dead — one
+instruction per record in `write_record_fused` on both ISAs, two in
+`write_mapping` on x86-64 (E26-P23 in docs/performance/experiment-ledger.md,
+which also records the `[[unlikely]]` that keeps the merged `write_mapping`
+epilogue out of the hot prologue). Every probe in the header carries
+`STRATA_COLD_FN` for the same class of reason: on ELF that is what keeps
+import-only code out of the writers' `.text`.
 
 ## Build
 

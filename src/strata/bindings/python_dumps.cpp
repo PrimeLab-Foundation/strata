@@ -124,20 +124,9 @@ namespace strata::bindings {
 
 namespace {
 
-// Cold-path annotation: keeps rare paths out of the serializer's hot text.
-// The benchmark condition interleaves five engines per round; on x86's small
-// L1I every byte of hot footprint refaults per call, and these functions run
-// once per schema, once per cycle, or never.
-#if defined(__clang__) || defined(__GNUC__)
-#define STRATA_COLD_FN __attribute__((noinline, cold))
-#define STRATA_NOINLINE_HOT __attribute__((noinline))
-#elif defined(_MSC_VER)
-#define STRATA_COLD_FN __declspec(noinline)
-#define STRATA_NOINLINE_HOT __declspec(noinline)
-#else
-#define STRATA_COLD_FN
-#define STRATA_NOINLINE_HOT
-#endif
+// STRATA_COLD_FN / STRATA_NOINLINE_HOT are defined in python_types.h: the
+// raw walk's own cold bodies need them too, and there is exactly one
+// definition so no `#else` arm can silently expand to nothing here.
 
 /**
  * What to do when a container contains itself.
@@ -157,7 +146,13 @@ class Serializer {
   public:
     Serializer(StagedOutput& out, SchemaCacheLease::State& state)
         : out_(out), depth_limit_(Py_GetRecursionLimit()), schemas_(state.schemas),
-          staged_rows_(state.rows), lock_nodes_(state.locks) {}
+          staged_rows_(state.rows), lock_nodes_(state.locks)
+#if defined(STRATA_RAW_DICT_WALK)
+          ,
+          general_scratch_(state.general)
+#endif
+    {
+    }
 
     [[nodiscard]] bool write(PyObject* object) {
         // Exact types first: one pointer compare instead of a flag load per
@@ -672,6 +667,11 @@ class Serializer {
     static constexpr size_t kMaxCachedDepth = SchemaCacheLease::kMaxDepth;
     static_assert(static_cast<size_t>(kMaxSchemaKeys) == SchemaCacheLease::kSchemaSlots,
                   "the staged rows and the schema slot rows are the same width");
+#if defined(STRATA_RAW_DICT_WALK)
+    static_assert(rawdict::kScratchEntries == kMaxSchemaKeys + 1,
+                  "one slot past the row, so write_mapping's collection loop still breaks on "
+                  "too_many in-loop instead of resetting and walking the dict again");
+#endif
 
     /**
      * True while an exact `int` prints without running Python.
@@ -735,6 +735,55 @@ class Serializer {
         return write_record_fused(object);
     }
 
+#if defined(STRATA_RAW_DICT_WALK)
+    /**
+     * The general half of each writer's entry-array edge: the layout bit,
+     * then the compaction, into this lease's scratch.
+     *
+     * Both are members, and neither takes the scratch as a parameter,
+     * precisely so that nothing about the scratch is materialized before the
+     * call: `this` is already live in both writers, and the callee loads
+     * `general_scratch_` off it on the arm that actually uses it. The
+     * accessor shape this replaces (a free function taking `Entry*`) cost the
+     * *unicode* path one dead load per record in `write_record_fused` on both
+     * ISAs, and two in `write_mapping` on x86-64 — a frame reload of `this`
+     * plus the field — because the argument had to exist before the branch.
+     *
+     * `noinline` + `cold` keep the bodies out of the hot writers' text: on ELF
+     * — both Linux legs — that is `.text.unlikely.`, and the whole probe chain
+     * in python_rawdict.h carries the same attribute for the same reason. The
+     * *call site* is one block on an edge that already ended in a tail call,
+     * which is all the attribute can promise; where the placer puts that block
+     * under `-fprofile-use` is measured, not asserted (E26-P23 in
+     * docs/performance/experiment-ledger.md).
+     */
+    [[nodiscard]] STRATA_COLD_FN Py_ssize_t compact_general_exact(PyObject* object) noexcept {
+        if (!rawdict::general_available())
+            return -1;
+        return rawdict::compact_general_exact_unchecked(object, general_scratch_);
+    }
+
+    /// The same for `write_mapping`, which tolerates holes and any width.
+    [[nodiscard]] STRATA_COLD_FN Py_ssize_t compact_general_holes(PyObject* object) noexcept {
+        if (!rawdict::general_available())
+            return -1;
+        return rawdict::compact_general_holes_unchecked(object, general_scratch_);
+    }
+#endif
+
+    /**
+     * Grow the per-depth schema table. Out of line and `cold` because it is
+     * reached once per depth per lease and the inliner otherwise pulls
+     * `std::vector::resize` — its `__append` call *and* a `DepthSchemas`
+     * destructor loop — into `write_record_fused`'s prologue, between the
+     * width checks and the schema-way chain. Measured while the general walk
+     * landed: that inlining alone was most of the instruction growth the
+     * compaction was credited with (~14 of 22 on arm64). Naming it keeps the
+     * decision explicit instead of leaving it to the inliner's remaining
+     * budget on the next unrelated edit.
+     */
+    STRATA_COLD_FN void grow_schemas(size_t depth) { schemas_.resize(depth + 1); }
+
     /**
      * One-pass emit for a record inside an array-of-records
      * (docs/architecture/fused_record_writer.md): the entry array is walked
@@ -775,12 +824,44 @@ class Serializer {
      */
     [[nodiscard]] STRATA_NOINLINE_HOT bool write_record_fused(PyObject* object) {
 #if defined(STRATA_RAW_DICT_WALK)
-        if (!rawdict::available())
+        // `[[unlikely]]` is load-bearing, and it is about *placement*, not
+        // about this test's cost: a refused layout means a future CPython
+        // moved the keys table, which is rare by construction. Without the
+        // hint clang merges this refusal with the one below it and lays the
+        // merged epilogue in the fallthrough of this very branch, so the
+        // unicode path takes a branch where it used to fall through and the
+        // first dict-layout load moves ~150 bytes further from the entry.
+        // With it, the placement is byte-for-byte what it was before the
+        // general half existed. Re-verify with the disassembly, not by
+        // reading: the attribute only raises the cost of getting it wrong.
+        if (!rawdict::available()) [[unlikely]]
             return write_mapping(object);
         Py_ssize_t entry_count = 0;
-        const rawdict::UnicodeEntry* entries = rawdict::entry_array(object, &entry_count);
-        if (entries == nullptr)
-            return write_mapping(object);
+        const rawdict::Entry* entries = rawdict::entry_array(object, &entry_count);
+        if (entries == nullptr) {
+            // The edge that already refused everything but a combined unicode
+            // table. A *general* table -- what `_PyDict_NewPresized` hands
+            // strata's own parser for every record above five keys, 3.11-3.14
+            // -- is compacted into this lease's scratch instead, out of line
+            // and `cold`. Nothing above this point moved: `entry_array` is
+            // still inlined into the same three loads and two branches, and
+            // the scratch is found by the callee off `this`, so the unicode
+            // path loads nothing new (measured per ISA: the E26-P23 ledger
+            // entry; `write`, `write_sequence`, `write_mapping_body` and both
+            // per-key loops are instruction-identical to the revision before
+            // this change, on arm64 and on x86-64 at the flags the x86 legs
+            // build with).
+            //
+            // `entry_count` becomes the compacted count, and the compaction
+            // accepts only a table whose `dk_nentries` equals its size, so the
+            // width check below rejects a holed general table exactly as it
+            // rejects a holed unicode one.
+            const Py_ssize_t live = compact_general_exact(object);
+            if (live < 0)
+                return write_mapping(object);
+            entries = general_scratch_;
+            entry_count = live;
+        }
         const Py_ssize_t size = PyDict_GET_SIZE(object);
         if (size == 0 || size > kMaxSchemaKeys || entry_count != size)
             return write_mapping(object);
@@ -788,7 +869,7 @@ class Serializer {
         if (depth >= kMaxCachedDepth || open_.size() >= static_cast<size_t>(depth_limit_))
             return write_mapping(object);
         if (schemas_.size() <= depth)
-            schemas_.resize(depth + 1);
+            grow_schemas(depth);
         auto& depth_schemas = schemas_[depth];
         if (depth_schemas.retired || entries[0].me_value == nullptr)
             return write_mapping(object);
@@ -815,6 +896,12 @@ class Serializer {
         // array and no second walk of the dict; the row is a copy of pointers
         // this pass has in hand, in storage the call leases rather than in
         // this frame (docs/architecture/fused_record_writer.md).
+        //
+        // For a compacted general table the same rule holds for a second
+        // reason: `entries` is then the lease's single compaction scratch,
+        // which the next record to be compacted -- a nested one, below any
+        // value -- overwrites. It is dead from the moment this loop fills the
+        // staged row, which is the same moment it was already dead above.
         PyObject** const row = staged_row(depth).values;
         for (Py_ssize_t index = 0; index < size; ++index) {
             PyObject* const value = entries[index].me_value;
@@ -897,8 +984,21 @@ class Serializer {
 
 #if defined(STRATA_RAW_DICT_WALK)
         Py_ssize_t entry_count = 0;
-        const rawdict::UnicodeEntry* entries =
+        const rawdict::Entry* entries =
             rawdict::available() ? rawdict::entry_array(object, &entry_count) : nullptr;
+        if (entries == nullptr) {
+            // The fused writer's cold edge again, with the hole-tolerant
+            // compaction behind it: this writer takes any width and any hole,
+            // so a general table arrives with its deleted slots already
+            // removed, `entry_count` is the live count, and the skip below
+            // simply never fires for it. Same reason as there for finding the
+            // scratch in the callee rather than passing it.
+            const Py_ssize_t live = compact_general_holes(object);
+            if (live >= 0) {
+                entries = general_scratch_;
+                entry_count = live;
+            }
+        }
         if (entries != nullptr) {
             for (Py_ssize_t index = 0; index < entry_count; ++index) {
                 PyObject* value = entries[index].me_value;
@@ -1488,19 +1588,29 @@ class Serializer {
     SchemaCacheLease::StagedRow* staged_rows_;
     /// One registration node per staged row, leased for the same reason.
     SchemaCacheLease::RowNode* lock_nodes_;
+#if defined(STRATA_RAW_DICT_WALK)
+    /// Where a general-kind table is compacted into the `{key, value}` shape
+    /// both walks read. Leased from the same state; only the cold arm of each
+    /// accessor dereferences it, though the pointer load itself is scheduled
+    /// ahead of the branch in both writers.
+    rawdict::Entry* general_scratch_;
+#endif
 };
 
 } // namespace
 
 void prepare_dumps_runtime() noexcept {
 #if defined(STRATA_RAW_DICT_WALK)
-    // The layout proof builds two dicts, and a dict is GC-tracked: allocating
-    // it can run a collection, and a collection runs __del__ and weakref
-    // callbacks -- user code. Inside a walk that would be a fourth user-code
-    // step, at a point that takes no latch and beneath rows and elided
-    // containers nothing protects. Resolving it here, once, before any walk,
-    // is what makes this file's four-step enumeration true as written.
-    if (!rawdict::available())
+    // The layout proof builds six dicts and a `str` subclass, and a dict is
+    // GC-tracked: allocating it can run a collection, and a collection runs
+    // __del__ and weakref callbacks -- user code. Inside a walk that would be
+    // a fourth user-code step, at a point that takes no latch and beneath
+    // rows and elided containers nothing protects. Resolving it here, once,
+    // before any walk, is what makes this file's four-step enumeration true
+    // as written -- and it is `proved_layouts()`, not `available()`, so
+    // *both* proofs resolve now rather than the general one resolving inside
+    // the first walk that meets a general table.
+    if (rawdict::proved_layouts() == 0)
         PyErr_Clear(); // a refused layout is not an import failure
 #endif
 }

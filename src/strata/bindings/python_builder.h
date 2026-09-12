@@ -712,6 +712,17 @@ class PythonObjectBuilder {
     /// PyDict_New is the cheaper constructor. The hints are plain integers
     /// with no lifetime — they survive reset() with the KeyCache, which is
     /// what makes them pay across the calls of a leased builder.
+    ///
+    /// The `> 5` boundary is not a formula: `PyDict_MINSIZE` and
+    /// `USABLE_FRACTION` are `Objects/dictobject.c`-local on every supported
+    /// version, and 5 is the *observed* point at which `_PyDict_NewPresized`
+    /// stops short-circuiting to `PyDict_New`. Above it the table it returns
+    /// is `DICT_KEYS_GENERAL` on 3.11–3.14 — 24-byte entries, hash first —
+    /// whatever the key types, and it never converts back. The serializer
+    /// reads that layout rather than refusing it
+    /// (`rawdict::compact_general_exact_unchecked`, python_rawdict.h); the two
+    /// halves of this invariant are audited together on each new CPython
+    /// (docs/bindings/SKILL.md).
     [[nodiscard]] PyObject* new_mapping(size_t depth) {
 #if defined(STRATA_HAVE_DICT_PRESIZED)
         if (depth < kMaxSizedDepth) {

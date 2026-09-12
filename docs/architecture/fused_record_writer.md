@@ -42,6 +42,30 @@ collect-then-emit per record:
   has in hand, not a second read of the dict, and holding it is what lets the
   fused writer emit the same bytes as the general path under mutation.
 
+  Since E26-P23 (2026-09-12) the entry array the pass walks is not always the
+  dict's own. A `DICT_KEYS_GENERAL` table — 24-byte `{hash, key, value}`
+  entries, which is what `_PyDict_NewPresized` and therefore every record
+  `strata.loads` builds above five keys has — is **compacted** into the
+  16-byte `{key, value}` shape first, by one `cold`, out-of-line pass into the
+  lease's single 25-entry scratch, on the branch that used to return nullptr
+  and send the record to `write_mapping`. There is deliberately no second
+  instantiation of this body and no runtime stride or layout flag: the ledger
+  already priced both (a second instantiation trains cold under the
+  gate-inclusive profile, `dumps mixed` +5–18%; a flag live across the
+  verification loop is `dumps flat` +2.2–3.0%), so the only shape left is one
+  that makes the two layouts identical *before* the loop starts. What the
+  per-key loops cost, per ISA rather than in general (E26-P23 in
+  docs/performance/experiment-ledger.md has the method and the counts): on
+  arm64 the verification loop, the emit loop and `write_mapping`'s collection
+  loop are reproduced instruction for instruction modulo register renaming; on
+  x86-64 they keep their sequences apart from frame-slot renumbering, and the
+  collection loop comes out one memory operand *better* than before, with
+  `_PyBool_Type` hoisted into a register. The unicode path loads nothing new on
+  either ISA — the scratch is found by the cold callee off `this`, never passed
+  in — and the compacted array obeys the same rule as the raw one: dead the
+  moment the staged row is filled, now for a second reason as well, since a
+  nested record's compaction overwrites the one scratch.
+
   That row is **leased, not a local array** — one per dict nesting level, in
   the same per-thread state as the schemas it serves
   (`SchemaCacheLease::StagedRow`), and shared with `write_mapping`'s
@@ -129,7 +153,7 @@ every leg; a probe at the first container value with the record's bytes taken
 back through a mark on the staged output costs users 4%. Every one of them
 is per-record work on records of three fields, where a handful of
 instructions is a percent. The element-loop gap is recorded in
-docs/decisions.md (2026-09-11). The probe's place ahead of the fallbacks was itself re-measured (the ledger's probe-placement follow-up, 2026-09-11): behind them, as a second instantiation the value-path copy trains cold under the gate-inclusive profile (`dumps mixed` +5–18%, file `dump nested` +35% on the M1), and as a runtime flag the flag is a spill through every record's verification loop (`dumps flat` +2–3.5%); the one scan more on a rejected value dict is the cheaper side.
+docs/decisions.md (2026-09-11). The probe's place ahead of the fallbacks was itself re-measured (the ledger's probe-placement follow-up, 2026-09-11): behind them, as a second instantiation the value-path copy trains cold under the gate-inclusive profile (`dumps mixed` +5–18%, file `dump nested` +35% on the M1), and as a runtime flag the flag is a spill through every record's verification loop (`dumps flat` +2.2–3.0%, M1, `local4_A.tsv`; the ledger's E26-P9 probe-placement follow-up — the +3.5% once quoted here was the EPYC figure from the *second-instantiation* arm, a different experiment); the one scan more on a rejected value dict is the cheaper side.
 
 ## E26-P9a: restrict the nested dispatch experiment to Linux ARM64
 

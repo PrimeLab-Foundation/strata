@@ -2,10 +2,10 @@
 
 /**
  * @file python_dumps_output.h
- * @brief The serializer's output machinery: staging, schema cache, raw dicts.
+ * @brief The serializer's output machinery: staging and the schema cache.
  *
  * Split from python_dumps.cpp for the ~800-line rule; included only there.
- * Three pieces live here:
+ * Two pieces live here:
  *
  *  - StagedOutput: an 8KB stage flushed into a std::string (the str path),
  *    or a PyBytes written directly, sized to the previous document, with
@@ -14,9 +14,13 @@
  *  - SchemaCacheLease: the per-thread lease of everything a dumps() call
  *    keeps per nesting level -- the prepared-key cache with owned key
  *    references, and the staged key/value rows the dict writers emit from.
- *  - rawdict: the runtime-proved direct walk over a dict's entry array.
+ *
+ * The third, the raw dict walk, outgrew the same rule and moved to
+ * python_rawdict.h; this file includes it because a lease holds the
+ * compaction scratch that walk fills.
  */
 
+#include "python_rawdict.h"
 #include "python_types.h"
 
 #include <cstddef>
@@ -507,6 +511,22 @@ class SchemaCacheLease {
         /// Two registration nodes per level, addressed rather than pushed:
         /// only levels inside the schema cache ever register one.
         RowNode locks[2 * (kMaxDepth + 1)];
+#if defined(STRATA_RAW_DICT_WALK)
+        /// Compaction scratch for general-kind tables: one per lease, not one
+        /// per level. A compacted array is fully consumed -- into the staged
+        /// row by the fused writer, into the keys/values row by
+        /// write_mapping -- before any step that can recurse or run user
+        /// code, which is the same point the raw `entries` pointer already
+        /// stopped being readable (python_dumps.cpp, the fused writer's
+        /// "never touches `entries` again"). So no two levels hold one, and
+        /// the copy is in fact safer than the pointer: user code that frees
+        /// the table cannot reach it.
+        ///
+        /// Leased for the reason StagedRow is: a stack array here is a stack
+        /// array in every function the profile inlines its holder into, and
+        /// it drags a stack-protector canary.
+        rawdict::Entry general[rawdict::kScratchEntries];
+#endif
     };
 
     SchemaCacheLease() {
@@ -597,108 +617,5 @@ static_assert(std::is_nothrow_move_constructible_v<SchemaCacheLease::DepthSchema
               "schema slots must relocate by move, never by copy");
 static_assert(!std::is_copy_constructible_v<SchemaCacheLease::DepthSchemas>,
               "schema slots own key references and must not be copyable");
-
-#if PY_VERSION_HEX >= 0x030B0000 && PY_VERSION_HEX < 0x030F0000
-#define STRATA_RAW_DICT_WALK 1
-/**
- * Direct iteration over a dict's entry array.
- *
- * `PyDict_Next` re-validates and re-dispatches per call — profiled at 8% of a
- * record-heavy dump. Combined unicode-key tables (every dict strata builds,
- * and every dict literal) store `{key, value}` entries contiguously; walking
- * them is a pointer loop.
- *
- * The layout is CPython-internal, so it is mirrored minimally (the fields up
- * to the entry array, stable across 3.11–3.14), version-gated, and — the
- * load-bearing part — **proved at runtime**: the first use walks probe dicts
- * both ways and compares. Any mismatch, on any future build, disables the
- * raw walk for the process and every caller silently keeps `PyDict_Next`.
- * Split-table dicts (instance attribute dicts) and non-unicode tables always
- * take the fallback.
- */
-namespace rawdict {
-
-struct KeysPrefix {
-    Py_ssize_t dk_refcnt;
-    uint8_t dk_log2_size;
-    uint8_t dk_log2_index_bytes;
-    uint8_t dk_kind;
-    uint32_t dk_version;
-    Py_ssize_t dk_usable;
-    Py_ssize_t dk_nentries;
-    char dk_indices[1]; // the index table; entries follow it
-};
-
-struct UnicodeEntry {
-    PyObject* me_key;
-    PyObject* me_value;
-};
-
-constexpr uint8_t kKindUnicode = 1; // DICT_KEYS_UNICODE
-
-/// The entry array of @p dict, or nullptr when this dict cannot be walked raw.
-[[nodiscard]] inline const UnicodeEntry* entry_array(PyObject* dict, Py_ssize_t* entry_count) {
-    auto* impl = reinterpret_cast<PyDictObject*>(dict);
-    if (impl->ma_values != nullptr)
-        return nullptr; // split table: values live elsewhere
-    auto* keys = reinterpret_cast<const KeysPrefix*>(impl->ma_keys);
-    if (keys->dk_kind != kKindUnicode)
-        return nullptr;
-    *entry_count = keys->dk_nentries;
-    const char* base = reinterpret_cast<const char*>(keys) + offsetof(KeysPrefix, dk_indices);
-    return reinterpret_cast<const UnicodeEntry*>(
-        base + (static_cast<size_t>(1) << keys->dk_log2_index_bytes));
-}
-
-/// One-time layout proof: walk probe dicts raw and via PyDict_Next, compare.
-[[nodiscard]] inline bool probe_layout() {
-    PyRef small(PyDict_New());
-    PyRef big(PyDict_New());
-    if (!small || !big)
-        return false;
-    char name[16];
-    for (int index = 0; index < 40; ++index) {
-        std::snprintf(name, sizeof(name), "k%d", index);
-        PyRef value(PyLong_FromLong(index));
-        if (!value ||
-            PyDict_SetItemString(index < 4 ? small.get() : big.get(), name, value.get()) != 0)
-            return false;
-    }
-    if (PyDict_DelItemString(small.get(), "k1") != 0) // leave a hole
-        return false;
-
-    for (PyObject* dict : {small.get(), big.get()}) {
-        Py_ssize_t entry_count = 0;
-        const UnicodeEntry* entries = entry_array(dict, &entry_count);
-        if (entries == nullptr)
-            return false;
-        Py_ssize_t position = 0;
-        PyObject* expected_key = nullptr;
-        PyObject* expected_value = nullptr;
-        Py_ssize_t walked = 0;
-        for (Py_ssize_t index = 0; index < entry_count; ++index) {
-            if (entries[index].me_value == nullptr)
-                continue; // deleted slot
-            if (!PyDict_Next(dict, &position, &expected_key, &expected_value))
-                return false;
-            if (entries[index].me_key != expected_key || entries[index].me_value != expected_value)
-                return false;
-            ++walked;
-        }
-        if (PyDict_Next(dict, &position, &expected_key, &expected_value))
-            return false; // raw walk ended early
-        if (walked != PyDict_GET_SIZE(dict))
-            return false;
-    }
-    return true;
-}
-
-[[nodiscard]] inline bool available() {
-    static const bool proved = probe_layout();
-    return proved;
-}
-
-} // namespace rawdict
-#endif // STRATA_RAW_DICT_WALK
 
 } // namespace strata::bindings
