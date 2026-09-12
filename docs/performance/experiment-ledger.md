@@ -3059,4 +3059,27 @@ waits on it.
   five legs. Its tests differ between the arms by a whole campaign, so the
   reading includes the profile effect the gate-inclusive recipe carries
   (E26-P7b) — that is the total the standings see, which is the question.
-- Outcome: open.
+- Refuted, with the instrument built for it: **the raw dict walk is live on
+  Windows.** Nothing exposes `rawdict::available()`, so
+  `benchmarks/nested_container_probe.py` now reports the two consequences that
+  are observable — the fused record writer is the only path that emits a
+  repeated dict reached as a list element one container later
+  (docs/context/api.md, `cycle_policy`), and a `strata.loads`-built record
+  carries a general-kind table only the compaction accepts (E26-P23). The
+  Windows leg reads **fused live, compaction live** (run 34712365560), so the
+  deficit is real per-container work on that toolchain, not a fast path that
+  silently refused. The same draw prices what E26-P24 recovered there: the
+  two-scalar-record baseline 1.208x → 1.057x, one nested single-key dict's gap
+  over orjson +30.5 → +25.8 ns, a two-key dict's +18.9 → +12.9 ns.
+- One Windows draw had to be discarded and the probe now refuses its like:
+  run 34712159233 read orjson *faster* on six rows that only add work to the
+  same 500 records, which measures a throttled runner. The probe exits
+  non-zero on a rival delta below −1 ns rather than letting such a draw read
+  as a finding.
+- The first attempt at the attribution A/B (run 34712026697) failed on every
+  leg at `cp "$binary.build.json"`: 32c5fa4 predates the provenance layer and
+  emits no sidecar. The base built and passed both gates; only the copy
+  failed. `ab_x86.yml` now records `unknown` for an arm without a manifest
+  instead of failing the comparison, which is what
+  docs/context/benchmarks.md already says about historical identities.
+- Outcome: open — the attribution A/B is re-dispatched (run 34713122631).
