@@ -12,7 +12,7 @@ VPY := $(VENV)/bin/python
         test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
-        bench-ci bench-ci-summary probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
+        bench-ci bench-ci-summary bench-cross probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
         probe-ab-analyze probe-ab-floor probe-string-identity probe-file-costs probe-schema-recovery probe-canonical-builds bench-supportability \
         clean clean-venv scripts-executable help
 
@@ -201,6 +201,9 @@ BENCH_CI_FLAGS ?=
 bench-ci: venv  ## Fetch the latest CI run's per-platform reports and rebuild the standings summary (BENCH_CI_FLAGS)
 	PYTHONPATH=. $(VPY) -m benchmarks.ci_fetch $(BENCH_CI_FLAGS)
 	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
+
+bench-cross: venv  ## Compare one row across archived CI samples (BENCH_CROSS_FLAGS)
+	PYTHONPATH=. $(VPY) -m benchmarks.cross_sample $(BENCH_CROSS_FLAGS)
 
 bench-ci-summary: venv  ## Rebuild docs/benchmarks/ci_summary.md from the already-fetched reports (BENCH_CI_FLAGS)
 	PYTHONPATH=. $(VPY) -m benchmarks.ci_summary $(BENCH_CI_FLAGS)
