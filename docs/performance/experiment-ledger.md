@@ -2428,7 +2428,42 @@ floor `p23_AA.tsv`): every row inside its floor except `dumps flat` — medium
 str +1.1% and small +1.2/+2.1% normalised, 6/6 — where raw strata reads
 +0.4..+0.9% and orjson −0.2..−1.8% in the same launches, i.e. mostly rival
 movement at this resolution. `mixed`, `users`, `nested` and `wide_arrays` are
-inside. Runner A/B: recorded when the run completes.
+inside. Runner A/B (run 34665612473, the tests-only arm ca5346c against
+8d10320, `experiment=none`, six blocks of sixty, every arm's binary matching
+its sidecar): the change is a gain on both Linux legs and a **loss on
+Windows**. N2 `dumps flat` −1.50%/−1.73% (medium/small), `dumps mixed`
+−1.21%/−1.92%, `dumps users` −0.53%, all resolved against floors under
+0.5%; against it, small `dumps wide_arrays` +0.52% and `loads wide_arrays`
++0.28%, resolved at the report's resolution. EPYC `dumps flat` −2.05%/−1.96%,
+`dumps mixed` −2.32%/−1.40%, `dumps users` −1.88%/−2.03%, file `dump flat`
+−1.24%, nothing against. Both Macs resolve nothing either way. Windows (Zen 4,
+clang-cl PGO, CPython 3.12): medium `dumps users` **+2.46%** and small `dumps mixed` **+4.32%**, six of six blocks against floors of 1.25% and 1.46% — on
+the leg whose `dumps mixed` is one of the rows still behind.
+
+The Windows mechanism, read from the two arms' own profiles (both uploaded
+with the run): the training workload's serializer payload is
+`strata.loads`'s, so on the candidate every one of its records is a general
+table and the training run records **2.4 M counts inside the compaction**
+(`compact_general_*`, zero on the base), while `write_mapping`'s raw-walk
+block goes from 0.98 M to 1.74 M counts because those records stop taking
+`PyDict_Next`. The `cold` attribute says the compaction is rare and the
+profile says it is hot; block placement believes the profile. The divergence
+is identical on all five legs — the profiles are deterministic and match to
+the count — so what differs is only how each toolchain spends it, and
+clang-cl spends it on the hot unicode path that the benchmark rows measure.
+This is the E26-P7b/E26-P8 coupling once more, now inside a single source
+change.
+
+- Outcome: **not merged.** The source change is what it claims on three of
+  five legs and the round trip it exists for is fixed (1.45x → 1.08x at six
+  keys, 1.43x → 1.14x at eleven, 1.45x → 1.05x at twenty-four of the
+  json-built twin), but a resolved loss on Windows `dumps mixed` is
+  disqualifying while that row is behind. The next arm pairs it with the
+  training payload built by `json.loads` (E26-P8's b1 arm, neutral on its
+  own): the workload then trains the writers on the same table kind the
+  benchmark measures, the compaction's counters fall to the handful its
+  retained strata-parsed arm produces, and the attribute and the profile
+  agree. Branches kept.
 
 **Disassembly method and codegen.** Each ISA compiled at the flags its legs
 build with, from a `git archive main` tree and the branch tree in turn:
