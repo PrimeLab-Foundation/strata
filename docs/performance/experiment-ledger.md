@@ -3017,3 +3017,21 @@ waits on it.
   1.04x against msgspec). Windows `dumps mixed` is the one row behind on
   every sample of every revision this session: 1.06, 1.08, 1.07, 1.05x. No
   135/135 is claimed.
+
+- A correction to how the x86 standings on this row should be read, from the
+  rivals' own absolute times. On linux-x86_64 `dumps mixed`, across the four
+  samples of the two revisions, **orjson** — an unchanged binary — reads
+  0.071, 0.122, 0.048, 0.048 ms and **msgspec** 0.089, 0.096, 0.068, 0.068,
+  while strata reads 0.065, 0.092, 0.050, 0.048. The two samples of b32d398
+  agree to the microsecond on all three engines; the two samples of ec53f93
+  agree with nothing, including each other. Read the agreeing pair and this
+  row is **parity on a clean host** (1.00x and 1.04x, a 0–2 µs difference on
+  48 µs), and the 27/27 that leg recorded on both samples of ec53f93 rested
+  on draws where every rival ran 50–150% slower than it does on a quiet one.
+  The same-runner A/B of the trims on that leg read this row −4.66%/−3.54%,
+  so the code moved the right way while the rank moved the other way: what
+  changed between the sample pairs is the host, not the serializer.
+  The accounting for the goal follows the agreeing evidence, not the
+  favourable draw: **two rows need real work, not one** — linux-x86_64
+  `dumps mixed` at parity and Windows `dumps mixed` 4–8% behind on a leg
+  whose parse rows prove its host is stable.
