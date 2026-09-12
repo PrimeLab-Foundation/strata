@@ -98,6 +98,18 @@ that record).
   cycle warning observes.
 - Schema-cache behavior (4-way select, remember, retire, inline slots) is
   shared state with the general path, not duplicated.
+- **A record's opening brace is written by its first key** (E26-P24): the
+  prepared-slot emit of both dict writers stores `{` where a later key stores
+  `,`, inside the same 17-byte reservation, so neither writer reserves or
+  stores the brace on its own. Two consequences are load-bearing. A record of
+  **zero** keys has no first key and therefore cannot take that loop — the
+  fused writer refuses `size == 0` before it reads `entries[0]`, and
+  `write_mapping` writes `{}` itself; a width of at least one is now a
+  precondition of `write_mapping_body`, not only of `DepthSchemas::select`.
+  And the two branches the slot loop does *not* cover — a span too wide for an
+  inline slot, and a shape whose bytes are not prepared yet — keep an
+  `ensure`/`put` pair of their own. Both writers emit through the single
+  `emit_slot_key`, which is what keeps them byte-identical.
 
 ## Falsifiable estimate and kill criterion
 

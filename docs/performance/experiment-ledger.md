@@ -2557,3 +2557,164 @@ Linux legs.
 **Outcome: go.** Merged on the branch with its tests; the round-trip ratio is
 the evidence, the canonical A/B and the five-leg runner A/B are the no-harm
 gates.
+
+## E26-P24 — the fixed cost of opening a dict
+
+**Hypothesis.** The one canonical row still behind on any platform is Windows
+`dumps mixed` (1.06x and 1.08x on two samples of main: strata 0.075 ms against
+orjson 0.069 on 500 records). `benchmarks/decompose_dumps_mixed.py` localised it
+to the nested values rather than the records or the scalars, and
+`benchmarks/nested_container_probe.py` (branch `exp/win-mixed-probe`, evidence
+`build/evidence/benchmark-lead/mixed-2026-09-12/`) then priced one container at
+a time: the extra cost per record of a *one-key nested dict* is strata 25.8 ns
+on the M1, 45.0 on Linux x86_64 and 59.2 on Windows, against orjson's 26.6 /
+23.9 / 28.7 — strata's cost to **open** a container grows 2.3x from arm64 to
+the Windows build while orjson's is flat, and per-key cost beyond the first is
+at parity or better everywhere. The probe also ruled out the obvious suspects:
+the two dict writers are within 2 ns of each other on every leg (so it is not
+either writer's choice), a value whose type rotates per record costs nothing
+(so it is not the type ladder), and lists are strata's strength. So: remove
+fixed work from the path that opens a dict, portably, with byte-identical
+output.
+
+**Mechanism — four trims.**
+
+1. `rawdict::available()` is a guarded function-local static, and both dict
+   writers consulted it per dict. It is resolved once in the `Serializer`
+   constructor into a member, so the hot path loads a field off a `this` it
+   already holds instead of a guard byte and then a value.
+   `prepare_dumps_runtime()` still forces the proof at import; the constructor
+   is in any case a *safer* place to resolve it than mid-walk, because it runs
+   before `write()` and therefore outside every frame and staged row (the
+   FIX1-REVIEW hazard).
+2. `open_.size()` and `schemas_.size()` become plain `size_t` members,
+   `open_count_` and `schema_depths_`, each maintained by the one function that
+   mutates its container — `push_open`/`close_container` and `grow_schemas`. The
+   depth check every container pays, the growth check every dict pays,
+   `latch()`'s loop bound and `write_record_fused_value`'s emptiness probe are
+   then one load and one compare instead of two loads, a subtract and a shift.
+   The cycle probes still read `open_`'s iterators, which they need anyway.
+3. The opening brace is folded into the first key's reservation. `emit_slot_key`
+   stores `{` where a later key stores `,`, inside the same 17-byte window, so
+   `ensure(1)` + `put('{')` — one capacity check, one store, one size update,
+   and on arm64 ten instructions — disappears from every record. The window is
+   unchanged, so the str-mode contract (a small constant that fits the stage) is
+   unchanged. Its precondition is recorded as an invariant in
+   `docs/architecture/fused_record_writer.md`: a zero-width dict has no first
+   key to carry the brace, so it must not reach the slot loop.
+4. Inside the same emitter the size update is taken **before** the bytes are
+   stored. The slot copy writes through a pointer no compiler can prove
+   disjoint from the output object's own fields, so an advance placed after it
+   re-reads the buffer reference and its cursor: two loads per key, on both
+   ISAs and in both dict writers.
+
+Both writers emit through the one `emit_slot_key` — which is what keeps them
+byte-identical — and it carries the new `STRATA_INLINE_HOT`, because left to
+the optimizer it came back as an out-of-line call in the record writer's per-key
+loop (four argument moves, a call and a return for a fifteen-instruction body).
+The macro sits beside `STRATA_COLD_FN` in `python_types.h` with the same three
+arms and the same one-definition rule.
+
+**Codegen** (standalone `-S` of `python_dumps.cpp`, arm64 `-O3 -march=native`
+and `clang -target x86_64-apple-macos -O3 -fomit-frame-pointer -march=x86-64-v3`; instructions per symbol, frame bytes from the prologue's
+stack adjustment):
+
+| symbol               | arm64 before | arm64 after   | x86-64 before | x86-64 after |
+| -------------------- | ------------ | ------------- | ------------- | ------------ |
+| `write`              | 287 / 80     | 289 / 80      | 191 / 24      | 194 / 24     |
+| `write_sequence`     | 571 / 144    | 569 / 144     | 488 / 88      | 481 / 88     |
+| `write_record_fused` | 330 / 144    | **281** / 144 | 315 / 72      | **269** / 72 |
+| `write_mapping`      | 417 / 144    | **401** / 144 | 428 / 72      | **402** / 72 |
+| `write_mapping_body` | 584 / 144    | 616 / 160     | 579 / 104     | 621 / 104    |
+
+The per-key loops, counting the fallthrough fast path of one iteration: the
+fused writer's 37 → **35** on arm64 and 37 → 37 on x86-64;
+`write_mapping_body`'s slot loop 31 → **25** on arm64 and 29 → **25** on
+x86-64. Spill and reload counts are unchanged in every function on both ISAs
+except `write_mapping_body`, whose text grew because clang now peels the slot
+loop's first iteration itself — the brace fold made that peel profitable, and
+it is the compiler's choice, not a second instantiation in the source.
+
+**Probe** (M1-class Mac, plain `-O3` builds of main's source and this one, the
+unmodified probe from `exp/win-mixed-probe`, six interleaved rounds of eighty
+per arm, medians of the round medians, 500 records per document):
+
+| document       | before ns/record | after ns/record | delta |
+| -------------- | ---------------- | --------------- | ----- |
+| `scalars-only` | 24.6             | 23.6            | −4.3% |
+| `value-dict1`  | 52.3             | 51.3            | −1.9% |
+| `value-dict2`  | 69.1             | 66.5            | −3.8% |
+| `value-list0`  | 35.0             | 33.9            | −3.1% |
+| `value-list2`  | 54.0             | 52.5            | −2.7% |
+| `value-dict8`  | 160.2            | 161.8           | +0.9% |
+| `value-dict16` | 285.2            | 286.0           | +0.3% |
+
+Eleven of the probe's fourteen rows improve by 1.6–4.7%; the two widest nested
+dicts and `value-list16` read +0.0..+0.9%, which is at this machine's draw
+spread (the before arm's own rounds span 1.4% on `scalars-only`). The gain is
+per *record*, not per nested container: the outer record is a dict too, so the
+probe's "open cost" column (a row minus `scalars-only`) barely moves while every
+absolute row falls.
+
+**Canonical rows** (`benchmarks/dumps_rows_probe.py`, small tier, six ABBA
+blocks of sixty, 720 samples per cell, orjson in the same launches as the drift
+control):
+
+| row           | strata bytes | strata str | orjson (drift) |
+| ------------- | ------------ | ---------- | -------------- |
+| `nested`      | **−3.76%**   | −3.26%     | +0.44%         |
+| `mixed`       | **−1.09%**   | −1.93%     | +0.11%         |
+| `users`       | **−1.05%**   | −0.21%     | −0.40%         |
+| `flat`        | **−0.80%**   | −1.08%     | +0.13%         |
+| `wide_arrays` | +0.38%       | +0.64%     | +0.66%         |
+
+`flat` is the row the register-pressure constraint protects (21 keys per record,
+the widest canonical shape) and it is a gain, not a loss. `wide_arrays` moves
+with orjson in the same launches, which is the drift control saying the machine
+moved, not the change: that row is four keys and four 64-element arrays, almost
+no dict work.
+
+**Rejected on their own codegen**, all three worth re-reading before they are
+proposed again:
+
+1. *Peel the record's first key* out of the emit loop so the loop's separator is
+   a literal and no first-key test survives. Worth 23 instructions per record on
+   arm64. On SysV x86-64 it turns `index + 1` into a second induction variable,
+   spills the slot offset once per key and grows `write_record_fused`'s frame
+   from 72 to 120 bytes — break-even near nineteen keys, so a net loss at
+   `flat`'s twenty-one, on exactly the row E26-P6 showed is one live value from
+   regressing.
+2. *Select the separator byte between two registers* instead of branching on the
+   first key. The second constant costs x86-64 the same spill (+2 instructions
+   per key, frame 72 → 88). Two immediate stores under a branch taken once per
+   record cost nothing, and clang if-converts them back to a `csel` on arm64,
+   where a register is free.
+3. *Hold the prepared row across the emit loop and reload it when `schemas_`
+   grew* — the `user_steps_` pattern applied to the schema table. The re-index
+   it replaces is already one load off `this` plus one off the vector, with the
+   whole stride folded into an induction variable, so a load-compare-branch
+   reload test is a net loss and it spilled the loop bound on arm64.
+   Independently: `user_steps_` cannot be that test, because an all-scalar
+   nested record grows the table while running no user code at all — only a
+   counter of the table's own size can. The per-key re-index stays.
+
+Also rejected: folding `write_sequence`'s `[` the way the brace folded. A list's
+first element is emitted by seven bodies — the five scalar runs, the general
+loop and `write_sequence_body` — each with its own "first element bare"
+convention, so the fold means passing a separator byte through the runs, which
+is the carried-value cost E26-P6 and the E26-P9 probe-placement follow-up both
+priced, for one reservation per list. The comment at the bracket says so.
+
+**Not measured here, and deliberately out of scope.** Two further items the
+codegen exposed. `is_plain_scalar` is an out-of-line call per key on both ISAs
+and in both revisions — per-key work, not per-open. And the separator could
+disappear entirely if `build_schema` baked it into the prepared bytes (slot 0 as
+`{"key":`, the rest as `,"key":`), which removes the branch and the byte store
+but widens `Schema::slots` by 50%, against the cache argument that put those
+bytes inline in the first place. Neither belongs in a trim of the open path.
+
+**Outcome: go** on the evidence above — a same-machine A/B with a drift
+control, no canonical row behind past its own noise, both suites and the ASan
+gate green. Five-platform CI remains the acceptance gate for the Windows row
+this exists to move; the M1 cannot decide that one, only show the mechanism is
+real and cheap on the architecture it can measure.
