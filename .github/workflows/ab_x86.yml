@@ -162,7 +162,14 @@ jobs:
           mkdir -p arms
           binary=$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')
           cp "$binary" arms/B.so
-          cp "$binary.build.json" arms/B.so.build.json
+          # A revision from before the provenance layer emits no sidecar
+          # (docs/context/benchmarks.md: missing historical identities stay
+          # unknown). Record that instead of failing the comparison.
+          if [ -f "$binary.build.json" ]; then
+            cp "$binary.build.json" arms/B.so.build.json
+          else
+            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "candidate" > arms/B.so.build.json
+          fi
           cp -R build/pgo ab/profile-B
           echo "B $(git rev-parse --short HEAD) $(md5sum arms/B.so 2>/dev/null || md5 -q arms/B.so)" | tee -a ab/arms.txt
 
@@ -183,7 +190,14 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           binary=$(../base/.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')
           cp "$binary" arms/A.so
-          cp "$binary.build.json" arms/A.so.build.json
+          # A revision from before the provenance layer emits no sidecar
+          # (docs/context/benchmarks.md: missing historical identities stay
+          # unknown). Record that instead of failing the comparison.
+          if [ -f "$binary.build.json" ]; then
+            cp "$binary.build.json" arms/A.so.build.json
+          else
+            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "baseline" > arms/A.so.build.json
+          fi
           cp -R ../base/build/pgo ab/profile-A
           echo "A $(git -C ../base rev-parse --short HEAD) $(md5sum arms/A.so 2>/dev/null || md5 -q arms/A.so)" | tee -a ab/arms.txt
 
@@ -360,7 +374,14 @@ jobs:
           mkdir -p arms ab
           candidate_binary=$(python -c 'import strata._strata as m; print(m.__file__)')
           cp "$candidate_binary" arms/B.pyd
-          cp "$candidate_binary.build.json" arms/B.pyd.build.json
+          # A revision from before the provenance layer emits no sidecar
+          # (docs/context/benchmarks.md: missing historical identities stay
+          # unknown). Record that instead of failing the comparison.
+          if [ -f "$candidate_binary.build.json" ]; then
+            cp "$candidate_binary.build.json" arms/B.pyd.build.json
+          else
+            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "candidate" > arms/B.pyd.build.json
+          fi
           cp -R build/pgo ab/profile-B
           python -m pip freeze --exclude-editable > ab/constraints.txt
           python -c "import platform; print(platform.platform(), platform.processor())" > ab/cpu.txt
@@ -386,7 +407,14 @@ jobs:
           baseline_binary=$(.venv/Scripts/python -c 'import strata._strata as m; print(m.__file__)')
           cd "$GITHUB_WORKSPACE"
           cp "$baseline_binary" arms/A.pyd
-          cp "$baseline_binary.build.json" arms/A.pyd.build.json
+          # A revision from before the provenance layer emits no sidecar
+          # (docs/context/benchmarks.md: missing historical identities stay
+          # unknown). Record that instead of failing the comparison.
+          if [ -f "$baseline_binary.build.json" ]; then
+            cp "$baseline_binary.build.json" arms/A.pyd.build.json
+          else
+            printf '{"schema_version": 1, "unknown": "the %s revision predates build identity", "extension_sha256": null, "complete_compilation": null, "source": {"commit": null}}\n' "baseline" > arms/A.pyd.build.json
+          fi
           cp -R ../base/build/pgo ab/profile-A
 
       - name: Generate comparison datasets
