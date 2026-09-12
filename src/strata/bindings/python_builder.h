@@ -720,7 +720,7 @@ class PythonObjectBuilder {
     /// is `DICT_KEYS_GENERAL` on 3.11–3.14 — 24-byte entries, hash first —
     /// whatever the key types, and it never converts back. The serializer
     /// reads that layout rather than refusing it
-    /// (`rawdict::compact_general_exact`, python_dumps_output.h); the two
+    /// (`rawdict::compact_general_exact_unchecked`, python_rawdict.h); the two
     /// halves of this invariant are audited together on each new CPython
     /// (docs/bindings/SKILL.md).
     [[nodiscard]] PyObject* new_mapping(size_t depth) {

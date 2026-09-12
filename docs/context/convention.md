@@ -35,7 +35,15 @@ North star: correctness first, then performance, then maintainability.
 - Public API stays small and stable. Every new public API needs: C++ tests +
   Python tests, a `docs/` update, and benchmark coverage if perf-relevant.
 - Keep files under ~800 LOC; split by responsibility unless there is a documented
-  compelling reason.
+  compelling reason. Two files carry that exemption today, both in the binding
+  layer and both for codegen reasons already measured:
+  `src/strata/bindings/python_dumps.cpp` (the serializer's writers must stay in
+  one translation unit — E26-P6 priced out-lining and re-inlining them per ISA,
+  and their inlining decisions are load-bearing: `docs/architecture/fused_record_writer.md`)
+  and `src/strata/bindings/python_builder.h` (the parse-side builder is one
+  header the parser instantiates; splitting it moves the inlining boundary of
+  the hot build path). Anything separable from those two is split out instead —
+  `python_rawdict.h` was, in E26-P23.
 
 ## Testing gates
 

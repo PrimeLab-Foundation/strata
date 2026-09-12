@@ -221,6 +221,20 @@ any other kind are always refused; the general test is `== DICT_KEYS_GENERAL`
 exactly, never `!= DICT_KEYS_UNICODE`, because `DK_IS_UNICODE` is true for a
 split table whose `me_value` fields are meaningless.
 
+How a writer reaches the general half is a codegen decision, not a taste one.
+Each writer keeps `rawdict::entry_array` inlined exactly as it was and hands
+its `nullptr` edge to a `cold` **member** of `Serializer`
+(`compact_general_exact`, `compact_general_holes`) that finds the lease's
+scratch off `this`. Do not "simplify" that into a free accessor taking the
+scratch as an argument: an argument has to be materialized before the call, and
+the compiler schedules that load onto the unicode path, where it is dead — one
+instruction per record in `write_record_fused` on both ISAs, two in
+`write_mapping` on x86-64 (E26-P23 in docs/performance/experiment-ledger.md,
+which also records the `[[unlikely]]` that keeps the merged `write_mapping`
+epilogue out of the hot prologue). Every probe in the header carries
+`STRATA_COLD_FN` for the same class of reason: on ELF that is what keeps
+import-only code out of the writers' `.text`.
+
 ## Build
 
 `setup.py` compiles bindings + core + util into one extension:

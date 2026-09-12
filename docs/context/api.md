@@ -205,11 +205,15 @@ strata.config.set(key, value); strata.config.get(key); strata.config.list()
   2026-09-12): a repeated **dict** reached as a list element, whose shape the
   thread's serializer cache already holds, is emitted once more before the
   placeholder, so the `null` lands one container late; the warning, the
-  `"error"` policy and the bound on recursion are unaffected. It applies to
-  any dict of at most 24 exact-`str` keys at a cached depth, whatever its
-  keys-table kind — **including every record `strata.loads` itself parses**,
-  which before 2026-09-12 took the general writer and placed the `null` one
-  container earlier.
+  `"error"` policy and the bound on recursion are unaffected. It applies to a
+  dict of at most 24 exact-`str` keys at a cached depth whose keys table is
+  **combined** — unicode- or general-kind — which since 2026-09-12 includes
+  the records `strata.loads` itself parses up to that width (those above five
+  keys are the ones that changed: they are general-kind and took the general
+  writer before; narrower ones were already unicode-kind and already landed
+  late). A *split* table (an instance `__dict__`) and a record wider than 24
+  keys still take the general writer, and there the `null` lands in the
+  container that holds the repeat.
 
 Config state is process-global at the map level. `duplicate_key_policy` is
 consumed via a **thread-local** variable — it does not propagate to other
