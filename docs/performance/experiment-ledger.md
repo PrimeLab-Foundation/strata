@@ -2957,8 +2957,31 @@ waits on it.
   The arithmetic on the standing: Windows `dumps mixed` reads 1.06x and 1.08x
   on the two samples of ec53f93, so −5.1% of strata's own time puts it near
   1.03x — most of the gap, not all of it on those draws.
+
 - A five-platform A/B of the **fixed** tip is owed and dispatched (run
-  34690375277: the tests-matched base db073e86 against 9631aa6). The
-  withdrawn pieces cost `write` three instructions on x86-64 and two on
-  arm64, so the fixed tip should read no worse; the row's verdict is that
-  run's.
+  34690375277: the tests-matched base db073e86 against 9631aa6). The withdrawn pieces cost `write` three
+  instructions on x86-64 and two on arm64, and the fixed tip reads better on
+  every leg (run 34690375277, `exp/p24-tests-only` db073e86 against 9631aa6,
+  evidence `p24/native-p24-fixed-34690375277/`): **no resolved loss on any
+  leg**, and the resolved gains are wider than the first cut's everywhere.
+  EPYC sweeps its whole serializer set — `dumps mixed` −4.66%/−3.54%, `dumps users` −4.36%/−4.83%, `dumps flat` −2.48%/−2.36%, `dumps wide_arrays`
+  −3.70%, file `dump nested` −6.68%, file `dump mixed` −1.81%, file `dump wide_arrays` −2.11%, eighteen rows in all. **Windows small `dumps mixed`
+  −6.89%** against a 2.89% floor (the first cut read −5.06%), with `dumps users` −2.77% and nothing against. N2: eight rows, `dumps flat`
+  −1.53%/−1.67% where the first cut read −0.80%, `dumps mixed`
+  −1.81%/−1.43%, `dumps users` −1.17%/−0.82%, file `dump nested` −1.42%,
+  `loads wide_arrays` −0.43%. i7: small `dumps mixed` −4.92%, `loads wide_arrays` −2.94%. M2 Pro VM: `dumps mixed` −3.36%, file `dump mixed`
+  −4.64%, `dumps users` −1.81% — a leg that resolved nothing on the first
+  cut.
+
+  What that does to the standing: Windows `dumps mixed` reads 1.06x and 1.08x
+  on the two samples of ec53f93 (strata 0.076/0.075 ms against orjson
+  0.071/0.069). Taking 6.89% off strata's own time gives 0.071/0.070 — at
+  parity with the first draw's orjson and a per-cent above the second's. The
+  row can flip on a favourable draw and is within the report's resolution on
+  an unfavourable one; two five-platform samples after integration are what
+  decide it, as always.
+
+- Outcome: **accepted for integration on this measurement** — 24 resolved
+  gains across the five legs, no resolved loss anywhere, output byte-identical
+  over 13,512 differential comparisons, both gates green with no build
+  outside the gated path.
