@@ -509,19 +509,18 @@ class Serializer {
     }
 
     /**
-     * Out of line on every toolchain, declared rather than left to the
-     * profile. The four POSIX legs' PGO builds already keep this body out of
-     * `write()`; clang-cl's did not, and on Win64 that is a tax on every value
-     * the walk writes, not only on lists: `run_strings` hoists the escape
-     * scanner's three broadcast constants into registers that stay live across
-     * the run's `ensure` calls, which makes them xmm6-xmm11 -- callee-saved
-     * under the Windows ABI, where LLVM does not shrink-wrap -- so `write()`
-     * saved and restored six vector registers on entry to print a two-digit
-     * int. Read off the shipped Windows binary (E26-P26 in
-     * docs/performance/experiment-ledger.md).
+     * Out of line under the Win64 ABI (STRATA_NOINLINE_WIN64), the profile's
+     * choice everywhere else. `run_strings` hoists the escape scanner's three
+     * broadcast constants into registers that stay live across the run's
+     * `ensure` calls; on Win64 those are xmm6-xmm11, callee-saved, so with
+     * this body inlined `write()` saved and restored six vector registers on
+     * entry to print a two-digit int. Read off the shipped Windows binary;
+     * forcing the same placement on the POSIX legs cost their `users` and
+     * `wide_arrays` rows 2-3%, where PGO inlines the hot call site
+     * (E26-P26 in docs/performance/experiment-ledger.md).
      */
-    [[nodiscard]] STRATA_NOINLINE_HOT Py_ssize_t write_scalar_run(PyObject** items,
-                                                                  Py_ssize_t size) {
+    [[nodiscard]] STRATA_NOINLINE_WIN64 Py_ssize_t write_scalar_run(PyObject** items,
+                                                                    Py_ssize_t size) {
         if (size == 0)
             return 0;
         PyTypeObject* type = Py_TYPE(items[0]);

@@ -57,6 +57,20 @@ struct JsonValue;
 #define STRATA_NOINLINE_HOT
 #endif
 
+// Out of line under the Win64 ABI only. xmm6-xmm15 are callee-saved there and
+// LLVM does not shrink-wrap that target, so a vector constant hoisted inside
+// an inlined callee becomes a save and restore in the *caller's* prologue --
+// paid on every entry, including the ones that never reach the callee's body.
+// SysV and AAPCS64 have no such cost (SysV has no callee-saved vector
+// registers; AAPCS64 saves d8-d15 where they are used), and there the
+// profile's own inlining decision measured better than this attribute:
+// E26-P26 in docs/performance/experiment-ledger.md.
+#if defined(_WIN64)
+#define STRATA_NOINLINE_WIN64 STRATA_NOINLINE_HOT
+#else
+#define STRATA_NOINLINE_WIN64
+#endif
+
 namespace strata::bindings {
 
 // --- Entry points shared between the binding translation units -------------
