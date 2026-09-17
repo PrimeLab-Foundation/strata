@@ -4,12 +4,12 @@ Machine-written by `make bench-*`. Do not hand-edit.
 
 `speedup_vs_strata` above 1.00 means that library is faster than strata.
 
-- commit: c89aea890fd23de6c299c86e4099ab38c8418300
+- commit: 6e4d93e74610755e4c46406e91c8aaf4ab6817a1
 - python: 3.12.14
 - implementation: CPython
 - platform: Linux-6.17.0-1022-azure-x86_64-with-glibc2.39
 - machine: x86_64
-- processor: AMD EPYC 7763 64-Core Processor
+- processor: INTEL(R) XEON(R) PLATINUM 8573C
 - compiler_flags: -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -std=c++20 -D_LIBCPP_DISABLE_AVAILABILITY -fomit-frame-pointer -march=native -flto=thin -fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata -fsplit-machine-functions -shared -Wl,--rpath=/opt/hostedtoolcache/Python/3.12.14/x64/lib (19 recorded commands; see the JSON companion)
 - repeats: 10
 - warmup: 2
@@ -19,160 +19,160 @@ Machine-written by `make bench-*`. Do not hand-edit.
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 9.509 | 9.699 | 14.124 | 64.598 | 1.00x |
-| users.json | orjson | 12.923 | 13.130 | 16.688 | 64.598 | 0.74x |
-| users.json | msgspec | 12.963 | 13.094 | 16.761 | 64.598 | 0.74x |
-| users.json | ujson | 17.252 | 17.500 | 23.178 | 64.598 | 0.55x |
-| users.json | pysimdjson | 17.807 | 18.031 | 22.869 | 64.598 | 0.54x |
-| users.json | json | 21.927 | 22.132 | 23.910 | 64.598 | 0.44x |
-| flat.json | strata | 0.843 | 0.848 | 0.866 | 81.562 | 1.00x |
-| flat.json | orjson | 0.973 | 0.978 | 0.985 | 81.562 | 0.87x |
-| flat.json | msgspec | 1.001 | 1.011 | 1.062 | 81.562 | 0.84x |
-| flat.json | ujson | 1.473 | 1.481 | 1.500 | 81.562 | 0.57x |
-| flat.json | pysimdjson | 1.535 | 1.560 | 1.578 | 81.562 | 0.54x |
-| flat.json | json | 1.897 | 1.908 | 1.928 | 81.562 | 0.44x |
-| nested.json | strata | 0.790 | 0.804 | 0.851 | 81.562 | 1.00x |
-| nested.json | orjson | 0.990 | 0.996 | 1.031 | 81.562 | 0.81x |
-| nested.json | msgspec | 1.005 | 1.018 | 1.055 | 81.562 | 0.79x |
-| nested.json | ujson | 1.440 | 1.454 | 1.506 | 81.562 | 0.55x |
-| nested.json | pysimdjson | 1.394 | 1.406 | 1.503 | 81.562 | 0.57x |
-| nested.json | json | 2.005 | 2.023 | 2.057 | 81.562 | 0.40x |
-| wide_arrays.json | strata | 4.060 | 4.110 | 4.180 | 84.594 | 1.00x |
-| wide_arrays.json | orjson | 5.085 | 5.172 | 9.643 | 84.594 | 0.79x |
-| wide_arrays.json | msgspec | 5.612 | 5.679 | 7.274 | 84.594 | 0.72x |
-| wide_arrays.json | ujson | 7.085 | 7.138 | 7.288 | 84.594 | 0.58x |
-| wide_arrays.json | pysimdjson | 6.085 | 6.133 | 6.215 | 84.594 | 0.67x |
-| wide_arrays.json | json | 9.696 | 9.807 | 9.975 | 84.594 | 0.42x |
-| mixed.json | strata | 0.188 | 0.191 | 0.214 | 84.594 | 1.00x |
-| mixed.json | orjson | 0.227 | 0.230 | 0.333 | 84.594 | 0.83x |
-| mixed.json | msgspec | 0.235 | 0.238 | 0.390 | 84.594 | 0.80x |
-| mixed.json | ujson | 0.301 | 0.306 | 0.337 | 84.594 | 0.62x |
-| mixed.json | pysimdjson | 0.299 | 0.308 | 0.318 | 84.594 | 0.62x |
-| mixed.json | json | 0.469 | 0.480 | 0.494 | 84.594 | 0.40x |
+| users.json | strata | 8.530 | 8.665 | 10.746 | 65.652 | 1.00x |
+| users.json | orjson | 12.385 | 12.452 | 14.329 | 65.652 | 0.70x |
+| users.json | msgspec | 12.758 | 12.879 | 14.831 | 65.652 | 0.67x |
+| users.json | ujson | 16.218 | 16.577 | 19.750 | 65.652 | 0.52x |
+| users.json | pysimdjson | 16.221 | 16.342 | 18.324 | 65.652 | 0.53x |
+| users.json | json | 19.105 | 19.201 | 20.058 | 65.652 | 0.45x |
+| flat.json | strata | 0.761 | 0.772 | 0.866 | 79.309 | 1.00x |
+| flat.json | orjson | 0.914 | 0.933 | 0.951 | 79.309 | 0.83x |
+| flat.json | msgspec | 0.854 | 0.879 | 1.119 | 79.309 | 0.88x |
+| flat.json | ujson | 1.200 | 1.223 | 1.455 | 79.309 | 0.63x |
+| flat.json | pysimdjson | 1.315 | 1.337 | 1.548 | 79.309 | 0.58x |
+| flat.json | json | 1.546 | 1.617 | 1.904 | 79.309 | 0.48x |
+| nested.json | strata | 0.634 | 0.642 | 0.647 | 79.340 | 1.00x |
+| nested.json | orjson | 0.788 | 0.808 | 0.817 | 79.340 | 0.79x |
+| nested.json | msgspec | 0.803 | 0.817 | 0.826 | 79.340 | 0.79x |
+| nested.json | ujson | 1.150 | 1.160 | 1.195 | 79.340 | 0.55x |
+| nested.json | pysimdjson | 1.114 | 1.120 | 1.153 | 79.340 | 0.57x |
+| nested.json | json | 1.599 | 1.618 | 1.642 | 79.340 | 0.40x |
+| wide_arrays.json | strata | 3.369 | 3.389 | 3.479 | 83.344 | 1.00x |
+| wide_arrays.json | orjson | 4.489 | 4.658 | 4.731 | 83.344 | 0.73x |
+| wide_arrays.json | msgspec | 4.839 | 4.873 | 6.015 | 83.344 | 0.70x |
+| wide_arrays.json | ujson | 5.969 | 6.015 | 6.437 | 83.344 | 0.56x |
+| wide_arrays.json | pysimdjson | 4.871 | 4.926 | 4.988 | 83.344 | 0.69x |
+| wide_arrays.json | json | 8.095 | 8.136 | 8.248 | 83.344 | 0.42x |
+| mixed.json | strata | 0.170 | 0.170 | 0.183 | 83.344 | 1.00x |
+| mixed.json | orjson | 0.204 | 0.210 | 0.232 | 83.344 | 0.81x |
+| mixed.json | msgspec | 0.212 | 0.218 | 0.231 | 83.344 | 0.78x |
+| mixed.json | ujson | 0.267 | 0.279 | 0.309 | 83.344 | 0.61x |
+| mixed.json | pysimdjson | 0.264 | 0.275 | 0.283 | 83.344 | 0.62x |
+| mixed.json | json | 0.423 | 0.506 | 0.539 | 83.344 | 0.34x |
 
 ## dumps -- dumps (in-memory serialization)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 2.276 | 2.303 | 2.365 | 63.695 | 1.00x |
-| users.json | orjson | 2.871 | 2.900 | 2.946 | 63.695 | 0.79x |
-| users.json | msgspec | 3.821 | 3.840 | 4.425 | 63.695 | 0.60x |
-| users.json | ujson | 11.220 | 11.364 | 11.446 | 63.695 | 0.20x |
-| users.json | json | 21.426 | 21.495 | 21.749 | 63.695 | 0.11x |
-| flat.json | strata | 0.276 | 0.278 | 0.291 | 81.562 | 1.00x |
-| flat.json | orjson | 0.324 | 0.329 | 0.349 | 81.562 | 0.84x |
-| flat.json | msgspec | 0.423 | 0.435 | 0.492 | 81.562 | 0.64x |
-| flat.json | ujson | 1.018 | 1.030 | 1.051 | 81.562 | 0.27x |
-| flat.json | json | 1.834 | 1.852 | 1.924 | 81.562 | 0.15x |
-| nested.json | strata | 0.225 | 0.226 | 0.246 | 81.566 | 1.00x |
-| nested.json | orjson | 0.289 | 0.297 | 0.330 | 81.566 | 0.76x |
-| nested.json | msgspec | 0.397 | 0.399 | 0.410 | 81.566 | 0.57x |
-| nested.json | ujson | 1.073 | 1.082 | 1.117 | 81.566 | 0.21x |
-| nested.json | json | 2.372 | 2.393 | 2.418 | 81.566 | 0.09x |
-| wide_arrays.json | strata | 1.617 | 1.632 | 1.672 | 84.594 | 1.00x |
-| wide_arrays.json | orjson | 1.792 | 1.805 | 1.827 | 84.594 | 0.90x |
-| wide_arrays.json | msgspec | 2.729 | 2.750 | 2.805 | 84.594 | 0.59x |
-| wide_arrays.json | ujson | 6.333 | 6.369 | 6.501 | 84.594 | 0.26x |
-| wide_arrays.json | json | 16.449 | 16.542 | 17.354 | 84.594 | 0.10x |
-| mixed.json | strata | 0.061 | 0.062 | 0.074 | 84.594 | 1.00x |
-| mixed.json | orjson | 0.065 | 0.066 | 0.077 | 84.594 | 0.94x |
-| mixed.json | msgspec | 0.083 | 0.085 | 0.098 | 84.594 | 0.73x |
-| mixed.json | ujson | 0.227 | 0.233 | 0.245 | 84.594 | 0.26x |
-| mixed.json | json | 0.508 | 0.517 | 0.530 | 84.594 | 0.12x |
+| users.json | strata | 1.664 | 1.678 | 1.709 | 64.781 | 1.00x |
+| users.json | orjson | 2.044 | 2.069 | 2.131 | 64.781 | 0.81x |
+| users.json | msgspec | 3.386 | 3.437 | 3.503 | 64.781 | 0.49x |
+| users.json | ujson | 9.848 | 9.893 | 9.948 | 64.781 | 0.17x |
+| users.json | json | 17.812 | 17.901 | 18.131 | 64.781 | 0.09x |
+| flat.json | strata | 0.241 | 0.250 | 0.266 | 79.340 | 1.00x |
+| flat.json | orjson | 0.243 | 0.255 | 0.272 | 79.340 | 0.98x |
+| flat.json | msgspec | 0.370 | 0.377 | 0.391 | 79.340 | 0.66x |
+| flat.json | ujson | 0.881 | 0.894 | 0.924 | 79.340 | 0.28x |
+| flat.json | json | 1.582 | 1.599 | 1.636 | 79.340 | 0.16x |
+| nested.json | strata | 0.159 | 0.167 | 0.187 | 79.340 | 1.00x |
+| nested.json | orjson | 0.223 | 0.228 | 0.232 | 79.340 | 0.73x |
+| nested.json | msgspec | 0.329 | 0.333 | 0.342 | 79.340 | 0.50x |
+| nested.json | ujson | 0.918 | 0.928 | 0.956 | 79.340 | 0.18x |
+| nested.json | json | 1.966 | 1.985 | 2.056 | 79.340 | 0.08x |
+| wide_arrays.json | strata | 1.297 | 1.308 | 1.325 | 83.344 | 1.00x |
+| wide_arrays.json | orjson | 1.392 | 1.396 | 1.408 | 83.344 | 0.94x |
+| wide_arrays.json | msgspec | 2.283 | 2.296 | 2.315 | 83.344 | 0.57x |
+| wide_arrays.json | ujson | 4.924 | 4.969 | 5.103 | 83.344 | 0.26x |
+| wide_arrays.json | json | 13.046 | 13.097 | 13.310 | 83.344 | 0.10x |
+| mixed.json | strata | 0.053 | 0.055 | 0.060 | 83.344 | 1.00x |
+| mixed.json | orjson | 0.052 | 0.053 | 0.056 | 83.344 | 1.04x |
+| mixed.json | msgspec | 0.068 | 0.075 | 0.094 | 83.344 | 0.73x |
+| mixed.json | ujson | 0.203 | 0.204 | 0.219 | 83.344 | 0.27x |
+| mixed.json | json | 0.481 | 0.501 | 0.555 | 83.344 | 0.11x |
 
 ## load -- load (file to tree)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 10.114 | 10.375 | 12.043 | 83.195 | 1.00x |
-| users.json | orjson | 13.245 | 13.663 | 14.666 | 83.195 | 0.76x |
-| users.json | msgspec | 13.464 | 14.078 | 14.557 | 83.195 | 0.74x |
-| users.json | ujson | 18.330 | 19.355 | 20.775 | 83.195 | 0.54x |
-| users.json | json | 22.497 | 22.743 | 23.249 | 83.195 | 0.46x |
-| flat.json | strata | 0.858 | 0.874 | 0.915 | 81.562 | 1.00x |
-| flat.json | orjson | 1.029 | 1.037 | 1.099 | 81.562 | 0.84x |
-| flat.json | msgspec | 1.060 | 1.080 | 1.804 | 81.562 | 0.81x |
-| flat.json | ujson | 1.567 | 1.585 | 1.798 | 81.562 | 0.55x |
-| flat.json | json | 1.964 | 1.979 | 2.009 | 81.562 | 0.44x |
-| nested.json | strata | 0.813 | 0.827 | 0.833 | 81.566 | 1.00x |
-| nested.json | orjson | 1.042 | 1.046 | 1.063 | 81.566 | 0.79x |
-| nested.json | msgspec | 1.060 | 1.067 | 1.111 | 81.566 | 0.78x |
-| nested.json | ujson | 1.509 | 1.532 | 1.774 | 81.566 | 0.54x |
-| nested.json | json | 2.069 | 2.078 | 2.099 | 81.566 | 0.40x |
-| wide_arrays.json | strata | 4.146 | 4.202 | 4.235 | 84.594 | 1.00x |
-| wide_arrays.json | orjson | 5.153 | 5.197 | 5.354 | 84.594 | 0.81x |
-| wide_arrays.json | msgspec | 5.782 | 5.868 | 5.971 | 84.594 | 0.72x |
-| wide_arrays.json | ujson | 7.228 | 7.351 | 7.425 | 84.594 | 0.57x |
-| wide_arrays.json | json | 9.679 | 9.772 | 9.947 | 84.594 | 0.43x |
-| mixed.json | strata | 0.203 | 0.206 | 0.253 | 84.594 | 1.00x |
-| mixed.json | orjson | 0.275 | 0.291 | 0.346 | 84.594 | 0.71x |
-| mixed.json | msgspec | 0.282 | 0.290 | 0.337 | 84.594 | 0.71x |
-| mixed.json | ujson | 0.359 | 0.362 | 0.405 | 84.594 | 0.57x |
-| mixed.json | json | 0.513 | 0.528 | 0.536 | 84.594 | 0.39x |
+| users.json | strata | 8.781 | 8.929 | 9.665 | 77.992 | 1.00x |
+| users.json | orjson | 12.494 | 12.592 | 13.090 | 77.992 | 0.71x |
+| users.json | msgspec | 12.985 | 13.048 | 13.234 | 77.992 | 0.68x |
+| users.json | ujson | 16.857 | 17.575 | 18.209 | 77.992 | 0.51x |
+| users.json | json | 19.355 | 19.450 | 19.768 | 77.992 | 0.46x |
+| flat.json | strata | 0.790 | 0.807 | 0.829 | 79.340 | 1.00x |
+| flat.json | orjson | 0.974 | 0.988 | 1.022 | 79.340 | 0.82x |
+| flat.json | msgspec | 0.908 | 0.931 | 0.943 | 79.340 | 0.87x |
+| flat.json | ujson | 1.296 | 1.314 | 1.346 | 79.340 | 0.61x |
+| flat.json | json | 1.589 | 1.657 | 1.728 | 79.340 | 0.49x |
+| nested.json | strata | 0.650 | 0.660 | 0.711 | 79.340 | 1.00x |
+| nested.json | orjson | 0.861 | 0.865 | 0.907 | 79.340 | 0.76x |
+| nested.json | msgspec | 0.861 | 0.877 | 0.913 | 79.340 | 0.75x |
+| nested.json | ujson | 1.227 | 1.246 | 1.273 | 79.340 | 0.53x |
+| nested.json | json | 1.651 | 1.670 | 1.703 | 79.340 | 0.40x |
+| wide_arrays.json | strata | 3.396 | 3.425 | 3.490 | 83.344 | 1.00x |
+| wide_arrays.json | orjson | 4.414 | 4.555 | 4.662 | 83.344 | 0.75x |
+| wide_arrays.json | msgspec | 4.910 | 4.941 | 5.035 | 83.344 | 0.69x |
+| wide_arrays.json | ujson | 6.096 | 6.175 | 6.209 | 83.344 | 0.55x |
+| wide_arrays.json | json | 8.192 | 8.229 | 8.307 | 83.344 | 0.42x |
+| mixed.json | strata | 0.183 | 0.186 | 0.236 | 83.344 | 1.00x |
+| mixed.json | orjson | 0.256 | 0.265 | 0.291 | 83.344 | 0.70x |
+| mixed.json | msgspec | 0.264 | 0.277 | 0.290 | 83.344 | 0.67x |
+| mixed.json | ujson | 0.335 | 0.343 | 0.362 | 83.344 | 0.54x |
+| mixed.json | json | 0.472 | 0.548 | 0.609 | 83.344 | 0.34x |
 
 ## load (ndjson) -- load (NDJSON file to records)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.ndjson | strata | 9.873 | 10.019 | 10.146 | 81.562 | 1.00x |
-| users.ndjson | orjson | 16.471 | 16.622 | 17.154 | 81.562 | 0.60x |
-| users.ndjson | msgspec | 16.487 | 16.638 | 18.347 | 81.562 | 0.60x |
-| users.ndjson | ujson | 21.281 | 21.753 | 22.768 | 81.562 | 0.46x |
-| users.ndjson | json | 28.799 | 29.011 | 29.256 | 81.562 | 0.35x |
+| users.ndjson | strata | 8.886 | 8.939 | 9.893 | 79.309 | 1.00x |
+| users.ndjson | orjson | 14.088 | 14.152 | 15.652 | 79.309 | 0.63x |
+| users.ndjson | msgspec | 14.134 | 14.230 | 14.417 | 79.309 | 0.63x |
+| users.ndjson | ujson | 17.970 | 18.085 | 18.346 | 79.309 | 0.49x |
+| users.ndjson | json | 23.070 | 23.165 | 25.704 | 79.309 | 0.39x |
 
 ## dump -- dump (tree to file)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json | strata | 2.847 | 2.862 | 2.927 | 83.195 | 1.00x |
-| users.json | orjson | 3.531 | 3.561 | 3.629 | 83.195 | 0.80x |
-| users.json | msgspec | 4.392 | 4.441 | 4.522 | 83.195 | 0.64x |
-| users.json | ujson | 12.066 | 12.157 | 12.456 | 83.195 | 0.24x |
-| users.json | json | 22.158 | 22.250 | 22.503 | 83.195 | 0.13x |
-| flat.json | strata | 0.413 | 0.428 | 0.445 | 81.562 | 1.00x |
-| flat.json | orjson | 0.477 | 0.497 | 0.559 | 81.562 | 0.86x |
-| flat.json | msgspec | 0.574 | 0.594 | 0.721 | 81.562 | 0.72x |
-| flat.json | ujson | 1.190 | 1.215 | 1.301 | 81.562 | 0.35x |
-| flat.json | json | 2.016 | 2.034 | 2.116 | 81.562 | 0.21x |
-| nested.json | strata | 0.333 | 0.345 | 0.366 | 81.566 | 1.00x |
-| nested.json | orjson | 0.422 | 0.436 | 0.443 | 81.566 | 0.79x |
-| nested.json | msgspec | 0.531 | 0.544 | 0.566 | 81.566 | 0.63x |
-| nested.json | ujson | 1.216 | 1.234 | 1.264 | 81.566 | 0.28x |
-| nested.json | json | 2.521 | 2.537 | 2.548 | 81.566 | 0.14x |
-| wide_arrays.json | strata | 2.009 | 2.033 | 2.060 | 84.594 | 1.00x |
-| wide_arrays.json | orjson | 2.221 | 2.251 | 2.297 | 84.594 | 0.90x |
-| wide_arrays.json | msgspec | 3.158 | 3.200 | 3.262 | 84.594 | 0.64x |
-| wide_arrays.json | ujson | 6.818 | 6.843 | 6.886 | 84.594 | 0.30x |
-| wide_arrays.json | json | 17.038 | 17.093 | 17.272 | 84.594 | 0.12x |
-| mixed.json | strata | 0.142 | 0.146 | 0.177 | 84.594 | 1.00x |
-| mixed.json | orjson | 0.167 | 0.168 | 0.195 | 84.594 | 0.87x |
-| mixed.json | msgspec | 0.187 | 0.191 | 0.212 | 84.594 | 0.76x |
-| mixed.json | ujson | 0.342 | 0.346 | 0.381 | 84.594 | 0.42x |
-| mixed.json | json | 0.623 | 0.647 | 0.668 | 84.594 | 0.22x |
+| users.json | strata | 2.109 | 2.145 | 2.178 | 77.992 | 1.00x |
+| users.json | orjson | 2.511 | 2.587 | 2.623 | 77.992 | 0.83x |
+| users.json | msgspec | 3.866 | 3.907 | 4.242 | 77.992 | 0.55x |
+| users.json | ujson | 10.401 | 10.515 | 11.464 | 77.992 | 0.20x |
+| users.json | json | 18.440 | 18.513 | 19.539 | 77.992 | 0.12x |
+| flat.json | strata | 0.345 | 0.360 | 0.437 | 79.340 | 1.00x |
+| flat.json | orjson | 0.359 | 0.372 | 0.412 | 79.340 | 0.97x |
+| flat.json | msgspec | 0.502 | 0.514 | 0.534 | 79.340 | 0.70x |
+| flat.json | ujson | 1.046 | 1.060 | 95.886 | 79.340 | 0.34x |
+| flat.json | json | 1.737 | 1.758 | 1.836 | 79.340 | 0.20x |
+| nested.json | strata | 0.242 | 0.251 | 0.305 | 79.340 | 1.00x |
+| nested.json | orjson | 0.322 | 0.342 | 0.362 | 79.340 | 0.73x |
+| nested.json | msgspec | 0.420 | 0.440 | 0.459 | 79.340 | 0.57x |
+| nested.json | ujson | 1.024 | 1.036 | 101.168 | 79.340 | 0.24x |
+| nested.json | json | 2.101 | 2.182 | 136.191 | 79.340 | 0.11x |
+| wide_arrays.json | strata | 1.653 | 1.683 | 35.292 | 83.344 | 1.00x |
+| wide_arrays.json | orjson | 1.753 | 1.782 | 1.827 | 83.344 | 0.94x |
+| wide_arrays.json | msgspec | 2.623 | 2.671 | 2.705 | 83.344 | 0.63x |
+| wide_arrays.json | ujson | 5.359 | 5.398 | 5.416 | 83.344 | 0.31x |
+| wide_arrays.json | json | 13.535 | 13.588 | 13.650 | 83.344 | 0.12x |
+| mixed.json | strata | 0.112 | 0.117 | 0.132 | 83.344 | 1.00x |
+| mixed.json | orjson | 0.128 | 0.130 | 0.138 | 83.344 | 0.90x |
+| mixed.json | msgspec | 0.140 | 0.145 | 0.157 | 83.344 | 0.81x |
+| mixed.json | ujson | 0.290 | 0.294 | 0.305 | 83.344 | 0.40x |
+| mixed.json | json | 0.564 | 0.582 | 0.660 | 83.344 | 0.20x |
 
 ## query -- query (JSONPath over an in-memory tree)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json $[*].id | strata | 0.062 | 0.063 | 0.092 | 83.195 | 1.00x |
-| users.json $[*].id | jmespath | 0.490 | 0.503 | 0.525 | 83.195 | 0.12x |
-| users.json $[*].id | jsonpath-ng | 2.792 | 2.816 | 2.925 | 83.195 | 0.02x |
-| users.json $[*].orders[*].total | strata | 0.413 | 0.447 | 0.457 | 83.199 | 1.00x |
-| users.json $[*].orders[*].total | jmespath | 3.058 | 3.088 | 3.549 | 83.199 | 0.14x |
-| users.json $[*].orders[*].total | jsonpath-ng | 19.163 | 19.487 | 20.049 | 83.199 | 0.02x |
-| users.json $..total | strata | 1.643 | 1.686 | 1.732 | 83.199 | 1.00x |
-| users.json $..total | jsonpath-ng | 390.590 | 394.352 | 396.066 | 83.199 | 0.00x |
+| users.json $[*].id | strata | 0.060 | 0.062 | 0.077 | 77.992 | 1.00x |
+| users.json $[*].id | jmespath | 0.424 | 0.441 | 0.462 | 77.992 | 0.14x |
+| users.json $[*].id | jsonpath-ng | 2.060 | 2.080 | 2.161 | 77.992 | 0.03x |
+| users.json $[*].orders[*].total | strata | 0.438 | 0.448 | 0.634 | 78.016 | 1.00x |
+| users.json $[*].orders[*].total | jmespath | 2.593 | 2.639 | 4.046 | 78.016 | 0.17x |
+| users.json $[*].orders[*].total | jsonpath-ng | 14.336 | 14.439 | 16.724 | 78.016 | 0.03x |
+| users.json $..total | strata | 1.569 | 1.598 | 2.223 | 80.945 | 1.00x |
+| users.json $..total | jsonpath-ng | 274.627 | 276.125 | 313.556 | 80.945 | 0.01x |
 
 ## search -- search (JSONPath over a file)
 
 | dataset | library | min_ms | median_ms | p95_ms | rss_mb | speedup_vs_strata |
 |---|---|---|---|---|---|---|
-| users.json $[*].id | strata | 3.278 | 3.313 | 3.340 | 83.199 | 1.00x |
-| users.json $[*].id | orjson+jmespath | 14.378 | 14.525 | 14.760 | 83.199 | 0.23x |
-| users.json $[*].id | orjson+jsonpath-ng | 16.730 | 16.927 | 17.555 | 83.199 | 0.20x |
-| users.json $[*].orders[*].total | strata | 3.532 | 3.552 | 3.748 | 83.199 | 1.00x |
-| users.json $[*].orders[*].total | orjson+jmespath | 17.476 | 17.659 | 23.212 | 83.199 | 0.20x |
-| users.json $[*].orders[*].total | orjson+jsonpath-ng | 36.959 | 37.300 | 38.637 | 83.199 | 0.10x |
-| users.json $..total | strata | 13.451 | 14.234 | 14.841 | 83.199 | 1.00x |
-| users.json $..total | orjson+jsonpath-ng | 402.706 | 409.052 | 412.058 | 83.199 | 0.03x |
+| users.json $[*].id | strata | 2.488 | 2.637 | 2.788 | 78.016 | 1.00x |
+| users.json $[*].id | orjson+jmespath | 12.966 | 13.011 | 13.208 | 78.016 | 0.20x |
+| users.json $[*].id | orjson+jsonpath-ng | 14.555 | 14.670 | 15.064 | 78.016 | 0.18x |
+| users.json $[*].orders[*].total | strata | 2.698 | 2.813 | 2.865 | 80.945 | 1.00x |
+| users.json $[*].orders[*].total | orjson+jmespath | 15.110 | 15.218 | 16.604 | 80.945 | 0.18x |
+| users.json $[*].orders[*].total | orjson+jsonpath-ng | 31.775 | 32.038 | 33.150 | 80.945 | 0.09x |
+| users.json $..total | strata | 11.322 | 12.097 | 12.937 | 80.945 | 1.00x |
+| users.json $..total | orjson+jsonpath-ng | 288.159 | 293.236 | 300.176 | 80.945 | 0.04x |
 

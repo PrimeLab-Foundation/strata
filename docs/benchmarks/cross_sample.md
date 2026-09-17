@@ -10,6 +10,7 @@ Samples, in the order given:
 - `sample2` — /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/benchmark-lead/p28/ci-35267792012/ci
 - `sample3` — /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/benchmark-lead/p28/ci-35275497426/ci
 - `sample4` — /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/benchmark-lead/p28/ci-35277206429/ci
+- `sample5` — /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/benchmark-lead/p28/ci-35287410197/ci
 
 ## linux-arm64 — dumps mixed.json
 
@@ -19,6 +20,7 @@ Samples, in the order given:
 | sample2 | aarch64 | 0.0741 | 0.5199 | 0.0923 | 0.0741 | 0.2652 | orjson | 1.000x |
 | sample3 | aarch64 | 0.0622 | 0.4940 | 0.0772 | 0.0650 | 0.2417 | orjson | 0.957x |
 | sample4 | aarch64 | 0.0643 | 0.5006 | 0.0820 | 0.0663 | 0.2451 | orjson | 0.970x |
+| sample5 | aarch64 | 0.0654 | 0.4962 | 0.0808 | 0.0689 | 0.2411 | orjson | 0.950x |
 
 verdict: **rival-moved** — unchanged rivals differ between draws (json +5%, msgspec +20%, orjson +15%, ujson +10%)
 
@@ -30,8 +32,9 @@ verdict: **rival-moved** — unchanged rivals differ between draws (json +5%, ms
 | sample2 | AMD EPYC 9V74 80-Core Processor | 0.0639 | 0.5129 | 0.0882 | 0.0687 | 0.2268 | orjson | 0.931x |
 | sample3 | AMD EPYC 7763 64-Core Processor | 0.0613 | 0.5167 | 0.0850 | 0.0656 | 0.2384 | orjson | 0.935x |
 | sample4 | AMD EPYC 7763 64-Core Processor | 0.0616 | 0.5172 | 0.0847 | 0.0657 | 0.2326 | orjson | 0.937x |
+| sample5 | INTEL(R) XEON(R) PLATINUM 8573C | 0.0549 | 0.5011 | 0.0751 | 0.0530 | 0.2044 | orjson | 1.035x |
 
-verdict: **rival-moved** — unchanged rivals differ between draws (json +5%, msgspec +14%, orjson +8%, ujson +7%)
+verdict: **rival-moved** — unchanged rivals differ between draws (json +8%, msgspec +28%, orjson +33%, ujson +19%)
 
 ## macos-arm64 — dumps mixed.json
 
@@ -41,8 +44,9 @@ verdict: **rival-moved** — unchanged rivals differ between draws (json +5%, ms
 | sample2 | Apple M1 (Virtual) | 0.0615 | 0.4441 | 0.0819 | 0.0715 | 0.2327 | orjson | 0.859x |
 | sample3 | Apple M1 (Virtual) | 0.0319 | 0.3257 | 0.0481 | 0.0655 | 0.1596 | msgspec | 0.663x |
 | sample4 | Apple M1 (Virtual) | 0.0405 | 0.3688 | 0.0566 | 0.0495 | 0.1770 | orjson | 0.818x |
+| sample5 | Apple M1 (Virtual) | 0.0316 | 0.3256 | 0.0474 | 0.0399 | 0.1578 | orjson | 0.794x |
 
-verdict: **rival-moved** — unchanged rivals differ between draws (json +36%, msgspec +70%, orjson +159%, ujson +46%)
+verdict: **rival-moved** — unchanged rivals differ between draws (json +36%, msgspec +73%, orjson +222%, ujson +47%)
 
 ## macos-x86_64 — dumps mixed.json
 
@@ -52,8 +56,9 @@ verdict: **rival-moved** — unchanged rivals differ between draws (json +36%, m
 | sample2 | Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz | 0.0601 | 0.9037 | 0.1095 | 0.0749 | 0.4302 | orjson | 0.803x |
 | sample3 | Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz | 0.0767 | 1.0100 | 0.1291 | 0.0926 | 0.4800 | orjson | 0.829x |
 | sample4 | Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz | 0.1696 | 2.1451 | 0.2504 | 0.1824 | 0.9759 | orjson | 0.929x |
+| sample5 | Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz | 0.0605 | 0.8979 | 0.1089 | 0.0783 | 0.4260 | orjson | 0.773x |
 
-verdict: **rival-moved** — unchanged rivals differ between draws (json +137%, msgspec +129%, orjson +144%, ujson +127%)
+verdict: **rival-moved** — unchanged rivals differ between draws (json +139%, msgspec +130%, orjson +144%, ujson +129%)
 
 ## windows-x86_64 — dumps mixed.json
 
@@ -63,6 +68,7 @@ verdict: **rival-moved** — unchanged rivals differ between draws (json +137%, 
 | sample2 | Intel64 Family 6 Model 173 Stepping 1, GenuineIntel | 0.0553 | 0.4087 | 0.0822 | 0.0590 | 0.1819 | orjson | 0.937x |
 | sample3 | AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD | 0.0735 | 0.5802 | 0.1124 | 0.0761 | 0.2645 | orjson | 0.965x |
 | sample4 | AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD | 0.0700 | 0.5147 | 0.0948 | 0.0693 | 0.2650 | orjson | 1.009x |
+| sample5 | AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD | 0.0704 | 0.5530 | 0.1006 | 0.0752 | 0.2585 | orjson | 0.936x |
 
 verdict: **rival-moved** — unchanged rivals differ between draws (json +42%, msgspec +42%, orjson +36%, ujson +47%)
 
@@ -76,12 +82,12 @@ None.
 
 ### Rank changes between draws
 
-- linux-arm64 dumps mixed.json: 0.958x, 1.000x, 0.957x, 0.970x (rivals moved 20%)
-- windows-x86_64 dumps mixed.json: 0.974x, 0.937x, 0.965x, 1.009x (rivals moved 47%)
+- linux-arm64 dumps mixed.json: 0.958x, 1.000x, 0.957x, 0.970x, 0.950x (rivals moved 20%)
+- linux-x86_64 dumps mixed.json: 0.946x, 0.931x, 0.935x, 0.937x, 1.035x (rivals moved 33%)
+- windows-x86_64 dumps mixed.json: 0.974x, 0.937x, 0.965x, 1.009x, 0.936x (rivals moved 47%)
 
 ### Ahead on every draw
 
-- linux-x86_64 dumps mixed.json: 0.946x, 0.931x, 0.935x, 0.937x (rivals moved 14%)
-- macos-arm64 dumps mixed.json: 0.656x, 0.859x, 0.663x, 0.818x (rivals moved 159%)
-- macos-x86_64 dumps mixed.json: 0.848x, 0.803x, 0.829x, 0.929x (rivals moved 144%)
+- macos-arm64 dumps mixed.json: 0.656x, 0.859x, 0.663x, 0.818x, 0.794x (rivals moved 222%)
+- macos-x86_64 dumps mixed.json: 0.848x, 0.803x, 0.829x, 0.929x, 0.773x (rivals moved 144%)
 
