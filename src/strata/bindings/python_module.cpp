@@ -325,19 +325,24 @@ PyObject* strata_load(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
                                      &return_type, &iterator, &skip_errors))
         return nullptr;
 
-    if (strata::util::is_directory(path)) {
-        if (std::strcmp(return_type, "cursor") == 0) {
-            PyErr_SetString(PyExc_ValueError,
-                            "return_type=\"cursor\" is not supported for a directory");
-            return nullptr;
-        }
-        if (std::strcmp(return_type, "dict") != 0) {
-            PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
-            return nullptr;
-        }
-        return strata::bindings::load_from_folder(path, iterator != 0, skip_errors != 0);
+    // File mode first: it reports a directory instead of raising for one, and
+    // finds that out from the open it performs anyway (python_types.h,
+    // load_from_file). Every outcome a directory had before it still has.
+    bool directory = false;
+    PyObject* loaded = strata::bindings::load_from_file(path, return_type, iterator != 0,
+                                                        skip_errors != 0, &directory);
+    if (!directory)
+        return loaded;
+    if (std::strcmp(return_type, "cursor") == 0) {
+        PyErr_SetString(PyExc_ValueError,
+                        "return_type=\"cursor\" is not supported for a directory");
+        return nullptr;
     }
-    return strata::bindings::load_from_file(path, return_type, iterator != 0, skip_errors != 0);
+    if (std::strcmp(return_type, "dict") != 0) {
+        PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
+        return nullptr;
+    }
+    return strata::bindings::load_from_folder(path, iterator != 0, skip_errors != 0);
     STRATA_CPP_CATCH
 }
 
@@ -352,25 +357,30 @@ PyObject* strata_dump(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
                                      &path, &split_by))
         return nullptr;
 
-    // An existing directory is folder mode. A path that does not exist yet is
-    // folder mode too when split_by says so -- api.md has dump create
-    // directories as needed, so the target need not exist first.
-    const bool to_directory = strata::util::is_directory(path) ||
-                              (split_by != Py_None && !strata::util::path_exists(path));
-    if (to_directory) {
-        if (split_by == Py_None) {
-            PyErr_SetString(PyExc_ValueError, "a directory target requires split_by");
-            return nullptr;
-        }
-        return strata::bindings::dump_to_folder(object, path, split_by);
-    }
     if (split_by != Py_None) {
+        // An existing directory is folder mode. A path that does not exist yet
+        // is folder mode too -- api.md has dump create directories as needed,
+        // so the target need not exist first.
+        if (strata::util::is_directory(path) || !strata::util::path_exists(path))
+            return strata::bindings::dump_to_folder(object, path, split_by);
         // split_by only means something for a directory; silently writing one
         // file instead would lose data the caller expected to be split.
         PyErr_SetString(PyExc_ValueError, "split_by requires a directory target");
         return nullptr;
     }
-    return strata::bindings::dump_to_file(object, path);
+
+    // No split_by: the target has to be a file, so it is written as one, with
+    // no stat ahead of the open (python_types.h, load_from_file). A directory
+    // cannot be opened for writing on any platform, and nothing about it is
+    // touched by the attempt, so a failure is where the question gets asked:
+    // a directory target is the documented ValueError whatever failed first --
+    // it used to be raised before the value was serialized at all.
+    PyObject* written = strata::bindings::dump_to_file(object, path);
+    if (written == nullptr && strata::util::is_directory(path)) {
+        PyErr_Clear();
+        PyErr_SetString(PyExc_ValueError, "a directory target requires split_by");
+    }
+    return written;
     STRATA_CPP_CATCH
 }
 
@@ -412,14 +422,14 @@ PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
                                      &expression, &iterator))
         return nullptr;
 
-    strata::bindings::PyRef matches(
-        strata::util::is_directory(path)
-            ? strata::bindings::search_folder(path, expression, iterator != 0)
-            : strata::bindings::search_file(path, expression));
+    // File mode first, as in strata_load: three stats of the path per file
+    // search (one in the facade, two here) are none.
+    bool directory = false;
+    strata::bindings::PyRef matches(strata::bindings::search_file(path, expression, &directory));
+    if (directory) // already an iterator when one was asked for
+        return strata::bindings::search_folder(path, expression, iterator != 0);
     if (!matches)
         return nullptr;
-    if (strata::util::is_directory(path))
-        return matches.release(); // already an iterator when one was asked for
     return iterator ? PyObject_GetIter(matches.get()) : matches.release();
     STRATA_CPP_CATCH
 }

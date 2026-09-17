@@ -122,8 +122,20 @@ bool register_ndjson_iterator_type(PyObject* module);
 [[nodiscard]] PyObject* make_root_iterator(PyObject* value);
 
 /// `load(path, ...)` in file mode.
+///
+/// File mode opens first and asks what the path is only when the open says
+/// it was not a file: `load`, `dump` and `search` used to stat every path
+/// before touching it to choose between file and folder mode, which is one
+/// more filesystem round trip per call -- about a microsecond on Linux and
+/// 30-45 on the Windows runners, where it was the whole of the file rows'
+/// deficit (E26-P27 in docs/performance/experiment-ledger.md). So when
+/// @p is_directory is given and @p path turns out to be a directory, it is
+/// set, nullptr is returned and *no exception is raised*: the caller owns the
+/// switch to folder mode. Without it a directory is the OSError the platform
+/// reports, which is what the internal callers -- handed discovered files --
+/// want.
 [[nodiscard]] PyObject* load_from_file(const char* path, const char* return_type, bool iterator,
-                                       bool skip_errors);
+                                       bool skip_errors, bool* is_directory = nullptr);
 
 /// `dump(obj, path)` in file mode.
 [[nodiscard]] PyObject* dump_to_file(PyObject* object, const char* path);
@@ -143,13 +155,26 @@ bool register_jsonpath_types(PyObject* module);
 /// A cursor at @p value, sharing the tree that @p object holds.
 [[nodiscard]] PyObject* cursor_child(PyObject* object, const JsonValue* value);
 
-/// `search(path, expression)` over one file.
-[[nodiscard]] PyObject* search_file(const char* path, PyObject* expression);
+/// `search(path, expression)` over one file. @p is_directory as in
+/// load_from_file: set, with no exception raised, when the path is a directory.
+[[nodiscard]] PyObject* search_file(const char* path, PyObject* expression,
+                                    bool* is_directory = nullptr);
 
 /// Whether @p path names an NDJSON file by extension (case-insensitive).
 [[nodiscard]] bool file_is_ndjson(const char* path);
 
-/// Read a whole file, mapping failures onto the documented exceptions.
+/// What a file-mode read found at the path.
+enum class FileRead {
+    Ok,          ///< the whole file is in the string
+    Failed,      ///< the documented exception is set
+    IsDirectory, ///< nothing raised: the path is a directory
+};
+
+/// Read a whole file, mapping failures onto the documented exceptions and
+/// reporting a directory instead of raising for it.
+[[nodiscard]] FileRead read_file_or_directory(const char* path, std::string& out);
+
+/// The same, for callers that were handed a file: a directory is an OSError.
 [[nodiscard]] bool read_file_to_string(const char* path, std::string& out);
 
 /// `load(dirpath, ...)` in folder mode.

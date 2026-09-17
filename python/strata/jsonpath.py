@@ -62,7 +62,8 @@ def search(path: str | os.PathLike, expression, *, iterator: bool = False):
     """
     text = os.fspath(path)
     # A directory is searched by discovery, so the extension rule applies to
-    # files only (docs/context/api.md § JSONPath, folder mode).
-    if not os.path.isdir(text) and not str(text).lower().endswith(VALID_SUFFIXES):
+    # files only (docs/context/api.md § JSONPath, folder mode). The suffix is
+    # tested first: a path that carries one needs no stat to be let through.
+    if not str(text).lower().endswith(VALID_SUFFIXES) and not os.path.isdir(text):
         raise TypeError(f"search() expects a .json, .ndjson or .jsonl path, got {text!r}")
     return _native.search(text, expression, iterator=iterator)

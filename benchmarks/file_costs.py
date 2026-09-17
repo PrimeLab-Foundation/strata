@@ -105,6 +105,13 @@ def main(argv=None) -> int:
                 gc.collect()
                 if operation == "control":
                     sample["control_ms"] = phases(value, control)
+                    # What asking "is this a directory?" costs on this
+                    # filesystem -- the round trip file mode used to make
+                    # before every open (E26-P27). A control of its own, never
+                    # a phase: no composition here performs it.
+                    start = time.perf_counter_ns()
+                    os.path.isdir(control)
+                    sample["path_stat_ms"] = (time.perf_counter_ns() - start) / 1e6
                 else:
                     start = time.perf_counter_ns()
                     strata.dump(value, native)

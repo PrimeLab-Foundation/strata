@@ -15,6 +15,7 @@
 #include "python_types.h"
 #include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
+#include "strata/util/folder.hpp"
 
 #include <cerrno>
 #ifndef _WIN32
@@ -100,22 +101,37 @@ namespace {
 /// rows trailed their `loads` rows by more than the read itself. Anything
 /// past the stat'd size (a file growing under us, or a stream that will not
 /// stat) still arrives through the chunk loop.
-bool read_file_to_string(const char* path, std::string& out) {
+///
+/// A directory is reported, not raised, and found without a stat of its own
+/// on the path every file takes: POSIX opens a directory read-only and the
+/// fstat that sizes the read says what it is; the Windows CRT refuses to
+/// open one at all, so only a *failed* open asks the filesystem. A path that
+/// does not exist cannot be a directory, so ENOENT never asks either.
+FileRead read_file_or_directory(const char* path, std::string& out) {
 #ifndef _WIN32
     const int fd = ::open(path, O_RDONLY | O_CLOEXEC);
 #else
     const int fd = ::_open(path, _O_RDONLY | _O_BINARY | _O_NOINHERIT);
 #endif
     if (fd < 0) {
-        PyErr_SetFromErrnoWithFilename(errno == ENOENT ? PyExc_FileNotFoundError : PyExc_OSError,
+        const int saved = errno;
+        if (saved != ENOENT && util::is_directory(path))
+            return FileRead::IsDirectory;
+        errno = saved;
+        PyErr_SetFromErrnoWithFilename(saved == ENOENT ? PyExc_FileNotFoundError : PyExc_OSError,
                                        path);
-        return false;
+        return FileRead::Failed;
     }
 
     size_t expected = 0;
 #ifndef _WIN32
     struct stat status{};
-    if (::fstat(fd, &status) == 0 && S_ISREG(status.st_mode) && status.st_size > 0)
+    const bool have_status = ::fstat(fd, &status) == 0;
+    if (have_status && S_ISDIR(status.st_mode)) {
+        (void)close_descriptor(fd);
+        return FileRead::IsDirectory;
+    }
+    if (have_status && S_ISREG(status.st_mode) && status.st_size > 0)
         expected = static_cast<size_t>(status.st_size);
 #else
     struct _stat64 status{};
@@ -159,32 +175,67 @@ bool read_file_to_string(const char* path, std::string& out) {
         (void)close_descriptor(fd);
         errno = saved;
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
-        return false;
+        return FileRead::Failed;
     }
     if (close_descriptor(fd) != 0) {
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
-        return false;
+        return FileRead::Failed;
     }
-    return true;
+    return FileRead::Ok;
 }
 
-PyObject* load_from_file(const char* path, const char* return_type, bool iterator,
-                         bool skip_errors) {
+namespace {
+
+/// The OSError a directory is to a caller that asked for a file.
+void raise_is_directory(const char* path) {
+    errno = EISDIR;
+    PyErr_SetFromErrnoWithFilename(PyExc_OSError, path);
+}
+
+} // namespace
+
+bool read_file_to_string(const char* path, std::string& out) {
+    const FileRead outcome = read_file_or_directory(path, out);
+    if (outcome == FileRead::IsDirectory)
+        raise_is_directory(path);
+    return outcome == FileRead::Ok;
+}
+
+PyObject* load_from_file(const char* path, const char* return_type, bool iterator, bool skip_errors,
+                         bool* is_directory) {
     const bool is_ndjson = file_is_ndjson(path);
     const bool want_cursor = std::string_view(return_type) == "cursor";
+    const bool ndjson_cursor = is_ndjson && want_cursor;
+    const bool bad_return_type = !want_cursor && std::string_view(return_type) != "dict";
 
-    if (is_ndjson && want_cursor) {
-        PyErr_SetString(PyExc_ValueError, "return_type=\"cursor\" is not supported for NDJSON");
-        return nullptr;
-    }
-    if (!want_cursor && std::string_view(return_type) != "dict") {
-        PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
+    if (ndjson_cursor || bad_return_type) {
+        // These refusals are a *file's*, raised before the file is touched. A
+        // directory has refusals of its own (strata_load), so this -- an error
+        // path -- is the one place file mode asks what the path is first.
+        if (is_directory != nullptr && util::is_directory(path)) {
+            *is_directory = true;
+            return nullptr;
+        }
+        if (ndjson_cursor)
+            PyErr_SetString(PyExc_ValueError, "return_type=\"cursor\" is not supported for NDJSON");
+        else
+            PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
         return nullptr;
     }
 
     std::string text;
-    if (!read_file_to_string(path, text))
+    switch (read_file_or_directory(path, text)) {
+    case FileRead::Ok:
+        break;
+    case FileRead::Failed:
         return nullptr;
+    case FileRead::IsDirectory:
+        if (is_directory != nullptr)
+            *is_directory = true;
+        else
+            raise_is_directory(path);
+        return nullptr;
+    }
 
     if (is_ndjson) {
         // Lazily: the file is read up front, but each line is parsed only when

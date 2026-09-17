@@ -450,10 +450,26 @@ class PythonMatchSink {
 };
 
 /// The streaming leg of search: one validating scan, only matches built.
-PyObject* search_file_streaming(const char* path, const CompiledPath& compiled) {
+PyObject* search_file_streaming(const char* path, const CompiledPath& compiled,
+                                bool* is_directory) {
     std::string text;
-    if (!read_file_to_string(path, text))
+    switch (read_file_or_directory(path, text)) {
+    case FileRead::Ok:
+        break;
+    case FileRead::Failed:
         return nullptr;
+    case FileRead::IsDirectory:
+        // Nothing raised: the caller owns the switch to folder mode, exactly
+        // as load_from_file's contract has it (python_types.h).
+        if (is_directory != nullptr) {
+            *is_directory = true;
+            return nullptr;
+        }
+        // Handed a file by discovery and found a directory: the platform's own
+        // error, through the reader that raises it.
+        (void)read_file_to_string(path, text);
+        return nullptr;
+    }
     if (text.empty()) {
         // Identical to load()'s contract for an empty .json file.
         PyErr_SetString(PyExc_ValueError, "Empty file");
@@ -486,7 +502,7 @@ PyObject* search_file_streaming(const char* path, const CompiledPath& compiled) 
     return sink.take_results();
 }
 
-PyObject* search_file(const char* path, PyObject* expression) {
+PyObject* search_file(const char* path, PyObject* expression, bool* is_directory) {
     // The law `search(f, e) == query(load(f), e)` defines search. The
     // streaming evaluator is an implementation of that same law for the
     // fixed-depth subset (see jsonpath_stream.hpp): it only runs where its
@@ -499,9 +515,10 @@ PyObject* search_file(const char* path, PyObject* expression) {
 
     if (!file_is_ndjson(path) && is_streamable(compiled) &&
         get_duplicate_key_policy() == DuplicateKeyPolicy::FirstWins)
-        return search_file_streaming(path, compiled);
+        return search_file_streaming(path, compiled, is_directory);
 
-    PyRef data(load_from_file(path, "dict", /*iterator=*/false, /*skip_errors=*/false));
+    PyRef data(
+        load_from_file(path, "dict", /*iterator=*/false, /*skip_errors=*/false, is_directory));
     if (!data)
         return nullptr;
     return query_compiled(data.get(), compiled);
