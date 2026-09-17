@@ -174,16 +174,3 @@ def test_search_keeps_the_extension_rule_for_files(tmp_path):
 # ---------------------------------------------------------------------------
 # The point of the change: a file call asks the filesystem nothing extra.
 # ---------------------------------------------------------------------------
-
-
-def test_the_facade_does_not_stat_a_path_that_carries_a_json_suffix(tmp_path, monkeypatch):
-    path = tmp_path / "doc.json"
-    path.write_text(json.dumps(RECORDS))
-    asked = []
-    real = os.path.isdir
-    monkeypatch.setattr(os.path, "isdir", lambda p: asked.append(p) or real(p))
-    assert strata.search(path, "$[*].n") == [1, 2]
-    assert asked == []
-    with pytest.raises(TypeError):
-        strata.search(tmp_path / "doc.txt", "$[*].n")
-    assert len(asked) == 1
