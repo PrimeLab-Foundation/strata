@@ -3237,6 +3237,29 @@ waits on it.
   the value was serialized, so user code a cyclic or huge-int value runs
   (a warning hook, `__str__`) runs first.
 
+## E26-P11 re-priced on the blocked estimator — no-go for the N2
+
+- 2026-09-17 · the two standings cells that still coin are linux-arm64 and
+  windows `dumps mixed` (margins 0.957–1.000 and 0.929–1.067 across the
+  four samples of the merged tree), and E26-P11 (`float-digit-count`, the
+  one shelved prototype that still applies) was re-priced with the paired
+  five-leg instrument instead of the canonical gate that shelved it: run
+  35276174336, A = `38cf284`, B = A plus the patch on the candidate arm
+  alone (`arms/*.build.json`: A's patch hash empty, B's `e754edba…`).
+- **The row it would exist for does not move** — linux-arm64 `dumps mixed`
+  −0.30% \[−0.70, +0.94\] — **and the same leg resolves four losses**:
+  `dumps flat` +1.51%/+1.32%/+1.34% and `dumps users` +0.40%, six of six
+  blocks each, raw strata moving with the rival flat. The gains live on
+  linux-x86_64 (`dumps flat`/`mixed`/`wide_arrays` −1.2 to −1.7%) and one
+  macos-arm64 cell; Windows resolves nothing under floors of 1.6–16% on
+  this draw. Verdict: **no-go** — x86-favourable, arm64-adverse on record
+  rows, and mute on its target. The patch stays in `experiments/`.
+- With E26-P9a subsumed by the merged c20ac86 (its two hunks fail on the
+  probe-carrying `write_record_fused_value` path — a rebase would
+  reintroduce the placement defect) this exhausts the shelved levers for
+  the N2 serializer: the next margin there must be authored, not revived.
+  Evidence: `build/evidence/benchmark-lead/p26/ab-35276174336/`.
+
 ## E26-P26+P27 — the branch head against main on five legs
 
 - Run 35219496203 (2026-09-17; A = `ff3ec8e` main, B = `5b94565` the branch
