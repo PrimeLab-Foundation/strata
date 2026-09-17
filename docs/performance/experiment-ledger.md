@@ -3123,3 +3123,204 @@ waits on it.
 - Outcome: **closed as measured.** The premise is refuted: no Windows `dumps mixed` regression exists; that row's deficit predates the window and is the
   goal's remaining work. The x86 `flat` regression is real, resolved on three
   legs, costs no standing today, and is carried forward as its own item.
+
+## E26-P26 — what the Windows ABI charges the serializer, read off the shipped binary
+
+- Opened 2026-09-13 · owner: lead · the one row behind on every draw is
+  windows-x86_64 `dumps mixed` (E26-P25), and every probe so far priced it
+  from the outside. This entry reads the **binary the leg measures**:
+  `llvm-objdump` over the clang-cl PGO `.pyd` retained by the A/B runs, and —
+  from the second step on — a symbolized build (`profile.yml`, scope
+  `windows-codegen`: the same recipe with `_CL_=-Z7` and
+  `_LINK_=-DEBUG:FULL -OPT:REF -OPT:ICF`, which change no code, plus
+  `llvm-pdbutil dump --symbols` to split the disassembly per function).
+  Evidence: `build/evidence/benchmark-lead/p26/`.
+
+- **Three costs no other leg pays**, all found in `b32d398`'s Windows arm:
+
+  1. `Serializer::write` opened with `vmovdqa %xmm11..%xmm6` — six vector
+     saves and six restores around *every value*, a two-digit int included.
+     Win64 makes xmm6–xmm15 callee-saved and LLVM does not shrink-wrap that
+     target; `run_strings`, inlined through `write_scalar_run` and
+     `write_sequence`, hoists the escape scanner's three broadcast constants
+     into registers that live across its `ensure` calls, so they landed in
+     callee-saved registers and their saves in `write()`'s prologue. SysV has
+     no callee-saved vector registers, AAPCS64 saves d8–d15 where they are
+     used; neither leg could show it.
+  2. `format_double` called the UCRT's `_dsign` through the import table for
+     `std::signbit` — MSVC's `<cmath>` spells it as that call, where libc++
+     and libstdc++ compile a bit test — and kept the value in xmm6 across it.
+  3. `std::find` over the open-container stack (the cycle probe: once per
+     list and per nested dict) was a call through a thunk to MSVC STL's
+     `__std_find_trivial_8`, a CPU-dispatching vectorized helper, for a
+     stack one to three pointers deep. libc++ and libstdc++ inline the loop.
+
+- **Batch 1 (e035895):** `write_scalar_run` out of line; the sign read as
+  `bit_cast<uint64_t>(value) >> 63`; `/D_USE_STD_VECTOR_ALGORITHMS=0` on the
+  Windows command line. Plain `-O3` assembly of `python_dumps.cpp` and
+  `dtoa.cpp` is byte-identical to main's on arm64 and on x86-64, so nothing
+  moved for a toolchain that was not paying. Five-leg same-runner A/B against
+  main, run 34720228674 (6 ABBA blocks × 60, matched A/A floors):
+
+  | leg            | resolved gains                                                                           | resolved losses                                                                           |
+  | -------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+  | windows-x86_64 | `dumps flat` −6.88%/−6.19%, `dump flat` −4.35%, `dump nested` −3.43%                     | none                                                                                      |
+  | linux-arm64    | `dumps flat` −1.21%/−1.45%, `dumps wide_arrays` −2.36%/−1.89%, `dump wide_arrays` −1.74% | `dumps users` +2.04%/+1.88%                                                               |
+  | linux-x86_64   | none                                                                                     | `dumps users` +2.89% (md +2.06%), `dumps wide_arrays` +3.27%/+2.96%, `dump nested` +0.82% |
+  | macos-arm64    | none                                                                                     | none                                                                                      |
+  | macos-x86_64   | none                                                                                     | none                                                                                      |
+
+  Windows `dumps mixed` read −5.01% (bytes) and −5.21% (str), negative in all
+  six blocks of both, under floors of 7.67% and 5.63% — the row whose own
+  A/A spread is wider than the effects it is asked to resolve (E26-P25).
+
+- **The Linux losses are the attribute, and it is withdrawn there.** Main's
+  Linux PGO builds already kept a `write_scalar_run` symbol, which read as
+  "out of line already" — but it is the *cold remainder*: the profile had
+  inlined the hot call site (`write()` 0x4410 bytes against 0x29c3 with the
+  attribute on EPYC; 0x68b0 against 0x47f4 on the N2) and the attribute undid
+  that. 0640f71 makes it `STRATA_NOINLINE_WIN64` — out of line where the
+  callee-saved vector registers exist, the profile's choice everywhere else.
+
+- The symbolized build of e035895 (run 34720535504) confirms all three are
+  gone from the hot path — `write()` saves one vector register where it saved
+  six, no serializer function reaches `__std_find_trivial_8`, `_dsign` is not
+  imported — and re-prices the row on the Windows runner: `dumps mixed`
+  paired 1.011x \[0.989, 1.038\] against 1.045x \[1.029, 1.058\] on the same
+  probe before it (run 34712365560), five-library interleaved 1.03–1.05x
+  against 1.06–1.08x, the two-scalar-record baseline 0.974x against 1.057x.
+  What the probes leave is per container and per float, not per value: one
+  nested single-key dict +24.5 ns over orjson (+25.8 before), an empty list
+  +9.9 ns (+7.8), 17-digit doubles 1.16x behind.
+
+## E26-P27 — the stat in front of every file call
+
+- Opened 2026-09-17 · owner: lead · the Windows leg's *file* rows read behind
+  on recent samples (`dump flat` 1.03–1.05x, `dump mixed` 1.00–1.17x) while
+  the same leg's `dumps flat` leads by 14–16%: strata serializes `flat` 63 us
+  faster than orjson and then loses 102 us writing the file
+  (docs/benchmarks/ci/bench_results_windows-x86_64.md, ec04112: 0.336/0.399 ms
+  in memory, 0.855/0.816 ms to a file).
+
+- **The evidence was already on disk.** `benchmarks/file_costs.py` times
+  native `strata.dump` against a *Python* composition of the very same
+  syscalls (`strata.dumps`, `os.open`, two `os.write`, `os.close`, a timer
+  read between each). Four Windows runs × three datasets, all twelve cells:
+  the native call is **slower** than the Python composition, by 23–49 us
+  (flat +31.6/+47.3/+40.3/+49.4, mixed +39.2/+32.1/+27.7/+23.0, nested
+  +30.0/+41.5/+28.1/+47.7; `build/evidence/benchmark-lead/windows-files-*`,
+  `windows-strings-*`, `mixed-2026-09-12/profile-*`). Native code cannot lose
+  to interpreted code driving the same system calls unless it makes one more.
+
+- **It does.** `strata_dump` and `strata_load` called
+  `util::is_directory(path)` — `std::filesystem::is_directory`, a
+  `GetFileAttributesExW` under MSVC's STL — before touching the path, to
+  choose file or folder mode; `strata_search` called it twice and the Python
+  facade a third time (`os.path.isdir`). On Linux that stat is about a
+  microsecond, which is why no POSIX leg ever showed it; on this M1 the same
+  question reads 6.7 us (`path_stat_ms`, the control this entry adds to the
+  probe), about 5% of a small `dump mixed`.
+
+- **Change (5b94565).** File mode opens first and asks what the path is only
+  when the open says it was not a file. POSIX opens a directory read-only, and
+  the `fstat` that already sizes the read says what it is; the Windows CRT
+  refuses to open one, so only a *failed* open stats. `dump` without
+  `split_by` writes the file and, on failure, turns a directory target into
+  the documented `ValueError`; with `split_by` nothing changed. A path with a
+  JSON suffix passes the facade without a stat. Every outcome a directory had
+  is pinned by `tests/{unit,py}/test_path_dispatch.py` — 32 tests that pass
+  unchanged on the *previous* build, the oracle for "no answer moved" —
+  including directories named `data.json`/`data.ndjson`, the precedence of a
+  file's refusals over a missing file, and a directory target outranking an
+  unserializable value. One thing did move and is logged in
+  docs/decisions.md: a directory target now reaches that `ValueError` after
+  the value was serialized, so user code a cyclic or huge-int value runs
+  (a warning hook, `__str__`) runs first.
+
+## E26-P26+P27 — the branch head against main on five legs
+
+- Run 35219496203 (2026-09-17; A = `ff3ec8e` main, B = `5b94565` the branch
+  head, arm identity read from `ab/arms.txt` and `arms/*.build.json`; paired,
+  6 ABBA blocks × 60, 0 dropped launches). Windows-x86_64, the leg both
+  experiments exist for, resolves **five gains and no loss**: `dump mixed`
+  −9.40% (floor 2.06), `dump nested` −9.40% (1.31), `dump flat` −7.43%
+  (1.33), `dumps mixed` −4.65%/−4.35% bytes/str (2.86/3.69), `dumps flat`
+  −4.51%/−4.25% (2.70/2.65) — every one negative in all six blocks — with
+  `dumps users` −6.30%/−6.39% and `wide_arrays` −6.44/−6.74% negative but
+  under their wide floors. macos-arm64 resolves nothing in either direction.
+- Resolved losses on the other three legs: linux-x86_64 `dumps wide_arrays`
+  +2.81% bytes (floor 0.66) and `dumps flat` +2.15% small / +1.16% medium;
+  linux-arm64 `dump mixed` +1.22% (0.96) and `dumps wide_arrays` +0.49%
+  bytes (0.38); macos-x86_64 `loads wide_arrays` medium +6.59% (3.38) and
+  `load wide_arrays` +5.75% (4.01). The x86 serializer pattern is the shape
+  E26-P7b priced for test additions under the gate-inclusive profile (this
+  branch adds 32), and the macOS pair sits on parse source the branch does
+  not touch; both were put to a second identical draw before the merge.
+- The second draw, run 35248274706 (same arms, same config, 0 dropped):
+  Windows reproduces four of the five gains — `dump nested` −11.42% (floor
+  1.67), `dump mixed` −10.07% (3.73), `dump flat` −6.72% (4.05), `dumps
+  flat` bytes −4.35% (2.95), plus a new medium `dumps users` bytes −2.32%
+  (2.12) — and again no loss; `dumps mixed` stays negative on both draws
+  (−4.65% → −3.96% bytes) but resolves only on the first, its A/A floor
+  (2.3–2.9%) sitting next to the effect. The linux-x86_64 losses do **not**
+  reproduce (`dumps wide_arrays` +2.81% → +0.18%, `dumps flat` +2.15% →
+  +0.68%, CIs spanning 0) and linux-x86_64 instead resolves `dump mixed`
+  −3.08% and `dump flat` −1.25%; linux-arm64's `dump mixed` +1.22% → +0.36%
+  is gone, leaving only sub-1% `dumps wide_arrays`/`users` bytes rows
+  (+0.61%, +0.14%) against floors of 0.1–0.4%, at the instrument's
+  resolution; macos-arm64 resolves `dump mixed` −4.25% and macos-x86_64
+  `dump flat` −3.05% and `dumps mixed` bytes −3.40%. **The one reproduced
+  loss is macos-x86_64's parse pair**: `loads wide_arrays` medium +6.59% →
+  +5.61% (small +4.42% on draw 2), `load wide_arrays` +5.75% → +4.41%, six
+  of six blocks positive on both draws — on parse source the branch does
+  not touch, so the suspect is the gate-inclusive profile absorbing the 32
+  added tests (the E26-P6/P7b mechanism). The attribution puts the branch
+  against a tests-only arm — main plus the path-dispatch suite — which
+  equalizes the training profile: what survives is code. The first arm
+  (`e5a527a`, all 32 tests) refused its own test-gated build, a correct
+  refusal: `test_the_facade_does_not_stat_a_path_that_carries_a_json_suffix`
+  pins the *new* mechanism, not an outcome, and main's facade stats (run
+  35255439933, both mirrored copies the only failures). The arm that built
+  (`9e871c1`) carries the thirty outcome-pinning tests and drops that one
+  mechanism test from each mirror; run 35259469535 is the branch against
+  it (6 × 60, 0 dropped, arms verified from `ab/arms.txt` and
+  `arms/*.build.json`).
+- **The attribution acquits the code.** Against the equal-tests arm the
+  macos-x86_64 parse pair reads medium `loads wide_arrays` −0.22%
+  \[−0.69, +1.77\], small −0.93% \[−2.27, +0.46\], `load wide_arrays`
+  +0.07% \[−1.58, +0.31\] — all inside their floors, with raw strata and
+  raw rival tracking each other (+6.74%/+6.80% on the drifting machine),
+  so the twice-resolved loss against main was the training profile
+  absorbing the new tests, the E26-P6/P7b mechanism as suspected, plus
+  host drift. On the same draw Windows resolves **all four** serializer
+  and file rows on both return types — `dump mixed` −7.43%, `dump nested`
+  −7.41%, `dump flat` −6.78%, `dumps mixed` −3.87%/−3.49% (the row the
+  campaign exists for, negative in six of six blocks), `dumps flat`
+  −3.55%/−3.51%, medium `dumps users` bytes −2.23% — and no leg has a
+  resolved parse loss.
+- **The one loss that survives scrutiny is `dumps wide_arrays` on the
+  Linux legs**, and only cleanly against the equal-tests arm:
+  linux-x86_64 +2.51%/+2.33% (with `dump wide_arrays` +1.49%) and
+  linux-arm64 +1.09–1.52% there, against main +2.81% on draw 1 but
+  **inside the floor (+0.18%) on draw 2** for x86, and a reproduced but
+  sub-1% +0.49%/+0.61% on arm64. In the merge-relevant comparison (B
+  against shipped main) nothing reproduces past 1%, under the 2% gate;
+  against the equal-tests arm the reading is code-attributable but that
+  arm's profile is not the one a merge ships. Carried forward as the open
+  item of this pair — the next standings samples arbitrate the row — with
+  the note that linux-arm64's five serializer gains on draw 3 (`dumps
+  users` −1.6/−1.8%, `dumps flat` −1.0/−1.2%) appear only on the
+  equal-tests arm, the same profile-difference mask read from the other
+  side. Verdict: **merged** — Windows gains reproduced on every draw with
+  zero resolved Windows losses, the macOS parse scare attributed to the
+  instrument, and the residual under the gate where it is measured
+  against what actually ships.
+- Decompose run 35219525967 (same head, the Windows PGO recipe) re-prices
+  the goal row: `dumps mixed` paired **0.9671x [0.9551, 0.9767]** against
+  1.011x after batch 1 and 1.045x before it; five-library interleaved
+  0.979x (rotated 0.980x) against 1.03–1.05x; 17-digit doubles 1.011x
+  against 1.16x; the nested single-key-dict gap +19.3 ns against +24.5;
+  the two-scalar-record baseline 1.017x. Non-PGO controls on the same
+  commit — MSVC /O2 1.0589x, clang-cl /O2 1.0372x — say the lead is the
+  shipped recipe's, not a compiler accident. Evidence:
+  `build/evidence/benchmark-lead/p26/{ab-35219496203,decompose-35219525967}`.
