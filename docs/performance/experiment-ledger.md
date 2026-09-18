@@ -3347,3 +3347,275 @@ waits on it.
   commit — MSVC /O2 1.0589x, clang-cl /O2 1.0372x — say the lead is the
   shipped recipe's, not a compiler accident. Evidence:
   `build/evidence/benchmark-lead/p26/{ab-35219496203,decompose-35219525967}`.
+
+## E26-P28 — the float emit path is capacity-limited on `dumps mixed`
+
+- Opened 2026-09-18 · owner: squad \[emit\] · branch `exp/emit-n2` · parent
+  `885c897`. Brief: 2–4 µs (~3%) off linux-arm64 `dumps mixed` in the
+  record/float emit path.
+- **The population census settles the float half of that brief before any
+  code.** `benchmarks/data/generate_bench_data.py:_mixed_record` puts floats
+  in one of its four shapes only — shape 1's `payload.{x,y}`, both
+  `rng.random()` — so small `mixed.json` carries **250 floats against 1001
+  containers, 1125 ints, 750 strings and 1875 dict keys**. At the measured
+  ~20 ns per value that is **5.0 µs of float work in an ~85 µs row (≈6%)**.
+  Deleting the float writer outright would not reach 4 µs, and the slack
+  inside it is far smaller than that: an in-harness variant with the
+  micro-decimal tier removed altogether reads 19.15 ns against production's
+  22.14, so **the whole probe stage is worth ~3 ns per value ≈ 0.7 µs**.
+  Note also that `decompose_dumps_mixed.py:172` calls mixed's floats "100%
+  the 17-digit shape"; the real population is 65.9% 16-digit, 24.9%
+  17-digit, 8.4% 15-digit, and it takes the `point <= 0` layout branch
+  (values below 1.0), not the `shift16_right` one.
+- **Two of the three levers screened were refuted and never written.** (a) An
+  adaptive micro-tier bypass — a reject-run counter that skips the probe on
+  long-form data — is capped by that 3 ns floor and would carry predictor
+  state of the kind wave 22 had to scope per-input; not worth 0.7 µs. (b)
+  Folding `write_double`'s `isnan||isinf` pair into `format_double` as one
+  integer test on the exponent field, sharing the FP→GP move the sign read
+  already pays, is worth **0.10 ns** per value (21.76 → 21.66 in harness).
+  Both dropped on measurement.
+- **What was written: the integral-product pre-filter as one round-to-integer
+  instruction.** `format_micro_decimal`'s pre-filter proved integrality with
+  `(double)(int64_t)(product + 0.5) == product` — a four-instruction chain
+  across the FP and GP domains, paid on every *rejecting* value, which is
+  every value of a full-precision payload. `std::trunc(product) == product`
+  accepts provably the same set (over the gated range `product` is in
+  [1e2, 4e15], below 2^52, so `product + 0.5` is exact; an integer-valued
+  double never equals a non-integral one) and compiles to `frintz` on arm64
+  and `roundsd` on SSE4.1+. The int64 conversion moves to the accepted path.
+  Both spellings live in `dtoa.hpp`'s `detail` namespace —
+  `is_integral_product` and `is_integral_product_scalar` — selected at
+  compile time, because without a round-to-integer instruction `std::trunc`
+  is a libc call that costs more than the pair it replaces (verified:
+  baseline `x86_64-unknown-linux-gnu` emits neither instruction). The twin
+  rule is checked, not asserted, by
+  `test_integral_product_filter_matches_its_twin` over the exhaustive
+  six-decimal set, the magnitude sweep with an ulp either side, the gate
+  boundaries, and 4 M full-precision products including above 2^52 where
+  the pair's `+ 0.5` stops being exact.
+- **Measured, real in-tree `format_double`, two arms differing only in this
+  file pair, ABBA, 31-repeat medians, M1, two independent six-block sets**
+  (the dev Mac was loaded — load average 5.6–7.2 — so these are screens):
+
+  | population | base ns | cand ns | delta | set 2 |
+  | ---------- | ------- | ------- | ----- | ----- |
+  | mixed's shape (`rng.random()`) | 20.04 | 19.58 | −2.27% | −2.52% |
+  | 2-decimal prices (the tier's own members) | 8.25 | 7.95 | −3.63% | −3.46% |
+  | the two interleaved | 14.37 | 14.24 | −0.92% | −1.09% |
+  | integral and scientific layouts | 12.69 | 12.64 | −0.42% | −0.46% |
+
+  Output is byte-identical on all four populations (FNV fingerprint over
+  every emitted byte, both arms). `format_double` shrinks 303 → 299
+  instructions on arm64 `-O3`. Every population improves; none regresses,
+  so there is no shape this trades against.
+- **Verdict: correct and monotone, but below the instrument.** −0.5 ns on
+  250 floats is **0.13 µs per `dumps mixed` call, ≈0.15% of the row** —
+  a twentieth of the brief, and far under a standings cell whose
+  same-binary control on that leg breaches by 8%. It should ride along with
+  a change that is priced for its own reasons rather than justify a
+  five-platform dispatch of its own. It also cannot be *read* on the
+  `dumps mixed` cell at all; the rows where it is largest in relative terms
+  are the micro-tier ones (`users`, `flat`), at −3.5% of the float stage
+  inside a row floats do not dominate either.
+- **Where the brief's 2–4 µs actually lives: the 1001 containers.** E26-P24's
+  own probe prices one nested single-key dict at 25.8 ns on the M1, 45.0 on
+  Linux x86 and 59.2 on Windows, and run 35219525967 still reads the nested
+  single-key-dict gap at +19.3 ns after batch 1. At 1001 containers per call
+  that stage is 26–59 µs — 30–70% of the row — and 2–4 µs is **2–4 ns per
+  container open**. That is the only structure in `mixed` large enough to
+  contain the target; the float writer is not, at any price.
+- Tests: C++ 15/15 suites, pytest 2599 passed / 2 skipped / 0 failed on
+  `exp/emit-n2`.
+
+## E26-P29 — what the record open path's remaining cost actually is
+
+- Opened 2026-09-18 · owner: squad \[emit\] · branch `exp/emit-n2` · parent
+  `885c897`. Redirect from E26-P28: spend one lever per-container, 2–4 ns per
+  open. Instrument: `open_probe.py` (a strata-only twin of
+  `benchmarks/nested_container_probe.py` — the orjson column is irrelevant to
+  an A/B), 60-repeat medians, `gc.collect()` per sample, arms swapped by
+  replacing the built `.so` in a rotation that carries a **second copy of the
+  base as an in-rotation A/A control**. M1, dev Mac, load average 2–13 across
+  the session, so magnitudes are screens; the A/A column bounds them.
+- **The bound comes first, and it is large.** A deliberately incorrect arm
+  (`STRATA_BOUND_OPEN`, never shipped) that removes *both* the two-pass key
+  walk — verify into the staged row, then emit from it — and the
+  `DeferredOpen`/`RowLock` pair reads, against base and byte-identical on all
+  five datasets: `mixed` **−10.8%**, `flat` −18.6%, `users` −11.3%, `nested`
+  −18.5%, `wide_arrays` +1.5%. On `mixed` that is **−4.1 µs of a 42 µs
+  call** — the brief's whole target, sitting in this structure.
+- **The split says which half, and it is not the one the shape of the code
+  suggests.** A second bound (`STRATA_BOUND_RAII`) keeps the two-pass walk and
+  the per-key armed test and removes *only* the deferred open and the row
+  lock: `mixed` −9.8%, `flat` −13.0%, `users` −8.3%, `nested` −13.8%. So
+  **about 90% of the prize is the `DeferredOpen`/`RowLock` pair and almost
+  none of it is the second pass.** Their instruction count cannot explain
+  that; what can is that their destructors put a cleanup path on every exit
+  of the emit loop, and that structure is what the loop's register allocation
+  pays for. The two-pass walk — the thing the architecture doc explains at
+  length and the obvious thing to attack — is worth about 1% on `mixed`.
+- **Two ways of claiming it, both refuted.** Both dispatch an all-plain
+  record to an emit arm with no deferred open, no row lock, no per-key armed
+  test and the schema row hoisted (a hoist E26-P24 had to reject in the
+  general loop because a nested object may grow `schemas_`; with no nested
+  object it is sound). Both are byte-identical to base on all five datasets.
+  Both lose:
+
+  | arm | where `all_plain` is computed | `mixed` | `flat` | `users` | `nested` | A/A |
+  | --- | ----------------------------- | ------- | ------ | ------- | -------- | --- |
+  | F | folded into the verification pass | +2.1% | +10.5% | +6.7% | +7.7% | ±2% |
+  | G | its own reduction over the filled row | +2.3% | +14.2% | +6.2% | +8.7% | ±0.8% |
+
+  F was expected to lose by the E26-P9 probe-placement follow-up's mechanism
+  (a runtime flag spills through the verification loop, there priced at
+  `dumps flat` +2–3.5%; here +10.5%). G exists to test whether that placement
+  was the whole story. **It is not** — moving the reduction out of the
+  verification loop entirely, leaving that loop's registers untouched, loses
+  by the same margin. The extra pass costs more than the pair's absence
+  returns, and `write_record_fused` carrying two emit loops is a size change
+  in a function whose layout is knife-edge on this row (E26-P23, E26-P26).
+  Verdict: **no-go on the all-plain dispatch, at either placement.** Do not
+  propose a third placement of the same flag; the idea, not its position, is
+  what these two measure.
+- **What the evidence points at instead, not attempted here.** The
+  information is already in the general loop — `!armed() && !is_plain_scalar(value)`
+  computes it per key — but it arrives *after* the pair has been constructed,
+  and C++ scoping is what forces the construction to precede the loop. The
+  route that does not need a second pass is a **hand-off**: the hot arm owns
+  no RAII, and the first non-plain value tail-calls a general continuation
+  that owns the pair and finishes the record from index *i*. The carried
+  values (`object`, `depth`, `way`, `row`, `index`, `size`) are the cost
+  E26-P6 priced — but paid once per record that actually contains a
+  container, not once per key. That is a `fused_record_writer.md` change
+  rather than a trim of the open path, so it wants its own brief and its own
+  reviewer.
+- No runtime change is proposed by this entry. `python_dumps.cpp` on the
+  branch is identical to `main`'s; both bound arms and both candidates were
+  reverted. Screens are M1 only and no CI was dispatched.
+- **Re-read under PGO+LTO, and it survives — the gate this entry was held
+  against.** The concern was that a register-allocation effect is exactly what
+  `-fprofile-use -flto` redistributes. It is not resolved by rebuilding each
+  arm with its own profile: the bound arms cannot train on the gate tests at
+  all (the pair-only arm removes the recursion bound, so nothing reaches
+  `open_` and the suite dies with SIGKILL on deep input), so a per-arm profile
+  would differ in *composition* and not only in source — the profile-difference
+  mask E26-P7b and E26-P26 both warn about. Instead the profile is **held
+  equal**, the E26-P6/P7 method: one `make pgo` on base under the shipped
+  gate-inclusive recipe (both phases green, C++ 15/15 and 2 599 pytest), then
+  every arm rebuilt with `PGO_MODE=use`, `STRATA_ENABLE_LTO=1` and that same
+  `strata.profdata`, so the source is the only variable. All three arms emit
+  byte-identical JSON on all five datasets.
+
+  | row | A/A | pair removed | both removed | pair-only survival |
+  | ---------------- | ------- | ------- | ------- | ------ |
+  | `mixed` | +1.49% | −4.98% | −7.44% | 51% |
+  | `flat` | +0.23% | −12.93% | −16.55% | 99% |
+  | `users` | +0.47% | −4.42% | −7.26% | 53% |
+  | `nested` | +0.90% | −9.38% | −14.31% | 68% |
+  | `wide_arrays` | +1.65% | +3.18% | +0.86% | — |
+
+  On `mixed` the pair alone is **1.95 µs of a 39.08 µs call** and both arms
+  together 2.91 µs. Two things change against the plain build. The prize
+  shrinks on the record-heavy rows but not on `flat`. And **the split moves**:
+  under the shipped recipe the pair is 67% of the combined effect on `mixed`,
+  78% on `flat` and 66% on `nested`, where the plain build put it at ~90% — so
+  the second pass carries 22–34% here, and a design that keeps it collects the
+  middle column, not the right-hand one.
+- Caveats on that table, both against its own conclusion. The held profile was
+  trained on base's source, so each arm's changed blocks are unprofiled: for
+  the pair-only arm that is two declarations and the body is otherwise
+  identical, but the combined arm's emit loop is restructured and its column is
+  therefore **pessimistic** — a lower bound. And the A/A control is looser here
+  (+0.2 to +1.7%, load average 6.6) than on the plain build, so the synthetic
+  rows are weaker evidence than the five real ones.
+- `wide_arrays` +3.18% on the pair-only arm, against a +1.65% control, is
+  unexplained. The row is list-dominated so the dict path barely applies;
+  most likely layout, but it is above its floor and the hand-off design owes
+  an answer rather than inheriting it.
+- Design, then implemented and refused:
+  [the record emit hand-off](../architecture/record_emit_handoff.md) — the hot
+  arm carries no RAII, the first non-plain value enters a continuation that
+  constructs the pair and finishes from that index. It records the
+  five-value carried-state contract (and that six arguments including `this`
+  is SysV's exact register budget, E26-P6's seventh-argument finding), the
+  cycle semantics at the hand-off point with the 2026-09-11/12 placement
+  caveat pinned unwidened, the error paths including the lone-surrogate `str`
+  that is plain but can still fail, the byte-identity claim with six proof
+  obligations, and four kill criteria. Outcome: **E26-P30, no-go.**
+
+## E26-P30 — the hand-off implemented, correct, and refused
+
+- 2026-09-18 · squad \[emit\] · `exp/emit-n2`. Implemented exactly as
+  [the design record](../architecture/record_emit_handoff.md) specifies, then
+  reverted: `python_dumps.cpp` is identical to `main`'s.
+- **Every proof obligation passed.** The differential — obligation 1,
+  reconstructed from this ledger's description of `p24/differential.py`, which
+  no longer exists on disk — read **3 730 dump results identical** to the
+  pre-change writer over 1 865 documents: the three ways a record is reached,
+  dict depths 1–120 across the `kMaxCachedDepth` seam, `str`-subclass keys
+  alone and interleaved, same-size/same-first-key schemas that must still be
+  refused by the verification pass, tuples, `2**70`, `-0.0`, `1e300`, 1 500
+  seeded random documents, **52 `UnicodeEncodeError` rows** from a
+  lone-surrogate `str` at every position before and after a hand-off, two
+  depth-limit `ValueError`s, and byte-identical cycle placement. sha256 over
+  five datasets in both modes matched; the new every-index test pinned 10 242
+  documents across widths 1–24 × every position (mirrored into `tests/unit/`);
+  the cycle, placement and mutation suites needed no edit; ASan+UBSan clean at
+  2 613 passed / 2 skipped.
+- **And it lost.** Two arms, each a full `make pgo` under the shipped recipe
+  with its **own regenerated profile** (both gated in both phases), trained on
+  **identical test suites** so E26-P7b's shift could not confound them, base
+  duplicated in-rotation as the control, two draws with the order reversed:
+
+  | row | A/A | hand-off | verdict |
+  | ---------------- | ------- | ------- | ------- |
+  | `scalars-only` | +0.13% / +0.13% | −0.65% / −0.59% | the only gain |
+  | `value-dict0` | −0.04% / +0.14% | +3.15% / +3.57% | loss |
+  | `mixed` | +0.00% / +0.45% | +1.35% / +0.90% | loss |
+  | `flat` | −0.08% / +0.96% | +0.54% / +0.34% | at the floor |
+  | `users` | +0.02% / +0.03% | +1.22% / +1.32% | loss |
+  | `nested` | +0.06% / +0.05% | +3.11% / +3.08% | loss |
+  | `wide_arrays` | −0.00% / −0.00% | +0.05% / +0.15% | neutral |
+
+  Kill criterion 1 wanted a gain past the floor on `mixed`, `flat`, `users`
+  and `nested`; three resolve a loss at 2×–60× their control. Criterion 2 is
+  moot — `wide_arrays`'s +3.18% in the held-profile screen did not reproduce
+  (+0.05%/+0.15%), so that was the bound arm's artefact, not a real cost.
+- **The instrument, not the implementation, is the finding.** The held-profile
+  screen of E26-P29 priced *deleting* the pair from a profiled base and read
+  −4.98% on `mixed`. With each arm's profile regenerated, PGO lays base's RAII
+  cleanup paths out cold because the profile says they are never taken, so the
+  pair costs a profiled base far less than deleting it implies. **"What a
+  structure costs when removed" and "what a design that relocates it can
+  recover" are different quantities, and a held profile cannot separate them.**
+  E26-P29 flagged the held profile as biasing *against* the bound arms; the
+  larger effect ran the other way. Any future bound arm measured on a held
+  profile inherits this, and should be read as an upper bound on a quantity
+  nobody can collect rather than as a prize.
+- **The population is the second reason.** The design pays a call per record
+  that contains a container and spares only records that contain none. In the
+  real datasets the first set is the large one — `nested` hands off on nearly
+  every record, `value-dict0` always does — and the single gaining row is
+  `scalars-only`, a synthetic shape with no container anywhere. `flat`, whose
+  21 plain scalars should have been the best real case, sits at its floor.
+- **What is closed.** The hand-off, and any variant paying per
+  container-carrying record to spare all-plain records: the population
+  argument kills the shape, not the instance. With E26-P29's two all-plain
+  dispatch arms this is three designs and three refusals, the third correct by
+  every instrument available. The `DeferredOpen`/`RowLock` cost is established
+  as **not recoverable by relocation**. A further attempt needs either a
+  mechanism that makes the pair cheaper where it stands, or — first — evidence
+  that the prize exists at all under a regenerated profile, which is the claim
+  E26-P29 never tested and this entry suggests is false.
+- Kept on the branch, not proposed for `main`: `tests/{py,unit}/test_dumps_handoff.py`.
+  They pass on `main`'s writer and add real coverage of the fused writer at
+  every width and hand-off position, but E26-P7b prices a bare test addition
+  at several percent on some row under this recipe, and there is no longer a
+  design behind them. Merging them is a decision with a cost, so it is the
+  lead's rather than a by-product of this entry.
+- Evidence: `build/evidence/benchmark-lead/p29/` — `differential.py`, its two
+  identical outputs, `held.profdata`, `split.tsv` and a README stating what the
+  directory does not claim (no `*.build.json` for the arms: the `make pgo`
+  identity was overwritten before it could be copied, and a mismatched
+  identity is worse than none).
