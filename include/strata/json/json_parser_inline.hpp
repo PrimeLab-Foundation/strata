@@ -332,7 +332,7 @@ template <typename Handler> struct ParserInline {
     /// array's element cursor, or PlainCursor for an object member, the root,
     /// and every handler without the capability. Returns the advanced cursor,
     /// or the failure token — which always implies the cursor was closed.
-    template <typename C> [[nodiscard]] C parse_value(C cursor) {
+    template <typename C> [[nodiscard]] STRATA_ALIGN_HOT_FN C parse_value(C cursor) {
         skip_ws();
         if (eof())
             return abandon(cursor);
@@ -487,7 +487,7 @@ template <typename Handler> struct ParserInline {
     /// parse_value, the head below made the dispatcher's prologue bigger for
     /// every null, bool and string too — measured +4–7% on those lists
     /// (docs/performance/SKILL.md, wave 12). Only numbers pay for it here.
-    template <typename C> STRATA_NOINLINE C parse_number(C cursor) {
+    template <typename C> STRATA_NOINLINE STRATA_ALIGN_HOT_FN C parse_number(C cursor) {
         // The short-number head: an optional sign, one to seven digits, and
         // optionally a point with one to seven more, with no exponent behind
         // — ids, counts, prices, coordinates: most of what JSON numbers are.
@@ -615,7 +615,7 @@ template <typename Handler> struct ParserInline {
      * what keeps it in the pair of registers a two-word POD is returned in,
      * so the plain dispatcher needs no stack slot for it.
      */
-    [[nodiscard]] std::string_view scan_string() {
+    [[nodiscard]] STRATA_ALIGN_HOT_FN std::string_view scan_string() {
         if (get() != '"')
             return std::string_view();
 
@@ -705,7 +705,7 @@ template <typename Handler> struct ParserInline {
         return text.data() != nullptr && handler.on_key(text);
     }
 
-    bool parse_array() {
+    STRATA_ALIGN_HOT_FN bool parse_array() {
         // Only reached through parse_value, which dispatched on this byte:
         // the opening bracket is consumed without re-scanning for it.
         ++i;
