@@ -101,10 +101,9 @@ using detail::write_digits_fixed;
     // and it is now on the accepted path only. Rejecting values (every value
     // of a full-precision float payload) leave the tier having paid one
     // multiply and one round-to-integer instead of a four-instruction
-    // conversion chain: measured 22.14 → 19.34 ns per value on
-    // `rng.random()` doubles, against a 19.15 ns floor with the tier removed
-    // altogether, and the tier's own members get faster too (2-decimal
-    // prices 8.55 → 8.15 ns) because they no longer add 0.5 first.
+    // conversion chain, and the tier's own members get faster too because
+    // they no longer add 0.5 first. The numbers, and the ceiling they sit
+    // under, are at `is_integral_product` in dtoa.hpp.
     const auto scaled = static_cast<int64_t>(product);
 
     // The divide is the membership proof and is not negotiable: an integral

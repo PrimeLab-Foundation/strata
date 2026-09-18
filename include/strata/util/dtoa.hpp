@@ -177,8 +177,14 @@ inline void eight_digits_scalar(uint32_t value, char* out) noexcept {
 /// pair below is a four-instruction dependency chain across the FP and GP
 /// domains, while a round-to-integer instruction is one. Full-precision float
 /// data rejects here on every value, which is what makes the chain worth
-/// removing — 22.14 → 19.34 ns per value on `rng.random()` doubles (arm64, 31
-/// repeats), against a 19.15 ns floor with the tier skipped altogether.
+/// removing. Measured on `format_double` itself, two builds differing only in
+/// this function, ABBA with 31-repeat medians on an M1: −0.5 ns per value on
+/// `rng.random()` doubles (20.04 → 19.58) and −0.3 on 2-decimal prices
+/// (8.25 → 7.95), every population improving and none regressing. The whole
+/// probe stage is only worth ~3 ns per value — a harness arm with the tier
+/// skipped altogether reads 19.15 against 22.14 — so this is most of what
+/// was available here, and that ceiling is why no larger float-side lever
+/// exists (E26-P28 in docs/performance/experiment-ledger.md).
 [[nodiscard]] inline bool is_integral_product(double product) noexcept {
 #if defined(__aarch64__) || defined(__ARM_NEON) || defined(__SSE4_1__) || defined(__AVX__) ||      \
     defined(__AVX2__)
