@@ -285,7 +285,7 @@ on both — 281 → 259 instructions on arm64 and 191 → 187 on x86-64, because
 tail's inline `PyErr_Format` argument setup is replaced by one call to the cold
 `write_unsupported` — with the leading 59 (arm64) / 76 (x86-64) instructions,
 the whole exact-type dispatch chain, bit-identical. Section `__text` across the
-four changed translation units grows **+500 B** on arm64 and **+480 B** on
+four changed translation units grows **+476 B** on arm64 and **+496 B** on
 x86-64, inside the bound.
 
 Kill criterion: if the tests-matched five-leg A/B resolves any canonical row

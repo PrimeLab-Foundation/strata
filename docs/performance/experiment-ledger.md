@@ -3722,7 +3722,7 @@ and until they land nothing here claims a row.
   | `Serializer::write` instructions (base → cand)   | 281 → **259** (−22)          | 191 → **187** (−4)           |
   | identical leading instructions of `write`        | **59**                       | **76**                       |
   | new `write_unsupported` (cold, out of line)      | 56 insns                     | 59 insns                     |
-  | Section `__text`, four changed TUs (base → cand) | 51 820 → 52 320 (**+500 B**) | 52 648 → 53 128 (**+480 B**) |
+  | Section `__text`, four changed TUs (base → cand) | 51 820 → 52 296 (**+476 B**) | 52 648 → 53 144 (**+496 B**) |
 
   `write()` is *smaller* on both ISAs because the tail's inline `PyErr_Format`
   argument setup (exception object, format string, `tp_name`) is replaced by one
@@ -3731,7 +3731,7 @@ and until they land nothing here claims a row.
   freed register showing up as renaming (`%r14` → `%rbx` on x86-64) and epilogue
   block reordering on arm64. No instruction is added on any supported-type path.
   Text growth is inside the record's 512 B bound on both ISAs, with
-  `python_module.cpp` (+220 / +240 B) the larger half of it — the hook's
+  `python_module.cpp` (+196 / +256 B) the larger half of it — the hook's
   validation and `dump`'s fourth keyword, not the walk.
 
   The one function that grew is `dumps_to_python` itself, and only on arm64:
