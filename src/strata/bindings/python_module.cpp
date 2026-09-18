@@ -208,9 +208,13 @@ PyObject* finish_loads(std::string_view text, bool validate_utf8, bool want_curs
  *
  * The reference is borrowed: `args`/`kwargs` outlive the call, and neither the
  * walker nor its per-call state stores the pointer past the return.
+ *
+ * @p value is never null: the fastcall site reads it out of `args`, and the
+ * VARARGS site seeds it with `Py_None`, so there is no absent-argument arm to
+ * write (and none to leave untested).
  */
 [[nodiscard]] bool resolve_default_hook(PyObject* value, PyObject** out) {
-    if (value == nullptr || value == Py_None) {
+    if (value == Py_None) {
         *out = nullptr;
         return true;
     }
