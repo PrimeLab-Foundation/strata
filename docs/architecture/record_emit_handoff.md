@@ -1,6 +1,14 @@
-# Decision record (DRAFT — design only, not implemented): the record emit hand-off
+# Decision record (REFUSED): the record emit hand-off
 
-Status: **draft for review.** No code exists. This record amends
+Status: **implemented, measured and refused by kill criterion 1** — see
+[the outcome](#outcome-refused-by-kill-criterion-1) at the foot of this record
+before reading the rest of it. The design below is preserved as written,
+because the reason it failed is not visible in it: every correctness argument
+held, all six proof obligations passed, and it still lost. The measurement
+that motivated it over-credited the change, and the section on the outcome says
+exactly how.
+
+This record amends
 [the fused record writer](fused_record_writer.md); it does not replace it, and
 every invariant in that document's "Invariants that must survive, byte for
 byte" section is carried forward unchanged.
@@ -256,3 +264,81 @@ architecture-specific path, no `#ifdef`, no new placement macro.
   its position, is what those measurements close.
 - It does not touch `write_mapping`, the array element loop, the schema cache,
   the compaction, or any reservation.
+
+## Outcome: refused by kill criterion 1
+
+Implemented on `exp/emit-n2` 2026-09-18 and reverted the same session.
+`python_dumps.cpp` is identical to `main`'s.
+
+**All six proof obligations passed.** The differential (obligation 1,
+reconstructed — the original `p24/differential.py` no longer exists on disk)
+read **3 730 dump results identical** to the pre-change writer across 1 865
+documents, including 52 `UnicodeEncodeError` rows from the lone-surrogate
+`str` at every position before and after a hand-off, 2 depth-limit
+`ValueError`s, and byte-identical cycle placement on all three of
+`cycle/direct`, `cycle/element` and `cycle/value`. sha256 over five datasets in
+both modes matched (obligation 2). The new every-index test pinned 10 242
+documents across widths 1–24 × every position, mirrored into `tests/unit/`
+(obligation 3). The cycle and placement suites needed no edit and passed
+(obligation 4), as did the mutation suites (obligation 5) and ASan+UBSan —
+2 613 passed, 2 skipped, no sanitizer finding (obligation 6). The
+implementation was, as far as every correctness instrument can tell, right.
+
+**And it lost.** Two arms, each a full `make pgo` under the shipped recipe with
+its **own regenerated profile** (both gated: 2 613 pytest and C++ 15/15 in both
+phases of each), trained on **identical test suites** so E26-P7b's
+test-addition shift could not confound them, with a second copy of the base
+arm in-rotation as the control. Two draws, rotation order reversed:
+
+| row | A/A (draw 1 / 2) | hand-off (draw 1 / 2) | verdict |
+| ---------------- | ------- | ------- | ------- |
+| `scalars-only` | +0.13% / +0.13% | −0.65% / −0.59% | the only gain |
+| `value-dict0` | −0.04% / +0.14% | +3.15% / +3.57% | loss |
+| `mixed` | +0.00% / +0.45% | +1.35% / +0.90% | loss |
+| `flat` | −0.08% / +0.96% | +0.54% / +0.34% | at the floor |
+| `users` | +0.02% / +0.03% | +1.22% / +1.32% | loss |
+| `nested` | +0.06% / +0.05% | +3.11% / +3.08% | loss |
+| `wide_arrays` | −0.00% / −0.00% | +0.05% / +0.15% | neutral |
+
+Kill criterion 1 required a gain past the A/A floor on each of `mixed`,
+`flat`, `users` and `nested`. Three of the four resolve a **loss** instead, at
+2× to 60× their control, reproducibly and with the rotation reversed.
+Criterion 2 is moot: `wide_arrays`'s +3.18% in the held-profile screen did not
+reproduce here (+0.05%/+0.15%), so that figure was an artefact of the bound
+arm, not a cost of this design.
+
+**Why, and this is the part worth keeping.** Two things, and the first is a
+lesson about the instrument rather than about the code.
+
+1. **The held-profile screen measured the wrong quantity.** It priced *deleting*
+   the pair from a base built against a profile, and read −4.98% on `mixed`.
+   But with each arm's profile regenerated, PGO lays base's RAII cleanup paths
+   out cold on the strength of the profile saying they are never taken — so the
+   pair costs a *profiled* base far less than deleting it from one suggests.
+   "What the pair costs when removed" and "what a design that relocates it can
+   recover" are different numbers, and the held-profile method cannot tell them
+   apart. The asymmetry noted in E26-P29 — that the held profile biases against
+   the bound arms — was real but pointed the wrong way: the larger effect was
+   that the bound deleted work the profile had already made nearly free.
+2. **The population is wrong.** The design pays a call for every record that
+   contains a container and benefits only records that contain none. In the
+   real datasets the first set is the large one: `nested` hands off on
+   essentially every record and loses 3.1%, `value-dict0` always hands off and
+   loses 3.2–3.6%, and the only row that gains is `scalars-only`, the synthetic
+   shape with no container anywhere. `flat`'s 21 plain scalars should have been
+   the design's best real row and it sits at its floor.
+
+**What this closes.** The hand-off is refused as specified. So is any variant
+that pays per container-carrying record to spare all-plain records — that is
+the shape, and the population argument above kills the shape, not this
+instance. Together with E26-P29's two refuted all-plain dispatch arms, the
+`DeferredOpen`/`RowLock` cost is now established as **not recoverable by
+relocation**: three designs, three refusals, and the third one correct by
+every instrument. A future attempt needs a mechanism that makes the pair
+cheaper *where it is*, or evidence that the prize exists under a regenerated
+profile at all — which, on these numbers, is the claim that should be tested
+first and was not.
+
+Evidence: `build/evidence/benchmark-lead/p29/` (the differential, its two
+identical output files, the held profile and its README) and E26-P30 in
+[the ledger](../performance/experiment-ledger.md).

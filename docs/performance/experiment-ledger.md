@@ -3533,7 +3533,7 @@ waits on it.
   unexplained. The row is list-dominated so the dict path barely applies;
   most likely layout, but it is above its floor and the hand-off design owes
   an answer rather than inheriting it.
-- Design, written and not implemented:
+- Design, then implemented and refused:
   [the record emit hand-off](../architecture/record_emit_handoff.md) — the hot
   arm carries no RAII, the first non-plain value enters a continuation that
   constructs the pair and finishes from that index. It records the
@@ -3542,4 +3542,80 @@ waits on it.
   cycle semantics at the hand-off point with the 2026-09-11/12 placement
   caveat pinned unwidened, the error paths including the lone-surrogate `str`
   that is plain but can still fail, the byte-identity claim with six proof
-  obligations, and four kill criteria.
+  obligations, and four kill criteria. Outcome: **E26-P30, no-go.**
+
+## E26-P30 — the hand-off implemented, correct, and refused
+
+- 2026-09-18 · squad \[emit\] · `exp/emit-n2`. Implemented exactly as
+  [the design record](../architecture/record_emit_handoff.md) specifies, then
+  reverted: `python_dumps.cpp` is identical to `main`'s.
+- **Every proof obligation passed.** The differential — obligation 1,
+  reconstructed from this ledger's description of `p24/differential.py`, which
+  no longer exists on disk — read **3 730 dump results identical** to the
+  pre-change writer over 1 865 documents: the three ways a record is reached,
+  dict depths 1–120 across the `kMaxCachedDepth` seam, `str`-subclass keys
+  alone and interleaved, same-size/same-first-key schemas that must still be
+  refused by the verification pass, tuples, `2**70`, `-0.0`, `1e300`, 1 500
+  seeded random documents, **52 `UnicodeEncodeError` rows** from a
+  lone-surrogate `str` at every position before and after a hand-off, two
+  depth-limit `ValueError`s, and byte-identical cycle placement. sha256 over
+  five datasets in both modes matched; the new every-index test pinned 10 242
+  documents across widths 1–24 × every position (mirrored into `tests/unit/`);
+  the cycle, placement and mutation suites needed no edit; ASan+UBSan clean at
+  2 613 passed / 2 skipped.
+- **And it lost.** Two arms, each a full `make pgo` under the shipped recipe
+  with its **own regenerated profile** (both gated in both phases), trained on
+  **identical test suites** so E26-P7b's shift could not confound them, base
+  duplicated in-rotation as the control, two draws with the order reversed:
+
+  | row | A/A | hand-off | verdict |
+  | ---------------- | ------- | ------- | ------- |
+  | `scalars-only` | +0.13% / +0.13% | −0.65% / −0.59% | the only gain |
+  | `value-dict0` | −0.04% / +0.14% | +3.15% / +3.57% | loss |
+  | `mixed` | +0.00% / +0.45% | +1.35% / +0.90% | loss |
+  | `flat` | −0.08% / +0.96% | +0.54% / +0.34% | at the floor |
+  | `users` | +0.02% / +0.03% | +1.22% / +1.32% | loss |
+  | `nested` | +0.06% / +0.05% | +3.11% / +3.08% | loss |
+  | `wide_arrays` | −0.00% / −0.00% | +0.05% / +0.15% | neutral |
+
+  Kill criterion 1 wanted a gain past the floor on `mixed`, `flat`, `users`
+  and `nested`; three resolve a loss at 2×–60× their control. Criterion 2 is
+  moot — `wide_arrays`'s +3.18% in the held-profile screen did not reproduce
+  (+0.05%/+0.15%), so that was the bound arm's artefact, not a real cost.
+- **The instrument, not the implementation, is the finding.** The held-profile
+  screen of E26-P29 priced *deleting* the pair from a profiled base and read
+  −4.98% on `mixed`. With each arm's profile regenerated, PGO lays base's RAII
+  cleanup paths out cold because the profile says they are never taken, so the
+  pair costs a profiled base far less than deleting it implies. **"What a
+  structure costs when removed" and "what a design that relocates it can
+  recover" are different quantities, and a held profile cannot separate them.**
+  E26-P29 flagged the held profile as biasing *against* the bound arms; the
+  larger effect ran the other way. Any future bound arm measured on a held
+  profile inherits this, and should be read as an upper bound on a quantity
+  nobody can collect rather than as a prize.
+- **The population is the second reason.** The design pays a call per record
+  that contains a container and spares only records that contain none. In the
+  real datasets the first set is the large one — `nested` hands off on nearly
+  every record, `value-dict0` always does — and the single gaining row is
+  `scalars-only`, a synthetic shape with no container anywhere. `flat`, whose
+  21 plain scalars should have been the best real case, sits at its floor.
+- **What is closed.** The hand-off, and any variant paying per
+  container-carrying record to spare all-plain records: the population
+  argument kills the shape, not the instance. With E26-P29's two all-plain
+  dispatch arms this is three designs and three refusals, the third correct by
+  every instrument available. The `DeferredOpen`/`RowLock` cost is established
+  as **not recoverable by relocation**. A further attempt needs either a
+  mechanism that makes the pair cheaper where it stands, or — first — evidence
+  that the prize exists at all under a regenerated profile, which is the claim
+  E26-P29 never tested and this entry suggests is false.
+- Kept on the branch, not proposed for `main`: `tests/{py,unit}/test_dumps_handoff.py`.
+  They pass on `main`'s writer and add real coverage of the fused writer at
+  every width and hand-off position, but E26-P7b prices a bare test addition
+  at several percent on some row under this recipe, and there is no longer a
+  design behind them. Merging them is a decision with a cost, so it is the
+  lead's rather than a by-product of this entry.
+- Evidence: `build/evidence/benchmark-lead/p29/` — `differential.py`, its two
+  identical outputs, `held.profdata`, `split.tsv` and a README stating what the
+  directory does not claim (no `*.build.json` for the arms: the `make pgo`
+  identity was overwritten before it could be copied, and a mismatched
+  identity is worse than none).
