@@ -3347,3 +3347,83 @@ waits on it.
   commit — MSVC /O2 1.0589x, clang-cl /O2 1.0372x — say the lead is the
   shipped recipe's, not a compiler accident. Evidence:
   `build/evidence/benchmark-lead/p26/{ab-35219496203,decompose-35219525967}`.
+
+## E26-P28 — the float emit path is capacity-limited on `dumps mixed`
+
+- Opened 2026-09-18 · owner: squad \[emit\] · branch `exp/emit-n2` · parent
+  `885c897`. Brief: 2–4 µs (~3%) off linux-arm64 `dumps mixed` in the
+  record/float emit path.
+- **The population census settles the float half of that brief before any
+  code.** `benchmarks/data/generate_bench_data.py:_mixed_record` puts floats
+  in one of its four shapes only — shape 1's `payload.{x,y}`, both
+  `rng.random()` — so small `mixed.json` carries **250 floats against 1001
+  containers, 1125 ints, 750 strings and 1875 dict keys**. At the measured
+  ~20 ns per value that is **5.0 µs of float work in an ~85 µs row (≈6%)**.
+  Deleting the float writer outright would not reach 4 µs, and the slack
+  inside it is far smaller than that: an in-harness variant with the
+  micro-decimal tier removed altogether reads 19.15 ns against production's
+  22.14, so **the whole probe stage is worth ~3 ns per value ≈ 0.7 µs**.
+  Note also that `decompose_dumps_mixed.py:172` calls mixed's floats "100%
+  the 17-digit shape"; the real population is 65.9% 16-digit, 24.9%
+  17-digit, 8.4% 15-digit, and it takes the `point <= 0` layout branch
+  (values below 1.0), not the `shift16_right` one.
+- **Two of the three levers screened were refuted and never written.** (a) An
+  adaptive micro-tier bypass — a reject-run counter that skips the probe on
+  long-form data — is capped by that 3 ns floor and would carry predictor
+  state of the kind wave 22 had to scope per-input; not worth 0.7 µs. (b)
+  Folding `write_double`'s `isnan||isinf` pair into `format_double` as one
+  integer test on the exponent field, sharing the FP→GP move the sign read
+  already pays, is worth **0.10 ns** per value (21.76 → 21.66 in harness).
+  Both dropped on measurement.
+- **What was written: the integral-product pre-filter as one round-to-integer
+  instruction.** `format_micro_decimal`'s pre-filter proved integrality with
+  `(double)(int64_t)(product + 0.5) == product` — a four-instruction chain
+  across the FP and GP domains, paid on every *rejecting* value, which is
+  every value of a full-precision payload. `std::trunc(product) == product`
+  accepts provably the same set (over the gated range `product` is in
+  [1e2, 4e15], below 2^52, so `product + 0.5` is exact; an integer-valued
+  double never equals a non-integral one) and compiles to `frintz` on arm64
+  and `roundsd` on SSE4.1+. The int64 conversion moves to the accepted path.
+  Both spellings live in `dtoa.hpp`'s `detail` namespace —
+  `is_integral_product` and `is_integral_product_scalar` — selected at
+  compile time, because without a round-to-integer instruction `std::trunc`
+  is a libc call that costs more than the pair it replaces (verified:
+  baseline `x86_64-unknown-linux-gnu` emits neither instruction). The twin
+  rule is checked, not asserted, by
+  `test_integral_product_filter_matches_its_twin` over the exhaustive
+  six-decimal set, the magnitude sweep with an ulp either side, the gate
+  boundaries, and 4 M full-precision products including above 2^52 where
+  the pair's `+ 0.5` stops being exact.
+- **Measured, real in-tree `format_double`, two arms differing only in this
+  file pair, ABBA, 31-repeat medians, M1, two independent six-block sets**
+  (the dev Mac was loaded — load average 5.6–7.2 — so these are screens):
+
+  | population | base ns | cand ns | delta | set 2 |
+  | ---------- | ------- | ------- | ----- | ----- |
+  | mixed's shape (`rng.random()`) | 20.04 | 19.58 | −2.27% | −2.52% |
+  | 2-decimal prices (the tier's own members) | 8.25 | 7.95 | −3.63% | −3.46% |
+  | the two interleaved | 14.37 | 14.24 | −0.92% | −1.09% |
+  | integral and scientific layouts | 12.69 | 12.64 | −0.42% | −0.46% |
+
+  Output is byte-identical on all four populations (FNV fingerprint over
+  every emitted byte, both arms). `format_double` shrinks 303 → 299
+  instructions on arm64 `-O3`. Every population improves; none regresses,
+  so there is no shape this trades against.
+- **Verdict: correct and monotone, but below the instrument.** −0.5 ns on
+  250 floats is **0.13 µs per `dumps mixed` call, ≈0.15% of the row** —
+  a twentieth of the brief, and far under a standings cell whose
+  same-binary control on that leg breaches by 8%. It should ride along with
+  a change that is priced for its own reasons rather than justify a
+  five-platform dispatch of its own. It also cannot be *read* on the
+  `dumps mixed` cell at all; the rows where it is largest in relative terms
+  are the micro-tier ones (`users`, `flat`), at −3.5% of the float stage
+  inside a row floats do not dominate either.
+- **Where the brief's 2–4 µs actually lives: the 1001 containers.** E26-P24's
+  own probe prices one nested single-key dict at 25.8 ns on the M1, 45.0 on
+  Linux x86 and 59.2 on Windows, and run 35219525967 still reads the nested
+  single-key-dict gap at +19.3 ns after batch 1. At 1001 containers per call
+  that stage is 26–59 µs — 30–70% of the row — and 2–4 µs is **2–4 ns per
+  container open**. That is the only structure in `mixed` large enough to
+  contain the target; the float writer is not, at any price.
+- Tests: C++ 15/15 suites, pytest 2599 passed / 2 skipped / 0 failed on
+  `exp/emit-n2`.

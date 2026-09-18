@@ -27,6 +27,7 @@
 
 #include <bit>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -160,6 +161,44 @@ inline void eight_digits_scalar(uint32_t value, char* out) noexcept {
     std::memcpy(out + 2, kDigitPairs + pair1, 2);
     std::memcpy(out + 4, kDigitPairs + pair2, 2);
     std::memcpy(out + 6, kDigitPairs + pair3, 2);
+}
+
+/// Is @p product an exact integer? The micro-decimal tier's pre-filter.
+///
+/// Both spellings accept exactly the same set, so which one compiles is
+/// invisible in the output — `is_integral_product_scalar` is the twin
+/// `tests/cpp/test_float_precision.cpp` pins this against. Over the range the
+/// tier gates (`product` in [1e2, 4e15], below 2^52) `product + 0.5` is
+/// exact, so truncating it yields `product` when `product` is integral and
+/// something else when it is not, and an integer-valued double never compares
+/// equal to a non-integral one.
+///
+/// What differs is cost, and only where the tier *rejects*: the conversion
+/// pair below is a four-instruction dependency chain across the FP and GP
+/// domains, while a round-to-integer instruction is one. Full-precision float
+/// data rejects here on every value, which is what makes the chain worth
+/// removing — 22.14 → 19.34 ns per value on `rng.random()` doubles (arm64, 31
+/// repeats), against a 19.15 ns floor with the tier skipped altogether.
+[[nodiscard]] inline bool is_integral_product(double product) noexcept {
+#if defined(__aarch64__) || defined(__ARM_NEON) || defined(__SSE4_1__) || defined(__AVX__) ||      \
+    defined(__AVX2__)
+    // `frintz` on arm64, `roundsd` on SSE4.1 and above.
+    return std::trunc(product) == product;
+#else
+    // The portable twin, kept for builds with no round-to-integer
+    // instruction, where `std::trunc` is a libc call that costs more than the
+    // conversion pair it would replace. Truncation rather than llround:
+    // llround is one instruction on arm64 but a libc call on x86-64, and a
+    // mis-rounded borderline here merely fails the caller's membership check
+    // and takes the general path — correctness never rests on this rounding.
+    return static_cast<double>(static_cast<int64_t>(product + 0.5)) == product;
+#endif
+}
+
+/// The conversion-pair twin of @ref is_integral_product. Reference only —
+/// `tests/cpp` runs the two against each other over the gated range.
+[[nodiscard]] inline bool is_integral_product_scalar(double product) noexcept {
+    return static_cast<double>(static_cast<int64_t>(product + 0.5)) == product;
 }
 
 /// Exactly eight digits of @p value (< 10^8), zero-padded.

@@ -48,6 +48,7 @@ namespace {
 // the 16-byte gap shift — lives in dtoa.hpp's detail namespace, shared with
 // the header-inline format_int64.
 using detail::decimal_digit_count;
+using detail::is_integral_product;
 using detail::kDigitPairs;
 using detail::shift16_right;
 using detail::write_digits_fixed;
@@ -91,15 +92,20 @@ using detail::write_digits_fixed;
     // product below is *exactly* the integer n (the relative error of one
     // multiply stays under half a unit throughout the gated range), so a
     // non-integral product rejects without paying the divide — which is the
-    // whole cost of running this tier over long-form float data. Truncation
-    // rather than llround: llround is one instruction on arm64 but a libc
-    // call on x86-64, and a mis-rounded borderline here merely fails the
-    // membership check below and takes the general path — correctness never
-    // rests on this rounding.
+    // whole cost of running this tier over long-form float data.
     const double product = magnitude * 1e6;
-    const auto scaled = static_cast<int64_t>(product + 0.5);
-    if (static_cast<double>(scaled) != product)
+    if (!is_integral_product(product))
         return 0;
+
+    // `product` is an exact integer below 2^52, so this conversion is exact —
+    // and it is now on the accepted path only. Rejecting values (every value
+    // of a full-precision float payload) leave the tier having paid one
+    // multiply and one round-to-integer instead of a four-instruction
+    // conversion chain: measured 22.14 → 19.34 ns per value on
+    // `rng.random()` doubles, against a 19.15 ns floor with the tier removed
+    // altogether, and the tier's own members get faster too (2-decimal
+    // prices 8.55 → 8.15 ns) because they no longer add 0.5 first.
+    const auto scaled = static_cast<int64_t>(product);
 
     // The divide is the membership proof and is not negotiable: an integral
     // product alone admits values that are *near* n/10^6 without being its

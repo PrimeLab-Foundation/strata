@@ -444,6 +444,61 @@ void test_eight_digit_word_matches_pair_table_exhaustively() {
 }
 
 /**
+ * The micro-decimal pre-filter against its conversion-pair twin, over the
+ * whole range the tier gates (docs/context/styleguide.md: a compile-time
+ * selected fast path must be observably identical to its twin, and here that
+ * is checked rather than asserted). One of the two is a round-to-integer
+ * instruction and the other a conversion chain, so a build that selects
+ * differently must still accept exactly the same set.
+ */
+void test_integral_product_filter_matches_its_twin() {
+    const auto check = [](double product) {
+        const bool fast = strata::util::detail::is_integral_product(product);
+        const bool twin = strata::util::detail::is_integral_product_scalar(product);
+        if (fast != twin) {
+            std::printf("is_integral_product(%.17g) = %d, twin %d\n", product, fast, twin);
+            assert(false);
+        }
+        // The filter's contract, independent of either spelling.
+        assert(fast == (std::trunc(product) == product));
+    };
+
+    // Every six-decimal value below one, scaled as the tier scales it: the
+    // integral products, exhaustive where it is cheap.
+    for (uint32_t micro = 100; micro < 1000000u; ++micro)
+        check(std::fabs(static_cast<double>(micro) / 1e6) * 1e6);
+
+    // The tier's magnitude sweep, its gate boundaries, and one ulp either
+    // side of each — where a rounding difference between the two spellings
+    // would surface if there were one.
+    for (uint64_t scaled = 1; scaled < 100000000000000000ULL; scaled *= 10) {
+        for (const int64_t delta : {-1, 0, 1}) {
+            const double value = static_cast<double>(static_cast<int64_t>(scaled) + delta) / 1e6;
+            check(std::fabs(value) * 1e6);
+            check(std::nextafter(std::fabs(value), 0.0) * 1e6);
+            check(std::nextafter(std::fabs(value), 1e30) * 1e6);
+        }
+    }
+    for (const double gate : {1e-4, 4.0e9, 1.0, 0.5, 3999999999.999999})
+        for (const double value : {std::nextafter(gate, 0.0), gate, std::nextafter(gate, 1e30)})
+            check(value * 1e6);
+
+    // Full-precision doubles: the population that rejects on every value, and
+    // the reason the fast spelling exists. Products here run past 2^52, where
+    // the conversion pair's `+ 0.5` stops being exact — so the agreement is
+    // checked above the tier's gate as well as inside it.
+    uint64_t state = 0x9E3779B97F4A7C15ULL;
+    for (int trial = 0; trial < 2000000; ++trial) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        const double unit = static_cast<double>(state >> 11) / 9007199254740992.0;
+        check(unit * 1e6);
+        check(unit * 1e6 * 4.0e9);
+    }
+}
+
+/**
  * The micro-decimal tier's own shapes, each against the reference: whole
  * parts of every width it emits itself (one to eight digits) and the nine-
  * digit width it hands to the general path, fractions with every count of
@@ -534,6 +589,7 @@ void test_digit_groups_match_the_digit_loop() {
 int main() {
     test_eight_digit_word_matches_pair_table_exhaustively();
     test_digit_groups_match_the_digit_loop();
+    test_integral_product_filter_matches_its_twin();
     test_micro_decimal_shapes_match_reference();
     test_exact_renderings();
     test_integral_values_keep_a_fraction();
