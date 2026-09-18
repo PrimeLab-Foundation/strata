@@ -98,9 +98,24 @@ against 1.16x. Its two five-platform samples read **132/135** and **133/135** (r
 and 35267792012), windows-x86_64 `dumps mixed` **#1 on both draws** (0.974x, 0.937x) for the first
 time, and the cross-sample view now reads, for the first time, **no row behind on every draw**:
 the five cells behind across the two samples (1.00–1.11x, a different set each draw) all change
-rank between draws, with unchanged rivals moving 18–89%. What remains is holding that state — the
-coin band — plus E26-P8, the deferred JSONPath grammar extensions, and the backlog in
-`docs/benchmarking/SKILL.md`. The rebuild is versioned calver,
+rank between draws, with unchanged rivals moving 18–89%. Four further samples of the same source
+(runs 35275497426, 35277206429, 35287410197, 35299852958) read 134/135, 133/135, 133/135 and
+131/135 — six draws in all, **no cell behind on more than one draw**, the three `dumps mixed`
+cells outside macOS each coining exactly once, and the Windows leg reading 0.936x and 1.128x on
+one binary two draws apart (its rivals moving 116% between samples), which is the instrument's
+spread, not a margin. The margin campaign of 2026-09-18 (ledger E26-P28 to E26-P32; the refused
+design record `docs/architecture/record_emit_handoff.md`) then established at measured cost that
+no code-side margin remains where four mechanisms looked: a float pre-filter lands correct,
+monotone and worth 0.13 µs — below the instrument, shelved on `exp/emit-n2`; the
+`DeferredOpen`/`RowLock` relocation shape is refused three designs deep, the third passing every
+correctness obligation and still losing its own kill criterion, with the methods finding that a
+held-profile bound arm prices *deleting* a structure, an upper bound no relocation can collect,
+because PGO already lays the cleanup paths cold; the schema key-slot interleave is refused by the
+Neoverse-N2 itself after a passing M1 screen and a −19% static line model — neither local screens
+nor static models predict that leg — and the depth-row colocation loses 19% on `nested` locally.
+What remains is holding the state the cross-sample table shows — the coin band is the
+instrument's, not the code's — plus E26-P8, the deferred JSONPath grammar extensions, and the
+backlog in `docs/benchmarking/SKILL.md`. The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
 (see `docs/context/api.md`).
 

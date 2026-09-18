@@ -11,10 +11,10 @@ supportability). Shared runners are noisy: this file tracks the goal, the
 supportability tripwire stays the CI gate, and headline standings come
 only from the quiet-machine protocol (docs/context/benchmarks.md).
 
-- workflow: Benchmarks run 35287410197 (workflow_dispatch, conclusion: success)
-- branch/commit: main @ 6e4d93e74610755e4c46406e91c8aaf4ab6817a1
-- run date: 2026-09-17T23:34:01Z
-- url: https://github.com/PrimeLab-Foundation/strata/actions/runs/35287410197
+- workflow: Benchmarks run 35299852958 (workflow_dispatch, conclusion: success)
+- branch/commit: main @ baba505678994faef24df367a2dc4b93d5d4bef0
+- run date: 2026-09-18T02:34:04Z
+- url: https://github.com/PrimeLab-Foundation/strata/actions/runs/35299852958
 
 ## Rows at #1, by category
 
@@ -26,9 +26,9 @@ Cells are "#1 rows / declared rows" within that platform's own report.
 | linux-x86_64 | 5/5 | 4/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 26/27 |
 | macos-arm64 | 5/5 | 5/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 27/27 |
 | macos-x86_64 | 5/5 | 5/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 27/27 |
-| windows-x86_64 | 4/5 | 5/5 | 5/5 | 1/1 | 5/5 | 3/3 | 3/3 | 26/27 |
+| windows-x86_64 | 5/5 | 3/5 | 5/5 | 1/1 | 4/5 | 3/3 | 3/3 | 24/27 |
 
-**Goal met on 3/5 platforms -- 2 row(s) to close.**
+**Goal met on 3/5 platforms -- 4 row(s) to close.**
 
 ## Evidence
 
@@ -39,36 +39,38 @@ absent (docs/context/benchmarks.md).
 
 | platform-arch | status | declared rows measured | comparable rows | provenance |
 |---|---|---|---|---|
-| linux-arm64 | complete | 27/27 | 27 | verified against run 35287410197 (6e4d93e) |
-| linux-x86_64 | complete | 27/27 | 27 | verified against run 35287410197 (6e4d93e) |
-| macos-arm64 | complete | 27/27 | 27 | verified against run 35287410197 (6e4d93e) |
-| macos-x86_64 | complete | 27/27 | 27 | verified against run 35287410197 (6e4d93e) |
-| windows-x86_64 | complete | 27/27 | 27 | verified against run 35287410197 (6e4d93e) |
+| linux-arm64 | complete | 27/27 | 27 | verified against run 35299852958 (baba505) |
+| linux-x86_64 | complete | 27/27 | 27 | verified against run 35299852958 (baba505) |
+| macos-arm64 | complete | 27/27 | 27 | verified against run 35299852958 (baba505) |
+| macos-x86_64 | complete | 27/27 | 27 | verified against run 35299852958 (baba505) |
+| windows-x86_64 | complete | 27/27 | 27 | verified against run 35299852958 (baba505) |
 
 All 5 declared platforms reported valid, complete evidence.
 
 ## Rows behind, by platform
 
-### linux-arm64 (python 3.12.14, repeats 10, commit 6e4d93e74610755e4c46406e91c8aaf4ab6817a1)
+### linux-arm64 (python 3.12.14, repeats 10, commit baba505678994faef24df367a2dc4b93d5d4bef0)
 
 All rows #1.
 
-### linux-x86_64 (python 3.12.14, repeats 10, commit 6e4d93e74610755e4c46406e91c8aaf4ab6817a1)
+### linux-x86_64 (python 3.12.14, repeats 10, commit baba505678994faef24df367a2dc4b93d5d4bef0)
 
 | section | dataset | rank | behind best | best rival |
 |---|---|---|---|---|
-| dumps | mixed.json | 2/5 | 1.04x | orjson |
+| dumps | wide_arrays.json | 2/5 | 1.04x | orjson |
 
-### macos-arm64 (python 3.12.10, repeats 10, commit 6e4d93e74610755e4c46406e91c8aaf4ab6817a1)
-
-All rows #1.
-
-### macos-x86_64 (python 3.12.10, repeats 10, commit 6e4d93e74610755e4c46406e91c8aaf4ab6817a1)
+### macos-arm64 (python 3.12.10, repeats 10, commit baba505678994faef24df367a2dc4b93d5d4bef0)
 
 All rows #1.
 
-### windows-x86_64 (python 3.12.10, repeats 10, commit 6e4d93e74610755e4c46406e91c8aaf4ab6817a1)
+### macos-x86_64 (python 3.12.10, repeats 10, commit baba505678994faef24df367a2dc4b93d5d4bef0)
+
+All rows #1.
+
+### windows-x86_64 (python 3.12.10, repeats 10, commit baba505678994faef24df367a2dc4b93d5d4bef0)
 
 | section | dataset | rank | behind best | best rival |
 |---|---|---|---|---|
-| loads | flat.json | 2/5 | 1.00x | msgspec |
+| dumps | flat.json | 2/5 | 1.06x | orjson |
+| dumps | mixed.json | 2/5 | 1.13x | orjson |
+| dump | mixed.json | 2/5 | 1.01x | orjson |
