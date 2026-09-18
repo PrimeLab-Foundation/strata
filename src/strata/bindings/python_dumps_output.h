@@ -268,7 +268,33 @@ class StagedOutput {
     bool staged_ = false;       ///< bytes mode: the live region is the stage
     bool failed_ = false;
     size_t used_ = 0;
-    char stage_[kStageBytes];
+    /**
+     * Cache-line aligned, and that is load-bearing rather than tidy.
+     *
+     * This array is a stack local of `dumps_to_python` (StagedOutput is), and
+     * every scalar run and `copy_until_escape`'s vectorized copy-while-scanning
+     * stores into it. Unaligned, its address is whatever the frame layout
+     * happens to give it, so **any change to the size of anything else in that
+     * frame silently re-aligns the hot store target** — on x86-64 that moves
+     * the 16/32-byte split of every vector store and the 4K-aliasing
+     * relationship between those stores and the source loads; on arm64 it
+     * moves which stores straddle a line.
+     *
+     * Measured: M12 added two pointers to the walker's per-call state, which
+     * grew this frame by 16 bytes (arm64 8560 → 8576, x86-64 8520 → 8536,
+     * `-fstack-usage`) while leaving every hot field's offset and the whole of
+     * `Serializer::write`'s dispatch identical — and the five-platform A/B
+     * still resolved losses on the string- and number-heavy serializer rows
+     * (linux-arm64 `dumps users` +0.73%, linux-x86_64 `dumps mixed` +2.35%,
+     * `dumps wide_arrays` +1.44%) with the parse rows, which never touch this
+     * buffer, unmoved. Pinning the alignment makes the stage's placement a
+     * property of this declaration instead of a property of everything else in
+     * the frame, so the next change to that frame cannot repeat it.
+     *
+     * Costs at most 63 bytes of stack padding in an 8.5 KB frame and not one
+     * instruction.
+     */
+    alignas(64) char stage_[kStageBytes];
 };
 
 /**
