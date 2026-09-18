@@ -39,6 +39,34 @@
 #define STRATA_NOINLINE
 #endif
 
+/**
+ * Pins a hot function to a cache-line boundary.
+ *
+ * Same philosophy as `StagedOutput::stage_`'s `alignas(64)`: without it a
+ * function's address — and so which of its instructions share a cache line —
+ * is decided by the size of everything the linker put before it, and a few
+ * hundred bytes of unrelated growth anywhere upstream silently re-lays-out
+ * the hot body. With it the address is a property of the declaration.
+ *
+ * Measured on the A/B arms of runs 35348379277 / 35356228129: **7 of 8** hot
+ * parse symbols on linux-x86_64 and **8 of 8** on macos-x86_64 changed their
+ * 64-byte class between two builds whose parse code is byte-identical —
+ * `ParserInline<PythonObjectBuilder>::parse_value` (39,660 B) 32 → 48 and
+ * `parse_array` (19,066 B) 0 → 16 among them.
+ *
+ * Deliberately a per-function attribute and not `-falign-functions=64`: the
+ * flag pins these same 15 symbols to 0 mod 64 too, but it pays on all ~470
+ * functions in the image for **+20,592 B of `__text` (+13.4%)**, and E26-P26's
+ * lesson is that an alignment/placement intervention is scoped to where it
+ * pays. MSVC has no function-alignment attribute, so the Windows build keeps
+ * its current placement and loses nothing it has today.
+ */
+#if defined(__clang__) || defined(__GNUC__)
+#define STRATA_ALIGN_HOT_FN __attribute__((aligned(64)))
+#else
+#define STRATA_ALIGN_HOT_FN
+#endif
+
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h> // _umul128: MSVC's spelling of the 64x64->128 multiply
 #endif
