@@ -918,8 +918,7 @@ class Serializer {
         } else {
             *cursor = '{';
         }
-        std::memcpy(cursor + 1,
-                    row.slots + static_cast<size_t>(index) * SchemaCacheLease::kSlotBytes,
+        std::memcpy(cursor + 1, row.key_slots[static_cast<size_t>(index)].bytes,
                     SchemaCacheLease::kSlotBytes);
     }
 
@@ -1049,7 +1048,7 @@ class Serializer {
         for (Py_ssize_t index = 0; index < size; ++index) {
             PyObject* const value = entries[index].me_value;
             if (value == nullptr ||
-                schema.key_row[static_cast<size_t>(index)] != entries[index].me_key)
+                schema.key_slots[static_cast<size_t>(index)].key != entries[index].me_key)
                 return write_mapping(object);
             row[static_cast<size_t>(index)] = value;
         }
@@ -1394,7 +1393,7 @@ class Serializer {
     /// Takes the way rather than the slot because the one failing key -- a
     /// lone surrogate, which has no UTF-8 -- has to take the *whole way* out
     /// of service, not just empty it: an emptied slot that still matched
-    /// `counts`/`first_keys`/`key_row` was rebuilt over no keys at all on the
+    /// `counts`/`first_keys`/`key_slots` was rebuilt over no keys at all on the
     /// next call, declared prepared with every span zero, and emitted a record
     /// with no key bytes (`{1,2}` -- invalid JSON, silently).
     [[nodiscard]] STRATA_COLD_FN bool build_schema(SchemaCacheLease::DepthSchemas& depth_schemas,
@@ -1427,8 +1426,8 @@ class Serializer {
                 break;
             }
             schema.spans[index] = static_cast<uint8_t>(span);
-            std::memcpy(schema.slots + index * SchemaCacheLease::kSlotBytes,
-                        schema.blob.data() + schema.offsets[index], span);
+            std::memcpy(schema.key_slots[index].bytes, schema.blob.data() + schema.offsets[index],
+                        span);
         }
         schema.prepared = true;
         return true;

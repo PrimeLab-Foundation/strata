@@ -304,13 +304,23 @@ class SchemaCacheLease {
     /// path paid three cold hops per record under exactly that condition
     /// (parity isolated, behind under the harness, on every x86 leg).
     /// Spans wider than a slot keep the heap blob as the fallback.
+    ///
+    /// The bytes and the borrowed key are *interleaved*, one 24-byte
+    /// `KeySlot` per key rather than two parallel arrays: a record verifies
+    /// key `i` and then emits key `i`, so the two reads land on the same
+    /// cache line instead of one line in each of two runs.
     struct Schema {
-        std::vector<PyObject*> keys;                ///< owned references
-        std::string blob;                           ///< fallback bytes for wide spans only
-        std::vector<uint32_t> offsets{0};           ///< fallback boundaries, keys.size() + 1
-        uint8_t spans[kSchemaSlots] = {};           ///< inline `"key":` length per slot
-        char slots[kSchemaSlots * kSlotBytes] = {}; ///< the inline bytes
-        PyObject* key_row[kSchemaSlots] = {};       ///< borrowed copies for the verify scan
+        /// One key's prepared bytes and the borrowed pointer verified against.
+        struct KeySlot {
+            char bytes[kSlotBytes]; ///< the inline `"key":` bytes
+            PyObject* key;          ///< borrowed copy for the verify scan
+        };
+
+        std::vector<PyObject*> keys;      ///< owned references
+        std::string blob;                 ///< fallback bytes for wide spans only
+        std::vector<uint32_t> offsets{0}; ///< fallback boundaries, keys.size() + 1
+        uint8_t spans[kSchemaSlots] = {}; ///< inline `"key":` length per slot
+        KeySlot key_slots[kSchemaSlots] = {};
         bool prepared = false;
         bool wide = false; ///< some span exceeded a slot: emit from the blob
 
@@ -347,38 +357,40 @@ class SchemaCacheLease {
             keys.assign(other, other + count);
             for (PyObject* key : keys)
                 Py_INCREF(key);
-            // Borrowed duplicates of the owned vector, inline: the per-record
-            // verify scan reads this row instead of chasing the vector's heap
-            // storage (cold after the harness's per-call gc.collect()).
+            // Borrowed duplicates of the owned vector, inline beside each
+            // key's prepared bytes: the per-record verify scan reads these
+            // slots instead of chasing the vector's heap storage (cold after
+            // the harness's per-call gc.collect()).
             for (Py_ssize_t index = 0; index < count; ++index)
-                key_row[static_cast<size_t>(index)] = other[index];
+                key_slots[static_cast<size_t>(index)].key = other[index];
             prepared = false;
             wide = false;
         }
 
-        /// Drop the remembered shape: release the owned keys and blank the
-        /// borrowed row, leaving nothing an identity compare could hit. The
-        /// prepared bytes are not cleared -- `prepared` is false, and
-        /// `build_schema` resets `blob` and `offsets` before it writes them.
+        /// Drop the remembered shape: release the owned keys and blank each
+        /// slot's borrowed key, leaving nothing an identity compare could
+        /// hit. Only `.key` is blanked: the prepared `.bytes` are not
+        /// cleared -- `prepared` is false, and `build_schema` resets `blob`
+        /// and `offsets` before it writes them.
         void forget() {
             prepared = false;
             wide = false;
             for (PyObject* key : keys)
                 Py_DECREF(key);
             keys.clear();
-            for (PyObject*& remembered : key_row)
-                remembered = nullptr;
+            for (KeySlot& slot : key_slots)
+                slot.key = nullptr;
         }
 
         /// Keys past the first, by identity. `select` has already matched the
         /// count and the first key from its inline arrays; only a plausible
-        /// hit pays for touching this vector's heap storage. Identity, not
-        /// equality: strata interns the keys it parses and CPython interns
-        /// identifier-like literals, so same-schema records share key
-        /// objects. A miss costs a rebuild, never a wrong answer.
+        /// hit pays for touching these slots. Identity, not equality: strata
+        /// interns the keys it parses and CPython interns identifier-like
+        /// literals, so same-schema records share key objects. A miss costs a
+        /// rebuild, never a wrong answer.
         [[nodiscard]] bool matches_tail(PyObject* const* other, Py_ssize_t count) const noexcept {
             for (Py_ssize_t index = 1; index < count; ++index) {
-                if (key_row[static_cast<size_t>(index)] != other[index])
+                if (key_slots[static_cast<size_t>(index)].key != other[index])
                     return false;
             }
             return true;
