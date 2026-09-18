@@ -367,19 +367,34 @@ class SchemaCacheLease {
             wide = false;
         }
 
-        /// Drop the remembered shape: release the owned keys and blank each
-        /// slot's borrowed key, leaving nothing an identity compare could
-        /// hit. Only `.key` is blanked: the prepared `.bytes` are not
-        /// cleared -- `prepared` is false, and `build_schema` resets `blob`
-        /// and `offsets` before it writes them.
+        /// Drop the remembered shape: release the owned keys and blank the
+        /// whole slot run, leaving nothing an identity compare could hit.
+        ///
+        /// Cleared as one run rather than `.key` member by member, because
+        /// at the interleaved 24-byte stride that loop cannot vectorize: it
+        /// compiled to 24 strided stores per site, and with four sites
+        /// inlined into the cold entry path it cost +1228 bytes of
+        /// serializer `__text` (`dumps_to_python` +752,
+        /// `write_mapping_body` +240) -- a cold-entry footprint regression,
+        /// the very quantity the inline slots exist to reduce. As a single
+        /// `memset` of 576 bytes each site is three instructions and a call
+        /// to libc (`bzero` on Darwin) instead, which measures 100 bytes
+        /// *under* the two separate arrays it replaced. The call is
+        /// affordable precisely here: `forget` runs on shape retirement and
+        /// lease teardown, never on a record.
+        ///
+        /// Clearing the prepared `.bytes` along with the keys is free of
+        /// consequence: `prepared` is false from the first line here, the
+        /// one reader of those bytes is reached only under
+        /// `prepared && !wide`, and `build_schema` writes them (and `blob`
+        /// and `offsets`) before it sets `prepared`.
         void forget() {
             prepared = false;
             wide = false;
             for (PyObject* key : keys)
                 Py_DECREF(key);
             keys.clear();
-            for (KeySlot& slot : key_slots)
-                slot.key = nullptr;
+            std::memset(key_slots, 0, sizeof(key_slots));
         }
 
         /// Keys past the first, by identity. `select` has already matched the
