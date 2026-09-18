@@ -182,3 +182,60 @@ the first time; the local quiet roll on the same build reads 79/81 (large
 and medium 27/27). Remaining rows are coin-band on both axes; cachegrind
 counts on the Linux profile job are the next instrument for what is left
 of the serializer's footprint.
+
+## M12 — The `dumps` unsupported-type hook (`default=`)
+
+Design: `docs/architecture/dumps_default_hook.md`. Option C: `default=callable`
+lands; native emitters are deferred per type behind the record's admission gate.
+
+**Done when:**
+
+1. Every row of the record's error table is a named contract test in
+   `tests/unit` citing its api.md clause, mirrored by integration tests in
+   `tests/py`, and `docs/context/api.md` carries the signature, the chain
+   bound, the key/`split_by` exclusions and the amended "Mutation during
+   serialization" clause (fifth step; the "no collection can run" sentence
+   corrected).
+2. The E26-FIX2b prerequisite (already met by T1's destructor release,
+   `python_dumps_output.h:560`) is re-pinned by a refcount test that drives a
+   nested `dumps` through the hook itself and reads zero drift.
+3. `make test-py-asan` green with a hook that resizes the list being written,
+   clears the dict being written, and calls `dumps` re-entrantly.
+4. `default=None` is byte-identical to a no-`default` call across the
+   generated corpus, and `write_value`'s object code is unchanged apart from
+   the tail's null test, shown by a symbolized-binary diff on both ISAs, with
+   `size -m` Section `__text` growth ≤ 512 B.
+5. A five-platform same-runner A/B against a tests-matched arm, both
+   `make pgo`, ABBA blocks against a fresh A/A floor, resolves **no** canonical
+   row of the declared 27-row workload against strata past its floor, and the
+   training payload contains no `default=` call.
+6. Two five-platform CI samples with complete `ci_summary` evidence lose no
+   row any platform held at the 135/135 sweep.
+7. `tests/integrations/` exists, is excluded from `testpaths`/`make gate`/the
+   profile, and has its own `make test-integrations` target and CI job.
+8. Both suites green, coverage 100% on the new lines, and the ledger carries
+   the entry (go/no-go per B increment thereafter).
+
+**Kill criterion:** any canonical row resolved against strata past its floor
+whose cause is the code rather than the profile ⇒ the shape is abandoned for a
+separate `dumps_with_default` entry point that cannot perturb `dumps`'s
+codegen.
+
+## M13 — Tier-1 framework adapters (planned)
+
+Flask (`json_provider_class`), Django (`JsonResponse(encoder=)`), aiohttp
+(`dumps=`), Falcon (`media.JSONHandler`), structlog (`JSONRenderer(serializer=)`).
+One `python/strata/integrations/<framework>.py` each (~50 LOC of glue, lazy
+framework import, `import strata` imports none of them — pinned by a test);
+per-adapter round trip through the framework's own test client against its
+default serializer as oracle; error-mapping tests; semantic-differences table
+in the adapter docstring and docs; integrations CI job green on the supported
+version floors. `__all__` does not grow.
+
+## M14 — Tier-2 adapters (planned)
+
+FastAPI/Starlette (bytes-mode response class), DRF, Sanic, Litestar,
+SQLAlchemy, Celery/kombu, structlog `__structlog__`-protocol follow-ups,
+Pydantic-as-post-step. Same rules as M13; each admitted only with a verified
+hook contract (four unverified facts from the 2026-09-18 survey pinned against
+source first).
