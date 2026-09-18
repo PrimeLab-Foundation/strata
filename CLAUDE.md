@@ -113,7 +113,11 @@ held-profile bound arm prices *deleting* a structure, an upper bound no relocati
 because PGO already lays the cleanup paths cold; the schema key-slot interleave is refused by the
 Neoverse-N2 itself after a passing M1 screen and a −19% static line model — neither local screens
 nor static models predict that leg — and the depth-row colocation loses 19% on `nested` locally.
-What remains is holding the state the cross-sample table shows — the coin band is the
+The sixteenth sample of this source, run 35309489706 (2026-09-18, `ci_summary.md` at fc81e41),
+is **the first complete sweep: 135/135 — every row #1 on all five platforms**, all legs complete
+and verified; the nine draws before it read 133, 134, 129, 134, 134, 133, 134 with the misses
+rotating one or two coin cells per draw, so the sweep is the coin landing flat, not a change in
+the code. What remains is holding the state the cross-sample table shows — the coin band is the
 instrument's, not the code's — plus E26-P8, the deferred JSONPath grammar extensions, and the
 backlog in `docs/benchmarking/SKILL.md`. The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
