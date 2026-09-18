@@ -151,8 +151,12 @@ other bad line under `skip_errors=True`. Raises
 `split_by` with a file path is a `ValueError`. `default` is `dumps`'s hook,
 with the same contract: it reaches the values being serialized, never the
 `split_by` values (grouping runs first), and because the whole document is
-serialized before the destination is opened, a hook that raises leaves the
-destination untouched.
+serialized before the destination is opened, a hook that raises in **file
+mode** leaves the destination untouched. **Folder mode writes one file per
+group, in order, so a failure part-way through leaves the groups already
+written on disk** — true of every error folder mode can raise, not only a
+hook's, and stated here because it is the one place the file-mode guarantee
+does not carry over.
 
 **Folder mode:**
 

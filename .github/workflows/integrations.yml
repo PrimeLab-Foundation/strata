@@ -21,14 +21,22 @@ on:
       - "tests/integrations/**"
       - "python/strata/**"
       - "src/strata/bindings/**"
+      # The scaffold pins the PGO training workload's prohibitions, so an edit
+      # to that script must run this job even when nothing else moved.
+      - "scripts/**"
       - "pyproject.toml"
+      - "Makefile"
       - ".github/workflows/integrations.yml"
   pull_request:
     paths:
       - "tests/integrations/**"
       - "python/strata/**"
       - "src/strata/bindings/**"
+      # The scaffold pins the PGO training workload's prohibitions, so an edit
+      # to that script must run this job even when nothing else moved.
+      - "scripts/**"
       - "pyproject.toml"
+      - "Makefile"
       - ".github/workflows/integrations.yml"
   workflow_dispatch:
 

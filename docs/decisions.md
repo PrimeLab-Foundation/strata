@@ -417,3 +417,37 @@ a new line. Format: `date · area · decision (and the rejected alternative when
   that the recipe also profiles are a separate matter — they already raise
   unsupported-type `TypeError`s on main, and the new hook tests add counts of
   the same order, which is what criterion 5's tests-matched five-leg A/B prices.
+- 2026-09-18 · bindings / M12 review findings · **Five points the two
+  independent reviews raised, applied.** (1) The PGO-training prohibition was
+  pinned only in `tests/integrations/`, which is outside every gate by design,
+  and the integrations workflow's `paths` filter did not include `scripts/**` —
+  so the pin could neither run on the gate it protects nor be triggered by an
+  edit to the file it watches. The gated copy is now
+  `tests/unit/test_pgo_training_scope.py` and the filter covers `scripts/**`
+  and `Makefile`. (2) That pin asserted only the no-`default=`-call half; the
+  record's prohibition has two halves, because an unsupported-type *raise*
+  trains `write_unsupported` just as a hook call does (E26-P23). Both halves
+  are pinned now, the second as three properties of the workload's AST: no
+  constructor of an unsupported type, no `set`/`bytes`/`complex` literal, and
+  no exception handler that could hide such a raise. (3) **Roadmap criterion
+  8's coverage clause is met for the facade only and has no instrument for the
+  binding layer** — `coverage-cpp` runs llvm-cov over the ctest registry, which
+  builds `tests/cpp` against the core, and `src/strata/bindings` is in neither
+  that build nor `coverage-py`. Stated in the record's status and the ledger
+  rather than reported as met; pre-existing, true of every binding line on
+  `main`. (4) `dump`'s "nothing is written if it raises" was false in **folder**
+  mode, where each group is a separate file written in turn — pre-existing
+  behavior for every error folder mode can raise, on which api.md was silent.
+  The guarantee is now scoped to file mode in api.md, the facade docstring and
+  the record's error table, and pinned by
+  `test_folder_dump_hook_error_leaves_earlier_groups_written`. (5) The hook's
+  result was a raw reference across `write()`, which leaks if that call leaves
+  by a C++ exception; it is held in a `PyRef` now. The first fix was an RAII
+  guard that *also* restored `hook_result_` on the unwind path, and it cost
+  +60 / +64 B of `__text` and broke the record's 512 B estimate (+536 / +560).
+  The slot is therefore left stale on the exception path alone — the walk is
+  unwinding to `STRATA_CPP_CATCH` and the `Serializer` is destroyed without
+  another read — while the reference, the thing a leak would outlive, is
+  covered. Final growth: **+484 B arm64, +512 B x86-64**, the latter exactly at
+  the bound, which is now a stated constraint on any further change to these
+  four files.

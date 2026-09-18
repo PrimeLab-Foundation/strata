@@ -1,8 +1,18 @@
 # Decision record: the `dumps` unsupported-type hook (`default=`)
 
 Status: **accepted and implemented** (2026-09-18, `exp/m12-default-hook`) —
-criteria 1–4, 7 and 8 of roadmap M12 are met; criteria 5 (the tests-matched
-five-platform A/B) and 6 (two CI samples) are pending dispatch. Four points the
+criteria 1–4 and 7 of roadmap M12 are met, and criterion 8 with one stated
+exception; criteria 5 (the tests-matched five-platform A/B) and 6 (two CI
+samples) are pending dispatch.
+
+The exception is criterion 8's coverage clause. The new C++ lines are outside
+**both** of the project's coverage instruments: `coverage-py` measures
+`python/strata` (100%) and `coverage-cpp` runs llvm-cov over the ctest
+registry, which builds `tests/cpp` against the core — `src/strata/bindings` is
+not in that build. The binding lines are exercised by the new tests and by the
+ASan gate, which is evidence of execution and not a coverage percentage. The
+gap is pre-existing, true of every binding line on `main`, and is recorded here
+rather than reported as met. Four points the
 record left underdetermined were resolved in implementation and are recorded in
 `docs/decisions.md` under 2026-09-18: the chain bound names the returned object
 and not the walk, the facade omits the keyword when there is no hook, no
@@ -16,7 +26,8 @@ Area: `src/strata/bindings/` only. Nothing in `include/strata/` or
 
 `strata.dumps` supports a closed type set (`docs/context/api.md`, Parse &
 serialize). Everything else ends at one branch —
-`src/strata/bindings/python_dumps.cpp:228`,
+`src/strata/bindings/python_dumps.cpp` (`Serializer::write`'s tail; `:228` before this
+change, `:246` after it, where the branch now calls `write_unsupported` at `:277`),
 `PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable", ...)` —
 with no escape hatch. Every rival has one: stdlib `json` and `ujson` take
 `default=`, orjson takes `default=` plus a fixed set of native emitters,
@@ -65,6 +76,10 @@ stdlib `json` with a documented `default` as the oracle; and the type's
 semantics get a line in `docs/context/api.md`. One type, one A/B, one
 ledger entry.
 
+**Line numbers in this record are `main` at 9c002f4 unless a cite says
+otherwise.** The implementation branch moves them; where a cite is load-bearing
+the symbol name is given beside it, and the symbol is what to search for.
+
 ## Public contract
 
 ```python
@@ -83,11 +98,11 @@ value is serialized in the unsupported object's place.
 | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `default` is neither `None` nor callable                             | `TypeError("default must be callable, not %s")` (tp_name), raised at the fastcall boundary before any byte is produced                                                                                                                                                                                                                        |
 | unsupported type, `default is None`                                  | unchanged `TypeError("Object of type %s is not JSON serializable")` — byte-for-byte the message today's callers test against                                                                                                                                                                                                                  |
-| the callable raises                                                  | the exception **propagates unchanged**: same type, same args, no chaining, no wrapping, no `__context__` fabrication. `KeyboardInterrupt`, `MemoryError`, `SystemExit` included. Nothing is written to the destination of a `dump` (same property as the `UnicodeEncodeError` rule already in api.md — `dump` writes only a completed buffer) |
+| the callable raises                                                  | the exception **propagates unchanged**: same type, same args, no chaining, no wrapping, no `__context__` fabrication. `KeyboardInterrupt`, `MemoryError`, `SystemExit` included. Nothing is written to the destination of a **file** `dump` (same property as the `UnicodeEncodeError` rule already in api.md — `dump` writes only a completed buffer). **Folder mode is per group**: it serializes and writes each group's file in turn, so a raise on a later group leaves the earlier files on disk. That is folder mode's pre-existing behavior for every error it can raise — the hook neither introduces it nor changes it — and api.md was silent on it, so the clause is added there in this change |
 | the callable returns an unsupported type                             | `TypeError("default() returned an object of type %s that is not JSON serializable")` — a **distinct** message, and the callable is **not** invoked a second time                                                                                                                                                                              |
 | the callable returns `None`                                          | JSON `null`. `None` is a supported value, not a "cannot handle" sentinel                                                                                                                                                                                                                                                                      |
 | the callable returns a `str` with no UTF-8 encoding (lone surrogate) | `UnicodeEncodeError`, as for any other `str` — unchanged                                                                                                                                                                                                                                                                                      |
-| a non-`str` **dict key**                                             | unchanged `TypeError("keys must be str, not %s")` (`python_dumps.cpp:1154`, `:1190`, `:1451`). **`default` never applies to keys**                                                                                                                                                                                                            |
+| a non-`str` **dict key**                                             | unchanged `TypeError("keys must be str, not %s")` (`python_dumps.cpp`, the three key emitters — on this branch `:1257`, `:1293`, `:1554`). **`default` never applies to keys**                                                                                                                                                                                                            |
 | a `split_by` value that is not `str`/`int`/`bool`                    | unchanged `ValueError`/`TypeError`. **`default` never applies to split values** — grouping happens before serialization                                                                                                                                                                                                                       |
 
 Keys and split values are excluded deliberately: a key hook would put user
@@ -208,7 +223,7 @@ The requirement is **codegen neutrality for `default=None`**.
   exactly that, and `write_mapping_body`'s sixth argument was one of the
   three findings that cost the x86 legs 2–6% until it went back to four.
 - **The branch.** The hook test replaces the `PyErr_Format` at
-  `python_dumps.cpp:228` with a call to one `STRATA_COLD_FN`
+  `write()`'s tail (`python_dumps.cpp:228` before the change, `:246` after) with a call to one `STRATA_COLD_FN`
   (`python_types.h:50`) out-of-line function that either invokes the hook or
   raises. The null test is reached only after every supported type check has
   failed, i.e. never on any canonical row.
@@ -285,8 +300,11 @@ on both — 281 → 259 instructions on arm64 and 191 → 187 on x86-64, because
 tail's inline `PyErr_Format` argument setup is replaced by one call to the cold
 `write_unsupported` — with the leading 59 (arm64) / 76 (x86-64) instructions,
 the whole exact-type dispatch chain, bit-identical. Section `__text` across the
-four changed translation units grows **+476 B** on arm64 and **+496 B** on
-x86-64, inside the bound.
+four changed translation units grows **+484 B** on arm64 and **+512 B** on
+x86-64 — inside the bound, and on x86-64 exactly at it, so further growth in
+these files breaches the estimate rather than fitting in it. The entry points
+themselves grow per *call*: `strata_dumps` 139 → 164 instructions on both ISAs,
+`strata_dump` 117 → 141 (arm64) / 113 → 139 (x86-64).
 
 Kill criterion: if the tests-matched five-leg A/B resolves any canonical row
 against strata past its floor and the cause is the code rather than the

@@ -108,6 +108,28 @@ def test_folder_dump_round_trip(tmp_path: Path):
     assert sorted(p.name for p in folder.iterdir()) == ["a.json", "b.json"]
 
 
+def test_folder_dump_hook_error_leaves_earlier_groups_written(tmp_path: Path):
+    """api.md, File & folder I/O: folder mode writes one file per group, in
+    order, so a raise on a later group leaves the earlier files on disk.
+
+    This is folder mode's pre-existing behavior for every error it can raise —
+    the hook does not introduce it. Pinned so the file-mode guarantee is never
+    mistaken for a folder-mode one (docs/architecture/dumps_default_hook.md,
+    error table row 3).
+    """
+    folder = tmp_path / "partial"
+    records = [{"group": "a", "n": 1}, {"group": "b", "bad": Point(1, 2)}]
+
+    def hook(_value):
+        raise RuntimeError("refused")
+
+    with pytest.raises(RuntimeError, match="refused"):
+        strata.dump(records, str(folder), split_by="group", default=hook)
+    # "a" is bytewise before "b", so the first group completed.
+    assert (folder / "a.json").is_file()
+    assert not (folder / "b.json").exists()
+
+
 def test_folder_dump_nested_keys_with_a_hook(tmp_path: Path):
     folder = tmp_path / "nested"
     records = [{"g1": "x", "g2": "y", "when": date(2026, 2, 3)}]

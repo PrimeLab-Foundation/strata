@@ -3705,8 +3705,15 @@ and until they land nothing here claims a row.
   compare inside the `kwnames != nullptr` branch, `dump`'s `"Os|$OO"`),
   `python_files.cpp` / `python_folder.cpp` / `python_types.h` (threading),
   `python/strata/serialize.py` (the facade omits the keyword entirely when
-  `default is None`, so a call without a hook is the identical native fastcall
-  it was before the argument existed).
+  `default is None`). The precise claim, measured rather than asserted: a call
+  without a hook makes the **identical native fastcall** — `dis` shows the
+  no-hook path reaching the `('return_type',)` kwnames tuple, the same one
+  `main` uses, while `('return_type', 'default')` exists only on the hooked
+  path — and costs **three added facade opcodes**, 10 executed against main's
+  7, counted by opcode tracing through `strata.serialize.dumps({'a': 1})`.
+  It is *not* byte-identical bytecode: the code object grows 7 → 19
+  instructions for `dumps` and 15 → 34 for `dump`, almost all of it on the
+  branch a no-hook call never enters.
 
 - **Codegen pair, both ISAs, no PGO on either arm** (with no profile there is
   nothing to pin, which is the strictest reading of the pinned-profdata rule).
@@ -3722,7 +3729,8 @@ and until they land nothing here claims a row.
   | `Serializer::write` instructions (base → cand)   | 281 → **259** (−22)          | 191 → **187** (−4)           |
   | identical leading instructions of `write`        | **59**                       | **76**                       |
   | new `write_unsupported` (cold, out of line)      | 56 insns                     | 59 insns                     |
-  | Section `__text`, four changed TUs (base → cand) | 51 820 → 52 296 (**+476 B**) | 52 648 → 53 144 (**+496 B**) |
+  | Section `__text`, four changed TUs (base → cand) | 51 820 → 52 304 (**+484 B**) | 52 648 → 53 160 (**+512 B**) |
+  | `strata_dumps` / `strata_dump` (per call, not per element) | 139 → 164 / 117 → 141 | 139 → 164 / 113 → 139 |
 
   `write()` is *smaller* on both ISAs because the tail's inline `PyErr_Format`
   argument setup (exception object, format string, `tp_name`) is replaced by one
@@ -3732,7 +3740,20 @@ and until they land nothing here claims a row.
   block reordering on arm64. No instruction is added on any supported-type path.
   Text growth is inside the record's 512 B bound on both ISAs, with
   `python_module.cpp` (+196 / +256 B) the larger half of it — the hook's
-  validation and `dump`'s fourth keyword, not the walk.
+  validation and `dump`'s fourth keyword, not the walk. **x86-64 sits exactly
+  at the bound**, so any further growth in these four files breaches the
+  record's estimate and has to be re-argued rather than absorbed. Two things
+  were measured against it and one was kept: holding the hook's result in a
+  `PyRef` across `write()` (a leak if that call leaves by a C++ exception)
+  costs +8 B arm64 / +16 B x86-64 and is **kept** — correctness over the
+  budget; splitting the refusal's ternary format string into two
+  `PyErr_Format` call sites costs +12 B on arm64 and saves nothing on x86-64
+  and was **reverted**. An earlier RAII guard that also restored
+  `hook_result_` on the unwind path cost +60 / +64 B and broke the bound
+  (+536 / +560): the slot is left stale on that path instead, where the walk
+  is unwinding to STRATA_CPP_CATCH and the `Serializer` is destroyed without
+  another read, while the *reference* — the thing a leak outlives — is what
+  the `PyRef` covers.
 
   The one function that grew is `dumps_to_python` itself, and only on arm64:
   367 → 464 instructions, of which 67 are the `Serializer` constructor, which
@@ -3747,7 +3768,7 @@ and until they land nothing here claims a row.
   call and no unsupported-type raise, pinned by
   `tests/integrations/test_scaffold.py` off the AST rather than the text. The
   gate tests the recipe *also* profiles are a separate quantity: they already
-  raise unsupported-type `TypeError`s on `main`, and the 154 new hook tests add
+  raise unsupported-type `TypeError`s on `main`, and the 159 new tests add
   counts of the same order. That is exactly what criterion 5's tests-matched
   arm prices, and why the pricing arm here is T1's source-alone method (the
   candidate **without** its new test files against `main`) rather than an
@@ -3755,7 +3776,18 @@ and until they land nothing here claims a row.
   tests-only arm cannot build, the same trap T1 hit at 07:35 on 2026-09-07
   (run 34079726524, cancelled).
 
-- Gates: C++ 15/15, Python 2 753 passed / 2 skipped of 2 754 collected (2 600 without the two new files, +154),
+- **Coverage caveat.** The project has two coverage instruments and the new
+  C++ lines are outside both: `coverage-py` measures `python/strata` (100%,
+  44 statements) and `coverage-cpp` runs llvm-cov over the ctest registry,
+  which is `tests/cpp` against the **core** — `src/strata/bindings` is not in
+  that build at all. So roadmap criterion 8's "coverage 100% on the new lines"
+  is met for the facade and **has no instrument** for the binding layer; the
+  new lines are exercised by the 159 new tests and by the ASan gate, which is
+  evidence of execution, not a coverage number. This is pre-existing (it is
+  true of every binding line on `main`) and is stated rather than claimed away.
+- Gates: C++ 15/15, Python 2 758 passed / 2 skipped (2 600 without the new
+  test files, +159: 154 hook contract/integration tests, 4 gated PGO-scope
+  pins, 1 folder-mode partial-write pin),
   `tests/integrations` 5 passed outside the gate, ASan+UBSan gate clean with
   the mutation shapes criterion 3 names (a hook that shrinks and grows the list
   being written, clears the dict being written — narrow and past the fused

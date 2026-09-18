@@ -129,8 +129,13 @@ def dump(obj, path: str | os.PathLike, *, split_by=None, default=None) -> None:
             for a file.
         default: As for :func:`dumps`. It applies to the values being
             serialized, never to dict keys and never to ``split_by`` values,
-            which are read before any byte is produced. Nothing is written to
-            the destination if it raises.
+            which are read before any byte is produced. In **file** mode
+            nothing is written to the destination if it raises, because the
+            whole document is serialized before the file is opened. In
+            **folder** mode each group is a separate file written in turn, so a
+            failure on a later group leaves the earlier groups' files on disk —
+            that is folder mode's existing behavior for every error, not
+            something the hook introduces.
 
     Raises:
         OSError: The file or directory could not be written.

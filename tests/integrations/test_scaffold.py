@@ -39,6 +39,10 @@ def test_the_pgo_training_workload_installs_no_hook():
 
     Read off the AST, not the text, so the prohibition's own comment does not
     trip it and a `default=` on some unrelated helper is not mistaken for one.
+
+    The gated copy of this pin — both halves of the prohibition, including the
+    unsupported-type raise — is `tests/unit/test_pgo_training_scope.py`; this
+    tree runs outside `make gate`, so it cannot be the only place it lives.
     """
     tree = ast.parse((PROJECT_ROOT / "scripts" / "pgo_training.py").read_text(encoding="utf-8"))
     hooked = [

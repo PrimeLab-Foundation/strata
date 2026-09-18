@@ -275,6 +275,10 @@ class Serializer {
      * one `write_value` frame per hooked object.
      */
     [[nodiscard]] STRATA_COLD_FN bool write_unsupported(PyObject* object) {
+        // One refusal site, two messages: `hook_result_` is non-null only
+        // while what the hook returned is being dispatched, so identity with
+        // it *is* the chain bound (api.md). Two separate `PyErr_Format` call
+        // sites measured 12 bytes larger on arm64 and no smaller on x86-64.
         if (default_fn_ == nullptr || object == hook_result_) {
             PyErr_Format(PyExc_TypeError,
                          object == hook_result_
@@ -286,19 +290,30 @@ class Serializer {
         }
 
         latch();
-        PyObject* const replacement = PyObject_CallOneArg(default_fn_, object);
-        if (replacement == nullptr)
+        // Owned from the moment it arrives: `write()` below can leave by a C++
+        // exception (an allocation failure in `open_`, which STRATA_CPP_CATCH
+        // turns into a Python error at the entry point), and a raw pointer
+        // across that call is a leak. PyRef steals the new reference the call
+        // returned, exactly as `write_int`'s big-int step does.
+        const PyRef replacement(PyObject_CallOneArg(default_fn_, object));
+        if (!replacement)
             return false; // the callable's exception propagates unchanged
 
+        // The slot nests: a returned container's own children may be hooked,
+        // so the enclosing result is restored rather than cleared. It is left
+        // stale on the exception path alone, where the walk is unwinding to
+        // STRATA_CPP_CATCH and this Serializer is destroyed without another
+        // read -- the reference, which a leak would outlive, is the thing that
+        // needed the guard.
         PyObject* const outer = hook_result_;
-        hook_result_ = replacement;
-        const bool ok = write(replacement);
+        hook_result_ = replacement.get();
+        const bool ok = write(replacement.get());
         hook_result_ = outer;
 
-        // Step 4 again, out of the walk's own release -- counter first, as in
-        // close_container().
+        // Step 4 again, out of the walk's own release: the counter moves
+        // before `~PyRef` drops the reference at the return below, exactly as
+        // close_container() orders it.
         ++user_steps_;
-        Py_DECREF(replacement);
         return ok;
     }
 
