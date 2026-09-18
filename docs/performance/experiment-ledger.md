@@ -3237,6 +3237,55 @@ waits on it.
   the value was serialized, so user code a cyclic or huge-int value runs
   (a warning hook, `__str__`) runs first.
 
+## E26-P31 — the schema key-slot interleave, refused by the leg it was for
+
+- 2026-09-18 · squad [cold]'s surviving candidate (`exp/cold-slot-interleave`
+  @ `7705712`, pushed): `Schema`'s `slots[24*16]` and `key_row[24]` fused
+  into one `KeySlot{char bytes[16]; PyObject* key;}[24]`, so a record's
+  prepared key bytes and the pointers its verify scan compares share a
+  contiguous run. Byte-identical on all five datasets, ASan/UBSan clean,
+  `__text` −192 to −256 B on a pinned profile, independently reviewed. A
+  static line model (`benchmarks/schema_line_probe.py`, kept on
+  `exp/cold-entry` @ `4404bda`, pushed) priced schema lines per record at
+  −19 to −21% on mixed/users/nested; the M1 screen read `dumps mixed`
+  −0.75% bytes past a 0.54% floor with the CI touching zero.
+- **The five-leg pricing refuses it** (run 35295548499, A = `885c897`,
+  B = `7705712`, 6 × 60, 0 dropped, arms verified): linux-arm64 — the leg
+  it was built for — resolves `dumps mixed` medium **+1.14%/+1.25%** and
+  `dumps users` **+1.30–1.44%**, six of six blocks each, raw strata moving
+  with the rival flat; linux-x86_64 adds `dumps mixed` +0.75–0.89% and
+  `dumps wide_arrays` +1.36–1.41%. The gains that exist (N2 `dumps flat`
+  −0.43–0.86%, `dumps/dump wide_arrays` −0.64–0.79%; one poorly-bounded
+  Windows small `dumps mixed` −1.78% over a 0.85% floor) invert the
+  model's ranking — records-heavy rows worst, `flat` best — consistent
+  with the interleave costing 24 bytes per key against the split arrays'
+  16+8 in the verification loop's span, a reading inferred from the row
+  pattern, not measured. macos-x86_64's parse-row gains sit on untouched
+  source over a leg whose `wide_arrays` parse rows have moved ±4–6%
+  across four draws of different pairs: host, not effect.
+- Verdict: **no-go**; the branch and probe stay pushed, unmerged. The M1
+  screen and the static model both failed to predict the N2 — neither is
+  a substitute for the leg itself.
+
+## E26-P32 — the depth-row colocation, refused on the local screen
+
+- 2026-09-18 · squad [cold]'s second lever (`exp/cold-row-colocate` @
+  `e3c38d7`, local): each dict level's staged row and its two lock nodes
+  in one 64-byte-aligned block, row first, portable fallback verified by
+  an actual `__cpp_aligned_new`-absent build, ASan clean, byte-identical.
+  The pinned-profile M1 pass refuses it outright: `dumps nested`
+  **+19.2%/+17.7%**, `mixed` +7.2–7.7%, `users` +4.1–4.5%, all six blocks
+  positive, 20–70× the floor — unverified hypothesis: colocation broke
+  cross-level locality (the intrusive `RowNode` walk now strides 448 B
+  between levels where the dense array strode 24 B). Not priced on the
+  legs; not worth it.
+- Method notes this campaign leaves behind: (1) arms must be built against
+  **one pinned profdata** locally — profile regeneration alone moved
+  `__text` 1112–2328 B against ~200 B effects, and one A/B was discarded
+  as cross-profile (the `DomBuilderHandler::on_int/on_double` symbol sizes
+  fingerprint the profile); (2) `size -m`'s page-rounded `Segment __TEXT`
+  reads "no change" where `Section __text` moved 2 KB.
+
 ## E26-P11 re-priced on the blocked estimator — no-go for the N2
 
 - 2026-09-17 · the two standings cells that still coin are linux-arm64 and
