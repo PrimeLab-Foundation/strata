@@ -3493,7 +3493,53 @@ waits on it.
 - No runtime change is proposed by this entry. `python_dumps.cpp` on the
   branch is identical to `main`'s; both bound arms and both candidates were
   reverted. Screens are M1 only and no CI was dispatched.
-- unverified: everything above is a plain `-O3 -march=native` build. The
-  pair's cost is a register-allocation effect, which is exactly the kind of
-  thing `-fprofile-use -flto` redistributes, so the split needs re-reading on
-  the shipped recipe before the hand-off candidate is priced.
+- **Re-read under PGO+LTO, and it survives — the gate this entry was held
+  against.** The concern was that a register-allocation effect is exactly what
+  `-fprofile-use -flto` redistributes. It is not resolved by rebuilding each
+  arm with its own profile: the bound arms cannot train on the gate tests at
+  all (the pair-only arm removes the recursion bound, so nothing reaches
+  `open_` and the suite dies with SIGKILL on deep input), so a per-arm profile
+  would differ in *composition* and not only in source — the profile-difference
+  mask E26-P7b and E26-P26 both warn about. Instead the profile is **held
+  equal**, the E26-P6/P7 method: one `make pgo` on base under the shipped
+  gate-inclusive recipe (both phases green, C++ 15/15 and 2 599 pytest), then
+  every arm rebuilt with `PGO_MODE=use`, `STRATA_ENABLE_LTO=1` and that same
+  `strata.profdata`, so the source is the only variable. All three arms emit
+  byte-identical JSON on all five datasets.
+
+  | row | A/A | pair removed | both removed | pair-only survival |
+  | ---------------- | ------- | ------- | ------- | ------ |
+  | `mixed` | +1.49% | −4.98% | −7.44% | 51% |
+  | `flat` | +0.23% | −12.93% | −16.55% | 99% |
+  | `users` | +0.47% | −4.42% | −7.26% | 53% |
+  | `nested` | +0.90% | −9.38% | −14.31% | 68% |
+  | `wide_arrays` | +1.65% | +3.18% | +0.86% | — |
+
+  On `mixed` the pair alone is **1.95 µs of a 39.08 µs call** and both arms
+  together 2.91 µs. Two things change against the plain build. The prize
+  shrinks on the record-heavy rows but not on `flat`. And **the split moves**:
+  under the shipped recipe the pair is 67% of the combined effect on `mixed`,
+  78% on `flat` and 66% on `nested`, where the plain build put it at ~90% — so
+  the second pass carries 22–34% here, and a design that keeps it collects the
+  middle column, not the right-hand one.
+- Caveats on that table, both against its own conclusion. The held profile was
+  trained on base's source, so each arm's changed blocks are unprofiled: for
+  the pair-only arm that is two declarations and the body is otherwise
+  identical, but the combined arm's emit loop is restructured and its column is
+  therefore **pessimistic** — a lower bound. And the A/A control is looser here
+  (+0.2 to +1.7%, load average 6.6) than on the plain build, so the synthetic
+  rows are weaker evidence than the five real ones.
+- `wide_arrays` +3.18% on the pair-only arm, against a +1.65% control, is
+  unexplained. The row is list-dominated so the dict path barely applies;
+  most likely layout, but it is above its floor and the hand-off design owes
+  an answer rather than inheriting it.
+- Design, written and not implemented:
+  [the record emit hand-off](../architecture/record_emit_handoff.md) — the hot
+  arm carries no RAII, the first non-plain value enters a continuation that
+  constructs the pair and finishes from that index. It records the
+  five-value carried-state contract (and that six arguments including `this`
+  is SysV's exact register budget, E26-P6's seventh-argument finding), the
+  cycle semantics at the hand-off point with the 2026-09-11/12 placement
+  caveat pinned unwidened, the error paths including the lone-surrogate `str`
+  that is plain but can still fail, the byte-identity claim with six proof
+  obligations, and four kill criteria.

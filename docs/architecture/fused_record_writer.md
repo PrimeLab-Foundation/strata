@@ -2,6 +2,14 @@
 
 Opened 2026-08-16. Status: **in progress**.
 
+Open amendment: [the record emit hand-off](record_emit_handoff.md) — a draft,
+design only, proposing that the emit loop construct `DeferredOpen` and
+`RowLock` in a continuation entered at the first non-plain value rather than
+unconditionally per record. Measured prize and the two refuted alternatives are
+E26-P29 in [the ledger](../performance/experiment-ledger.md). Every invariant
+in this document's byte-for-byte section is carried forward by that draft
+unchanged; read this record first.
+
 ## Problem, with its evidence file
 
 `dumps` of small multi-schema record documents (`mixed.json`: 500 records,
