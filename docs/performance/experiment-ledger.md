@@ -3713,8 +3713,9 @@ and until they land nothing here claims a row.
   Apple clang, `-std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY`, `-march=native`
   for arm64 and `-march=x86-64-v3` for the cross-compiled x86-64 arm, identical
   between arms; base = `main` via `git archive`, candidate = the worktree.
-  Script: `scripts` is not its home — it is a one-off, reproduced from this
-  entry.
+  Script: `experiments/m12_codegen_pair.sh` (never linked into production; it
+  compiles the two arms into a scratch directory and prints the two tables
+  below). Rerun it against any later `main` to reproduce these numbers.
 
   | metric                                           | arm64                        | x86-64                       |
   | ------------------------------------------------ | ---------------------------- | ---------------------------- |
@@ -3732,6 +3733,15 @@ and until they land nothing here claims a row.
   Text growth is inside the record's 512 B bound on both ISAs, with
   `python_module.cpp` (+220 / +240 B) the larger half of it — the hook's
   validation and `dump`'s fourth keyword, not the walk.
+
+  The one function that grew is `dumps_to_python` itself, and only on arm64:
+  367 → 464 instructions, of which 67 are the `Serializer` constructor, which
+  the extra member initializer made the optimizer inline rather than emit out
+  of line (it disappears as a separate symbol in the candidate; on x86-64 it
+  was already inlined in both arms and the function moves 472 → 476). That is
+  once per `dumps` call, not once per element or per container, so it is
+  outside every per-element budget this ledger tracks — and it is what
+  criterion 5's five-leg A/B is for.
 
 - **The PGO prohibition.** `scripts/pgo_training.py` contains no `default=`
   call and no unsupported-type raise, pinned by
