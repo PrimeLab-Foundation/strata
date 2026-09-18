@@ -3839,6 +3839,44 @@ and until they land nothing here claims a row.
     stays unbuilt because the counts do not justify weakening the instrumented
     phase's gate, and it is recorded here so a future tail with real counts
     does not have to rediscover the shape.
+- **The draws-3/4 parse-row losses, read off the shipped arms** (runs
+  35348379277 and 35356228129, A=114d182 B=cf84b97; both legs' `arms/A.so` and
+  `arms/B.so` downloaded, eight binaries, compared with `llvm-nm`/`llvm-objdump`).
+  The hook touches no parse source, so the question was whether the grown dumps
+  TU displaces the parse cluster or whether the rows are host drift.
+  - **The parse code is byte-identical between the arms.** linux-x86_64 27/27
+    of the parse cluster (the `loads` fastcall, `finish_loads`,
+    `ParserInline<PythonObjectBuilder>`, the scan/`fast_parse` helpers)
+    instruction-identical with identical symbol sizes, on **both** draws;
+    macos-x86_64 31/31, where the single function first flagged as differing,
+    `finish_loads`, differs only in its trailing alignment pad (`addb %al,
+    (%rax)` — zero padding — against `nopw %cs:(%rax,%rax)`; 518 instructions
+    either way, identical size).
+  - **The displacement is real, rigid, and the same on both draws.**
+    linux-x86_64: all 27 parse symbols move **+224 to +608 B**, histogram
+    `{+336: 14, +448: 6, +224: 4, +352: 2, +608: 1}` — *identical to the byte
+    on draw 3 and draw 4*; ordering preserved; cluster span 297,872 → 298,256 B
+    (+384, 0.13%); **3/27** change 4 KB page bucket, **0/27** cross a 2 MB
+    boundary. macos-x86_64: +16 to +480 B, `{+16: 23, +480: 4, +272: 2,
+    +176: 1, +32: 1}`, also identical on both draws, 2/31 page buckets, 0/31
+    at 2 MB. (The dumps cluster itself moves +32..+352 B on Linux.)
+  - **The two draws' binaries are code-identical.** For the same arm across
+    draws: **0/27** (Linux) and **0/31** (macOS) parse symbols displaced, and a
+    full-image comparison reads **0 of 616 functions differing** on linux-x86_64
+    arm B and 0 of 612 on arm A. The file hashes do differ (+24 B on A, +8 B on
+    B) and `.text` compares unequal, but that is entirely LTO's per-build
+    `.llvm.<hash>` internal name suffixes — 21 symbols per side, and after
+    stripping the suffix the symbol sets are identical — plus the ELF build-id.
+  - **Verdict, linux-x86_64: host drift.** The cause is fixed to the byte
+    across draws and the binaries are code-identical, yet the same comparison
+    read **+0.4%** on draw 3 and **+6.4–6.7%** on draw 4. A constant cause
+    cannot produce a 16× variable effect; the displacement is not what moved.
+  - **Verdict, macos-x86_64: not separable by image evidence, and not the
+    hook's code.** There the loss is *stable* (+3.1–4.3% on both draws) against
+    a displacement that is also stable, so a rigid +16 B translation of an
+    instruction-identical parse cluster remains a viable cause and so does a
+    stable host characteristic. What is excluded on both legs is a code
+    change: no parse instruction differs.
 - E26-FIX2b re-pinned through the hook itself (criterion 2): a `default` whose
   body calls `dumps` on a multi-key record, 100 and 200 iterations, reads
   **0** refcount drift on the remembered key and on the hooked object
