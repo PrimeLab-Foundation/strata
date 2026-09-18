@@ -3793,6 +3793,52 @@ and until they land nothing here claims a row.
   being written, clears the dict being written — narrow and past the fused
   writer's 24-key bound — and calls `dumps` re-entrantly).
 
+- **The PGO trap, closed by measurement on the merge candidate** (2026-09-18,
+  `exp/m12-default-hook` 796f9a8, shipped `make pgo` recipe, exit 0, both
+  phases' gates green). The risk this closes is the one the record names and
+  the one the source-alone A/B arm structurally cannot show: that arm carries
+  no hook tests, so its cold tail trains at zero, while the **merge candidate**
+  carries 154 of them under a recipe in which the gate suite is 47.5–55% of
+  profile counts (E26-P7b, E26-P8).
+  - Counts, read off the merged profile the way E26-P8's attribution did
+    (`llvm-profdata show --all-functions --counts`; IR instrumentation, so
+    block 0 is the entry count). Profile totals: 464 functions, total count
+    602,485,990, hottest block 36,407,980. `Serializer::write_unsupported`
+    entry **648**, peak block **1,624**; `resolve_default_hook` entry
+    **1,014** (it has no symbol in either binary — it inlines into the two
+    entry points, so those counts are the callers'). For scale, in the same
+    profile `Serializer::write` enters 1,506,475 times and
+    `write_string_bytes` 1,982,665. The tail's peak is **1/22,418 of the
+    hottest block and 0.00084% of all counts**.
+  - Against E26-P23's threshold: that case put **2.4 M** counts inside a
+    `cold`-marked path and Windows lost `dumps mixed` +4.3%; its paired fix
+    reached ~24 k and the loss went away. This is **0.00068× the bad case and
+    0.068× the already-acceptable fixed case** — immaterial by three to four
+    orders of magnitude.
+  - Per-process attribution (11 `.profraw`, TRAIN + TESTS = ALL, E26-P8's
+    check: 322 + 322 + 2 + 2 = 648 ✓). The **training process contributed 0**
+    to `write_unsupported` and 0 to `resolve_default_hook` while entering
+    `Serializer::write` 273,415 times — so the record's "no `default=` call
+    and no unsupported-type raise in the training workload" is now an
+    empirical fact about the profile, not only an AST property of the script.
+    (Conservative: the merged profile appears to contain two full gate runs,
+    which if anything overstates the test counts.)
+  - Placement, read off the shipped PGO+LTO binary (`-fprofile-use`,
+    `-flto=thin`, profile path recorded in its `*.build.json`):
+    `write_unsupported` is at **+200,912 B from `write()`**, symbol **#233 of
+    320**, with all eight nearest neighbours cold — `probe_fill_int`,
+    `probe_general_dict`, `compact_general_{holes,exact}_unchecked` and the
+    C++ throw helpers (`__throw_length_error`, `__throw_bad_array_new_length`).
+    The non-PGO control places it in the same cluster (+313,796 B). **The
+    `cold` attribute held; the profile did not override it**, which is exactly
+    the outcome E26-P23 says cannot be assumed and has to be read.
+  - **No recipe change is needed.** The mitigation that was drafted and is not
+    being proposed: a marker on the hook contract tests plus `-m "not <marker>"`
+    on phase 1's `gate_tests` only (`scripts/pgo_build.sh:56-58`; `py_tests.py`
+    forwards REMAINDER args), training without them and gating with them. It
+    stays unbuilt because the counts do not justify weakening the instrumented
+    phase's gate, and it is recorded here so a future tail with real counts
+    does not have to rediscover the shape.
 - E26-FIX2b re-pinned through the hook itself (criterion 2): a `default` whose
   body calls `dumps` on a multi-key record, 100 and 200 iterations, reads
   **0** refcount drift on the remembered key and on the hooked object
