@@ -77,6 +77,7 @@ benchmarks/data/*.ndjson
 
 # Claude Code session files
 .claude/plans/
+.claude/agent-memory/
 .claude/worktrees
 .percall
 # Build-produced metadata is bound to the adjacent local binary.
