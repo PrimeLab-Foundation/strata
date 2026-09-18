@@ -34,6 +34,14 @@ def _step(label: str, func, repeat: int = 1) -> None:
 
 
 def run(train_json: Path, train_ndjson: Path, work_dir: Path) -> None:
+    # Deliberately absent from this workload: any `default=` call, and any
+    # object of a type the serializer refuses. Both would train the cold
+    # unsupported-type tail (`Serializer::write_unsupported`), and E26-P23 is
+    # the precedent -- when the training payload exercised a path marked
+    # `cold`, block placement believed the profile over the attribute and
+    # Windows lost `dumps mixed` +4.3% (run 34665612473), which only the paired
+    # payload fixed (run 34670240916). The attribute is not protection; the
+    # profile is what decides. tests/integrations/test_scaffold.py pins this.
     work_dir.mkdir(parents=True, exist_ok=True)
 
     text = train_json.read_text(encoding="utf-8")

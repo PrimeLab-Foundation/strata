@@ -272,8 +272,11 @@ PyObject* load_from_file(const char* path, const char* return_type, bool iterato
     return make_root_iterator(value.get());
 }
 
-PyObject* dump_to_file(PyObject* object, const char* path) {
-    PyRef text(dumps_to_python(object, /*as_bytes=*/true));
+PyObject* dump_to_file(PyObject* object, const char* path, PyObject* default_fn) {
+    // The whole document is serialized before the file is opened, so a hook
+    // that raises leaves the destination untouched -- the same property the
+    // UnicodeEncodeError rule already states (docs/context/api.md).
+    PyRef text(dumps_to_python(object, /*as_bytes=*/true, default_fn));
     if (!text)
         return nullptr;
 

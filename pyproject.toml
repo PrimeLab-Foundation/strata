@@ -59,6 +59,18 @@ bench = [
   "psutil>=5",
 ]
 
+integrations = [
+  # Only `make test-integrations` needs these, and nothing in `dev` pulls them
+  # in: tests/integrations is outside testpaths, outside `make gate` and
+  # outside the PGO training run, so the engine's dependency-free build and
+  # its green gate stay independent of every package below
+  # (tests/integrations/README.md).
+  "pytest>=7",
+  "pydantic>=2",
+  "attrs>=23",
+  "numpy>=1.24",
+]
+
 [project.urls]
 Homepage = "https://github.com/PrimeLab-Foundation/strata"
 Repository = "https://github.com/PrimeLab-Foundation/strata"
@@ -77,6 +89,11 @@ version = { attr = "strata.__version__" }
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
+# The gated suites, and only those. `tests/integrations` is deliberately absent
+# — it imports third-party libraries, and both its cost to the PGO profile and
+# its dependencies are reasons it must stay out of `make test` and `make gate`
+# (tests/integrations/README.md; M12 criterion 7). `make test-integrations`
+# overrides this setting on its own command line.
 testpaths = [
   "tests/py",
   "tests/unit",

@@ -1,0 +1,76 @@
+name: Integrations
+
+# The third test tree (tests/integrations), in its own workflow on purpose.
+#
+# It is NOT part of the build gate. `make test`, `make gate`, the test-gated
+# install and the PGO training run all read `testpaths` (tests/py, tests/unit)
+# and never collect this tree, for two measured reasons recorded in
+# tests/integrations/README.md: under the gate-inclusive PGO recipe every test
+# addition moves the profile by several percent on some row (E26-P7b, E26-P8),
+# and a green gate must not depend on third-party packages the project
+# otherwise has none of (docs/context/convention.md, "No dependency
+# fallbacks").
+#
+# So a red run here means "strata no longer composes with a third-party
+# library", not "strata is broken" — it never blocks the engine's own gate.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tests/integrations/**"
+      - "python/strata/**"
+      - "src/strata/bindings/**"
+      - "pyproject.toml"
+      - ".github/workflows/integrations.yml"
+  pull_request:
+    paths:
+      - "tests/integrations/**"
+      - "python/strata/**"
+      - "src/strata/bindings/**"
+      - "pyproject.toml"
+      - ".github/workflows/integrations.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrations:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The version floors the extra declares, on one leg per OS: this job
+          # proves composition with the libraries, not the platform matrix —
+          # that is ci.yml's job and it stays the gate.
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: macos-latest
+            python: "3.13"
+          - os: windows-latest
+            python: "3.13"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Upgrade packaging tools
+        run: python -m pip install -U pip setuptools wheel
+
+      # The build gate still runs here: the extension under test is the gated
+      # one, so an integration failure can never be a smuggled-in broken build.
+      - name: Install strata and the integration extras (test-gated build)
+        run: python -m pip install -e ".[dev,integrations]"
+
+      - name: Run the integration tree
+        run: python -m pytest tests/integrations -o testpaths=tests/integrations -v

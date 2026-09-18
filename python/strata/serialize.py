@@ -39,7 +39,7 @@ def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = Fa
     return _native.loads(source, return_type=return_type, iterator=iterator)
 
 
-def dumps(obj, *, return_type: str = "str") -> str | bytes:
+def dumps(obj, *, return_type: str = "str", default=None) -> str | bytes:
     """Serialize a Python object to compact JSON.
 
     Args:
@@ -48,19 +48,35 @@ def dumps(obj, *, return_type: str = "str") -> str | bytes:
             NaN and infinity are written as ``null``; integers beyond 64 bits
             keep every digit.
         return_type: ``"str"`` or ``"bytes"``.
+        default: A callable of one argument, called for each object of an
+            unsupported type; its return value is serialized in that object's
+            place. It never applies to dict keys. One call per object: if the
+            callable's own return value is unsupported, that is a ``TypeError``
+            and the callable is not asked again.
 
     Returns:
         The JSON text, with no whitespace between tokens.
 
     Raises:
-        TypeError: An object of an unsupported type, or a non-``str`` dict key.
+        TypeError: An object of an unsupported type and no ``default``, a
+            non-``str`` dict key, a ``default`` that is neither ``None`` nor
+            callable, or a ``default`` whose return value is itself
+            unsupported.
         ValueError: Nesting reached ``sys.getrecursionlimit()``, ``return_type``
             is unknown, or a reference cycle was found while ``cycle_policy``
             is ``"error"``.
         RuntimeWarning: Emitted, not raised, for a reference cycle while
             ``cycle_policy`` is ``"warn"``.
+
+    Anything the callable raises propagates unchanged.
     """
-    return _native.dumps(obj, return_type=return_type)
+    # No hook means the call the engine saw before this argument existed: the
+    # keyword is left out of the fastcall entirely rather than passed as None,
+    # so a `dumps(obj)` never reaches the native side's second keyword compare
+    # (docs/architecture/dumps_default_hook.md, "Hot-path placement").
+    if default is None:
+        return _native.dumps(obj, return_type=return_type)
+    return _native.dumps(obj, return_type=return_type, default=default)
 
 
 def load(
@@ -101,7 +117,7 @@ def load(
     )
 
 
-def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
+def dump(obj, path: str | os.PathLike, *, split_by=None, default=None) -> None:
     """Write ``obj`` to a file as compact JSON with a trailing newline.
 
     Args:
@@ -111,14 +127,24 @@ def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
             the records into files. One key writes ``dir/<value>.json``; N keys
             nest one directory per key. Required for a directory, and an error
             for a file.
+        default: As for :func:`dumps`. It applies to the values being
+            serialized, never to dict keys and never to ``split_by`` values,
+            which are read before any byte is produced. Nothing is written to
+            the destination if it raises.
 
     Raises:
         OSError: The file or directory could not be written.
-        TypeError: An unsupported type, a non-``str`` dict key, or -- in folder
-            mode -- a non-list ``obj`` or a record that is not a dict.
+        TypeError: An unsupported type, a non-``str`` dict key, a ``default``
+            that is neither ``None`` nor callable, or -- in folder mode -- a
+            non-list ``obj`` or a record that is not a dict.
         ValueError: ``split_by`` given for a file or missing for a directory, a
             record missing a split key, a split value that is not a
             ``str``/``int``/``bool``, or one that is unusable or ambiguous as a
             file name.
     """
-    _native.dump(obj, os.fspath(path), split_by=split_by)
+    # Same reason as dumps(): with no hook the engine sees the call it saw
+    # before the argument existed.
+    if default is None:
+        _native.dump(obj, os.fspath(path), split_by=split_by)
+        return
+    _native.dump(obj, os.fspath(path), split_by=split_by, default=default)

@@ -9,7 +9,7 @@ VENV ?= .venv
 VPY := $(VENV)/bin/python
 
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
-        test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
+        test test-py test-py-asan test-cpp test-integrations fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary bench-cross probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
@@ -99,6 +99,16 @@ test-py: venv  ## Run tests/py (integration) and tests/unit (contract)
 # CI runs it in the corpus job, beside the sanitized C++ suites.
 test-py-asan:  ## Build the extension with ASan+UBSan in .venv-asan and run both Python suites
 	@bash scripts/asan_py_tests.sh
+
+# Deliberately not part of `test` or `gate`, and never part of the PGO
+# training run: this tree imports third-party libraries, and under the
+# gate-inclusive PGO recipe every test addition moves the profile by several
+# percent on some row (E26-P7b, E26-P8). A green gate must not depend on
+# packages the project otherwise has none of either (convention: no dependency
+# fallbacks). Each module importorskips its library, so this passes with none
+# of them installed; `pip install -e ".[integrations]"` supplies them.
+test-integrations: venv  ## Run tests/integrations (third-party composition; outside the gate)
+	$(VPY) -m pytest tests/integrations -o testpaths=tests/integrations
 
 gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests, coverage
 	@bash scripts/gate.sh

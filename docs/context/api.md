@@ -44,7 +44,7 @@ Raises `ValueError` (invalid JSON / nesting past the cap / bad `return_type`),
 `duplicate_key_policy="warn"`.
 
 ```python
-strata.dumps(obj, *, return_type="str") -> str | bytes
+strata.dumps(obj, *, return_type="str", default=None) -> str | bytes
 ```
 
 Compact serialization (no whitespace). Supports
@@ -62,16 +62,63 @@ containers, so a tree parsed at depth 1001–1024 needs a raised
 `sys.setrecursionlimit` to serialize again — unchanged from before the parse
 cap, and stated so the asymmetry is not a surprise.
 
-**Mutation during serialization.** User code can run inside `dumps` at four
-steps, all of them rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
+**`default=`** is `None` (the default) or a callable of one argument, and it is
+keyword-only. It is called **only** where `dumps` would otherwise raise
+`TypeError("Object of type %s is not JSON serializable")`, and its return value
+is serialized in the unsupported object's place — stdlib `json` and `ujson`
+spell this the same way, orjson adds native emitters beside it, msgspec calls it
+`enc_hook`. `default` that is neither `None` nor callable ⇒
+`TypeError("default must be callable, not %s")`, raised before any byte is
+produced. Anything the callable raises **propagates unchanged** — same type,
+same args, no chaining, no `__context__` fabrication, `KeyboardInterrupt`,
+`MemoryError` and `SystemExit` included — and nothing is written to the
+destination of a `dump`. Returning `None` writes JSON `null`: `None` is a
+supported value, not a "cannot handle" sentinel.
+
+**Chain bound: 1.** One `default` call per object. If the callable's own return
+value is of an unsupported type, that is
+`TypeError("default() returned an object of type %s that is not JSON serializable")`
+— a distinct message — and the callable is **not** invoked a second time. This
+is a deliberate divergence: stdlib `json` re-enters `default` on the returned
+object without limit (its circular-reference marker is what eventually stops
+`default=lambda o: o`) and orjson caps the chain at 254. An unsupported object
+*nested inside* what the callable returned is a different object at an ordinary
+walk position and gets its own single call. A caller who wants a chain writes
+the loop in their own callable, where it is visible.
+
+**`default` never applies to dict keys, and never to `split_by` values.** A
+non-`str` key is the unchanged `TypeError("keys must be str, not %s")` whether a
+hook is installed or not; a `split_by` value that is not `str`/`int`/`bool` is
+the unchanged `ValueError`/`TypeError`, because grouping happens before
+serialization. Both exclusions are deliberate: a key hook would put user code
+inside the KeyCache and the key predictor's speculative path, the hottest code
+in the serializer, for a case no rival supports either.
+
+The hook is invoked at the current depth, inside no new frame; a container it
+returns takes the ordinary path, so its own nesting counts against
+`sys.getrecursionlimit()` exactly as a direct child of the same parent would,
+and a returned container that is already open reports a cycle under the active
+`cycle_policy` identically to that container appearing directly at that
+position.
+
+**Mutation during serialization.** User code can run inside `dumps` at five
+steps. Four are rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
 warnings filter or `showwarning` hook); `__str__` of an `int` subclass beyond
 int64; the decimal conversion of an **exact** `int` beyond int64 that CPython
 3.12+ delegates to the `_pylong` Python module — reached above roughly 10 000
 digits, so `sys.set_int_max_str_digits` has to permit it, and it imports modules
 and runs bytecode; and, as a consequence of any of those, a `__del__` or a
 weakref callback fired when the serializer releases what that code orphaned.
-Nothing else in a successful `dumps` calls into Python or allocates an object
-the collector tracks, so no collection can run one either. If that code mutates
+The fifth is the `default=` hook, and unlike the others it is **not** rare — it
+runs once per unsupported object, which is the whole point of installing it —
+and releasing the reference it returned can fire a `__del__` or a weakref
+callback in the same way. With no hook installed, nothing else in a successful
+`dumps` calls into Python or allocates an object the collector tracks, so no
+collection can run one either; **with a hook installed that is no longer true**:
+the callable allocates objects the collector tracks, so a GC pass — and every
+`__del__` it fires — can run inside a *successful* `dumps`. The rules below are
+unchanged by that and continue to hold, because they are properties of the
+writers rather than of which step re-entered. If that code mutates
 a container being written, `dumps` never reads freed memory: lists and tuples
 are followed live, element by element, as stdlib `json` does (a shrunk list ends
 there, appended elements are written); a dict of at most 24 exact-`str` keys,
@@ -85,7 +132,7 @@ unchanged.
 
 ```python
 strata.load(path, *, return_type="dict", iterator=False, skip_errors=False)  # str | Path; file or dir
-strata.dump(obj, path, *, split_by=None) -> None                             # str | Path
+strata.dump(obj, path, *, split_by=None, default=None) -> None               # str | Path
 ```
 
 **File mode** (`path` is a file): `load` dispatches on extension:
@@ -101,7 +148,11 @@ cap applies per document and per NDJSON line, and NDJSON names the line:
 other bad line under `skip_errors=True`. Raises
 `FileNotFoundError`, `OSError`, `ValueError` ("Empty file" for JSON).
 `dump` writes compact JSON + trailing newline, mode 0644, truncating;
-`split_by` with a file path is a `ValueError`.
+`split_by` with a file path is a `ValueError`. `default` is `dumps`'s hook,
+with the same contract: it reaches the values being serialized, never the
+`split_by` values (grouping runs first), and because the whole document is
+serialized before the destination is opened, a hook that raises leaves the
+destination untouched.
 
 **Folder mode:**
 
@@ -213,7 +264,9 @@ strata.config.set(key, value); strata.config.get(key); strata.config.list()
   writer before; narrower ones were already unicode-kind and already landed
   late). A *split* table (an instance `__dict__`) and a record wider than 24
   keys still take the general writer, and there the `null` lands in the
-  container that holds the repeat.
+  container that holds the repeat. A container a `default=` hook returned is
+  subject to exactly this caveat, by whichever writer takes it — no new
+  caveat, and no exemption.
 
 Config state is process-global at the map level. `duplicate_key_policy` is
 consumed via a **thread-local** variable — it does not propagate to other
@@ -226,7 +279,10 @@ Parse errors ⇒ `ValueError("Invalid JSON")`; malformed NDJSON lines ⇒
 `ValueError("Maximum nesting depth exceeded")`, and on an NDJSON line
 `ValueError("Maximum nesting depth exceeded on line N")` — a refusal, kept
 distinct from malformed input so a caller can tell the two apart.
-Cursor misuse ⇒ `RuntimeError`
+Serializer type refusals ⇒ `TypeError("Object of type %s is not JSON serializable")` (unchanged with and without a hook),
+`TypeError("keys must be str, not %s")` (a hook never applies to keys),
+`TypeError("default must be callable, not %s")` and
+`TypeError("default() returned an object of type %s that is not JSON serializable")`. Cursor misuse ⇒ `RuntimeError`
 matching "not an object" / "not an array" / "not a bool|number|string" /
 "not found" / "out of range". Unknown config key ⇒ `KeyError` on `config.set`
 (`config.get` returns `None`); bad config value ⇒ `ValueError`; wrong value
