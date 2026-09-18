@@ -3427,3 +3427,73 @@ waits on it.
   contain the target; the float writer is not, at any price.
 - Tests: C++ 15/15 suites, pytest 2599 passed / 2 skipped / 0 failed on
   `exp/emit-n2`.
+
+## E26-P29 — what the record open path's remaining cost actually is
+
+- Opened 2026-09-18 · owner: squad \[emit\] · branch `exp/emit-n2` · parent
+  `885c897`. Redirect from E26-P28: spend one lever per-container, 2–4 ns per
+  open. Instrument: `open_probe.py` (a strata-only twin of
+  `benchmarks/nested_container_probe.py` — the orjson column is irrelevant to
+  an A/B), 60-repeat medians, `gc.collect()` per sample, arms swapped by
+  replacing the built `.so` in a rotation that carries a **second copy of the
+  base as an in-rotation A/A control**. M1, dev Mac, load average 2–13 across
+  the session, so magnitudes are screens; the A/A column bounds them.
+- **The bound comes first, and it is large.** A deliberately incorrect arm
+  (`STRATA_BOUND_OPEN`, never shipped) that removes *both* the two-pass key
+  walk — verify into the staged row, then emit from it — and the
+  `DeferredOpen`/`RowLock` pair reads, against base and byte-identical on all
+  five datasets: `mixed` **−10.8%**, `flat` −18.6%, `users` −11.3%, `nested`
+  −18.5%, `wide_arrays` +1.5%. On `mixed` that is **−4.1 µs of a 42 µs
+  call** — the brief's whole target, sitting in this structure.
+- **The split says which half, and it is not the one the shape of the code
+  suggests.** A second bound (`STRATA_BOUND_RAII`) keeps the two-pass walk and
+  the per-key armed test and removes *only* the deferred open and the row
+  lock: `mixed` −9.8%, `flat` −13.0%, `users` −8.3%, `nested` −13.8%. So
+  **about 90% of the prize is the `DeferredOpen`/`RowLock` pair and almost
+  none of it is the second pass.** Their instruction count cannot explain
+  that; what can is that their destructors put a cleanup path on every exit
+  of the emit loop, and that structure is what the loop's register allocation
+  pays for. The two-pass walk — the thing the architecture doc explains at
+  length and the obvious thing to attack — is worth about 1% on `mixed`.
+- **Two ways of claiming it, both refuted.** Both dispatch an all-plain
+  record to an emit arm with no deferred open, no row lock, no per-key armed
+  test and the schema row hoisted (a hoist E26-P24 had to reject in the
+  general loop because a nested object may grow `schemas_`; with no nested
+  object it is sound). Both are byte-identical to base on all five datasets.
+  Both lose:
+
+  | arm | where `all_plain` is computed | `mixed` | `flat` | `users` | `nested` | A/A |
+  | --- | ----------------------------- | ------- | ------ | ------- | -------- | --- |
+  | F | folded into the verification pass | +2.1% | +10.5% | +6.7% | +7.7% | ±2% |
+  | G | its own reduction over the filled row | +2.3% | +14.2% | +6.2% | +8.7% | ±0.8% |
+
+  F was expected to lose by the E26-P9 probe-placement follow-up's mechanism
+  (a runtime flag spills through the verification loop, there priced at
+  `dumps flat` +2–3.5%; here +10.5%). G exists to test whether that placement
+  was the whole story. **It is not** — moving the reduction out of the
+  verification loop entirely, leaving that loop's registers untouched, loses
+  by the same margin. The extra pass costs more than the pair's absence
+  returns, and `write_record_fused` carrying two emit loops is a size change
+  in a function whose layout is knife-edge on this row (E26-P23, E26-P26).
+  Verdict: **no-go on the all-plain dispatch, at either placement.** Do not
+  propose a third placement of the same flag; the idea, not its position, is
+  what these two measure.
+- **What the evidence points at instead, not attempted here.** The
+  information is already in the general loop — `!armed() && !is_plain_scalar(value)`
+  computes it per key — but it arrives *after* the pair has been constructed,
+  and C++ scoping is what forces the construction to precede the loop. The
+  route that does not need a second pass is a **hand-off**: the hot arm owns
+  no RAII, and the first non-plain value tail-calls a general continuation
+  that owns the pair and finishes the record from index *i*. The carried
+  values (`object`, `depth`, `way`, `row`, `index`, `size`) are the cost
+  E26-P6 priced — but paid once per record that actually contains a
+  container, not once per key. That is a `fused_record_writer.md` change
+  rather than a trim of the open path, so it wants its own brief and its own
+  reviewer.
+- No runtime change is proposed by this entry. `python_dumps.cpp` on the
+  branch is identical to `main`'s; both bound arms and both candidates were
+  reverted. Screens are M1 only and no CI was dispatched.
+- unverified: everything above is a plain `-O3 -march=native` build. The
+  pair's cost is a register-allocation effect, which is exactly the kind of
+  thing `-fprofile-use -flto` redistributes, so the split needs re-reading on
+  the shipped recipe before the hand-off candidate is priced.
