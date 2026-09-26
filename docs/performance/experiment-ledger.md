@@ -3928,3 +3928,11 @@ waits on it.
   fixed set and use the stdlib oracle for corpus-wide checks, so what they can
   shift in the shipped `_strata` profile is small; criterion 6 reads what
   remains.
+- **Criterion 5 setup.** Arm `exp/m12b-ab-arm` = this branch without its
+  five new gate-test files (both arms train on main's suite), the 25-row
+  ABBA list plus the full canonical diagnostic, and a static step per leg:
+  B rebuilt against A's profile must equal A's code section, or the leg
+  stops before timing (docs/decisions.md, 2026-09-27; the first attempt's A/A
+  run shows independent trainings of one source already differ on
+  linux-arm64 and windows). Locally, the held-profile pair is identical in
+  all 13 loaded sections.
