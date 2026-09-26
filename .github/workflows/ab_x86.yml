@@ -187,6 +187,30 @@ jobs:
           cp -R ../base/build/pgo ab/profile-A
           echo "A $(git -C ../base rev-parse --short HEAD) $(md5sum arms/A.so 2>/dev/null || md5 -q arms/A.so)" | tee -a ab/arms.txt
 
+      - name: Static identity of the two _strata images (M12b criterion 5)
+        # M12b leaves every `_strata` source token and flag as main's. Two
+        # independent trainings of one source already differ on some legs
+        # (A/A run 35365120745: linux-arm64 and windows), so identity is shown
+        # with the profile held equal: B's source rebuilt against A's profile
+        # must give A's code section byte for byte. A difference stops this leg
+        # before any timing (exit 1); a rebuild or an image the reader cannot
+        # parse is recorded as unverified and the leg is timed. The timed B stays
+        # B's own training; its identity with A is recorded, not gated.
+        shell: bash
+        run: |
+          set +e
+          python benchmarks/image_identity.py arms/A.so arms/B.so --json ab/identity-own-profiles.json > ab/identity-own-profiles.txt
+          rm -rf build/lib.* build/temp.*
+          if PGO_MODE=use STRATA_ENABLE_LTO=1 \
+              STRATA_PGO_PROFILE="$(cd ../base && pwd)/build/pgo/strata.profdata" \
+              .venv/bin/python -m pip install --force-reinstall --no-deps -e . > ab/held-profile-build.log 2>&1; then
+            cp "$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')" arms/B_held.so
+            python benchmarks/image_identity.py arms/A.so arms/B_held.so --json ab/identity.json | tee ab/identity.txt
+            [ "${PIPESTATUS[0]}" != 1 ]
+          else
+            echo "IDENTITY UNVERIFIED: the held-profile rebuild failed (ab/held-profile-build.log)" | tee ab/identity.txt
+          fi
+
       - name: Datasets (small and medium)
         run: |
           PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
@@ -201,7 +225,7 @@ jobs:
           # The file rows (load / ndload / dump) are real file operations, not
           # a subtraction of two in-memory medians; rows_probe.py mirrors
           # bench_main's rival compositions for each of them.
-          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row small:wide_arrays:load --row small:users:ndload --row small:wide_arrays:dump --row small:mixed:dump --row small:flat:dump --row small:nested:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
+          ROWS="--row small:users:loads --row small:users:dumps --row small:users:load --row small:users:dump --row small:users:ndload --row small:flat:loads --row small:flat:dumps --row small:flat:load --row small:flat:dump --row small:nested:loads --row small:nested:dumps --row small:nested:load --row small:nested:dump --row small:wide_arrays:loads --row small:wide_arrays:dumps --row small:wide_arrays:load --row small:wide_arrays:dump --row small:mixed:loads --row small:mixed:dumps --row small:mixed:load --row small:mixed:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
             --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" 2> ab/R1.stderr
           # The same block count as the comparison: the floor is
@@ -228,6 +252,12 @@ jobs:
 
       - name: Full canonical before/candidate reports and regression gate
         if: inputs.validation == 'canonical'
+        run: |
+          make probe-canonical-builds CANONICAL_BUILD_FLAGS="--before arms/A.so --candidate arms/B.so --output ab/canonical --tier small --repeat $AB_REPEAT"
+
+      - name: Canonical supplement (paired mode, diagnostic, all 27 rows)
+        if: inputs.validation == 'paired'
+        continue-on-error: true
         run: |
           make probe-canonical-builds CANONICAL_BUILD_FLAGS="--before arms/A.so --candidate arms/B.so --output ab/canonical --tier small --repeat $AB_REPEAT"
 
@@ -389,6 +419,24 @@ jobs:
           cp "$baseline_binary.build.json" arms/A.pyd.build.json
           cp -R ../base/build/pgo ab/profile-A
 
+      - name: Static identity of the two _strata images (M12b criterion 5)
+        # As on the POSIX legs: identity is shown with A's profile held for B.
+        shell: bash
+        run: |
+          set +e
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          python benchmarks/image_identity.py arms/A.pyd arms/B.pyd --json ab/identity-own-profiles.json > ab/identity-own-profiles.txt
+          rm -rf build/lib.* build/temp.*
+          if STRATA_WIN_COMPILER=clang-cl PGO_MODE=use STRATA_ENABLE_LTO=0 \
+              STRATA_PGO_PROFILE="$(cd ../base && pwd -W)/build/pgo/strata.profdata" \
+              python -m pip install --force-reinstall --no-deps -e . > ab/held-profile-build.log 2>&1; then
+            cp "$(python -c 'import strata._strata as m; print(m.__file__)')" arms/B_held.pyd
+            python benchmarks/image_identity.py arms/A.pyd arms/B_held.pyd --json ab/identity.json | tee ab/identity.txt
+            [ "${PIPESTATUS[0]}" != 1 ]
+          else
+            echo "IDENTITY UNVERIFIED: the held-profile rebuild failed (ab/held-profile-build.log)" | tee ab/identity.txt
+          fi
+
       - name: Generate comparison datasets
         run: |
           PYTHONPATH=. python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/small --num-users 1000 --max-orders 10 --max-items 5 --records 500
@@ -398,7 +446,7 @@ jobs:
         if: inputs.validation != 'canonical'
         run: |
           target_binary=$(python -c 'import strata._strata as m; print(m.__file__)')
-          rows=(--row small:mixed:dumps --row small:flat:dumps --row small:users:dumps --row small:wide_arrays:dumps --row small:mixed:dump --row small:flat:dump --row small:nested:dump --row small:wide_arrays:loads --row medium:mixed:dumps --row medium:users:dumps)
+          rows=(--row small:users:loads --row small:users:dumps --row small:users:load --row small:users:dump --row small:users:ndload --row small:flat:loads --row small:flat:dumps --row small:flat:load --row small:flat:dump --row small:nested:loads --row small:nested:dumps --row small:nested:load --row small:nested:dump --row small:wide_arrays:loads --row small:wide_arrays:dumps --row small:wide_arrays:load --row small:wide_arrays:dump --row small:mixed:loads --row small:mixed:dumps --row small:mixed:load --row small:mixed:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads)
           PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/B.pyd --target "$target_binary" --out ab/R1.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/R1.txt 2> ab/R1.stderr
           PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/A.pyd --target "$target_binary" --out ab/AA.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/AA.txt 2> ab/AA.stderr
           PYTHONPATH=. python benchmarks/ab_blocks.py ab/R1.tsv --aa ab/AA.tsv --json ab/comparison.json > ab/comparison.txt
@@ -406,6 +454,12 @@ jobs:
 
       - name: Full canonical before/candidate reports and regression gate
         if: inputs.validation == 'canonical'
+        run: |
+          PYTHONPATH=. python -m benchmarks.canonical_builds --before arms/A.pyd --candidate arms/B.pyd --output ab/canonical --tier small --repeat "$AB_REPEAT"
+
+      - name: Canonical supplement (paired mode, diagnostic, all 27 rows)
+        if: inputs.validation == 'paired'
+        continue-on-error: true
         run: |
           PYTHONPATH=. python -m benchmarks.canonical_builds --before arms/A.pyd --candidate arms/B.pyd --output ab/canonical --tier small --repeat "$AB_REPEAT"
 
