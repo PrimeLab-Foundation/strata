@@ -3689,3 +3689,177 @@ waits on it.
   directory does not claim (no `*.build.json` for the arms: the `make pgo`
   identity was overwritten before it could be copied, and a mismatched
   identity is worse than none).
+
+## M12 — the `dumps` unsupported-type hook (`default=`), Option C
+
+- 2026-09-26 · `exp/m12-default-hook-2` (`39cb64d`, `223901b`) over
+  74e41ad. Record:
+  [`dumps_default_hook.md`](../architecture/dumps_default_hook.md); roadmap
+  M12 criteria 1–4, 7 and 8 met. **Criterion 5 not met, and the kill
+  criterion fires** (run 36254514783, below): **no-go for this shape.**
+  Criterion 6 was not run.
+
+- **Where the attempt lives.** This entry is the archive of an attempt that
+  did not land: the implementation, its tests and its decision-log lines
+  are on `exp/m12-default-hook-2` (`39cb64d`, `223901b`, `2858089`,
+  `884f964`, `10c8904`), the A/B arm on `exp/m12-ab-arm` (`44f65f9`), and
+  the first attempt on `exp/m12-default-hook` (`ca70d72`) and
+  `exp/m12-source-ab` (`ac6bd44`). References below to docs/decisions.md,
+  2026-09-26, are to that branch's log; main's log carries the no-go line.
+
+- **Criterion 5, run 36254514783** (2026-09-26, `ab_x86.yml` on
+  `exp/m12-ab-arm`, paired, 6 ABBA blocks × 60, same-runner A/A floor at 6
+  blocks, 0 dropped launches on every leg; 33 row × engine series per leg over
+  the 21 ABBA-instrumentable canonical rows plus 4 medium rows). A = `74e41ad`
+  (main), B = `44f65f9` (the hook + the stage pin, gate suite = main's, so
+  both profiles train on identical tests and payload; arms from
+  `ab/arms.txt` and `arms/*.build.json`). Resolved = |effect| past the A/A
+  floor with the CI excluding 0; + is B slower:
+
+  | leg            | row                     | engine | effect | CI               | floor | blocks + |
+  | -------------- | ----------------------- | ------ | ------ | ---------------- | ----- | -------- |
+  | linux-arm64    | small flat loads        | loads  | +0.76% | \[+0.50, +1.05\] | 0.28  | 6/6      |
+  | linux-arm64    | small users dumps       | bytes  | +1.30% | \[+1.08, +1.48\] | 0.14  | 6/6      |
+  | linux-arm64    | small users dumps       | str    | +1.05% | \[+0.66, +1.61\] | 0.87  | 6/6      |
+  | linux-x86_64   | medium flat dumps       | bytes  | +1.67% | \[+0.31, +3.47\] | 0.85  | 5/6      |
+  | linux-x86_64   | medium flat dumps       | str    | +1.08% | \[+0.13, +3.39\] | 0.69  | 5/6      |
+  | linux-x86_64   | small flat dumps        | bytes  | +0.99% | \[+0.16, +1.64\] | 0.42  | 6/6      |
+  | windows-x86_64 | small flat dumps        | bytes  | +0.51% | \[+0.26, +2.21\] | 0.42  | 6/6      |
+  | linux-x86_64   | small wide_arrays dump  | dump   | −1.12% | \[−1.64, −0.62\] | 0.43  | 0/6      |
+  | linux-x86_64   | small wide_arrays dumps | bytes  | −1.31% | \[−1.91, −0.66\] | 0.42  | 0/6      |
+
+  Both macOS legs resolve nothing (largest unresolved: macos-x86_64 small
+  `dumps mixed` bytes +4.59% against an 8.47 floor).
+
+- **Attribution.** The profile is excluded by construction (identical suites
+  and payload), and host drift within the run is what the same-runner A/A
+  controls, so what resolves is code — the hook's own instructions or the
+  layout they move. Against the first attempt's runs:
+
+  - windows small `dumps flat` bytes (+0.51%) is **pin-shaped**: the pin
+    alone lost +1.81% on the same row (run 35348367891, floor 0.91).
+  - linux-arm64 small `dumps users` (+1.05/+1.30%) is **both**: the pin
+    alone +0.51% (floor 0.15), the first attempt's unpinned hook +0.6/+0.7%
+    (runs 35342480274, 35347472909).
+  - linux-x86_64 `dumps flat` (+0.99 to +1.67%) is **the hook's**: the pin
+    alone *gained* there (−2.24% medium bytes, −2.58% small bytes, run
+    35348367891), and the first attempt's source-alone pair — both arms
+    pinned, the hook the only difference, a different implementation of it —
+    lost the same row on both draws (+1.1 to +2.8%, runs 35373114948,
+    35379021184). Three draws, two implementations, same row, same sign.
+  - linux-arm64 small `loads flat` (+0.76%) sits on parse source neither arm
+    changes: layout-shaped, one draw, not attributed further.
+
+- **Verdict.** Criterion 5 asks that no canonical row resolve against strata;
+  seven series on four rows and three legs do. The kill criterion asks
+  whether the cause is the code rather than the profile; with the profile
+  held equal by construction, and the linux-x86_64 `dumps flat` loss
+  reproduced across both implementations of the walker-state shape, it is
+  the code. Per the record, this shape is abandoned; the next candidate is a
+  separate entry point (`dumps_with_default`) whose existence cannot perturb
+  `dumps`'s codegen — no walker member, no frame growth, no keyword-loop
+  change on `dumps`.
+
+- **The record's own fallback is ruled out as a successor.** Moving the
+  callable into the per-call state the lease already carries would remove
+  the walker's frame growth and the pin, but the first attempt's source-alone
+  pair (runs 35373114948, 35379021184) had the pin on **both** arms — the
+  stage's alignment class equal, the hook the only difference — and still
+  lost linux-x86_64 `dumps flat` on both draws. So the cost is not the frame
+  growth alone: a null test on `write`'s tail, which any in-signature shape
+  keeps, is enough to move that row. Only a separate entry point removes it.
+
+- **The `dirty: true` on B's build identities does not taint any leg.** Every
+  leg's B (`arms/B.*.build.json`, windows included) reads `dirty: true` with
+  `patch_sha256` =
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` — the
+  SHA-256 of empty input, i.e. no tracked file differs from `44f65f9` — and
+  its `untracked_sha256` lists only the workflow's own bookkeeping, written
+  into the candidate checkout before B is built: `ab/experiment.txt`
+  (`none`), an empty `ab/patches.txt`, and on the POSIX legs `ab/cpu.txt`.
+  None is a source, build or test input, and A reads clean only because it
+  is built in a separate worktree. Windows has no `ab/arms.txt`; its arm
+  identity is taken from these two files (A `74e41ad` clean, B `44f65f9`),
+  and the verdict does not rest on that leg.
+
+- **Canonical diagnostic (the six query/search rows; sanity only, no
+  floor).** Strata medians move −9.03% to +65.67% in both directions across
+  the legs (e.g. macos-arm64 `query $[*].id` 0.067 → 0.111 ms, linux-x86_64
+  `search $..total` 19.167 → 17.436 ms) on code neither arm touches, and the
+  canonical gate reads "REGRESSION" on all five legs with 11–47 breach lines
+  over all 27 rows — the identical-binary control's known spread under load
+  (10–48 breaches), not a signal.
+
+- **Shape.** `Serializer::write` (the record's `write_value`) keeps its
+  unsupported-type `PyErr_Format` inline and gains one null test on
+  `default_` ahead of it, which tail-calls a `STRATA_COLD_FN`
+  `write_unsupported`: `latch()`, a strong reference on the object, the call,
+  the return walked by `write` at the same depth, chain bound 1 by identity
+  (`hooked_`). The callable arrives through `set_default`, not the
+  constructor. Plumbing: the facade passes `default` only when it is not
+  `None`; one cold `default_converter` serves `dumps`'s keyword loop and
+  `dump`'s `O&` parse.
+
+- **Codegen (criterion 4)**, plain `-O3` builds of 74e41ad and the tree, Apple
+  clang 21.0.0, arm64 `-march=native` and x86-64 cross
+  `-fomit-frame-pointer -march=x86-64-v3`:
+
+  | ISA    | `write` instructions | diff                                                                              | Section `__text`               |
+  | ------ | -------------------- | --------------------------------------------------------------------------------- | ------------------------------ |
+  | arm64  | 281 → 290            | −3 / +12: the `default_` load and branch, the tail-call block, renumbered offsets | 156 892 → 157 420 (**+528 B**) |
+  | x86-64 | 186 → 193            | −6 / +13: the same                                                                | 164 560 → 165 056 (**+496 B**) |
+
+  Largest contributors (arm64 / x86-64): `write_unsupported` 188 / 178 B,
+  `default_converter` 120 / 92, `strata_dumps` +88 / +64, `strata_dump`
+  +44 / +64, `write` +36 / +16, and the output stage's cache-line pin +4 /
+  +16 in `dumps_to_python`. Accepted and written into criterion 4 (docs/
+  decisions.md, 2026-09-26): the hook itself is +504 B on arm64, the
+  review's directory-target correction (a `BaseException` that is not an
+  `Exception` is no longer replaced) +20 B in `strata_dump`, and the pin the
+  first attempt proved necessary (`796f9a8`) the rest. The PGO+LTO shipped build is not claimed: its
+  layout follows a profile the new tests move by themselves (E26-P7b).
+
+- **Rejected on the way, each on its own number.** The null test inside the
+  cold callee: `write` shrank 22 instructions on arm64 and the section came to
+  +492 B, but the saving was the optimizer re-merging `write`'s return blocks
+  (the `None` path gained a branch) — not "unchanged apart from the tail".
+  The callable as a constructor argument: the constructor went inline into
+  `dumps_to_python` on arm64 (+100 B); an in-class initialiser for a second
+  field sent it out of line on x86-64. A duplicated type predicate for the
+  chain bound: 60 B more in the arm64 object than the identity check, for a second
+  definition of the supported set. The keyword loop's rare arm as its own cold
+  helper: 68 B more. Inline refcount macros on the cold path: ~56 B more.
+
+- **Per-call floor** (fresh process per arm, 30–40 ABBA rounds, best of 7 per
+  process, plain arm64 builds, load ≈ 3): native `_strata.dumps({"a": 1})`
+  94.1 → 94.2 ns (+0.37% \[−0.01, +0.53\]); native with `return_type` 113.4 →
+  114.3 ns (+0.74% \[+0.32, +1.09\]); facade `strata.dumps({"a": 1})` 141.1 →
+  151.1 ns (**+7.10%** \[+6.86, +7.46\]); 50 records 3 375.8 → 3 378.3 ns
+  (+0.02% \[−0.58, +0.60\]). The facade's ~10 ns is CPython filling a second
+  keyword-only default from `__kwdefaults__`; positional-or-keyword would be
+  free and is not the contract. Accepted (docs/decisions.md, 2026-09-26); two
+  levers that would repay it several times over are recorded there, not taken.
+
+- **Correctness.** `tests/unit/test_dumps_default_hook.py` (220 tests) and
+  `tests/py/test_dumps_default_hook.py` (97, the error-table rows mirrored through `dump`), including the E26-FIX2b re-pin
+  (zero key-refcount drift across a nested `dumps` driven through the hook,
+  both modes, success and failure). One placement ruling came out of them: a
+  returned open container is reported where it was returned, even at a
+  list-element position where a directly-reached warmed dict lands one
+  container late. `tests/integrations/` (pydantic, attrs, numpy, dataclass
+  rows) runs under `make test-integrations` and its own CI job, outside
+  `testpaths`, the gate and the profile.
+
+- **Training payload.** `scripts/pgo_training.py` makes no `default=` call and
+  expects no unsupported-type raise (every payload is `json`-built); the gate
+  suites it runs alongside now call the hook, which is what the tests-matched
+  arm of criterion 5 prices.
+
+- Evidence: `build/evidence/benchmark-lead/M12/` — `ab-36254514783/` (the
+  run's five artifacts, each leg's `ab/verdict.{json,txt}` from
+  `benchmarks/ab_blocks.py R1.tsv --aa AA.tsv`), `attribution/` (the
+  pin-alone run 35348367891 re-read the same way), `codegen/` (build script,
+  both arms' objects and linked extensions for both ISAs, `symsizes.*.txt`,
+  `write_diff.*.txt`, the floor benches and their raw samples,
+  `PROVENANCE.txt` stating what the directory does not claim), `coverage/`
+  (the instrumented build's new-line report), and the ASan logs.

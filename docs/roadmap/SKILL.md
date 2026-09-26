@@ -185,6 +185,14 @@ of the serializer's footprint.
 
 ## M12 — The `dumps` unsupported-type hook (`default=`)
 
+**Status: attempted, no-go for the in-signature shape (2026-09-26).** Two
+implementations met criteria 1–4, 7 and 8; criterion 5 failed and the kill
+criterion fired (run 36254514783: linux-x86_64 `dumps flat` lost to the hook's
+own code, reproduced across both implementations). The successor is a separate
+`dumps_with_default` entry point, per the kill criterion below; the attempts are
+archived on `exp/m12-default-hook-2` and `exp/m12-default-hook`
+(docs/performance/experiment-ledger.md, M12).
+
 Design: `docs/architecture/dumps_default_hook.md`. Option C: `default=callable`
 lands; native emitters are deferred per type behind the record's admission gate.
 

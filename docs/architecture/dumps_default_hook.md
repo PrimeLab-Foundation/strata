@@ -1,6 +1,13 @@
 # Decision record: the `dumps` unsupported-type hook (`default=`)
 
-Status: **draft** (2026-09-18) — not yet accepted, no code written.
+Status: **no-go for the in-signature shape** (2026-09-26). Implemented twice
+(2026-09-18 `exp/m12-default-hook`, 2026-09-26 `exp/m12-default-hook-2`) and
+refused by the kill criterion below: run 36254514783 resolved losses whose
+cause is the hook's code (linux-x86_64 `dumps flat`, reproduced across both
+implementations). The successor is the separate entry point the kill criterion
+names, `dumps_with_default`; the lease-state fallback in "Footprint" is ruled
+out by the same evidence (docs/performance/experiment-ledger.md, M12;
+docs/decisions.md, 2026-09-26). Drafted 2026-09-18.
 Area: `src/strata/bindings/` only. Nothing in `include/strata/` or
 `src/strata/{json,search,util}` changes; the C++ core gains no surface.
 
@@ -71,16 +78,16 @@ value is serialized in the unsupported object's place.
 
 ### Error contract (every message below is test-pinned)
 
-| Condition | Result |
-| --- | --- |
-| `default` is neither `None` nor callable | `TypeError("default must be callable, not %s")` (tp_name), raised at the fastcall boundary before any byte is produced |
-| unsupported type, `default is None` | unchanged `TypeError("Object of type %s is not JSON serializable")` — byte-for-byte the message today's callers test against |
-| the callable raises | the exception **propagates unchanged**: same type, same args, no chaining, no wrapping, no `__context__` fabrication. `KeyboardInterrupt`, `MemoryError`, `SystemExit` included. Nothing is written to the destination of a `dump` (same property as the `UnicodeEncodeError` rule already in api.md — `dump` writes only a completed buffer) |
-| the callable returns an unsupported type | `TypeError("default() returned an object of type %s that is not JSON serializable")` — a **distinct** message, and the callable is **not** invoked a second time |
-| the callable returns `None` | JSON `null`. `None` is a supported value, not a "cannot handle" sentinel |
-| the callable returns a `str` with no UTF-8 encoding (lone surrogate) | `UnicodeEncodeError`, as for any other `str` — unchanged |
-| a non-`str` **dict key** | unchanged `TypeError("keys must be str, not %s")` (`python_dumps.cpp:1154`, `:1190`, `:1451`). **`default` never applies to keys** |
-| a `split_by` value that is not `str`/`int`/`bool` | unchanged `ValueError`/`TypeError`. **`default` never applies to split values** — grouping happens before serialization |
+| Condition                                                            | Result                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `default` is neither `None` nor callable                             | `TypeError("default must be callable, not %s")` (tp_name), raised at the fastcall boundary before any byte is produced                                                                                                                                                                                                                        |
+| unsupported type, `default is None`                                  | unchanged `TypeError("Object of type %s is not JSON serializable")` — byte-for-byte the message today's callers test against                                                                                                                                                                                                                  |
+| the callable raises                                                  | the exception **propagates unchanged**: same type, same args, no chaining, no wrapping, no `__context__` fabrication. `KeyboardInterrupt`, `MemoryError`, `SystemExit` included. Nothing is written to the destination of a `dump` (same property as the `UnicodeEncodeError` rule already in api.md — `dump` writes only a completed buffer) |
+| the callable returns an unsupported type                             | `TypeError("default() returned an object of type %s that is not JSON serializable")` — a **distinct** message, and the callable is **not** invoked a second time                                                                                                                                                                              |
+| the callable returns `None`                                          | JSON `null`. `None` is a supported value, not a "cannot handle" sentinel                                                                                                                                                                                                                                                                      |
+| the callable returns a `str` with no UTF-8 encoding (lone surrogate) | `UnicodeEncodeError`, as for any other `str` — unchanged                                                                                                                                                                                                                                                                                      |
+| a non-`str` **dict key**                                             | unchanged `TypeError("keys must be str, not %s")` (`python_dumps.cpp:1154`, `:1190`, `:1451`). **`default` never applies to keys**                                                                                                                                                                                                            |
+| a `split_by` value that is not `str`/`int`/`bool`                    | unchanged `ValueError`/`TypeError`. **`default` never applies to split values** — grouping happens before serialization                                                                                                                                                                                                                       |
 
 Keys and split values are excluded deliberately: a key hook would put user
 code inside the KeyCache and the key predictor's speculative path, which is
