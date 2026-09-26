@@ -7,6 +7,7 @@ No parsing, formatting or type dispatch happens in Python
 
 from __future__ import annotations
 
+import functools
 import os
 
 from . import _strata as _native
@@ -61,6 +62,54 @@ def dumps(obj, *, return_type: str = "str") -> str | bytes:
             ``cycle_policy`` is ``"warn"``.
     """
     return _native.dumps(obj, return_type=return_type)
+
+
+def dumps_with_default(obj, default, *, return_type: str = "str") -> str | bytes:
+    """Serialize a Python object to compact JSON, with a hook for unsupported types.
+
+    The same output as :func:`dumps` for every object :func:`dumps` supports;
+    each object of any other type is passed to ``default``, once, and its
+    return value is serialized in the object's place.
+
+    Args:
+        obj: The value to serialize.
+        default: A callable of one argument (``None`` is refused). It is never
+            called for dict keys, nor a second time on its own return value;
+            objects nested inside a returned container get their own call.
+        return_type: ``"str"`` or ``"bytes"``.
+
+    Returns:
+        The JSON text, with no whitespace between tokens.
+
+    Raises:
+        TypeError: ``default`` is not callable, it returned an unsupported
+            object, or a dict key is not a ``str``.
+        ValueError: Nesting reached ``sys.getrecursionlimit()``, ``return_type``
+            is unknown, or a reference cycle was found while ``cycle_policy``
+            is ``"error"``.
+        RuntimeWarning: Emitted, not raised, for a reference cycle while
+            ``cycle_policy`` is ``"warn"``.
+
+    Any exception ``default`` raises propagates unchanged. The first call
+    imports the hook's own extension (``strata._dumps_hook``); if that import
+    fails, the ``ImportError`` is raised here, and every other function of the
+    package is unaffected.
+    """
+    return _hook_entry()(obj, default, return_type=return_type)
+
+
+@functools.cache
+def _hook_entry():
+    """``strata._dumps_hook.dumps_with_default``, imported on first use.
+
+    The hook lives in a second extension image so that ``_strata`` does not
+    change (docs/architecture/dumps_with_default.md); importing it lazily keeps
+    a missing or broken hook image from taking ``import strata`` down with it.
+    A failed import is not cached, so the next call retries it.
+    """
+    from . import _dumps_hook  # noqa: PLC0415 -- deliberate: first use only
+
+    return _dumps_hook.dumps_with_default
 
 
 def load(

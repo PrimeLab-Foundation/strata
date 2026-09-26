@@ -83,6 +83,11 @@ fi
 # packages between the two phases and muddy the comparison.
 "$VPY" -m pip install --force-reinstall --no-deps -e .
 
+# setup.py builds strata._dumps_hook unprofiled in both phases: nothing it runs
+# may enter _strata's profile. _strata's instrumented image is the scan's control.
+echo "==> PGO: the hook image must carry no profile"
+"$VPY" scripts/build_identity.py --check-unprofiled strata._dumps_hook --instrumented strata._strata
+
 echo "==> PGO: generating training data"
 "$VPY" scripts/pgo_training_data.py --out-dir "$PGO_DIR"
 
@@ -103,12 +108,28 @@ if [[ "$KIND" == "clang" ]]; then
         echo "Error: no .profraw files were written — the build was not instrumented." >&2
         exit 1
     fi
+    # %m names each file after the signature of the image that wrote it, so one
+    # instrumented image (_strata) leaves one signature; a second is another
+    # image — the hook — writing counts into this profile.
+    signatures="$(printf '%s\n' "${raw_files[@]##*/}" |
+        sed -E 's/^[0-9]+-([0-9]+)_[0-9]+\.profraw$/\1/' | sort -u)"
+    if [[ "$(printf '%s\n' "$signatures" | wc -l | tr -d ' ')" -ne 1 ]]; then
+        echo "Error: raw profiles from more than one instrumented image: $(tr '\n' ' ' <<<"$signatures")" >&2
+        exit 1
+    fi
     # Resolved into a variable first: `$(profdata_tool) merge ...` would run the
     # helper in a subshell, where its `exit 1` cannot stop this script.
     merge_tool="$(profdata_tool)"
     echo "==> PGO: merging ${#raw_files[@]} raw profiles"
     $merge_tool merge -output="$PROFILE" "${raw_files[@]}"
 else
+    # GCOV_PREFIX mirrors each object's path, and setup.py compiles the hook
+    # under a build_temp of its own, so its counts would sit below that name.
+    hook_counts="$(find "$RAW_DIR" -name '*.gcda' -path '*/strata._dumps_hook/*' -print -quit)"
+    if [[ -n "$hook_counts" ]]; then
+        echo "Error: the hook image wrote profile counts: $hook_counts" >&2
+        exit 1
+    fi
     # gcc writes .gcda directly; -fprofile-use reads the tree.
     PROFILE="$ROOT_DIR/$RAW_DIR"
 fi
@@ -121,6 +142,9 @@ export PGO_MODE=use
 export STRATA_ENABLE_LTO=1
 export STRATA_PGO_PROFILE="$PROFILE"
 "$VPY" -m pip install --force-reinstall --no-deps -e .
+
+echo "==> PGO: the hook image must carry no profile"
+"$VPY" scripts/build_identity.py --check-unprofiled strata._dumps_hook
 
 echo "==> PGO: gate tests on the optimized build"
 gate_tests

@@ -3,6 +3,8 @@
 Each arm runs in a fresh process with a staged copy of the Python facade.
 The installed extension and metadata are never replaced. Reports remain
 diagnostic evidence: patched builds cannot become clean CI standings.
+The facade imports `strata._dumps_hook` too, which no canonical row measures:
+both arms stage the working tree's hook image, so it is the same in each.
 """
 
 from __future__ import annotations
@@ -82,7 +84,9 @@ def measure(binary: Path, output: Path, data: Path, tier: str, repeat: int) -> N
 def run(
     before: Path, candidate: Path, output: Path, data: Path, tiers: list[str], repeat: int
 ) -> int:
-    for binary in (before, candidate):
+    hook = PROJECT_ROOT / "python" / "strata"
+    hook /= "_dumps_hook" + sysconfig.get_config_var("EXT_SUFFIX")
+    for binary in (before, candidate, hook):
         _check_build_identity(binary)
     # Preflight all tiers before spending time on the first one.
     for tier in tiers:

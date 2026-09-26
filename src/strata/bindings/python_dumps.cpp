@@ -33,6 +33,19 @@
  *      a `__del__` or a weakref callback firing out of a `Py_DECREF` in
  *      `Frame`, `DeferredOpen` or `RowLock`.
  *
+ * The hook image (`strata._dumps_hook`: this file compiled again with
+ * `STRATA_DUMPS_HOOK` by python_dumps_hook.cpp, behind `dumps_with_default`)
+ * has a fifth, and it is not rare: the caller's `default` callable, once per
+ * unsupported object (`write_unsupported`), after `latch()` like the others. It
+ * allocates what it likes, so in that image a collection can run inside a
+ * successful walk; the releases of the references `write_unsupported` takes are
+ * step 4 again. The same image reads the cycle policy from `_strata` through a
+ * Python call whose argument tuple is a tracked allocation, so that read is
+ * latched too (`STRATA_CYCLE_POLICY` takes the walk to latch). Everything under `STRATA_DUMPS_HOOK`
+ * exists only there:
+ * `_strata` compiles this file to the same token stream it did before the hook
+ * existed (docs/architecture/dumps_with_default.md, M12b criterion 4).
+ *
  * Everything else a *successful* walk executes runs none (a failing walk allocates only the
  * exception it raises, and returns at once): it calls nothing the user wrote and allocates nothing
  * the collector tracks (the output buffer is `bytes`/`std::string`, the schema blob is
@@ -141,7 +154,18 @@ namespace {
  * variable started at Ignore, so the two disagreed until the first
  * `config.set` (docs/bindings/SKILL.md: "do not reproduce").
  */
+#if !defined(STRATA_DUMPS_HOOK)
 CyclePolicyValue g_cycle_policy = CyclePolicyValue::Warn;
+#define STRATA_CYCLE_POLICY(owner) g_cycle_policy
+#else
+// The hook image (python_dumps_hook.cpp) reads `_strata`'s policy at the cycle
+// point instead: `config.set` writes `_strata`'s variable, and exporting it
+// would change `_strata` (docs/architecture/dumps_with_default.md). That read
+// calls into Python and allocates a tracked argument tuple, which can run a
+// collection -- user code -- so the walk latches first, as before every other
+// step that can run user code.
+#define STRATA_CYCLE_POLICY(owner) ((owner).latch(), hook_cycle_policy())
+#endif
 
 /// Walks a Python object graph, appending JSON through the staged buffer.
 class Serializer {
@@ -225,12 +249,82 @@ class Serializer {
         if (PyDict_Check(object))
             return write_mapping(object);
 
+#if defined(STRATA_DUMPS_HOOK)
+        return write_unsupported(object);
+#else
         PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
                      Py_TYPE(object)->tp_name);
         return false;
+#endif
     }
 
+#if defined(STRATA_DUMPS_HOOK)
+    /**
+     * Arm the hook: @p default_fn is the caller's callable, borrowed for the
+     * call (the caller's argument array keeps it alive). The hook image's only
+     * entry point always passes one; `hooked_` starts empty.
+     */
+    void set_default(PyObject* default_fn) noexcept {
+        default_ = default_fn;
+        hooked_ = nullptr;
+    }
+#endif
+
   private:
+#if defined(STRATA_DUMPS_HOOK)
+    /**
+     * write()'s unsupported tail in the hook image: serialize what the
+     * `default` callable returns in the object's place
+     * (docs/architecture/dumps_with_default.md). Only this image has the
+     * branch; `_strata`'s `write` is main's, token for token.
+     *
+     * The callable is the fifth user-code step of this file's header, and it
+     * takes the shape of the other three that invoke Python: `latch()` first,
+     * then a strong reference on the object being converted -- the latch owns
+     * the containers and the staged rows, not the entry being written (see
+     * write_int) -- then the call. The unsupported object is never pushed on
+     * `open_`: it is consulted, not written. What the callable returns
+     * re-enters write() at the current depth, inside no new frame, so a
+     * container it returns meets the same cycle probe and depth check a direct
+     * child would, through the value path.
+     *
+     * Chain bound 1, by identity: `hooked_` is the return just handed to
+     * write(), so write() hands it straight back here only when it has no
+     * branch for its type, and that is the refusal -- the callable is not
+     * called on its own return, and write() stays the one definition of the
+     * supported set. It is cleared, not restored, afterwards: a return write()
+     * accepted never comes back here, so the identity matters for that one
+     * immediate call, and anything nested inside a returned container is a new
+     * position with its own call. It is cleared before its reference is
+     * released, so it never names a freed object.
+     *
+     * Both references are released on the way out, and either release can run
+     * a `__del__` (step 4): the latch above already moved `user_steps_`, and
+     * every guard still live at that point was live when it ran, so each is
+     * latched -- the header's third fact holds as written.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_unsupported(PyObject* object) {
+        if (object == hooked_) {
+            PyErr_Format(PyExc_TypeError,
+                         "default() returned an object of type %s that is not JSON serializable",
+                         Py_TYPE(object)->tp_name);
+            return false;
+        }
+        latch();
+        Py_IncRef(object);
+        PyObject* const replacement = PyObject_CallOneArg(default_, object);
+        bool ok = false; // a null return keeps the callable's exception, unchanged
+        if (replacement != nullptr) {
+            hooked_ = replacement;
+            ok = write(replacement);
+            hooked_ = nullptr; // before the release: never a dangling identity
+            Py_DecRef(replacement);
+        }
+        Py_DecRef(object);
+        return ok;
+    }
+#endif
+
     [[nodiscard]] bool write_int(PyObject* object) {
 #if PY_VERSION_HEX >= 0x030C0000
         // A compact int is one machine word inside the object; reading it
@@ -491,13 +585,13 @@ class Serializer {
 
     /// The cycle placeholder the policy calls for, outside any frame.
     [[nodiscard]] STRATA_COLD_FN bool emit_cycle_placeholder() {
-        if (g_cycle_policy == CyclePolicyValue::Error) {
+        if (STRATA_CYCLE_POLICY(*this) == CyclePolicyValue::Error) {
             PyErr_SetString(PyExc_ValueError, "Circular reference detected");
             return false;
         }
         out_.ensure(4);
         out_.write("null", 4);
-        if (g_cycle_policy == CyclePolicyValue::Warn) {
+        if (STRATA_CYCLE_POLICY(*this) == CyclePolicyValue::Warn) {
             // The warning runs a user handler, which can empty the containers
             // this walk is inside: take the references before it runs.
             // A warning filter set to "error" raises here, which stops the
@@ -1508,13 +1602,13 @@ class Serializer {
 
         /// Emit the placeholder the policy calls for, and say whether to go on.
         [[nodiscard]] STRATA_COLD_FN bool handle_cycle() const {
-            if (g_cycle_policy == CyclePolicyValue::Error) {
+            if (STRATA_CYCLE_POLICY(owner_) == CyclePolicyValue::Error) {
                 PyErr_SetString(PyExc_ValueError, "Circular reference detected");
                 return false;
             }
             owner_.out_.ensure(4);
             owner_.out_.write("null", 4);
-            if (g_cycle_policy == CyclePolicyValue::Warn) {
+            if (STRATA_CYCLE_POLICY(owner_) == CyclePolicyValue::Warn) {
                 // The warning runs a user handler, which can empty the
                 // containers this walk is inside -- including the one this
                 // frame found repeated, which this frame deliberately does not
@@ -1782,6 +1876,13 @@ class Serializer {
     /// ahead of the branch in both writers.
     rawdict::Entry* general_scratch_;
 #endif
+#if defined(STRATA_DUMPS_HOOK)
+    /// The `default` callable, set by set_default before write().
+    PyObject* default_ = nullptr;
+    /// The value the callable just returned, while write() is handed it:
+    /// write_unsupported meeting it is the chain bound's refusal.
+    PyObject* hooked_ = nullptr;
+#endif
 };
 
 } // namespace
@@ -1802,6 +1903,7 @@ void prepare_dumps_runtime() noexcept {
 #endif
 }
 
+#if !defined(STRATA_DUMPS_HOOK)
 CyclePolicyValue get_cycle_policy() noexcept { return g_cycle_policy; }
 
 bool set_cycle_policy(std::string_view name) noexcept {
@@ -1816,8 +1918,16 @@ bool set_cycle_policy(std::string_view name) noexcept {
     }
     return true;
 }
+#endif
 
+// One body for both images: `_strata`'s `dumps_to_python`, and the hook
+// image's `dumps_with_default_to_python`, which differs only in arming the
+// walker with the callable (declared in python_dumps_hook.cpp).
+#if defined(STRATA_DUMPS_HOOK)
+PyObject* dumps_with_default_to_python(PyObject* object, bool as_bytes, PyObject* default_fn) {
+#else
 PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
+#endif
     SchemaCacheLease lease;
     if (!lease.ok())
         return PyErr_NoMemory();
@@ -1842,6 +1952,9 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         if (!staged.init_bytes(size_hint))
             return PyErr_NoMemory();
         Serializer serializer(staged, lease.state());
+#if defined(STRATA_DUMPS_HOOK)
+        serializer.set_default(default_fn);
+#endif
         if (!serializer.write(object))
             return nullptr;
         PyObject* result = staged.take_bytes();
@@ -1877,6 +1990,9 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
 
     StagedOutput staged(out);
     Serializer serializer(staged, lease.state());
+#if defined(STRATA_DUMPS_HOOK)
+    serializer.set_default(default_fn);
+#endif
     if (!serializer.write(object))
         return nullptr;
     staged.flush_str();

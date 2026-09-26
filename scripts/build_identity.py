@@ -8,9 +8,23 @@ of how an existing extension was built.
 from __future__ import annotations
 
 import hashlib
+import importlib.machinery
+import importlib.util
 import json
+import re
 import subprocess
 from pathlib import Path
+
+# Every spelling that builds an image for or against a profile: clang/gcc
+# -fprofile-*, clang-cl's /clang:-fprofile-*, MSVC's /GENPROFILE, /USEPROFILE
+# and the older /LTCG:PGI|PGO|PGU.
+PROFILE_FLAG = re.compile(
+    r"[-/]f(?:cs-)?profile-|[-/](?:FAST)?GENPROFILE|[-/]USEPROFILE|[-/]LTCG:PG", re.IGNORECASE
+)
+# Strings only a linked profile runtime puts in an image: clang's runtime reads
+# LLVM_PROFILE_FILE, gcc's GCOV_PREFIX, and an MSVC-instrumented image imports
+# pgort140.dll. Matched case-insensitively.
+PROFILE_RUNTIME_MARKERS = (b"llvm_profile_file", b"gcov_prefix", b"pgort")
 
 
 def file_hash(path: Path) -> str:
@@ -174,12 +188,94 @@ def record_profile(profile: Path, raw: Path, root: Path, recipe: str) -> None:
     )
 
 
+def profile_runtime_markers(image: Path) -> list[str]:
+    data = image.read_bytes().lower()
+    return [marker.decode() for marker in PROFILE_RUNTIME_MARKERS if marker in data]
+
+
+def unprofiled_problems(image: Path) -> list[str]:
+    """Why `image` cannot be shown built without a profile; empty when it can."""
+    identity = image.with_name(image.name + ".build.json")
+    try:
+        packet = json.loads(identity.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return [f"no readable build identity at {identity} ({exc})"]
+    problems = []
+    if packet.get("extension_sha256") != file_hash(image):
+        problems.append(f"{identity.name} describes another binary")
+    if packet.get("pgo_profile") is not None:
+        problems.append(f"{identity.name} records a profile: {packet['pgo_profile'].get('path')}")
+    commands = packet.get("commands") or []
+    if not commands:
+        problems.append(f"{identity.name} records no build commands")
+    flags = sorted(
+        {str(part) for command in commands for part in command if PROFILE_FLAG.search(str(part))}
+    )
+    if flags:
+        problems.append(f"{identity.name} commands carry profile flags: {' '.join(flags)}")
+    markers = profile_runtime_markers(image)
+    if markers:
+        problems.append(f"the image links a profile runtime ({', '.join(markers)})")
+    return problems
+
+
+def module_image(name: str) -> Path:
+    """The extension file `package.module` resolves to, found without importing it.
+
+    Importing would load an instrumented `_strata` and write a profile from
+    the checking process itself.
+    """
+    package, _, leaf = name.rpartition(".")
+    parent = importlib.util.find_spec(package)
+    locations = list(parent.submodule_search_locations or []) if parent else []
+    spec = importlib.machinery.PathFinder.find_spec(leaf, locations)
+    if spec is None or not spec.origin:
+        raise SystemExit(f"{name} is not installed (searched {locations})")
+    return Path(spec.origin).resolve()
+
+
+def check_unprofiled(name: str, instrumented: str | None) -> int:
+    """Fail unless `name`'s image carries no profile; `instrumented` is the scan's control."""
+    if instrumented:
+        control = module_image(instrumented)
+        if not profile_runtime_markers(control):
+            print(
+                f"error: {instrumented} ({control}) carries no profile-runtime marker, so the "
+                "image scan cannot tell an instrumented build from a plain one",
+            )
+            return 1
+    image = module_image(name)
+    problems = unprofiled_problems(image)
+    if problems:
+        print(f"error: {name} ({image}) must be built without a profile:")
+        for problem in problems:
+            print(f"  - {problem}")
+        return 1
+    print(f"+ {name} is unprofiled: {image.name}.build.json records no profile or profile flag,")
+    print("  and the image links no profile runtime")
+    return 0
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Record the inputs of a merged PGO profile")
-    parser.add_argument("--profile", type=Path, required=True)
-    parser.add_argument("--raw", type=Path, required=True)
-    parser.add_argument("--recipe", required=True)
+    parser.add_argument("--profile", type=Path)
+    parser.add_argument("--raw", type=Path)
+    parser.add_argument("--recipe")
+    parser.add_argument(
+        "--check-unprofiled",
+        metavar="MODULE",
+        help="instead, fail unless MODULE's image and build identity carry no profile",
+    )
+    parser.add_argument(
+        "--instrumented",
+        metavar="MODULE",
+        help="with --check-unprofiled: MODULE's image must link a profile runtime",
+    )
     args = parser.parse_args()
+    if args.check_unprofiled:
+        raise SystemExit(check_unprofiled(args.check_unprofiled, args.instrumented))
+    if not (args.profile and args.raw and args.recipe):
+        parser.error("--profile, --raw and --recipe are required")
     record_profile(args.profile, args.raw, Path(__file__).resolve().parents[1], args.recipe)

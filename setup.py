@@ -115,7 +115,10 @@ class TestGatedBuildExt(build_ext):
                     if isinstance(flags, list):
                         flags[:] = [flag for flag in flags if flag != "/LTCG"]
             print(f"+ compiling with {self.compiler.cc}, plain /O2 (no LTCG)", flush=True)
-        commands = []
+        # Commands are recorded per extension (build_extension names the one
+        # being built), so each image's identity lists only what built it.
+        self._commands_by_extension: dict[str, list[list[str]]] = {}
+        self._current_extension = ""
         source = _BUILD_IDENTITY["source_identity"](PROJECT_ROOT)
         # Every compiler class in setuptools' distutils routes through
         # `spawn` (MSVC overrides it, which an instance attribute shadows);
@@ -129,7 +132,9 @@ class TestGatedBuildExt(build_ext):
             originals[method] = original
 
             def record(command, _original=original, **kwargs):
-                commands.append([str(part) for part in command])
+                self._commands_by_extension.setdefault(self._current_extension, []).append(
+                    [str(part) for part in command]
+                )
                 return _original(command, **kwargs)
 
             setattr(self.compiler, method, record)
@@ -142,11 +147,33 @@ class TestGatedBuildExt(build_ext):
             write_identity(
                 Path(self.get_ext_fullpath(extension.name)),
                 root=PROJECT_ROOT,
-                commands=commands,
-                profile=os.environ.get("STRATA_PGO_PROFILE"),
+                commands=self._commands_by_extension.get(extension.name, []),
+                # Only `_strata` is ever built against the profile; the hook
+                # image's identity must not claim one (see _compile_args).
+                profile=(
+                    os.environ.get("STRATA_PGO_PROFILE")
+                    if extension.name == "strata._strata"
+                    else None
+                ),
                 source=source,
                 required_sources=extension.sources,
             )
+
+    def build_extension(self, ext) -> None:
+        self._current_extension = ext.name
+        if ext.name == "strata._strata":
+            super().build_extension(ext)
+            return
+        # Any other image compiles into a temp directory of its own:
+        # setuptools names objects by source path alone, and the hook image
+        # compiles the core sources with other flags (never profiled, one
+        # section per function), so one object path must not serve both.
+        base = self.build_temp
+        self.build_temp = os.path.join(base, ext.name)
+        try:
+            super().build_extension(ext)
+        finally:
+            self.build_temp = base
 
     def copy_extensions_to_source(self) -> None:
         super().copy_extensions_to_source()
@@ -166,7 +193,7 @@ class TestGatedBuildExt(build_ext):
             _banner("GATE 1/2: C++ test suite (pre-build)")
             self._gate("C++", PROJECT_ROOT / "scripts" / "cpp_tests.py")
 
-        _banner("Building the strata._strata extension")
+        _banner("Building the strata._strata and strata._dumps_hook extensions")
         super().run()
 
         if not SKIP_TESTS:
@@ -399,7 +426,14 @@ def _optimization_args() -> tuple[list[str], list[str]]:
     return compile_args, link_args
 
 
-def _compile_args() -> list[str]:
+def _compile_args(*, profiled: bool = True) -> list[str]:
+    """The compile line; `profiled=False` leaves out every LTO/PGO flag.
+
+    The hook image (`strata._dumps_hook`) is built unprofiled in both PGO
+    phases: nothing it runs may enter `_strata`'s profile, and its copies of
+    the core functions carry the same external names as `_strata`'s
+    (docs/architecture/dumps_with_default.md, "PGO").
+    """
     if sys.platform == "win32":
         # /Zc:__cplusplus: MSVC otherwise reports __cplusplus as 199711L and
         # the C++20 guards in the headers misfire.
@@ -422,7 +456,8 @@ def _compile_args() -> list[str]:
             # later flag wins, so the measured Windows build is the same
             # optimisation level as the others.
             args.append("/clang:-O3")
-        args.extend(_optimization_args()[0])
+        if profiled:
+            args.extend(_optimization_args()[0])
         return args
     args = ["-std=c++20", "-O3", "-D_LIBCPP_DISABLE_AVAILABILITY"]
     if platform.machine() in ("x86_64", "AMD64"):
@@ -444,7 +479,8 @@ def _compile_args() -> list[str]:
         args.append(f"-march={march}")
     elif not _is_universal_build():
         args.append("-march=native")
-    args.extend(_optimization_args()[0])
+    if profiled:
+        args.extend(_optimization_args()[0])
     return args
 
 
@@ -481,6 +517,35 @@ def _core_sources() -> list[str]:
     return entries
 
 
+# `strata._dumps_hook` — `dumps_with_default` (docs/architecture/dumps_with_default.md).
+# One binding TU, which compiles python_dumps.cpp again with the hook enabled,
+# linked against the shared core manifest like `_strata` (one list of core
+# sources: tests/unit/test_build_manifest.py) with unreferenced code stripped at
+# link time, so the image carries what the serializer calls and little else.
+# `_strata`'s own source list, order and flags above are untouched by its
+# existence (M12b criterion 4).
+HOOK_BINDING_SOURCES = ["src/strata/bindings/python_dumps_hook.cpp"]
+
+
+def _hook_compile_args() -> list[str]:
+    args = _compile_args(profiled=False)
+    if sys.platform != "win32":
+        # Hidden by default, so only the module init is exported: the core
+        # copies then neither root the link-time strip nor interpose on
+        # `_strata`'s same-named functions under an RTLD_GLOBAL load.
+        args += ["-ffunction-sections", "-fdata-sections", "-fvisibility=hidden"]
+    return args
+
+
+def _hook_link_args() -> list[str]:
+    # MSVC's release link already drops unreferenced functions (/OPT:REF).
+    if sys.platform == "darwin":
+        return ["-Wl,-dead_strip"]
+    if sys.platform != "win32":
+        return ["-Wl,--gc-sections"]
+    return []
+
+
 ext_modules = [
     Extension(
         "strata._strata",
@@ -491,6 +556,17 @@ ext_modules = [
         ],
         extra_compile_args=_compile_args(),
         extra_link_args=_link_args(),
+        language="c++",
+    ),
+    Extension(
+        "strata._dumps_hook",
+        sources=[*HOOK_BINDING_SOURCES, *_core_sources()],
+        include_dirs=[
+            "include",
+            get_paths()["include"],
+        ],
+        extra_compile_args=_hook_compile_args(),
+        extra_link_args=_hook_link_args(),
         language="c++",
     ),
 ]
