@@ -93,7 +93,7 @@ macos-x86_64 `loads`/`load wide_arrays` loss acquitted by the equal-tests arm `9
 `exp/p26-tests-arm`; the gate-inclusive profile absorbing the 32 new tests, plus host drift whose
 raw strata and raw rival track each other), and the residual `dumps wide_arrays` reading under the
 gate against what ships (ledger, E26-P26+P27); the Windows decompose probe reads `dumps mixed`
-paired 0.9671x [0.9551, 0.9767] against 1.045x before the campaign, and 17-digit doubles 1.011x
+paired 0.9671x \[0.9551, 0.9767\] against 1.045x before the campaign, and 17-digit doubles 1.011x
 against 1.16x. Its two five-platform samples read **132/135** and **133/135** (runs 35265975969
 and 35267792012), windows-x86_64 `dumps mixed` **#1 on both draws** (0.974x, 0.937x) for the first
 time, and the cross-sample view now reads, for the first time, **no row behind on every draw**:
@@ -119,7 +119,11 @@ and verified; the nine draws before it read 133, 134, 129, 134, 134, 133, 134 wi
 rotating one or two coin cells per draw, so the sweep is the coin landing flat, not a change in
 the code. What remains is holding the state the cross-sample table shows — the coin band is the
 instrument's, not the code's — plus E26-P8, the deferred JSONPath grammar extensions, and the
-backlog in `docs/benchmarking/SKILL.md`. The rebuild is versioned calver,
+backlog in `docs/benchmarking/SKILL.md`. M12 (the `dumps` `default=` hook in the signature)
+was attempted twice and refused by its own kill criterion — run 36254514783, linux-x86_64
+`dumps flat` lost to the hook's code across two implementations — and its successor is a
+separate `dumps_with_default` entry point (docs/performance/experiment-ledger.md, M12).
+The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
 (see `docs/context/api.md`).
 
