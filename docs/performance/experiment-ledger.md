@@ -3863,3 +3863,68 @@ waits on it.
   `write_diff.*.txt`, the floor benches and their raw samples,
   `PROVENANCE.txt` stating what the directory does not claim), `coverage/`
   (the instrumented build's new-line report), and the ASan logs.
+
+## M12b — `dumps_with_default`, the hook as a separate image
+
+- 2026-09-27 · `exp/m12b-dumps-with-default` over main `a9cd524`, uncommitted.
+  Record: [`dumps_with_default.md`](../architecture/dumps_with_default.md);
+  roadmap M12b criteria 1–4 and 7–9 met here, **5–6 owed** (the
+  tests-matched five-leg A/B and two CI samples). Not a go yet.
+- **Shape.** `strata._dumps_hook`, a second extension image, compiles
+  `python_dumps.cpp` again with `STRATA_DUMPS_HOOK` defined
+  (`src/strata/bindings/python_dumps_hook.cpp`); the hook code is M12's
+  (`write_unsupported`, the identity chain bound, `set_default`) and exists
+  only there. `_strata`'s build is main's. The facade imports the hook image
+  on the first `dumps_with_default` call (amended from an eager import on
+  review), so a missing or broken hook image fails that call, not
+  `import strata`.
+- **Criterion 4 — zero diff, measured after the review fixes**
+  (`build/evidence/benchmark-lead/M12b/zero-diff/`): all 18 `_strata`
+  translation units preprocess to main's token streams on arm64 and x86-64
+  (36/36); every object's `__text` and every `__TEXT`/`__DATA` section of
+  the linked plain extension are byte-identical to main's on both ISAs
+  (`section_hashes.txt`: `__TEXT,__text` sha256 `8d9ede5989eadf1a…` arm64,
+  `82cf4ae0b66f7352…` x86-64, the same for main and the branch);
+  `setup.py`'s `_strata` `Extension` is unchanged. The hook image: 33 992 B
+  `__text` arm64, 34 366 B x86-64 (hidden visibility, function sections,
+  link-time strip; one exported symbol). A local `make pgo` builds it
+  unprofiled and `_strata` against the profile, and the three PGO scripts
+  fail if the hook image's identity or commands carry a profile flag.
+- **Review fix, P1: the hook image's cycle-policy read ran user code
+  unlatched.** `config_get` is `METH_VARARGS`, so the read allocates a
+  tracked argument tuple, and on CPython 3.10/3.11 that allocation collects
+  inline: a `gc.callbacks` entry clearing the dict being written read freed
+  memory into the output (reviewer's repro, 3/3 on 3.11). The read is now
+  latched (`STRATA_CYCLE_POLICY(owner)` latches, then reads; `_strata`'s
+  expansion is still `g_cycle_policy`). On 3.11 the repro reads the row
+  read on entry 3/3, and the regression test
+  (`test_a_collection_at_the_cycle_policy_read_cannot_free_the_row_being_written`)
+  segfaults on a pre-fix 3.11 build and passes on the fixed one; it skips on
+  3.12+, where the collector cannot be forced inside the call.
+- **Criterion 9 — first-call cost** (60 fresh-interpreter ABBA rounds, plain
+  arm64 builds; the machine was loaded, load average 5–15 from desktop
+  processes, so the readings are indicative): `import strata` unchanged
+  against main (paired +0.005 ms \[−0.095, +0.072\]); the first
+  `dumps_with_default` call adds 0.499 ms \[0.485, 0.526\] over the second
+  and 128 KB RSS, against the ≤ 1 ms / ≤ 1 MB bound. `dumps` itself is
+  untouched, so M12's +10 ns facade cost is gone. **Owed:** the same
+  measurement in a quiet window (standing practice: loaded rolls are
+  indicative only); it rides the next quiet moment on the dev M1 and does not
+  block criterion 5.
+- **Correctness.** `tests/unit/test_dumps_with_default.py` (173),
+  `tests/unit/test_dumps_with_default_state.py` (cycle policy from `_strata`,
+  E26-FIX2b re-pinned in both directions, the hook image's init refusals, a
+  failing policy read, and legacy subinterpreters in both import orders),
+  `tests/py/test_dumps_with_default_contract.py` (197 message-pinned
+  integration mirrors of the error table, and the missing-hook-image
+  robustness test), `tests/py/test_dumps_with_default.py` (mutation,
+  re-entrancy, the stdlib oracle, the regression test),
+  `tests/unit/test_hook_build_scope.py` (31), `tests/integrations/` (19,
+  outside the gate). `make test` 3184 passed; `make test-py-asan` 3179 passed,
+  4 skipped; coverage 119/122 new binding lines across both images (the
+  three: an llvm-cov line artefact and two allocation-failure exits of the
+  module init), the facade 100%.
+- **Test composition.** The new suites keep calls into `_strata` to a small
+  fixed set and use the stdlib oracle for corpus-wide checks, so what they can
+  shift in the shipped `_strata` profile is small; criterion 6 reads what
+  remains.

@@ -1,6 +1,8 @@
 # Decision record: `dumps_with_default` — the unsupported-type hook as a separate entry point
 
-Status: **draft** (2026-09-26) — design only, no code written. Successor to
+Status: **implemented on `exp/m12b-dumps-with-default`** (2026-09-27, M12b
+criteria 1–4 and 7–9; the A/B and CI samples of 5–6 owed). Drafted
+2026-09-26. Successor to
 [`dumps_default_hook.md`](dumps_default_hook.md), whose in-signature shape
 (`dumps(..., default=)`) was implemented twice and refused by its own kill
 criterion (docs/performance/experiment-ledger.md, M12). This record keeps that
@@ -76,10 +78,15 @@ fastcall entry and the cycle-policy bridge. Consequences:
   anything new (a capsule would change `_strata`'s init). The hooked build's
   two cold cycle handlers read it at the cycle point through
   `strata._strata.config_get("cycle_policy")`, fetched once at the hook module's
-  init. That call runs no user code and allocates one untracked `str`, so it is
-  not a user-code step under the five-step contract. Reading at the cycle point
-  (not once per call) keeps `dumps`'s semantics: a policy the callable changes
-  mid-walk applies to later cycles in both entry points.
+  init. `config_get` is a `METH_VARARGS` builtin, so the call allocates an
+  argument tuple the collector tracks, and on CPython 3.10/3.11 that allocation
+  can run a collection — `gc.callbacks`, finalizers, weakref callbacks: user
+  code. The read therefore happens **after `latch()`**, like every other step
+  that can run user code (the review of 2026-09-27 found it unlatched: a
+  collection there could clear the dict being written while the walk still
+  borrowed its row). Reading at the cycle point (not once per call) keeps
+  `dumps`'s semantics: a policy the callable changes mid-walk applies to later
+  cycles in both entry points.
 - *Raw-dict layout proofs.* `rawdict::proved_layouts()` is an `inline`
   function-local static, one per image. The hook module's init resolves its own
   copy, as `_strata`'s `prepare_dumps_runtime()` does, before any walk — the
@@ -147,10 +154,15 @@ longer reach a hook.** That is the contract-side statement of the isolation.
 
 `__all__` grows by one name. The convention asks for one public entry point per
 capability; the hook is a capability no existing entry covers, and this is its
-one entry. The facade function delegates to `strata._dumps_hook` with no logic;
-the module is imported eagerly by `strata/__init__.py`, keeping "`import strata`
-fails loudly when an extension is missing" true for both images. Its import
-cost and resident-memory cost are measured (criterion 9).
+one entry. The facade function delegates to `strata._dumps_hook`, which it
+imports **on first use** and caches (`functools.cache`, which does not cache a
+failure): a missing or broken hook image then raises its `ImportError` at the
+first `dumps_with_default` call, scoped to the one capability that needs it,
+instead of taking `import strata` — and every other function — down with it.
+"`import strata` fails loudly when an extension is missing" stays true for
+`_strata`. The first call's added time and resident memory are measured
+(criterion 9). (Amended 2026-09-27 from an eager import, on review:
+docs/decisions.md.)
 
 ## Reuse from `exp/m12-default-hook-2`
 

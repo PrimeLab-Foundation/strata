@@ -229,7 +229,7 @@ whose cause is the code rather than the profile ⇒ the shape is abandoned for a
 separate `dumps_with_default` entry point that cannot perturb `dumps`'s
 codegen.
 
-## M12b — `dumps_with_default`: the hook as a separate entry point (planned)
+## M12b — `dumps_with_default`: the hook as a separate entry point (in progress)
 
 Design: `docs/architecture/dumps_with_default.md` (draft). The M12 semantics
 behind `strata.dumps_with_default(obj, default, *, return_type="str")`, served
@@ -271,9 +271,14 @@ serializer source, so that `strata._strata` does not change at all.
    CI job.
 8. Both suites green, coverage 100% on the new lines of both images, the
    ledger carries the entry.
-9. `import strata`'s wall time (≥ 30 fresh-process repeats) and resident
-   memory with the eager `_dumps_hook` import are measured against main on the
-   dev M1 and recorded; the bound is set at sign-off.
+9. The hook image is imported on the first `dumps_with_default` call, not by
+   `import strata`: with the hook image missing, `import strata`, `dumps` and
+   `loads` still work and `dumps_with_default` raises `ImportError` on every
+   call (tested). `import strata`'s own wall time is unchanged against main, and
+   the first call's added wall time and resident memory — measured in fresh
+   processes (≥ 30 repeats) on the dev M1 in a quiet window — are ≤ 1 ms and
+   ≤ 1 MB (bounds signed off 2026-09-26; amended to first-call cost
+   2026-09-27).
 
 **Kill criterion:** if criterion 4 cannot be met, the isolation design is wrong
 and nothing is timed; if it is met and criterion 5 still resolves a loss, the
@@ -281,6 +286,9 @@ cause is host or profile nondeterminism and goes to a second draw and the
 identical-binary control, not to the code.
 
 ## M13 — Tier-1 framework adapters (planned)
+
+Depends on M12b: the adapters hand frameworks `dumps_with_default` for their
+unsupported types, so M13 starts when M12b's criteria are met.
 
 Flask (`json_provider_class`), Django (`JsonResponse(encoder=)`), aiohttp
 (`dumps=`), Falcon (`media.JSONHandler`), structlog (`JSONRenderer(serializer=)`).
