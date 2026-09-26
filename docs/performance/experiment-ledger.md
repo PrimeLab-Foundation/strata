@@ -3714,16 +3714,17 @@ waits on it.
 
   | ISA    | `write` instructions | diff                                                                              | Section `__text`               |
   | ------ | -------------------- | --------------------------------------------------------------------------------- | ------------------------------ |
-  | arm64  | 281 → 290            | −3 / +12: the `default_` load and branch, the tail-call block, renumbered offsets | 156 892 → 157 416 (**+524 B**) |
-  | x86-64 | 186 → 193            | −6 / +13: the same                                                                | 164 560 → 165 040 (**+480 B**) |
+  | arm64  | 281 → 290            | −3 / +12: the `default_` load and branch, the tail-call block, renumbered offsets | 156 892 → 157 420 (**+528 B**) |
+  | x86-64 | 186 → 193            | −6 / +13: the same                                                                | 164 560 → 165 056 (**+496 B**) |
 
   Largest contributors (arm64 / x86-64): `write_unsupported` 188 / 178 B,
   `default_converter` 120 / 92, `strata_dumps` +88 / +64, `strata_dump`
-  +44 / +64, `write` +36 / +16. **arm64 is 12 B past the budget**: the hook
-  itself is +504 B, and the review's correction of the directory-target rule
-  (a `BaseException` that is not an `Exception` is no longer replaced) adds
-  20 B to `strata_dump` (docs/decisions.md, 2026-09-26, the size correction;
-  acceptance left to review). The PGO+LTO shipped build is not claimed: its
+  +44 / +64, `write` +36 / +16, and the output stage's cache-line pin +4 /
+  +16 in `dumps_to_python`. Accepted and written into criterion 4 (docs/
+  decisions.md, 2026-09-26): the hook itself is +504 B on arm64, the
+  review's directory-target correction (a `BaseException` that is not an
+  `Exception` is no longer replaced) +20 B in `strata_dump`, and the pin the
+  first attempt proved necessary (`796f9a8`) the rest. The PGO+LTO shipped build is not claimed: its
   layout follows a profile the new tests move by themselves (E26-P7b).
 
 - **Rejected on the way, each on its own number.** The null test inside the
