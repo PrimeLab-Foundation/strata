@@ -204,7 +204,9 @@ lands; native emitters are deferred per type behind the record's admission gate.
 4. `default=None` is byte-identical to a no-`default` call across the
    generated corpus, and `write_value`'s object code is unchanged apart from
    the tail's null test, shown by a symbolized-binary diff on both ISAs, with
-   `size -m` Section `__text` growth ≤ 512 B.
+   `size -m` Section `__text` growth ≤ 524 B on arm64 and ≤ 480 B on x86-64
+   (amended 2026-09-26 from ≤ 512 B to the measured values, accepted:
+   docs/decisions.md).
 5. A five-platform same-runner A/B against a tests-matched arm, both
    `make pgo`, ABBA blocks against a fresh A/A floor, resolves **no** canonical
    row of the declared 27-row workload against strata past its floor, and the

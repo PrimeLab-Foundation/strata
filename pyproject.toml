@@ -59,6 +59,15 @@ bench = [
   "psutil>=5",
 ]
 
+integrations = [
+  # Third-party types for tests/integrations only: `make test-integrations`
+  # and its own CI job. Kept out of testpaths, the gate and the PGO profile
+  # (docs/architecture/dumps_default_hook.md, "Test placement").
+  "pydantic>=2",
+  "attrs>=22.2",
+  "numpy>=1.26",
+]
+
 [project.urls]
 Homepage = "https://github.com/PrimeLab-Foundation/strata"
 Repository = "https://github.com/PrimeLab-Foundation/strata"

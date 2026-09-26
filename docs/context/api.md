@@ -44,7 +44,7 @@ Raises `ValueError` (invalid JSON / nesting past the cap / bad `return_type`),
 `duplicate_key_policy="warn"`.
 
 ```python
-strata.dumps(obj, *, return_type="str") -> str | bytes
+strata.dumps(obj, *, return_type="str", default=None) -> str | bytes
 ```
 
 Compact serialization (no whitespace). Supports
@@ -62,16 +62,62 @@ containers, so a tree parsed at depth 1001–1024 needs a raised
 `sys.setrecursionlimit` to serialize again — unchanged from before the parse
 cap, and stated so the asymmetry is not a surprise.
 
-**Mutation during serialization.** User code can run inside `dumps` at four
-steps, all of them rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
+**Unsupported-type hook (`default=`).** `default` is keyword-only, `None` or a
+callable of one argument (design record: `docs/architecture/dumps_default_hook.md`).
+It is called **only** where `dumps` would otherwise raise
+`TypeError("Object of type %s is not JSON serializable")`, once per such object,
+and its return value is serialized in that object's place, as a *value* — the
+path a dict value or the root takes — at the unsupported object's depth: a
+returned container one level past the limit raises "Maximum serialization depth
+exceeded" exactly as a direct child there would, and a returned container that
+is already open is a cycle under the active `cycle_policy`, reported where it
+was returned. That includes a list-element position, where a *directly* reached
+repeated dict can land one container late (the placement caveat under Config
+below belongs to the array element loop, which the returned value does not
+take). `default=None` is the same call as no `default` at all, byte for byte.
+The rules, each test-pinned:
+
+- `default` neither `None` nor callable ⇒ `TypeError("default must be callable, not %s")` (the type name), raised before any byte is produced or any file or
+  directory is touched.
+- An unsupported object with no `default` ⇒ the unchanged
+  `TypeError("Object of type %s is not JSON serializable")`.
+- The callable raises ⇒ that exception **propagates unchanged**: same object,
+  same type and args, no wrapping or chaining (`KeyboardInterrupt`,
+  `MemoryError` and `SystemExit` included); a `dump` writes nothing to its
+  destination. One exception to "unchanged": a `dump` to a directory without
+  `split_by` reports the directory instead of an `Exception` (see File &
+  folder I/O), never instead of `KeyboardInterrupt` or `SystemExit`.
+- **Chain bound 1.** The callable returns an unsupported object ⇒
+  `TypeError("default() returned an object of type %s that is not JSON serializable")`, and the callable is **not** called on its own return. This
+  diverges from stdlib `json`, which re-enters `default` without limit, and from
+  orjson, which re-enters it up to 254 times; a caller who wants a chain writes
+  the loop inside the callable. Unsupported objects *nested inside* a returned
+  container are ordinary positions and get their own call.
+- The callable returns `None` ⇒ `null` (`None` is a value, not a "cannot
+  handle" sentinel); a returned `str` with no UTF-8 encoding ⇒
+  `UnicodeEncodeError`, as for any other `str`.
+- **Keys are excluded.** A non-`str` dict key raises the unchanged
+  `TypeError("keys must be str, not %s")`; `default` is never called for a key.
+- **`split_by` values are excluded.** `dump(..., split_by=...)` groups records
+  before serializing anything, so a split value that is not `str`/`int`/`bool`
+  raises the unchanged `TypeError("split_by values must be str, int or bool, not %s")`; `default` applies only to the records' serialization, per group
+  file.
+
+**Mutation during serialization.** User code can run inside `dumps` at five
+steps. Four are rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
 warnings filter or `showwarning` hook); `__str__` of an `int` subclass beyond
 int64; the decimal conversion of an **exact** `int` beyond int64 that CPython
 3.12+ delegates to the `_pylong` Python module — reached above roughly 10 000
 digits, so `sys.set_int_max_str_digits` has to permit it, and it imports modules
-and runs bytecode; and, as a consequence of any of those, a `__del__` or a
-weakref callback fired when the serializer releases what that code orphaned.
-Nothing else in a successful `dumps` calls into Python or allocates an object
-the collector tracks, so no collection can run one either. If that code mutates
+and runs bytecode; and, as a consequence of any step, a `__del__` or a weakref
+callback fired when the serializer releases what that code orphaned — including
+the reference the `default` callable returned. The fifth is **not** rare: the
+`default` callable, once per unsupported object. Without a `default` callable,
+nothing else in a successful `dumps` calls into Python or allocates an object
+the collector tracks, so no collection can run one either; **with one**, the
+callable allocates what it likes, so a collection — and every `__del__` it
+fires — can run inside a successful `dumps`. The rules below are properties of
+the writers, not of which step re-entered, and hold for all five. If that code mutates
 a container being written, `dumps` never reads freed memory: lists and tuples
 are followed live, element by element, as stdlib `json` does (a shrunk list ends
 there, appended elements are written); a dict of at most 24 exact-`str` keys,
@@ -85,7 +131,7 @@ unchanged.
 
 ```python
 strata.load(path, *, return_type="dict", iterator=False, skip_errors=False)  # str | Path; file or dir
-strata.dump(obj, path, *, split_by=None) -> None                             # str | Path
+strata.dump(obj, path, *, split_by=None, default=None) -> None               # str | Path
 ```
 
 **File mode** (`path` is a file): `load` dispatches on extension:
@@ -121,7 +167,15 @@ other bad line under `skip_errors=True`. Raises
   `str`). One key → `dirpath/<value>.json`; N keys → nested directories, one
   level per key, file for the last: `dirpath/<v1>/<v2>.json`. Each file is a
   compact JSON array of that group's records (+ trailing newline), preserving
-  input order. A directory target without `split_by` → `ValueError`.
+  input order. A directory target without `split_by` → `ValueError` —
+  whatever `Exception` failed first: the document is serialized before the
+  target is opened, so a `default` callable has already run, and an
+  `Exception` it raised is replaced by this `ValueError`; a `BaseException`
+  that is not an `Exception` (`KeyboardInterrupt`, `SystemExit`) propagates
+  unchanged (docs/decisions.md, 2026-09-26). With
+  `split_by`, `default` applies per group file; a group whose serialization
+  fails is not written, and the groups written before it stay written, as for
+  any other error in folder mode.
 - Split values must be `str`/`int`/`bool` scalars. **Grouping is by the JSON
   string form**: `str` as-is, `int` as decimal digits, `bool` as
   `true`/`false`. Distinct raw values whose string forms collide (e.g. `1` vs

@@ -17,8 +17,8 @@
  *
  * ## Re-entrancy: what the walk may borrow, and for how long
  *
- * The serializer runs user code at exactly four steps, all of them rare and
- * all of them named here:
+ * The serializer runs user code at exactly five steps, all of them named here
+ * and all but the fifth rare:
  *
  *   1. a cycle placeholder's `PyErr_WarnEx` under the default
  *      `cycle_policy="warn"` (a warnings filter, a `showwarning` hook);
@@ -31,13 +31,18 @@
  *      and runs bytecode, so a collection can run there too;
  *   4. the serializer's own release of a reference it took at one of those --
  *      a `__del__` or a weakref callback firing out of a `Py_DECREF` in
- *      `Frame`, `DeferredOpen` or `RowLock`.
+ *      `Frame`, `DeferredOpen`, `RowLock` or `write_unsupported`;
+ *   5. the caller's `default=` callable, once per unsupported object
+ *      (`write_unsupported`) -- not rare, since running it is the point of
+ *      the option. It allocates what it likes, so a collection, and every
+ *      finalizer it fires, can run inside a *successful* walk that passed one.
  *
  * Everything else a *successful* walk executes runs none (a failing walk allocates only the
  * exception it raises, and returns at once): it calls nothing the user wrote and allocates nothing
  * the collector tracks (the output buffer is `bytes`/`std::string`, the schema blob is
- * `std::string`, and the staged rows and the schema cache are leased before the walk starts), so no
- * collection and therefore no finalizer can be triggered either. That is the
+ * `std::string`, and the staged rows and the schema cache are leased before the walk starts), so
+ * without a `default=` callable no collection and therefore no finalizer can be triggered either.
+ * That is the
  * same fact frame elision already rests on -- which is why step 3 is not just
  * a latch: `is_plain_scalar` refuses to call a large `int` a plain scalar, so
  * a container holding one is framed and its row registered like a container
@@ -54,7 +59,7 @@
  * build/evidence/FIX1-REVIEW). `prepare_dumps_runtime()` resolves it at
  * module init instead. A lazily-resolved static, or any GC-tracked
  * allocation, or any conversion an interpreter version hands back to Python
- * (step 3 is exactly that, and was missed once) added below is a fifth step
+ * (step 3 is exactly that, and was missed once) added below is a sixth step
  * and breaks this contract.
  *
  * Because that user code can mutate the very container being written, the
@@ -179,6 +184,22 @@ class Serializer {
     {
     }
 
+    /**
+     * Arm the `default=` hook: @p default_fn is the caller's callable,
+     * borrowed for the call (the caller's argument array keeps it alive), or
+     * nullptr when absent. Stored once and read only on write()'s unsupported
+     * tail, never threaded through the writers (E26-P6 priced a carried
+     * argument). A setter rather than a constructor argument, and `hooked_`
+     * initialised here rather than in the class: either change moved the
+     * constructor's inlining into dumps_to_python on one ISA or the other
+     * (build/evidence/benchmark-lead/M12/codegen). `hooked_` is read only
+     * behind a non-null `default_`, which only this call can store.
+     */
+    void set_default(PyObject* default_fn) noexcept {
+        default_ = default_fn;
+        hooked_ = nullptr;
+    }
+
     [[nodiscard]] bool write(PyObject* object) {
         // Exact types first: one pointer compare instead of a flag load per
         // candidate, and real data is exact types essentially always.
@@ -225,12 +246,76 @@ class Serializer {
         if (PyDict_Check(object))
             return write_mapping(object);
 
+        if (default_ != nullptr)
+            return write_unsupported(object);
         PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
                      Py_TYPE(object)->tp_name);
         return false;
     }
 
   private:
+    /**
+     * write()'s unsupported tail when the caller passed `default=`: serialize
+     * what the callable returns in the object's place
+     * (docs/architecture/dumps_default_hook.md).
+     *
+     * Out of line and cold, and reached only behind write()'s null test on
+     * `default_`, so write()'s object code is what it was apart from that test
+     * and this tail call (build/evidence/benchmark-lead/M12/codegen). No
+     * canonical row reaches it, and the PGO training workload must not either:
+     * the profile, not the attribute, decides block placement (E26-P23).
+     *
+     * The callable is the fifth user-code step of this file's header, and it
+     * takes the shape of the other three that invoke Python: `latch()` first,
+     * then a strong reference on the object being converted -- the latch owns
+     * the containers and the staged rows, not the entry being written (see
+     * write_int) -- then the call. The unsupported object is never pushed on
+     * `open_`: it is consulted, not written. What the callable returns
+     * re-enters write() at the current depth, inside no new frame, so a
+     * container it returns meets the same cycle probe and depth check a direct
+     * child would.
+     *
+     * Chain bound 1, by identity: `hooked_` is the return just handed to
+     * write(), so write() hands it straight back here only when it has no
+     * branch for its type, and that is the refusal -- the callable is not
+     * called on its own return. write() stays the one definition of the
+     * supported set. It is cleared, not restored, afterwards: a return that
+     * write() accepted is a container or a scalar, which never reaches this
+     * function, so the identity only matters for that one immediate call --
+     * anything nested inside a returned container is a new position with its
+     * own call. It is cleared before its reference is released, so it never
+     * names a freed object.
+     *
+     * Both references are released on the way out, and either release can run
+     * a `__del__` (step 4): the latch above already moved `user_steps_`, and
+     * every guard still live at that point was live when it ran, so each is
+     * latched -- the header's third fact holds as written.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_unsupported(PyObject* object) {
+        if (object == hooked_) {
+            PyErr_Format(PyExc_TypeError,
+                         "default() returned an object of type %s that is not JSON serializable",
+                         Py_TYPE(object)->tp_name);
+            return false;
+        }
+        latch();
+        // One exit, and the exported reference functions rather than the
+        // inline macros: this path is cold by construction, and each inline
+        // release is a dozen instructions of the record's 512-byte `__text`
+        // budget (docs/architecture/dumps_default_hook.md).
+        Py_IncRef(object);
+        PyObject* const replacement = PyObject_CallOneArg(default_, object);
+        bool ok = false; // a null return keeps the callable's exception, unchanged
+        if (replacement != nullptr) {
+            hooked_ = replacement;
+            ok = write(replacement);
+            hooked_ = nullptr; // before the release: never a dangling identity
+            Py_DecRef(replacement);
+        }
+        Py_DecRef(object);
+        return ok;
+    }
+
     [[nodiscard]] bool write_int(PyObject* object) {
 #if PY_VERSION_HEX >= 0x030C0000
         // A compact int is one machine word inside the object; reading it
@@ -1633,8 +1718,9 @@ class Serializer {
     /**
      * Make every borrowed pointer the walk still needs a strong one.
      *
-     * Called immediately before each of the three steps that run user code (the cycle warning, an
-     * `int` subclass's `__str__`, a large exact `int`'s decimal conversion), and so also before any
+     * Called immediately before each of the four steps that run user code (the cycle warning, an
+     * `int` subclass's `__str__`, a large exact `int`'s decimal conversion, the `default=`
+     * callable), and so also before any
      * `__del__` the serializer's own releases can fire (see the rule at the top of this file).
      * Latched entries stay latched until their frame or row goes out of scope, so a second event
      * only pays for what has been opened since the first: `open_`'s latched entries are a prefix
@@ -1712,14 +1798,16 @@ class Serializer {
      * Counts the walk's user-code steps: bumped once at every point where
      * this file's contract says Python can run, and never reset.
      *
-     * The sites are exactly the four the file header enumerates, and the
+     * The sites are exactly the five the file header enumerates, and the
      * bumps sit at these three places:
      *
      *   1. `latch()`, at its head -- it is called immediately before each of
-     *      the three steps that *invoke* user code (the cycle warning from
+     *      the four steps that *invoke* user code (the cycle warning from
      *      `emit_cycle_placeholder` and from `Frame::handle_cycle`, an `int`
      *      subclass's `__str__`, and a large exact `int`'s `_pylong` decimal
-     *      conversion, both in `write_int`);
+     *      conversion, both in `write_int`, and the `default=` callable in
+     *      `write_unsupported`, whose two releases on the way out ride on
+     *      this same bump);
      *   2. `close_container()`, on the arm that releases a latched container
      *      -- step 4, a `__del__` or weakref callback out of the walk's own
      *      `Py_DECREF`;
@@ -1782,6 +1870,16 @@ class Serializer {
     /// ahead of the branch in both writers.
     rawdict::Entry* general_scratch_;
 #endif
+    /// The `default=` callable, or nullptr. Last, with `hooked_`, so neither
+    /// displaces anything the hot walk reads out of the object's first cache
+    /// line. Set by set_default, which both construction sites call before
+    /// write(); no in-class initialiser, which would move the constructor's
+    /// inlining (see set_default).
+    PyObject* default_;
+    /// The value a `default=` call just returned, while write() is handed it:
+    /// write_unsupported meeting it is the chain bound's refusal. Set by
+    /// set_default, and read only when `default_` is non-null.
+    PyObject* hooked_;
 };
 
 } // namespace
@@ -1817,7 +1915,7 @@ bool set_cycle_policy(std::string_view name) noexcept {
     return true;
 }
 
-PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
+PyObject* dumps_to_python(PyObject* object, bool as_bytes, PyObject* default_fn) {
     SchemaCacheLease lease;
     if (!lease.ok())
         return PyErr_NoMemory();
@@ -1842,6 +1940,7 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
         if (!staged.init_bytes(size_hint))
             return PyErr_NoMemory();
         Serializer serializer(staged, lease.state());
+        serializer.set_default(default_fn);
         if (!serializer.write(object))
             return nullptr;
         PyObject* result = staged.take_bytes();
@@ -1877,6 +1976,7 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
 
     StagedOutput staged(out);
     Serializer serializer(staged, lease.state());
+    serializer.set_default(default_fn);
     if (!serializer.write(object))
         return nullptr;
     staged.flush_str();

@@ -196,6 +196,23 @@ PyObject* finish_loads(std::string_view text, bool validate_utf8, bool want_curs
     return PyUnicode_AsUTF8(value);
 }
 
+/// The `default=` converter of dumps and dump, in PyArg's `O&` shape so dump's
+/// parser calls it only when the keyword is present: None is the same as absent
+/// (nullptr), and anything else must be callable -- refused here, at the
+/// boundary, so no byte is produced and no file is touched before the refusal
+/// (docs/architecture/dumps_default_hook.md, error table). Cold and out of
+/// line: one copy serves both entry points, and the facade passes `default`
+/// only when it is not None, so a call without the hook never reaches it
+/// (docs/decisions.md, 2026-09-26).
+STRATA_COLD_FN int default_converter(PyObject* value, void* out) {
+    if (value != Py_None && !PyCallable_Check(value)) {
+        PyErr_Format(PyExc_TypeError, "default must be callable, not %s", Py_TYPE(value)->tp_name);
+        return 0;
+    }
+    *static_cast<PyObject**>(out) = value == Py_None ? nullptr : value;
+    return 1;
+}
+
 // loads and dumps use METH_FASTCALL: they are called once per benchmark-row
 // operation and often with tiny documents, where VARARGS' argument tuple and
 // PyArg_ParseTupleAndKeywords' format-string machinery are a measurable slice
@@ -284,17 +301,25 @@ PyObject* strata_dumps(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
     }
     PyObject* object = args[0];
     const char* return_type = "str";
+    PyObject* default_fn = nullptr;
     if (kwnames != nullptr) {
         for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
             PyObject* name = PyTuple_GET_ITEM(kwnames, index);
-            if (PyUnicode_CompareWithASCIIString(name, "return_type") != 0) {
+            // `return_type` keeps the first compare: the facade passes it on
+            // every call and passes `default` only when it is not None, so a
+            // call without the hook runs the one compare it always did.
+            if (PyUnicode_CompareWithASCIIString(name, "return_type") == 0) {
+                return_type = fastcall_str_option(name, args[nargs + index]);
+                if (return_type == nullptr)
+                    return nullptr;
+            } else if (PyUnicode_CompareWithASCIIString(name, "default") == 0) {
+                if (default_converter(args[nargs + index], &default_fn) == 0)
+                    return nullptr;
+            } else {
                 PyErr_Format(PyExc_TypeError, "dumps() got an unexpected keyword argument '%U'",
                              name);
                 return nullptr;
             }
-            return_type = fastcall_str_option(name, args[nargs + index]);
-            if (return_type == nullptr)
-                return nullptr;
         }
     }
 
@@ -304,7 +329,7 @@ PyObject* strata_dumps(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
         return nullptr;
     }
 
-    return strata::bindings::dumps_to_python(object, as_bytes);
+    return strata::bindings::dumps_to_python(object, as_bytes, default_fn);
     STRATA_CPP_CATCH
 }
 
@@ -348,13 +373,14 @@ PyObject* strata_load(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
 
 PyObject* strata_dump(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "", "split_by", nullptr};
+    static const char* keywords[] = {"", "", "split_by", "default", nullptr};
     PyObject* object = nullptr;
     const char* path = nullptr;
     PyObject* split_by = Py_None;
+    PyObject* default_fn = nullptr;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os|$O", const_cast<char**>(keywords), &object,
-                                     &path, &split_by))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os|$OO&", const_cast<char**>(keywords), &object,
+                                     &path, &split_by, default_converter, &default_fn))
         return nullptr;
 
     if (split_by != Py_None) {
@@ -362,7 +388,7 @@ PyObject* strata_dump(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
         // is folder mode too -- api.md has dump create directories as needed,
         // so the target need not exist first.
         if (strata::util::is_directory(path) || !strata::util::path_exists(path))
-            return strata::bindings::dump_to_folder(object, path, split_by);
+            return strata::bindings::dump_to_folder(object, path, split_by, default_fn);
         // split_by only means something for a directory; silently writing one
         // file instead would lose data the caller expected to be split.
         PyErr_SetString(PyExc_ValueError, "split_by requires a directory target");
@@ -373,10 +399,15 @@ PyObject* strata_dump(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     // no stat ahead of the open (python_types.h, load_from_file). A directory
     // cannot be opened for writing on any platform, and nothing about it is
     // touched by the attempt, so a failure is where the question gets asked:
-    // a directory target is the documented ValueError whatever failed first --
-    // it used to be raised before the value was serialized at all.
-    PyObject* written = strata::bindings::dump_to_file(object, path);
-    if (written == nullptr && strata::util::is_directory(path)) {
+    // a directory target is the documented ValueError whatever `Exception`
+    // failed first -- it used to be raised before the value was serialized at
+    // all. A BaseException that is not an Exception (KeyboardInterrupt,
+    // SystemExit, GeneratorExit) is never replaced: user code can raise one
+    // mid-walk -- a `default=` callable above all -- and it must propagate
+    // unchanged (docs/decisions.md, 2026-09-26).
+    PyObject* written = strata::bindings::dump_to_file(object, path, default_fn);
+    if (written == nullptr && PyErr_ExceptionMatches(PyExc_Exception) &&
+        strata::util::is_directory(path)) {
         PyErr_Clear();
         PyErr_SetString(PyExc_ValueError, "a directory target requires split_by");
     }
@@ -438,11 +469,11 @@ PyMethodDef kModuleMethods[] = {
     {"loads", STRATA_KEYWORD_FN(strata_loads), METH_FASTCALL | METH_KEYWORDS,
      "loads(source, *, return_type='dict', iterator=False)\n\nParse JSON text."},
     {"dumps", STRATA_KEYWORD_FN(strata_dumps), METH_FASTCALL | METH_KEYWORDS,
-     "dumps(obj, *, return_type='str')\n\nSerialize an object to JSON."},
+     "dumps(obj, *, return_type='str', default=None)\n\nSerialize an object to JSON."},
     {"load", STRATA_KEYWORD_FN(strata_load), METH_VARARGS | METH_KEYWORDS,
      "load(path, *, return_type='dict', iterator=False, skip_errors=False)"},
     {"dump", STRATA_KEYWORD_FN(strata_dump), METH_VARARGS | METH_KEYWORDS,
-     "dump(obj, path, *, split_by=None)"},
+     "dump(obj, path, *, split_by=None, default=None)"},
     {"compile", strata_compile, METH_VARARGS, "compile(expression) -> CompiledPath"},
     {"query", STRATA_KEYWORD_FN(strata_query), METH_VARARGS | METH_KEYWORDS,
      "query(data, expression, *, iterator=False) -> list"},

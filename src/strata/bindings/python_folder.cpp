@@ -355,7 +355,8 @@ struct Group {
 }
 
 /// Write one group's file, creating parent directories as needed.
-[[nodiscard]] bool write_group(const std::string& directory, const Group& group) {
+[[nodiscard]] bool write_group(const std::string& directory, const Group& group,
+                               PyObject* default_fn) {
     std::string path = directory;
     for (size_t index = 0; index + 1 < group.components.size(); ++index) {
         path += '/';
@@ -369,7 +370,7 @@ struct Group {
     path += group.components.back();
     path += ".json";
 
-    return dump_to_file(group.records.get(), path.c_str()) != nullptr;
+    return dump_to_file(group.records.get(), path.c_str(), default_fn) != nullptr;
 }
 
 } // namespace
@@ -392,7 +393,8 @@ PyObject* load_from_folder(const char* directory, bool iterator, bool skip_error
     return records.release();
 }
 
-PyObject* dump_to_folder(PyObject* records, const char* directory, PyObject* split_by) {
+PyObject* dump_to_folder(PyObject* records, const char* directory, PyObject* split_by,
+                         PyObject* default_fn) {
     if (!PyList_Check(records)) {
         PyErr_Format(PyExc_TypeError, "folder dump expects a list of dicts, not %s",
                      Py_TYPE(records)->tp_name);
@@ -413,8 +415,12 @@ PyObject* dump_to_folder(PyObject* records, const char* directory, PyObject* spl
         PyErr_SetFromErrnoWithFilename(PyExc_OSError, directory);
         return nullptr;
     }
+    // Grouping is done: the split values were read above, before any user
+    // code could run. From here the callable can run once per unsupported
+    // object, and a group whose serialization fails leaves its file unwritten
+    // -- the groups before it stay written, as for any other error here.
     for (const Group& group : groups) {
-        if (!write_group(directory, group))
+        if (!write_group(directory, group, default_fn))
             return nullptr;
     }
     Py_RETURN_NONE;

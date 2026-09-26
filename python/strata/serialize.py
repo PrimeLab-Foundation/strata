@@ -39,7 +39,7 @@ def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = Fa
     return _native.loads(source, return_type=return_type, iterator=iterator)
 
 
-def dumps(obj, *, return_type: str = "str") -> str | bytes:
+def dumps(obj, *, return_type: str = "str", default=None) -> str | bytes:
     """Serialize a Python object to compact JSON.
 
     Args:
@@ -48,19 +48,31 @@ def dumps(obj, *, return_type: str = "str") -> str | bytes:
             NaN and infinity are written as ``null``; integers beyond 64 bits
             keep every digit.
         return_type: ``"str"`` or ``"bytes"``.
+        default: ``None``, or a callable of one argument called for each
+            object of an unsupported type; its return value is serialized in
+            that object's place. It is never called for dict keys, and not a
+            second time on its own return.
 
     Returns:
         The JSON text, with no whitespace between tokens.
 
     Raises:
-        TypeError: An object of an unsupported type, or a non-``str`` dict key.
+        TypeError: An object of an unsupported type with no ``default``, a
+            ``default`` that returned one, a ``default`` that is not callable,
+            or a non-``str`` dict key.
         ValueError: Nesting reached ``sys.getrecursionlimit()``, ``return_type``
             is unknown, or a reference cycle was found while ``cycle_policy``
             is ``"error"``.
         RuntimeWarning: Emitted, not raised, for a reference cycle while
             ``cycle_policy`` is ``"warn"``.
+
+    Any exception the ``default`` callable raises propagates unchanged.
     """
-    return _native.dumps(obj, return_type=return_type)
+    # `default` is passed only when given, so a call without it reaches the
+    # native keyword parse exactly as before (docs/decisions.md, 2026-09-26).
+    if default is None:
+        return _native.dumps(obj, return_type=return_type)
+    return _native.dumps(obj, return_type=return_type, default=default)
 
 
 def load(
@@ -101,7 +113,7 @@ def load(
     )
 
 
-def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
+def dump(obj, path: str | os.PathLike, *, split_by=None, default=None) -> None:
     """Write ``obj`` to a file as compact JSON with a trailing newline.
 
     Args:
@@ -111,14 +123,26 @@ def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
             the records into files. One key writes ``dir/<value>.json``; N keys
             nest one directory per key. Required for a directory, and an error
             for a file.
+        default: As for :func:`dumps`. Never applied to ``split_by`` values,
+            which are grouped before anything is serialized.
 
     Raises:
         OSError: The file or directory could not be written.
-        TypeError: An unsupported type, a non-``str`` dict key, or -- in folder
-            mode -- a non-list ``obj`` or a record that is not a dict.
+        TypeError: An unsupported type (with no ``default``, or returned by
+            it), a ``default`` that is not callable, a non-``str`` dict key,
+            or -- in folder mode -- a non-list ``obj`` or a record that is not
+            a dict.
         ValueError: ``split_by`` given for a file or missing for a directory, a
             record missing a split key, a split value that is not a
             ``str``/``int``/``bool``, or one that is unusable or ambiguous as a
             file name.
+
+    Any exception the ``default`` callable raises propagates unchanged, and the
+    file it was serializing for is not written -- except that a directory
+    target without ``split_by`` reports its ``ValueError`` in place of an
+    ``Exception`` (never in place of ``KeyboardInterrupt`` or ``SystemExit``).
     """
-    _native.dump(obj, os.fspath(path), split_by=split_by)
+    if default is None:
+        _native.dump(obj, os.fspath(path), split_by=split_by)
+    else:
+        _native.dump(obj, os.fspath(path), split_by=split_by, default=default)

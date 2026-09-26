@@ -3689,3 +3689,81 @@ waits on it.
   directory does not claim (no `*.build.json` for the arms: the `make pgo`
   identity was overwritten before it could be copied, and a mismatched
   identity is worse than none).
+
+## M12 — the `dumps` unsupported-type hook (`default=`), Option C
+
+- 2026-09-26 · main working tree over 74e41ad, uncommitted. Record:
+  [`dumps_default_hook.md`](../architecture/dumps_default_hook.md); roadmap
+  M12 criteria 1–4, 7 and 8 met here, **5–6 owed** (the five-leg
+  tests-matched A/B and two CI samples), so this entry is not yet a go: the
+  record's kill criterion stays live until run 5 is in.
+
+- **Shape.** `Serializer::write` (the record's `write_value`) keeps its
+  unsupported-type `PyErr_Format` inline and gains one null test on
+  `default_` ahead of it, which tail-calls a `STRATA_COLD_FN`
+  `write_unsupported`: `latch()`, a strong reference on the object, the call,
+  the return walked by `write` at the same depth, chain bound 1 by identity
+  (`hooked_`). The callable arrives through `set_default`, not the
+  constructor. Plumbing: the facade passes `default` only when it is not
+  `None`; one cold `default_converter` serves `dumps`'s keyword loop and
+  `dump`'s `O&` parse.
+
+- **Codegen (criterion 4)**, plain `-O3` builds of 74e41ad and the tree, Apple
+  clang 21.0.0, arm64 `-march=native` and x86-64 cross
+  `-fomit-frame-pointer -march=x86-64-v3`:
+
+  | ISA    | `write` instructions | diff                                                                              | Section `__text`               |
+  | ------ | -------------------- | --------------------------------------------------------------------------------- | ------------------------------ |
+  | arm64  | 281 → 290            | −3 / +12: the `default_` load and branch, the tail-call block, renumbered offsets | 156 892 → 157 416 (**+524 B**) |
+  | x86-64 | 186 → 193            | −6 / +13: the same                                                                | 164 560 → 165 040 (**+480 B**) |
+
+  Largest contributors (arm64 / x86-64): `write_unsupported` 188 / 178 B,
+  `default_converter` 120 / 92, `strata_dumps` +88 / +64, `strata_dump`
+  +44 / +64, `write` +36 / +16. **arm64 is 12 B past the budget**: the hook
+  itself is +504 B, and the review's correction of the directory-target rule
+  (a `BaseException` that is not an `Exception` is no longer replaced) adds
+  20 B to `strata_dump` (docs/decisions.md, 2026-09-26, the size correction;
+  acceptance left to review). The PGO+LTO shipped build is not claimed: its
+  layout follows a profile the new tests move by themselves (E26-P7b).
+
+- **Rejected on the way, each on its own number.** The null test inside the
+  cold callee: `write` shrank 22 instructions on arm64 and the section came to
+  +492 B, but the saving was the optimizer re-merging `write`'s return blocks
+  (the `None` path gained a branch) — not "unchanged apart from the tail".
+  The callable as a constructor argument: the constructor went inline into
+  `dumps_to_python` on arm64 (+100 B); an in-class initialiser for a second
+  field sent it out of line on x86-64. A duplicated type predicate for the
+  chain bound: 60 B more in the arm64 object than the identity check, for a second
+  definition of the supported set. The keyword loop's rare arm as its own cold
+  helper: 68 B more. Inline refcount macros on the cold path: ~56 B more.
+
+- **Per-call floor** (fresh process per arm, 30–40 ABBA rounds, best of 7 per
+  process, plain arm64 builds, load ≈ 3): native `_strata.dumps({"a": 1})`
+  94.1 → 94.2 ns (+0.37% \[−0.01, +0.53\]); native with `return_type` 113.4 →
+  114.3 ns (+0.74% \[+0.32, +1.09\]); facade `strata.dumps({"a": 1})` 141.1 →
+  151.1 ns (**+7.10%** \[+6.86, +7.46\]); 50 records 3 375.8 → 3 378.3 ns
+  (+0.02% \[−0.58, +0.60\]). The facade's ~10 ns is CPython filling a second
+  keyword-only default from `__kwdefaults__`; positional-or-keyword would be
+  free and is not the contract. Accepted (docs/decisions.md, 2026-09-26); two
+  levers that would repay it several times over are recorded there, not taken.
+
+- **Correctness.** `tests/unit/test_dumps_default_hook.py` (220 tests) and
+  `tests/py/test_dumps_default_hook.py` (97, the error-table rows mirrored through `dump`), including the E26-FIX2b re-pin
+  (zero key-refcount drift across a nested `dumps` driven through the hook,
+  both modes, success and failure). One placement ruling came out of them: a
+  returned open container is reported where it was returned, even at a
+  list-element position where a directly-reached warmed dict lands one
+  container late. `tests/integrations/` (pydantic, attrs, numpy, dataclass
+  rows) runs under `make test-integrations` and its own CI job, outside
+  `testpaths`, the gate and the profile.
+
+- **Training payload.** `scripts/pgo_training.py` makes no `default=` call and
+  expects no unsupported-type raise (every payload is `json`-built); the gate
+  suites it runs alongside now call the hook, which is what the tests-matched
+  arm of criterion 5 prices.
+
+- Evidence: `build/evidence/benchmark-lead/M12/` — `codegen/` (build script,
+  both arms' objects and linked extensions for both ISAs, `symsizes.*.txt`,
+  `write_diff.*.txt`, the floor benches and their raw samples,
+  `PROVENANCE.txt` stating what the directory does not claim), `coverage/`
+  (the instrumented build's new-line report), and the ASan logs.

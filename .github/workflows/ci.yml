@@ -240,3 +240,25 @@ jobs:
 
       - name: Build and run the Python suites under ASan + UBSan
         run: make test-py-asan
+
+  # `dumps(default=...)` against pydantic, attrs and numpy. Its own job because
+  # tests/integrations is excluded from testpaths, the gate and the PGO profile
+  # (docs/architecture/dumps_default_hook.md, "Test placement").
+  integrations:
+    name: integrations (pydantic, attrs, numpy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install strata (test-gated build) with the integrations extra
+        run: |
+          python -m pip install -U pip setuptools wheel
+          python -m pip install -e ".[dev,integrations]"
+
+      - name: Run the integration tests
+        run: python scripts/integration_tests.py

@@ -92,7 +92,11 @@ inline constexpr size_t kDumpsInitialCapacity = 1024;
 inline constexpr const char* kDepthExceededMessage = "Maximum nesting depth exceeded";
 
 /// Serialize @p object to JSON as `str`, or as `bytes` when @p as_bytes.
-[[nodiscard]] PyObject* dumps_to_python(PyObject* object, bool as_bytes);
+///
+/// @param default_fn The `default=` callable, borrowed, or nullptr when absent
+///        (docs/architecture/dumps_default_hook.md): called once per object of
+///        an unsupported type, and its return serialized in that object's place.
+[[nodiscard]] PyObject* dumps_to_python(PyObject* object, bool as_bytes, PyObject* default_fn);
 
 /// Resolve everything the serializer would otherwise resolve lazily *inside*
 /// a walk. Call once, from module init: the raw-dict layout proof allocates
@@ -137,8 +141,10 @@ bool register_ndjson_iterator_type(PyObject* module);
 [[nodiscard]] PyObject* load_from_file(const char* path, const char* return_type, bool iterator,
                                        bool skip_errors, bool* is_directory = nullptr);
 
-/// `dump(obj, path)` in file mode.
-[[nodiscard]] PyObject* dump_to_file(PyObject* object, const char* path);
+/// `dump(obj, path)` in file mode. @p default_fn as in dumps_to_python; the
+/// document is serialized in full before the file is opened, so a failing
+/// callable leaves the destination untouched.
+[[nodiscard]] PyObject* dump_to_file(PyObject* object, const char* path, PyObject* default_fn);
 
 /// Register the CompiledPath type. False with an error set on failure.
 bool register_jsonpath_types(PyObject* module);
@@ -180,9 +186,11 @@ enum class FileRead {
 /// `load(dirpath, ...)` in folder mode.
 [[nodiscard]] PyObject* load_from_folder(const char* directory, bool iterator, bool skip_errors);
 
-/// `dump(records, dirpath, split_by=...)` in folder mode.
-[[nodiscard]] PyObject* dump_to_folder(PyObject* records, const char* directory,
-                                       PyObject* split_by);
+/// `dump(records, dirpath, split_by=...)` in folder mode. @p default_fn as in
+/// dumps_to_python; it applies to each group file's serialization, never to
+/// the split values, which are grouped before anything is serialized.
+[[nodiscard]] PyObject* dump_to_folder(PyObject* records, const char* directory, PyObject* split_by,
+                                       PyObject* default_fn);
 
 /// `search(dirpath, expression)` in folder mode.
 [[nodiscard]] PyObject* search_folder(const char* directory, PyObject* expression, bool iterator);

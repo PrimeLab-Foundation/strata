@@ -111,6 +111,27 @@ def test_a_directory_target_outranks_an_unserializable_value(tmp_path):
         strata.dump({1: "non-str key"}, tmp_path)
 
 
+@pytest.mark.parametrize("raised", [KeyboardInterrupt("stop"), SystemExit(3)])
+def test_a_directory_target_never_swallows_a_base_exception(tmp_path, raised):
+    # api.md, folder mode: the directory's ValueError replaces an `Exception`
+    # only; a KeyboardInterrupt or SystemExit raised by user code while the value
+    # is serialized -- here the `default=` callable -- propagates unchanged
+    # (docs/decisions.md, 2026-09-26, correction).
+    def hook(value):
+        raise raised
+
+    with pytest.raises(type(raised)) as info:
+        strata.dump({"k": object()}, tmp_path, default=hook)
+    assert info.value is raised
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_directory_target_still_outranks_the_callables_exception(tmp_path):
+    # api.md, folder mode: an `Exception` from the callable is replaced.
+    with pytest.raises(ValueError, match="a directory target requires split_by"):
+        strata.dump({"k": object()}, tmp_path, default=lambda value: 1 / 0)
+
+
 def test_an_unserializable_value_does_not_touch_an_existing_file(tmp_path):
     # Serialize-before-truncate: the destination keeps its bytes.
     path = tmp_path / "keep.json"

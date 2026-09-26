@@ -9,7 +9,7 @@ VENV ?= .venv
 VPY := $(VENV)/bin/python
 
 .PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
-        test test-py test-py-asan test-cpp fmt lint pre-commit-check gate \
+        test test-py test-py-asan test-cpp test-integrations fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary bench-cross probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
@@ -99,6 +99,11 @@ test-py: venv  ## Run tests/py (integration) and tests/unit (contract)
 # CI runs it in the corpus job, beside the sanitized C++ suites.
 test-py-asan:  ## Build the extension with ASan+UBSan in .venv-asan and run both Python suites
 	@bash scripts/asan_py_tests.sh
+
+# Not part of `test` or `gate`, and never in the PGO profile: tests/integrations
+# imports pydantic, attrs and numpy (docs/architecture/dumps_default_hook.md).
+test-integrations: venv  ## Run tests/integrations: dumps(default=) with pydantic, attrs, numpy
+	$(VPY) scripts/integration_tests.py
 
 gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests, coverage
 	@bash scripts/gate.sh
