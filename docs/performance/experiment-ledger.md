@@ -3692,11 +3692,73 @@ waits on it.
 
 ## M12 — the `dumps` unsupported-type hook (`default=`), Option C
 
-- 2026-09-26 · main working tree over 74e41ad, uncommitted. Record:
+- 2026-09-26 · `exp/m12-default-hook-2` (`39cb64d`, `223901b`) over
+  74e41ad. Record:
   [`dumps_default_hook.md`](../architecture/dumps_default_hook.md); roadmap
-  M12 criteria 1–4, 7 and 8 met here, **5–6 owed** (the five-leg
-  tests-matched A/B and two CI samples), so this entry is not yet a go: the
-  record's kill criterion stays live until run 5 is in.
+  M12 criteria 1–4, 7 and 8 met. **Criterion 5 not met, and the kill
+  criterion fires** (run 36254514783, below): **no-go for this shape.**
+  Criterion 6 was not run.
+
+- **Criterion 5, run 36254514783** (2026-09-26, `ab_x86.yml` on
+  `exp/m12-ab-arm`, paired, 6 ABBA blocks × 60, same-runner A/A floor at 6
+  blocks, 0 dropped launches on every leg; 33 row × engine series per leg over
+  the 21 ABBA-instrumentable canonical rows plus 4 medium rows). A = `74e41ad`
+  (main), B = `44f65f9` (the hook + the stage pin, gate suite = main's, so
+  both profiles train on identical tests and payload; arms from
+  `ab/arms.txt` and `arms/*.build.json`). Resolved = |effect| past the A/A
+  floor with the CI excluding 0; + is B slower:
+
+  | leg            | row                     | engine | effect | CI               | floor | blocks + |
+  | -------------- | ----------------------- | ------ | ------ | ---------------- | ----- | -------- |
+  | linux-arm64    | small flat loads        | loads  | +0.76% | \[+0.50, +1.05\] | 0.28  | 6/6      |
+  | linux-arm64    | small users dumps       | bytes  | +1.30% | \[+1.08, +1.48\] | 0.14  | 6/6      |
+  | linux-arm64    | small users dumps       | str    | +1.05% | \[+0.66, +1.61\] | 0.87  | 6/6      |
+  | linux-x86_64   | medium flat dumps       | bytes  | +1.67% | \[+0.31, +3.47\] | 0.85  | 5/6      |
+  | linux-x86_64   | medium flat dumps       | str    | +1.08% | \[+0.13, +3.39\] | 0.69  | 5/6      |
+  | linux-x86_64   | small flat dumps        | bytes  | +0.99% | \[+0.16, +1.64\] | 0.42  | 6/6      |
+  | windows-x86_64 | small flat dumps        | bytes  | +0.51% | \[+0.26, +2.21\] | 0.42  | 6/6      |
+  | linux-x86_64   | small wide_arrays dump  | dump   | −1.12% | \[−1.64, −0.62\] | 0.43  | 0/6      |
+  | linux-x86_64   | small wide_arrays dumps | bytes  | −1.31% | \[−1.91, −0.66\] | 0.42  | 0/6      |
+
+  Both macOS legs resolve nothing (largest unresolved: macos-x86_64 small
+  `dumps mixed` bytes +4.59% against an 8.47 floor).
+
+- **Attribution.** The profile is excluded by construction (identical suites
+  and payload), and host drift within the run is what the same-runner A/A
+  controls, so what resolves is code — the hook's own instructions or the
+  layout they move. Against the first attempt's runs:
+
+  - windows small `dumps flat` bytes (+0.51%) is **pin-shaped**: the pin
+    alone lost +1.81% on the same row (run 35348367891, floor 0.91).
+  - linux-arm64 small `dumps users` (+1.05/+1.30%) is **both**: the pin
+    alone +0.51% (floor 0.15), the first attempt's unpinned hook +0.6/+0.7%
+    (runs 35342480274, 35347472909).
+  - linux-x86_64 `dumps flat` (+0.99 to +1.67%) is **the hook's**: the pin
+    alone *gained* there (−2.24% medium bytes, −2.58% small bytes, run
+    35348367891), and the first attempt's source-alone pair — both arms
+    pinned, the hook the only difference, a different implementation of it —
+    lost the same row on both draws (+1.1 to +2.8%, runs 35373114948,
+    35379021184). Three draws, two implementations, same row, same sign.
+  - linux-arm64 small `loads flat` (+0.76%) sits on parse source neither arm
+    changes: layout-shaped, one draw, not attributed further.
+
+- **Verdict.** Criterion 5 asks that no canonical row resolve against strata;
+  seven series on four rows and three legs do. The kill criterion asks
+  whether the cause is the code rather than the profile; with the profile
+  held equal by construction, and the linux-x86_64 `dumps flat` loss
+  reproduced across both implementations of the walker-state shape, it is
+  the code. Per the record, this shape is abandoned; the next candidate is a
+  separate entry point (`dumps_with_default`) whose existence cannot perturb
+  `dumps`'s codegen — no walker member, no frame growth, no keyword-loop
+  change on `dumps`.
+
+- **Canonical diagnostic (the six query/search rows; sanity only, no
+  floor).** Strata medians move −9.03% to +65.67% in both directions across
+  the legs (e.g. macos-arm64 `query $[*].id` 0.067 → 0.111 ms, linux-x86_64
+  `search $..total` 19.167 → 17.436 ms) on code neither arm touches, and the
+  canonical gate reads "REGRESSION" on all five legs with 11–47 breach lines
+  over all 27 rows — the identical-binary control's known spread under load
+  (10–48 breaches), not a signal.
 
 - **Shape.** `Serializer::write` (the record's `write_value`) keeps its
   unsupported-type `PyErr_Format` inline and gains one null test on
@@ -3763,7 +3825,10 @@ waits on it.
   suites it runs alongside now call the hook, which is what the tests-matched
   arm of criterion 5 prices.
 
-- Evidence: `build/evidence/benchmark-lead/M12/` — `codegen/` (build script,
+- Evidence: `build/evidence/benchmark-lead/M12/` — `ab-36254514783/` (the
+  run's five artifacts, each leg's `ab/verdict.{json,txt}` from
+  `benchmarks/ab_blocks.py R1.tsv --aa AA.tsv`), `attribution/` (the
+  pin-alone run 35348367891 re-read the same way), `codegen/` (build script,
   both arms' objects and linked extensions for both ISAs, `symsizes.*.txt`,
   `write_diff.*.txt`, the floor benches and their raw samples,
   `PROVENANCE.txt` stating what the directory does not claim), `coverage/`
