@@ -201,7 +201,7 @@ jobs:
           # The file rows (load / ndload / dump) are real file operations, not
           # a subtraction of two in-memory medians; rows_probe.py mirrors
           # bench_main's rival compositions for each of them.
-          ROWS="--row small:flat:dumps --row small:users:dumps --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:loads --row small:users:loads --row small:mixed:loads --row small:wide_arrays:load --row small:users:ndload --row small:wide_arrays:dump --row small:mixed:dump --row small:flat:dump --row small:nested:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
+          ROWS="--row small:users:loads --row small:users:dumps --row small:users:load --row small:users:dump --row small:users:ndload --row small:flat:loads --row small:flat:dumps --row small:flat:load --row small:flat:dump --row small:nested:loads --row small:nested:dumps --row small:nested:load --row small:nested:dump --row small:wide_arrays:loads --row small:wide_arrays:dumps --row small:wide_arrays:load --row small:wide_arrays:dump --row small:mixed:loads --row small:mixed:dumps --row small:mixed:load --row small:mixed:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads"
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/B.so \
             --target "$TARGET" --out ab/R1.tsv $ROWS --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" 2> ab/R1.stderr
           # The same block count as the comparison: the floor is
@@ -228,6 +228,12 @@ jobs:
 
       - name: Full canonical before/candidate reports and regression gate
         if: inputs.validation == 'canonical'
+        run: |
+          make probe-canonical-builds CANONICAL_BUILD_FLAGS="--before arms/A.so --candidate arms/B.so --output ab/canonical --tier small --repeat $AB_REPEAT"
+
+      - name: Canonical supplement (paired mode, diagnostic, all 27 rows)
+        if: inputs.validation == 'paired'
+        continue-on-error: true
         run: |
           make probe-canonical-builds CANONICAL_BUILD_FLAGS="--before arms/A.so --candidate arms/B.so --output ab/canonical --tier small --repeat $AB_REPEAT"
 
@@ -398,7 +404,7 @@ jobs:
         if: inputs.validation != 'canonical'
         run: |
           target_binary=$(python -c 'import strata._strata as m; print(m.__file__)')
-          rows=(--row small:mixed:dumps --row small:flat:dumps --row small:users:dumps --row small:wide_arrays:dumps --row small:mixed:dump --row small:flat:dump --row small:nested:dump --row small:wide_arrays:loads --row medium:mixed:dumps --row medium:users:dumps)
+          rows=(--row small:users:loads --row small:users:dumps --row small:users:load --row small:users:dump --row small:users:ndload --row small:flat:loads --row small:flat:dumps --row small:flat:load --row small:flat:dump --row small:nested:loads --row small:nested:dumps --row small:nested:load --row small:nested:dump --row small:wide_arrays:loads --row small:wide_arrays:dumps --row small:wide_arrays:load --row small:wide_arrays:dump --row small:mixed:loads --row small:mixed:dumps --row small:mixed:load --row small:mixed:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads)
           PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/B.pyd --target "$target_binary" --out ab/R1.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/R1.txt 2> ab/R1.stderr
           PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/A.pyd --target "$target_binary" --out ab/AA.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/AA.txt 2> ab/AA.stderr
           PYTHONPATH=. python benchmarks/ab_blocks.py ab/R1.tsv --aa ab/AA.tsv --json ab/comparison.json > ab/comparison.txt
@@ -406,6 +412,12 @@ jobs:
 
       - name: Full canonical before/candidate reports and regression gate
         if: inputs.validation == 'canonical'
+        run: |
+          PYTHONPATH=. python -m benchmarks.canonical_builds --before arms/A.pyd --candidate arms/B.pyd --output ab/canonical --tier small --repeat "$AB_REPEAT"
+
+      - name: Canonical supplement (paired mode, diagnostic, all 27 rows)
+        if: inputs.validation == 'paired'
+        continue-on-error: true
         run: |
           PYTHONPATH=. python -m benchmarks.canonical_builds --before arms/A.pyd --candidate arms/B.pyd --output ab/canonical --tier small --repeat "$AB_REPEAT"
 
