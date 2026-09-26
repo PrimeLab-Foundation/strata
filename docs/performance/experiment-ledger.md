@@ -3752,6 +3752,28 @@ waits on it.
   `dumps`'s codegen — no walker member, no frame growth, no keyword-loop
   change on `dumps`.
 
+- **The record's own fallback is ruled out as a successor.** Moving the
+  callable into the per-call state the lease already carries would remove
+  the walker's frame growth and the pin, but the first attempt's source-alone
+  pair (runs 35373114948, 35379021184) had the pin on **both** arms — the
+  stage's alignment class equal, the hook the only difference — and still
+  lost linux-x86_64 `dumps flat` on both draws. So the cost is not the frame
+  growth alone: a null test on `write`'s tail, which any in-signature shape
+  keeps, is enough to move that row. Only a separate entry point removes it.
+
+- **The `dirty: true` on B's build identities does not taint any leg.** Every
+  leg's B (`arms/B.*.build.json`, windows included) reads `dirty: true` with
+  `patch_sha256` =
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` — the
+  SHA-256 of empty input, i.e. no tracked file differs from `44f65f9` — and
+  its `untracked_sha256` lists only the workflow's own bookkeeping, written
+  into the candidate checkout before B is built: `ab/experiment.txt`
+  (`none`), an empty `ab/patches.txt`, and on the POSIX legs `ab/cpu.txt`.
+  None is a source, build or test input, and A reads clean only because it
+  is built in a separate worktree. Windows has no `ab/arms.txt`; its arm
+  identity is taken from these two files (A `74e41ad` clean, B `44f65f9`),
+  and the verdict does not rest on that leg.
+
 - **Canonical diagnostic (the six query/search rows; sanity only, no
   floor).** Strata medians move −9.03% to +65.67% in both directions across
   the legs (e.g. macos-arm64 `query $[*].id` 0.067 → 0.111 ms, linux-x86_64
