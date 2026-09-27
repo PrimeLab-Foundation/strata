@@ -180,6 +180,9 @@ def main() -> int:
     parser.add_argument("--constraints", type=Path, default=None)
     args = parser.parse_args()
     arm_dir = args.arm_dir.resolve()
+    # The builds run with the worktree as their working directory: a relative
+    # constraints path would name a file there (run 36291977906, windows).
+    constraints = args.constraints.resolve() if args.constraints else None
     candidate = subprocess.run(
         ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True
     ).stdout.strip()
@@ -190,7 +193,7 @@ def main() -> int:
     for label, ref in (("A", args.base), ("A2", args.base), ("B", candidate)):
         worktree(ref, arm_dir)
         log = Path(f"ab/build-{label}.log").resolve()
-        pgo_build(arm_dir, log, args.constraints)
+        pgo_build(arm_dir, log, constraints)
         collect(label, arm_dir)
         profiles[label] = keep_profile(label, arm_dir)
         if label == "B":

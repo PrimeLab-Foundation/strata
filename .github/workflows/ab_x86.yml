@@ -54,10 +54,18 @@ on:
       repeat:
         description: "repeats per row per launch"
         default: "60"
+      legs:
+        description: "Which legs to run: all five, or the windows leg alone"
+        type: choice
+        default: all
+        options:
+          - all
+          - windows
 
 jobs:
   ab:
     name: A/B (${{ matrix.platform }})
+    if: inputs.legs != 'windows'
     runs-on: ${{ matrix.os }}
     # Three PGO builds and a held-profile rebuild, then 3 x (4 x blocks + 1)
     # launches (B-vs-A, A/A and the A2 build-noise control).
