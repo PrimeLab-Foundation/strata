@@ -4295,3 +4295,17 @@ waits on it.
 - **Identity draw (dispatched after this entry).** One windows-only dispatch
   of the pin against main. B's own-profile image byte-identical to A's is the
   whole reading: if it is, no timing read matters and the branch merges.
+
+- **Run 36353898103 (windows only, 2026-09-28): identity shown, merged.** B =
+  `7c2d642` (the length-matched pin, the tests in `tests/py`); a Family 25
+  Model 1 runner. B's own-profile `.text` is `0273ce9ad8759921…`, A's, and so
+  are `.pdata`, `.data`, `.reloc` and `.rsrc`; only `.rdata` differs, as it
+  does between A and A2 (build metadata, not code). The profiles themselves
+  are byte-identical — A, A2 and B all `ff4c2a85…` — and B rebuilt against A's
+  profile has A's code. The pin changes nothing windows' build trains on, so
+  the timing packet has nothing to read. It also answers the first note under
+  "Recorded, not resolved (added)": random names in place of `pytest-<digit>`
+  moved no counter on windows, not even in the instrumented header-only
+  `std::filesystem` code — length is what the profile sees. The branch merged
+  to main after the gate passed on the merged tree. Evidence:
+  `build/evidence/benchmark-lead/pin-discovery-test/ab-36353898103/`.
