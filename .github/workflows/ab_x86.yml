@@ -59,9 +59,9 @@ jobs:
   ab:
     name: A/B (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
-    # Two PGO builds, then 2 x (4 x blocks + 1) launches: the A/A run now
-    # matches the comparison's block count instead of running two blocks.
-    timeout-minutes: 210
+    # Three PGO builds and a held-profile rebuild, then 3 x (4 x blocks + 1)
+    # launches (B-vs-A, A/A and the A2 build-noise control).
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       matrix:
@@ -155,61 +155,21 @@ jobs:
             git ls-files --others --exclude-standard -- tests | while read -r added; do git add -N "$added"; done
           fi
 
-      - name: Build B (candidate) with PGO+LTO, gate tests on both phases
-        run: |
-          make install-bench
-          make pgo
-          mkdir -p arms
-          binary=$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')
-          cp "$binary" arms/B.so
-          cp "$binary.build.json" arms/B.so.build.json
-          cp -R build/pgo ab/profile-B
-          echo "B $(git rev-parse --short HEAD) $(md5sum arms/B.so 2>/dev/null || md5 -q arms/B.so)" | tee -a ab/arms.txt
+      - name: Timing harness environment in the checkout (plain gated build)
+        run: make install-bench
 
-      - name: Build A (base) with the same recipe in a worktree
-        run: |
-          git worktree add ../base "$BASE_REF"
-          # Every selected patch's test hunks go to the base as well (a no-op
-          # for a patch without any), so both PGO builds train on one suite
-          # and only the runtime implementation differs between the arms.
-          while read -r patch; do
-            [ -n "$patch" ] || continue
-            git -C ../base apply --include='tests/*' "$GITHUB_WORKSPACE/$patch"
-          done < ab/patches.txt
-          git -C ../base ls-files --others --exclude-standard -- tests | while read -r added; do git -C ../base add -N "$added"; done
-          cd ../base
-          make install-bench
-          make pgo
-          cd "$GITHUB_WORKSPACE"
-          binary=$(../base/.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')
-          cp "$binary" arms/A.so
-          cp "$binary.build.json" arms/A.so.build.json
-          cp -R ../base/build/pgo ab/profile-A
-          echo "A $(git -C ../base rev-parse --short HEAD) $(md5sum arms/A.so 2>/dev/null || md5 -q arms/A.so)" | tee -a ab/arms.txt
-
-      - name: Static identity of the two _strata images (M12b criterion 5)
-        # M12b leaves every `_strata` source token and flag as main's. Two
-        # independent trainings of one source already differ on some legs
-        # (A/A run 35365120745: linux-arm64 and windows), so identity is shown
-        # with the profile held equal: B's source rebuilt against A's profile
-        # must give A's code section byte for byte. A difference stops this leg
-        # before any timing (exit 1); a rebuild or an image the reader cannot
-        # parse is recorded as unverified and the leg is timed. The timed B stays
-        # B's own training; its identity with A is recorded, not gated.
+      - name: Build A, A2, B and B-held with PGO+LTO in one path, one after another
+        # One absolute path for every arm (run 36279771980: ThinLTO's promoted
+        # names hash the build directory, and linux-arm64's link order follows
+        # them). A2 is main trained a second time: the build-noise control that
+        # B-vs-A is read against. B_held is B's source against A's profile: the
+        # identity proof, recorded (with a normalised disassembly) and never a
+        # stop -- a leg whose code differs is timed and marked unverified.
         shell: bash
         run: |
-          set +e
-          python benchmarks/image_identity.py arms/A.so arms/B.so --json ab/identity-own-profiles.json > ab/identity-own-profiles.txt
-          rm -rf build/lib.* build/temp.*
-          if PGO_MODE=use STRATA_ENABLE_LTO=1 \
-              STRATA_PGO_PROFILE="$(cd ../base && pwd)/build/pgo/strata.profdata" \
-              .venv/bin/python -m pip install --force-reinstall --no-deps -e . > ab/held-profile-build.log 2>&1; then
-            cp "$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')" arms/B_held.so
-            python benchmarks/image_identity.py arms/A.so arms/B_held.so --json ab/identity.json | tee ab/identity.txt
-            [ "${PIPESTATUS[0]}" != 1 ]
-          else
-            echo "IDENTITY UNVERIFIED: the held-profile rebuild failed (ab/held-profile-build.log)" | tee ab/identity.txt
-          fi
+          if [ -s ab/patches.txt ]; then echo "same-path arms support experiment=none only" >&2; exit 2; fi
+          python benchmarks/ab_same_path_arms.py --base "$BASE_REF" --arm-dir "$RUNNER_TEMP/strata-arm"
+          cat ab/arms.txt ab/identity-status.txt ab/identity.txt ab/identity-normalised.txt
 
       - name: Datasets (small and medium)
         run: |
@@ -236,6 +196,11 @@ jobs:
           # which makes the tools say so when it is not met).
           PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A.so \
             --target "$TARGET" --out ab/AA.tsv $ROWS --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" 2> ab/AA.stderr
+          # The build-noise control: main against main trained a second time, read
+          # beside R1 so a B-vs-A effect is judged against what two trainings of
+          # one source already do on this leg.
+          PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A=arms/A.so --build B=arms/A2.so \
+            --target "$TARGET" --out ab/A2.tsv $ROWS --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" 2> ab/A2.stderr
           for w in R1 AA; do
             PYTHONPATH=. .venv/bin/python benchmarks/ab_builds.py --analyze ab/$w.tsv > ab/${w}_analyze.txt
             PYTHONPATH=. .venv/bin/python benchmarks/ab_floor.py ab/$w.tsv > ab/${w}_floor.txt
@@ -247,6 +212,9 @@ jobs:
           PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py ab/R1.tsv --aa ab/AA.tsv \
             --json ab/R1_effect.json > ab/R1_blocks.txt
           PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py ab/AA.tsv > ab/AA_blocks.txt
+          PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py ab/A2.tsv --aa ab/AA.tsv \
+            --json ab/A2_effect.json > ab/A2_blocks.txt
+          echo "== A2 (build-noise control)"; cat ab/A2_blocks.txt
           echo "== R1 block-paired, normalised"; cat ab/R1_blocks.txt
           echo "== AA"; cat ab/AA_blocks.txt
 
@@ -326,7 +294,7 @@ jobs:
   ab-windows:
     name: A/B (windows-x86_64)
     runs-on: windows-latest
-    timeout-minutes: 180
+    timeout-minutes: 300
     env:
       EXPERIMENT: ${{ inputs.experiment }}
       BASE_REF: ${{ inputs.base_ref }}
@@ -381,61 +349,21 @@ jobs:
             git ls-files --others --exclude-standard -- tests | while read -r added; do git add -N "$added"; done
           fi
 
-      - name: Build candidate with clang-cl PGO and full gates
+      - name: Timing harness environment in the checkout (plain gated build)
         run: |
-          export PATH="/c/Program Files/LLVM/bin:$PATH"
           python -m pip install -U pip setuptools wheel
           python -m pip install -e ".[dev,bench]"
-          python scripts/pgo_build_clang_cl.py
-          mkdir -p arms ab
-          candidate_binary=$(python -c 'import strata._strata as m; print(m.__file__)')
-          cp "$candidate_binary" arms/B.pyd
-          cp "$candidate_binary.build.json" arms/B.pyd.build.json
-          cp -R build/pgo ab/profile-B
+          mkdir -p ab arms
           python -m pip freeze --exclude-editable > ab/constraints.txt
           python -c "import platform; print(platform.platform(), platform.processor())" > ab/cpu.txt
 
-      - name: Build baseline in its own environment
+      - name: Build A, A2, B and B-held with clang-cl PGO in one path, one after another
+        # As on the POSIX legs (see there).
         run: |
-          export PATH="/c/Program Files/LLVM/bin:$PATH"
-          git worktree add ../base "$BASE_REF"
-          # Every selected patch's test hunks go to the base as well (a no-op
-          # for a patch without any), so both PGO builds train on one suite
-          # and only the runtime implementation differs between the arms.
-          while read -r patch; do
-            [ -n "$patch" ] || continue
-            git -C ../base apply --include='tests/*' "$GITHUB_WORKSPACE/$patch"
-          done < ab/patches.txt
-          git -C ../base ls-files --others --exclude-standard -- tests | while read -r added; do git -C ../base add -N "$added"; done
-          constraints="$GITHUB_WORKSPACE/ab/constraints.txt"
-          cd ../base
-          python -m venv .venv
-          .venv/Scripts/python -m pip install -U pip setuptools wheel
-          .venv/Scripts/python -m pip install -c "$constraints" -e ".[dev,bench]"
-          PATH="$(pwd)/.venv/Scripts:$PATH" .venv/Scripts/python scripts/pgo_build_clang_cl.py
-          baseline_binary=$(.venv/Scripts/python -c 'import strata._strata as m; print(m.__file__)')
-          cd "$GITHUB_WORKSPACE"
-          cp "$baseline_binary" arms/A.pyd
-          cp "$baseline_binary.build.json" arms/A.pyd.build.json
-          cp -R ../base/build/pgo ab/profile-A
-
-      - name: Static identity of the two _strata images (M12b criterion 5)
-        # As on the POSIX legs: identity is shown with A's profile held for B.
-        shell: bash
-        run: |
-          set +e
-          export PATH="/c/Program Files/LLVM/bin:$PATH"
-          python benchmarks/image_identity.py arms/A.pyd arms/B.pyd --json ab/identity-own-profiles.json > ab/identity-own-profiles.txt
-          rm -rf build/lib.* build/temp.*
-          if STRATA_WIN_COMPILER=clang-cl PGO_MODE=use STRATA_ENABLE_LTO=0 \
-              STRATA_PGO_PROFILE="$(cd ../base && pwd -W)/build/pgo/strata.profdata" \
-              python -m pip install --force-reinstall --no-deps -e . > ab/held-profile-build.log 2>&1; then
-            cp "$(python -c 'import strata._strata as m; print(m.__file__)')" arms/B_held.pyd
-            python benchmarks/image_identity.py arms/A.pyd arms/B_held.pyd --json ab/identity.json | tee ab/identity.txt
-            [ "${PIPESTATUS[0]}" != 1 ]
-          else
-            echo "IDENTITY UNVERIFIED: the held-profile rebuild failed (ab/held-profile-build.log)" | tee ab/identity.txt
-          fi
+          if [ -s ab/patches.txt ]; then echo "same-path arms support experiment=none only" >&2; exit 2; fi
+          python benchmarks/ab_same_path_arms.py --base "$BASE_REF" --arm-dir "$RUNNER_TEMP/strata-arm" \
+            --constraints ab/constraints.txt
+          cat ab/arms.txt ab/identity-status.txt ab/identity.txt ab/identity-normalised.txt
 
       - name: Generate comparison datasets
         run: |
@@ -449,8 +377,11 @@ jobs:
           rows=(--row small:users:loads --row small:users:dumps --row small:users:load --row small:users:dump --row small:users:ndload --row small:flat:loads --row small:flat:dumps --row small:flat:load --row small:flat:dump --row small:nested:loads --row small:nested:dumps --row small:nested:load --row small:nested:dump --row small:wide_arrays:loads --row small:wide_arrays:dumps --row small:wide_arrays:load --row small:wide_arrays:dump --row small:mixed:loads --row small:mixed:dumps --row small:mixed:load --row small:mixed:dump --row medium:flat:dumps --row medium:users:dumps --row medium:mixed:dumps --row medium:wide_arrays:loads)
           PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/B.pyd --target "$target_binary" --out ab/R1.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/R1.txt 2> ab/R1.stderr
           PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/A.pyd --target "$target_binary" --out ab/AA.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/AA.txt 2> ab/AA.stderr
+          PYTHONPATH=. python benchmarks/ab_rows.py --build A=arms/A.pyd --build B=arms/A2.pyd --target "$target_binary" --out ab/A2.tsv "${rows[@]}" --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" > ab/A2.txt 2> ab/A2.stderr
           PYTHONPATH=. python benchmarks/ab_blocks.py ab/R1.tsv --aa ab/AA.tsv --json ab/comparison.json > ab/comparison.txt
+          PYTHONPATH=. python benchmarks/ab_blocks.py ab/A2.tsv --aa ab/AA.tsv --json ab/A2_effect.json > ab/A2_blocks.txt
           cat ab/comparison.txt
+          echo "== A2 (build-noise control)"; cat ab/A2_blocks.txt
 
       - name: Full canonical before/candidate reports and regression gate
         if: inputs.validation == 'canonical'
