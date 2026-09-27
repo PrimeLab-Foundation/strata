@@ -189,7 +189,7 @@ of the serializer's footprint.
 implementations met criteria 1–4, 7 and 8; criterion 5 failed and the kill
 criterion fired (run 36254514783: linux-x86_64 `dumps flat` lost to the hook's
 own code, reproduced across both implementations). The successor is a separate
-`dumps_with_default` entry point, per the kill criterion below; the attempts are
+`dumps_with_default` entry point (M12b), per the kill criterion below; the attempts are
 archived on `exp/m12-default-hook-2` and `exp/m12-default-hook`
 (docs/performance/experiment-ledger.md, M12).
 
@@ -229,7 +229,70 @@ whose cause is the code rather than the profile ⇒ the shape is abandoned for a
 separate `dumps_with_default` entry point that cannot perturb `dumps`'s
 codegen.
 
+## M12b — `dumps_with_default`: the hook as a separate entry point (in progress)
+
+Design: `docs/architecture/dumps_with_default.md` (draft). The M12 semantics
+behind `strata.dumps_with_default(obj, default, *, return_type="str")`, served
+by a second extension module (`strata._dumps_hook`) compiled from the same
+serializer source, so that `strata._strata` does not change at all.
+
+**Done when:**
+
+1. Every row of the record's error table is a named contract test in
+   `tests/unit` citing its api.md clause, mirrored by integration tests in
+   `tests/py`; `docs/context/api.md` carries the signature, the chain bound,
+   the key exclusion, the "`default=None` is refused" rule, and a mutation
+   clause for this entry point (five steps) while `dumps`'s clause stays
+   main's text (four).
+2. E26-FIX2b is re-pinned in both directions: a refcount test drives a nested
+   `dumps` and a nested `dumps_with_default` through the callable and reads
+   zero drift.
+3. `make test-py-asan` green with a callable that resizes the list being
+   written, clears the dict being written, and calls both entry points
+   re-entrantly.
+4. **Zero diff for `_strata`, not a budget**: (a) `clang++ -E -P` of every
+   `_strata` TU emits the same token stream as main's; (b) every `_strata`
+   object's `__text` is byte-identical to main's on arm64 and x86-64 (plain
+   `-O3`, the codegen scripts of M12); (c) the linked plain `_strata`
+   extension's `__TEXT` and `__DATA` section bytes are identical to main's;
+   (d) `setup.py`'s `_strata` `Extension` (sources, order, flags) is
+   unchanged. The hook image's own `__text` is reported, not bounded.
+5. The five-platform same-runner A/B of M12 criterion 5, unchanged: both arms
+   `make pgo`, tests-matched (both on main's gate suite; B carries the hook
+   module), 6 ABBA blocks × 60 against a fresh A/A floor, no row of the 21
+   instrumented canonical rows resolved against strata past its floor; before
+   any timing, the runner's two PGO `_strata` binaries are compared, and a
+   `__text` difference stops the run for attribution. **Met 2026-09-27**
+   under the record's rule (runs 36279771980, 36291977906, 36297571366):
+   identity shown on all five legs — B's source against A's profile, one build
+   path; byte for byte on four, normalised on linux-arm64 — and no resolved
+   loss repeated on one leg (docs/performance/experiment-ledger.md, M12b).
+6. Two five-platform CI samples with complete `ci_summary` evidence lose no row
+   any platform held at the 135/135 sweep (the shipped build, whose profile
+   includes the new tests).
+7. `tests/integrations/` carried over and re-targeted, excluded from
+   `testpaths`/`make gate`/the profile, with `make test-integrations` and its
+   CI job.
+8. Both suites green, coverage 100% on the new lines of both images, the
+   ledger carries the entry.
+9. The hook image is imported on the first `dumps_with_default` call, not by
+   `import strata`: with the hook image missing, `import strata`, `dumps` and
+   `loads` still work and `dumps_with_default` raises `ImportError` on every
+   call (tested). `import strata`'s own wall time is unchanged against main, and
+   the first call's added wall time and resident memory — measured in fresh
+   processes (≥ 30 repeats) on the dev M1 in a quiet window — are ≤ 1 ms and
+   ≤ 1 MB (bounds signed off 2026-09-26; amended to first-call cost
+   2026-09-27).
+
+**Kill criterion:** if criterion 4 cannot be met, the isolation design is wrong
+and nothing is timed; if it is met and criterion 5 still resolves a loss, the
+cause is host or profile nondeterminism and goes to a second draw and the
+identical-binary control, not to the code.
+
 ## M13 — Tier-1 framework adapters (planned)
+
+Depends on M12b: the adapters hand frameworks `dumps_with_default` for their
+unsupported types, so M13 starts when M12b's criteria are met.
 
 Flask (`json_provider_class`), Django (`JsonResponse(encoder=)`), aiohttp
 (`dumps=`), Falcon (`media.JSONHandler`), structlog (`JSONRenderer(serializer=)`).

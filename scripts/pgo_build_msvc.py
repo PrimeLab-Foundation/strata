@@ -127,6 +127,19 @@ def _install(mode: str) -> None:
     )
 
 
+def _assert_hook_unprofiled(*control: str) -> None:
+    """setup.py builds strata._dumps_hook unprofiled: nothing it runs may enter the profile."""
+    _run(
+        [
+            sys.executable,
+            "scripts/build_identity.py",
+            "--check-unprofiled",
+            "strata._dumps_hook",
+            *control,
+        ]
+    )
+
+
 def _extension_dir() -> Path | None:
     probe = subprocess.run(
         [sys.executable, "-c", "import strata._strata as m; print(m.__file__)"],
@@ -206,6 +219,7 @@ def main() -> int:
 
     print("==> PGO phase 1: instrumented build (/GL /LTCG /GENPROFILE)", flush=True)
     _install("generate")
+    _assert_hook_unprofiled("--instrumented", "strata._strata")
 
     print("==> PGO: generating training data", flush=True)
     _run([sys.executable, "scripts/pgo_training_data.py", "--out-dir", str(PGO_DIR)])
@@ -246,6 +260,7 @@ def main() -> int:
     )
     _install("use")
     _assert_not_instrumented()
+    _assert_hook_unprofiled()
 
     print("==> PGO: gate tests on the optimized build", flush=True)
     _gate_tests()

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Build `strata._strata` under AddressSanitizer + UndefinedBehaviorSanitizer and
-# run both Python suites (tests/py, tests/unit) against it.
+# Build `strata._strata` and `strata._dumps_hook` under AddressSanitizer +
+# UndefinedBehaviorSanitizer and run both Python suites (tests/py, tests/unit)
+# against them.
 #
 # Why this exists: the `corpus` CI job sanitizes the C++ core only — CMake/ctest
 # over core_sources.txt. Nothing there compiles src/strata/bindings, and the
@@ -255,23 +256,26 @@ run_sanitized "$ASAN_PY" -m pip install --no-build-isolation --no-cache-dir \
 # Named by EXT_SUFFIX, so the check can only look at the module this
 # interpreter would actually import.
 SUFFIX="$("$ASAN_PY" -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")"
-EXT="$(find "$ASAN_VENV"/lib -maxdepth 4 -name "_strata$SUFFIX" 2>/dev/null | head -n 1)"
-[ -n "$EXT" ] || die "_strata$SUFFIX was not found under $ASAN_VENV/lib after the install."
 echo
-echo "── the installed extension links the sanitizer runtime ──"
-echo "+ $EXT ($(wc -c <"$EXT" | tr -d ' ') bytes)"
-if command -v otool >/dev/null 2>&1; then
-    otool -L "$EXT" | grep -iE 'asan|sanitiz' || true
-elif command -v ldd >/dev/null 2>&1; then
-    # A shared object leaves the ASan symbols undefined for the preload to
-    # satisfy, so ldd naming nothing here is normal on Linux; nm below decides.
-    ldd "$EXT" | grep -iE 'asan|sanitiz' || true
-fi
-# nm -u reads .symtab; -D reads the dynamic table, which is where a stripped
-# ELF keeps its undefined symbols. Both are asked, one of them answers.
-UNDEF="$( { nm -u "$EXT" 2>/dev/null; nm -D -u "$EXT" 2>/dev/null; } | grep -c asan || true)"
-echo "+ undefined ASan symbols in the extension: $UNDEF"
-[ "$UNDEF" -gt 0 ] || die "$EXT carries no ASan symbols — the build was not instrumented."
+echo "── the installed extensions link the sanitizer runtime ──"
+# `import strata` loads both images, so both must be instrumented.
+for MODULE in _strata _dumps_hook; do
+    EXT="$(find "$ASAN_VENV"/lib -maxdepth 4 -name "$MODULE$SUFFIX" 2>/dev/null | head -n 1)"
+    [ -n "$EXT" ] || die "$MODULE$SUFFIX was not found under $ASAN_VENV/lib after the install."
+    echo "+ $EXT ($(wc -c <"$EXT" | tr -d ' ') bytes)"
+    if command -v otool >/dev/null 2>&1; then
+        otool -L "$EXT" | grep -iE 'asan|sanitiz' || true
+    elif command -v ldd >/dev/null 2>&1; then
+        # A shared object leaves the ASan symbols undefined for the preload to
+        # satisfy, so ldd naming nothing here is normal on Linux; nm below decides.
+        ldd "$EXT" | grep -iE 'asan|sanitiz' || true
+    fi
+    # nm -u reads .symtab; -D reads the dynamic table, which is where a stripped
+    # ELF keeps its undefined symbols. Both are asked, one of them answers.
+    UNDEF="$( { nm -u "$EXT" 2>/dev/null; nm -D -u "$EXT" 2>/dev/null; } | grep -c asan || true)"
+    echo "+ undefined ASan symbols in $MODULE: $UNDEF"
+    [ "$UNDEF" -gt 0 ] || die "$EXT carries no ASan symbols — the build was not instrumented."
+done
 
 # --- run -------------------------------------------------------------------
 echo

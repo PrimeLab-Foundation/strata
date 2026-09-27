@@ -92,6 +92,23 @@ def _install(mode: str, extra_env: dict[str, str]) -> None:
     )
 
 
+def _assert_hook_unprofiled(*control: str) -> None:
+    """setup.py builds strata._dumps_hook unprofiled: nothing it runs may enter the profile.
+
+    Its raw profiles would not be told apart here (LLVM_PROFILE_FILE names
+    files by %p only), so the check reads the hook's build identity and image.
+    """
+    _run(
+        [
+            sys.executable,
+            "scripts/build_identity.py",
+            "--check-unprofiled",
+            "strata._dumps_hook",
+            *control,
+        ]
+    )
+
+
 def _extension_dir() -> Path | None:
     probe = subprocess.run(
         [sys.executable, "-c", "import strata._strata as m; print(m.__file__)"],
@@ -175,6 +192,7 @@ def main() -> int:
     # file per process is all the merge needs, so no in-place merge pool.
     profile_env = {"LLVM_PROFILE_FILE": str(RAW_DIR / "%p.profraw")}
     _install("generate", profile_env)
+    _assert_hook_unprofiled("--instrumented", "strata._strata")
 
     print("==> PGO: generating training data", flush=True)
     _run([sys.executable, "scripts/pgo_training_data.py", "--out-dir", str(PGO_DIR)])
@@ -217,6 +235,7 @@ def main() -> int:
     print("==> PGO phase 2: optimized build (clang-cl, -fprofile-use)", flush=True)
     _install("use", {"STRATA_PGO_PROFILE": str(PROFILE)})
     _assert_not_instrumented()
+    _assert_hook_unprofiled()
 
     print("==> PGO: gate tests on the optimized build", flush=True)
     _gate_tests()

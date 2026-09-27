@@ -1,8 +1,10 @@
 # Public API Reference
 
-Package exports (`python/strata/__init__.py` `__all__`): `loads`, `dumps`, `load`,
-`dump`, `search`, `query`, `compile`, `config`, `__version__`.
-Also importable: `JsonCursor`. Native module: `strata._strata`.
+Package exports (`python/strata/__init__.py` `__all__`): `loads`, `dumps`,
+`dumps_with_default`, `load`, `dump`, `search`, `query`, `compile`, `config`,
+`__version__`. Also importable: `JsonCursor`. Native modules: `strata._strata`,
+and `strata._dumps_hook` (the serializer with the unsupported-type hook, imported
+by the first `dumps_with_default` call only).
 
 Deliberate changes vs the previous implementation: `compile_path` is renamed
 `compile` (mirroring `re.compile`), and the extra entry points `parse_json`
@@ -80,6 +82,54 @@ rule the general and the fused record writer can both produce byte-identically �
 this diverges from stdlib `json`, which walks dicts live); wider dicts and dicts
 with `str`-subclass keys are followed live. Output on unmutated input is
 unchanged.
+
+```python
+strata.dumps_with_default(obj, default, *, return_type="str") -> str | bytes
+```
+
+`dumps` with a hook for unsupported types (design record:
+`docs/architecture/dumps_with_default.md`). For every object `dumps` supports the
+output is `dumps`'s, byte for byte; each object of any other type is passed to
+`default` once and its return value is serialized in the object's place — as a
+value, at that object's depth, so a returned container one level past the limit
+raises "Maximum serialization depth exceeded" and a returned container that is
+already open is a cycle under the active `cycle_policy`, reported where it was
+returned (the array element loop's placement caveat under Config does not apply
+to it). The rules, each test-pinned:
+
+- `default` is required, positional or keyword, and must be callable; anything
+  else — **`None` included** — raises `TypeError("default must be callable, not %s")` before any byte is produced. Missing it, passing it twice, or an unknown
+  keyword raise `TypeError` as for any Python function.
+- A document with no unsupported object is byte-identical to `dumps(obj)` in
+  both return types, and `default` is never called.
+- `default` raises ⇒ that exception **propagates unchanged**: same object, same
+  type and args, no wrapping or chaining (`KeyboardInterrupt`, `MemoryError` and
+  `SystemExit` included).
+- **Chain bound 1.** `default` returns an unsupported object ⇒
+  `TypeError("default() returned an object of type %s that is not JSON serializable")`, and `default` is **not** called on its own return. This
+  diverges from stdlib `json` (which re-enters `default` without limit) and from
+  orjson (up to 254 times); a caller who wants a chain writes the loop inside the
+  callable. Unsupported objects *nested inside* a returned container are ordinary
+  positions and get their own call.
+- `default` returns `None` ⇒ `null`; a returned `str` with no UTF-8 encoding ⇒
+  `UnicodeEncodeError`, as for any other `str`.
+- **Keys are excluded.** A non-`str` dict key raises the unchanged
+  `TypeError("keys must be str, not %s")`; `default` is never called for a key.
+- `return_type` is `dumps`'s: `"str"` or `"bytes"`, else `ValueError("invalid return_type: %s")`. There is no file counterpart: `dump` has no hook.
+- The hook's own extension image (`strata._dumps_hook`) is imported on the first
+  call, not by `import strata`. If it cannot be imported, that call — and every
+  later one — raises the `ImportError`; the rest of the package is unaffected.
+
+**Mutation during `dumps_with_default`.** User code can run at five steps: the
+four of `dumps` above, and `default`, once per unsupported object — not rare,
+since running it is the point. `default` allocates what it likes, so inside a
+successful call a collection — and every `__del__` it fires — can run, as can a
+`__del__` or weakref callback fired when the serializer releases the reference
+`default` returned. The writers' rules above hold unchanged: lists and tuples
+are followed live; a dict of at most 24 exact-`str` keys below 64 levels of dict
+nesting is emitted as the row read on entry; wider dicts and dicts with
+`str`-subclass keys are followed live. `dumps` itself can reach no hook, so its
+clause above stays at four steps.
 
 ## File & folder I/O
 

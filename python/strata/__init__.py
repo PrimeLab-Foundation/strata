@@ -16,7 +16,7 @@ from . import _strata as _native  # noqa: F401
 from . import config
 from ._strata import CompiledPath, JsonCursor
 from .jsonpath import compile, query, search
-from .serialize import dump, dumps, load, loads
+from .serialize import dump, dumps, dumps_with_default, load, loads
 
 # Single source of truth for the version (docs/context/api.md § Versioning).
 # pyproject.toml reads this literal dynamically — never add a second copy.
@@ -26,6 +26,7 @@ __all__ = [
     # Parse / serialize
     "loads",
     "dumps",
+    "dumps_with_default",
     # File I/O
     "load",
     "dump",

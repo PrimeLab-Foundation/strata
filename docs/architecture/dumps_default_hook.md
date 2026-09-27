@@ -7,7 +7,8 @@ cause is the hook's code (linux-x86_64 `dumps flat`, reproduced across both
 implementations). The successor is the separate entry point the kill criterion
 names, `dumps_with_default`; the lease-state fallback in "Footprint" is ruled
 out by the same evidence (docs/performance/experiment-ledger.md, M12;
-docs/decisions.md, 2026-09-26). Drafted 2026-09-18.
+docs/decisions.md, 2026-09-26). Drafted 2026-09-18. The successor's design:
+[`dumps_with_default.md`](dumps_with_default.md) (roadmap M12b).
 Area: `src/strata/bindings/` only. Nothing in `include/strata/` or
 `src/strata/{json,search,util}` changes; the C++ core gains no surface.
 

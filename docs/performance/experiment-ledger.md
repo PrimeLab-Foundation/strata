@@ -3863,3 +3863,169 @@ waits on it.
   `write_diff.*.txt`, the floor benches and their raw samples,
   `PROVENANCE.txt` stating what the directory does not claim), `coverage/`
   (the instrumented build's new-line report), and the ASan logs.
+
+## M12b — `dumps_with_default`, the hook as a separate image
+
+- 2026-09-27 · `exp/m12b-dumps-with-default` over main `a9cd524`. Record:
+  [`dumps_with_default.md`](../architecture/dumps_with_default.md); roadmap
+  M12b criteria 1–5 and 7–9 met (criterion 5: runs 36279771980,
+  36291977906, 36297571366, verdict below); **criterion 6 owed** — two
+  five-platform CI samples, which need the branch on main (the user's
+  go/no-go).
+
+- **Shape.** `strata._dumps_hook`, a second extension image, compiles
+  `python_dumps.cpp` again with `STRATA_DUMPS_HOOK` defined
+  (`src/strata/bindings/python_dumps_hook.cpp`); the hook code is M12's
+  (`write_unsupported`, the identity chain bound, `set_default`) and exists
+  only there. `_strata`'s build is main's. The facade imports the hook image
+  on the first `dumps_with_default` call (amended from an eager import on
+  review), so a missing or broken hook image fails that call, not
+  `import strata`.
+
+- **Criterion 4 — zero diff, measured after the review fixes**
+  (`build/evidence/benchmark-lead/M12b/zero-diff/`): all 18 `_strata`
+  translation units preprocess to main's token streams on arm64 and x86-64
+  (36/36); every object's `__text` and every `__TEXT`/`__DATA` section of
+  the linked plain extension are byte-identical to main's on both ISAs
+  (`section_hashes.txt`: `__TEXT,__text` sha256 `8d9ede5989eadf1a…` arm64,
+  `82cf4ae0b66f7352…` x86-64, the same for main and the branch);
+  `setup.py`'s `_strata` `Extension` is unchanged. The hook image: 33 992 B
+  `__text` arm64, 34 366 B x86-64 (hidden visibility, function sections,
+  link-time strip; one exported symbol). A local `make pgo` builds it
+  unprofiled and `_strata` against the profile, and the three PGO scripts
+  fail if the hook image's identity or commands carry a profile flag.
+
+- **Review fix, P1: the hook image's cycle-policy read ran user code
+  unlatched.** `config_get` is `METH_VARARGS`, so the read allocates a
+  tracked argument tuple, and on CPython 3.10/3.11 that allocation collects
+  inline: a `gc.callbacks` entry clearing the dict being written read freed
+  memory into the output (reviewer's repro, 3/3 on 3.11). The read is now
+  latched (`STRATA_CYCLE_POLICY(owner)` latches, then reads; `_strata`'s
+  expansion is still `g_cycle_policy`). On 3.11 the repro reads the row
+  read on entry 3/3, and the regression test
+  (`test_a_collection_at_the_cycle_policy_read_cannot_free_the_row_being_written`)
+  segfaults on a pre-fix 3.11 build and passes on the fixed one; it skips on
+  3.12+, where the collector cannot be forced inside the call.
+
+- **Criterion 9 — first-call cost** (60 fresh-interpreter ABBA rounds, plain
+  arm64 builds; the machine was loaded, load average 5–15 from desktop
+  processes, so the readings are indicative): `import strata` unchanged
+  against main (paired +0.005 ms \[−0.095, +0.072\]); the first
+  `dumps_with_default` call adds 0.499 ms \[0.485, 0.526\] over the second
+  and 128 KB RSS, against the ≤ 1 ms / ≤ 1 MB bound. `dumps` itself is
+  untouched, so M12's +10 ns facade cost is gone. **Owed:** the same
+  measurement in a quiet window (standing practice: loaded rolls are
+  indicative only); it rides the next quiet moment on the dev M1 and does not
+  block criterion 5.
+
+- **Correctness.** `tests/unit/test_dumps_with_default.py` (173),
+  `tests/unit/test_dumps_with_default_state.py` (cycle policy from `_strata`,
+  E26-FIX2b re-pinned in both directions, the hook image's init refusals, a
+  failing policy read, and legacy subinterpreters in both import orders),
+  `tests/py/test_dumps_with_default_contract.py` (197 message-pinned
+  integration mirrors of the error table, and the missing-hook-image
+  robustness test), `tests/py/test_dumps_with_default.py` (mutation,
+  re-entrancy, the stdlib oracle, the regression test),
+  `tests/unit/test_hook_build_scope.py` (31), `tests/integrations/` (19,
+  outside the gate). `make test` 3184 passed; `make test-py-asan` 3179 passed,
+  4 skipped; coverage 119/122 new binding lines across both images (the
+  three: an llvm-cov line artefact and two allocation-failure exits of the
+  module init), the facade 100%.
+
+- **Test composition.** The new suites keep calls into `_strata` to a small
+  fixed set and use the stdlib oracle for corpus-wide checks, so what they can
+  shift in the shipped `_strata` profile is small; criterion 6 reads what
+  remains.
+
+- **Criterion 5 setup.** Arm `exp/m12b-ab-arm` = this branch without its
+  five new gate-test files (both arms train on main's suite), the 25-row
+  ABBA list plus the full canonical diagnostic, and a static step per leg:
+  B rebuilt against A's profile must equal A's code section, or the leg
+  stops before timing (docs/decisions.md, 2026-09-27; the first attempt's A/A
+  run shows independent trainings of one source already differ on
+  linux-arm64 and windows). Locally, the held-profile pair is identical in
+  all 13 loaded sections.
+
+- **Run 36279771980 (first draw, 2026-09-27).** Four legs timed, 6 blocks,
+  0 dropped; linux-arm64 stopped at the identity gate. The stop was layout:
+  A and B-held carry the same 460 functions at the same sizes in a different
+  order, because ThinLTO's promoted-name suffix (`.llvm.<N>`, a module hash)
+  moves with the build directory and the profile and that leg's link order
+  follows it; normalised, 443/460 functions are identical and 17 differ only
+  in GOT-slot immediates (`build/evidence/benchmark-lead/M12b/ab-36279771980/linux-arm64-diagnosis.txt`).
+  linux-x86_64, macos-arm64 and macos-x86_64: byte-identical code in the
+  timed arms, no resolved loss (gains: linux-x86_64 small `load mixed`
+  −0.98% \[−2.00, −0.05\], floor 0.55; macos-x86_64 medium `dumps flat`
+  bytes −3.01% \[−5.39, −0.32\], floor 2.68 — host noise on identical code).
+  windows: identical under the held profile, own profiles differ, and small
+  `dumps flat` resolved +1.98% bytes \[+1.27, +3.16\] and +1.71% str
+  \[+1.39, +2.80\] (floors 0.94, 1.37), 6/6 blocks — within what two
+  trainings of one source already read on that row (35365120745). Next draw:
+  all arms built in one path, plus A2 (main trained twice) as the in-run
+  build-noise control (`exp/m12b-ab-arm` `07988d3`).
+
+- **Run 36291977906 (second draw, 2026-09-27; arms built in one path, A2 =
+  main trained twice).** windows failed before compiling (the arm builder
+  passed pip a constraints path relative to the checkout while running in the
+  build worktree; fixed in `038edd2`, and windows re-dispatched alone as run
+  36297571366). The four POSIX legs: 6 blocks, 0 dropped.
+
+  | leg          | identity (B against A's profile)                           | B-vs-A resolved (+ = B slower)                                                                                                                                             | A2-vs-A resolved                |
+  | ------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+  | linux-x86_64 | byte-identical                                             | small `dump mixed` +2.21% \[+1.06, +3.10\], floor 2.10, on timed code identical to A's (host)                                                                              | none                            |
+  | linux-arm64  | order differs; normalised 443/460 + 17 slot-only, 0 beyond | none                                                                                                                                                                       | small `dumps nested` str −0.83% |
+  | macos-arm64  | byte-identical                                             | none                                                                                                                                                                       | none                            |
+  | macos-x86_64 | byte-identical                                             | small `dumps flat` bytes +2.16% \[+0.28, +3.60\] (floor 1.26), small `loads mixed` +0.96% \[+0.10, +1.14\] (0.50), beside `wide_arrays` parse gains −3.72%, −3.86%, −4.54% | none                            |
+
+  Findings. (1) One build path did **not** restore linux-arm64's byte order:
+  A and A2 — one source, one path, trained twice — differ there too, so the
+  order follows the training as well as the source text; normalised, A and
+  B-held are the same code. (2) On both Macs A2's profile is byte-identical to
+  A's, while B's differs by one count in two or three functions
+  (`is_directory`, `discover_json_files`, `std::string` internals) — the arm
+  checkout's own content reaching a gate test that walks directories, not
+  M12b's `_strata` source; so the timed B differed from A there and A2 did
+  not, and **the A2 control under-sampled the difference it was meant to
+  bound** (see OPEN below). (3) No loss resolved on the same leg in both
+  draws; every leg's identity is shown, byte for byte on four and
+  normalised on linux-arm64.
+
+- **OPEN — which gate test walks the checkout into the training profile.**
+  Some gate test reaches `strata::util::is_directory`/`discover_json_files`
+  over a directory whose content differs between the two arms' checkouts,
+  so the arms' profiles differ by a few counts even though every
+  `_strata` source token is main's. Pinning it (a fixed fixture directory,
+  or excluding the arm-only files from what it walks) would make both arms'
+  training input identical and give the A2 control teeth. Not investigated
+  yet.
+
+- **Run 36297571366 (windows' second draw, 2026-09-27, arms in one path).**
+  Identity verified: B against A's profile is byte-identical to A (PE
+  `.text`); A2's profile is byte-identical to A's (`c55d6725…`), B's differs
+  (`a8252e62…`). 6 blocks, 0 dropped. B-vs-A resolves **nothing**: small
+  `dumps flat` bytes −0.37% \[−1.15, +0.09\] (floor 0.71) and str −0.26%
+  \[−1.01, +0.63\] (floor 3.21) — the rows draw 1 resolved at +1.98% and
+  +1.71%; largest unresolved small `loads mixed` −5.83% (floor 5.60).
+  A2-vs-A resolves nothing either.
+
+- **Criterion 5 verdict: met, under the record's rule.** With `_strata`'s code
+  shown identical on every leg, a resolved loss goes to a further draw, not to
+  the code (docs/architecture/dumps_with_default.md, kill criterion); across
+  the draws, no loss resolved twice on one leg:
+
+  | leg            | identity                                                     | draw 1 (36279771980)               | draw 2 (36291977906 / windows 36297571366)                                                      |
+  | -------------- | ------------------------------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+  | linux-x86_64   | byte-identical                                               | no loss                            | small `dump mixed` +2.21% on timed code identical to A's                                        |
+  | linux-arm64    | normalised (order differs: 443/460 + 17 slot-only, 0 beyond) | not timed (identity stop, layout)  | no loss                                                                                         |
+  | macos-arm64    | byte-identical                                               | no loss                            | no loss                                                                                         |
+  | macos-x86_64   | byte-identical                                               | no loss                            | small `dumps flat` bytes +2.16%, small `loads mixed` +0.96% (beside −3.7% to −4.5% parse gains) |
+  | windows-x86_64 | byte-identical                                               | small `dumps flat` +1.98% / +1.71% | no loss                                                                                         |
+
+  Stated plainly: no single draw was free of resolved rows on every leg, and
+  the literal "no row resolved" reading is not what is claimed. What holds is
+  the record's criterion: identity on all five legs (byte for byte on four,
+  normalised on linux-arm64), and every resolved loss unrepeated in the leg's
+  other draw, three of them on timed code byte-identical to A's or beside
+  larger gains on source neither arm changes. linux-arm64 has one timed
+  draw. The A2 control is weaker than designed until the directory-walking
+  gate test is pinned (OPEN above).
