@@ -4142,7 +4142,8 @@ waits on it.
   after a failing one. Every gate path goes through it — `make test-py`,
   setup.py's post-build gate, `pgo_build.sh`, `pgo_build_clang_cl.py`,
   `pgo_build_msvc.py`, `gate.sh`, `asan_py_tests.sh`.
-  `tests/unit/test_py_tests_basetemp.py` pins it. Nothing in strata changes.
+  `tests/py/test_py_tests_basetemp.py` pins it (first in `tests/unit`; moved
+  for the discrimination draw, below). Nothing in strata changes.
 
 - **What the fix moves in the shipped profile** (M1, `make pgo` twice per
   recipe in one worktree path). Main's recipe against the fix: the profiles
@@ -4189,3 +4190,45 @@ waits on it.
   E26-P7b's precedent: the fix moves every leg's training input once, and
   macos-x86_64 and windows route these lengths through functions the M1
   inlines away.
+
+- **Run 36340313809 (five legs, 2026-09-27).** Main `53cc4db` against
+  `exp/pin-discovery-ab` `b846752` (`58bc820` plus the arm builder); 6 blocks,
+  repeat 60, 33 cells per leg. B rebuilt against A's profile has A's code on
+  all five legs (linux-arm64 after normalisation, 460/460), so every B-against-A
+  effect is the profile's. Resolved: the interval excludes zero and the effect
+  exceeds the A/A floor (in brackets after it).
+
+  | leg            | B's own-profile code against A                                                        | A2 against A                            | B against A, resolved                                                                                                                               | A2, resolved                                                               |
+  | -------------- | ------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+  | linux-x86_64   | identical                                                                             | one `_M_replace` count; code identical  | none                                                                                                                                                | none                                                                       |
+  | linux-arm64    | `.text` differs (link order)                                                          | one `_M_replace` count; `.text` differs | small `dumps mixed` bytes −1.37% \[−3.02, −0.26\] (0.67), str −1.44% \[−2.47, −0.58\] (0.70)                                                        | none                                                                       |
+  | macos-x86_64   | `dump_to_folder` differs; 274 of 317 functions 16 bytes later, instructions identical | profile and code identical              | small file `load flat` +2.50% \[+1.10, +3.60\] (0.88): strata's raw time −0.06%, orjson's −2.03%                                                    | small file `dump nested` −4.17% \[−8.04, −1.29\] (3.91), on identical code |
+  | macos-arm64    | `dump_to_folder`, `append_escaped_json_string`; no function moved                     | profile and code identical              | medium `loads wide_arrays` −3.77% \[−5.85, −0.50\] (3.76)                                                                                           | none                                                                       |
+  | windows-x86_64 | 8 of 600 `.pdata` functions differ, addresses masked; 502 moved +16 or −32 bytes      | profile and code identical              | small `dumps flat` bytes +1.74% \[+0.02, +3.04\] (0.55), str +1.85% \[+1.16, +2.97\] (0.74); small `dumps mixed` str −2.82% \[−3.10, −2.31\] (2.35) | none                                                                       |
+
+  Verdict: one resolved loss that host does not explain — windows small
+  `dumps flat`, strata-side (raw strata +1.27% and +1.69%, orjson −0.30%) on
+  an image that differs from A's; A2's profile equals A's there, so it
+  follows the arm's training input, not training noise. macos-x86_64's
+  `load flat` is the rival moving. The merge is held. The A2 control matched A
+  byte for byte on both Macs and windows; on both Linux legs it differs by one
+  `_M_replace` count, as in run 36291977906 — the count-kind thread above, not
+  a length. (A and A2 still trained under main's numbered temp directory; only
+  B carried the fix.) Evidence:
+  `build/evidence/benchmark-lead/pin-discovery-test/ab-36340313809/`.
+
+- **Discrimination design, before the windows draw.** Arm B changed two things
+  in the training input: the pinned temp directory, and the two tests, whose
+  only reach into strata is `tests/unit/conftest.py:10`'s autouse fixture
+  (config calls around every test). The tests now live in
+  `tests/py/test_py_tests_basetemp.py`, where no fixture calls strata, so the
+  gate still runs them and they add nothing to the profile. Checked on the M1
+  (one instrumented image, the phase-1 input, a scratch TMPDIR): the tests in
+  `tests/py` and no test file at all give byte-identical profiles
+  (`5dddcbf1…`, twice each, once with a pre-created `pytest-9` and the ten
+  strays); the tests in `tests/unit` give `1ca32be9…`, differing in exactly
+  the six config functions. Arm B′ differs from main's training input by the
+  path-length pinning alone. One windows-only dispatch (6 blocks, repeat 60):
+  if small `dumps flat` no longer resolves, the tests' config counts were the
+  cause and moving them is the fix; if it still resolves, the path lengths
+  themselves are, and the case goes to acceptance on E26-P7b's terms.
