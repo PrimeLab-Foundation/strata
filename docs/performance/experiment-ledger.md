@@ -3936,3 +3936,20 @@ waits on it.
   run shows independent trainings of one source already differ on
   linux-arm64 and windows). Locally, the held-profile pair is identical in
   all 13 loaded sections.
+- **Run 36279771980 (first draw, 2026-09-27).** Four legs timed, 6 blocks,
+  0 dropped; linux-arm64 stopped at the identity gate. The stop was layout:
+  A and B-held carry the same 460 functions at the same sizes in a different
+  order, because ThinLTO's promoted-name suffix (`.llvm.<N>`, a module hash)
+  moves with the build directory and the profile and that leg's link order
+  follows it; normalised, 443/460 functions are identical and 17 differ only
+  in GOT-slot immediates (`build/evidence/benchmark-lead/M12b/ab-36279771980/linux-arm64-diagnosis.txt`).
+  linux-x86_64, macos-arm64 and macos-x86_64: byte-identical code in the
+  timed arms, no resolved loss (gains: linux-x86_64 small `load mixed`
+  −0.98% \[−2.00, −0.05\], floor 0.55; macos-x86_64 medium `dumps flat`
+  bytes −3.01% \[−5.39, −0.32\], floor 2.68 — host noise on identical code).
+  windows: identical under the held profile, own profiles differ, and small
+  `dumps flat` resolved +1.98% bytes \[+1.27, +3.16\] and +1.71% str
+  \[+1.39, +2.80\] (floors 0.94, 1.37), 6/6 blocks — within what two
+  trainings of one source already read on that row (35365120745). Next draw:
+  all arms built in one path, plus A2 (main trained twice) as the in-run
+  build-noise control (`exp/m12b-ab-arm` `07988d3`).
