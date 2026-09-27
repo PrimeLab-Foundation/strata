@@ -45,7 +45,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── json/                # json_parse.cpp (DOM builder), json_serialize.cpp
 │   ├── search/              # jsonpath_compile.cpp, jsonpath_eval.cpp
 │   ├── util/                # scan.cpp, dtoa.cpp, folder.cpp
-│   └── bindings/            # CPython layer: module, loads, dumps, files, ndjson, cursor
+│   └── bindings/            # CPython layer: module, loads, dumps (+ python_dumps_hook.cpp: the dumps_with_default image), files, ndjson, cursor
 ├── python/strata/           # thin facade: __init__, serialize (loads/dumps), config
 ├── tests/
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
@@ -123,7 +123,12 @@ backlog in `docs/benchmarking/SKILL.md`. M12 (the `dumps` `default=` hook in the
 was attempted twice and refused by its own kill criterion — run 36254514783, linux-x86_64
 `dumps flat` lost to the hook's code across two implementations — and its successor is a
 separate `dumps_with_default` entry point (docs/performance/experiment-ledger.md, M12).
-The rebuild is versioned calver,
+M12b then landed that successor: `strata.dumps_with_default`, served by its own extension
+image (`strata._dumps_hook`, compiled from the same serializer source) so that `_strata`
+builds byte-identical to main, merged as 9434607 after meeting its A/B criterion across
+runs 36279771980, 36291977906 and 36297571366 (docs/performance/experiment-ledger.md,
+M12b; still owed there: criterion 6's two CI samples and criterion 9's quiet-window
+re-measure). The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
 (see `docs/context/api.md`).
 
