@@ -229,9 +229,20 @@ whose cause is the code rather than the profile ⇒ the shape is abandoned for a
 separate `dumps_with_default` entry point that cannot perturb `dumps`'s
 codegen.
 
-## M12b — `dumps_with_default`: the hook as a separate entry point (in progress)
+## M12b — `dumps_with_default`: the hook as a separate entry point (landed)
 
-Design: `docs/architecture/dumps_with_default.md` (draft). The M12 semantics
+**Status (2026-09-27): merged to main as `9434607`. Criteria 1–5, 7 and 8 met;
+criterion 6 unmet by its own wording — windows-x86_64 `dumps mixed` behind on
+both CI samples (runs 36307283468, 36308291687), attributed to runner model
+(docs/performance/experiment-ledger.md, M12b); criterion 9 owed.** Open threads:
+
+- Criterion 9: the first-call cost re-measured in a quiet window on the dev M1
+  (its loaded reading, +0.499 ms and 128 KB, is inside the bound).
+- The gate test that walks the checkout's directories into the PGO training
+  profile: pinning it makes both A/B arms' training input identical and gives
+  the A2 build-noise control teeth.
+
+Design: `docs/architecture/dumps_with_default.md`. The M12 semantics
 behind `strata.dumps_with_default(obj, default, *, return_type="str")`, served
 by a second extension module (`strata._dumps_hook`) compiled from the same
 serializer source, so that `strata._strata` does not change at all.

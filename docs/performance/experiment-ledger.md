@@ -3868,10 +3868,11 @@ waits on it.
 
 - 2026-09-27 · `exp/m12b-dumps-with-default` over main `a9cd524`. Record:
   [`dumps_with_default.md`](../architecture/dumps_with_default.md); roadmap
-  M12b criteria 1–5 and 7–9 met (criterion 5: runs 36279771980,
-  36291977906, 36297571366, verdict below). Merged to main as `9434607`
-  (2026-09-27). **Criterion 6 in progress**: sample 1 read below, sample 2
-  dispatched.
+  merged to main as `9434607` (2026-09-27). **Final tally: criteria 1–5, 7
+  and 8 met; criterion 6 unmet by its own wording, attributed to runner
+  model (below); criterion 9 owed a quiet-window re-measure** (its loaded
+  reading is inside the bound). Criterion 5: runs 36279771980, 36291977906,
+  36297571366; criterion 6: runs 36307283468, 36308291687.
 
 - **Shape.** `strata._dumps_hook`, a second extension image, compiles
   `python_dumps.cpp` again with `STRATA_DUMPS_HOOK` defined
@@ -4043,3 +4044,28 @@ waits on it.
   behind on both samples; a row behind on one inside its band or carrying a
   host attribution — docs/decisions.md); sample 1 passes it. Sample 2 decides.
   Evidence: `build/evidence/benchmark-lead/M12b/ci-36307283468/`.
+
+- **Criterion 6, sample 2 (run 36308291687, main `cd9d20b`, 2026-09-27):
+  134/135**, evidence complete on all five legs. linux-x86_64's file
+  `dump mixed` recovered (0.908x, #1); the one row behind is windows-x86_64
+  `dumps mixed` at 1.071x — **behind on both samples, so criterion 6 is unmet
+  on its amended wording**, and recorded as such without a further rewording
+  (docs/decisions.md). The attribution, which the verdict does not rest on:
+
+  - *Runner model.* The windows runners come in two AMD models, and the
+    sweep-era source's 13 archived readings of this row split by them. On
+    Family 25 Model 1 it read 0.988–1.009x (and 0.835x once, with orjson's
+    time anomalous); sample 1 drew a Model 1 and read 1.001x (strata 0.0692
+    ms, orjson 0.0692). On Model 17's fast draws it read 1.058x (strata
+    0.0577 ms, orjson 0.0546) and 1.054x (0.0557, 0.0529); sample 2 drew a
+    Model 17 and read 1.071x (0.0575, 0.0537) — strata's own time where the
+    sweep-era source's was.
+  - *Consecutive losses without M12b.* The sweep-era source lost this row on
+    three consecutive samples (35304167412, 35305165291, 35306206641: 1.007x,
+    1.058x, 1.054x).
+  - *Same-runner A/B.* Criterion 5's windows draws read nothing on the row:
+    small `dumps mixed` bytes +1.16% \[−1.43, +1.79\] (floor 2.80) and
+    +0.59% \[−1.20, +3.15\] (floor 3.87), str +1.24% and −0.54% (floors 2.51,
+    3.53); medium inside its floors on both draws — with `_strata`'s code
+    identical to main's under a held profile.
+    Evidence: `build/evidence/benchmark-lead/M12b/ci-36308291687/`.
