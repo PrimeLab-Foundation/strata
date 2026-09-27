@@ -52,10 +52,12 @@ Real on this branch:
   launches pytest through a `-c` bootstrap: under pip's build isolation a
   `sitecustomize` rewrites `sys.path` at startup, so `PYTHONPATH` alone loses
   the staging directory and the post-build gate cannot see the fresh extension.
-  Each run gets a fresh fixed-length `--basetemp` unless one is passed:
-  pytest's numbered default (`pytest-of-<user>/pytest-<N>`) made the gate's
-  `tmp_path` lengths, and with them the PGO profile, depend on how many pytest
-  runs came before (experiment ledger, M12b follow-up).
+  Each run gets a fresh `--basetemp` unless one is passed, in pytest's own
+  `pytest-of-<user>` and exactly as long as a single-digit `pytest-<N>`:
+  pytest's numbered default made the gate's `tmp_path` lengths, and with them
+  the PGO profile, depend on how many pytest runs came before, and the
+  matched length keeps CI's profile what it was (experiment ledger, M12b
+  follow-up).
 - `scripts/fmt.sh` / `scripts/lint.sh` / `scripts/gate.sh`. `fmt.sh` formats
   tracked **and** newly added C/C++ files (`git ls-files --cached --others --exclude-standard`), guarded so an empty match never makes clang-format read
   stdin.

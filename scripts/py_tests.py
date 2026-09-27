@@ -16,12 +16,15 @@ gate runs on the instrumented build, and the path lengths the extension copies
 enter the PGO profile (memcpy-size value profiles, string growth branches).
 The A/B arms build one after another on one runner, so the numbering alone gave
 arm B a different profile from A and A2 (docs/performance/experiment-ledger.md,
-M12b, run 36291977906).
+M12b, run 36291977906). The pinned directory sits where pytest's own would and
+is exactly as long as a single-digit ``pytest-<N>``, the layout CI's builds
+trained on before the pin, so pinning leaves their profile unchanged.
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import importlib.util
 import os
 import shutil
@@ -34,16 +37,33 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEST_PATHS = ("tests/py", "tests/unit")
 
 
+def pytest_root() -> str:
+    """pytest's own ``<temproot>/pytest-of-<user>``, created the way pytest creates it."""
+    temproot = os.environ.get("PYTEST_DEBUG_TEMPROOT") or tempfile.gettempdir()
+    try:
+        user = getpass.getuser() or "unknown"
+    except (ImportError, OSError, KeyError):
+        user = "unknown"
+    root = os.path.join(temproot, f"pytest-of-{user}")
+    try:
+        os.makedirs(root, mode=0o700, exist_ok=True)
+    except OSError:
+        root = os.path.join(temproot, "pytest-of-unknown")
+        os.makedirs(root, mode=0o700, exist_ok=True)
+    return root
+
+
 def with_basetemp(pytest_args: list[str]) -> tuple[list[str], str | None]:
     """Return @p pytest_args plus a fresh fixed-length ``--basetemp``, and its path.
 
     A caller's own ``--basetemp`` is kept and ``None`` returned in its place.
-    ``mkdtemp`` names are a fixed prefix and eight random characters, so the
-    length depends only on the temp root, and concurrent runs never share one.
+    The directory is ``pytest_root()`` plus eight random ``mkdtemp`` characters:
+    as long as pytest's ``pytest-<N>`` for N below 10, never named like one, and
+    never shared by concurrent runs.
     """
     if any(a == "--basetemp" or a.startswith("--basetemp=") for a in pytest_args):
         return pytest_args, None
-    basetemp = tempfile.mkdtemp(prefix="strata-pytest-")
+    basetemp = tempfile.mkdtemp(prefix="", dir=pytest_root())
     return [*pytest_args, f"--basetemp={basetemp}"], basetemp
 
 

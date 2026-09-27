@@ -4135,7 +4135,8 @@ waits on it.
   because the second found the workload's `dump` targets already written;
   every trial above empties `build/pgo/work` first, as `pgo_build.sh` does.)
 
-- **Fix.** `scripts/py_tests.py:with_basetemp` passes a fresh
+- **Fix (first form; the shipped form is the length-matched pin, at the end
+  of this section).** `scripts/py_tests.py:with_basetemp` passes a fresh
   `tempfile.mkdtemp(prefix="strata-pytest-")` as `--basetemp` unless the
   caller gives one: a fixed length (the prefix and eight characters), unique
   across concurrent runs, removed after a passing run and kept, and named,
@@ -4232,3 +4233,65 @@ waits on it.
   if small `dumps flat` no longer resolves, the tests' config counts were the
   cause and moving them is the fix; if it still resolves, the path lengths
   themselves are, and the case goes to acceptance on E26-P7b's terms.
+
+- **Run 36348053444 (windows only, 2026-09-27).** B′ = `ba08bb8`, the tests
+  in `tests/py`; a Family 25 Model 1 runner. B′ rebuilt against A's profile has
+  A's code; A2's profile and code equal A's (`ff4c2a85…`). B′'s own-profile
+  `.text` is `0a685e9f…` — the same bytes as draw 1's B, although B′'s profile
+  differs from B's in the six config functions (−4 per call site: exactly the
+  tests' share). The windows rows either draw moved:
+
+  | row                            | draw 1 (B, tests in `tests/unit`)        | draw 2 (B′, tests in `tests/py`)                                               |
+  | ------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------ |
+  | small `dumps flat` bytes       | +1.74% \[+0.02, +3.04\] (0.55), resolved | +1.08% \[+0.28, +1.47\] (0.34), resolved; strata's raw +1.19%, orjson's +0.11% |
+  | small `dumps flat` str         | +1.85% \[+1.16, +2.97\] (0.74), resolved | +1.28% \[+0.45, +1.60\] (1.29)                                                 |
+  | small file `dump flat`         | +1.22% \[−0.23, +2.22\] (0.57)           | +0.80% \[+0.26, +2.15\] (1.05)                                                 |
+  | small `dumps mixed` str        | −2.82% \[−3.10, −2.31\] (2.35), resolved | −3.02% \[−4.00, −0.99\] (1.96), resolved                                       |
+  | small `dumps mixed` bytes      | −3.23% \[−3.41, −2.36\] (3.48)           | −2.66% \[−4.38, −1.39\] (2.81)                                                 |
+  | medium `dumps flat` bytes, str | −0.77%, −0.31%                           | +0.23%, +1.37% (floors 4.03, 2.95)                                             |
+
+  A2 resolved one cell on identical code: small `dumps flat` bytes −0.41%
+  (floor 0.34). Verdict under the rule set above: small `dumps flat` still
+  resolves, so the path lengths, not the tests, move it — which the identical
+  B code in both draws says on its own. Evidence:
+  `build/evidence/benchmark-lead/pin-discovery-test/ab-36348053444/`.
+
+- **The user's choice: the length-matched pin.** Rather than accept the
+  windows shift on E26-P7b's terms (small `dumps flat` +1.1% to +1.9% beside
+  small `dumps mixed` −2.7% to −3.2%), the pin now gives the paths the lengths
+  CI's builds already train on: `<temproot>/pytest-of-<user>/<eight mkdtemp characters>` — pytest's own root (the same `PYTEST_DEBUG_TEMPROOT` or
+  `tempfile.gettempdir()`, the same `getpass.getuser()` name with its
+  `pytest-of-unknown` fallback, created 0700), and a name exactly as long as
+  `pytest-<N>` below 10 that can never be named like one
+  (`scripts/py_tests.py:pytest_root`, `with_basetemp`). It keeps what the
+  first form bought — no dependence on how many pytest runs came before, a
+  directory per run, removed after a pass — and drops the shift. M1 check (one
+  instrumented image, the phase-1 input, a scratch temp root): main's gate at
+  `pytest-0` gives `278b946d…`; the pin, with the tests in `tests/py`, gives
+  `278b946d…` fresh, with `pytest-9` pre-created, with the ten strays, and
+  with both; main's gate at `pytest-10` gives `19f560a8…`.
+
+- **CI trains at single digits — the pin's premise.** In benchmark.yml run
+  36308291687 every leg's log shows one pytest session before its profile
+  merge (phase 1's gate tests); the install gates run theirs inside pip's
+  "Building editable" step, whose output pip withholds. Counted from the
+  workflow: `make install-bench` (windows: `pip install -e ".[dev,bench]"`)
+  runs one gated session, phase 1's install a second, its gate tests a third —
+  `pytest-0`, `-1`, `-2` on a fresh runner, so the profile trains at
+  `pytest-1` and `pytest-2`. "merging 17 raw profiles" on all five legs fits
+  two phase-1 sessions: one M1 trial (the workload and one session) writes 9.
+  The ab workflow's A and A2 trained at `2`/`3` and `7`/`8` by the same count.
+
+- **Recorded, not resolved (added).**
+
+  - *Content against length on windows.* On the M1 the lengths decide; on
+    windows MSVC STL's `std::filesystem::path` is header code and
+    instrumented, so a branch on character class could still tell the random
+    names (`[a-z0-9_]`) from `pytest-<digit>`. The windows identity draw
+    reads it.
+  - *CI's N* is counted from the workflow, as above, not read from a log: no
+    log prints the directory.
+
+- **Identity draw (dispatched after this entry).** One windows-only dispatch
+  of the pin against main. B's own-profile image byte-identical to A's is the
+  whole reading: if it is, no timing read matters and the branch merges.
