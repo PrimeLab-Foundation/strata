@@ -4,6 +4,10 @@ The gate trains the PGO profile, and the lengths of the ``tmp_path`` strings the
 extension copies are recorded in it. pytest's default base directory numbers the
 runs before it (``pytest-9`` -> ``pytest-10``), which gave M12b's A/B arm B a
 different profile from A and A2 (docs/performance/experiment-ledger.md, M12b).
+
+This file lives in ``tests/py`` on purpose: nothing here calls strata, and
+``tests/unit/conftest.py``'s autouse fixture would add config calls to the
+profile for every test placed there (the M12b follow-up's discrimination draw).
 """
 
 from __future__ import annotations
