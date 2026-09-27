@@ -262,7 +262,11 @@ serializer source, so that `strata._strata` does not change at all.
    module), 6 ABBA blocks × 60 against a fresh A/A floor, no row of the 21
    instrumented canonical rows resolved against strata past its floor; before
    any timing, the runner's two PGO `_strata` binaries are compared, and a
-   `__text` difference stops the run for attribution.
+   `__text` difference stops the run for attribution. **Met 2026-09-27**
+   under the record's rule (runs 36279771980, 36291977906, 36297571366):
+   identity shown on all five legs — B's source against A's profile, one build
+   path; byte for byte on four, normalised on linux-arm64 — and no resolved
+   loss repeated on one leg (docs/performance/experiment-ledger.md, M12b).
 6. Two five-platform CI samples with complete `ci_summary` evidence lose no row
    any platform held at the 135/135 sweep (the shipped build, whose profile
    includes the new tests).

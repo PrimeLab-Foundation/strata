@@ -3866,10 +3866,12 @@ waits on it.
 
 ## M12b — `dumps_with_default`, the hook as a separate image
 
-- 2026-09-27 · `exp/m12b-dumps-with-default` over main `a9cd524`, uncommitted.
-  Record: [`dumps_with_default.md`](../architecture/dumps_with_default.md);
-  roadmap M12b criteria 1–4 and 7–9 met here, **5–6 owed** (the
-  tests-matched five-leg A/B and two CI samples). Not a go yet.
+- 2026-09-27 · `exp/m12b-dumps-with-default` over main `a9cd524`. Record:
+  [`dumps_with_default.md`](../architecture/dumps_with_default.md); roadmap
+  M12b criteria 1–5 and 7–9 met (criterion 5: runs 36279771980,
+  36291977906, 36297571366, verdict below); **criterion 6 owed** — two
+  five-platform CI samples, which need the branch on main (the user's
+  go/no-go).
 
 - **Shape.** `strata._dumps_hook`, a second extension image, compiles
   `python_dumps.cpp` again with `STRATA_DUMPS_HOOK` defined
@@ -3996,3 +3998,34 @@ waits on it.
   or excluding the arm-only files from what it walks) would make both arms'
   training input identical and give the A2 control teeth. Not investigated
   yet.
+
+- **Run 36297571366 (windows' second draw, 2026-09-27, arms in one path).**
+  Identity verified: B against A's profile is byte-identical to A (PE
+  `.text`); A2's profile is byte-identical to A's (`c55d6725…`), B's differs
+  (`a8252e62…`). 6 blocks, 0 dropped. B-vs-A resolves **nothing**: small
+  `dumps flat` bytes −0.37% \[−1.15, +0.09\] (floor 0.71) and str −0.26%
+  \[−1.01, +0.63\] (floor 3.21) — the rows draw 1 resolved at +1.98% and
+  +1.71%; largest unresolved small `loads mixed` −5.83% (floor 5.60).
+  A2-vs-A resolves nothing either.
+
+- **Criterion 5 verdict: met, under the record's rule.** With `_strata`'s code
+  shown identical on every leg, a resolved loss goes to a further draw, not to
+  the code (docs/architecture/dumps_with_default.md, kill criterion); across
+  the draws, no loss resolved twice on one leg:
+
+  | leg            | identity                                                     | draw 1 (36279771980)               | draw 2 (36291977906 / windows 36297571366)                                                      |
+  | -------------- | ------------------------------------------------------------ | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+  | linux-x86_64   | byte-identical                                               | no loss                            | small `dump mixed` +2.21% on timed code identical to A's                                        |
+  | linux-arm64    | normalised (order differs: 443/460 + 17 slot-only, 0 beyond) | not timed (identity stop, layout)  | no loss                                                                                         |
+  | macos-arm64    | byte-identical                                               | no loss                            | no loss                                                                                         |
+  | macos-x86_64   | byte-identical                                               | no loss                            | small `dumps flat` bytes +2.16%, small `loads mixed` +0.96% (beside −3.7% to −4.5% parse gains) |
+  | windows-x86_64 | byte-identical                                               | small `dumps flat` +1.98% / +1.71% | no loss                                                                                         |
+
+  Stated plainly: no single draw was free of resolved rows on every leg, and
+  the literal "no row resolved" reading is not what is claimed. What holds is
+  the record's criterion: identity on all five legs (byte for byte on four,
+  normalised on linux-arm64), and every resolved loss unrepeated in the leg's
+  other draw, three of them on timed code byte-identical to A's or beside
+  larger gains on source neither arm changes. linux-arm64 has one timed
+  draw. The A2 control is weaker than designed until the directory-walking
+  gate test is pinned (OPEN above).
