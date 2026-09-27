@@ -16,10 +16,10 @@ import os
 import shutil
 import tempfile
 
-from scripts.py_tests import with_basetemp
+from scripts.py_tests import pytest_root, with_basetemp
 
 
-def test_default_run_gets_a_fresh_fixed_length_basetemp() -> None:
+def test_default_run_gets_a_fresh_basetemp_as_long_as_pytest_0() -> None:
     first_args, first = with_basetemp(["-q"])
     second_args, second = with_basetemp(["-q"])
     try:
@@ -27,9 +27,16 @@ def test_default_run_gets_a_fresh_fixed_length_basetemp() -> None:
         assert first != second
         assert first_args == ["-q", f"--basetemp={first}"]
         assert second_args == ["-q", f"--basetemp={second}"]
-        assert len(first) == len(second)
-        assert os.path.dirname(first) == tempfile.gettempdir()
-        assert os.path.isdir(first) and os.path.isdir(second)
+        root = pytest_root()
+        temproot = os.environ.get("PYTEST_DEBUG_TEMPROOT") or tempfile.gettempdir()
+        assert os.path.dirname(root) == temproot
+        assert os.path.basename(root).startswith("pytest-of-")
+        for path in (first, second):
+            assert os.path.dirname(path) == root
+            # pytest's own single-digit directory, `pytest-0`, is eight characters.
+            assert len(os.path.basename(path)) == len("pytest-0")
+            assert not os.path.basename(path).startswith("pytest-")
+            assert os.path.isdir(path)
     finally:
         for path in (first, second):
             if path is not None:
