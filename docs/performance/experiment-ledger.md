@@ -4000,7 +4000,9 @@ waits on it.
   `_strata` source token is main's. Pinning it (a fixed fixture directory,
   or excluding the arm-only files from what it walks) would make both arms'
   training input identical and give the A2 control teeth. Not investigated
-  yet.
+  yet. *Closed 2026-09-27: no gate test walks the checkout; the arms'
+  profiles differed by pytest's temp-directory numbering, which lengthened
+  every `tmp_path` of arm B by one character (M12b follow-up, below).*
 
 - **Run 36297571366 (windows' second draw, 2026-09-27, arms in one path).**
   Identity verified: B against A's profile is byte-identical to A (PE
@@ -4071,3 +4073,119 @@ waits on it.
     3.53); medium inside its floors on both draws — with `_strata`'s code
     identical to main's under a held profile.
     Evidence: `build/evidence/benchmark-lead/M12b/ci-36308291687/`.
+
+## M12b follow-up — the gate's pytest temp numbering, not a directory walk
+
+- 2026-09-27 · `exp/pin-discovery-test` over main `53cc4db`. Closes M12b's
+  OPEN item. Evidence: `build/evidence/benchmark-lead/pin-discovery-test/`
+  (the trials' profiles, both recipes' PGO arms, the M1 A/B).
+
+- **The premise was wrong.** No gate test walks the checkout. In run
+  36291977906's macos-x86_64 profiles all 11 edge counters of
+  `strata::util::is_directory` are equal in A and B; only its memcpy-size
+  value profile moves (A `65:202 129:10 17:1`, B `65:198 129:10 128:4 17:1`):
+  four copies of 65–127 bytes became exactly 128. `discover_json_files` moves
+  the same four (`65:196` → `65:192`, `128:4` added), `std::string`'s
+  `__init_copy_ctor_external` moves 94 copies from the 65–127 bucket to 128
+  and 104 from 128 to 129+, and `push_back`'s growth branch moves by 76 —
+  every string the gate hands over one byte longer. Every A-vs-B profile
+  difference on the five legs is of this length kind: macos-arm64 in the same
+  three `std::string` functions; both Linux legs in `_M_construct`,
+  `_M_assign`, `_M_mutate` (64 → 65+, 6/7/8 → 7/8/9); windows (run
+  36297571366\) in MSVC STL's inlined string and path code, `dump_to_folder`'s
+  counters and `create_directories` (+200) among them.
+
+- **Mechanism.** `scripts/py_tests.py` passed no `--basetemp`, so every
+  `tmp_path` lived under `<tmp>/pytest-of-<user>/pytest-<N>`, N one above the
+  highest earlier run on the machine. `benchmarks/ab_same_path_arms.py`
+  (`exp/m12b-ab-arm`) builds A, A2 and B one after another on one runner,
+  each by `make install-bench` then `make pgo` — five pytest runs per arm (the
+  install's gate, then each phase's install gate and gate tests), after one
+  for the timing checkout. The profile is trained by the two phase-1 runs: A
+  at `pytest-2`/`3`, A2 at `7`/`8`, B at `12`/`13` (derived from that
+  sequence; the logs do not print the directory). B alone crossed N = 10, so
+  every one of its temp paths was one character longer; A2 matched A because
+  it stayed below 10. The arms' checkout content played no part.
+
+- **Local reproduction** (M1; the phase-1 training input alone —
+  `pgo_training.py` and `scripts/py_tests.py` against one instrumented image,
+  each trial under its own empty TMPDIR; sha256 prefixes of the merged
+  profile). The ten strays: `stray.json` at the root and in `tests/`,
+  `tests/py`, `tests/unit`, `benchmarks/data`, `build`, `python/strata`, plus
+  `experiments/stray.ndjson`, `docs/stray.jsonl`, `ab/arms.json`.
+
+  | trial      | `py_tests.py`, TMPDIR        | pytest numbering       | strays  | profile                 |
+  | ---------- | ---------------------------- | ---------------------- | ------- | ----------------------- |
+  | B0, B1     | main, scratch                | `pytest-0`             | none    | `74c7a479` ×2           |
+  | B2         | main, scratch                | `pytest-0`             | ten     | `74c7a479`              |
+  | B3         | main, scratch                | `pytest-10`            | none    | `b73220f1`              |
+  | B4         | main, scratch                | `pytest-10`            | ten     | `b73220f1`              |
+  | P0 / P3    | main, scratch +40 characters | `pytest-0` / `-10`     | – / ten | `643cce76` / `c9dec273` |
+  | Q0 / Q3    | main, scratch +50 characters | `pytest-0` / `-10`     | – / ten | `15ec61e4` / `eb624486` |
+  | F0, F2     | fix, scratch                 | none                   | none    | `5cbc821b` ×2           |
+  | F1         | fix, scratch                 | `pytest-9` pre-created | ten     | `5cbc821b`              |
+  | FP0 / FP3  | fix, scratch +40 characters  | – / `pytest-9` present | – / ten | `1dd63024` both         |
+  | FQ0 / FQ3  | fix, scratch +50 characters  | – / `pytest-9` present | – / ten | `40d27d73` both         |
+  | S-old-1..4 | main, the machine's own      | three digits           | none    | `00af2e23` ×4           |
+  | S-new-1..4 | fix, the machine's own       | none                   | none    | `c094c0ed` ×4           |
+
+  B3 against B0 moves `push_back`'s growth branch alone; the padded pairs
+  move `std::string` memcpy-size buckets across 256 in the same three
+  functions as CI's macos-arm64 diff. (The harness's first two runs differed
+  because the second found the workload's `dump` targets already written;
+  every trial above empties `build/pgo/work` first, as `pgo_build.sh` does.)
+
+- **Fix.** `scripts/py_tests.py:with_basetemp` passes a fresh
+  `tempfile.mkdtemp(prefix="strata-pytest-")` as `--basetemp` unless the
+  caller gives one: a fixed length (the prefix and eight characters), unique
+  across concurrent runs, removed after a passing run and kept, and named,
+  after a failing one. Every gate path goes through it — `make test-py`,
+  setup.py's post-build gate, `pgo_build.sh`, `pgo_build_clang_cl.py`,
+  `pgo_build_msvc.py`, `gate.sh`, `asan_py_tests.sh`.
+  `tests/unit/test_py_tests_basetemp.py` pins it. Nothing in strata changes.
+
+- **What the fix moves in the shipped profile** (M1, `make pgo` twice per
+  recipe in one worktree path). Main's recipe against the fix: the profiles
+  differ in 13 functions — the `std::string` length histograms and
+  `push_back`'s growth branch (−88 of 1.36 M: the temp paths are shorter), the
+  config getters and setters (+4 per fixture call site: the two new tests, run
+  by both phase-1 gate runs, through `tests/unit/conftest.py:10`'s autouse
+  fixture), and `query_compiled`, `Schema::remember`, `Serializer::latch`,
+  `RowLock::~RowLock`, which also differ between main's recipe's own two
+  builds (below). `__text` differs in 2 of 303 functions, `dump_to_folder` and
+  `append_escaped_json_string` (instruction order; every function's size and
+  the function order are unchanged; no small-tier dataset string needs
+  escaping), and each recipe's `__text` reproduced on its second build
+  (`310bb56a…` main's, `ca8aa945…` the fix). In-process A/B on the M1 at load
+  5.6 (6 blocks, repeat 30, 12 cells): no loss resolved; one gain, small
+  `dumps mixed` str −1.63% \[−2.87, −0.23\] (floor 1.42), on a row whose
+  per-record path runs neither changed function — read as host, unverified.
+
+- **This is what gives the A2 control its teeth.** A2 exists to show what a
+  second training of one source does, so that B against A is judged against
+  it. Under the numbered temp directory B's training input differed from A's
+  by construction whenever the runner's pytest counter crossed a digit between
+  the arms — a difference A2 could not sample. With the fix on main every arm
+  trains on the same path lengths wherever it lands in the sequence, and A2
+  against A bounds the noise B against A carries apart from the source.
+
+- **Recorded, not resolved.**
+
+  - *Main's recipe did not reproduce its own profile across two `make pgo`
+    builds* on the M1: `814312cf…` and `167be4ef…` differ in
+    `query_compiled` (one counter, 24071 against 24052), `Schema::remember`
+    (two), `Serializer::latch` and `RowLock::~RowLock` (121859 against
+    121855\) — counts, not lengths. Four phase-1 trainings without the install
+    gate matched one another, and the fix's two builds matched
+    (`67421c13…`). Source unknown; `__text` was unaffected on the M1.
+    Linux's A-against-A2 difference in `_M_replace` (run 36291977906) is of
+    the same count kind.
+  - *Checkout-path length.* Whether the profile depends on the length of the
+    checkout path is unverified; the same-path builder holds it equal across
+    arms.
+
+- **Pricing.** One five-leg same-runner A/B, main against this branch, with
+  `exp/m12b-ab-arm`'s same-path arm builder carried on a dispatch branch —
+  E26-P7b's precedent: the fix moves every leg's training input once, and
+  macos-x86_64 and windows route these lengths through functions the M1
+  inlines away.

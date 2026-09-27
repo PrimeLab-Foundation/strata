@@ -8,6 +8,15 @@ the contract mirrors (docs/build-and-test/SKILL.md).
 
 ``--path`` prepends directories to the test process' import path; the build
 gate uses it to make the freshly built extension win over any installed copy.
+
+Every run gets a fresh ``--basetemp`` of fixed length unless the caller passes
+one. pytest's default, ``<tmp>/pytest-of-<user>/pytest-<N>``, counts the runs
+before it, so every ``tmp_path`` grows by a character at N = 10, 100, 1000; the
+gate runs on the instrumented build, and the path lengths the extension copies
+enter the PGO profile (memcpy-size value profiles, string growth branches).
+The A/B arms build one after another on one runner, so the numbering alone gave
+arm B a different profile from A and A2 (docs/performance/experiment-ledger.md,
+M12b, run 36291977906).
 """
 
 from __future__ import annotations
@@ -15,12 +24,27 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEST_PATHS = ("tests/py", "tests/unit")
+
+
+def with_basetemp(pytest_args: list[str]) -> tuple[list[str], str | None]:
+    """Return @p pytest_args plus a fresh fixed-length ``--basetemp``, and its path.
+
+    A caller's own ``--basetemp`` is kept and ``None`` returned in its place.
+    ``mkdtemp`` names are a fixed prefix and eight random characters, so the
+    length depends only on the temp root, and concurrent runs never share one.
+    """
+    if any(a == "--basetemp" or a.startswith("--basetemp=") for a in pytest_args):
+        return pytest_args, None
+    basetemp = tempfile.mkdtemp(prefix="strata-pytest-")
+    return [*pytest_args, f"--basetemp={basetemp}"], basetemp
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -54,7 +78,8 @@ def main(argv: list[str] | None = None) -> int:
     inherited = env.get("PYTHONPATH")
     env["PYTHONPATH"] = os.pathsep.join([*prefix, inherited] if inherited else prefix)
 
-    pytest_argv = [*TEST_PATHS, *(a for a in args.pytest_args if a != "--")]
+    extra, basetemp = with_basetemp([a for a in args.pytest_args if a != "--"])
+    pytest_argv = [*TEST_PATHS, *extra]
 
     # pytest is launched through a `-c` bootstrap rather than `-m pytest` so the
     # prefix lands on sys.path *inside* the interpreter. PYTHONPATH alone is not
@@ -85,6 +110,11 @@ def main(argv: list[str] | None = None) -> int:
     if prefix:
         print("  import path prefix: " + os.pathsep.join(prefix), flush=True)
     completed = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, check=False)
+    if basetemp is not None:
+        if completed.returncode == 0:
+            shutil.rmtree(basetemp, ignore_errors=True)
+        else:
+            print(f"  test temp files kept for inspection: {basetemp}", flush=True)
     return completed.returncode
 
 
