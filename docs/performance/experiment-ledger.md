@@ -3870,8 +3870,7 @@ waits on it.
   [`dumps_with_default.md`](../architecture/dumps_with_default.md); roadmap
   merged to main as `9434607` (2026-09-27). **Final tally: criteria 1–5, 7
   and 8 met; criterion 6 unmet by its own wording, attributed to runner
-  model (below); criterion 9 owed a quiet-window re-measure** (its loaded
-  reading is inside the bound). Criterion 5: runs 36279771980, 36291977906,
+  model (below); criterion 9 met** on its quiet-window re-measure (below). Criterion 5: runs 36279771980, 36291977906,
   36297571366; criterion 6: runs 36307283468, 36308291687.
 
 - **Shape.** `strata._dumps_hook`, a second extension image, compiles
@@ -3914,10 +3913,13 @@ waits on it.
   against main (paired +0.005 ms \[−0.095, +0.072\]); the first
   `dumps_with_default` call adds 0.499 ms \[0.485, 0.526\] over the second
   and 128 KB RSS, against the ≤ 1 ms / ≤ 1 MB bound. `dumps` itself is
-  untouched, so M12's +10 ns facade cost is gone. **Owed:** the same
-  measurement in a quiet window (standing practice: loaded rolls are
-  indicative only); it rides the next quiet moment on the dev M1 and does not
-  block criterion 5.
+  untouched, so M12's +10 ns facade cost is gone. **Quiet-window re-measure
+  (2026-09-27 19:12, load 2.6–2.8, one user process at ~47% of one core; the
+  same protocol and packages, which match merged main's source):** `import strata` −0.001 ms \[−0.049, +0.100\] against main; the first call +0.500 ms
+  \[0.480, 0.517\] over the second and 128 KB RSS — criterion 9 met, and
+  within 0.001 ms of the loaded reading
+  (`build/evidence/benchmark-lead/M12b/import_cost/first_call_cost.quiet.txt`,
+  `quiet_window.txt`).
 
 - **Correctness.** `tests/unit/test_dumps_with_default.py` (173),
   `tests/unit/test_dumps_with_default_state.py` (cycle policy from `_strata`,

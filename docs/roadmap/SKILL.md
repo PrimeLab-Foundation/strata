@@ -231,13 +231,13 @@ codegen.
 
 ## M12b — `dumps_with_default`: the hook as a separate entry point (landed)
 
-**Status (2026-09-27): merged to main as `9434607`. Criteria 1–5, 7 and 8 met;
-criterion 6 unmet by its own wording — windows-x86_64 `dumps mixed` behind on
-both CI samples (runs 36307283468, 36308291687), attributed to runner model
-(docs/performance/experiment-ledger.md, M12b); criterion 9 owed.** Open threads:
+**Status (2026-09-27): merged to main as `9434607`. Criteria 1–5 and 7–9 met
+(criterion 9 on its quiet-window re-measure: the first call +0.500 ms and
+128 KB, `import strata` unchanged); criterion 6 unmet by its own wording —
+windows-x86_64 `dumps mixed` behind on both CI samples (runs 36307283468,
+36308291687), attributed to runner model
+(docs/performance/experiment-ledger.md, M12b).** Open thread:
 
-- Criterion 9: the first-call cost re-measured in a quiet window on the dev M1
-  (its loaded reading, +0.499 ms and 128 KB, is inside the bound).
 - The gate test that walks the checkout's directories into the PGO training
   profile: pinning it makes both A/B arms' training input identical and gives
   the A2 build-noise control teeth.

@@ -1,8 +1,7 @@
 # Decision record: `dumps_with_default` — the unsupported-type hook as a separate entry point
 
-Status: **landed** on main as `9434607` (2026-09-27): M12b criteria 1–5, 7 and
-8 met, criterion 6 unmet-attributed (runner model), criterion 9 owed a
-quiet-window re-measure (docs/roadmap/SKILL.md, M12b). Drafted 2026-09-26. Successor to
+Status: **landed** on main as `9434607` (2026-09-27): M12b criteria 1–5 and 7–9
+met, criterion 6 unmet-attributed (runner model) (docs/roadmap/SKILL.md, M12b). Drafted 2026-09-26. Successor to
 [`dumps_default_hook.md`](dumps_default_hook.md), whose in-signature shape
 (`dumps(..., default=)`) was implemented twice and refused by its own kill
 criterion (docs/performance/experiment-ledger.md, M12). This record keeps that
