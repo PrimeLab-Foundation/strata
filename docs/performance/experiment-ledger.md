@@ -3870,6 +3870,7 @@ waits on it.
   Record: [`dumps_with_default.md`](../architecture/dumps_with_default.md);
   roadmap M12b criteria 1–4 and 7–9 met here, **5–6 owed** (the
   tests-matched five-leg A/B and two CI samples). Not a go yet.
+
 - **Shape.** `strata._dumps_hook`, a second extension image, compiles
   `python_dumps.cpp` again with `STRATA_DUMPS_HOOK` defined
   (`src/strata/bindings/python_dumps_hook.cpp`); the hook code is M12's
@@ -3878,6 +3879,7 @@ waits on it.
   on the first `dumps_with_default` call (amended from an eager import on
   review), so a missing or broken hook image fails that call, not
   `import strata`.
+
 - **Criterion 4 — zero diff, measured after the review fixes**
   (`build/evidence/benchmark-lead/M12b/zero-diff/`): all 18 `_strata`
   translation units preprocess to main's token streams on arm64 and x86-64
@@ -3890,6 +3892,7 @@ waits on it.
   link-time strip; one exported symbol). A local `make pgo` builds it
   unprofiled and `_strata` against the profile, and the three PGO scripts
   fail if the hook image's identity or commands carry a profile flag.
+
 - **Review fix, P1: the hook image's cycle-policy read ran user code
   unlatched.** `config_get` is `METH_VARARGS`, so the read allocates a
   tracked argument tuple, and on CPython 3.10/3.11 that allocation collects
@@ -3901,6 +3904,7 @@ waits on it.
   (`test_a_collection_at_the_cycle_policy_read_cannot_free_the_row_being_written`)
   segfaults on a pre-fix 3.11 build and passes on the fixed one; it skips on
   3.12+, where the collector cannot be forced inside the call.
+
 - **Criterion 9 — first-call cost** (60 fresh-interpreter ABBA rounds, plain
   arm64 builds; the machine was loaded, load average 5–15 from desktop
   processes, so the readings are indicative): `import strata` unchanged
@@ -3911,6 +3915,7 @@ waits on it.
   measurement in a quiet window (standing practice: loaded rolls are
   indicative only); it rides the next quiet moment on the dev M1 and does not
   block criterion 5.
+
 - **Correctness.** `tests/unit/test_dumps_with_default.py` (173),
   `tests/unit/test_dumps_with_default_state.py` (cycle policy from `_strata`,
   E26-FIX2b re-pinned in both directions, the hook image's init refusals, a
@@ -3924,10 +3929,12 @@ waits on it.
   4 skipped; coverage 119/122 new binding lines across both images (the
   three: an llvm-cov line artefact and two allocation-failure exits of the
   module init), the facade 100%.
+
 - **Test composition.** The new suites keep calls into `_strata` to a small
   fixed set and use the stdlib oracle for corpus-wide checks, so what they can
   shift in the shipped `_strata` profile is small; criterion 6 reads what
   remains.
+
 - **Criterion 5 setup.** Arm `exp/m12b-ab-arm` = this branch without its
   five new gate-test files (both arms train on main's suite), the 25-row
   ABBA list plus the full canonical diagnostic, and a static step per leg:
@@ -3936,6 +3943,7 @@ waits on it.
   run shows independent trainings of one source already differ on
   linux-arm64 and windows). Locally, the held-profile pair is identical in
   all 13 loaded sections.
+
 - **Run 36279771980 (first draw, 2026-09-27).** Four legs timed, 6 blocks,
   0 dropped; linux-arm64 stopped at the identity gate. The stop was layout:
   A and B-held carry the same 460 functions at the same sizes in a different
@@ -3953,3 +3961,38 @@ waits on it.
   trainings of one source already read on that row (35365120745). Next draw:
   all arms built in one path, plus A2 (main trained twice) as the in-run
   build-noise control (`exp/m12b-ab-arm` `07988d3`).
+
+- **Run 36291977906 (second draw, 2026-09-27; arms built in one path, A2 =
+  main trained twice).** windows failed before compiling (the arm builder
+  passed pip a constraints path relative to the checkout while running in the
+  build worktree; fixed in `038edd2`, and windows re-dispatched alone as run
+  36297571366). The four POSIX legs: 6 blocks, 0 dropped.
+
+  | leg          | identity (B against A's profile)                           | B-vs-A resolved (+ = B slower)                                                                                                                                             | A2-vs-A resolved                |
+  | ------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+  | linux-x86_64 | byte-identical                                             | small `dump mixed` +2.21% \[+1.06, +3.10\], floor 2.10, on timed code identical to A's (host)                                                                              | none                            |
+  | linux-arm64  | order differs; normalised 443/460 + 17 slot-only, 0 beyond | none                                                                                                                                                                       | small `dumps nested` str −0.83% |
+  | macos-arm64  | byte-identical                                             | none                                                                                                                                                                       | none                            |
+  | macos-x86_64 | byte-identical                                             | small `dumps flat` bytes +2.16% \[+0.28, +3.60\] (floor 1.26), small `loads mixed` +0.96% \[+0.10, +1.14\] (0.50), beside `wide_arrays` parse gains −3.72%, −3.86%, −4.54% | none                            |
+
+  Findings. (1) One build path did **not** restore linux-arm64's byte order:
+  A and A2 — one source, one path, trained twice — differ there too, so the
+  order follows the training as well as the source text; normalised, A and
+  B-held are the same code. (2) On both Macs A2's profile is byte-identical to
+  A's, while B's differs by one count in two or three functions
+  (`is_directory`, `discover_json_files`, `std::string` internals) — the arm
+  checkout's own content reaching a gate test that walks directories, not
+  M12b's `_strata` source; so the timed B differed from A there and A2 did
+  not, and **the A2 control under-sampled the difference it was meant to
+  bound** (see OPEN below). (3) No loss resolved on the same leg in both
+  draws; every leg's identity is shown, byte for byte on four and
+  normalised on linux-arm64.
+
+- **OPEN — which gate test walks the checkout into the training profile.**
+  Some gate test reaches `strata::util::is_directory`/`discover_json_files`
+  over a directory whose content differs between the two arms' checkouts,
+  so the arms' profiles differ by a few counts even though every
+  `_strata` source token is main's. Pinning it (a fixed fixture directory,
+  or excluding the arm-only files from what it walks) would make both arms'
+  training input identical and give the A2 control teeth. Not investigated
+  yet.
