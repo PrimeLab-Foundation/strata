@@ -267,9 +267,12 @@ serializer source, so that `strata._strata` does not change at all.
    identity shown on all five legs — B's source against A's profile, one build
    path; byte for byte on four, normalised on linux-arm64 — and no resolved
    loss repeated on one leg (docs/performance/experiment-ledger.md, M12b).
-6. Two five-platform CI samples with complete `ci_summary` evidence lose no row
-   any platform held at the 135/135 sweep (the shipped build, whose profile
-   includes the new tests).
+6. Two five-platform CI samples of the shipped build (whose profile includes the
+   new tests), each with complete `ci_summary` evidence: no row behind on both
+   samples; a row behind on one sample must sit inside its historical band
+   across the archived samples (`benchmarks/cross_sample.py`) or carry a host
+   attribution. (Amended 2026-09-27 from "lose no row any platform held at the
+   135/135 sweep": docs/decisions.md.)
 7. `tests/integrations/` carried over and re-targeted, excluded from
    `testpaths`/`make gate`/the profile, with `make test-integrations` and its
    CI job.

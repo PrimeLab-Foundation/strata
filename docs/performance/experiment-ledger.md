@@ -3869,9 +3869,9 @@ waits on it.
 - 2026-09-27 · `exp/m12b-dumps-with-default` over main `a9cd524`. Record:
   [`dumps_with_default.md`](../architecture/dumps_with_default.md); roadmap
   M12b criteria 1–5 and 7–9 met (criterion 5: runs 36279771980,
-  36291977906, 36297571366, verdict below); **criterion 6 owed** — two
-  five-platform CI samples, which need the branch on main (the user's
-  go/no-go).
+  36291977906, 36297571366, verdict below). Merged to main as `9434607`
+  (2026-09-27). **Criterion 6 in progress**: sample 1 read below, sample 2
+  dispatched.
 
 - **Shape.** `strata._dumps_hook`, a second extension image, compiles
   `python_dumps.cpp` again with `STRATA_DUMPS_HOOK` defined
@@ -4029,3 +4029,17 @@ waits on it.
   larger gains on source neither arm changes. linux-arm64 has one timed
   draw. The A2 control is weaker than designed until the directory-walking
   gate test is pinned (OPEN above).
+
+- **Criterion 6, sample 1 (run 36307283468, main `9434607`, 2026-09-27):
+  133/135**, evidence complete on all five legs (27/27, verified). linux-arm64,
+  macos-arm64, macos-x86_64 27/27; two rows behind:
+
+  | leg · row                      | sample 1                       | 13 archived samples of the sweep-era source | reading                                                                                                                                        |
+  | ------------------------------ | ------------------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+  | windows-x86_64 `dumps mixed`   | 1.001x (0.0692 ms each, a tie) | behind in 5 of 13, band 0.835–1.128x        | inside its band                                                                                                                                |
+  | linux-x86_64 file `dump mixed` | 1.055x                         | never behind, band 0.848–0.962x             | host: every library 1.5–2x its usual absolute time on the row; the in-memory `dumps mixed` unchanged (0.933x); the file path untouched by M12b |
+
+  Criterion 6 was amended the same day to the cross-sample reading (no row
+  behind on both samples; a row behind on one inside its band or carrying a
+  host attribution — docs/decisions.md); sample 1 passes it. Sample 2 decides.
+  Evidence: `build/evidence/benchmark-lead/M12b/ci-36307283468/`.
