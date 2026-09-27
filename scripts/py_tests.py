@@ -8,19 +8,63 @@ the contract mirrors (docs/build-and-test/SKILL.md).
 
 ``--path`` prepends directories to the test process' import path; the build
 gate uses it to make the freshly built extension win over any installed copy.
+
+Every run gets a fresh ``--basetemp`` of fixed length unless the caller passes
+one. pytest's default, ``<tmp>/pytest-of-<user>/pytest-<N>``, counts the runs
+before it, so every ``tmp_path`` grows by a character at N = 10, 100, 1000; the
+gate runs on the instrumented build, and the path lengths the extension copies
+enter the PGO profile (memcpy-size value profiles, string growth branches).
+The A/B arms build one after another on one runner, so the numbering alone gave
+arm B a different profile from A and A2 (docs/performance/experiment-ledger.md,
+M12b, run 36291977906). The pinned directory sits where pytest's own would and
+is exactly as long as a single-digit ``pytest-<N>``, the layout CI's builds
+trained on before the pin, so pinning leaves their profile unchanged.
 """
 
 from __future__ import annotations
 
 import argparse
+import getpass
 import importlib.util
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEST_PATHS = ("tests/py", "tests/unit")
+
+
+def pytest_root() -> str:
+    """pytest's own ``<temproot>/pytest-of-<user>``, created the way pytest creates it."""
+    temproot = os.environ.get("PYTEST_DEBUG_TEMPROOT") or tempfile.gettempdir()
+    try:
+        user = getpass.getuser() or "unknown"
+    except (ImportError, OSError, KeyError):
+        user = "unknown"
+    root = os.path.join(temproot, f"pytest-of-{user}")
+    try:
+        os.makedirs(root, mode=0o700, exist_ok=True)
+    except OSError:
+        root = os.path.join(temproot, "pytest-of-unknown")
+        os.makedirs(root, mode=0o700, exist_ok=True)
+    return root
+
+
+def with_basetemp(pytest_args: list[str]) -> tuple[list[str], str | None]:
+    """Return @p pytest_args plus a fresh fixed-length ``--basetemp``, and its path.
+
+    A caller's own ``--basetemp`` is kept and ``None`` returned in its place.
+    The directory is ``pytest_root()`` plus eight random ``mkdtemp`` characters:
+    as long as pytest's ``pytest-<N>`` for N below 10, never named like one, and
+    never shared by concurrent runs.
+    """
+    if any(a == "--basetemp" or a.startswith("--basetemp=") for a in pytest_args):
+        return pytest_args, None
+    basetemp = tempfile.mkdtemp(prefix="", dir=pytest_root())
+    return [*pytest_args, f"--basetemp={basetemp}"], basetemp
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -54,7 +98,8 @@ def main(argv: list[str] | None = None) -> int:
     inherited = env.get("PYTHONPATH")
     env["PYTHONPATH"] = os.pathsep.join([*prefix, inherited] if inherited else prefix)
 
-    pytest_argv = [*TEST_PATHS, *(a for a in args.pytest_args if a != "--")]
+    extra, basetemp = with_basetemp([a for a in args.pytest_args if a != "--"])
+    pytest_argv = [*TEST_PATHS, *extra]
 
     # pytest is launched through a `-c` bootstrap rather than `-m pytest` so the
     # prefix lands on sys.path *inside* the interpreter. PYTHONPATH alone is not
@@ -85,6 +130,11 @@ def main(argv: list[str] | None = None) -> int:
     if prefix:
         print("  import path prefix: " + os.pathsep.join(prefix), flush=True)
     completed = subprocess.run(cmd, cwd=PROJECT_ROOT, env=env, check=False)
+    if basetemp is not None:
+        if completed.returncode == 0:
+            shutil.rmtree(basetemp, ignore_errors=True)
+        else:
+            print(f"  test temp files kept for inspection: {basetemp}", flush=True)
     return completed.returncode
 
 
