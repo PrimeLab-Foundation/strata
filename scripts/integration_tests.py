@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run ``tests/integrations``: ``dumps_with_default`` against third-party types, and the framework adapters.
 
-The tree imports pydantic, attrs, numpy, Flask, Django, aiohttp, Falcon and
-structlog, so it stays out of ``testpaths``,
+The tree imports pydantic, attrs, numpy, Flask, Django, aiohttp, Falcon,
+FastAPI and structlog, so it stays out of ``testpaths``,
 ``make test``, ``make gate`` and the PGO training run
 (docs/architecture/dumps_default_hook.md, "Test placement", which
 docs/architecture/dumps_with_default.md inherits). This entry point

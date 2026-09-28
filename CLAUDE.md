@@ -47,10 +47,12 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── util/                # scan.cpp, dtoa.cpp, folder.cpp
 │   └── bindings/            # CPython layer: module, loads, dumps (+ python_dumps_hook.cpp: the dumps_with_default image), files, ndjson, cursor
 ├── python/strata/           # thin facade: __init__, serialize (loads/dumps), config
+│   └── integrations/        # opt-in framework adapters: flask, django, aiohttp, falcon, structlog, fastapi, pydantic
 ├── tests/
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
 │   ├── py/                  # integration tests
 │   ├── unit/                # clause-by-clause contract suite
+│   ├── integrations/        # framework-adapter contract tests (scripts/integration_tests.py runs them per framework)
 │   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON) + committed seed corpus/
 │
 ├── benchmarks/              # harness, datasets, regression gate and the CI fetch/summary tools

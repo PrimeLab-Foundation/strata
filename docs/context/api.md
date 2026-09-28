@@ -140,15 +140,27 @@ framework's own JSON hook with `dumps`/`dumps_with_default`/`loads`. The
 framework is imported when its adapter module is, never by `import strata` or
 `import strata.integrations` (test-pinned); `__all__` does not list them.
 
-| Module                          | Use                                                             | Unsupported types go to                                                            |
-| ------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `strata.integrations.flask`     | `app.json = StrataJSONProvider(app)` (or `json_provider_class`) | Flask's `DefaultJSONProvider.default`                                              |
-| `strata.integrations.django`    | `JsonResponse(data, encoder=StrataJSONEncoder)`                 | the encoder's `default` (`DjangoJSONEncoder`'s, or `json_dumps_params["default"]`) |
-| `strata.integrations.aiohttp`   | `json_response(data)`, or `dumps=`/`loads=` in aiohttp's hooks  | nowhere: `TypeError`, as aiohttp's `json.dumps`                                    |
-| `strata.integrations.falcon`    | `media_handlers[falcon.MEDIA_JSON] = json_handler()`            | nowhere: `TypeError`, as Falcon's `json.dumps`                                     |
-| `strata.integrations.structlog` | `JSONRenderer(serializer=dumps)`                                | structlog's fallback handler (`__structlog__`, else `repr`)                        |
+| Module                          | Use                                                                                                      | Unsupported types go to                                                                                                 |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `strata.integrations.flask`     | `app.json = StrataJSONProvider(app)` (or `json_provider_class`)                                          | Flask's `DefaultJSONProvider.default`                                                                                   |
+| `strata.integrations.django`    | `JsonResponse(data, encoder=StrataJSONEncoder)`                                                          | the encoder's `default` (`DjangoJSONEncoder`'s, or `json_dumps_params["default"]`)                                      |
+| `strata.integrations.aiohttp`   | `json_response(data)`, or `dumps=`/`loads=` in aiohttp's hooks                                           | nowhere: `TypeError`, as aiohttp's `json.dumps`                                                                         |
+| `strata.integrations.falcon`    | `media_handlers[falcon.MEDIA_JSON] = json_handler()`                                                     | nowhere: `TypeError`, as Falcon's `json.dumps`                                                                          |
+| `strata.integrations.structlog` | `JSONRenderer(serializer=dumps)`                                                                         | structlog's fallback handler (`__structlog__`, else `repr`)                                                             |
+| `strata.integrations.fastapi`   | `response_class=StrataJSONResponse` (or `default_response_class=`, or `return StrataJSONResponse(data)`) | nowhere: `TypeError`, as Starlette's `JSONResponse` (FastAPI's `jsonable_encoder` runs first on a route's return value) |
+| `strata.integrations.pydantic`  | `dumps(obj)`, or `dumps_with_default(obj, default)`                                                      | `default`: a `BaseModel` → `model_dump(mode="json")`, else `pydantic_core.to_jsonable_python(obj, by_alias=False)`      |
 
-Rules common to all five, each test-pinned in `tests/integrations/`: output is
+The FastAPI adapter renders responses only: FastAPI parses request bodies
+itself with `json.loads`, has no decoder hook, and maps only
+`json.JSONDecodeError` to its 422, so requests are left to it. A route with a
+response model is written by pydantic's `dump_json` from FastAPI 0.130.0
+unless a response class is named; naming this one opts the route out of that
+path, which is slower there, so response-model routes are best left without
+it. The pydantic adapter serializes a model as its own `model_dump_json()`
+would (aliases per the model's config) and nested models inside it in the same
+call; a model in a native container gets its own call.
+
+Rules common to all seven, each test-pinned in `tests/integrations/`: output is
 compact, insertion-ordered UTF-8 whatever the framework's defaults
 (separators, `sort_keys`, `ensure_ascii`, Flask's debug indentation); NaN/±Inf
 are `null`; a non-`str` key is `TypeError`, a lone surrogate
@@ -164,7 +176,16 @@ the adapter cannot honour is a `TypeError`, never silently dropped — `allow_na
 included — except the formatting keywords a framework passes on its own:
 Flask's `separators`, `indent` and `sort_keys` to `dumps`, and the
 `ensure_ascii` and `check_circular` that `json.dumps` hands every Django
-encoder. `default` is honoured wherever the hook carries one, and the chain
+encoder. The parsing rules apply where the adapter parses (Flask, aiohttp,
+Falcon); FastAPI's requests stay FastAPI's. On FastAPI the serializing rules
+hold for what reaches `render` — a returned `StrataJSONResponse` in full — while
+a route's return value passes through FastAPI first: `jsonable_encoder` fails a
+cycle or a document past the recursion limit before `render` (500 in both, as
+with the default class), and a response model turns keys into strings itself.
+In the pydantic adapter a model's dump is pydantic's — its keys are strings
+and a cycle through models is pydantic's `ValueError` — and the rules apply
+to the values that dump returns (NaN → `null`, a lone surrogate →
+`UnicodeEncodeError`) and to the native containers around it. `default` is honoured wherever the hook carries one, and the chain
 bound means a `default` returning another unsupported object is a `TypeError`
 (the loop belongs inside the callable).
 Per-framework tables, the verified hook contracts, the chain-bound workaround

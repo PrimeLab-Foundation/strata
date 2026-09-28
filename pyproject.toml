@@ -64,7 +64,9 @@ integrations = [
   # and its own CI job. Kept out of testpaths, the gate and the PGO profile
   # (docs/architecture/dumps_default_hook.md, "Test placement", inherited by
   # docs/architecture/dumps_with_default.md).
-  "pydantic>=2",
+  # 2.12.0: the oldest pydantic-core with CPython 3.14 wheels (2.11's does not
+  # build there), and the pydantic adapter's floor.
+  "pydantic>=2.12",
   "attrs>=22.2",
   "numpy>=1.26",
   # The framework adapters' floors (docs/architecture/framework_adapters.md):
@@ -73,6 +75,10 @@ integrations = [
   "django>=4.1",
   "aiohttp>=3.9",
   "falcon>=4.0",
+  "fastapi>=0.100",
+  # FastAPI's TestClient; 0.24–0.25.0 fail on 3.14, 0.28 drops what FastAPI
+  # 0.100–0.110's TestClient passes (the floors leg holds 0.25.1).
+  "httpx>=0.25.1",
   "structlog>=20.2",
 ]
 

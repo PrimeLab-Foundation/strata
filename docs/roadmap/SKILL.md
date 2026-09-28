@@ -323,4 +323,7 @@ FastAPI/Starlette (bytes-mode response class), DRF, Sanic, Litestar,
 SQLAlchemy, Celery/kombu, structlog `__structlog__`-protocol follow-ups,
 Pydantic-as-post-step. Same rules as M13; each admitted only with a verified
 hook contract (four unverified facts from the 2026-09-18 survey pinned against
-source first).
+source first). FastAPI (`StrataJSONResponse`, responses only) and
+Pydantic-as-post-step (`strata.integrations.pydantic`) landed ahead of the rest
+on 2026-09-28 with contracts read from source
+(docs/architecture/framework_adapters.md; docs/decisions.md, 2026-09-28).

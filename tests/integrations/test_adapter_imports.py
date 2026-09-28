@@ -13,7 +13,8 @@ import pytest
 
 import strata
 
-FRAMEWORKS = ("flask", "django", "aiohttp", "falcon", "structlog")
+FRAMEWORKS = ("flask", "django", "aiohttp", "falcon", "fastapi", "pydantic", "structlog")
+DEPENDENCIES = ("starlette", "pydantic_core")
 
 _PROBE = """
 import sys
@@ -29,7 +30,7 @@ print(",".join(loaded))
 
 
 def test_import_strata_imports_no_adapter_and_no_framework():
-    probe = _PROBE.format(frameworks=FRAMEWORKS)
+    probe = _PROBE.format(frameworks=FRAMEWORKS + DEPENDENCIES)
     completed = subprocess.run(
         [sys.executable, "-c", probe],
         capture_output=True,
