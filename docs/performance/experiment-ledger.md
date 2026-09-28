@@ -4309,3 +4309,123 @@ waits on it.
   `std::filesystem` code — length is what the profile sees. The branch merged
   to main after the gate passed on the merged tree. Evidence:
   `build/evidence/benchmark-lead/pin-discovery-test/ab-36353898103/`.
+
+## M15 — native types: static checks, training scope and the local A/B; five-leg A/B pending
+
+- 2026-09-28..29 · `exp/native-types` over main `38eaa9f`, twelve commits `d6e543a` to `e5d9510`.
+  Record: [`native_types.md`](../architecture/native_types.md) and its 2026-09-28/29 amendments;
+  docs/decisions.md, 2026-09-28/29. Evidence: `docs/benchmarks/evidence/M15/` (tracked copy of
+  `build/evidence/M15/`, index `INDEX.txt`), the base of the paths below. **Status: local
+  evidence complete; the five-leg A/B (run 36497513720) was in progress at writing; not merged.**
+
+- **Pre-specified (the record).** Estimate: static checks 1–3 hold on both ISAs; the pinned
+  local A/B reads no canonical row past its A/A floor by more than +1.7% and none past +2%; on
+  five legs nothing resolves past +2%. Kill: a canonical row resolved past +2% on the pinned A/B,
+  or on a five-leg draw repeated once, that the held-profile arm attributes to the code; the
+  fallback is native types in `dumps_with_default` only.
+
+- **Setup.** Dev M1 (arm64, Darwin 25.6.0), Apple clang 21.0.0, CPython 3.14.7, orjson 3.12.0,
+  numpy 2.5.3. Static checks: plain `-O3`, no PGO or LTO, arm64 and an x86-64 SysV cross build
+  (`codegen/PROVENANCE.txt`). A/B: A = main `38eaa9f` by `make pgo`, A2 = that build repeated
+  (A/A control); 26 rows as 36 series, `dumps` as bytes and str (`ab/PROVENANCE.txt`); 6 ABBA
+  blocks × 60 repeats; `benchmarks/ab_blocks.py` (strata over orjson in-process, median block
+  effect, bootstrap over blocks, 2000 resamples). Floor, in parentheses below, = the larger |CI
+  bound| of A against A2; **resolved** = CI excludes 0 and |effect| > floor; `str` series are
+  not canonical. Shared, loaded machine: 1-min load 2.3–2.9 at each session's start.
+
+- **Check 1 — the tail shape.** S1, a bare tail call from `write()` into `write_native`
+  (`2f494a9`), failed: it reshaped the shared return epilogue (arm64 281 → 259 instructions,
+  x86-64 186 → 181), moving exact-type paths by one or two instructions. V1 (`not_tail_called`),
+  V2 (plus a static member) and V3 (a type predicate) did not restore it; V4 did: main's
+  `PyErr_Format` tail stays the fall-through behind `if (native::g_runtime_ready)`, set by module
+  init (`10521a9`; `codegen/variants/`). At `5b876d1` all of main's `write()` instructions appear
+  in order (281/281 arm64, 185/185 x86-64, padding masked), plus the flag test (+5/+3) and the
+  tail block (+7/+5) (`final/codegen/check1_write_masked.*`).
+
+- **Checks 2–3 at `5b876d1`.** `sizeof(Serializer)` 120, `stage_` at offset 64 and
+  `dumps_to_python`'s instructions equal main's on both ISAs (`final/codegen/check2.txt`); 16 of
+  18 common objects are identical, `json_parse.o` and `python_loads.o` among them, while
+  `python_dumps.o` and `python_module.o` differ (`final/codegen/check3_*`).
+
+- **Check 4 — training counts** (`check4_entry_counts.txt` at `10521a9`, `final/entry_counts.txt`
+  at `5b876d1`). Per-kind writers and temporal scanners read 0. Non-zero: `write_native` (842, the
+  trained unsupported-type tests, which trained main's `PyErr_Format` tail alike) and its callees
+  before the `TypeError`; module-init setup (17 each); the set walk's import proof (34); shared `PyRef`.
+
+- **Held-profile arm: confounded, not used.** B-held (`ad04f61` against A's profile) compiled
+  `Serializer::write` and `strata_loads` without a profile — clang discarded up to 6 447 184 and
+  489 178 counts on a control-flow hash mismatch (`armBheld2/hash_mismatch.txt`) — and read 19
+  of 36 series resolved *faster* than A, −2.7% to −9.4%, all `dumps`/`dump`
+  (`ab/held_ab.aa1.analysis.txt`). The timing below uses own-profile arms (each its own
+  `make pgo`), where code and profile change together.
+
+- **Own-profile arms.** Table M15-1 lists every series resolved in any arm.
+
+  *Table M15-1. Own `make pgo` vs main's, % \[95% CI\] (floor); bold = resolved; b/s = bytes/str.*
+
+  | series                 | `ad04f61` (A/A 1)                 | `5b876d1` (A/A 3)                 | `809621c` (A/A full)          |
+  | ---------------------- | --------------------------------- | --------------------------------- | ----------------------------- |
+  | small `dump flat`      | +1.68 \[+0.41, +5.70\] (2.68)     | **+2.99 \[+1.42, +3.40\] (2.16)** | −1.44 \[−4.65, +0.53\] (4.72) |
+  | small `dumps flat` b   | +1.02 \[−0.19, +2.29\] (0.60)     | **+1.90 \[+1.34, +2.36\] (1.47)** | −0.81 \[−1.27, −0.72\] (1.20) |
+  | small `dumps flat` s   | +0.74 \[−0.72, +2.21\] (0.94)     | **+1.47 \[+0.90, +1.96\] (0.70)** | −0.24 \[−1.28, +0.54\] (1.23) |
+  | small `dumps users` b  | **+1.62 \[+0.23, +2.21\] (1.47)** | **+1.14 \[+0.90, +2.05\] (1.01)** | +0.40 \[−0.43, +0.71\] (0.46) |
+  | small `dumps users` s  | +0.39 \[−0.21, +1.73\] (1.07)     | **+1.01 \[+0.16, +2.18\] (0.60)** | +0.35 \[−0.55, +1.39\] (0.56) |
+  | medium `dumps users` s | +0.63 \[−0.60, +2.86\] (2.36)     | **+0.93 \[+0.46, +2.32\] (0.80)** | −0.04 \[−0.35, +0.33\] (0.69) |
+
+  Sources: `ab/own_ab.aa1.analysis.txt`, `final/ab/own3_ab.aa3.analysis.txt`,
+  `attr/full/fix_ab.aa_full.analysis.txt`. Against the second A/A (floor 1.45), `ad04f61`'s
+  small `dump flat` also resolves. `5b876d1`: six resolved losses on four serializer rows,
+  three on canonical engines, small `dump flat` past +2%.
+
+- **Attribution of `5b876d1`'s loss** (`attr/`). Observed: its image carries
+  `Serializer::write_string` out of line (4 552 B) and no `write_string_bytes` symbol, and
+  `write()` shrinks 10 468 → 8 228 B, `write_mapping_body` 6 172 → 4 152 B against A
+  (`attr/hot_symbols_table.txt`). Attributed (commit `809621c`; consistent with the pre-link
+  inlining remarks, `attr/prelink/`): the new cold caller `write_dataclass` → `write_string`
+  cost LLVM's inliner its deferral of `write_string_bytes` into `write_string`, which grew past
+  the PGO hot-call threshold and was called out of line per string. Fix `809621c`: dataclass
+  keys go to `write_string_bytes`; its image has main's shape (`write()` 10 528 B,
+  `write_mapping_body` 6 172 B; `attr/arm809621c/layout.txt`), and a five-row screen of the
+  change read nothing past its floor (`attr/c2_screen.aa_s1.analysis.txt`).
+
+- **`809621c`, 26 rows** (same-session A/A; 1-min load 2.45 → 4.45, `attr/full/load_log.txt`).
+  No series resolved; the largest point estimate is small `load mixed` +1.70% \[−0.79, +2.38\]
+  (2.95). Four gains have a CI excluding 0 — small `dumps flat` b −0.81%, small `loads flat`
+  −0.70%, medium `dumps users` b −0.49%, small `dumps nested` s −0.32% — each inside its floor
+  (1.15–1.20), so none resolves. This is consistent with the record's local estimate, from one
+  loaded M1 and own-profile arms rather than the pinned arm the record specifies.
+
+- **Admission** (`admission_table.txt` in `micro/` at `ad04f61`, `micro2/` at `5b876d1`):
+  median ns per object, 164 samples per arm, native `dumps` against main's `dumps_with_default`
+  with a Python reference conversion; bytes identical for all 13 kinds, `default` never called
+  natively. Native/hook at `5b876d1`: `datetime` 0.044–0.086, `date` 0.059, `time` 0.061,
+  dataclass (5 fields) 0.219, `UUID` 0.224, `np.int64` 0.561, `np.float32` 0.589, `Decimal`
+  0.659, `set` (10) 0.700, `Enum` 0.967, `ndarray` (1000 × f64) 1.000. At `ad04f61`, `set`
+  1.404, `np.int64` 1.272 and `np.float32` 1.256 were slower than the hook. `ndarray` and `Enum`
+  ship native by the user's sign-off, against the admission rule (docs/decisions.md, 2026-09-29).
+
+- **Import and keyword cost.** `import strata` at `ad04f61` (60 A B B A rounds, fresh
+  interpreters; `micro/import_abba*.txt`): +2.27% \[−0.02, +3.99\] and, repeated, +2.95%
+  \[−0.46, +6.84\] — both CIs include 0; no module newly imported; not re-measured later.
+  `loads` against main (`micro2/facade_x.txt`): tiny document −12.0 ns (−6.26%), small mixed
+  −0.09% normalised.
+
+- **Correctness.** Reviews — P0 `Enum`/`default` unbounded recursion, P1 registry
+  use-after-free in the parse walk, P1 `datetime` subclasses, P2 dataclass field cache and the
+  numpy twins' proof — fixed in `fe9ec54`, `ad04f61`, `1264542`. `make gate` at `1264542`: exit
+  0, 3580 passed, 2 skipped; coverage Python 100%, C++ lines 89.51% (the author's run, log not
+  in the packet). `1264542` adds the cold `python_numpy_twins.cpp` after the local timing, so it
+  is **not locally timed**.
+
+- **Five-leg A/B (pending).** Run 36497513720 ("A/B performance", `ab_x86.yml`), dispatched
+  2026-09-28 23:20:58 UTC on `exp/m15-ab-arm` `1b806bf` (`e5d9510` plus the M12b arm tooling:
+  A, A2, B and B-held on one build path), base `38eaa9f`, 6 blocks × 60; in progress on
+  2026-09-29. A canonical run follows. Kill: a canonical row resolved past +2% on two draws.
+
+- **Recorded, not resolved.**
+
+  - *The static checks do not see PGO:* checks 1–3 held at `5b876d1` while its PGO image lost
+    six series; no check covers the shipped PGO+LTO images, Win64 or Linux arm64.
+  - *The attribution clause:* a held build of this branch discards `write()`'s counts
+    (inferred from `armBheld2`: the flag test changes its control flow), so a held arm cannot
+    attribute a five-leg row to the code as the record assumes.
