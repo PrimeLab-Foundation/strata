@@ -347,107 +347,182 @@ class Option {
     return PyErr_Occurred() ? -1 : 1;
 }
 
+/**
+ * @p object, already walked, as the registry @p entry makes it: `E(object)`
+ * for an `Enum` (a `ValueError` leaves @p object), `D(**object)` for a
+ * dataclass when @p object is a dict that fits, else @p object itself. A new
+ * reference, or nullptr. The caller holds both arguments: this runs user code.
+ */
+[[nodiscard]] PyObject* convert(PyObject* object, PyObject* entry) {
+    PyObject* const type = PyTuple_GET_ITEM(entry, 0);
+    PyObject* const init_names = PyTuple_GET_ITEM(entry, 1);
+    if (init_names == Py_None) {
+        PyObject* const member = PyObject_CallOneArg(type, object);
+        if (member == nullptr && PyErr_ExceptionMatches(PyExc_ValueError)) {
+            PyErr_Clear(); // no member has that value
+            return Py_NewRef(object);
+        }
+        return member;
+    }
+    if (!PyDict_CheckExact(object))
+        return Py_NewRef(object);
+    const int fit = fits(object, init_names, PyTuple_GET_ITEM(entry, 2));
+    if (fit <= 0)
+        return fit == 0 ? Py_NewRef(object) : nullptr;
+    PyRef no_arguments(PyTuple_New(0));
+    if (!no_arguments)
+        return nullptr;
+    return PyObject_Call(type, no_arguments.get(), object);
+}
+
+/**
+ * The revival walk, iterative over an explicit stack of the containers it has
+ * open: a level costs a stack entry, not C stack, so a document at the parse
+ * cap revives on any thread that can parse it.
+ *
+ * Post-order: a container under a registered name is converted, and written
+ * back into its parent, only once its last child is done. Every open
+ * container, the child being revived and the registry entry being applied are
+ * held by strong references across each conversion, which runs user code that
+ * can clear the containers or the private registry (reachable through
+ * `gc.get_objects()`).
+ */
 class Walk {
   public:
     explicit Walk(PyObject* registry) noexcept : registry_(registry) {}
 
-    /// Revive @p value, which is not under a member name: a new reference to
-    /// what replaces it (@p value itself when nothing does), or nullptr.
+    /// Revive @p object, which is not under a member name: a new reference to
+    /// what replaces it (@p object itself when nothing does), or nullptr.
     [[nodiscard]] PyObject* value(PyObject* object) {
         if (PyUnicode_CheckExact(object))
             return recognize(object);
-        if (PyDict_CheckExact(object))
-            return members(object) ? Py_NewRef(object) : nullptr;
-        if (PyList_CheckExact(object))
-            return elements(object, nullptr) ? Py_NewRef(object) : nullptr;
-        return Py_NewRef(object);
+        if (!is_container(object))
+            return Py_NewRef(object);
+        open(PyRef(Py_NewRef(object)), PyRef(), PyRef(), PyRef(), 0);
+        return run() ? Py_NewRef(object) : nullptr;
     }
 
   private:
-    /// Every member of @p dict, each by its name's rule.
-    [[nodiscard]] bool members(PyObject* dict) {
-        Py_ssize_t position = 0;
-        PyObject* borrowed_key = nullptr;
-        PyObject* borrowed_value = nullptr;
-        while (PyDict_Next(dict, &position, &borrowed_key, &borrowed_value)) {
-            PyRef key(Py_NewRef(borrowed_key));
-            PyRef item(Py_NewRef(borrowed_value));
-            PyObject* entry = nullptr;
-            if (registry_ != nullptr) {
-                entry = PyDict_GetItemWithError(registry_, key.get());
-                if (entry == nullptr && PyErr_Occurred())
-                    return false;
+    /// One open container, and where its result goes in its parent.
+    struct Frame {
+        PyRef container;     ///< the dict or list being walked
+        PyRef element_entry; ///< a registered name's list: the entry each element is revived by
+        PyRef own_entry;     ///< the entry the container itself is converted by once walked
+        PyRef key;           ///< under a dict: the member name it is the value of
+        Py_ssize_t index;    ///< under a list: its slot
+        Py_ssize_t position; ///< the next child: PyDict_Next's position, or a list index
+    };
+
+    [[nodiscard]] static bool is_container(PyObject* object) noexcept {
+        return PyDict_CheckExact(object) || PyList_CheckExact(object);
+    }
+
+    void open(PyRef container, PyRef element_entry, PyRef own_entry, PyRef key, Py_ssize_t index) {
+        stack_.push_back(Frame{std::move(container), std::move(element_entry), std::move(own_entry),
+                               std::move(key), index, 0});
+    }
+
+    /// Walk until the root closes. False with an error set.
+    [[nodiscard]] bool run() {
+        while (!stack_.empty()) {
+            Frame& top = stack_.back();
+            PyObject* const container = top.container.get();
+            PyRef key;
+            PyRef item;
+            Py_ssize_t index = 0;
+            if (PyDict_CheckExact(container)) {
+                PyObject* borrowed_key = nullptr;
+                PyObject* borrowed_value = nullptr;
+                if (!PyDict_Next(container, &top.position, &borrowed_key, &borrowed_value)) {
+                    if (!close())
+                        return false;
+                    continue;
+                }
+                key = PyRef(Py_NewRef(borrowed_key));
+                item = PyRef(Py_NewRef(borrowed_value));
+            } else {
+                // Re-read at every step: user code may have shrunk the list.
+                if (top.position >= PyList_GET_SIZE(container)) {
+                    if (!close())
+                        return false;
+                    continue;
+                }
+                index = top.position++;
+                item = PyRef(Py_NewRef(PyList_GET_ITEM(container, index)));
             }
-            PyRef revived(entry != nullptr ? registered(item.get(), entry) : value(item.get()));
-            if (!revived)
-                return false;
-            if (revived.get() == item.get())
-                continue;
-            PyObject* const current = PyDict_GetItemWithError(dict, key.get());
-            if (current == nullptr && PyErr_Occurred())
-                return false;
-            if (current == item.get() && PyDict_SetItem(dict, key.get(), revived.get()) != 0)
+            if (!child(std::move(key), index, std::move(item)))
                 return false;
         }
         return true;
-    }
-
-    /// Every element of @p list: by @p entry when the list is a registered
-    /// member's value (one level), else by the ordinary rule.
-    [[nodiscard]] bool elements(PyObject* list, PyObject* entry) {
-        for (Py_ssize_t index = 0; index < PyList_GET_SIZE(list); ++index) {
-            PyRef item(Py_NewRef(PyList_GET_ITEM(list, index)));
-            PyRef revived(entry != nullptr ? registered_one(item.get(), entry) : value(item.get()));
-            if (!revived)
-                return false;
-            if (revived.get() != item.get() && index < PyList_GET_SIZE(list) &&
-                PyList_GET_ITEM(list, index) == item.get())
-                PyList_SetItem(list, index, revived.release()); // steals; item still held
-        }
-        return true;
-    }
-
-    /// A registered member's value: a list has each element revived by the
-    /// entry; anything else is revived as one value.
-    [[nodiscard]] PyObject* registered(PyObject* object, PyObject* entry) {
-        if (PyList_CheckExact(object))
-            return elements(object, entry) ? Py_NewRef(object) : nullptr;
-        return registered_one(object, entry);
     }
 
     /**
-     * One value under a registered name. Its contents are revived first, by
-     * the ordinary rule; the value itself is never type-recognized: it becomes
-     * `E(value)` or `D(**value)`, or stays as it is.
+     * One child of the top container: a dict member (@p key) by its name's
+     * rule, or a list element (@p index) by the list's entry when the list is
+     * a registered name's value (one level), else by the ordinary rule. A
+     * container child is opened, and converted when it closes; its contents
+     * always follow the ordinary rule.
      */
-    [[nodiscard]] PyObject* registered_one(PyObject* object, PyObject* entry) {
-        const bool is_dict = PyDict_CheckExact(object);
-        if (is_dict && !members(object))
-            return nullptr;
-        if (PyList_CheckExact(object) && !elements(object, nullptr))
-            return nullptr;
-        PyObject* const type = PyTuple_GET_ITEM(entry, 0);
-        PyObject* const init_names = PyTuple_GET_ITEM(entry, 1);
-        if (init_names == Py_None) {
-            PyObject* const member = PyObject_CallOneArg(type, object);
-            if (member == nullptr && PyErr_ExceptionMatches(PyExc_ValueError)) {
-                PyErr_Clear(); // no member has that value
-                return Py_NewRef(object);
+    [[nodiscard]] bool child(PyRef key, Py_ssize_t index, PyRef item) {
+        PyRef entry;
+        if (key) {
+            if (registry_ != nullptr) {
+                PyObject* const found = PyDict_GetItemWithError(registry_, key.get());
+                if (found == nullptr && PyErr_Occurred())
+                    return false;
+                entry = PyRef(Py_XNewRef(found));
             }
-            return member;
+            if (entry && PyList_CheckExact(item.get())) {
+                open(std::move(item), std::move(entry), PyRef(), std::move(key), index);
+                return true;
+            }
+        } else {
+            entry = PyRef(Py_XNewRef(stack_.back().element_entry.get()));
         }
-        if (!is_dict)
-            return Py_NewRef(object);
-        const int fit = fits(object, init_names, PyTuple_GET_ITEM(entry, 2));
-        if (fit <= 0)
-            return fit == 0 ? Py_NewRef(object) : nullptr;
-        PyRef no_arguments(PyTuple_New(0));
-        if (!no_arguments)
-            return nullptr;
-        return PyObject_Call(type, no_arguments.get(), object);
+        if (is_container(item.get())) {
+            open(std::move(item), PyRef(), std::move(entry), std::move(key), index);
+            return true;
+        }
+        if (!entry && !PyUnicode_CheckExact(item.get()))
+            return true;
+        PyRef revived(entry ? convert(item.get(), entry.get()) : recognize(item.get()));
+        if (!revived)
+            return false;
+        return store(key, index, item.get(), std::move(revived));
+    }
+
+    /// The top container is walked: pop it, and when it is under a registered
+    /// name, convert it and write the result back into its parent.
+    [[nodiscard]] bool close() {
+        const Frame done = std::move(stack_.back());
+        stack_.pop_back();
+        if (!done.own_entry)
+            return true; // the root, or a container nothing replaces
+        PyRef result(convert(done.container.get(), done.own_entry.get()));
+        if (!result)
+            return false;
+        return store(done.key, done.index, done.container.get(), std::move(result));
+    }
+
+    /// Write @p revived into the top container's slot -- @p key when set,
+    /// else @p index -- only while that slot still holds @p item.
+    [[nodiscard]] bool store(const PyRef& key, Py_ssize_t index, PyObject* item, PyRef revived) {
+        if (revived.get() == item)
+            return true;
+        PyObject* const container = stack_.back().container.get();
+        if (key) {
+            PyObject* const current = PyDict_GetItemWithError(container, key.get());
+            if (current == nullptr && PyErr_Occurred())
+                return false;
+            return current != item || PyDict_SetItem(container, key.get(), revived.get()) == 0;
+        }
+        if (index < PyList_GET_SIZE(container) && PyList_GET_ITEM(container, index) == item)
+            PyList_SetItem(container, index, revived.release()); // steals; item still held
+        return true;
     }
 
     PyObject* registry_;
+    std::vector<Frame> stack_;
 };
 
 /// Revive a freshly parsed root. Consumes @p root; a new reference or nullptr.

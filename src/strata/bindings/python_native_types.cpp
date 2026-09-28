@@ -74,7 +74,8 @@ struct Table {
     PyObject* dataclasses_fields = nullptr;
     PyTypeObject* numpy_generic = nullptr;
     PyTypeObject* numpy_ndarray = nullptr;
-    /// `type -> tuple of field names`, created at the first dataclass.
+    /// `type -> (__dataclass_fields__ as read, its length then, field names)`,
+    /// created at the first dataclass.
     PyObject* field_cache = nullptr;
 };
 
@@ -408,12 +409,17 @@ size_t format_pure_leaf(PyObject* object, char* out) noexcept {
 Kind classify(PyObject* object) {
     resolve();
     PyTypeObject* const type = Py_TYPE(object);
+    // Held to the end: the attribute reads below can run code that reassigns
+    // `object.__class__`, and the type may then have no other owner.
+    const PyRef held(Py_NewRef(reinterpret_cast<PyObject*>(type)));
+    // The exact types only: a subclass can carry state its C fields do not
+    // (pandas' `NaT`, a `Timestamp`'s nanoseconds), so it is unsupported.
     if (const PyDateTime_CAPI* const api = g_table.datetime_api; api != nullptr) {
-        if (PyType_IsSubtype(type, api->DateTimeType))
+        if (type == api->DateTimeType)
             return Kind::DateTime;
-        if (PyType_IsSubtype(type, api->DateType))
+        if (type == api->DateType)
             return Kind::Date;
-        if (PyType_IsSubtype(type, api->TimeType))
+        if (type == api->TimeType)
             return Kind::Time;
     }
     if (g_table.uuid_type != nullptr && PyType_IsSubtype(type, g_table.uuid_type))
@@ -533,17 +539,29 @@ DecimalText decimal_text(PyObject* object, PyRef& text, std::string_view& view) 
 PyObject* enum_value(PyObject* member) { return PyObject_GetAttr(member, g_names.value); }
 
 PyObject* dataclass_field_names(PyObject* object) {
-    PyObject* const type = reinterpret_cast<PyObject*>(Py_TYPE(object));
+    // Held across every call below: `dataclasses.fields` and the attribute
+    // read run code that can reassign `object.__class__`, and the type may
+    // then have no other owner.
+    const PyRef held(Py_NewRef(reinterpret_cast<PyObject*>(Py_TYPE(object))));
+    PyObject* const type = held.get();
     if (g_table.field_cache == nullptr) {
         g_table.field_cache = PyDict_New();
         if (g_table.field_cache == nullptr)
             return nullptr;
     }
     PyObject* const cache = g_table.field_cache;
+    // What `dataclasses.fields` reads. A cached entry stands while this is the
+    // same object with the same length; anything else is a miss.
+    const PyRef declared(PyObject_GetAttr(type, g_names.dataclass_fields));
+    if (!declared)
+        return nullptr;
+    const Py_ssize_t declared_size =
+        PyDict_Check(declared.get()) ? PyDict_GET_SIZE(declared.get()) : -1;
     PyObject* const cached = PyDict_GetItemWithError(cache, type);
-    if (cached != nullptr)
-        return Py_NewRef(cached);
-    if (PyErr_Occurred())
+    if (cached != nullptr && declared_size >= 0 && PyTuple_GET_ITEM(cached, 0) == declared.get() &&
+        PyLong_AsSsize_t(PyTuple_GET_ITEM(cached, 1)) == declared_size)
+        return Py_NewRef(PyTuple_GET_ITEM(cached, 2));
+    if (cached == nullptr && PyErr_Occurred())
         return nullptr;
     const PyRef fields(PyObject_CallOneArg(g_table.dataclasses_fields, type));
     if (!fields)
@@ -567,9 +585,15 @@ PyObject* dataclass_field_names(PyObject* object) {
         }
         PyTuple_SET_ITEM(names.get(), index, name);
     }
+    if (declared_size < 0) // not a dict: nothing stable to check an entry against
+        return names.release();
+    const PyRef size(PyLong_FromSsize_t(declared_size));
+    const PyRef entry(size ? PyTuple_Pack(3, declared.get(), size.get(), names.get()) : nullptr);
+    if (!entry)
+        return nullptr;
     if (PyDict_GET_SIZE(cache) >= kFieldCacheLimit)
         PyDict_Clear(cache);
-    if (PyDict_SetItem(cache, type, names.get()) < 0)
+    if (PyDict_SetItem(cache, type, entry.get()) < 0)
         return nullptr;
     return names.release();
 }

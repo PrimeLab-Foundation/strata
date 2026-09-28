@@ -70,7 +70,9 @@ Everything type-specific lives outside the writers' translation unit:
   a UUID from two 64-bit halves; recognize RFC 3339 date/time/date-time and
   canonical UUID text into fields; validate the JSON number grammar.
 - `src/strata/bindings/python_native_types.{h,cpp}` (both images): the lazily
-  resolved type table, the dataclass field-name cache, and the conversions from
+  resolved type table, the dataclass field-name cache (at most 1024 types, a
+  full cache cleared; an entry stands while the type's `__dataclass_fields__`
+  is the object it was read from, at the length it had), and the conversions from
   a Python object to fields or text. Resolution reads `sys.modules` only — it
   never imports a module — so `import strata` imports none of `datetime`,
   `uuid`, `decimal`, `enum`, `dataclasses` or `numpy`, and a type whose module
@@ -143,7 +145,12 @@ member names to `Enum` subclasses or dataclass types.
 
 Checked in this order, after every existing branch of `write()` has failed —
 so an `int`, `str`, `float`, `dict`, `list` or `tuple` **subclass** is written
-exactly as today, before any native check:
+exactly as today, before any native check. **Amended 2026-09-28 (review
+P1):** rows 1–3 take the **exact** types only, as orjson does; a `datetime`,
+`date` or `time` subclass is unsupported (the `TypeError`, or `default` in
+`dumps_with_default`), because a subclass can carry state its C fields do not
+— pandas' `NaT` formatted from its fields as `"0001-01-01T00:00:00"`, and a
+`Timestamp` lost its nanoseconds, where both had raised before:
 
 | #   | Type (instances, subclasses included)                                        | Output                                                                                                                                                                                                                                                                                                                                                                      | orjson 3.12.0                                                                                                                                                          |
 | --- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -211,7 +218,13 @@ reached. For one that holds only pure natives, no user code runs.
 - **Enum** chains are followed in a loop inside `write_native`, not by
   recursion: after `limit` hops (the serializer's depth limit) it raises
   `ValueError("Maximum serialization depth exceeded")`. The final value goes
-  through `write()` once.
+  through `write()` once. **Amended 2026-09-28 (review P0):** the member also
+  opens a `Frame` before its value is written. Without it, in the hook image a
+  `default` returning `E.A` whose value is the unsupported object it was called
+  on recursed without bound (`default` → `E.A` → value → `default` …; the chain
+  bound keys on the return, the member, not on its value) and overflowed the C
+  stack on CPython 3.13. With the frame the member met again is a cycle under
+  `cycle_policy`, and each hop takes a level of the depth limit.
 - **numpy** writes what `item()`/`tolist()` return, which contains only
   supported scalars and lists, so no native object recurses back into the tail.
 - A dataclass's fields are read one at a time as they are written (followed
@@ -265,7 +278,9 @@ comes back as the fixed offset it had.
 **Registry** (`parse_types={"name": T, ...}`, implies `True`): keys must be
 `str`, values `Enum` subclasses or dataclass types, checked before parsing. The
 walk is post-order, so a container's contents are revived before the container
-itself. For a JSON object member whose name is registered:
+itself; it keeps an explicit stack of open containers rather than recursing, and
+holds each registry entry it applies across the user code that applies it
+(review P2 and P1, 2026-09-28). For a JSON object member whose name is registered:
 
 - an `Enum` type `E`: the value is replaced by `E(value)`; a `ValueError` (no
   member has that value) leaves it as parsed; any other exception propagates;
@@ -333,7 +348,14 @@ not already imported (the only imports strata ever makes on its own behalf);
    `pgo_build_clang_cl.py:74`) pass it on their **instrumented** pass only —
    the optimized pass and every gate run everything. `scripts/pgo_training.py`
    makes no native call. Verified by `llvm-profdata show` reading zero counts
-   on `write_native`, the revival walk and the new keyword arms.
+   on the revival walk, the new keyword arms and every per-kind writer.
+   **Corrected 2026-09-28 (review P1):** `write_native` itself is not at zero:
+   the trained suites' unsupported-type tests (421 calls per pass, 842 in the
+   instrumented phase) reach it, and through it `classify`, `format_pure_leaf`
+   and the type resolution, before the `TypeError` — the same tests trained
+   main's `PyErr_Format` tail with the same counts. Every per-kind writer,
+   every conversion and all of the parse side read zero
+   (`build/evidence/M15/check4_*`).
 5. **Keywords**: `parse_types` joins `strata_loads`'s keyword loop as a third
    compare (the facade already passes two keywords per call);
    `load`/`search`/`query` add one format unit. `dumps`'s signature does not
@@ -343,7 +365,11 @@ not already imported (the only imports strata ever makes on its own behalf);
    unchanged (paired, fresh interpreters).
 7. **Footprint**: `_strata`'s `size -m` **Section `__text`** growth is reported
    per ISA, and attributed per symbol (`benchmarks/symbol_sizes.py`); every
-   added function has zero training counts. Estimate: 8–16 KB.
+   added function except `write_native`'s entry has zero training counts.
+   Estimate: 8–16 KB — for the serializer alone. Measured: plain builds
+   +12 388 B arm64 / +12 272 B x86-64 with the serializer (at `10521a9`'s tail),
+   +22 880 B arm64 with the parse side added; the PGO+LTO image +18 308 B
+   (222 564 → 240 872). The estimate did not count the parse side.
 
 ## Measurement
 

@@ -36,8 +36,8 @@
  *   5. the native tail (`write_native`; docs/architecture/native_types.md),
  *      at every conversion except a pure leaf: resolving the native type
  *      table (a `sys.modules` probe and attribute reads on modules the user
- *      may have replaced), a subclass's or a non-`timezone` tzinfo's
- *      `utcoffset()`, a UUID subclass's `int`, `Decimal`'s `str()` (the
+ *      may have replaced), a non-`timezone` tzinfo's `utcoffset()`, a
+ *      UUID subclass's `int`, `Decimal`'s `str()` (the
  *      decimal context can be created lazily), each `Enum.value` read, the
  *      dataclass field-name lookup and each field read, the set iterator and
  *      each of its steps, and numpy's dtype read and `item()`/`tolist()`. A
@@ -398,9 +398,9 @@ class Serializer {
             if (!plain)
                 return false;
             // item() and tolist() return Python scalars and lists, except
-            // where no Python type holds the value: an extended `longdouble`
-            // comes back as itself. That object is unsupported, rather than
-            // handed back to this tail without end.
+            // for a `longdouble`, which comes back as itself on every
+            // platform (arm64's 64-bit one too). That object is unsupported,
+            // rather than handed back to this tail without end.
             if (!native::is_numpy(plain.get()))
                 return write(plain.get());
             break;
@@ -464,8 +464,22 @@ class Serializer {
      * value goes through write() once. Every read and every classification of
      * what a read returned is a user-code step; the caller latched before the
      * first.
+     *
+     * The Frame is on the member and opens before its value is read, as a
+     * dataclass's does: the member reached again below its own value -- in
+     * the hook image, a `default` returning the member whose value is the
+     * object it was called on -- is a cycle under the policy instead of a
+     * recursion without bound, and each member written takes one level of
+     * the depth limit. The hops inside the loop take none; the loop's own
+     * bound covers them.
      */
     [[nodiscard]] STRATA_COLD_FN bool write_enum(PyObject* member) {
+        const Frame frame(*this, member);
+        if (frame.repeated())
+            return frame.handle_cycle();
+        if (!frame.within_depth_limit())
+            return false;
+        latch();
         PyRef value(native::enum_value(member));
         for (int reads = 1;; ++reads) {
             if (!value)

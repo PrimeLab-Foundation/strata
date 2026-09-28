@@ -130,10 +130,6 @@ class Zone(dt.tzinfo):
         return None
 
 
-class Stamp(dt.datetime):
-    pass
-
-
 class Key(uuid.UUID):
     pass
 
@@ -215,8 +211,9 @@ def _native(rng):
     if roll == 8:
         return frozenset(f"t{rng.randrange(9)}" for _ in range(rng.randrange(4)))
     if roll == 9:
-        moment = _datetime(rng)
-        return Stamp.combine(moment.date(), moment.timetz())
+        # A datetime subclass is unsupported (docs/decisions.md 2026-09-28);
+        # this roll is the naive datetime instead.
+        return _datetime(rng).replace(tzinfo=None)
     if roll == 10:
         return Key(int=rng.getrandbits(128))
     if roll == 11:
@@ -286,7 +283,7 @@ def test_each_row_has_a_reference_spelling_in_the_corpus():
         json.dumps(document, default=record)
     for kind in (dt.datetime, dt.date, dt.time, uuid.UUID, Decimal, Color, Wrapped, Line, Order):
         assert kind in kinds
-    assert set in kinds and frozenset in kinds and Stamp in kinds and Key in kinds
+    assert set in kinds and frozenset in kinds and Key in kinds
 
 
 # ---------------------------------------------------------------------------

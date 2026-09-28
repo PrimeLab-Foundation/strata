@@ -32,6 +32,10 @@ def both(obj):
     return text
 
 
+def text_of(out):
+    return out.decode() if isinstance(out, bytes) else out
+
+
 def _python_stack_depth():
     depth = 0
     frame = sys._getframe()
@@ -136,13 +140,36 @@ def test_row1_fold_is_honoured_through_utcoffset():
     assert both(second) == '"2026-10-25T02:30:00+01:00"'
 
 
-def test_row1_a_subclass_is_written_like_the_base():
-    class Stamp(dt.datetime):
-        def isoformat(self, *args, **kwargs):
-            return "not used"
+class Stamp(dt.datetime):
+    pass
 
-    stamp = Stamp(2026, 9, 28, 1, 2, 3, tzinfo=dt.timezone.utc)
-    assert both(stamp) == '"2026-09-28T01:02:03+00:00"'
+
+class Day(dt.date):
+    pass
+
+
+class Clock(dt.time):
+    pass
+
+
+TEMPORAL_SUBCLASSES = [
+    Stamp(2026, 9, 28, 1, 2, 3, tzinfo=dt.timezone.utc),
+    Stamp(2026, 9, 28, 1, 2, 3),
+    Day(2026, 2, 3),
+    Clock(1, 2, 3),
+]
+
+
+@pytest.mark.parametrize("value", TEMPORAL_SUBCLASSES, ids=repr)
+def test_rows1_to_3_a_subclass_is_unsupported(value):
+    # docs/decisions.md 2026-09-28 (review P1): the exact types only, as orjson;
+    # a subclass can carry state its C fields do not (pandas' NaT).
+    message = f"^Object of type {type(value).__name__} is not JSON serializable$"
+    for document in (value, [value], {"a": value}):
+        with pytest.raises(TypeError, match=message):
+            strata.dumps(document)
+        with pytest.raises(TypeError, match=message):
+            strata.dumps(document, return_type="bytes")
 
 
 def test_row1_a_utcoffset_that_is_not_a_timedelta_raises_type_error():
@@ -167,13 +194,6 @@ def test_row1_an_offset_of_a_day_or_more_raises_value_error():
 def test_row2_a_date_is_year_month_day():
     assert both(dt.date(2026, 9, 28)) == '"2026-09-28"'
     assert both(dt.date(1, 1, 1)) == '"0001-01-01"'
-
-
-def test_row2_a_date_subclass_is_written_like_the_base():
-    class Day(dt.date):
-        pass
-
-    assert both(Day(2026, 2, 3)) == '"2026-02-03"'
 
 
 def test_row1_a_datetime_is_not_written_as_its_date_base():
@@ -416,6 +436,47 @@ def test_row7_classvars_and_initvars_are_not_fields():
     assert both(WithPseudo(1, 9)) == '{"kept":1}'
 
 
+def test_row7_the_field_name_cache_follows_fields_replaced_or_grown():
+    # Review P2: a cached entry stands only while the type's
+    # `__dataclass_fields__` is the object it was read from, at the length it had.
+    @dataclasses.dataclass
+    class Grows:
+        a: int = 1
+
+    @dataclasses.dataclass
+    class Other:
+        a: int = 1
+        b: int = 2
+        c: int = 3
+
+    value = Grows()
+    value.b = 2
+    value.c = 3
+
+    def listed():
+        names = ",".join(
+            f'"{field.name}":{getattr(value, field.name)}' for field in dataclasses.fields(value)
+        )
+        return "{" + names + "}"
+
+    assert both(value) == listed() == '{"a":1}'
+    Grows.__dataclass_fields__["b"] = Other.__dataclass_fields__["b"]  # grown in place
+    assert both(value) == listed() == '{"a":1,"b":2}'
+    Grows.__dataclass_fields__ = {  # replaced, at the same length
+        "a": Other.__dataclass_fields__["a"],
+        "c": Other.__dataclass_fields__["c"],
+    }
+    assert both(value) == listed() == '{"a":1,"c":3}'
+
+
+def test_row7_more_dataclass_types_than_the_cache_holds_are_each_written_by_their_fields():
+    # python_native_types.h: at most 1024 types are cached; a full cache is cleared.
+    kinds = [dataclasses.make_dataclass(f"K{index}", [(f"f{index}", int)]) for index in range(1100)]
+    for _ in range(2):
+        for index, kind in enumerate(kinds):
+            assert strata.dumps(kind(index)) == f'{{"f{index}":{index}}}'
+
+
 def test_row7_fields_are_read_with_getattr():
     @dataclasses.dataclass
     class Computed:
@@ -616,6 +677,66 @@ def test_frames_a_dataclass_or_set_takes_one_level_of_the_depth_limit(wrap):
         sys.setrecursionlimit(saved)
 
 
+def test_frames_an_enum_member_takes_one_level_of_the_depth_limit():
+    # docs/decisions.md 2026-09-28 (review P0): the member opens a Frame.
+    saved = sys.getrecursionlimit()
+    limit = max(200, _python_stack_depth() + 100)
+    holder = enum.Enum("Holder", {"LEAF": Node("leaf")}).LEAF
+
+    def nest(levels, leaf):
+        node = leaf
+        for _ in range(levels):
+            node = Node("n", node)
+        return node
+
+    try:
+        sys.setrecursionlimit(limit)
+        assert strata.dumps(nest(limit - 1, Node("leaf"))).count("{") == limit
+        assert strata.dumps(nest(limit - 2, holder)).count("{") == limit - 1
+        with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
+            strata.dumps(nest(limit - 1, holder))
+    finally:
+        sys.setrecursionlimit(saved)
+
+
+class _Opaque:
+    pass
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("policy", ["warn", "error", "ignore"])
+def test_hook_a_member_whose_value_is_the_object_default_was_called_on_is_a_cycle(
+    cycle_policy, policy, mode
+):
+    # docs/decisions.md 2026-09-28 (review P0): `default` -> E.A -> its value ->
+    # `default` -> E.A recursed without bound; the member's Frame makes the
+    # second E.A a cycle under the policy.
+    opaque = _Opaque()
+    member = enum.Enum("Loops", {"A": opaque}).A
+    calls = []
+
+    def default(obj):
+        calls.append(obj)
+        return member
+
+    cycle_policy(policy)
+    for document, expected in ((opaque, "null"), ([opaque, 1], "[null,1]")):
+        calls.clear()
+        if policy == "error":
+            with pytest.raises(ValueError, match="^Circular reference detected$"):
+                strata.dumps_with_default(document, default, return_type=mode)
+        elif policy == "warn":
+            with pytest.warns(RuntimeWarning, match="Circular reference detected"):
+                out = strata.dumps_with_default(document, default, return_type=mode)
+            assert text_of(out) == expected
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                out = strata.dumps_with_default(document, default, return_type=mode)
+            assert text_of(out) == expected
+        assert calls == [opaque, opaque]
+
+
 # ---------------------------------------------------------------------------
 # dumps_with_default: natives come before the callable.
 # ---------------------------------------------------------------------------
@@ -696,3 +817,17 @@ def test_hook_the_chain_bound_still_refuses_an_unsupported_return(mode):
     message = "^default\\(\\) returned an object of type Opaque that is not JSON serializable$"
     with pytest.raises(TypeError, match=message):
         strata.dumps_with_default([Point(1, 1.0), Opaque()], lambda obj: obj, return_type=mode)
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_hook_a_temporal_subclass_is_passed_to_default(mode):
+    # docs/decisions.md 2026-09-28 (review P1): the caller's route for subclasses.
+    seen = []
+
+    def default(obj):
+        seen.append(obj)
+        return obj.isoformat()
+
+    out = strata.dumps_with_default(TEMPORAL_SUBCLASSES, default, return_type=mode)
+    assert text_of(out) == "[" + ",".join(f'"{v.isoformat()}"' for v in TEMPORAL_SUBCLASSES) + "]"
+    assert seen == TEMPORAL_SUBCLASSES

@@ -61,11 +61,11 @@ only after every branch above — so an `int`, `str`, `float`, `dict`, `list` or
 `tuple` **subclass** (an `IntEnum`, a `class E(str, Enum)`, `numpy.float64`) is
 written by its base type's rule first:
 
-| #   | Type (subclasses included)                                                   | Written as                                                                                                                                                                                                                                                                                                                 |
+| #   | Type (subclasses included unless marked exact)                               | Written as                                                                                                                                                                                                                                                                                                                 |
 | --- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `datetime.datetime`                                                          | `"YYYY-MM-DDTHH:MM:SS"`, `.ffffff` when the microsecond is nonzero, then `+HH:MM`/`-HH:MM` when aware (tzinfo set and `utcoffset()` not `None`; UTC is `+00:00`). The offset is `days*86400 + seconds` of `tzinfo.utcoffset(dt)` (so `fold` reaches it; microseconds dropped), rounded to the minute half-up in magnitude. |
-| 2   | `datetime.date`                                                              | `"YYYY-MM-DD"` (years zero-padded to four digits)                                                                                                                                                                                                                                                                          |
-| 3   | `datetime.time`                                                              | `"HH:MM:SS"`, `.ffffff` when nonzero, and the offset of row 1 when aware (`tzinfo.utcoffset(None)`)                                                                                                                                                                                                                        |
+| 1   | `datetime.datetime` (exact type)                                             | `"YYYY-MM-DDTHH:MM:SS"`, `.ffffff` when the microsecond is nonzero, then `+HH:MM`/`-HH:MM` when aware (tzinfo set and `utcoffset()` not `None`; UTC is `+00:00`). The offset is `days*86400 + seconds` of `tzinfo.utcoffset(dt)` (so `fold` reaches it; microseconds dropped), rounded to the minute half-up in magnitude. |
+| 2   | `datetime.date` (exact type)                                                 | `"YYYY-MM-DD"` (years zero-padded to four digits)                                                                                                                                                                                                                                                                          |
+| 3   | `datetime.time` (exact type)                                                 | `"HH:MM:SS"`, `.ffffff` when nonzero, and the offset of row 1 when aware (`tzinfo.utcoffset(None)`)                                                                                                                                                                                                                        |
 | 4   | `uuid.UUID`                                                                  | `"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"`, lowercase, from `.int`                                                                                                                                                                                                                                                           |
 | 5   | `decimal.Decimal`                                                            | the text of `str(d)` as a raw JSON number (`1.50`, `1E+2`, `-0`); `NaN`, `sNaN` and `±Infinity` → `null`                                                                                                                                                                                                                   |
 | 6   | `enum.Enum`                                                                  | `member.value` (read with `getattr`) in the member's place; a value that is itself an `Enum` is followed, up to the depth limit                                                                                                                                                                                            |
@@ -73,9 +73,16 @@ written by its base type's rule first:
 | 8   | `set`, `frozenset`                                                           | a JSON array in iteration order                                                                                                                                                                                                                                                                                            |
 | 9   | numpy `bool_`/`integer`/`floating` scalar; `ndarray` of dtype kind `b i u f` | `obj.item()` / `obj.tolist()` in the object's place (any shape and strides, 0-d included; `float32` widens exactly: `float32(0.1)` → `0.10000000149011612`)                                                                                                                                                                |
 
-A dataclass or a set opens a container on the object itself: it takes one level
-of the depth limit, and a dataclass that contains itself follows `cycle_policy`
-as a dict does. `import strata` imports none of `datetime`, `uuid`, `decimal`,
+Rows 1–3 take the exact types only, as orjson does: a `datetime`, `date` or
+`time` subclass can carry state its fields do not (pandas' `NaT`, a
+`Timestamp`'s nanoseconds), so it is unsupported — the `TypeError` below, or
+`default` in `dumps_with_default` (`lambda o: o.isoformat()` is the usual one).
+A dataclass, a set or an Enum member opens a container on the object itself:
+it takes one level of the depth limit, and a dataclass that contains itself —
+or a member met again below its own value, as when `default` returns the member
+whose value is the object it was called on — follows `cycle_policy` as a dict
+does. The hops of an Enum chain take no level; the chain has its own bound.
+`import strata` imports none of `datetime`, `uuid`, `decimal`,
 `dataclasses` or `numpy`: the types are looked up in `sys.modules` when a
 document first needs them, never imported. `datetime.timedelta`, `complex`,
 `bytes`, every other numpy kind, and every other type still raise
@@ -103,7 +110,7 @@ digits, so `sys.set_int_max_str_digits` has to permit it, and it imports modules
 and runs bytecode; and, as a consequence of any of those, a `__del__` or a
 weakref callback fired when the serializer releases what that code orphaned.
 The fifth is a native conversion, and only in a document that holds a native
-object: looking the native types up in `sys.modules`, a subclass's or a
+object: looking the native types up in `sys.modules`, a
 non-`datetime.timezone` tzinfo's `utcoffset()`, a UUID subclass's `int`,
 `Decimal`'s `str()`, an `Enum`'s `value`, the dataclass field lookup and each
 field read, a set's iterator, and numpy's dtype, `item()` and `tolist()` — any
@@ -247,10 +254,13 @@ Per entry point:
 The first call with `parse_types` set imports `datetime` and `uuid` if they are
 not already imported (the only imports strata makes on its own behalf);
 `import strata` still imports neither. Registered types run user code inside
-the walk; the walk holds a strong reference to every entry it converts and
-writes a result back only into a slot or key that still holds what it read, so
-a container user code mutates mid-walk is never read after it is freed (what
-is returned is then the container as user code left it).
+the walk; the walk holds a strong reference to every entry it converts and to
+the registry entry it applies, and writes a result back only into a slot or key
+that still holds what it read, so a container user code mutates mid-walk is
+never read after it is freed (what is returned is then the container as user
+code left it). The walk keeps its own stack rather than recursing, so a thread
+that can parse a document can revive it (a 1023-deep registered document on a
+256 KiB thread stack is test-pinned).
 
 ## File & folder I/O
 
@@ -411,17 +421,19 @@ type ⇒ `TypeError`.
 Serializing (`dumps`, `dump`, `dumps_with_default`; native types per
 `docs/architecture/native_types.md`):
 
-| Condition                                                         | Exception                                                                                                                                  |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| unsupported type                                                  | `TypeError("Object of type %s is not JSON serializable")` (in `dumps_with_default`, the call to `default` instead)                         |
-| numpy scalar or array outside kinds `b i u f`                     | the same `TypeError`, with numpy's type name (an extended `longdouble`, whose `item()` returns itself, included)                           |
-| Enum chain longer than the depth limit                            | `ValueError("Maximum serialization depth exceeded")`                                                                                       |
-| `Decimal` subclass whose `str()` is not a JSON number             | `ValueError("str() of a Decimal returned text that is not a JSON number")`                                                                 |
-| unset dataclass field                                             | the `AttributeError` from `getattr`, unchanged                                                                                             |
-| set mutated while written                                         | the `RuntimeError` from its iterator, unchanged                                                                                            |
-| a tzinfo's `utcoffset()` returns neither `None` nor a `timedelta` | `TypeError("tzinfo.utcoffset() must return None or timedelta, not '%s'")`, as `isoformat()` raises                                         |
-| a tzinfo's offset is not strictly inside ±24 hours                | `ValueError("offset must be a timedelta strictly between -timedelta(hours=24) and timedelta(hours=24), not %R.")`, as `isoformat()` raises |
-| a `UUID` whose `int` is not an `int` / not in \[0, 2¹²⁸)          | `TypeError("UUID.int must be an int, not %s")` / `ValueError("UUID.int is out of range (need a 128-bit value)")`                           |
+| Condition                                                         | Exception                                                                                                                                     |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| unsupported type                                                  | `TypeError("Object of type %s is not JSON serializable")` (in `dumps_with_default`, the call to `default` instead)                            |
+| numpy scalar or array outside kinds `b i u f`                     | the same `TypeError`, with numpy's type name (a `longdouble` included: its `item()` returns itself on every platform, arm64's 64-bit one too) |
+| a `datetime`, `date` or `time` subclass                           | the unsupported-type `TypeError` (in `dumps_with_default`, the call to `default` instead)                                                     |
+| Enum chain longer than the depth limit                            | `ValueError("Maximum serialization depth exceeded")`                                                                                          |
+| Enum member met again below its own value                         | `cycle_policy`: `null` + `RuntimeWarning`, `ValueError("Circular reference detected")`, or `null`                                             |
+| `Decimal` subclass whose `str()` is not a JSON number             | `ValueError("str() of a Decimal returned text that is not a JSON number")`                                                                    |
+| unset dataclass field                                             | the `AttributeError` from `getattr`, unchanged                                                                                                |
+| set mutated while written                                         | the `RuntimeError` from its iterator, unchanged                                                                                               |
+| a tzinfo's `utcoffset()` returns neither `None` nor a `timedelta` | `TypeError("tzinfo.utcoffset() must return None or timedelta, not '%s'")`, as `isoformat()` raises                                            |
+| a tzinfo's offset is not strictly inside ±24 hours                | `ValueError("offset must be a timedelta strictly between -timedelta(hours=24) and timedelta(hours=24), not %R.")`, as `isoformat()` raises    |
+| a `UUID` whose `int` is not an `int` / not in \[0, 2¹²⁸)          | `TypeError("UUID.int must be an int, not %s")` / `ValueError("UUID.int is out of range (need a 128-bit value)")`                              |
 
 Parsing with `parse_types` (`loads`, `load`, `search`, `query`; per
 `docs/architecture/native_types.md`, "Parse contract"):

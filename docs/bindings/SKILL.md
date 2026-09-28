@@ -205,15 +205,18 @@ the user wrote and allocates nothing the collector tracks. Anything else is the
 header's step 5: `latch()`, a strong reference on the object, then
 `native::classify`, which resolves the type table from `sys.modules` (never
 importing; a module imported later is found at the next lookup) and checks the
-record's precedence: datetime, date, time, UUID, Decimal, Enum, dataclass,
-set/frozenset, numpy. Per kind: temporal and UUID text through the same
-formatters; `Decimal` as the raw text of `str()` (`util::is_json_number`), non-finite
-as `null`; `Enum.value` followed in a loop bounded by `depth_limit_`; a
-dataclass (field names cached per type, at most 1024 types) and a set are
-written directly under a `Frame` on the object itself, so cycles and depth
-behave as for a dict, latching before every field read or iterator step; numpy
-through `item()`/`tolist()` and back into `write()` (a result that is numpy
-again — an extended `longdouble` — goes to the old sink rather than looping).
+record's precedence: datetime, date, time (the exact types only — a subclass is
+unsupported), UUID, Decimal, Enum, dataclass, set/frozenset, numpy. Per kind:
+temporal and UUID text through the same formatters; `Decimal` as the raw text
+of `str()` (`util::is_json_number`), non-finite as `null`; an Enum member under
+a `Frame` on the member, its `value` followed in a loop bounded by
+`depth_limit_`; a dataclass (field names cached per type, at most 1024 types, an
+entry used only while the type's `__dataclass_fields__` is the same object at
+the same length) and a set are written directly under a `Frame` on the object
+itself, so cycles and depth behave as for a dict, latching before every field
+read or iterator step; numpy through `item()`/`tolist()` and back into
+`write()` (a result that is numpy again — a `longdouble`, on every platform —
+goes to the old sink rather than looping).
 The last arm is the old sink: the unsupported-type `TypeError` in `_strata`,
 `write_unsupported` (`default`) in the hook image. Every `datetime` C-API use is
 in `python_native_types.cpp`, which takes the types from the `datetime_CAPI`

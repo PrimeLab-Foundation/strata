@@ -15,8 +15,10 @@ import datetime as dt
 import enum
 import gc
 import json
+import os
 import random
 import re
+import threading
 import uuid
 
 import pytest
@@ -682,6 +684,71 @@ def test_user_code_that_clears_the_containers_being_walked():
     )
     result = strata.loads(text, parse_types={"c": Clearing})
     assert result == []
+
+
+def test_user_code_that_clears_the_private_registry_mid_list():
+    # Review P1: the walk holds the registry entry it applies across E(v) and
+    # D(**v); the private snapshot is reachable through gc.get_objects().
+    cleared = []
+
+    @dataclasses.dataclass
+    class Point:
+        x: int
+
+        def __post_init__(self):
+            for obj in gc.get_objects():
+                if type(obj) is dict and len(obj) == 1 and "p" in obj:
+                    entry = obj["p"]
+                    if type(entry) is tuple and len(entry) == 3 and entry[0] is Point:
+                        obj.clear()
+                        cleared.append(obj)
+            gc.collect()
+
+    result = strata.loads('{"p": [{"x": 1}, {"x": 2}, {"x": 3}]}', parse_types={"p": Point})
+    assert result == {"p": [Point(1), Point(2), Point(3)]}
+    assert len(cleared) == 1
+
+
+def test_a_registered_document_at_the_parse_cap_revives_on_a_small_thread():
+    # Review P2: the walk is iterative, so a level costs no C stack; a
+    # 1023-deep registered chain and a 1024-deep list revive on a 256 KiB thread.
+    @dataclasses.dataclass
+    class Nest:
+        n: object
+
+    depth = 1023
+    chain = '{"n":' * depth + '"2024-01-01"' + "}" * depth
+    lists = "[" * 1024 + '"2024-01-01"' + "]" * 1024
+    box = {}
+
+    def run():
+        try:
+            box["chain"] = strata.loads(chain, parse_types={"n": Nest})
+            box["lists"] = strata.loads(lists, parse_types=True)
+        except BaseException as error:  # re-raised on the calling thread
+            box["error"] = error
+
+    # Under the sanitized gate the parser's own frames need 512 KiB for this
+    # document with parse_types unset, so the stack scales there; the claim is
+    # pinned by the plain suites.
+    kib = 1024 if os.environ.get("STRATA_ASAN_GATE") == "1" else 256
+    saved = threading.stack_size(kib * 1024)
+    try:
+        thread = threading.Thread(target=run)
+        thread.start()
+        thread.join()
+    finally:
+        threading.stack_size(saved)
+    if "error" in box:
+        raise box["error"]
+    node, levels = box["chain"]["n"], 0
+    while isinstance(node, Nest):
+        node, levels = node.n, levels + 1
+    assert (levels, node) == (depth - 1, "2024-01-01")
+    node, levels = box["lists"], 0
+    while isinstance(node, list):
+        node, levels = node[0], levels + 1
+    assert (levels, node) == (1024, dt.date(2024, 1, 1))
 
 
 def test_user_code_that_mutates_a_revived_value():

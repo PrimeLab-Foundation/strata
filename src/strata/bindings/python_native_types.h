@@ -41,7 +41,8 @@ namespace strata::bindings::native {
 /// and an offset is 32 bytes, a UUID 36.
 inline constexpr size_t kTextCapacity = 48;
 
-/// What `classify` found, in the record's precedence order.
+/// What `classify` found, in the record's precedence order. The three
+/// temporal kinds are the exact types only.
 enum class Kind : uint8_t {
     None,  ///< not a native type: the unsupported-type sink applies
     Error, ///< classification raised; the exception is set
@@ -90,9 +91,9 @@ extern bool g_runtime_ready;
 [[nodiscard]] bool is_numpy(PyObject* object) noexcept;
 
 /**
- * The text of a `datetime`, `date` or `time` (@p kind), subclasses and any
- * `tzinfo` included, into @p out (kTextCapacity bytes). Latched caller.
- * @return bytes written, or -1 with an error set.
+ * The text of an exact `datetime`, `date` or `time` (@p kind; `classify` admits
+ * no subclass), any `tzinfo` included, into @p out (kTextCapacity bytes).
+ * Latched caller. @return bytes written, or -1 with an error set.
  */
 [[nodiscard]] Py_ssize_t format_temporal(PyObject* object, Kind kind, char* out);
 
@@ -116,8 +117,11 @@ enum class DecimalText : uint8_t { Number, NonFinite, Error };
 
 /**
  * The names `dataclasses.fields(type(@p object))` lists, in order, as a new
- * reference to a tuple of `str`. Cached per type (at most kFieldCacheLimit
- * types; a full cache is cleared). Latched caller; nullptr with an error set.
+ * reference to a tuple of `str`. Cached per type, at most kFieldCacheLimit
+ * types (a full cache is cleared). An entry is used only while the type's
+ * `__dataclass_fields__` is still the object it was read from and still has
+ * the length it had, so a type whose fields are replaced or grown after its
+ * first use is read again. Latched caller; nullptr with an error set.
  */
 [[nodiscard]] PyObject* dataclass_field_names(PyObject* object);
 

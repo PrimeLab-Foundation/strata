@@ -435,3 +435,38 @@ def test_dataclasses_nested_to_the_depth_limit_on_a_thread(mode):
 
     with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
         on_a_fresh_thread(past_limit)
+
+
+def test_a_dataclass_type_left_without_an_owner_while_its_fields_are_read_is_held():
+    # Review P1: the field-name lookup holds type(obj) across dataclasses.fields()
+    # and the field reads. Here a field's `name` read moves the instance to
+    # another class and collects, which frees the dataclass type unless the
+    # serializer holds it (make test-py-asan reports the read otherwise).
+    state = {}
+
+    class Other:
+        pass
+
+    class Trap(dataclasses.Field):
+        __slots__ = ()
+
+        @property
+        def name(self):
+            instance = state.pop("instance", None)
+            if instance is not None:
+                instance.__class__ = Other
+                gc.collect()
+            return dataclasses.Field.name.__get__(self)
+
+    def build():
+        @dataclasses.dataclass
+        class Doomed:
+            x: int = 1
+
+        Doomed.__dataclass_fields__["x"].__class__ = Trap
+        return Doomed()
+
+    instance = build()
+    state["instance"] = instance
+    assert strata.dumps(instance) == '{"x":1}'
+    assert type(instance) is Other and "instance" not in state
