@@ -23,3 +23,4 @@ src/strata/search/jsonpath_eval.cpp
 src/strata/util/dtoa.cpp
 src/strata/util/folder.cpp
 src/strata/util/scan.cpp
+src/strata/util/temporal.cpp

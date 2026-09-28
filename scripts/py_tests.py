@@ -19,6 +19,11 @@ arm B a different profile from A and A2 (docs/performance/experiment-ledger.md,
 M12b, run 36291977906). The pinned directory sits where pytest's own would and
 is exactly as long as a single-digit ``pytest-<N>``, the layout CI's builds
 trained on before the pin, so pinning leaves their profile unchanged.
+
+``--training`` is for the PGO instrumented pass only: it ignores the
+native-type suites (``TRAINING_IGNORES``), whose cold paths must carry zero
+profile counts (docs/architecture/native_types.md, "Hot-path protection" 4).
+Every gate runs without it.
 """
 
 from __future__ import annotations
@@ -35,6 +40,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEST_PATHS = ("tests/py", "tests/unit")
+TRAINING_IGNORES = ("tests/unit/native_types", "tests/py/native_types")
 
 
 def pytest_root() -> str:
@@ -77,6 +83,11 @@ def main(argv: list[str] | None = None) -> int:
         help="directory to prepend to the import path (repeatable)",
     )
     parser.add_argument(
+        "--training",
+        action="store_true",
+        help="PGO instrumented pass only: ignore the native-type suites",
+    )
+    parser.add_argument(
         "pytest_args",
         nargs=argparse.REMAINDER,
         help="extra arguments forwarded to pytest (after --)",
@@ -99,7 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     env["PYTHONPATH"] = os.pathsep.join([*prefix, inherited] if inherited else prefix)
 
     extra, basetemp = with_basetemp([a for a in args.pytest_args if a != "--"])
-    pytest_argv = [*TEST_PATHS, *extra]
+    ignores = [f"--ignore={path}" for path in TRAINING_IGNORES] if args.training else []
+    pytest_argv = [*TEST_PATHS, *ignores, *extra]
 
     # pytest is launched through a `-c` bootstrap rather than `-m pytest` so the
     # prefix lands on sys.path *inside* the interpreter. PYTHONPATH alone is not

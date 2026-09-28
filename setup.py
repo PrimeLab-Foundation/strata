@@ -225,11 +225,17 @@ class TestGatedBuildExt(build_ext):
                     "__pycache__", "*.build.json", "*.so", "*.pyd", "*.dll", "*.dylib"
                 ),
             )
+        # An instrumented build's gate trains the profile like the PGO scripts'
+        # phase-1 gate, so it takes the same training scope; every other build
+        # runs everything (docs/architecture/native_types.md, "Hot-path protection" 4).
+        mode = os.environ.get("PGO_MODE", "").strip().lower()
+        training = ["--training"] if mode == "generate" else []
         self._gate(
             "Python",
             PROJECT_ROOT / "scripts" / "py_tests.py",
             "--path",
             str(package_dir.parent),
+            *training,
         )
 
 
