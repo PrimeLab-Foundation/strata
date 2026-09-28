@@ -102,21 +102,22 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 
 ## File map
 
-| File                                      | Responsibility                                                                                                                      |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `python_module.cpp`                       | Init, method table, `load`/`dump`, config store                                                                                     |
-| `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition                                           |
-| `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                                                               |
-| `python_dumps.cpp`                        | `dumps` + all serialization fast paths; `write_native`, the native tail, and its writers                                            |
-| `python_dumps_hook.cpp`                   | `strata._dumps_hook`: `python_dumps.cpp` compiled again with `default` (both images)                                                |
-| `python_native_types.h/.cpp`              | Native type table (from `sys.modules`), pure leaves, conversions; the serializer's `datetime.h` TU                                  |
-| `python_parse_types.h/.cpp`               | `parse_types` (`_strata` only): option and registry, the post-order revival walk, the reviving iterator, the four cold entry points |
-| `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                                                           |
-| `python_rawdict.h`                        | The runtime-proved raw dict-entry walk and the general-table compaction                                                             |
-| `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval                                          |
-| `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                                                            |
-| `python_ndjson.cpp`                       | `NdjsonStream` type                                                                                                                 |
-| `python_iterator.cpp`                     | `DictIterator`/`ListIterator`/`NdjsonFileIterator` (instance-only types)                                                            |
+| File                                      | Responsibility                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `python_module.cpp`                       | Init, method table, `load`/`dump`, config store                                                        |
+| `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition              |
+| `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                                  |
+| `python_dumps.cpp`                        | `dumps` + all serialization fast paths; `write_native`, the native tail, and its writers               |
+| `python_dumps_hook.cpp`                   | `strata._dumps_hook`: `python_dumps.cpp` compiled again with `default` (both images)                   |
+| `python_native_types.h/.cpp`              | Native type table (from `sys.modules`), pure leaves, conversions; the serializer's `datetime.h` TU     |
+| `python_parse_types.h/.cpp`               | `parse_types` (`_strata` only): option and registry, the reviving iterator, the four cold entry points |
+| `python_parse_types_walk.h/.cpp`          | `parse_types`'s revival walk (explicit stack), recognition and its lazily imported runtime             |
+| `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                              |
+| `python_rawdict.h`                        | The runtime-proved raw dict-entry walk and the general-table compaction                                |
+| `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval             |
+| `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                               |
+| `python_ndjson.cpp`                       | `NdjsonStream` type                                                                                    |
+| `python_iterator.cpp`                     | `DictIterator`/`ListIterator`/`NdjsonFileIterator` (instance-only types)                               |
 
 ## loads-side techniques (the parsing win)
 
@@ -143,7 +144,8 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 
 Design record: `docs/architecture/native_types.md` ("Parse side"); contract:
 `docs/context/api.md` (`parse_types`). What the rebuild built
-(`python_parse_types.{h,cpp}`, in `_strata` only):
+(`python_parse_types.{h,cpp}` and `python_parse_types_walk.{h,cpp}`, in
+`_strata` only):
 
 - **Dispatch.** `strata_loads`'s FASTCALL loop gains a third compare
   (`parse_types`); `load`/`search`/`query` gain one `O` format unit defaulting
