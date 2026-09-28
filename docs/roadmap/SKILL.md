@@ -324,3 +324,30 @@ SQLAlchemy, Celery/kombu, structlog `__structlog__`-protocol follow-ups,
 Pydantic-as-post-step. Same rules as M13; each admitted only with a verified
 hook contract (four unverified facts from the 2026-09-18 survey pinned against
 source first).
+
+## M15 — Native types (in progress, opened 2026-09-28)
+
+Record: `docs/architecture/native_types.md`. Serializer natives on by default in
+`dumps`/`dump`/`dumps_with_default`; opt-in `parse_types` on
+`loads`/`load`/`search`/`query`. Acceptance:
+
+1. Every clause of the record's serializer, parse and error contracts is a named
+   test (`tests/unit/native_types/`, `tests/py/native_types/`), the temporal
+   core has C++ tests (`tests/cpp/test_temporal.cpp`), numpy and the orjson
+   differential live in `tests/integrations/`; `make test`, `make test-py-asan`
+   and `make test-integrations` green.
+2. Static: `write()` differs from main only in its tail (arm64, x86-64);
+   `sizeof(Serializer)`, `dumps_to_python`'s frame and `stage_`'s offset
+   unchanged; parser and builder symbols byte-identical; Section `__text`
+   growth reported per ISA.
+3. Training scope: the new tests are outside the instrumented pass on all three
+   PGO scripts; the native functions carry zero profile counts.
+4. `import strata` imports no native-type module; import time unchanged.
+5. Admission: each type's native path is faster per object than
+   `dumps_with_default` with its reference conversion (≥ 30 repeats).
+6. Pinned-profile local A/B against main: no canonical row past its A/A floor
+   beyond +1.7%, none past +2%.
+7. Five-leg A/B (`ab_x86.yml`, paired then canonical): no row past +2%
+   resolved on two draws with the held-profile arm attributing it to code.
+8. `docs/context/api.md`, `docs/bindings/SKILL.md`, the ledger and
+   `docs/decisions.md` updated in the same change.
