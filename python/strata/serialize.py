@@ -13,7 +13,13 @@ import os
 from . import _strata as _native
 
 
-def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = False):
+def loads(
+    source: str | bytes,
+    *,
+    return_type: str = "dict",
+    iterator: bool = False,
+    parse_types=False,
+):
     """Parse JSON text into Python objects.
 
     Args:
@@ -24,20 +30,34 @@ def loads(source: str | bytes, *, return_type: str = "dict", iterator: bool = Fa
         iterator: Consume the root lazily. A dict root yields ``(key, value)``
             pairs, a list root yields elements, and a scalar root is returned
             unchanged.
+        parse_types: ``False`` (default) returns strings as parsed. ``True``
+            replaces every string *value* that is exactly an RFC 3339 date,
+            time or date-time, or a canonical UUID, by a ``date``, ``time``,
+            ``datetime`` or ``uuid.UUID``. A ``dict`` mapping member names to
+            ``Enum`` subclasses or dataclass types implies ``True`` and revives
+            the values of those members as the registered type, best effort.
 
     Returns:
         The parsed value: ``dict``, ``list``, ``str``, ``int``, ``float``,
-        ``bool`` or ``None``. Integers are exact at any size.
+        ``bool`` or ``None``, plus the types ``parse_types`` revives. Integers
+        are exact at any size.
 
     Raises:
         ValueError: The text is not valid JSON, nesting exceeds 1024 open
-            containers, or ``return_type`` is unknown.
-        TypeError: ``source`` is neither ``str`` nor ``bytes``.
+            containers, ``return_type`` is unknown, or ``parse_types`` is set
+            with ``return_type="cursor"``.
+        TypeError: ``source`` is neither ``str`` nor ``bytes``, or
+            ``parse_types`` is not a bool or a valid registry.
         RuntimeError: An internal engine error.
         RuntimeWarning: Emitted, not raised, for a duplicate key while
             ``duplicate_key_policy`` is ``"warn"``.
     """
-    return _native.loads(source, return_type=return_type, iterator=iterator)
+    return _native.loads(
+        source,
+        return_type=return_type,
+        iterator=iterator,
+        parse_types=parse_types,
+    )
 
 
 def dumps(obj, *, return_type: str = "str") -> str | bytes:
@@ -118,6 +138,7 @@ def load(
     return_type: str = "dict",
     iterator: bool = False,
     skip_errors: bool = False,
+    parse_types=False,
 ):
     """Read JSON or NDJSON from a file.
 
@@ -130,7 +151,15 @@ def load(
             :class:`JsonCursor`. Cursor mode is not available for NDJSON.
         iterator: Consume lazily. For NDJSON each line is parsed as it is
             reached, so a malformed line raises at that line.
-        skip_errors: Drop malformed NDJSON lines instead of raising.
+        skip_errors: Drop malformed NDJSON lines instead of raising. It covers
+            invalid JSON only: an exception from a registered type propagates.
+        parse_types: ``False`` (default) returns strings as parsed. ``True``
+            replaces every string *value* that is exactly an RFC 3339 date,
+            time or date-time, or a canonical UUID, by a ``date``, ``time``,
+            ``datetime`` or ``uuid.UUID``, in every
+            document, NDJSON line or folder record. A ``dict`` mapping member names to
+            ``Enum`` subclasses or dataclass types implies ``True`` and revives
+            the values of those members as the registered type, best effort.
 
     Returns:
         The document, a list of records, a cursor, or an iterator.
@@ -140,13 +169,16 @@ def load(
         OSError: The file could not be read.
         ValueError: Invalid JSON, nesting past 1024 open containers (per
             document and per NDJSON line), an empty ``.json`` file, an unknown
-            ``return_type``, or cursor mode on NDJSON.
+            ``return_type``, cursor mode on NDJSON, or ``parse_types`` with
+            cursor mode.
+        TypeError: ``parse_types`` is not a bool or a valid registry.
     """
     return _native.load(
         os.fspath(path),
         return_type=return_type,
         iterator=iterator,
         skip_errors=skip_errors,
+        parse_types=parse_types,
     )
 
 

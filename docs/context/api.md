@@ -21,7 +21,7 @@ anywhere (the previous implementation drifted across three locations).
 ## Parse & serialize
 
 ```python
-strata.loads(source: str | bytes, *, return_type="dict", iterator=False)
+strata.loads(source: str | bytes, *, return_type="dict", iterator=False, parse_types=False)
 ```
 
 Parse JSON text. Default returns the full Python tree (`dict|list|str|int|float|bool|None`);
@@ -43,7 +43,8 @@ each NDJSON line, `search`) and to both builders (the Python tree and
 
 Raises `ValueError` (invalid JSON / nesting past the cap / bad `return_type`),
 `TypeError`, `RuntimeError` (internal C++ error), `RuntimeWarning` under
-`duplicate_key_policy="warn"`.
+`duplicate_key_policy="warn"`. `parse_types` revives dates, times, UUIDs and
+registered types after the parse: see `parse_types` below.
 
 ```python
 strata.dumps(obj, *, return_type="str") -> str | bytes
@@ -177,11 +178,86 @@ nesting is emitted as the row read on entry; wider dicts and dicts with
 `str`-subclass keys are followed live. `dumps` itself can reach no hook, so its
 clause above stays at five steps.
 
+## `parse_types` (opt-in, parse side)
+
+`loads`, `load`, `search` and `query` take `parse_types=False` (design record:
+`docs/architecture/native_types.md`, "Parse contract"). The default is today's
+behaviour, bit for bit: every default call runs the code it ran before. A set
+option never reaches the parser or the builder; the document is parsed exactly
+as by default and a separate walk then revives the freshly built tree in place.
+Anything but the `False` object is validated as the option, so `0` and `None`
+are a `TypeError`.
+
+With `parse_types=True`, every JSON **string value** (never a key) that is
+exactly one of these is replaced; anything else — including a string that
+matches the grammar but names an impossible value (`2024-02-30`, a leap second
+`23:59:60`, year `0000`) — stays a `str`:
+
+| Kind      | Grammar (RFC 3339 §5.6, strict)                                            | Becomes                                                                                                          |
+| --------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| date-time | `YYYY-MM-DD` `T`\|`t` `HH:MM:SS` \[`.` 1–6 digits\] \[`Z`\|`z`\|`±HH:MM`\] | `datetime`; naive without an offset; `Z`, `z`, `+00:00` and `-00:00` → `timezone.utc`; others a fixed `timezone` |
+| date      | `YYYY-MM-DD`                                                               | `date`                                                                                                           |
+| time      | `HH:MM:SS` \[`.` 1–6 digits\] \[`Z`\|`z`\|`±HH:MM`\]                       | `time`, aware with a fixed `timezone` when an offset is present                                                  |
+| UUID      | 8-4-4-4-12 hexadecimal digits, hyphenated, either case                     | `uuid.UUID`                                                                                                      |
+
+A fraction of 7 or more digits stays a `str` (no silent truncation); so does a
+space separator, a `+HH:MM:SS` offset, `HH:MM` without seconds, surrounding
+whitespace, or any non-ASCII character. Every string `dumps` writes for a
+`datetime`, `date`, `time` or `UUID` is recognized, so
+`loads(dumps(x), parse_types=True) == x` holds for naive values, for
+`timezone`-aware values with whole-minute offsets, and for UUIDs; any other
+tzinfo (a `ZoneInfo`) comes back as the fixed offset it had.
+
+**Registry** (`parse_types={"name": T, ...}`, implies `True`): keys must be
+`str`, values `Enum` subclasses or dataclass types, checked before parsing; the
+dict is copied first, so mutating it during the call changes nothing. The walk
+is post-order — a container's contents are revived before the container — and
+applies at every depth to each JSON object member whose name is registered:
+
+- an `Enum` `E`: the value becomes `E(value)`; a `ValueError` (no member has
+  that value) leaves it as parsed; any other exception propagates;
+- a dataclass `D`: a dict value whose keys are all init fields of `D` (the
+  `dataclasses.fields()` entries with `init=True`) and include every one with
+  neither a default nor a default factory becomes `D(**value)`; any other value
+  is left as parsed; exceptions from `D`'s `__init__` or `__post_init__`
+  propagate;
+- a list value has each element revived by the same rule, one level;
+- the value under a registered name is **never** type-recognized itself; its
+  contents (a dict's members, a list element's items) follow the ordinary rules.
+
+Per entry point:
+
+- `loads`, `load` (file, NDJSON line by line, folder record by record, eager
+  and `iterator=True`): the tree is revived before it is returned or iterated;
+  the lazy NDJSON and folder iterators revive each record as they yield it.
+  `return_type="cursor"` with `parse_types` set →
+  `ValueError("parse_types needs return_type='dict'")`. `skip_errors` still
+  covers invalid JSON only; an exception from a registered type propagates.
+- `search` (file and folder): `search(f, e, parse_types=p) == query(load(f, parse_types=p), e)`
+  for every supported expression — a `.json` file takes the full-parse path
+  (parse, revive, evaluate) whatever the expression, an NDJSON file is revived
+  line by line before it is evaluated, and a folder concatenates its files'
+  results in discovery order (lazily with `iterator=True`). Streaming is for
+  the default only. A scalar root matches `$` alone, as on the default path.
+- `query`: `parse_types` is a `bool` only. `True` replaces each match that is a
+  `str` (subclasses included) by the rule above, in the returned list;
+  container and other matches are the caller's own objects, never copied or
+  mutated.
+
+The first call with `parse_types` set imports `datetime` and `uuid` if they are
+not already imported (the only imports strata makes on its own behalf);
+`import strata` still imports neither. Registered types run user code inside
+the walk; the walk holds a strong reference to every entry it converts and
+writes a result back only into a slot or key that still holds what it read, so
+a container user code mutates mid-walk is never read after it is freed (what
+is returned is then the container as user code left it).
+
 ## File & folder I/O
 
 ```python
-strata.load(path, *, return_type="dict", iterator=False, skip_errors=False)  # str | Path; file or dir
-strata.dump(obj, path, *, split_by=None) -> None                             # str | Path
+strata.load(path, *, return_type="dict", iterator=False, skip_errors=False,
+            parse_types=False)                            # str | Path; file or dir
+strata.dump(obj, path, *, split_by=None) -> None          # str | Path
 ```
 
 **File mode** (`path` is a file): `load` dispatches on extension:
@@ -240,8 +316,10 @@ other bad line under `skip_errors=True`. Raises
 ## JSONPath
 
 ```python
-strata.query(data: dict | list, expression: str | CompiledPath, *, iterator=False) -> list
-strata.search(path: str | Path, expression: str | CompiledPath, *, iterator=False) -> list
+strata.query(data: dict | list, expression: str | CompiledPath, *, iterator=False,
+             parse_types: bool = False) -> list
+strata.search(path: str | Path, expression: str | CompiledPath, *, iterator=False,
+              parse_types=False) -> list
 strata.compile(expression: str) -> CompiledPath
 ```
 
@@ -251,6 +329,8 @@ else `TypeError`). `search` operates on a file or a directory. A file must end
 search (only matches materialized) for plain paths — Filter/Slice paths fall
 back to a full parse of the document, and NDJSON search materializes each
 line. Invalid expressions raise `ValueError("Invalid JSONPath expression")`.
+With `parse_types` set, `search` always takes the full-parse path and `query`
+recognizes `str` matches (see `parse_types`).
 
 **Folder mode:** `search(dirpath, expr)` uses the folder-discovery rules
 defined under File & folder I/O and concatenates the matches — equivalent to
@@ -342,6 +422,17 @@ Serializing (`dumps`, `dump`, `dumps_with_default`; native types per
 | a tzinfo's `utcoffset()` returns neither `None` nor a `timedelta` | `TypeError("tzinfo.utcoffset() must return None or timedelta, not '%s'")`, as `isoformat()` raises                                         |
 | a tzinfo's offset is not strictly inside ±24 hours                | `ValueError("offset must be a timedelta strictly between -timedelta(hours=24) and timedelta(hours=24), not %R.")`, as `isoformat()` raises |
 | a `UUID` whose `int` is not an `int` / not in \[0, 2¹²⁸)          | `TypeError("UUID.int must be an int, not %s")` / `ValueError("UUID.int is out of range (need a 128-bit value)")`                           |
+
+Parsing with `parse_types` (`loads`, `load`, `search`, `query`; per
+`docs/architecture/native_types.md`, "Parse contract"):
+
+| Condition                                                        | Exception                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `parse_types` not a `bool` or `dict` (`loads`, `load`, `search`) | `TypeError("parse_types must be a bool or a dict, not %s")`                          |
+| registry key not `str`                                           | `TypeError("parse_types keys must be str, not %s")`                                  |
+| registry value not an `Enum` subclass or dataclass type          | `TypeError("parse_types values must be Enum subclasses or dataclass types, not %R")` |
+| `parse_types` with `return_type="cursor"` (`loads`, `load`)      | `ValueError("parse_types needs return_type='dict'")`                                 |
+| `query(..., parse_types=<not a bool>)`                           | `TypeError("query() parse_types must be a bool, not %s")` — `not dict` for a dict    |
 
 ## C++ public surface (for binding work)
 

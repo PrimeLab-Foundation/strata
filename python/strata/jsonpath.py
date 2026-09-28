@@ -23,7 +23,7 @@ def compile(expression: str):  # noqa: A001 - the documented public name
     return _native.compile(expression)
 
 
-def query(data, expression, *, iterator: bool = False):
+def query(data, expression, *, iterator: bool = False, parse_types: bool = False):
     """Evaluate ``expression`` against in-memory Python objects.
 
     Args:
@@ -31,18 +31,23 @@ def query(data, expression, *, iterator: bool = False):
         expression: JSONPath text, or the result of :func:`compile`.
         iterator: Return an iterator over the matches instead of a list. The
             evaluation is eager either way; only consumption is lazy.
+        parse_types: ``True`` replaces each match that is a ``str`` naming an
+            RFC 3339 date, time or date-time, or a canonical UUID, by that
+            object, in the returned list only; ``data`` is never mutated. A
+            ``bool`` only.
 
     Returns:
         Every matching value, in document order.
 
     Raises:
-        TypeError: ``data`` is not a dict, list or tuple.
+        TypeError: ``data`` is not a dict, list or tuple, or ``parse_types``
+            is not a bool.
         ValueError: The expression is not valid JSONPath.
     """
-    return _native.query(data, expression, iterator=iterator)
+    return _native.query(data, expression, iterator=iterator, parse_types=parse_types)
 
 
-def search(path: str | os.PathLike, expression, *, iterator: bool = False):
+def search(path: str | os.PathLike, expression, *, iterator: bool = False, parse_types=False):
     """Evaluate ``expression`` against a file.
 
     The file must be ``.json``, ``.ndjson`` or ``.jsonl``. An NDJSON file is
@@ -53,9 +58,13 @@ def search(path: str | os.PathLike, expression, *, iterator: bool = False):
         path: File to search. ``Path`` is accepted and normalized here.
         expression: JSONPath text, or the result of :func:`compile`.
         iterator: Return an iterator over the matches instead of a list.
+        parse_types: As for :func:`load`. When set, the file is parsed whole
+            and revived before the expression is evaluated, so
+            ``search(f, e, parse_types=p) == query(load(f, parse_types=p), e)``.
 
     Raises:
-        TypeError: ``path`` does not end in a supported extension.
+        TypeError: ``path`` does not end in a supported extension, or
+            ``parse_types`` is not a bool or a valid registry.
         FileNotFoundError: No such file.
         ValueError: Invalid JSON, nesting past 1024 open containers, or an
             invalid expression.
@@ -66,4 +75,4 @@ def search(path: str | os.PathLike, expression, *, iterator: bool = False):
     # tested first: a path that carries one needs no stat to be let through.
     if not str(text).lower().endswith(VALID_SUFFIXES) and not os.path.isdir(text):
         raise TypeError(f"search() expects a .json, .ndjson or .jsonl path, got {text!r}")
-    return _native.search(text, expression, iterator=iterator)
+    return _native.search(text, expression, iterator=iterator, parse_types=parse_types)

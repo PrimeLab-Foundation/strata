@@ -7,8 +7,8 @@
  *
  * Design: docs/architecture/native_types.md ("Serializer", "Re-entrancy").
  * Compiled into both images; the writers that use it (`write_native` and its
- * per-kind members) stay in python_dumps.cpp, inside `Serializer`. Every use of
- * the `datetime` C API is in this header's translation unit.
+ * per-kind members) stay in python_dumps.cpp, inside `Serializer`. The serializer's
+ * uses of the `datetime` C API are all in this header's translation unit.
  *
  * Nothing here imports a module. The type table is read from `sys.modules`
  * when a walk first meets an object `write()` has no branch for, so

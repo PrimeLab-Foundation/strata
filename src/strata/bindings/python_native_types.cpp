@@ -3,10 +3,10 @@
  * @brief The native type table and conversions behind the serializer's native
  * tail (docs/architecture/native_types.md).
  *
- * The one translation unit that includes `datetime.h`. The field macros it
- * uses read the C `datetime` layout, so the table's temporal types come from
- * the `datetime_CAPI` capsule -- which only the C module carries -- and never
- * from a class a pure-Python `datetime` could supply.
+ * The serializer's one translation unit that includes `datetime.h`. The field
+ * macros it uses read the C `datetime` layout, so the table's temporal types
+ * come from the `datetime_CAPI` capsule -- which only the C module carries --
+ * and never from a class a pure-Python `datetime` could supply.
  */
 
 #include "python_native_types.h"

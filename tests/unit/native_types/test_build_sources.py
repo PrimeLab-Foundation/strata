@@ -47,3 +47,22 @@ def test_it_is_not_a_core_source():
     assert NATIVE not in manifest
     assert (PROJECT_ROOT / NATIVE).is_file()
     assert (PROJECT_ROOT / NATIVE.replace(".cpp", ".h")).is_file()
+
+
+PARSE_TYPES = "src/strata/bindings/python_parse_types.cpp"
+
+
+def test_the_parse_side_revival_is_compiled_into_the_engine_image_only():
+    # docs/architecture/native_types.md, "Parse side": the revival walk is
+    # `_strata` only, appended after every existing binding source.
+    lists = _source_lists()
+    assert lists["BINDING_SOURCES"][-1] == PARSE_TYPES
+    assert lists["BINDING_SOURCES"].count(PARSE_TYPES) == 1
+    assert PARSE_TYPES not in lists["HOOK_BINDING_SOURCES"]
+
+
+def test_the_parse_side_revival_is_not_a_core_source():
+    manifest = (PROJECT_ROOT / "src" / "strata" / "core_sources.txt").read_text(encoding="utf-8")
+    assert PARSE_TYPES not in manifest
+    assert (PROJECT_ROOT / PARSE_TYPES).is_file()
+    assert (PROJECT_ROOT / PARSE_TYPES.replace(".cpp", ".h")).is_file()

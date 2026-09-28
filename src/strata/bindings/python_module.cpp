@@ -12,6 +12,7 @@
  */
 
 #include "python_native_types.h"
+#include "python_parse_types.h"
 #include "python_types.h"
 #include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
@@ -213,6 +214,7 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
     PyObject* source = args[0];
     const char* return_type = "dict";
     int iterator = 0;
+    PyObject* parse_types = nullptr;
     if (kwnames != nullptr) {
         for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
             PyObject* name = PyTuple_GET_ITEM(kwnames, index);
@@ -225,6 +227,8 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
                 iterator = PyObject_IsTrue(value);
                 if (iterator < 0)
                     return nullptr;
+            } else if (PyUnicode_CompareWithASCIIString(name, "parse_types") == 0) {
+                parse_types = value;
             } else {
                 PyErr_Format(PyExc_TypeError, "loads() got an unexpected keyword argument '%U'",
                              name);
@@ -238,6 +242,11 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
         PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
         return nullptr;
     }
+    // Set to anything but False: the opt-in revival, parsed by the same
+    // functions and then walked, out of line (python_parse_types.h).
+    if (parse_types != nullptr && parse_types != Py_False)
+        return strata::bindings::parse_types::loads(source, want_cursor, iterator != 0,
+                                                    parse_types);
 
     if (PyUnicode_Check(source)) {
         Py_ssize_t size = 0;
@@ -316,15 +325,20 @@ PyObject* strata_dumps(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
 
 PyObject* strata_load(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "return_type", "iterator", "skip_errors", nullptr};
+    static const char* keywords[] = {
+        "", "return_type", "iterator", "skip_errors", "parse_types", nullptr};
     const char* path = nullptr;
     const char* return_type = "dict";
     int iterator = 0;
     int skip_errors = 0;
+    PyObject* parse_types = Py_False;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$spp", const_cast<char**>(keywords), &path,
-                                     &return_type, &iterator, &skip_errors))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sppO", const_cast<char**>(keywords), &path,
+                                     &return_type, &iterator, &skip_errors, &parse_types))
         return nullptr;
+    if (parse_types != Py_False)
+        return strata::bindings::parse_types::load(path, return_type, iterator != 0,
+                                                   skip_errors != 0, parse_types);
 
     // File mode first: it reports a directory instead of raising for one, and
     // finds that out from the open it performs anyway (python_types.h,
@@ -396,13 +410,16 @@ PyObject* strata_compile(PyObject* /*self*/, PyObject* args) {
 
 PyObject* strata_query(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "", "iterator", nullptr};
+    static const char* keywords[] = {"", "", "iterator", "parse_types", nullptr};
     PyObject* data = nullptr;
     PyObject* expression = nullptr;
     int iterator = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$p", const_cast<char**>(keywords), &data,
-                                     &expression, &iterator))
+    PyObject* parse_types = Py_False;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$pO", const_cast<char**>(keywords), &data,
+                                     &expression, &iterator, &parse_types))
         return nullptr;
+    if (parse_types != Py_False)
+        return strata::bindings::parse_types::query(data, expression, iterator != 0, parse_types);
 
     strata::bindings::PyRef matches(strata::bindings::query_object(data, expression));
     if (!matches)
@@ -415,13 +432,17 @@ PyObject* strata_query(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
 
 PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "", "iterator", nullptr};
+    static const char* keywords[] = {"", "", "iterator", "parse_types", nullptr};
     const char* path = nullptr;
     PyObject* expression = nullptr;
     int iterator = 0;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|$p", const_cast<char**>(keywords), &path,
-                                     &expression, &iterator))
+    PyObject* parse_types = Py_False;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|$pO", const_cast<char**>(keywords), &path,
+                                     &expression, &iterator, &parse_types))
         return nullptr;
+    // parse_types leaves the streaming path: parse, revive, evaluate.
+    if (parse_types != Py_False)
+        return strata::bindings::parse_types::search(path, expression, iterator != 0, parse_types);
 
     // File mode first, as in strata_load: three stats of the path per file
     // search (one in the facade, two here) are none.
@@ -437,18 +458,20 @@ PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
 
 PyMethodDef kModuleMethods[] = {
     {"loads", STRATA_KEYWORD_FN(strata_loads), METH_FASTCALL | METH_KEYWORDS,
-     "loads(source, *, return_type='dict', iterator=False)\n\nParse JSON text."},
+     "loads(source, *, return_type='dict', iterator=False, parse_types=False)\n\n"
+     "Parse JSON text."},
     {"dumps", STRATA_KEYWORD_FN(strata_dumps), METH_FASTCALL | METH_KEYWORDS,
      "dumps(obj, *, return_type='str')\n\nSerialize an object to JSON."},
     {"load", STRATA_KEYWORD_FN(strata_load), METH_VARARGS | METH_KEYWORDS,
-     "load(path, *, return_type='dict', iterator=False, skip_errors=False)"},
+     "load(path, *, return_type='dict', iterator=False, skip_errors=False, "
+     "parse_types=False)"},
     {"dump", STRATA_KEYWORD_FN(strata_dump), METH_VARARGS | METH_KEYWORDS,
      "dump(obj, path, *, split_by=None)"},
     {"compile", strata_compile, METH_VARARGS, "compile(expression) -> CompiledPath"},
     {"query", STRATA_KEYWORD_FN(strata_query), METH_VARARGS | METH_KEYWORDS,
-     "query(data, expression, *, iterator=False) -> list"},
+     "query(data, expression, *, iterator=False, parse_types=False) -> list"},
     {"search", STRATA_KEYWORD_FN(strata_search), METH_VARARGS | METH_KEYWORDS,
-     "search(path, expression, *, iterator=False) -> list"},
+     "search(path, expression, *, iterator=False, parse_types=False) -> list"},
     {"config_set", strata_config_set, METH_VARARGS, "config_set(key, value)\n\nSet a setting."},
     {"config_get", strata_config_get, METH_VARARGS, "config_get(key)\n\nRead a setting."},
     {"config_list", strata_config_list, METH_NOARGS, "config_list()\n\nAll settings."},
@@ -482,6 +505,7 @@ PyMODINIT_FUNC PyInit__strata(void) {
     // resolved inside the walk, after a latch (python_native_types.h).
     if (!strata::bindings::native::prepare_native_runtime())
         return nullptr;
+    strata::bindings::parse_types::reset_runtime();
 
     PyObject* module = PyModule_Create(&kModuleDef);
     if (module == nullptr)
