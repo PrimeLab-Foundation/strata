@@ -49,9 +49,20 @@ struct Names {
     PyObject* tolist;
     PyObject* dtype;
     PyObject* kind;
+    PyObject* scalar_type;
+    PyObject* number;
 };
 
 Names g_names{};
+
+/// numpy's type numbers (`dtype.num`, `NPY_TYPES`: equal in numpy 1.x and 2.x)
+/// of the scalars whose `item()` has an exact twin. `longdouble` (13), whose
+/// `item()` returns itself, is not among them.
+inline constexpr long kNumpyBool = 0;         // NPY_BOOL
+inline constexpr long kNumpyFirstInteger = 1; // NPY_BYTE
+inline constexpr long kNumpyLastInteger = 10; // NPY_ULONGLONG
+inline constexpr long kNumpyFloat32 = 11;     // NPY_FLOAT
+inline constexpr long kNumpyFloat16 = 23;     // NPY_HALF
 
 /**
  * What has been found in `sys.modules` so far. Each group is filled at most
@@ -239,19 +250,119 @@ int has_attribute(PyObject* owner, PyObject* name) {
 #endif
 }
 
-/// Whether a numpy object's dtype kind is one of `b i u f`; -1 with an error set.
-int numpy_kind_is_plain(PyObject* object) {
+/**
+ * What a numpy object's dtype makes of it: `None` unless the dtype kind is
+ * one of `b i u f`; for an array `NumpyArray`; for a scalar one of the three
+ * exact kinds when the dtype's scalar type is the object's own type (not a
+ * subclass, whose `item()` may be its own) and its number is one whose
+ * `item()` converts as truth, `__index__` or `__float__` does, else
+ * `NumpyScalar`. `Error` with an exception set.
+ */
+Kind numpy_kind(PyObject* object, bool array) {
     PyRef dtype(PyObject_GetAttr(object, g_names.dtype));
     if (!dtype)
-        return -1;
+        return Kind::Error;
     PyRef kind(PyObject_GetAttr(dtype.get(), g_names.kind));
     if (!kind)
-        return -1;
+        return Kind::Error;
     if (!PyUnicode_Check(kind.get()) || PyUnicode_GET_LENGTH(kind.get()) != 1)
-        return 0;
+        return Kind::None;
     const Py_UCS4 code = PyUnicode_READ_CHAR(kind.get(), 0);
-    return code == 'b' || code == 'i' || code == 'u' || code == 'f' ? 1 : 0;
+    if (code != 'b' && code != 'i' && code != 'u' && code != 'f')
+        return Kind::None;
+    if (array)
+        return Kind::NumpyArray;
+    PyRef scalar_type(PyObject_GetAttr(dtype.get(), g_names.scalar_type));
+    if (!scalar_type)
+        return Kind::Error;
+    PyRef number_object(PyObject_GetAttr(dtype.get(), g_names.number));
+    if (!number_object)
+        return Kind::Error;
+    if (scalar_type.get() != reinterpret_cast<PyObject*>(Py_TYPE(object)) ||
+        !PyLong_CheckExact(number_object.get()))
+        return Kind::NumpyScalar;
+    const long number = PyLong_AsLong(number_object.get());
+    if (number == -1 && PyErr_Occurred())
+        return Kind::Error;
+    if (code == 'b' && number == kNumpyBool)
+        return Kind::NumpyBool;
+    if ((code == 'i' || code == 'u') && number >= kNumpyFirstInteger && number <= kNumpyLastInteger)
+        return Kind::NumpyInteger;
+    if (code == 'f' && (number == kNumpyFloat32 || number == kNumpyFloat16))
+        return Kind::NumpyFloat;
+    return Kind::NumpyScalar;
 }
+
+#if PY_VERSION_HEX >= 0x030A0000 && PY_VERSION_HEX < 0x030F0000 && !defined(Py_GIL_DISABLED)
+/// Whether walking @p set's table -- slots in index order, skipping empty
+/// slots and @p dummy -- lists exactly its iterator's keys, in order.
+bool table_walk_matches_iterator(PyObject* set, PyObject* dummy) {
+    const auto* const table_set = reinterpret_cast<PySetObject*>(set);
+    PyRef iterator(PyObject_GetIter(set));
+    if (!iterator)
+        return false;
+    Py_ssize_t position = 0;
+    Py_ssize_t listed = 0;
+    for (;;) {
+        PyRef item(PyIter_Next(iterator.get()));
+        const setentry* const table = table_set->table;
+        while (position <= table_set->mask &&
+               (table[position].key == nullptr || table[position].key == dummy))
+            ++position;
+        if (!item)
+            return !PyErr_Occurred() && position > table_set->mask && listed == table_set->used;
+        if (position > table_set->mask || table[position].key != item.get())
+            return false;
+        ++position;
+        ++listed;
+    }
+}
+
+/**
+ * The set walk's proof. A fresh set with one key added and discarded has one
+ * non-empty slot, holding the dummy (hash -1, as CPython marks a deleted
+ * slot); the walk must then list what the iterator lists for a set whose
+ * table grew past the inline one and holds deleted slots, and for a
+ * frozenset of it. The dummy, or nullptr.
+ */
+PyObject* probe_set_dummy() {
+    PyRef set(PySet_New(nullptr));
+    PyRef key(PyLong_FromLong(7));
+    if (!set || !key || PySet_Add(set.get(), key.get()) < 0 ||
+        PySet_Discard(set.get(), key.get()) != 1)
+        return nullptr;
+    const auto* const probe = reinterpret_cast<PySetObject*>(set.get());
+    PyObject* dummy = nullptr;
+    for (Py_ssize_t index = 0; index <= probe->mask; ++index) {
+        const setentry& entry = probe->table[index];
+        if (entry.key == nullptr)
+            continue;
+        if (dummy != nullptr || entry.hash != -1)
+            return nullptr;
+        dummy = entry.key;
+    }
+    if (dummy == nullptr || probe->used != 0)
+        return nullptr;
+    constexpr long kKeys = 64;
+    PyRef grown(PySet_New(nullptr));
+    for (long pass = 0; grown && pass < 2; ++pass) {
+        // Add every key, then discard every third: deleted slots in a grown table.
+        for (long value = pass; value < kKeys; value += pass == 0 ? 1 : 3) {
+            PyRef item(PyLong_FromLong(value * 7));
+            if (!item || (pass == 0 ? PySet_Add(grown.get(), item.get()) < 0
+                                    : PySet_Discard(grown.get(), item.get()) != 1))
+                return nullptr;
+        }
+    }
+    const auto* const grown_set = reinterpret_cast<PySetObject*>(grown.get());
+    PyRef frozen(grown ? PyFrozenSet_New(grown.get()) : nullptr);
+    if (!frozen || grown_set->fill == grown_set->used ||
+        !table_walk_matches_iterator(grown.get(), dummy) ||
+        !table_walk_matches_iterator(frozen.get(), dummy))
+        return nullptr;
+    return dummy;
+}
+#endif
 
 size_t format_date_fields(PyObject* object, char* out) noexcept {
     return util::format_date(PyDateTime_GET_YEAR(object), PyDateTime_GET_MONTH(object),
@@ -348,6 +459,7 @@ bool intern(PyObject*& slot, const char* text) noexcept {
 } // namespace
 
 bool g_runtime_ready = false;
+PyObject* g_set_dummy = nullptr;
 
 bool prepare_native_runtime() noexcept {
     // A runtime finalized and initialized again (embedding) runs module init
@@ -355,6 +467,15 @@ bool prepare_native_runtime() noexcept {
     // dropped, never released.
     g_table = Table{};
     g_runtime_ready = false;
+    g_set_dummy = nullptr;
+#if PY_VERSION_HEX >= 0x030A0000 && PY_VERSION_HEX < 0x030F0000 && !defined(Py_GIL_DISABLED)
+    // The set walk's proof allocates (sets are tracked), so it runs here,
+    // before any walk, as prepare_dumps_runtime's layout proof does. A
+    // refused proof is not an import failure: sets keep their iterator.
+    g_set_dummy = probe_set_dummy();
+    if (g_set_dummy == nullptr)
+        PyErr_Clear();
+#endif
     g_runtime_ready =
         intern(g_names.datetime_module, "datetime") && intern(g_names.uuid_module, "uuid") &&
         intern(g_names.decimal_module, "decimal") && intern(g_names.enum_module, "enum") &&
@@ -367,7 +488,8 @@ bool prepare_native_runtime() noexcept {
         intern(g_names.dataclass_fields, "__dataclass_fields__") && intern(g_names.name, "name") &&
         intern(g_names.value, "value") && intern(g_names.utcoffset, "utcoffset") &&
         intern(g_names.item, "item") && intern(g_names.tolist, "tolist") &&
-        intern(g_names.dtype, "dtype") && intern(g_names.kind, "kind");
+        intern(g_names.dtype, "dtype") && intern(g_names.kind, "kind") &&
+        intern(g_names.scalar_type, "type") && intern(g_names.number, "num");
     return g_runtime_ready;
 }
 
@@ -438,14 +560,8 @@ Kind classify(PyObject* object) {
     }
     if (PyAnySet_Check(object))
         return Kind::Set;
-    if (is_numpy(object)) {
-        const int plain = numpy_kind_is_plain(object);
-        if (plain < 0)
-            return Kind::Error;
-        if (plain > 0)
-            return PyType_IsSubtype(type, g_table.numpy_ndarray) ? Kind::NumpyArray
-                                                                 : Kind::NumpyScalar;
-    }
+    if (is_numpy(object))
+        return numpy_kind(object, PyType_IsSubtype(type, g_table.numpy_ndarray) != 0);
     return Kind::None;
 }
 
@@ -601,8 +717,20 @@ PyObject* dataclass_field_names(PyObject* object) {
 PyObject* field_value(PyObject* object, PyObject* name) { return PyObject_GetAttr(object, name); }
 
 PyObject* numpy_plain(PyObject* object, Kind kind) {
-    return PyObject_CallMethodNoArgs(object,
-                                     kind == Kind::NumpyScalar ? g_names.item : g_names.tolist);
+    switch (kind) {
+    case Kind::NumpyBool: {
+        const int truth = PyObject_IsTrue(object);
+        return truth < 0 ? nullptr : Py_NewRef(truth != 0 ? Py_True : Py_False);
+    }
+    case Kind::NumpyInteger:
+        return PyNumber_Index(object);
+    case Kind::NumpyFloat:
+        return PyNumber_Float(object);
+    case Kind::NumpyArray:
+        return PyObject_CallMethodNoArgs(object, g_names.tolist);
+    default:
+        return PyObject_CallMethodNoArgs(object, g_names.item);
+    }
 }
 
 } // namespace strata::bindings::native

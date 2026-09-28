@@ -198,11 +198,48 @@ PyObject* finish_loads(std::string_view text, bool validate_utf8, bool want_curs
     return PyUnicode_AsUTF8(value);
 }
 
+/// loads()'s keywords, in the order strata_loads tests them.
+enum class LoadsKeyword : uint8_t { ReturnType, Iterator, ParseTypes, Unknown };
+
+/// loads()'s keyword names, interned by PyInit__strata. A keyword a caller
+/// spells literally arrives as the interned object, so the loop recognizes it
+/// by identity; any other `str` equal to a name is recognized by its text.
+PyObject* g_loads_return_type = nullptr;
+PyObject* g_loads_iterator = nullptr;
+PyObject* g_loads_parse_types = nullptr;
+
+[[nodiscard]] bool intern_loads_keywords() noexcept {
+    g_loads_return_type = PyUnicode_InternFromString("return_type");
+    g_loads_iterator = PyUnicode_InternFromString("iterator");
+    g_loads_parse_types = PyUnicode_InternFromString("parse_types");
+    return g_loads_return_type != nullptr && g_loads_iterator != nullptr &&
+           g_loads_parse_types != nullptr;
+}
+
+/// Which of loads()'s keywords @p name is: by identity first, then by text.
+[[nodiscard]] LoadsKeyword loads_keyword(PyObject* name) noexcept {
+    if (name == g_loads_return_type)
+        return LoadsKeyword::ReturnType;
+    if (name == g_loads_iterator)
+        return LoadsKeyword::Iterator;
+    if (name == g_loads_parse_types)
+        return LoadsKeyword::ParseTypes;
+    if (PyUnicode_CompareWithASCIIString(name, "return_type") == 0)
+        return LoadsKeyword::ReturnType;
+    if (PyUnicode_CompareWithASCIIString(name, "iterator") == 0)
+        return LoadsKeyword::Iterator;
+    if (PyUnicode_CompareWithASCIIString(name, "parse_types") == 0)
+        return LoadsKeyword::ParseTypes;
+    return LoadsKeyword::Unknown;
+}
+
 // loads and dumps use METH_FASTCALL: they are called once per benchmark-row
 // operation and often with tiny documents, where VARARGS' argument tuple and
 // PyArg_ParseTupleAndKeywords' format-string machinery are a measurable slice
 // of the per-call floor. The hand parse mirrors the old signature exactly —
-// one positional argument, keyword-only options.
+// one positional argument, keyword-only options. The facade passes all three
+// keywords on every call, so each is recognized by the identity of its
+// interned name before any text comparison (loads_keyword).
 PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nargs,
                        PyObject* kwnames) {
     STRATA_CPP_TRY
@@ -219,15 +256,16 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
         for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
             PyObject* name = PyTuple_GET_ITEM(kwnames, index);
             PyObject* value = args[nargs + index];
-            if (PyUnicode_CompareWithASCIIString(name, "return_type") == 0) {
+            const LoadsKeyword keyword = loads_keyword(name);
+            if (keyword == LoadsKeyword::ReturnType) {
                 return_type = fastcall_str_option(name, value);
                 if (return_type == nullptr)
                     return nullptr;
-            } else if (PyUnicode_CompareWithASCIIString(name, "iterator") == 0) {
+            } else if (keyword == LoadsKeyword::Iterator) {
                 iterator = PyObject_IsTrue(value);
                 if (iterator < 0)
                     return nullptr;
-            } else if (PyUnicode_CompareWithASCIIString(name, "parse_types") == 0) {
+            } else if (keyword == LoadsKeyword::ParseTypes) {
                 parse_types = value;
             } else {
                 PyErr_Format(PyExc_TypeError, "loads() got an unexpected keyword argument '%U'",
@@ -506,6 +544,8 @@ PyMODINIT_FUNC PyInit__strata(void) {
     if (!strata::bindings::native::prepare_native_runtime())
         return nullptr;
     strata::bindings::parse_types::reset_runtime();
+    if (!intern_loads_keywords())
+        return nullptr;
 
     PyObject* module = PyModule_Create(&kModuleDef);
     if (module == nullptr)

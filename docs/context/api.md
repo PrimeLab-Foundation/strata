@@ -113,7 +113,7 @@ The fifth is a native conversion, and only in a document that holds a native
 object: looking the native types up in `sys.modules`, a
 non-`datetime.timezone` tzinfo's `utcoffset()`, a UUID subclass's `int`,
 `Decimal`'s `str()`, an `Enum`'s `value`, the dataclass field lookup and each
-field read, a set's iterator, and numpy's dtype, `item()` and `tolist()` — any
+field read, a set subclass's iterator, and numpy's dtype, `item()` and `tolist()` — any
 of which can also allocate and so run a collection. An exact
 `datetime`/`date`/`time` whose tzinfo is `None` or exactly `datetime.timezone`,
 and an exact `uuid.UUID`, are formatted without running any of it. Nothing else

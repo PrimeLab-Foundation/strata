@@ -147,8 +147,13 @@ Design record: `docs/architecture/native_types.md` ("Parse side"); contract:
 (`python_parse_types.{h,cpp}` and `python_parse_types_walk.{h,cpp}`, in
 `_strata` only):
 
-- **Dispatch.** `strata_loads`'s FASTCALL loop gains a third compare
-  (`parse_types`); `load`/`search`/`query` gain one `O` format unit defaulting
+- **Dispatch.** `strata_loads`'s FASTCALL loop gains a third keyword
+  (`parse_types`), and recognizes all three by the identity of the names
+  interned at module init before any text compare (`loads_keyword`): the
+  facade passes three literal keywords per call, which arrive interned, so
+  the third keyword costs one pointer compare where its text compares had
+  cost +23 ns per call (build/evidence/M15/micro2);
+  `load`/`search`/`query` gain one `O` format unit defaulting
   to `Py_False`. Each entry tests the value by identity against `Py_False` and,
   when it differs, tail-calls a `STRATA_COLD_FN` function in
   `strata::bindings::parse_types`; the default path calls exactly what it

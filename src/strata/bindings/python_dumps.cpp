@@ -39,8 +39,10 @@
  *      may have replaced), a non-`timezone` tzinfo's `utcoffset()`, a
  *      UUID subclass's `int`, `Decimal`'s `str()` (the
  *      decimal context can be created lazily), each `Enum.value` read, the
- *      dataclass field-name lookup and each field read, the set iterator and
- *      each of its steps, and numpy's dtype read and `item()`/`tolist()`. A
+ *      dataclass field-name lookup and each field read, a set subclass's
+ *      iterator and each of its steps (an exact set's table walk runs
+ *      nothing itself; each non-plain element it writes is latched), and
+ *      numpy's dtype read and `item()`/`tolist()` or their twins. A
  *      pure leaf -- an exact `datetime`/`date`/`time` whose tzinfo is `None`
  *      or exactly `datetime.timezone`, an exact `uuid.UUID` -- calls nothing
  *      the user wrote and allocates nothing the collector tracks
@@ -392,6 +394,14 @@ class Serializer {
             return write_dataclass(object);
         case native::Kind::Set:
             return write_set(object);
+        case native::Kind::NumpyBool:
+        case native::Kind::NumpyInteger:
+        case native::Kind::NumpyFloat: {
+            // An exact bool, int or float: written by write()'s head, never
+            // numpy, never back in this tail.
+            const PyRef plain(native::numpy_plain(object, kind));
+            return plain && write(plain.get());
+        }
         case native::Kind::NumpyScalar:
         case native::Kind::NumpyArray: {
             const PyRef plain(native::numpy_plain(object, kind));
@@ -547,9 +557,11 @@ class Serializer {
     /**
      * A `set` or `frozenset` as a JSON array in iteration order, under a
      * Frame on the set itself (a frozenset reached back through a frozen
-     * dataclass is a cycle like any other). The iterator is the only
-     * allocation; a set resized while it is written raises the `RuntimeError`
-     * its iterator raises.
+     * dataclass is a cycle like any other). An exact set or frozenset is
+     * walked on its own table (write_set_table) and allocates nothing; a
+     * subclass, whose `__iter__` may be its own, through its iterator, the
+     * only allocation. Either way a set resized while it is written raises
+     * the `RuntimeError` its iterator raises.
      */
     [[nodiscard]] STRATA_COLD_FN bool write_set(PyObject* object) {
         const Frame frame(*this, object);
@@ -557,6 +569,8 @@ class Serializer {
             return frame.handle_cycle();
         if (!frame.within_depth_limit())
             return false;
+        if (PyAnySet_CheckExact(object) && native::set_table_walk_ready())
+            return write_set_table(object);
         latch();
         const PyRef iterator(PyObject_GetIter(object));
         if (!iterator)
@@ -576,6 +590,69 @@ class Serializer {
                 out_.put(',');
             }
             if (!write(item.get()))
+                return false;
+        }
+        out_.ensure(1);
+        out_.put(']');
+        return true;
+    }
+
+    /**
+     * An exact set or frozenset, walked the way its iterator walks it
+     * (`setiter_iternext`), on its own table: before each key, the size
+     * check that raises "Set changed size during iteration"; then the next
+     * slot, in index order, that is neither empty nor the dummy a deletion
+     * leaves; the table and its mask re-read at every step, since writing a
+     * key can run code that resizes the set. The set is held by write_native.
+     * The walk is proven against the iterator at module init
+     * (native::set_table_walk_ready).
+     *
+     * A key is borrowed from the table while it is written only when it is a
+     * plain scalar, which runs nothing; any other key is a user-code step --
+     * `latch()`, then a strong reference, as write_native takes on the
+     * object it converts -- because the code it runs can remove it. While
+     * nothing has run, the set is as it was, so once `used` keys are written
+     * no live slot is left and the scan stops there instead of at the mask.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_set_table(PyObject* object) {
+        const auto* const set = reinterpret_cast<PySetObject*>(object);
+        PyObject* const dummy = native::g_set_dummy;
+        const Py_ssize_t size = set->used;
+        out_.ensure(1);
+        out_.put('[');
+        Py_ssize_t position = 0;
+        Py_ssize_t written = 0;
+        bool ran_code = false;
+        for (bool first = true;; first = false) {
+            if (set->used != size) {
+                PyErr_SetString(PyExc_RuntimeError, "Set changed size during iteration");
+                return false;
+            }
+            if (written == size && !ran_code)
+                break;
+            const setentry* const table = set->table;
+            const Py_ssize_t mask = set->mask;
+            while (position <= mask &&
+                   (table[position].key == nullptr || table[position].key == dummy))
+                ++position;
+            if (position > mask)
+                break;
+            PyObject* const key = table[position].key;
+            ++position;
+            ++written;
+            if (!first) {
+                out_.ensure(1);
+                out_.put(',');
+            }
+            if (is_plain_scalar(key)) {
+                if (!write(key))
+                    return false;
+                continue;
+            }
+            ran_code = true;
+            latch();
+            const PyRef held(Py_NewRef(key));
+            if (!write(key))
                 return false;
         }
         out_.ensure(1);

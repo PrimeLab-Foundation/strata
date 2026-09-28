@@ -215,6 +215,18 @@ reached. For one that holds only pure natives, no user code runs.
   frame is not elided. They are written directly (`{`/`[`, keys through the
   same key writer as a dict, values through `write()`), never through a
   temporary dict or list, so they allocate nothing but the set iterator.
+  **Amended 2026-09-28 (admission, set10 1.40× the hook):** an exact `set` or
+  `frozenset` is walked on its own table, as `setiter_iternext` walks it —
+  the size check before each element, then the next slot that is neither
+  empty nor the deleted-slot dummy, the table re-read at every step — and
+  allocates nothing; a subclass keeps its iterator (its `__iter__` may be its
+  own). The walk is proven against the iterator at module init (a one-key set
+  discarded yields the dummy; a grown table with deleted slots and a
+  frozenset of it must list what the iterator lists) and is off on a
+  free-threaded build. A plain-scalar element is written borrowed; any other
+  is latched and held first. While only plain elements have been written the
+  set cannot have changed, so the walk stops after `used` elements instead of
+  scanning to the mask.
 - **Enum** chains are followed in a loop inside `write_native`, not by
   recursion: after `limit` hops (the serializer's depth limit) it raises
   `ValueError("Maximum serialization depth exceeded")`. The final value goes
@@ -227,6 +239,12 @@ reached. For one that holds only pure natives, no user code runs.
   `cycle_policy`, and each hop takes a level of the depth limit.
 - **numpy** writes what `item()`/`tolist()` return, which contains only
   supported scalars and lists, so no native object recurses back into the tail.
+  **Amended 2026-09-28 (admission, `np.int64` 1.27×, `np.float32` 1.26× the
+  hook — `item()` builds a 0-d array first):** a scalar whose `dtype.type` is
+  its own type and whose `dtype.num` is numpy's `bool_` (0), a sized integer
+  (1–10), `float32` (11) or `float16` (23) is read through truth,
+  `__index__` or `__float__`, which return the `bool`, `int` or `float` its
+  `item()` returns; a subclass, `longdouble` and user dtypes keep `item()`.
 - A dataclass's fields are read one at a time as they are written (followed
   live, like a wide dict); a set resized while it is being written raises the
   `RuntimeError` its iterator raises. The existing rules for lists and dicts
@@ -359,7 +377,10 @@ not already imported (the only imports strata ever makes on its own behalf);
 5. **Keywords**: `parse_types` joins `strata_loads`'s keyword loop as a third
    compare (the facade already passes two keywords per call);
    `load`/`search`/`query` add one format unit. `dumps`'s signature does not
-   change.
+   change. **Amended 2026-09-28:** measured, the third text compare cost
+   +23 ns per `loads` call; the loop now recognizes each keyword by the
+   identity of its interned name first (a literal keyword arrives interned)
+   and by text only for any other spelling.
 6. **Import**: `import strata` imports none of `numpy`, `datetime`, `uuid`,
    `decimal`, `dataclasses` (a fresh-interpreter test), and its import time is
    unchanged (paired, fresh interpreters).

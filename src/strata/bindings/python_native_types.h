@@ -54,7 +54,17 @@ enum class Kind : uint8_t {
     Enum,
     Dataclass,
     Set,
+    /// A numpy scalar written through `item()`: a subclass, `longdouble`, a
+    /// user dtype -- any scalar the three kinds below do not name.
     NumpyScalar,
+    /// numpy's own `bool_`, whose `item()` is its truth as a `bool`.
+    NumpyBool,
+    /// numpy's own sized integers, whose `item()` is the `int` `__index__`
+    /// returns -- without the 0-d array `item()` builds first.
+    NumpyInteger,
+    /// numpy's own `float16`/`float32`, whose `item()` is the value widened
+    /// to the `float` `__float__` returns.
+    NumpyFloat,
     NumpyArray,
 };
 
@@ -86,6 +96,19 @@ extern bool g_runtime_ready;
  * as native only for dtype kinds `b i u f`.
  */
 [[nodiscard]] Kind classify(PyObject* object);
+
+/**
+ * The key CPython stores in a deleted set slot, which the set iterator skips.
+ * Set by prepare_native_runtime() only when its proof holds: walking a set's
+ * table (`PySetObject`) slot by slot, skipping empty slots and this key,
+ * listed exactly what the iterator listed, for a set with deleted slots and
+ * a grown table and for a frozenset of it. nullptr otherwise, and always on
+ * a free-threaded build.
+ */
+extern PyObject* g_set_dummy;
+
+/// Whether an exact set or frozenset may be walked on its own table.
+[[nodiscard]] inline bool set_table_walk_ready() noexcept { return g_set_dummy != nullptr; }
 
 /// True when @p object is a numpy scalar or array (resolved types only). Pure.
 [[nodiscard]] bool is_numpy(PyObject* object) noexcept;
@@ -131,8 +154,9 @@ inline constexpr Py_ssize_t kFieldCacheLimit = 1024;
 /// `getattr(@p object, @p name)`, a new reference. Latched caller.
 [[nodiscard]] PyObject* field_value(PyObject* object, PyObject* name);
 
-/// `item()` of a numpy scalar or `tolist()` of an array (@p kind), a new
-/// reference. Latched caller.
+/// `item()` of a numpy scalar or `tolist()` of an array (@p kind), or for the
+/// three exact kinds the equal `bool`, `int` or `float` read through truth,
+/// `__index__` or `__float__`; a new reference. Latched caller.
 [[nodiscard]] PyObject* numpy_plain(PyObject* object, Kind kind);
 
 } // namespace strata::bindings::native
