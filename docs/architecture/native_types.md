@@ -87,6 +87,27 @@ Options considered for where the dispatch lives:
 | S2. `_strata` raises as today; the entry retries the whole document in the hook image with natives enabled | `_strata`'s serializer stays byte-identical, but every user-code step of the failed first walk (cycle warnings, an `int` subclass's `__str__`) runs twice, a `TypeError` from user code triggers a retry, and every native-bearing document pays a wasted partial walk. Refused. |
 | S3. A flag or pointer tested on the tail (M12's shape)                                                     | measured and refused (ledger M12): the test plus state is what lost `dumps flat`.                                                                                                                                                                                                |
 
+**Amendment (2026-09-28, after static check 1 fired on S1).** S1 as built
+(`2f494a9`) failed check 1: the tail call reshaped `write()`'s shared return
+epilogue and its register allocation, so exact-type success paths moved by one
+or two instructions or a taken branch (arm64 281 → 259 instructions: `float`
+−1, `None`/`True` +1 and a taken branch; x86-64 186 → 181: finite `float` +1
+taken `jmp`, `str` −1, `None`/`True` −2). Three tail variants kept that
+reshaping (`not_tail_called` on the callee: 266/186; the same as a static
+member: identical; a type predicate ahead of main's literal tail: 293/197 with
+register changes in the subclass blocks). One shape restores check 1 on both
+ISAs: **S3 without state** — main's literal `PyErr_Format` tail stays the
+fall-through, behind `if (native::g_runtime_ready) return write_native(object);`,
+a process-global flag the module init sets (arm64 293 instructions, x86-64 194;
+with branch targets masked every one of main's instructions appears in order,
+and the additions are the flag test, +5/+3, and the tail-call block, +7/+6;
+`build/evidence/M15/codegen/variants/`). **This is the chosen shape.** It is
+M12's class of change without M12's state growth — a load and branch on a
+path no canonical row executes, plus the layout shift it causes — and M12
+priced that class at up to +1.7% on one row (linux-x86_64 `dumps flat`),
+inside this record's 2% gate. S1's per-type path changes are the worse kind:
+they execute on every value `write()` dispatches.
+
 ### Parse side: a post-pass over the built tree
 
 `parse_types` never reaches the parser or the builder. The document is parsed

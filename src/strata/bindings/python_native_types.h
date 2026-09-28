@@ -63,6 +63,10 @@ enum class Kind : uint8_t {
  */
 [[nodiscard]] bool prepare_native_runtime() noexcept;
 
+/// True once prepare_native_runtime() succeeded in this image; the serializer
+/// reaches its native tail only then.
+extern bool g_runtime_ready;
+
 /**
  * Format @p object into @p out (kTextCapacity bytes) when it is a pure leaf:
  * an exact `datetime`/`date`/`time` whose `tzinfo` is `None` or exactly

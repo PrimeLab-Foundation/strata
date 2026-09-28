@@ -267,7 +267,18 @@ class Serializer {
         if (PyDict_Check(object))
             return write_mapping(object);
 
-        return write_native(object);
+        // The native tail runs once the module init armed it (always, after a
+        // successful import). A load, not a call: the unsupported-type block
+        // keeps the shape it has without native types.
+        if (native::g_runtime_ready)
+            return write_native(object);
+#if defined(STRATA_DUMPS_HOOK)
+        return write_unsupported(object);
+#else
+        PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
+                     Py_TYPE(object)->tp_name);
+        return false;
+#endif
     }
 
 #if defined(STRATA_DUMPS_HOOK)

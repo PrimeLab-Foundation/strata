@@ -346,25 +346,28 @@ bool intern(PyObject*& slot, const char* text) noexcept {
 
 } // namespace
 
+bool g_runtime_ready = false;
+
 bool prepare_native_runtime() noexcept {
     // A runtime finalized and initialized again (embedding) runs module init
     // again: whatever the table held belonged to the finalized runtime and is
     // dropped, never released.
     g_table = Table{};
-    return intern(g_names.datetime_module, "datetime") && intern(g_names.uuid_module, "uuid") &&
-           intern(g_names.decimal_module, "decimal") && intern(g_names.enum_module, "enum") &&
-           intern(g_names.dataclasses_module, "dataclasses") &&
-           intern(g_names.numpy_module, "numpy") &&
-           intern(g_names.datetime_capi, "datetime_CAPI") && intern(g_names.uuid_class, "UUID") &&
-           intern(g_names.decimal_class, "Decimal") && intern(g_names.enum_class, "Enum") &&
-           intern(g_names.fields, "fields") && intern(g_names.generic, "generic") &&
-           intern(g_names.ndarray, "ndarray") && intern(g_names.type_dict, "__dict__") &&
-           intern(g_names.int_slot, "int") &&
-           intern(g_names.dataclass_fields, "__dataclass_fields__") &&
-           intern(g_names.name, "name") && intern(g_names.value, "value") &&
-           intern(g_names.utcoffset, "utcoffset") && intern(g_names.item, "item") &&
-           intern(g_names.tolist, "tolist") && intern(g_names.dtype, "dtype") &&
-           intern(g_names.kind, "kind");
+    g_runtime_ready = false;
+    g_runtime_ready =
+        intern(g_names.datetime_module, "datetime") && intern(g_names.uuid_module, "uuid") &&
+        intern(g_names.decimal_module, "decimal") && intern(g_names.enum_module, "enum") &&
+        intern(g_names.dataclasses_module, "dataclasses") &&
+        intern(g_names.numpy_module, "numpy") && intern(g_names.datetime_capi, "datetime_CAPI") &&
+        intern(g_names.uuid_class, "UUID") && intern(g_names.decimal_class, "Decimal") &&
+        intern(g_names.enum_class, "Enum") && intern(g_names.fields, "fields") &&
+        intern(g_names.generic, "generic") && intern(g_names.ndarray, "ndarray") &&
+        intern(g_names.type_dict, "__dict__") && intern(g_names.int_slot, "int") &&
+        intern(g_names.dataclass_fields, "__dataclass_fields__") && intern(g_names.name, "name") &&
+        intern(g_names.value, "value") && intern(g_names.utcoffset, "utcoffset") &&
+        intern(g_names.item, "item") && intern(g_names.tolist, "tolist") &&
+        intern(g_names.dtype, "dtype") && intern(g_names.kind, "kind");
+    return g_runtime_ready;
 }
 
 size_t format_pure_leaf(PyObject* object, char* out) noexcept {
