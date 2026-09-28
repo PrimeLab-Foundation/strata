@@ -101,8 +101,9 @@ test-py-asan:  ## Build the extension with ASan+UBSan in .venv-asan and run both
 	@bash scripts/asan_py_tests.sh
 
 # Not part of `test` or `gate`, and never in the PGO profile: tests/integrations
-# imports pydantic, attrs and numpy (docs/architecture/dumps_with_default.md).
-test-integrations: venv  ## Run tests/integrations: dumps_with_default with pydantic, attrs, numpy
+# imports pydantic, attrs, numpy and five web/logging frameworks
+# (docs/architecture/dumps_with_default.md, docs/architecture/framework_adapters.md).
+test-integrations: venv  ## Run tests/integrations: dumps_with_default with third-party types, and the framework adapters
 	$(VPY) scripts/integration_tests.py
 
 gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests, coverage

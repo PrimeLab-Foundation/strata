@@ -241,25 +241,44 @@ jobs:
       - name: Build and run the Python suites under ASan + UBSan
         run: make test-py-asan
 
-  # `dumps_with_default` against pydantic, attrs and numpy. Its own job because
-  # tests/integrations is excluded from testpaths, the gate and the PGO profile
-  # (docs/architecture/dumps_default_hook.md, "Test placement", inherited by
-  # docs/architecture/dumps_with_default.md).
+  # `dumps_with_default` against pydantic, attrs and numpy, and the framework
+  # adapters (strata.integrations) against Flask, Django, aiohttp, Falcon and
+  # structlog. Its own job because tests/integrations is excluded from
+  # testpaths, the gate and the PGO profile (docs/architecture/dumps_default_hook.md,
+  # "Test placement", inherited by docs/architecture/dumps_with_default.md).
+  # Two legs: the newest releases on the newest CPython, and each framework's
+  # floor (pyproject.toml's integrations extra) on the oldest
+  # (docs/architecture/framework_adapters.md).
   integrations:
-    name: integrations (pydantic, attrs, numpy)
+    name: integrations (${{ matrix.versions }}, Python ${{ matrix.python }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - versions: latest
+            python: "3.14"
+          - versions: floors
+            python: "3.10"
+            pins: >-
+              flask==3.0.1 werkzeug==3.0.0 django==4.1 aiohttp==3.9.0
+              falcon==4.0.0 structlog==20.2.0
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
 
       - name: Install strata (test-gated build) with the integrations extra
         run: |
           python -m pip install -U pip setuptools wheel
           python -m pip install -e ".[dev,integrations]"
+
+      - name: Hold the frameworks at their floors
+        if: matrix.pins
+        run: python -m pip install ${{ matrix.pins }}
 
       - name: Run the integration tests
         run: python scripts/integration_tests.py

@@ -2,7 +2,9 @@
 
 Package exports (`python/strata/__init__.py` `__all__`): `loads`, `dumps`,
 `dumps_with_default`, `load`, `dump`, `search`, `query`, `compile`, `config`,
-`__version__`. Also importable: `JsonCursor`. Native modules: `strata._strata`,
+`__version__`. Also importable: `JsonCursor`, and the framework adapters under
+`strata.integrations` (below; not exported, not imported by `import strata`).
+Native modules: `strata._strata`,
 and `strata._dumps_hook` (the serializer with the unsupported-type hook, imported
 by the first `dumps_with_default` call only).
 
@@ -130,6 +132,43 @@ are followed live; a dict of at most 24 exact-`str` keys below 64 levels of dict
 nesting is emitted as the row read on entry; wider dicts and dicts with
 `str`-subclass keys are followed live. `dumps` itself can reach no hook, so its
 clause above stays at four steps.
+
+## Framework adapters
+
+One opt-in module per framework under `strata.integrations`, each filling that
+framework's own JSON hook with `dumps`/`dumps_with_default`/`loads`. The
+framework is imported when its adapter module is, never by `import strata` or
+`import strata.integrations` (test-pinned); `__all__` does not list them.
+
+| Module                          | Use                                                             | Unsupported types go to                                                            |
+| ------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `strata.integrations.flask`     | `app.json = StrataJSONProvider(app)` (or `json_provider_class`) | Flask's `DefaultJSONProvider.default`                                              |
+| `strata.integrations.django`    | `JsonResponse(data, encoder=StrataJSONEncoder)`                 | the encoder's `default` (`DjangoJSONEncoder`'s, or `json_dumps_params["default"]`) |
+| `strata.integrations.aiohttp`   | `json_response(data)`, or `dumps=`/`loads=` in aiohttp's hooks  | nowhere: `TypeError`, as aiohttp's `json.dumps`                                    |
+| `strata.integrations.falcon`    | `media_handlers[falcon.MEDIA_JSON] = json_handler()`            | nowhere: `TypeError`, as Falcon's `json.dumps`                                     |
+| `strata.integrations.structlog` | `JSONRenderer(serializer=dumps)`                                | structlog's fallback handler (`__structlog__`, else `repr`)                        |
+
+Rules common to all five, each test-pinned in `tests/integrations/`: output is
+compact, insertion-ordered UTF-8 whatever the framework's defaults
+(separators, `sort_keys`, `ensure_ascii`, Flask's debug indentation); NaN/±Inf
+are `null`; a non-`str` key is `TypeError`, a lone surrogate
+`UnicodeEncodeError`, a cycle `null` + `RuntimeWarning` under the default
+`cycle_policy` (`ValueError` under `"error"`, the exception the frameworks
+already map); a document deeper than `sys.getrecursionlimit()` is
+`ValueError("Maximum serialization depth exceeded")` and a request nested past
+1024 containers `ValueError("Maximum nesting depth exceeded")`, both of which
+stdlib `json` handles on CPython 3.12+; parsing refuses `NaN`/`Infinity`
+tokens and non-UTF-8 bytes and keeps the first duplicate key, so a framework
+that maps `ValueError` to 400 (Flask, Falcon) does so for those too. A keyword
+the adapter cannot honour is a `TypeError`, never silently dropped — `allow_nan=False`
+included — except the formatting keywords a framework passes on its own:
+Flask's `separators`, `indent` and `sort_keys` to `dumps`, and the
+`ensure_ascii` and `check_circular` that `json.dumps` hands every Django
+encoder. `default` is honoured wherever the hook carries one, and the chain
+bound means a `default` returning another unsupported object is a `TypeError`
+(the loop belongs inside the callable).
+Per-framework tables, the verified hook contracts, the chain-bound workaround
+and the version floors: `docs/architecture/framework_adapters.md`.
 
 ## File & folder I/O
 
