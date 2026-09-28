@@ -17,8 +17,9 @@
  *
  * ## Re-entrancy: what the walk may borrow, and for how long
  *
- * The serializer runs user code at exactly four steps, all of them rare and
- * all of them named here:
+ * The serializer runs user code at exactly five steps, all of them named here;
+ * the first four are rare, and the fifth is reached only by a document that
+ * holds an object write() has no branch for:
  *
  *   1. a cycle placeholder's `PyErr_WarnEx` under the default
  *      `cycle_policy="warn"` (a warnings filter, a `showwarning` hook);
@@ -31,20 +32,34 @@
  *      and runs bytecode, so a collection can run there too;
  *   4. the serializer's own release of a reference it took at one of those --
  *      a `__del__` or a weakref callback firing out of a `Py_DECREF` in
- *      `Frame`, `DeferredOpen` or `RowLock`.
+ *      `Frame`, `DeferredOpen` or `RowLock`, or of a reference step 5 took;
+ *   5. the native tail (`write_native`; docs/architecture/native_types.md),
+ *      at every conversion except a pure leaf: resolving the native type
+ *      table (a `sys.modules` probe and attribute reads on modules the user
+ *      may have replaced), a subclass's or a non-`timezone` tzinfo's
+ *      `utcoffset()`, a UUID subclass's `int`, `Decimal`'s `str()` (the
+ *      decimal context can be created lazily), each `Enum.value` read, the
+ *      dataclass field-name lookup and each field read, the set iterator and
+ *      each of its steps, and numpy's dtype read and `item()`/`tolist()`. A
+ *      pure leaf -- an exact `datetime`/`date`/`time` whose tzinfo is `None`
+ *      or exactly `datetime.timezone`, an exact `uuid.UUID` -- calls nothing
+ *      the user wrote and allocates nothing the collector tracks
+ *      (python_native_types.h), so it is not a step. A document with no
+ *      native object never reaches the tail at all.
  *
  * The hook image (`strata._dumps_hook`: this file compiled again with
  * `STRATA_DUMPS_HOOK` by python_dumps_hook.cpp, behind `dumps_with_default`)
- * has a fifth, and it is not rare: the caller's `default` callable, once per
+ * has a sixth, and it is not rare: the caller's `default` callable, once per
  * unsupported object (`write_unsupported`), after `latch()` like the others. It
  * allocates what it likes, so in that image a collection can run inside a
  * successful walk; the releases of the references `write_unsupported` takes are
  * step 4 again. The same image reads the cycle policy from `_strata` through a
  * Python call whose argument tuple is a tracked allocation, so that read is
  * latched too (`STRATA_CYCLE_POLICY` takes the walk to latch). Everything under `STRATA_DUMPS_HOOK`
- * exists only there:
- * `_strata` compiles this file to the same token stream it did before the hook
- * existed (docs/architecture/dumps_with_default.md, M12b criterion 4).
+ * exists only there. The native tail is in both images, and it is the one
+ * place `_strata`'s `write()` differs from what it compiled to before the hook
+ * existed (docs/architecture/dumps_with_default.md, M12b criterion 4, which
+ * docs/architecture/native_types.md gives up for that tail knowingly).
  *
  * Everything else a *successful* walk executes runs none (a failing walk allocates only the
  * exception it raises, and returns at once): it calls nothing the user wrote and allocates nothing
@@ -54,11 +69,13 @@
  * same fact frame elision already rests on -- which is why step 3 is not just
  * a latch: `is_plain_scalar` refuses to call a large `int` a plain scalar, so
  * a container holding one is framed and its row registered like a container
- * holding an `int` subclass. Steps 2 and 3 additionally hold a strong
+ * holding an `int` subclass. Steps 2, 3 and 5 additionally hold a strong
  * reference to the value being converted, which the latch does not cover: the
  * `_pylong` import runs before the value is handed over and can orphan it.
  *
- * The enumeration is only true because nothing here resolves lazily. The
+ * The enumeration is only true because nothing here resolves lazily outside a
+ * latched step: the native type table does resolve lazily, but only inside
+ * step 5, after its latch. The
  * raw-dict layout proof used to: it is a function-local static whose
  * initialiser allocates two dicts, and its first use is *in the middle of the
  * walk* of a process's first dumps() of a document containing a dict, where a
@@ -67,8 +84,8 @@
  * build/evidence/FIX1-REVIEW). `prepare_dumps_runtime()` resolves it at
  * module init instead. A lazily-resolved static, or any GC-tracked
  * allocation, or any conversion an interpreter version hands back to Python
- * (step 3 is exactly that, and was missed once) added below is a fifth step
- * and breaks this contract.
+ * (step 3 is exactly that, and was missed once) added below without a latch is
+ * a step this list does not name and breaks this contract.
  *
  * Because that user code can mutate the very container being written, the
  * walk obeys two rules, and a change here has to keep both:
@@ -119,6 +136,7 @@
  */
 
 #include "python_dumps_output.h"
+#include "python_native_types.h"
 #include "python_types.h"
 #include "strata/json/json_serialize.hpp"
 #include "strata/util/dtoa.hpp"
@@ -249,13 +267,7 @@ class Serializer {
         if (PyDict_Check(object))
             return write_mapping(object);
 
-#if defined(STRATA_DUMPS_HOOK)
-        return write_unsupported(object);
-#else
-        PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
-                     Py_TYPE(object)->tp_name);
-        return false;
-#endif
+        return write_native(object);
     }
 
 #if defined(STRATA_DUMPS_HOOK)
@@ -273,13 +285,16 @@ class Serializer {
   private:
 #if defined(STRATA_DUMPS_HOOK)
     /**
-     * write()'s unsupported tail in the hook image: serialize what the
-     * `default` callable returns in the object's place
+     * write_native's last arm in the hook image: serialize what the `default`
+     * callable returns in the object's place
      * (docs/architecture/dumps_with_default.md). Only this image has the
-     * branch; `_strata`'s `write` is main's, token for token.
+     * branch; `_strata`'s last arm raises the unsupported-type `TypeError`.
+     * Natives never get here -- write_native serves them first -- so the
+     * callable is never called for one, and a native it returns is written
+     * natively (docs/architecture/native_types.md, "dumps_with_default").
      *
-     * The callable is the fifth user-code step of this file's header, and it
-     * takes the shape of the other three that invoke Python: `latch()` first,
+     * The callable is the sixth user-code step of this file's header, and it
+     * takes the shape of the others that invoke Python: `latch()` first,
      * then a strong reference on the object being converted -- the latch owns
      * the containers and the staged rows, not the entry being written (see
      * write_int) -- then the call. The unsupported object is never pushed on
@@ -324,6 +339,224 @@ class Serializer {
         return ok;
     }
 #endif
+
+    /**
+     * write()'s tail, in both images: the native types
+     * (docs/architecture/native_types.md, "Serializer contract"), then the
+     * old sink -- the unsupported-type `TypeError` in `_strata`, the `default`
+     * callable in the hook image. Reached only after every branch of write()
+     * has failed, so an `int`, `str`, `float`, `dict`, `list` or `tuple`
+     * subclass is written as before and never gets here.
+     *
+     * A pure leaf is formatted first, without latching: it runs nothing and
+     * allocates nothing the collector tracks (python_native_types.h). Every
+     * other conversion is step 5 of this file's header: `latch()`, then a
+     * strong reference on the object being converted -- the latch owns the
+     * containers and the staged rows, not the entry being written (see
+     * write_int) -- then type resolution, which itself reads attributes of
+     * modules the user may have replaced.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_native(PyObject* object) {
+        char text[native::kTextCapacity];
+        const size_t pure = native::format_pure_leaf(object, text);
+        if (pure != 0)
+            return write_native_text(text, static_cast<Py_ssize_t>(pure));
+        latch();
+        const PyRef guard(Py_NewRef(object));
+        const native::Kind kind = native::classify(object);
+        switch (kind) {
+        case native::Kind::Error:
+            return false;
+        case native::Kind::DateTime:
+        case native::Kind::Date:
+        case native::Kind::Time:
+            return write_native_text(text, native::format_temporal(object, kind, text));
+        case native::Kind::Uuid:
+            return write_native_text(text, native::format_uuid(object, text));
+        case native::Kind::Decimal:
+            return write_decimal(object);
+        case native::Kind::Enum:
+            return write_enum(object);
+        case native::Kind::Dataclass:
+            return write_dataclass(object);
+        case native::Kind::Set:
+            return write_set(object);
+        case native::Kind::NumpyScalar:
+        case native::Kind::NumpyArray: {
+            const PyRef plain(native::numpy_plain(object, kind));
+            if (!plain)
+                return false;
+            // item() and tolist() return Python scalars and lists, except
+            // where no Python type holds the value: an extended `longdouble`
+            // comes back as itself. That object is unsupported, rather than
+            // handed back to this tail without end.
+            if (!native::is_numpy(plain.get()))
+                return write(plain.get());
+            break;
+        }
+        case native::Kind::None:
+            break;
+        }
+#if defined(STRATA_DUMPS_HOOK)
+        return write_unsupported(object);
+#else
+        PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
+                     Py_TYPE(object)->tp_name);
+        return false;
+#endif
+    }
+
+    /// A native leaf's text as a JSON string; its bytes never need escaping.
+    /// A negative @p size is a conversion that raised.
+    [[nodiscard]] bool write_native_text(const char* text, Py_ssize_t size) {
+        if (size < 0)
+            return false;
+        out_.ensure(static_cast<size_t>(size) + 2);
+        out_.put('"');
+        out_.write(text, static_cast<size_t>(size));
+        out_.put('"');
+        return true;
+    }
+
+    /// Whether write() has a branch of its own for @p object: the tests its
+    /// head and subclass chain make before the tail.
+    [[nodiscard]] static bool written_directly(PyObject* object) noexcept {
+        return object == Py_None || PyUnicode_Check(object) || PyFloat_Check(object) ||
+               PyLong_Check(object) || PyList_Check(object) || PyTuple_Check(object) ||
+               PyDict_Check(object);
+    }
+
+    /// A `Decimal` as the raw JSON number its `str()` spells; a non-finite one
+    /// as `null`. The caller has latched.
+    [[nodiscard]] STRATA_COLD_FN bool write_decimal(PyObject* object) {
+        PyRef text;
+        std::string_view digits;
+        switch (native::decimal_text(object, text, digits)) {
+        case native::DecimalText::Number:
+            out_.write_spanning(digits.data(), digits.size());
+            return true;
+        case native::DecimalText::NonFinite:
+            out_.ensure(4);
+            out_.write("null", 4);
+            return true;
+        case native::DecimalText::Error:
+            break;
+        }
+        return false;
+    }
+
+    /**
+     * An `Enum` member as its `value`, followed while the value is itself an
+     * Enum (one write() would send back to the tail as one) -- in a loop, not
+     * by recursion, and for at most `depth_limit_` reads, so a chain that
+     * never ends is the depth error rather than a stack overflow. The final
+     * value goes through write() once. Every read and every classification of
+     * what a read returned is a user-code step; the caller latched before the
+     * first.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_enum(PyObject* member) {
+        PyRef value(native::enum_value(member));
+        for (int reads = 1;; ++reads) {
+            if (!value)
+                return false;
+            if (written_directly(value.get()))
+                break;
+            latch();
+            const native::Kind kind = native::classify(value.get());
+            if (kind == native::Kind::Error)
+                return false;
+            if (kind != native::Kind::Enum)
+                break;
+            if (reads >= depth_limit_) {
+                PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+                return false;
+            }
+            latch();
+            value = PyRef(native::enum_value(value.get()));
+        }
+        return write(value.get());
+    }
+
+    /**
+     * A dataclass instance as a JSON object of exactly the fields
+     * `dataclasses.fields()` lists, in that order, each read with `getattr`
+     * as it is written (followed live, like a wide dict). The Frame is on the
+     * instance itself and opens before the first field, so an instance that
+     * contains itself meets the cycle policy as a dict does, and the instance
+     * takes one level of the depth limit. Keys go through the key writer
+     * write_mapping_uncached uses; nothing is copied into a temporary dict.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_dataclass(PyObject* object) {
+        const Frame frame(*this, object);
+        if (frame.repeated())
+            return frame.handle_cycle();
+        if (!frame.within_depth_limit())
+            return false;
+        latch();
+        const PyRef names(native::dataclass_field_names(object));
+        if (!names)
+            return false;
+        out_.ensure(1);
+        out_.put('{');
+        const Py_ssize_t count = PyTuple_GET_SIZE(names.get());
+        for (Py_ssize_t index = 0; index < count; ++index) {
+            PyObject* const name = PyTuple_GET_ITEM(names.get(), index);
+            if (index != 0) {
+                out_.ensure(1);
+                out_.put(',');
+            }
+            if (!write_string(name))
+                return false;
+            out_.ensure(1);
+            out_.put(':');
+            latch();
+            const PyRef value(native::field_value(object, name));
+            if (!value || !write(value.get()))
+                return false;
+        }
+        out_.ensure(1);
+        out_.put('}');
+        return true;
+    }
+
+    /**
+     * A `set` or `frozenset` as a JSON array in iteration order, under a
+     * Frame on the set itself (a frozenset reached back through a frozen
+     * dataclass is a cycle like any other). The iterator is the only
+     * allocation; a set resized while it is written raises the `RuntimeError`
+     * its iterator raises.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_set(PyObject* object) {
+        const Frame frame(*this, object);
+        if (frame.repeated())
+            return frame.handle_cycle();
+        if (!frame.within_depth_limit())
+            return false;
+        latch();
+        const PyRef iterator(PyObject_GetIter(object));
+        if (!iterator)
+            return false;
+        out_.ensure(1);
+        out_.put('[');
+        for (bool first = true;; first = false) {
+            latch();
+            const PyRef item(PyIter_Next(iterator.get()));
+            if (!item) {
+                if (PyErr_Occurred())
+                    return false;
+                break;
+            }
+            if (!first) {
+                out_.ensure(1);
+                out_.put(',');
+            }
+            if (!write(item.get()))
+                return false;
+        }
+        out_.ensure(1);
+        out_.put(']');
+        return true;
+    }
 
     [[nodiscard]] bool write_int(PyObject* object) {
 #if PY_VERSION_HEX >= 0x030C0000
@@ -1727,8 +1960,9 @@ class Serializer {
     /**
      * Make every borrowed pointer the walk still needs a strong one.
      *
-     * Called immediately before each of the three steps that run user code (the cycle warning, an
-     * `int` subclass's `__str__`, a large exact `int`'s decimal conversion), and so also before any
+     * Called immediately before each step that runs user code (the cycle warning, an `int`
+     * subclass's `__str__`, a large exact `int`'s decimal conversion, each native conversion that
+     * is not a pure leaf, and the hook image's `default`), and so also before any
      * `__del__` the serializer's own releases can fire (see the rule at the top of this file).
      * Latched entries stay latched until their frame or row goes out of scope, so a second event
      * only pays for what has been opened since the first: `open_`'s latched entries are a prefix
@@ -1806,14 +2040,16 @@ class Serializer {
      * Counts the walk's user-code steps: bumped once at every point where
      * this file's contract says Python can run, and never reset.
      *
-     * The sites are exactly the four the file header enumerates, and the
+     * The sites are exactly the steps the file header enumerates, and the
      * bumps sit at these three places:
      *
      *   1. `latch()`, at its head -- it is called immediately before each of
-     *      the three steps that *invoke* user code (the cycle warning from
+     *      the steps that *invoke* user code (the cycle warning from
      *      `emit_cycle_placeholder` and from `Frame::handle_cycle`, an `int`
      *      subclass's `__str__`, and a large exact `int`'s `_pylong` decimal
-     *      conversion, both in `write_int`);
+     *      conversion, both in `write_int`; every native conversion that is not
+     *      a pure leaf, in `write_native` and its per-kind writers; and the hook
+     *      image's `default`, in `write_unsupported`);
      *   2. `close_container()`, on the arm that releases a latched container
      *      -- step 4, a `__del__` or weakref callback out of the walk's own
      *      `Py_DECREF`;

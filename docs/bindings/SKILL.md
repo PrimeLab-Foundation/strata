@@ -107,7 +107,9 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 | `python_module.cpp`                       | Init, method table, `load`/`dump`, config store                                            |
 | `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition  |
 | `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                      |
-| `python_dumps.cpp`                        | `dumps` + all serialization fast paths                                                     |
+| `python_dumps.cpp`                        | `dumps` + all serialization fast paths; `write_native`, the native tail, and its writers   |
+| `python_dumps_hook.cpp`                   | `strata._dumps_hook`: `python_dumps.cpp` compiled again with `default` (both images)       |
+| `python_native_types.h/.cpp`              | Native type table (from `sys.modules`), pure leaves, conversions; the only `datetime.h` TU |
 | `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                  |
 | `python_rawdict.h`                        | The runtime-proved raw dict-entry walk and the general-table compaction                    |
 | `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
@@ -146,6 +148,34 @@ gracefully mid-list); `try_batch_list_of_dicts` (≤ `kMaxBatchKeys`=24) replays
 pre-serialized key byte strings per same-schema element; NEON masked-load escape
 check for ≤16-byte strings (pad-reads past the string — relies on CPython
 allocation slack, ASan-hostile); `PyUnstable_Long_IsCompact` int extraction.
+
+**Native types (M15, docs/architecture/native_types.md).** `write()`'s last line
+is `return write_native(object);` in both images, and nothing else in `write()`
+changed: no load, test or `Serializer` member was added, so a document with no
+native object never leaves the old path. `write_native` (`STRATA_COLD_FN`) tries
+a **pure leaf** first — an exact `datetime`/`date`/`time` whose tzinfo is `None`
+or exactly `datetime.timezone`, or an exact `UUID` read from its `int` slot —
+formatted by `strata/util/temporal.hpp` with no latch, because it runs nothing
+the user wrote and allocates nothing the collector tracks. Anything else is the
+header's step 5: `latch()`, a strong reference on the object, then
+`native::classify`, which resolves the type table from `sys.modules` (never
+importing; a module imported later is found at the next lookup) and checks the
+record's precedence: datetime, date, time, UUID, Decimal, Enum, dataclass,
+set/frozenset, numpy. Per kind: temporal and UUID text through the same
+formatters; `Decimal` as the raw text of `str()` (`util::is_json_number`), non-finite
+as `null`; `Enum.value` followed in a loop bounded by `depth_limit_`; a
+dataclass (field names cached per type, at most 1024 types) and a set are
+written directly under a `Frame` on the object itself, so cycles and depth
+behave as for a dict, latching before every field read or iterator step; numpy
+through `item()`/`tolist()` and back into `write()` (a result that is numpy
+again — an extended `longdouble` — goes to the old sink rather than looping).
+The last arm is the old sink: the unsupported-type `TypeError` in `_strata`,
+`write_unsupported` (`default`) in the hook image. Every `datetime` C-API use is
+in `python_native_types.cpp`, which takes the types from the `datetime_CAPI`
+capsule so the field macros only ever read the C layout; each image resolves
+its own table, and `prepare_native_runtime()` interns the names at both module
+inits. The tests live under `tests/unit/native_types/` and
+`tests/py/native_types/`, outside the PGO training run.
 
 ## config → policy mapping
 

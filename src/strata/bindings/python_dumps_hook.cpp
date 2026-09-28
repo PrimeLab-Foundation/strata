@@ -169,6 +169,9 @@ PyMODINIT_FUNC PyInit__dumps_hook(void) {
     // are this image's own copies, and resolving one mid-walk allocates where
     // the walk's contract says nothing runs.
     prepare_dumps_runtime();
+    // This image's own copy of the native type table and its names.
+    if (!native::prepare_native_runtime())
+        return nullptr;
 
     const PyRef strata_module(PyImport_ImportModule("strata._strata"));
     if (!strata_module)

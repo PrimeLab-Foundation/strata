@@ -50,9 +50,38 @@ strata.dumps(obj, *, return_type="str") -> str | bytes
 ```
 
 Compact serialization (no whitespace). Supports
-dict/list/tuple/str/int/float/bool/None; dict keys must be `str` (else
-`TypeError`); NaN/±Inf serialize as `null`; big ints beyond int64 are emitted
-via their str form. Raises `TypeError` (unsupported type), `ValueError`
+dict/list/tuple/str/int/float/bool/None and the native types below; dict keys
+must be `str` (else `TypeError`, a native key included); NaN/±Inf serialize as
+`null`; big ints beyond int64 are emitted via their str form.
+
+**Native types** (design record: `docs/architecture/native_types.md`), on by
+default in `dumps`, `dump` and `dumps_with_default`, checked in this order and
+only after every branch above — so an `int`, `str`, `float`, `dict`, `list` or
+`tuple` **subclass** (an `IntEnum`, a `class E(str, Enum)`, `numpy.float64`) is
+written by its base type's rule first:
+
+| #   | Type (subclasses included)                                                   | Written as                                                                                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `datetime.datetime`                                                          | `"YYYY-MM-DDTHH:MM:SS"`, `.ffffff` when the microsecond is nonzero, then `+HH:MM`/`-HH:MM` when aware (tzinfo set and `utcoffset()` not `None`; UTC is `+00:00`). The offset is `days*86400 + seconds` of `tzinfo.utcoffset(dt)` (so `fold` reaches it; microseconds dropped), rounded to the minute half-up in magnitude. |
+| 2   | `datetime.date`                                                              | `"YYYY-MM-DD"` (years zero-padded to four digits)                                                                                                                                                                                                                                                                          |
+| 3   | `datetime.time`                                                              | `"HH:MM:SS"`, `.ffffff` when nonzero, and the offset of row 1 when aware (`tzinfo.utcoffset(None)`)                                                                                                                                                                                                                        |
+| 4   | `uuid.UUID`                                                                  | `"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"`, lowercase, from `.int`                                                                                                                                                                                                                                                           |
+| 5   | `decimal.Decimal`                                                            | the text of `str(d)` as a raw JSON number (`1.50`, `1E+2`, `-0`); `NaN`, `sNaN` and `±Infinity` → `null`                                                                                                                                                                                                                   |
+| 6   | `enum.Enum`                                                                  | `member.value` (read with `getattr`) in the member's place; a value that is itself an `Enum` is followed, up to the depth limit                                                                                                                                                                                            |
+| 7   | dataclass instance                                                           | a JSON object of exactly the fields `dataclasses.fields()` lists, in order, each read with `getattr` (extra instance attributes are not written)                                                                                                                                                                           |
+| 8   | `set`, `frozenset`                                                           | a JSON array in iteration order                                                                                                                                                                                                                                                                                            |
+| 9   | numpy `bool_`/`integer`/`floating` scalar; `ndarray` of dtype kind `b i u f` | `obj.item()` / `obj.tolist()` in the object's place (any shape and strides, 0-d included; `float32` widens exactly: `float32(0.1)` → `0.10000000149011612`)                                                                                                                                                                |
+
+A dataclass or a set opens a container on the object itself: it takes one level
+of the depth limit, and a dataclass that contains itself follows `cycle_policy`
+as a dict does. `import strata` imports none of `datetime`, `uuid`, `decimal`,
+`dataclasses` or `numpy`: the types are looked up in `sys.modules` when a
+document first needs them, never imported. `datetime.timedelta`, `complex`,
+`bytes`, every other numpy kind, and every other type still raise
+`TypeError("Object of type %s is not JSON serializable")`; `dump`'s `split_by`
+values stay `str`/`int`/`bool`.
+
+Raises `TypeError` (unsupported type), `ValueError`
 ("Maximum serialization depth exceeded" at `sys.getrecursionlimit()`, or cycle
 under `cycle_policy="error"`), `UnicodeEncodeError` (a `str` key or value with
 no UTF-8 encoding — a lone surrogate; the output is UTF-8, so strata refuses it
@@ -64,16 +93,26 @@ containers, so a tree parsed at depth 1001–1024 needs a raised
 `sys.setrecursionlimit` to serialize again — unchanged from before the parse
 cap, and stated so the asymmetry is not a surprise.
 
-**Mutation during serialization.** User code can run inside `dumps` at four
-steps, all of them rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
+**Mutation during serialization.** User code can run inside `dumps` at five
+steps. Four are rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
 warnings filter or `showwarning` hook); `__str__` of an `int` subclass beyond
 int64; the decimal conversion of an **exact** `int` beyond int64 that CPython
 3.12+ delegates to the `_pylong` Python module — reached above roughly 10 000
 digits, so `sys.set_int_max_str_digits` has to permit it, and it imports modules
 and runs bytecode; and, as a consequence of any of those, a `__del__` or a
 weakref callback fired when the serializer releases what that code orphaned.
-Nothing else in a successful `dumps` calls into Python or allocates an object
-the collector tracks, so no collection can run one either. If that code mutates
+The fifth is a native conversion, and only in a document that holds a native
+object: looking the native types up in `sys.modules`, a subclass's or a
+non-`datetime.timezone` tzinfo's `utcoffset()`, a UUID subclass's `int`,
+`Decimal`'s `str()`, an `Enum`'s `value`, the dataclass field lookup and each
+field read, a set's iterator, and numpy's dtype, `item()` and `tolist()` — any
+of which can also allocate and so run a collection. An exact
+`datetime`/`date`/`time` whose tzinfo is `None` or exactly `datetime.timezone`,
+and an exact `uuid.UUID`, are formatted without running any of it. Nothing else
+in a successful `dumps` calls into Python or allocates an object the collector
+tracks, so no collection can run one either. A set resized while it is written
+raises the `RuntimeError` its iterator raises; a dataclass's fields are read one
+at a time as they are written. If that code mutates
 a container being written, `dumps` never reads freed memory: lists and tuples
 are followed live, element by element, as stdlib `json` does (a shrunk list ends
 there, appended elements are written); a dict of at most 24 exact-`str` keys,
@@ -102,6 +141,13 @@ to it). The rules, each test-pinned:
   keyword raise `TypeError` as for any Python function.
 - A document with no unsupported object is byte-identical to `dumps(obj)` in
   both return types, and `default` is never called.
+- **Native types come first.** They are part of what `dumps` supports, so
+  `default` is **never called for a native object** (a caller whose `default`
+  formatted a `datetime` or a `Decimal` gets strata's formatting — orjson's
+  precedence too), and a native object `default` returns is written natively.
+  A value reached *inside* a native — an Enum's `value`, a dataclass field, a
+  set element — is an ordinary position and gets its own call when it is
+  unsupported.
 - `default` raises ⇒ that exception **propagates unchanged**: same object, same
   type and args, no wrapping or chaining (`KeyboardInterrupt`, `MemoryError` and
   `SystemExit` included).
@@ -120,8 +166,8 @@ to it). The rules, each test-pinned:
   call, not by `import strata`. If it cannot be imported, that call — and every
   later one — raises the `ImportError`; the rest of the package is unaffected.
 
-**Mutation during `dumps_with_default`.** User code can run at five steps: the
-four of `dumps` above, and `default`, once per unsupported object — not rare,
+**Mutation during `dumps_with_default`.** User code can run at six steps: the
+five of `dumps` above, and `default`, once per unsupported object — not rare,
 since running it is the point. `default` allocates what it likes, so inside a
 successful call a collection — and every `__del__` it fires — can run, as can a
 `__del__` or weakref callback fired when the serializer releases the reference
@@ -129,7 +175,7 @@ successful call a collection — and every `__del__` it fires — can run, as ca
 are followed live; a dict of at most 24 exact-`str` keys below 64 levels of dict
 nesting is emitted as the row read on entry; wider dicts and dicts with
 `str`-subclass keys are followed live. `dumps` itself can reach no hook, so its
-clause above stays at four steps.
+clause above stays at five steps.
 
 ## File & folder I/O
 
@@ -281,6 +327,21 @@ matching "not an object" / "not an array" / "not a bool|number|string" /
 "not found" / "out of range". Unknown config key ⇒ `KeyError` on `config.set`
 (`config.get` returns `None`); bad config value ⇒ `ValueError`; wrong value
 type ⇒ `TypeError`.
+
+Serializing (`dumps`, `dump`, `dumps_with_default`; native types per
+`docs/architecture/native_types.md`):
+
+| Condition                                                         | Exception                                                                                                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| unsupported type                                                  | `TypeError("Object of type %s is not JSON serializable")` (in `dumps_with_default`, the call to `default` instead)                         |
+| numpy scalar or array outside kinds `b i u f`                     | the same `TypeError`, with numpy's type name (an extended `longdouble`, whose `item()` returns itself, included)                           |
+| Enum chain longer than the depth limit                            | `ValueError("Maximum serialization depth exceeded")`                                                                                       |
+| `Decimal` subclass whose `str()` is not a JSON number             | `ValueError("str() of a Decimal returned text that is not a JSON number")`                                                                 |
+| unset dataclass field                                             | the `AttributeError` from `getattr`, unchanged                                                                                             |
+| set mutated while written                                         | the `RuntimeError` from its iterator, unchanged                                                                                            |
+| a tzinfo's `utcoffset()` returns neither `None` nor a `timedelta` | `TypeError("tzinfo.utcoffset() must return None or timedelta, not '%s'")`, as `isoformat()` raises                                         |
+| a tzinfo's offset is not strictly inside ±24 hours                | `ValueError("offset must be a timedelta strictly between -timedelta(hours=24) and timedelta(hours=24), not %R.")`, as `isoformat()` raises |
+| a `UUID` whose `int` is not an `int` / not in \[0, 2¹²⁸)          | `TypeError("UUID.int must be an int, not %s")` / `ValueError("UUID.int is out of range (need a 128-bit value)")`                           |
 
 ## C++ public surface (for binding work)
 

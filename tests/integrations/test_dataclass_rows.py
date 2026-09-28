@@ -4,7 +4,9 @@ The rows stand in for an ORM's dataclass-mapped models (slots, frozen line
 items, UUID keys, Decimal money, timezone-aware timestamps, str/int/plain
 enums) without adding an ORM dependency. api.md, dumps_with_default;
 docs/architecture/dumps_with_default.md, whose "What does not get a hook"
-gives the file composition that stands in for a hooked `dump`.
+gives the file composition that stands in for a hooked `dump`. Every type in
+these rows is native (docs/architecture/native_types.md): strata writes them
+itself, `default` is never called for them, and Decimal money is a JSON number.
 """
 
 import dataclasses
@@ -89,7 +91,7 @@ def asdict_default(obj):
 def test_a_fetched_page_of_rows(composes):
     rows = [_order(i) for i in range(500)]
     decoded = composes(rows, row_default)
-    assert decoded[5]["lines"][2] == {"sku": "SKU-2", "quantity": 3, "unit_price": "29.97"}
+    assert decoded[5]["lines"][2] == {"sku": "SKU-2", "quantity": 3, "unit_price": 29.97}
     assert decoded[5]["priority"] == 2
     assert decoded[3]["channel"] == "store"
     assert decoded[0]["ship_by"] is None
@@ -109,10 +111,12 @@ def test_rows_grouped_under_native_keys(composes):
     assert sorted(decoded) == [str(c) for c in range(7)]
 
 
-def test_the_file_composition_writes_the_rows_to_a_file(tmp_path):
+def test_the_file_composition_writes_the_rows_to_a_file(tmp_path, expected_text):
     rows = [_order(i) for i in range(50)]
     path = tmp_path / "orders.json"
     path.write_bytes(strata.dumps_with_default(rows, row_default, return_type="bytes") + b"\n")
-    expected = json.dumps(rows, default=row_default, separators=(",", ":"), ensure_ascii=False)
+    expected = expected_text(rows, row_default)
     assert path.read_text(encoding="utf-8") == expected + "\n"
     assert strata.load(path) == json.loads(expected)
+    strata.dump(rows, tmp_path / "dumped.json")
+    assert (tmp_path / "dumped.json").read_text(encoding="utf-8") == expected + "\n"

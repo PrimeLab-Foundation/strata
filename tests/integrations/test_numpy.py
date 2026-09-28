@@ -2,9 +2,12 @@
 
 api.md, dumps_with_default (docs/architecture/dumps_with_default.md): the callable runs
 only where `dumps` would raise. `numpy.float64` and `numpy.str_` subclass
-`float` and `str`, so neither library calls it for them; `ndarray` and the
-other scalar types reach it and come back as native values via `tolist()` and
-`item()`.
+`float` and `str`, so neither library calls it for them. Scalars and arrays of
+dtype kinds `b i u f` are native (docs/architecture/native_types.md, row 9):
+strata writes their `item()`/`tolist()` itself and the stdlib oracle gives them
+the same spelling, so only the other kinds -- `U` strings, structured `V`
+records -- reach the callable. The native row's own tests are in
+`test_native_types.py`.
 """
 
 import numpy as np

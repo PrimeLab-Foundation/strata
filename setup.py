@@ -508,6 +508,7 @@ BINDING_SOURCES = [
     "src/strata/bindings/python_files.cpp",
     "src/strata/bindings/python_jsonpath.cpp",
     "src/strata/bindings/python_folder.cpp",
+    "src/strata/bindings/python_native_types.cpp",
 ]
 
 
@@ -525,12 +526,17 @@ def _core_sources() -> list[str]:
 
 # `strata._dumps_hook` — `dumps_with_default` (docs/architecture/dumps_with_default.md).
 # One binding TU, which compiles python_dumps.cpp again with the hook enabled,
-# linked against the shared core manifest like `_strata` (one list of core
-# sources: tests/unit/test_build_manifest.py) with unreferenced code stripped at
-# link time, so the image carries what the serializer calls and little else.
+# plus the native type table the serializer's tail reads (each image keeps its
+# own copy; docs/architecture/native_types.md), linked against the shared core
+# manifest like `_strata` (one list of core sources:
+# tests/unit/test_build_manifest.py) with unreferenced code stripped at link
+# time, so the image carries what the serializer calls and little else.
 # `_strata`'s own source list, order and flags above are untouched by its
 # existence (M12b criterion 4).
-HOOK_BINDING_SOURCES = ["src/strata/bindings/python_dumps_hook.cpp"]
+HOOK_BINDING_SOURCES = [
+    "src/strata/bindings/python_dumps_hook.cpp",
+    "src/strata/bindings/python_native_types.cpp",
+]
 
 
 def _hook_compile_args() -> list[str]:

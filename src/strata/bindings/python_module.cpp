@@ -11,6 +11,7 @@
  * includes it (docs/context/convention.md, "Core purity").
  */
 
+#include "python_native_types.h"
 #include "python_types.h"
 #include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
@@ -477,6 +478,10 @@ PyMODINIT_FUNC PyInit__strata(void) {
     // first dumps(): it allocates, and allocating inside the walk can run a
     // finalizer at a point the walk's contract says runs no user code.
     strata::bindings::prepare_dumps_runtime();
+    // The native tail's names, interned before any walk; its type table is
+    // resolved inside the walk, after a latch (python_native_types.h).
+    if (!strata::bindings::native::prepare_native_runtime())
+        return nullptr;
 
     PyObject* module = PyModule_Create(&kModuleDef);
     if (module == nullptr)

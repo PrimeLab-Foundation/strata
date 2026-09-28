@@ -225,8 +225,8 @@ def test_the_callable_check_runs_before_the_walk(value, name):
 
 UNSUPPORTED = [
     (Opaque(), "Opaque"),
-    ({1, 2}, "set"),
-    (frozenset(), "frozenset"),
+    (memoryview(b"x"), "memoryview"),
+    (slice(1), "slice"),
     (b"x", "bytes"),
     (bytearray(b"x"), "bytearray"),
     (object(), "object"),
@@ -306,7 +306,7 @@ class MyDict(dict):
     pass
 
 
-class MySet(set):
+class MyByteArray(bytearray):
     pass
 
 
@@ -499,7 +499,7 @@ def test_the_chain_bound_is_one_for_an_identity_default(mode):
 
 
 REFUSED_SUBCLASSES = [
-    ("set", lambda: MySet({1}), "MySet"),
+    ("bytearray", lambda: MyByteArray(b"x"), "MyByteArray"),
     ("bytes", lambda: MyBytes(b"x"), "MyBytes"),
     ("object", Opaque, "Opaque"),
 ]
