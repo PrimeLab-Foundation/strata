@@ -1,0 +1,12 @@
+== c2_screen.aa_s1.analysis.json  (A vs B, 6 blocks)
+row                   engine           effect   ci low  ci high   floor   pos  flag
+md-users-dumps        strata-bytes     -0.34%   -1.46%   +1.86%   0.56%  3/6  
+md-users-dumps        strata-str       +0.45%   -1.89%   +1.97%   1.24%  3/6  
+sm-flat-dump          strata-dump      -0.73%   -1.83%   +2.35%   5.56%  2/6  
+sm-flat-dumps         strata-bytes     -0.05%   -1.00%   +0.56%   0.96%  3/6  
+sm-flat-dumps         strata-str       +0.20%   -0.30%   +0.72%   0.94%  4/6  
+sm-users-dumps        strata-bytes     -0.25%   -1.39%   +0.81%   0.57%  2/6  
+sm-users-dumps        strata-str       -0.32%   -1.08%   +0.33%   0.47%  1/6  
+sm-users-loads        strata-loads     -0.02%   -0.59%   +0.12%   0.88%  2/6  
+max loss (canonical engines): sm-users-loads strata-loads -0.02% [-0.59%, +0.12%] floor 0.88%
+

@@ -1,0 +1,7 @@
+main2 (A)            176.8 ns  paired vs A   +0.0 ns
+py3_pass2            184.8 ns  paired vs A   +6.9 ns
+py3_pass3            188.3 ns  paired vs A  +12.3 ns
+facade global        190.2 ns  paired vs A  +12.3 ns
+strata.loads (B)     198.9 ns  paired vs A  +20.3 ns
+native 2kw           149.1 ns  paired vs A  -28.7 ns
+native 3kw           152.5 ns  paired vs A  -25.2 ns

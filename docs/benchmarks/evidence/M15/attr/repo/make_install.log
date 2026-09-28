@@ -1,0 +1,25 @@
+.venv/bin/python -m pip install -e .
+Obtaining file:///Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp314-cp314-macosx_26_0_arm64.whl size=4405 sha256=b1f111174f03e9d33baa66e8b0921ac11da897e79d15bac439d3250488ef5896
+  Stored in directory: /private/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/pip-ephem-wheel-cache-22mud_4b/wheels/8e/69/ad/cfbe4f7c23f646d20d8ac73adf7b6c7ec78c8764cafa2941d2
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10
+
+[notice] A new release of pip is available: 26.0 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip

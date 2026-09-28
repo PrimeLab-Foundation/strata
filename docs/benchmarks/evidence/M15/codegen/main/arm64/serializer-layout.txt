@@ -1,0 +1,26 @@
+         0 | class strata::bindings::(anonymous namespace)::Serializer
+         0 |   StagedOutput & out_
+         8 |   class std::vector<struct _object *> open_
+         8 |     pointer __begin_
+        16 |     pointer __end_
+        24 |     struct std::vector<struct _object *>::(anonymous at /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__vector/vector.h:562:3) 
+        24 |       pointer __cap_
+        24 |       class std::__compressed_pair_padding<struct _object **> __padding1_562_ (empty)
+        24 |       class std::allocator<struct _object *> __alloc_ (empty)
+        24 |         struct std::__non_trivial_if<true, class std::allocator<struct _object *> > (base) (empty)
+        24 |       class std::__compressed_pair_padding<class std::allocator<struct _object *> > __padding2_562_ (empty)
+        32 |   size_t open_count_
+        40 |   uint64_t user_steps_
+        48 |   size_t owned_
+        56 |   SchemaCacheLease::RowNode * rows_
+        64 |   size_t map_depth_
+        72 |   size_t schema_depths_
+        80 |   int depth_limit_
+        84 |   _Bool raw_dict_ok_
+        88 |   std::vector<SchemaCacheLease::DepthSchemas> & schemas_
+        96 |   SchemaCacheLease::StagedRow * staged_rows_
+       104 |   SchemaCacheLease::RowNode * lock_nodes_
+       112 |   rawdict::Entry * general_scratch_
+           | [sizeof=120, dsize=120, align=8,
+           |  nvsize=120, nvalign=8]
+

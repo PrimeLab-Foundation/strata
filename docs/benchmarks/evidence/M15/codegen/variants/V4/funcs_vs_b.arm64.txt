@@ -1,0 +1,4 @@
+# b/arm64/obj/python_dumps.o -> variants/V4/python_dumps.arm64.o
+# functions: before 77, after 77, common 77, identical 76, differ 1
+# outlined bodies: before 30, after 30; bodies only before 0, only after 0
+DIFFERS  insns 259 -> 293  (-84 +118)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object

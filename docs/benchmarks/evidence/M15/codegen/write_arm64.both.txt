@@ -1,0 +1,544 @@
+=== main arm64
+0000000000000828 <S::write>:
+828:       sub sp, sp, #0x50
+82c:       stp d9, d8, [sp, #0x10]
+830:       stp x22, x21, [sp, #0x20]
+834:       stp x20, x19, [sp, #0x30]
+838:       stp x29, x30, [sp, #0x40]
+83c:       add x29, sp, #0x40
+840:       ldr x8, [x1, #0x8]
+844:       adrp x9, 0x0 <ltmp0> @ _PyUnicode_Type
+848:       ldr x9, [x9] @ _PyUnicode_Type
+84c:       cmp x8, x9
+850:       b.eq +0xd0
+854:       adrp x9, 0x0 <ltmp0> @ _PyFloat_Type
+858:       ldr x9, [x9] @ _PyFloat_Type
+85c:       cmp x8, x9
+860:       b.eq +0xf4
+864:       adrp x9, 0x0 <ltmp0> @ _PyLong_Type
+868:       ldr x9, [x9] @ _PyLong_Type
+86c:       cmp x8, x9
+870:       b.eq +0x3f0
+874:       adrp x9, 0x0 <ltmp0> @ _PyDict_Type
+878:       ldr x9, [x9] @ _PyDict_Type
+87c:       cmp x8, x9
+880:       b.eq +0x1dc
+884:       adrp x9, 0x0 <ltmp0> @ _PyList_Type
+888:       ldr x9, [x9] @ _PyList_Type
+88c:       cmp x8, x9
+890:       b.eq +0x388
+894:       adrp x9, 0x0 <ltmp0> @ __Py_NoneStruct
+898:       ldr x9, [x9] @ __Py_NoneStruct
+89c:       cmp x1, x9
+8a0:       b.eq +0x270
+8a4:       adrp x19, 0x0 <ltmp0> @ __Py_TrueStruct
+8a8:       ldr x19, [x19] @ __Py_TrueStruct
+8ac:       cmp x1, x19
+8b0:       b.eq +0x2b4
+8b4:       adrp x9, 0x0 <ltmp0> @ __Py_FalseStruct
+8b8:       ldr x9, [x9] @ __Py_FalseStruct
+8bc:       cmp x1, x9
+8c0:       b.eq +0x2b4
+8c4:       ldrb w9, [x8, #0xab]
+8c8:       tbnz w9, #0x4, +0x320
+8cc:       mov x20, x1
+8d0:       mov x19, x0
+8d4:       adrp x1, 0x0 <ltmp0> @ _PyFloat_Type
+8d8:       ldr x1, [x1] @ _PyFloat_Type
+8dc:       mov x0, x8
+8e0:       bl +0xb8 @ _PyType_IsSubtype
+8e4:       cbz w0, +0x36c
+8e8:       ldr d0, [x20, #0x10]
+8ec:       mov x0, x19
+8f0:       bl +0xc8 @ S::12write_doubleEd
+8f4:       b +0x350
+8f8:       ldr w8, [x1, #0x20]
+8fc:       mov w9, #0x60               ; =96
+900:       bics wzr, w9, w8
+904:       b.ne +0x154
+908:       ldr x2, [x1, #0x10]
+90c:       add x1, x1, #0x28
+910:       bl +0xe8 @ S::18write_string_bytesEPKcm
+914:       mov w0, #0x1                ; =1
+918:       b +0x1a4
+91c:       ldr d8, [x1, #0x10]
+920:       ldr x19, [x0]
+924:       ldr x8, [x19, #0x38]
+928:       add x9, x8, #0x28
+92c:       ldr x10, [x19, #0x18]
+930:       cmp x9, x10
+934:       b.ls +0x128
+938:       mov x20, x0
+93c:       mov x0, x19
+940:       mov w1, #0x28               ; =40
+944:       bl +0x11c @ SO::8overflowEm
+948:       ldr x19, [x20]
+94c:       ldr x8, [x19, #0x38]
+950:       fmov x9, d8
+954:       and x10, x9, #0x7fffffffffffffff
+958:       ldr x9, [x19, #0x10]
+95c:       mov x11, #0x7ff0000000000000 ; =9218868437227405312
+960:       cmp x10, x11
+964:       b.lt +0x1bc
+968:       mov w10, #0x756e            ; =30062
+96c:       movk w10, #0x6c6c, lsl #16
+970:       str w10, [x9, x8]
+974:       mov w0, #0x4                ; =4
+978:       b +0x1cc
+97c:       mov x19, x0
+980:       str xzr, [sp, #0x8]
+984:       mov x0, x1
+988:       add x1, sp, #0x8
+98c:       bl +0x164 @ _PyUnicode_AsUTF8AndSize
+990:       mov x1, x0
+994:       cmp x0, #0x0
+998:       cset w0, ne
+99c:       cbz x1, +0x1a4
+9a0:       ldr x2, [sp, #0x8]
+9a4:       mov x20, x0
+9a8:       mov x0, x19
+9ac:       bl +0x184 @ S::18write_string_bytesEPKcm
+9b0:       mov x0, x20
+9b4:       ldp x29, x30, [sp, #0x40]
+9b8:       ldp x20, x19, [sp, #0x30]
+9bc:       ldp x22, x21, [sp, #0x20]
+9c0:       ldp d9, d8, [sp, #0x10]
+9c4:       add sp, sp, #0x50
+9c8:       ret
+9cc:       ldp x29, x30, [sp, #0x40]
+9d0:       ldp x20, x19, [sp, #0x30]
+9d4:       ldp x22, x21, [sp, #0x20]
+9d8:       ldp d9, d8, [sp, #0x10]
+9dc:       add sp, sp, #0x50
+9e0:       ret
+9e4:       add x0, x9, x8
+9e8:       mov.16b v0, v8
+9ec:       mov w1, #0x28               ; =40
+9f0:       bl +0x1c8 @ __ZN6strata4util13format_doubleEdPcm
+9f4:       ldr x8, [x19, #0x38]
+9f8:       add x8, x8, x0
+9fc:       str x8, [x19, #0x38]
+a00:       b +0x350
+a04:       ldp x9, x8, [x0, #0x8]
+a08:       cmp x9, x8
+a0c:       b.eq +0x3d4
+a10:       sub x10, x8, x9
+a14:       sub x10, x10, #0x8
+a18:       mvn w11, w10
+a1c:       tst x11, #0x18
+a20:       b.eq +0x220
+a24:       lsr w11, w10, #3
+a28:       add w11, w11, #0x1
+a2c:       and x11, x11, #0x3
+a30:       ldr x12, [x9]
+a34:       cmp x12, x1
+a38:       b.eq +0x3b4
+a3c:       add x9, x9, #0x8
+a40:       subs x11, x11, #0x1
+a44:       b.ne +0x208
+a48:       cmp x10, #0x18
+a4c:       b.lo +0x3d4
+a50:       add x9, x9, #0x10
+a54:       ldur x10, [x9, #-0x10]
+a58:       cmp x10, x1
+a5c:       b.eq +0x3a0
+a60:       ldur x10, [x9, #-0x8]
+a64:       cmp x10, x1
+a68:       b.eq +0x3a8
+a6c:       ldr x10, [x9]
+a70:       cmp x10, x1
+a74:       b.eq +0x3b4
+a78:       ldr x10, [x9, #0x8]
+a7c:       cmp x10, x1
+a80:       b.eq +0x3b0
+a84:       add x10, x9, #0x10
+a88:       add x9, x9, #0x20
+a8c:       cmp x10, x8
+a90:       b.ne +0x22c
+a94:       b +0x3d4
+a98:       ldr x8, [x0]
+a9c:       ldr x9, [x8, #0x38]
+aa0:       add x10, x9, #0x4
+aa4:       ldr x11, [x8, #0x18]
+aa8:       cmp x10, x11
+aac:       b.ls +0x2a0
+ab0:       mov x19, x0
+ab4:       mov x0, x8
+ab8:       mov w1, #0x4                ; =4
+abc:       bl +0x294 @ SO::8overflowEm
+ac0:       ldr x8, [x19]
+ac4:       ldr x9, [x8, #0x38]
+ac8:       ldr x10, [x8, #0x10]
+acc:       mov w11, #0x756e            ; =30062
+ad0:       movk w11, #0x6c6c, lsl #16
+ad4:       str w11, [x10, x9]
+ad8:       b +0x344
+adc:       ldr x8, [x0]
+ae0:       ldr x9, [x8, #0x38]
+ae4:       add x9, x9, #0x5
+ae8:       ldr x10, [x8, #0x18]
+aec:       cmp x9, x10
+af0:       b.ls +0x2e8
+af4:       mov x20, x0
+af8:       mov x0, x8
+afc:       mov x21, x1
+b00:       mov w1, #0x5                ; =5
+b04:       bl +0x2dc @ SO::8overflowEm
+b08:       mov x1, x21
+b0c:       mov x0, x20
+b10:       ldr x8, [x0]
+b14:       ldr x9, [x8, #0x10]
+b18:       ldr x10, [x8, #0x38]
+b1c:       add x9, x9, x10
+b20:       cmp x1, x19
+b24:       b.eq +0x338
+b28:       mov w10, #0x65              ; =101
+b2c:       strb w10, [x9, #0x4]
+b30:       mov w10, #0x6166            ; =24934
+b34:       movk w10, #0x736c, lsl #16
+b38:       str w10, [x9]
+b3c:       ldr x9, [x8, #0x38]
+b40:       add x9, x9, #0x5
+b44:       b +0x34c
+b48:       ldp x29, x30, [sp, #0x40]
+b4c:       ldp x20, x19, [sp, #0x30]
+b50:       ldp x22, x21, [sp, #0x20]
+b54:       ldp d9, d8, [sp, #0x10]
+b58:       add sp, sp, #0x50
+b5c:       b +0x334 @ S::12write_stringEP7_object
+b60:       mov w10, #0x7274            ; =29300
+b64:       movk w10, #0x6575, lsl #16
+b68:       str w10, [x9]
+b6c:       ldr x9, [x8, #0x38]
+b70:       add x9, x9, #0x4
+b74:       str x9, [x8, #0x38]
+b78:       mov w0, #0x1                ; =1
+b7c:       ldp x29, x30, [sp, #0x40]
+b80:       ldp x20, x19, [sp, #0x30]
+b84:       ldp x22, x21, [sp, #0x20]
+b88:       ldp d9, d8, [sp, #0x10]
+b8c:       add sp, sp, #0x50
+b90:       ret
+b94:       mov x1, x20
+b98:       ldr x8, [x20, #0x8]
+b9c:       ldr x9, [x8, #0xa8]
+ba0:       tbnz w9, #0x18, +0x3ec
+ba4:       tst x9, #0x6000000
+ba8:       b.eq +0x408
+bac:       mov x0, x19
+bb0:       ldp x29, x30, [sp, #0x40]
+bb4:       ldp x20, x19, [sp, #0x30]
+bb8:       ldp x22, x21, [sp, #0x20]
+bbc:       ldp d9, d8, [sp, #0x10]
+bc0:       add sp, sp, #0x50
+bc4:       b +0x39c @ S::14write_sequenceEP7_object
+bc8:       sub x9, x9, #0x10
+bcc:       b +0x3b4
+bd0:       sub x9, x9, #0x8
+bd4:       b +0x3b4
+bd8:       add x9, x9, #0x8
+bdc:       cmp x9, x8
+be0:       b.eq +0x3d4
+be4:       ldp x29, x30, [sp, #0x40]
+be8:       ldp x20, x19, [sp, #0x30]
+bec:       ldp x22, x21, [sp, #0x20]
+bf0:       ldp d9, d8, [sp, #0x10]
+bf4:       add sp, sp, #0x50
+bf8:       b +0x3d0 @ S::13write_mappingEP7_object
+bfc:       ldp x29, x30, [sp, #0x40]
+c00:       ldp x20, x19, [sp, #0x30]
+c04:       ldp x22, x21, [sp, #0x20]
+c08:       ldp d9, d8, [sp, #0x10]
+c0c:       add sp, sp, #0x50
+c10:       b +0x3e8 @ S::18write_record_fusedEP7_object
+c14:       mov x0, x19
+c18:       ldp x29, x30, [sp, #0x40]
+c1c:       ldp x20, x19, [sp, #0x30]
+c20:       ldp x22, x21, [sp, #0x20]
+c24:       ldp d9, d8, [sp, #0x10]
+c28:       add sp, sp, #0x50
+c2c:       b +0x404 @ S::9write_intEP7_object
+c30:       tbnz w9, #0x1d, +0x448
+c34:       adrp x9, 0x0 <ltmp0> @ _PyExc_TypeError
+c38:       ldr x9, [x9] @ _PyExc_TypeError
+c3c:       ldr x0, [x9]
+c40:       ldr x8, [x8, #0x18]
+c44:       str x8, [sp]
+c48:       adrp x1, 0x0 <ltmp0> @ l_.str.17
+c4c:       add x1, x1, #0x0 @ l_.str.17
+c50:       bl +0x428 @ _PyErr_Format
+c54:       mov w0, #0x0                ; =0
+c58:       ldp x29, x30, [sp, #0x40]
+c5c:       ldp x20, x19, [sp, #0x30]
+c60:       ldp x22, x21, [sp, #0x20]
+c64:       ldp d9, d8, [sp, #0x10]
+c68:       add sp, sp, #0x50
+c6c:       ret
+c70:       mov x0, x19
+c74:       ldp x29, x30, [sp, #0x40]
+c78:       ldp x20, x19, [sp, #0x30]
+c7c:       ldp x22, x21, [sp, #0x20]
+c80:       ldp d9, d8, [sp, #0x10]
+c84:       add sp, sp, #0x50
+c88:       b +0x460 @ S::13write_mappingEP7_object
+=== b arm64
+0000000000000828 <S::write>:
+828:       sub sp, sp, #0x50
+82c:       stp d9, d8, [sp, #0x10]
+830:       stp x22, x21, [sp, #0x20]
+834:       stp x20, x19, [sp, #0x30]
+838:       stp x29, x30, [sp, #0x40]
+83c:       add x29, sp, #0x40
+840:       ldr x8, [x1, #0x8]
+844:       adrp x9, 0x0 <ltmp0> @ _PyUnicode_Type
+848:       ldr x9, [x9] @ _PyUnicode_Type
+84c:       cmp x8, x9
+850:       b.eq +0xd0
+854:       adrp x9, 0x0 <ltmp0> @ _PyFloat_Type
+858:       ldr x9, [x9] @ _PyFloat_Type
+85c:       cmp x8, x9
+860:       b.eq +0xf0
+864:       adrp x9, 0x0 <ltmp0> @ _PyLong_Type
+868:       ldr x9, [x9] @ _PyLong_Type
+86c:       cmp x8, x9
+870:       b.eq +0x3d8
+874:       adrp x9, 0x0 <ltmp0> @ _PyDict_Type
+878:       ldr x9, [x9] @ _PyDict_Type
+87c:       cmp x8, x9
+880:       b.eq +0x1d8
+884:       adrp x9, 0x0 <ltmp0> @ _PyList_Type
+888:       ldr x9, [x9] @ _PyList_Type
+88c:       cmp x8, x9
+890:       b.eq +0x370
+894:       adrp x9, 0x0 <ltmp0> @ __Py_NoneStruct
+898:       ldr x9, [x9] @ __Py_NoneStruct
+89c:       cmp x1, x9
+8a0:       b.eq +0x26c
+8a4:       adrp x19, 0x0 <ltmp0> @ __Py_TrueStruct
+8a8:       ldr x19, [x19] @ __Py_TrueStruct
+8ac:       cmp x1, x19
+8b0:       b.eq +0x2b0
+8b4:       adrp x9, 0x0 <ltmp0> @ __Py_FalseStruct
+8b8:       ldr x9, [x9] @ __Py_FalseStruct
+8bc:       cmp x1, x9
+8c0:       b.eq +0x2b0
+8c4:       ldrb w9, [x8, #0xab]
+8c8:       tbnz w9, #0x4, +0x320
+8cc:       mov x20, x1
+8d0:       mov x19, x0
+8d4:       adrp x1, 0x0 <ltmp0> @ _PyFloat_Type
+8d8:       ldr x1, [x1] @ _PyFloat_Type
+8dc:       mov x0, x8
+8e0:       bl +0xb8 @ _PyType_IsSubtype
+8e4:       cbz w0, +0x354
+8e8:       ldr d0, [x20, #0x10]
+8ec:       mov x0, x19
+8f0:       bl +0xc8 @ S::12write_doubleEd
+8f4:       b +0x1bc
+8f8:       ldr w8, [x1, #0x20]
+8fc:       mov w9, #0x60               ; =96
+900:       bics wzr, w9, w8
+904:       b.ne +0x150
+908:       ldr x2, [x1, #0x10]
+90c:       add x1, x1, #0x28
+910:       bl +0xe8 @ S::18write_string_bytesEPKcm
+914:       b +0x1bc
+918:       ldr d8, [x1, #0x10]
+91c:       ldr x19, [x0]
+920:       ldr x8, [x19, #0x38]
+924:       add x9, x8, #0x28
+928:       ldr x10, [x19, #0x18]
+92c:       cmp x9, x10
+930:       b.ls +0x124
+934:       mov x20, x0
+938:       mov x0, x19
+93c:       mov w1, #0x28               ; =40
+940:       bl +0x118 @ SO::8overflowEm
+944:       ldr x19, [x20]
+948:       ldr x8, [x19, #0x38]
+94c:       fmov x9, d8
+950:       and x10, x9, #0x7fffffffffffffff
+954:       ldr x9, [x19, #0x10]
+958:       mov x11, #0x7ff0000000000000 ; =9218868437227405312
+95c:       cmp x10, x11
+960:       b.lt +0x1a0
+964:       mov w10, #0x756e            ; =30062
+968:       movk w10, #0x6c6c, lsl #16
+96c:       str w10, [x9, x8]
+970:       mov w0, #0x4                ; =4
+974:       b +0x1b0
+978:       mov x19, x0
+97c:       str xzr, [sp, #0x8]
+980:       mov x0, x1
+984:       add x1, sp, #0x8
+988:       bl +0x160 @ _PyUnicode_AsUTF8AndSize
+98c:       mov x1, x0
+990:       cmp x0, #0x0
+994:       cset w0, ne
+998:       cbz x1, +0x188
+99c:       ldr x2, [sp, #0x8]
+9a0:       mov x20, x0
+9a4:       mov x0, x19
+9a8:       bl +0x180 @ S::18write_string_bytesEPKcm
+9ac:       mov x0, x20
+9b0:       ldp x29, x30, [sp, #0x40]
+9b4:       ldp x20, x19, [sp, #0x30]
+9b8:       ldp x22, x21, [sp, #0x20]
+9bc:       ldp d9, d8, [sp, #0x10]
+9c0:       add sp, sp, #0x50
+9c4:       ret
+9c8:       add x0, x9, x8
+9cc:       mov.16b v0, v8
+9d0:       mov w1, #0x28               ; =40
+9d4:       bl +0x1ac @ __ZN6strata4util13format_doubleEdPcm
+9d8:       ldr x8, [x19, #0x38]
+9dc:       add x8, x8, x0
+9e0:       str x8, [x19, #0x38]
+9e4:       mov w0, #0x1                ; =1
+9e8:       ldp x29, x30, [sp, #0x40]
+9ec:       ldp x20, x19, [sp, #0x30]
+9f0:       ldp x22, x21, [sp, #0x20]
+9f4:       ldp d9, d8, [sp, #0x10]
+9f8:       add sp, sp, #0x50
+9fc:       ret
+a00:       ldp x9, x8, [x0, #0x8]
+a04:       cmp x9, x8
+a08:       b.eq +0x3bc
+a0c:       sub x10, x8, x9
+a10:       sub x10, x10, #0x8
+a14:       mvn w11, w10
+a18:       tst x11, #0x18
+a1c:       b.eq +0x21c
+a20:       lsr w11, w10, #3
+a24:       add w11, w11, #0x1
+a28:       and x11, x11, #0x3
+a2c:       ldr x12, [x9]
+a30:       cmp x12, x1
+a34:       b.eq +0x39c
+a38:       add x9, x9, #0x8
+a3c:       subs x11, x11, #0x1
+a40:       b.ne +0x204
+a44:       cmp x10, #0x18
+a48:       b.lo +0x3bc
+a4c:       add x9, x9, #0x10
+a50:       ldur x10, [x9, #-0x10]
+a54:       cmp x10, x1
+a58:       b.eq +0x388
+a5c:       ldur x10, [x9, #-0x8]
+a60:       cmp x10, x1
+a64:       b.eq +0x390
+a68:       ldr x10, [x9]
+a6c:       cmp x10, x1
+a70:       b.eq +0x39c
+a74:       ldr x10, [x9, #0x8]
+a78:       cmp x10, x1
+a7c:       b.eq +0x398
+a80:       add x10, x9, #0x10
+a84:       add x9, x9, #0x20
+a88:       cmp x10, x8
+a8c:       b.ne +0x228
+a90:       b +0x3bc
+a94:       ldr x8, [x0]
+a98:       ldr x9, [x8, #0x38]
+a9c:       add x10, x9, #0x4
+aa0:       ldr x11, [x8, #0x18]
+aa4:       cmp x10, x11
+aa8:       b.ls +0x29c
+aac:       mov x19, x0
+ab0:       mov x0, x8
+ab4:       mov w1, #0x4                ; =4
+ab8:       bl +0x290 @ SO::8overflowEm
+abc:       ldr x8, [x19]
+ac0:       ldr x9, [x8, #0x38]
+ac4:       ldr x10, [x8, #0x10]
+ac8:       mov w11, #0x756e            ; =30062
+acc:       movk w11, #0x6c6c, lsl #16
+ad0:       str w11, [x10, x9]
+ad4:       b +0x344
+ad8:       ldr x8, [x0]
+adc:       ldr x9, [x8, #0x38]
+ae0:       add x9, x9, #0x5
+ae4:       ldr x10, [x8, #0x18]
+ae8:       cmp x9, x10
+aec:       b.ls +0x2e4
+af0:       mov x20, x0
+af4:       mov x0, x8
+af8:       mov x21, x1
+afc:       mov w1, #0x5                ; =5
+b00:       bl +0x2d8 @ SO::8overflowEm
+b04:       mov x1, x21
+b08:       mov x0, x20
+b0c:       ldr x8, [x0]
+b10:       ldr x9, [x8, #0x10]
+b14:       ldr x10, [x8, #0x38]
+b18:       add x9, x9, x10
+b1c:       cmp x1, x19
+b20:       b.eq +0x338
+b24:       mov w10, #0x65              ; =101
+b28:       strb w10, [x9, #0x4]
+b2c:       mov w10, #0x6166            ; =24934
+b30:       movk w10, #0x736c, lsl #16
+b34:       str w10, [x9]
+b38:       ldr x9, [x8, #0x38]
+b3c:       add x9, x9, #0x5
+b40:       str x9, [x8, #0x38]
+b44:       b +0x1bc
+b48:       ldp x29, x30, [sp, #0x40]
+b4c:       ldp x20, x19, [sp, #0x30]
+b50:       ldp x22, x21, [sp, #0x20]
+b54:       ldp d9, d8, [sp, #0x10]
+b58:       add sp, sp, #0x50
+b5c:       b +0x334 @ S::12write_stringEP7_object
+b60:       mov w10, #0x7274            ; =29300
+b64:       movk w10, #0x6575, lsl #16
+b68:       str w10, [x9]
+b6c:       ldr x9, [x8, #0x38]
+b70:       add x9, x9, #0x4
+b74:       str x9, [x8, #0x38]
+b78:       b +0x1bc
+b7c:       mov x1, x20
+b80:       ldr x8, [x20, #0x8]
+b84:       ldr x8, [x8, #0xa8]
+b88:       tbnz w8, #0x18, +0x3d4
+b8c:       mov x0, x19
+b90:       tst x8, #0x6000000
+b94:       b.eq +0x3f0
+b98:       ldp x29, x30, [sp, #0x40]
+b9c:       ldp x20, x19, [sp, #0x30]
+ba0:       ldp x22, x21, [sp, #0x20]
+ba4:       ldp d9, d8, [sp, #0x10]
+ba8:       add sp, sp, #0x50
+bac:       b +0x384 @ S::14write_sequenceEP7_object
+bb0:       sub x9, x9, #0x10
+bb4:       b +0x39c
+bb8:       sub x9, x9, #0x8
+bbc:       b +0x39c
+bc0:       add x9, x9, #0x8
+bc4:       cmp x9, x8
+bc8:       b.eq +0x3bc
+bcc:       ldp x29, x30, [sp, #0x40]
+bd0:       ldp x20, x19, [sp, #0x30]
+bd4:       ldp x22, x21, [sp, #0x20]
+bd8:       ldp d9, d8, [sp, #0x10]
+bdc:       add sp, sp, #0x50
+be0:       b +0x3b8 @ S::13write_mappingEP7_object
+be4:       ldp x29, x30, [sp, #0x40]
+be8:       ldp x20, x19, [sp, #0x30]
+bec:       ldp x22, x21, [sp, #0x20]
+bf0:       ldp d9, d8, [sp, #0x10]
+bf4:       add sp, sp, #0x50
+bf8:       b +0x3d0 @ S::18write_record_fusedEP7_object
+bfc:       mov x0, x19
+c00:       ldp x29, x30, [sp, #0x40]
+c04:       ldp x20, x19, [sp, #0x30]
+c08:       ldp x22, x21, [sp, #0x20]
+c0c:       ldp d9, d8, [sp, #0x10]
+c10:       add sp, sp, #0x50
+c14:       b +0x3ec @ S::9write_intEP7_object
+c18:       tbnz w8, #0x1d, +0x3a4
+c1c:       ldp x29, x30, [sp, #0x40]
+c20:       ldp x20, x19, [sp, #0x30]
+c24:       ldp x22, x21, [sp, #0x20]
+c28:       ldp d9, d8, [sp, #0x10]
+c2c:       add sp, sp, #0x50
+c30:       b +0x408 @ S::12write_nativeEP7_object

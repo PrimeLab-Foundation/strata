@@ -1,0 +1,64 @@
+# main/arm64/obj/python_module.o -> b/arm64/obj/python_module.o
+# functions: before 16, after 16, common 16, identical 15, differ 1
+# outlined bodies: before 0, after 0; bodies only before 0, only after 0
+DIFFERS  insns 40 -> 44  (-19 +23)  ltmp0
+
+## ltmp0
+--- 
++++ 
+@@ -9,32 +9,36 @@
+ bl <ltmp<__text>+0x20>  @__ZN6strata8bindings16set_cycle_policyENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE
+ bl <ltmp<__text>+0x24>  @__ZN6strata8bindings21prepare_dumps_runtimeEv
++bl <ltmp<__text>+0x28>  @__ZN6strata8bindings6native22prepare_native_runtimeEv
++cbz w0, <ltmp<__text>+0xa0>
+ adrp x0, <page>  @__ZN12_GLOBAL__N_110kModuleDefE
+ add x0, x0, #0x0  @__ZN12_GLOBAL__N_110kModuleDefE
+ mov w1, #0x3f5
+-bl <ltmp<__text>+0x34>  @_PyModule_Create2
++bl <ltmp<__text>+0x3c>  @_PyModule_Create2
++cbz x0, <ltmp<__text>+0xa4>
+ mov x19, x0
+-cbz x0, <ltmp<__text>+0x90>
++bl <ltmp<__text>+0x48>  @__ZN6strata8bindings20register_cursor_typeEP7_object
++cbz w0, <ltmp<__text>+0x84>
+ mov x0, x19
+-bl <ltmp<__text>+0x44>  @__ZN6strata8bindings20register_cursor_typeEP7_object
+-cbz w0, <ltmp<__text>+0x70>
++bl <ltmp<__text>+0x54>  @__ZN6strata8bindings29register_ndjson_iterator_typeEP7_object
++cbz w0, <ltmp<__text>+0x84>
+ mov x0, x19
+-bl <ltmp<__text>+0x50>  @__ZN6strata8bindings29register_ndjson_iterator_typeEP7_object
+-cbz w0, <ltmp<__text>+0x70>
++bl <ltmp<__text>+0x60>  @__ZN6strata8bindings23register_jsonpath_typesEP7_object
++cbz w0, <ltmp<__text>+0x84>
+ mov x0, x19
+-bl <ltmp<__text>+0x5c>  @__ZN6strata8bindings23register_jsonpath_typesEP7_object
+-cbz w0, <ltmp<__text>+0x70>
+-mov x0, x19
+-bl <ltmp<__text>+0x68>  @__ZN6strata8bindings29register_folder_iterator_typeEP7_object
+-tbnz w0, #0x0, <ltmp<__text>+0x90>
+-ldr w8, [x19]
+-tbnz w8, #0x1f, <ltmp<__text>+0x8c>
+-subs w8, w8, #0x1
+-str w8, [x19]
+-b.ne <ltmp<__text>+0x8c>
+-mov x0, x19
+-bl <ltmp<__text>+0x88>  @__Py_Dealloc
+-mov x19, #0x0
++bl <ltmp<__text>+0x6c>  @__ZN6strata8bindings29register_folder_iterator_typeEP7_object
++tbz w0, #0x0, <ltmp<__text>+0x84>
+ mov x0, x19
+ ldp x29, x30, [sp, #0x10]
+ ldp x20, x19, [sp], #0x20
+ ret
++ldr w8, [x19]
++tbnz w8, #0x1f, <ltmp<__text>+0xa0>
++subs w8, w8, #0x1
++str w8, [x19]
++b.ne <ltmp<__text>+0xa0>
++mov x0, x19
++bl <ltmp<__text>+0x9c>  @__Py_Dealloc
++mov x0, #0x0
++ldp x29, x30, [sp, #0x10]
++ldp x20, x19, [sp], #0x20
++ret

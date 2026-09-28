@@ -1,0 +1,255 @@
+# symbol: __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+# instructions: before 186, after 186; diff -64 +64
+--- before
++++ after
+@@ -1,186 +1,186 @@
+ pushq %r14
+ pushq %rbx
+ subq $0x18, %rsp
+ movq 0x8(%rsi), %rax
+ cmpq (%rip), %rax ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x12>  @_PyUnicode_Type@GOTPCREL
+ je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0xcb>
+ cmpq (%rip), %rax ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1f>  @_PyFloat_Type@GOTPCREL
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0xe6>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0xe8>
+ cmpq (%rip), %rax ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2c>  @_PyLong_Type@GOTPCREL
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x291>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x29c>
+ cmpq (%rip), %rax ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x39>  @_PyDict_Type@GOTPCREL
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x19e>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1b0>
+ cmpq (%rip), %rax ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x46>  @_PyList_Type@GOTPCREL
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x282>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x290>
+ cmpq (%rip), %rsi ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x53>  @__Py_NoneStruct@GOTPCREL
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1ca>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1da>
+ cmpq (%rip), %rsi ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x60>  @__Py_TrueStruct@GOTPCREL
+ setne %cl
+ cmpq (%rip), %rsi ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x6a>  @__Py_FalseStruct@GOTPCREL
+ setne %dl
+ testb %dl, %cl
+-jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1ff>
++jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x20f>
+ movq (%rdi), %rax
+ movq 0x38(%rax), %rcx
+ addq $0x5, %rcx
+ cmpq 0x18(%rax), %rcx
+ jbe <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x9f>
+ movq %rsi, %rbx
+ movl $0x5, %esi
+ movq %rdi, %r14
+ movq %rax, %rdi
+ callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x99>  @__ZN6strata8bindings12StagedOutput8overflowEm
+ movq %rbx, %rsi
+ movq %r14, %rdi
+ movq (%rdi), %rax
+ movq 0x10(%rax), %rcx
+ addq 0x38(%rax), %rcx
+ cmpq (%rip), %rsi ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0xb1>  @__Py_TrueStruct@GOTPCREL
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x251>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x261>
+ movb $0x65, 0x4(%rcx)
+ movl $0x736c6166, (%rcx) ## imm = 0x736C6166
+ addq $0x5, 0x38(%rax)
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x192>
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1a6>
+ movl 0x20(%rsi), %eax
+ notl %eax
+ testb $0x60, %al
+-jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x14b>
++jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x14d>
+ movq 0x10(%rsi), %rdx
+ addq $0x28, %rsi
+ callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0xe1>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x192>
++movb $0x1, %al
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x18d>
+ vmovq 0x10(%rsi), %xmm0
+ movq (%rdi), %rbx
+ movq 0x38(%rbx), %rax
+ leaq 0x28(%rax), %rcx
+ cmpq 0x18(%rbx), %rcx
+-jbe <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x11f>
++jbe <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x121>
+ movl $0x28, %esi
+ movq %rdi, %r14
+ movq %rbx, %rdi
+ vmovq %xmm0, 0x10(%rsp)
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x112>  @__ZN6strata8bindings12StagedOutput8overflowEm
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x114>  @__ZN6strata8bindings12StagedOutput8overflowEm
+ vmovq 0x10(%rsp), %xmm0
+ movq (%r14), %rbx
+ movq 0x38(%rbx), %rax
+ movb $0x3f, %cl
+ vmovq %xmm0, %rdx
+ bzhiq %rcx, %rdx, %rcx
+ addq 0x10(%rbx), %rax
+ movabsq $0x7ff0000000000000, %rdx ## imm = 0x7FF0000000000000
+ cmpq %rdx, %rcx
+-jl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x181>
++jl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x195>
+ movl $0x6c6c756e, (%rax) ## imm = 0x6C6C756E
+ movl $0x4, %eax
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x18e>
+-movq %rdi, %r14
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1a2>
++movq %rdi, %rbx
+ movq $0x0, 0x8(%rsp)
+ leaq 0x8(%rsp), %rax
+ movq %rsi, %rdi
+ movq %rax, %rsi
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x167>  @_PyUnicode_AsUTF8AndSize
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x169>  @_PyUnicode_AsUTF8AndSize
++movq %rax, %rsi
+ testq %rax, %rax
+-setne %bl
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x194>
++setne %al
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x18d>
+ movq 0x8(%rsp), %rdx
+-movq %r14, %rdi
+-movq %rax, %rsi
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x17f>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x194>
++movq %rbx, %rdi
++movl %eax, %ebx
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x183>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
++movl %ebx, %eax
++addq $0x18, %rsp
++popq %rbx
++popq %r14
++retq
++addq $0x18, %rsp
++popq %rbx
++popq %r14
++retq
+ movl $0x28, %esi
+ movq %rax, %rdi
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x18e>  @__ZN6strata4util13format_doubleEdPcm
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1a2>  @__ZN6strata4util13format_doubleEdPcm
+ addq %rax, 0x38(%rbx)
+-movb $0x1, %bl
+-movl %ebx, %eax
++movb $0x1, %al
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+ retq
+ movq 0x8(%rdi), %rax
+ movq 0x10(%rdi), %rcx
+ cmpq %rcx, %rax
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1be>
+-nopl (%rax,%rax)
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1ce>
++nopl (%rax)
+ cmpq %rsi, (%rax)
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x234>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x244>
+ addq $0x8, %rax
+ cmpq %rcx, %rax
+-jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1b0>
++jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1c0>
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1ca>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1da>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
+ movq (%rdi), %rax
+ movq 0x38(%rax), %rcx
+ leaq 0x4(%rcx), %rdx
+ cmpq 0x18(%rax), %rdx
+-jbe <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1f2>
++jbe <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x202>
+ movl $0x4, %esi
+ movq %rdi, %rbx
+ movq %rax, %rdi
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1eb>  @__ZN6strata8bindings12StagedOutput8overflowEm
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1fb>  @__ZN6strata8bindings12StagedOutput8overflowEm
+ movq (%rbx), %rax
+ movq 0x38(%rax), %rcx
+ movq 0x10(%rax), %rdx
+ movl $0x6c6c756e, (%rdx,%rcx) ## imm = 0x6C6C756E
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x257>
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x267>
+ testb $0x10, 0xab(%rax)
+-jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x245>
++jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x255>
+ movq %rsi, %r14
+ movq %rdi, %rbx
+-movq (%rip), %rsi ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x215>  @_PyFloat_Type@GOTPCREL
++movq (%rip), %rsi ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x225>  @_PyFloat_Type@GOTPCREL
+ movq %rax, %rdi
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x21d>  @_PyType_IsSubtype
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x22d>  @_PyType_IsSubtype
+ testl %eax, %eax
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x261>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x271>
+ vmovq 0x10(%r14), %xmm0
+ movq %rbx, %rdi
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x22f>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_doubleEd
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x192>
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x23f>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_doubleEd
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1a6>
+ cmpq %rcx, %rax
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1be>
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1ce>
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x245>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x255>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x251>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_stringEP7_object
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x261>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_stringEP7_object
+ movl $0x65757274, (%rcx) ## imm = 0x65757274
+ addq $0x4, 0x38(%rax)
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x192>
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x1a6>
+ movq %r14, %rsi
+ movq 0x8(%r14), %rax
+-movq 0xa8(%rax), %rcx
+-testl $0x1000000, %ecx ## imm = 0x1000000
+-jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x28e>
+-testl $0x6000000, %ecx ## imm = 0x6000000
+-je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x29d>
++movq 0xa8(%rax), %rax
+ movq %rbx, %rdi
++testl $0x1000000, %eax ## imm = 0x1000000
++jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x29c>
++testl $0x6000000, %eax ## imm = 0x6000000
++je <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2a8>
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x28e>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
+-movq %rbx, %rdi
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x29c>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x29d>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
+-testl $0x20000000, %ecx ## imm = 0x20000000
+-jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2c8>
+-movq (%rip), %rcx ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2ac>  @_PyExc_TypeError@GOTPCREL
+-movq (%rcx), %rdi
+-movq 0x18(%rax), %rdx
+-leaq 0x6d4a(%rip), %rsi ## <__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm.cold.1+0x764>  @__cstring
+-xorl %ebx, %ebx
+-xorl %eax, %eax
+-callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2c3>  @_PyErr_Format
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x194>
+-movq %rbx, %rdi
++jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2a8>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
++testl $0x20000000, %eax ## imm = 0x20000000
++jne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x249>
++callq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2b4>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2d7>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+-nopw (%rax,%rax)
++retq
++nopl (%rax)

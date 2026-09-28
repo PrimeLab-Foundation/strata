@@ -1,0 +1,45 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index 2f28cb3..dfb322a 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -518,8 +518,8 @@ class Serializer {
+      * as it is written (followed live, like a wide dict). The Frame is on the
+      * instance itself and opens before the first field, so an instance that
+      * contains itself meets the cycle policy as a dict does, and the instance
+-     * takes one level of the depth limit. Keys go through the key writer
+-     * write_mapping_uncached uses; nothing is copied into a temporary dict.
++     * takes one level of the depth limit. Keys go through the escaper every
++     * key uses (write_string_bytes); nothing is copied into a temporary dict.
+      */
+     [[nodiscard]] STRATA_COLD_FN bool write_dataclass(PyObject* object) {
+         const Frame frame(*this, object);
+@@ -540,7 +540,11 @@ class Serializer {
+                 out_.ensure(1);
+                 out_.put(',');
+             }
+-            if (!write_string(name))
++            // The name's UTF-8 goes straight to the escaper, not through
++            // write_string: see write_string for why it keeps hot callers only.
++            Py_ssize_t size = 0;
++            const char* const utf8 = PyUnicode_AsUTF8AndSize(name, &size);
++            if (utf8 == nullptr || !write_string_bytes(utf8, static_cast<size_t>(size)))
+                 return false;
+             out_.ensure(1);
+             out_.put(':');
+@@ -726,6 +730,16 @@ class Serializer {
+         out_.advance(util::format_double(value, out_.cursor(), util::kDoubleBufferSize));
+     }
+ 
++    /**
++     * A `str` as a JSON string. Only the hot writers call it (write,
++     * write_mapping_body, write_mapping_uncached): LLVM keeps
++     * write_string_bytes out of it only while every caller would inline it
++     * (the inliner's deferral, which counts on the last-call bonus). One cold
++     * caller -- M15's write_dataclass did this -- lets write_string_bytes
++     * inline here, write_string grows past the hot-call threshold, and
++     * write() and write_mapping_body pay a call per string under PGO
++     * (`dumps flat` +1.5-3% on the M1). Cold writers call write_string_bytes.
++     */
+     [[nodiscard]] bool write_string(PyObject* object) {
+         // Compact ASCII is the overwhelmingly common shape and its bytes are
+         // the UTF-8, sitting right after the header.

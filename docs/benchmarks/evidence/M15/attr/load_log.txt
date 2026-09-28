@@ -1,0 +1,64 @@
+== c2_screen wait-start 2026-09-29 00:51:41
+ 0:51  up 10 days, 11:59, 1 user, load averages: 3.88 3.13 2.78
+  PID  %CPU COMM
+23237  90.1 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+ 1018  85.1 /usr/libexec/duetexpertd
+ 1696  47.9 /System/Library/PrivateFrameworks/XprotectFramework.framework/Versions/A/XPCServices/XprotectService.xpc/Contents/MacOS/XprotectService
+37793   6.5 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+89420   6.1 node
+== c2_screen wait-end 2026-09-29 00:54:57
+ 0:54  up 10 days, 12:02, 1 user, load averages: 2.35 3.06 2.84
+  PID  %CPU COMM
+25753  95.8 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   5.5 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+25306   0.7 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+76686   0.7 /Users/borysbardysh/Library/Application Support/Claude/claude-code/2.1.281/claude.app/Contents/MacOS/claude
+  830   0.6 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+== c2_screen before 2026-09-29 00:54:57
+ 0:54  up 10 days, 12:02, 1 user, load averages: 2.35 3.06 2.84
+  PID  %CPU COMM
+25753  96.9 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+ 1696  33.1 /System/Library/PrivateFrameworks/XprotectFramework.framework/Versions/A/XPCServices/XprotectService.xpc/Contents/MacOS/XprotectService
+37793   6.4 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  825   4.6 /usr/libexec/searchpartyd
+90028   4.3 /usr/libexec/trustd
+== c2_screen after 2026-09-29 01:01:17
+ 1:01  up 10 days, 12:08, 1 user, load averages: 2.48 2.65 2.70
+  PID  %CPU COMM
+37793   7.3 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+82312   3.4 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+  646   3.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+10618   2.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+  665   1.5 /usr/libexec/airportd
+== aa_s1 wait-start 2026-09-29 01:01:17
+ 1:01  up 10 days, 12:08, 1 user, load averages: 2.48 2.65 2.70
+  PID  %CPU COMM
+37793   7.3 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+82312   3.4 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+  646   3.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+10618   2.4 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+  665   1.5 /usr/libexec/airportd
+== aa_s1 wait-end 2026-09-29 01:01:17
+ 1:01  up 10 days, 12:08, 1 user, load averages: 2.44 2.64 2.69
+  PID  %CPU COMM
+37793   5.4 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+82312   2.3 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+  646   2.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+10618   1.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+28169   1.3 bash
+== aa_s1 before 2026-09-29 01:01:17
+ 1:01  up 10 days, 12:08, 1 user, load averages: 2.44 2.64 2.69
+  PID  %CPU COMM
+37793   5.4 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+82312   2.3 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+  646   2.1 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+10618   1.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+  830   0.9 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN
+== aa_s1 after 2026-09-29 01:07:59
+ 1:07  up 10 days, 12:15, 1 user, load averages: 4.74 3.88 3.24
+  PID  %CPU COMM
+10618 121.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+28953  40.0 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+  646  17.8 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+  641   9.7 /usr/libexec/corebrightnessd
+  935   7.3 /System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter

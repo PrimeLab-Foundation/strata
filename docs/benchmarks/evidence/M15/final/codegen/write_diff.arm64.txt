@@ -1,0 +1,40 @@
+# symbol: __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+# instructions: before 281, after 293; diff -3 +15
+--- before
++++ after
+@@ -256,7 +256,12 @@
+ ldp d9, d8, [sp, #0x10]
+ add sp, sp, #0x50
+ b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x404>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
+-tbnz w9, #0x1d, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x448>
++tbnz w9, #0x1d, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x45c>
++adrp x9, <ltmp0>  @__ZN6strata8bindings6native15g_runtime_readyE
++ldr x9, [x9]  @__ZN6strata8bindings6native15g_runtime_readyE
++ldrb w9, [x9]
++cmp w9, #0x1
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x478>
+ adrp x9, <ltmp0>  @_PyExc_TypeError
+ ldr x9, [x9]  @_PyExc_TypeError
+ ldr x0, [x9]
+@@ -264,7 +269,7 @@
+ str x8, [sp]
+ adrp x1, <ltmp0>  @l_.str.17
+ add x1, x1, #0x0  @l_.str.17
+-bl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x428>  @_PyErr_Format
++bl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x43c>  @_PyErr_Format
+ mov w0, #0x0
+ ldp x29, x30, [sp, #0x40]
+ ldp x20, x19, [sp, #0x30]
+@@ -278,4 +283,11 @@
+ ldp x22, x21, [sp, #0x20]
+ ldp d9, d8, [sp, #0x10]
+ add sp, sp, #0x50
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x460>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x474>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++mov x0, x19
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x490>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object

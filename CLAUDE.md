@@ -27,7 +27,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── benchmarking/        # skill doc: benchmark suite, gating, standings
 │   ├── performance/         # skill doc: optimization playbook + negative results
 │   ├── history/             # skill doc: project lineage and ../archive/ map
-│   └── benchmarks/          # machine-written results: tier reports, ci/ per platform-arch, ci_summary.md
+│   └── benchmarks/          # machine-written results: tier reports, ci/ per platform-arch, ci_summary.md, evidence/<milestone>/ (A/B and codegen packets copied out of build/evidence)
 ├── .clang-format / .ruff.toml / .editorconfig / .markdownlint.yaml   # style configs
 ├── .pre-commit-config.yaml  # style gates: ruff, clang-format, mdformat, markdownlint
 ├── .github/workflows/       # ci.yml (matrix, coverage, style, corpus) + fuzz/benchmark/pgo

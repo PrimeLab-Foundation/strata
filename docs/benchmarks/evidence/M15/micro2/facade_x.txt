@@ -1,0 +1,6 @@
+tiny         main  strata.loads      192.2 ns (189.3-195.9)  norm 1.6306  n=244
+tiny         new   strata.loads      180.2 ns (177.0-185.9)  norm 1.5211  n=244
+tiny         new/main-1: raw -6.26%  (-12.0 ns)  normalised -6.71%
+small-mixed  main  strata.loads   108398.5 ns (106574.8-110410.1)  norm 0.9092  n=244
+small-mixed  new   strata.loads   108806.1 ns (107058.3-111577.6)  norm 0.9084  n=244
+small-mixed  new/main-1: raw +0.38%  (+407.6 ns)  normalised -0.09%

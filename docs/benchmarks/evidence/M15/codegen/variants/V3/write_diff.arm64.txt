@@ -1,0 +1,214 @@
+# symbol: __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+# instructions: before 281, after 293; diff -61 +73
+--- before
++++ after
+@@ -16,7 +16,7 @@
+ adrp x9, <ltmp0>  @_PyLong_Type
+ ldr x9, [x9]  @_PyLong_Type
+ cmp x8, x9
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3f0>
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3f4>
+ adrp x9, <ltmp0>  @_PyDict_Type
+ ldr x9, [x9]  @_PyDict_Type
+ cmp x8, x9
+@@ -24,7 +24,7 @@
+ adrp x9, <ltmp0>  @_PyList_Type
+ ldr x9, [x9]  @_PyList_Type
+ cmp x8, x9
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x388>
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x38c>
+ adrp x9, <ltmp0>  @__Py_NoneStruct
+ ldr x9, [x9]  @__Py_NoneStruct
+ cmp x1, x9
+@@ -39,15 +39,15 @@
+ b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x2b4>
+ ldrb w9, [x8, #0xab]
+ tbnz w9, #0x4, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x320>
+-mov x20, x1
+-mov x19, x0
++mov x19, x1
++mov x20, x0
+ adrp x1, <ltmp0>  @_PyFloat_Type
+ ldr x1, [x1]  @_PyFloat_Type
+ mov x0, x8
+ bl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0xb8>  @_PyType_IsSubtype
+ cbz w0, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x36c>
+-ldr d0, [x20, #0x10]
+-mov x0, x19
++ldr d0, [x19, #0x10]
++mov x0, x20
+ bl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0xc8>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_doubleEd
+ b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x350>
+ ldr w8, [x1, #0x20]
+@@ -119,7 +119,7 @@
+ b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x350>
+ ldp x9, x8, [x0, #0x8]
+ cmp x9, x8
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d4>
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d8>
+ sub x10, x8, x9
+ sub x10, x10, #0x8
+ mvn w11, w10
+@@ -130,30 +130,30 @@
+ and x11, x11, #0x3
+ ldr x12, [x9]
+ cmp x12, x1
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b4>
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b8>
+ add x9, x9, #0x8
+ subs x11, x11, #0x1
+ b.ne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x208>
+ cmp x10, #0x18
+-b.lo <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d4>
++b.lo <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d8>
+ add x9, x9, #0x10
+ ldur x10, [x9, #-0x10]
+ cmp x10, x1
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3a0>
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3a4>
+ ldur x10, [x9, #-0x8]
+ cmp x10, x1
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3a8>
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3ac>
+ ldr x10, [x9]
+ cmp x10, x1
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b8>
++ldr x10, [x9, #0x8]
++cmp x10, x1
+ b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b4>
+-ldr x10, [x9, #0x8]
+-cmp x10, x1
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b0>
+ add x10, x9, #0x10
+ add x9, x9, #0x20
+ cmp x10, x8
+ b.ne <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x22c>
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d4>
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d8>
+ ldr x8, [x0]
+ ldr x9, [x8, #0x38]
+ add x10, x9, #0x4
+@@ -217,54 +217,58 @@
+ ldp d9, d8, [sp, #0x10]
+ add sp, sp, #0x50
+ ret
+-mov x1, x20
+-ldr x8, [x20, #0x8]
+-ldr x9, [x8, #0xa8]
+-tbnz w9, #0x18, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3ec>
++mov x1, x19
++ldr x0, [x19, #0x8]
++ldr x9, [x0, #0xa8]
++mov x8, x20
++tbnz w9, #0x18, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3f0>
+ tst x9, #0x6000000
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x408>
+-mov x0, x19
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x39c>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x40c>
++mov x0, x8
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3a0>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
+ sub x9, x9, #0x10
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b4>
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b8>
+ sub x9, x9, #0x8
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b4>
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3b8>
+ add x9, x9, #0x8
+ cmp x9, x8
+-b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d4>
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d0>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3e8>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
+-mov x0, x19
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x404>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
+-tbnz w9, #0x1d, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x448>
+-adrp x9, <ltmp0>  @_PyExc_TypeError
+-ldr x9, [x9]  @_PyExc_TypeError
+-ldr x0, [x9]
++b.eq <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d8>
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3d4>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x3ec>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
++mov x0, x8
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x408>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
++tbnz w9, #0x1d, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x458>
++bl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x410>  @__ZN6strata8bindings6native12maybe_nativeEP11_typeobject
++cbnz w0, <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x474>
++adrp x8, <ltmp0>  @_PyExc_TypeError
++ldr x8, [x8]  @_PyExc_TypeError
++ldr x0, [x8]
++ldr x8, [x19, #0x8]
+ ldr x8, [x8, #0x18]
+ str x8, [sp]
+ adrp x1, <ltmp0>  @l_.str.17
+ add x1, x1, #0x0  @l_.str.17
+-bl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x428>  @_PyErr_Format
++bl <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x438>  @_PyErr_Format
+ mov w0, #0x0
+ ldp x29, x30, [sp, #0x40]
+ ldp x20, x19, [sp, #0x30]
+@@ -272,10 +276,18 @@
+ ldp d9, d8, [sp, #0x10]
+ add sp, sp, #0x50
+ ret
+-mov x0, x19
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x460>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++mov x0, x8
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x470>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++mov x0, x20
++mov x1, x19
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object+0x490>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object

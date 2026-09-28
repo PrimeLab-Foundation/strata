@@ -1,0 +1,2080 @@
+Counters:
+  src/strata/util/folder.cpp;_ZNSt3__127__insertion_sort_incompleteB9nqe210106INS_17_ClassicAlgPolicyERZN6strata4util19discover_json_filesENS_17basic_string_viewIcNS_11char_traitsIcEEEEE3$_0PNS_4pairINS_12basic_stringIcS6_NS_9allocatorIcEEEESE_EEEEbT1_SH_T0_:
+    Hash: 0x03809de3ac8888ad
+    Counters: 20
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata24get_duplicate_key_policyEv:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [124609]
+  _ZNSt3__120__shared_ptr_emplaceIN6strata9JsonValueENS_9allocatorIS2_EEED0Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_19cursor_atEP7_objectS3_:
+    Hash: 0x04786bf9c64bdedd
+    Counters: 18
+    Block counts: [16, 10, 10, 4, 0, 6, 0, 0, 6, 0, 6, 0, 0, 2, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE11scan_stringEv:
+    Hash: 0x09334cfeb8ab3bbf
+    Counters: 34
+    Block counts: [34761, 8204, 29860, 34761, 23, 34761, 29860, 246633, 8181, 8181, 246633, 246633, 8204, 1068, 25836, 2080, 0, 1043, 1584, 1051, 1037, 1062, 238429, 0, 0, 0, 25836, 1572, 0, 1572, 1572, 0, 1572, 1572]
+  _ZN6strata4util20parse_number_unifiedEPKcmRNS0_12ParsedNumberE:
+    Hash: 0x000150d49b466e84
+    Counters: 97
+    Block counts: [45428, 201187, 47088, 20, 30033, 48304, 4360, 0, 200165, 342384, 1579275, 0, 342384, 823098, 0, 1375700, 0, 0, 342382, 621911, 608747, 125275, 342372, 165981, 119055, 511503, 73563, 12750, 60024, 341400, 339176, 204347, 90671, 0, 566454, 65484, 902, 566454, 12680, 57591, 22611, 232493, 382, 522, 86311, 30624, 47104, 47102, 48304, 57585, 232493, 45402, 42017, 53196, 232493, 0, 47088, 0, 29772, 202721, 1190, 37145, 9273, 232493, 43519, 14991, 17337, 18836, 0, 186200, 37145, 29772, 14785, 32328, 14987, 1216, 37133, 23181, 0, 2530, 119055, 30033, 201357, 176, 4872, 168, 81854, 58787, 2306, 1216, 1216, 1202, 32, 636, 0, 0, 0]
+  src/strata/bindings/python_parse_types_walk.cpp;_ZNSt3__16vectorIN6strata8bindings11parse_types12_GLOBAL__N_14Walk5FrameENS_9allocatorIS6_EEE22__base_destruct_at_endB9nqe210106EPS6_:
+    Hash: 0x0209aa3e1d398548
+    Counters: 2
+    Block counts: [0, 0]
+  _ZNSt3__114__split_bufferIN6strata8bindings19PythonObjectBuilder12PredictedKeyERNS_9allocatorIS4_EEED2Ev:
+    Hash: 0x0b15abf1d8f7a859
+    Counters: 4
+    Block counts: [0, 0, 501, 275]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_114split_uuid_intEP7_objectRyS5_:
+    Hash: 0x0b2b48c818a41936
+    Counters: 12
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder15prediction_hitsERKNS1_12PredictedKeyEPKcm:
+    Hash: 0x0e1982a2a9e4d6ad
+    Counters: 6
+    Block counts: [2880351, 2875089, 5160, 1899163, 0, 0]
+  src/strata/bindings/python_jsonpath.cpp;_ZN6strata8bindings12_GLOBAL__N_116compiled_deallocEP7_object:
+    Hash: 0x0b15abf1de983816
+    Counters: 5
+    Block counts: [116, 116, 116, 106, 0]
+  _ZN6strata8bindings6native15format_temporalEP7_objectNS1_4KindEPc:
+    Hash: 0x019d8f347537837f
+    Counters: 20
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE9__emplaceB9nqe210106ILm5EJSF_EEERDaDpOT0_:
+    Hash: 0x045efd1792c35b9c
+    Counters: 4
+    Block counts: [50, 50, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler7on_nullEv:
+    Hash: 0x0b71a5b033c46c2e
+    Counters: 8
+    Block counts: [702, 702, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_118strata_config_listEP7_objectS1_:
+    Hash: 0x0d01d980a2e22c3f
+    Counters: 22
+    Block counts: [8, 4, 4, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNK6strata10JsonCursor11object_sizeEv:
+    Hash: 0x07df0bf8374551cf
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIjNS_9allocatorIjEEE16__init_with_sizeB9nqe210106IPKjS6_EEvT_T0_m:
+    Hash: 0x049ab80db59e4140
+    Counters: 8
+    Block counts: [89456, 89456, 89456, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_files.cpp;_ZN6strata8bindings12_GLOBAL__N_19read_someEiPcm:
+    Hash: 0x03fd5b9086e6e9c5
+    Counters: 6
+    Block counts: [4190, 4190, 0, 0, 4190, 0]
+  _ZNSt3__134__uninitialized_allocator_relocateB9nqe210106INS_9allocatorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS1_IcEEEEN6strata9JsonValueEEEEEPSA_EEvRT_T0_SF_SF_:
+    Hash: 0x0b15abf2c5790090
+    Counters: 4
+    Block counts: [25530, 25530, 19818, 0]
+  _ZN6strata8bindings23register_jsonpath_typesEP7_object:
+    Hash: 0x0f37fb865004f03a
+    Counters: 6
+    Block counts: [17, 17, 0, 0, 0, 0]
+  _ZNSt3__114__split_bufferINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEERNS4_IS6_EEED2Ev:
+    Hash: 0x0b15abf1d8f7a859
+    Counters: 4
+    Block counts: [0, 0, 3073, 1267]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder6SchemaENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata8bindings6native11format_uuidEP7_objectPc:
+    Hash: 0x08fc4894c7b44435
+    Counters: 11
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings16get_cycle_policyEv:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [5088]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE5valueIZNS3_7on_nullEvEUlvE_EEbOT_:
+    Hash: 0x0014b8eb06e4f37a
+    Counters: 12
+    Block counts: [324, 4234, 4234, 4234, 20, 3644, 6, 34, 2838, 6, 12, 16]
+  _ZN6strata8bindings19PythonObjectBuilder12on_double_atENS1_11ValueCursorEd:
+    Hash: 0x0f9bab18845bd106
+    Counters: 3
+    Block counts: [993227, 0, 4]
+  _ZNSt3__1ssB9nqe210106IcNS_11char_traitsIcEENS_9allocatorIcEEEEDaRKNS_12basic_stringIT_T0_T1_EESC_:
+    Hash: 0x0c2082d6924dd5e8
+    Counters: 8
+    Block counts: [17983, 9316, 0, 0, 0, 0, 0, 0]
+  _ZN6strata17serialize_json_toERKNS_9JsonValueERNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEE:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [0, 0]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE13__vdeallocateEv:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [0, 2044, 0]
+  src/strata/bindings/python_jsonpath.cpp;_ZN6strata8bindings12_GLOBAL__N_112resolve_pathEP7_objectRNSt3__16vectorINS_8PathStepENS4_9allocatorIS6_EEEE:
+    Hash: 0x01e049583be774d4
+    Counters: 7
+    Block counts: [228, 2, 1868, 228, 52, 1816, 0]
+  _ZN6strata8bindings21prepare_dumps_runtimeEv:
+    Hash: 0x09a4e9b79ed15ba9
+    Counters: 6
+    Block counts: [17, 0, 17, 17, 0, 0]
+  _ZN6strata8bindings18compile_expressionEP7_object:
+    Hash: 0x00b8e87b4f927268
+    Counters: 10
+    Block counts: [118, 116, 116, 116, 116, 0, 0, 106, 0, 0]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEN6strata9JsonValueEEENS5_ISA_EEE24__emplace_back_slow_pathIJS7_S9_EEEPSA_DpOT_:
+    Hash: 0x0b2b48c8917dd4d4
+    Counters: 11
+    Block counts: [0, 19818, 19818, 11744, 0, 0, 0, 0, 0, 0, 19818]
+  _ZNSt3__16vectorIN6strata9JsonValueENS_9allocatorIS2_EEE9push_backB9nqe210106EOS2_:
+    Hash: 0x0f9bab18153ad9d6
+    Counters: 3
+    Block counts: [15312, 49170, 0]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_115class_attributeEP7_objectS4_:
+    Hash: 0x0b15abf29747b713
+    Counters: 5
+    Block counts: [7, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object:
+    Hash: 0x0922a303d1e9045e
+    Counters: 56
+    Block counts: [1803707, 0, 24, 12314, 70497, 1817125, 1805141, 1815691, 454, 156, 112, 112, 1803707, 0, 46, 112, 1653902, 269269, 28, 269269, 476729, 44, 44, 269179, 928018, 184196, 790, 84253, 269225, 257241, 184180, 24, 239355, 0, 0, 29914, 12314, 29870, 70497, 1418, 1418, 6, 0, 0, 0, 0, 0, 0, 0, 0, 1580625, 84, 257285, 195918, 256909, 255483]
+  _ZN6strata8bindings14load_from_fileEPKcS2_bbPb:
+    Hash: 0x010bcb926adef133
+    Counters: 49
+    Block counts: [17, 295, 6, 26, 1602, 1600, 1600, 28, 1584, 868, 6, 6, 16, 179, 0, 0, 17, 295, 6, 1085, 2, 6, 4, 2, 1061, 4, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 159, 159, 709, 4, 4, 2, 705, 705]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_114cursor_deallocEP7_object:
+    Hash: 0x0f610d3cb0b67aca
+    Counters: 4
+    Block counts: [179, 179, 179, 67]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_112strata_queryEP7_objectS1_S1_:
+    Hash: 0x04786bf9be7e76a3
+    Counters: 18
+    Block counts: [874, 874, 0, 874, 2, 812, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_122reviving_iterator_selfEP7_object:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE10parse_nullINS_11PlainCursorEEET_S8_:
+    Hash: 0x0bb9fb6119114def
+    Counters: 5
+    Block counts: [4558, 4558, 4558, 4558, 4558]
+  _ZN6strata8bindings11parse_types6reviveEP7_objectS3_:
+    Hash: 0x025cf23a6f341caa
+    Counters: 45
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE18__construct_at_endIPS2_S7_EEvT_T0_m:
+    Hash: 0x07df0bf8b27d01f9
+    Counters: 4
+    Block counts: [524, 228, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder6on_keyENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE:
+    Hash: 0x0ae15a44542b0f02
+    Counters: 2
+    Block counts: [1119563, 1119561]
+  _ZN6strata8bindings15PythonMatchSink12finish_valueEv:
+    Hash: 0x07df0bf906bc6cf9
+    Counters: 5
+    Block counts: [4677, 4018, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder12PredictedKeyENS_9allocatorIS4_EEE26__swap_out_circular_bufferERNS_14__split_bufferIS4_RS6_EE:
+    Hash: 0x0b15abf2a34f2712
+    Counters: 4
+    Block counts: [1049, 1049, 0, 501]
+  src/strata/bindings/python_ndjson.cpp;_ZN6strata8bindings12_GLOBAL__N_113iterator_selfEP7_object:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [13, 13]
+  _ZN6strata8bindings7rawdict20probe_unicode_layoutEv:
+    Hash: 0x0f4a3deaf7630dee
+    Counters: 19
+    Block counts: [17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 0, 0, 0, 17, 17]
+  _ZNK6strata10JsonCursor10get_stringEv:
+    Hash: 0x0d86b9c10b77b6c8
+    Counters: 6
+    Block counts: [4, 30, 26, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata19StreamSearchHandlerINS1_8bindings15PythonMatchSinkEE5LevelENS_9allocatorIS6_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE9__emplaceB9nqe210106ILm4EJSD_EEERDaDpOT0_:
+    Hash: 0x045efd1792c35b9c
+    Counters: 4
+    Block counts: [9, 9, 0, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC2B9nqe210106ILi0EEEPKc:
+    Hash: 0x0eee82b30e2adb40
+    Counters: 5
+    Block counts: [174, 200, 172, 0, 0]
+  src/strata/bindings/python_parse_types_walk.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_14Walk4openENS0_5PyRefES4_S4_S4_l:
+    Hash: 0x0ac7ccadb3ac0be1
+    Counters: 13
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings7rawdict14probe_fill_intEP7_objecti:
+    Hash: 0x029b199b8ba775ef
+    Counters: 7
+    Block counts: [3400, 3400, 17, 0, 0, 0, 3400]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_114cursor_is_boolEP7_objectS3_:
+    Hash: 0x05fcfa1a0c976867
+    Counters: 3
+    Block counts: [16, 16, 6]
+  src/strata/util/temporal.cpp;_ZN6strata4util12_GLOBAL__N_19scan_dateEPKcRNS0_14TemporalFieldsE:
+    Hash: 0x02836c42ff6ee3b5
+    Counters: 18
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_folder.cpp;_ZN6strata8bindings12_GLOBAL__N_123folder_iterator_deallocEP7_object:
+    Hash: 0x014c19ca69d0ac6d
+    Counters: 8
+    Block counts: [44, 44, 0, 28, 0, 28, 0, 28]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE9push_backB9nqe210106ERKS6_:
+    Hash: 0x0b15abf2c649cb16
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler14on_start_arrayEv:
+    Hash: 0x06e3a48604fe7383
+    Counters: 12
+    Block counts: [0, 13936, 142, 13794, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNK6strata10JsonCursor7get_intEv:
+    Hash: 0x03510b1ec0eebdf1
+    Counters: 3
+    Block counts: [14, 6, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer17write_native_textEPKcl:
+    Hash: 0x09b782079c6b2e07
+    Counters: 3
+    Block counts: [0, 0, 0]
+  PyInit__strata:
+    Hash: 0x0f524832b10f5cba
+    Counters: 15
+    Block counts: [0, 17, 17, 17, 17, 17, 17, 0, 17, 17, 0, 17, 0, 17, 17]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_113strata_searchEP7_objectS1_S1_:
+    Hash: 0x06c929bf4b28cbd8
+    Counters: 20
+    Block counts: [2, 946, 946, 0, 87, 859, 2, 835, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS5_IS8_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler13on_end_objectEv:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEmEENS_19__map_value_compareIS7_NS_4pairIKS7_mEENS_4lessIS7_EELb1EEENS5_ISC_EEE7destroyEPNS_11__tree_nodeIS8_PvEE:
+    Hash: 0x03510b1ef4d74962
+    Counters: 3
+    Block counts: [477, 188, 0]
+  _ZN6strata8bindings11search_fileEPKcP7_objectPb:
+    Hash: 0x0cde18e40f1c3b38
+    Counters: 11
+    Block counts: [1120, 1120, 1114, 388, 328, 928, 728, 726, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object:
+    Hash: 0x04f1033ec35542d9
+    Counters: 45
+    Block counts: [459498, 327043, 113463, 8712, 226418, 459454, 8380, 430726, 426860, 201028, 550483, 229698, 96, 550579, 549715, 20958, 548227, 11680, 16118, 299, 550483, 22471, 502135, 206781, 12012, 191109, 156628, 121323, 121323, 223124, 191013, 47166, 121323, 189525, 0, 0, 0, 0, 0, 0, 0, 0, 440504, 191013, 548227]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer15close_containerEP7_object:
+    Hash: 0x07df0bf91220b8c6
+    Counters: 5
+    Block counts: [318005, 318005, 37261, 37261, 44]
+  _ZN6strata8bindings19PythonObjectBuilderD2Ev:
+    Hash: 0x09a4e9b835ea38ae
+    Counters: 5
+    Block counts: [0, 0, 691, 98, 110]
+  _ZNSt3__16vectorIP7_objectNS_9allocatorIS2_EEE7reserveEm:
+    Hash: 0x05d1729f4abdfee2
+    Counters: 5
+    Block counts: [0, 17619, 13879, 824, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS_19__map_value_compareIS7_NS_4pairIKS7_S7_EENS_4lessIS7_EELb1EEENS5_ISC_EEE25__emplace_unique_key_argsIS7_JRSB_RS7_EEENSA_INS_15__tree_iteratorIS8_PNS_11__tree_nodeIS8_PvEElEEbEERKT_DpOT0_:
+    Hash: 0x03510b1f60c12e99
+    Counters: 3
+    Block counts: [188, 188, 96]
+  _ZN6strata8bindings19PythonObjectBuilder13on_end_objectEv:
+    Hash: 0x04080bac6d2a6c80
+    Counters: 5
+    Block counts: [900864, 900864, 900864, 895104, 900864]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm0EEE10__dispatchB9nqe210106IOZNS0_6__ctorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE19__generic_constructB9nqe210106INS0_18__move_constructorISL_LNS0_6_TraitE1EEEEEvRSM_OT_EUlST_E_JONS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEEEEDcSS_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [1384]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_113loaded_moduleEPKc:
+    Hash: 0x0bb9fb6137617a92
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE11parse_valueINS_11PlainCursorEEET_S8_:
+    Hash: 0x0baf863fee7d422d
+    Counters: 36
+    Block counts: [359810, 0, 0, 405268, 3823, 765078, 359810, 2238, 5112, 405270, 0, 0, 0, 0, 7649, 205190, 4558, 118548, 30330, 38993, 205190, 165107, 205068, 205068, 193854, 31107, 16326, 40083, 180077, 8976, 17330, 13777, 17330, 13777, 17330, 3957]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_116cursor_is_objectEP7_objectS3_:
+    Hash: 0x05fcfa1a0c976867
+    Counters: 3
+    Block counts: [20, 20, 10]
+  _ZNSt3__16vectorIP7_objectNS_9allocatorIS2_EEE16__init_with_sizeB9nqe210106IPKS2_S8_EEvT_T0_m:
+    Hash: 0x049ab80db59e4140
+    Counters: 8
+    Block counts: [1142, 1142, 1142, 0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE12parse_objectEv:
+    Hash: 0x01d3d93d42ad7a10
+    Counters: 48
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE11parse_valueINS_11PlainCursorEEET_S5_:
+    Hash: 0x07326d61cf04c009
+    Counters: 41
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6resizeEmc:
+    Hash: 0x056e49bf5cda148b
+    Counters: 5
+    Block counts: [2090, 1346, 744, 1346, 1346]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEN6strata9JsonValueEEENS5_ISA_EEE30__emplace_back_assume_capacityB9nqe210106IJS7_S9_EEEvDpOT_:
+    Hash: 0x0ae15a442a4d8805
+    Counters: 2
+    Block counts: [7812, 0]
+  _ZN6strata13is_streamableERKNSt3__16vectorINS_8PathStepENS0_9allocatorIS2_EEEE:
+    Hash: 0x06b949ee12543328
+    Counters: 9
+    Block counts: [10, 71, 4, 2788, 2616, 2616, 472, 928, 756]
+  _ZN6strata4util6detail18write_digits_fixedEyPcm:
+    Hash: 0x0d2ae951e51d982e
+    Counters: 7
+    Block counts: [34188, 476882, 130128, 123176, 346754, 0, 110687]
+  _ZN6strata8bindings6native11numpy_plainEP7_objectNS1_4KindE:
+    Hash: 0x06b949edcbcc49bb
+    Counters: 8
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm4ELm4EEE10__dispatchB9nqe210106IOZNS0_12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE16__generic_assignB9nqe210106INS0_17__move_assignmentISL_LNS0_6_TraitE1EEEEEvOT_EUlRSR_OT0_E_JRNS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEOSZ_EEEDcSR_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [9]
+  src/strata/bindings/python_jsonpath.cpp;_ZN6strata8bindings12_GLOBAL__N_113compiled_reprEP7_object:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [2]
+  _ZNSt3__1plIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_12basic_stringIT_T0_T1_EEPKS6_RKS9_:
+    Hash: 0x07baf9c419883335
+    Counters: 6
+    Block counts: [0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder18insert_into_objectEP7_objectS3_:
+    Hash: 0x0b916508fdeb563f
+    Counters: 38
+    Block counts: [2977920, 0, 0, 0, 0, 0, 0, 3854, 1938, 2972128, 1938, 2972128, 220, 1927239, 0, 0, 0, 0, 2, 3846, 3846, 440, 0, 2, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer22write_mapping_uncachedEP7_object:
+    Hash: 0x0cde18e4163a81a2
+    Counters: 10
+    Block counts: [318486, 318442, 297808, 0, 0, 20678, 0, 15806, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler10push_valueEONS_9JsonValueE:
+    Hash: 0x01c8d730d25ebcaf
+    Counters: 26
+    Block counts: [27630, 0, 92112, 67, 27630, 64482, 0, 0, 7812, 19818, 7812, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata9JsonValueENS_9allocatorIS2_EEE22__base_destruct_at_endB9nqe210106EPS2_:
+    Hash: 0x0c1a5df9de0d3043
+    Counters: 5
+    Block counts: [86496, 86496, 23296, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder15on_start_objectEv:
+    Hash: 0x07df0bf881856d00
+    Counters: 5
+    Block counts: [910332, 860027, 910332, 895932, 50305]
+  _ZSt28__throw_bad_array_new_lengthB9nqe210106v:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__16vectorIN6strata19StreamSearchHandlerINS1_8bindings15PythonMatchSinkEE5LevelENS_9allocatorIS6_EEE24__emplace_back_slow_pathIJS6_EEEPS6_DpOT_:
+    Hash: 0x03c3b8ba13a29ffe
+    Counters: 10
+    Block counts: [0, 1765, 1765, 1076, 0, 0, 0, 0, 0, 1765]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE7reserveEm:
+    Hash: 0x09b78207aa7f3cf9
+    Counters: 3
+    Block counts: [198, 184, 0]
+  _ZNK6strata10JsonCursor10get_doubleEv:
+    Hash: 0x07735b69b972a322
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE6on_keyENSt3__117basic_string_viewIcNS4_11char_traitsIcEEEE:
+    Hash: 0x0d32dd066bd6d753
+    Counters: 21
+    Block counts: [2570, 125515, 438, 125515, 446, 90, 54913, 0, 0, 54913, 54143, 360, 4789, 310, 4559, 42, 0, 0, 4431, 0, 8]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm1EEE10__dispatchB9nqe210106IOZNS0_6__dtorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEELNS0_6_TraitE1EE9__destroyB9nqe210106EvEUlRT_E_JRNS0_6__baseILSM_1EJDnbdSD_SI_SK_EEEEEEDcSO_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [5132]
+  _ZNSt3__110unique_ptrINS_11__tree_nodeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectEEPvEENS_22__tree_node_destructorINS6_ISD_EEEEE5resetB9nqe210106EPSD_:
+    Hash: 0x07735b6a57b9363b
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer5FrameC1ERS2_P7_object:
+    Hash: 0x0bb9fb60dfb6b1fb
+    Counters: 4
+    Block counts: [1820454, 1819664, 85093, 84303]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_:
+    Hash: 0x09fc178cd16abb4c
+    Counters: 50
+    Block counts: [0, 29868, 0, 12, 0, 89604, 89604, 59736, 89604, 29868, 29868, 29868, 0, 29868, 29868, 0, 0, 0, 29868, 0, 0, 0, 29799, 2, 0, 18493, 18493, 12, 11361, 11361, 0, 0, 11361, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__112__destroy_atB9nqe210106INS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EELi0EEEvPT_:
+    Hash: 0x03510b1eef5cc5c1
+    Counters: 3
+    Block counts: [436, 0, 0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE5valueIZNS3_9on_stringENSt3__117basic_string_viewIcNS5_11char_traitsIcEEEEEUlvE_EEbOT_:
+    Hash: 0x0014b8eb06e4f37a
+    Counters: 12
+    Block counts: [694, 117854, 117854, 117854, 80, 24935, 42, 70, 12769, 42, 12, 24]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_125reviving_iterator_deallocEP7_object:
+    Hash: 0x0d329c8a1a9707c6
+    Counters: 14
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE5valueIZNS3_9on_doubleEdEUlvE_EEbOT_:
+    Hash: 0x0014b8eb06e4f37a
+    Counters: 12
+    Block counts: [286, 99513, 99513, 99513, 34, 20548, 12, 42, 3225, 12, 22, 8]
+  _ZN6strata4util23find_next_escape_scalarEPKcm:
+    Hash: 0x056e49bf3b9058a9
+    Counters: 8
+    Block counts: [2458, 2458, 28293, 21709, 16347, 21709, 16347, 30542]
+  _ZN6strata8bindings12StagedOutputD2Ev:
+    Hash: 0x0bb9fb60ce0a539b
+    Counters: 5
+    Block counts: [36497, 3114, 3114, 3114, 0]
+  src/strata/bindings/python_dumps.cpp;_ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv:
+    Hash: 0x0bb9fb612b3061e1
+    Counters: 4
+    Block counts: [550, 240, 0, 320]
+  _ZN6strata8bindings14ndjson_to_listENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEEb:
+    Hash: 0x07e1e8ce3abe2f3b
+    Counters: 14
+    Block counts: [24508, 287, 8, 8, 24508, 24508, 12, 8, 8, 295, 287, 0, 0, 2]
+  _ZN6strata8bindings12StagedOutput8overflowEm:
+    Hash: 0x0baa90d0cce8b9f7
+    Counters: 7
+    Block counts: [1988, 1988, 0, 196, 8758, 26, 196]
+  _ZN6strata4util13validate_utf8EPKcm:
+    Hash: 0x0d572f3dc01a2656
+    Counters: 23
+    Block counts: [7536, 7536, 0, 16484, 869930, 8404, 8948, 3916, 3916, 8300, 7536, 7536, 7536, 2796, 560, 764, 7536, 378, 0, 2418, 0, 862394, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectEENS_19__map_value_compareIS7_NS_4pairIKS7_S9_EENS_4lessIS7_EELb1EEENS5_ISE_EEE12__find_equalIS7_EERPNS_16__tree_node_baseIPvEERPNS_15__tree_end_nodeISO_EERKT_:
+    Hash: 0x056e49be8ba4f5a9
+    Counters: 6
+    Block counts: [60, 25, 95, 0, 54, 25]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS_19__map_value_compareIS7_NS_4pairIKS7_S7_EENS_4lessIS7_EELb1EEENS5_ISC_EEE16__construct_nodeIJRSB_RS7_EEENS_10unique_ptrINS_11__tree_nodeIS8_PvEENS_22__tree_node_destructorINS5_ISO_EEEEEEDpOT_:
+    Hash: 0x0f37fb8600a8f06d
+    Counters: 5
+    Block counts: [1128, 188, 0, 0, 0]
+  src/strata/bindings/python_parse_types_walk.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_14Walk5closeEv:
+    Hash: 0x03fd5b905058eb7d
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE10parse_nullINS2_11ValueCursorEEET_S6_:
+    Hash: 0x03fd5b908f1ceacc
+    Counters: 6
+    Block counts: [0, 184432, 184432, 184432, 184432, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler10on_big_intENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE:
+    Hash: 0x00dca456d28bd983
+    Counters: 18
+    Block counts: [577, 0, 577, 577, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_loads.cpp;_ZN6strata8bindings12_GLOBAL__N_112BuilderLease6sharedEv:
+    Hash: 0x07df0bf83349cd5a
+    Counters: 5
+    Block counts: [1953, 15841, 118990, 31, 31]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer16write_scalar_runEPP7_objectl:
+    Hash: 0x0e90b2a8b7180470
+    Counters: 59
+    Block counts: [48263, 6794, 76052, 428042, 421248, 499407, 423355, 248, 164, 421236, 290, 42, 580, 416, 12, 10107, 416700, 42, 415475, 5412, 16278, 189759, 3764, 4116, 6655, 86225, 215, 58974, 697, 267986, 0, 256, 258381, 0, 180, 247272, 431134, 430866, 0, 430602, 2, 365835, 802, 164821, 64751, 99806, 328, 190, 160, 2, 0, 168, 376, 12, 46260, 34, 34, 0, 64751]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm:
+    Hash: 0x0334b8aa859c7de8
+    Counters: 11
+    Block counts: [1980208, 136, 6024, 1958496, 21568, 6795, 0, 0, 14781, 14775, 14775]
+  _ZN6strata8bindings7rawdict18probe_subclass_keyEv:
+    Hash: 0x029b199b67435e0d
+    Counters: 7
+    Block counts: [17, 17, 17, 0, 0, 0, 17]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE11parse_arrayEv:
+    Hash: 0x0cf6868c4211f609
+    Counters: 28
+    Block counts: [96, 0, 0, 0, 0, 0, 6252818, 712699, 6252914, 96, 712699, 0, 6252818, 34, 712701, 712701, 712701, 712701, 5627874, 202, 46481, 666218, 328, 624944, 624742, 0, 0, 0]
+  _ZN6strata8bindings11parse_types9recognizeEP7_object:
+    Hash: 0x0db88f9b9b03d21d
+    Counters: 40
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings12StagedOutput10grow_blockEm:
+    Hash: 0x07735b6a1d5001e5
+    Counters: 3
+    Block counts: [384, 0, 222]
+  src/strata/bindings/python_folder.cpp;_ZN6strata8bindings12_GLOBAL__N_18discoverEPKcRNSt3__16vectorINS4_12basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEENS9_ISB_EEEE:
+    Hash: 0x029b199b81644a69
+    Counters: 9
+    Block counts: [0, 198, 0, 0, 0, 198, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110SerializerC1ERNS0_12StagedOutputERNS0_16SchemaCacheLease5StateE:
+    Hash: 0x0d2ae951f74803bb
+    Counters: 7
+    Block counts: [36497, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE9__emplaceB9nqe210106ILm2EJdEEERDaDpOT0_:
+    Hash: 0x045efd1792c35b9c
+    Counters: 4
+    Block counts: [2, 2, 0, 0]
+  _ZNSt3__112construct_atB9nqe210106IN6strata8PathStepEJRS2_EPS2_EEPT_S6_DpOT0_:
+    Hash: 0x03fd5b9085ca1f64
+    Counters: 5
+    Block counts: [524, 0, 0, 0, 0]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_114cursor_get_intEP7_objectS3_:
+    Hash: 0x04cc4eb16395f015
+    Counters: 12
+    Block counts: [14, 8, 0, 6, 0, 0, 6, 6, 0, 0, 0, 0]
+  _ZNSt3__16vectorINS_4__fs10filesystem15directory_entryENS_9allocatorIS3_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0b15abf25bc6533f
+    Counters: 4
+    Block counts: [756, 756, 336, 326]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb1EEERS5_PKcm:
+    Hash: 0x05d1729fd9e758ba
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE12parse_objectEv:
+    Hash: 0x0743b0d9d2ad7a10
+    Counters: 48
+    Block counts: [86212, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128085, 38993, 128085, 128083, 214297, 38993, 128085, 128083, 86212, 0, 0, 0, 0, 38993, 38993, 38993, 38993, 128085, 38993, 128085, 128085, 128085, 128085, 128085, 128085, 128085, 128085, 128085, 128083, 128083, 38993, 37979, 90104, 1012, 0, 0]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder6SchemaENS_9allocatorIS4_EEE6resizeEm:
+    Hash: 0x0f37fb860f53c04a
+    Counters: 5
+    Block counts: [0, 0, 0, 162, 0]
+  src/strata/json/json_serialize.cpp;_ZN6strata12_GLOBAL__N_115serialize_valueERKNS_9JsonValueERNSt3__112basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEE:
+    Hash: 0x039a6c76dc86e7a4
+    Counters: 19
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_127table_walk_matches_iteratorEP7_objectS4_:
+    Hash: 0x0436e89d668ae7c9
+    Counters: 12
+    Block counts: [0, 4352, 2890, 1462, 34, 1462, 34, 1462, 34, 34, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer12build_schemaERNS0_16SchemaCacheLease12DepthSchemasEm:
+    Hash: 0x0b1eb599f1a7e3ae
+    Counters: 10
+    Block counts: [1886, 4527, 764, 1886, 20871, 19218, 17618, 5013, 5273, 1024]
+  _ZN6strata8bindings19PythonObjectBuilder17clear_predictionsEv:
+    Hash: 0x09a4e9b83405eb4e
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 691]
+  _ZNSt3__16vectorIN6strata9JsonValueENS_9allocatorIS2_EEE24__emplace_back_slow_pathIJS2_EEEPS2_DpOT_:
+    Hash: 0x0615197cbfcb21e1
+    Counters: 9
+    Block counts: [15312, 15312, 7951, 0, 0, 0, 0, 0, 15312]
+  _ZN6strata8bindings16set_cycle_policyENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x056e49beaa871bf9
+    Counters: 7
+    Block counts: [4845, 4285, 312, 244, 4285, 310, 244]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm5EEE10__dispatchB9nqe210106IOZNS0_6__dtorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEELNS0_6_TraitE1EE9__destroyB9nqe210106EvEUlRT_E_JRNS0_6__baseILSM_1EJDnbdSD_SI_SK_EEEEEEDcSO_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [46951]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler9on_stringENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE:
+    Hash: 0x0c1604603493fcfe
+    Counters: 17
+    Block counts: [28896, 28896, 28896, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_111strata_dumpEP7_objectS1_S1_:
+    Hash: 0x06c929bed95024dc
+    Counters: 22
+    Block counts: [6, 210, 210, 117, 93, 93, 35, 6, 68, 18, 18, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12ParserInlineINS_12_GLOBAL__N_117DomBuilderHandlerEE11scan_stringEv:
+    Hash: 0x0c49bdaac0f12c15
+    Counters: 38
+    Block counts: [2060, 1000, 4470, 2060, 0, 2060, 4470, 56526, 1000, 1000, 56526, 56526, 1000, 280, 0, 355, 0, 265, 390, 255, 250, 265, 55526, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder13try_match_keyEPKcm:
+    Hash: 0x05763c66c14053a3
+    Counters: 16
+    Block counts: [988336, 2984788, 1562087, 1626514, 988336, 1253837, 1422701, 1626514, 1422701, 1229617, 638178, 1408129, 1153335, 572022, 672051, 672051]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS_19__map_value_compareIS7_NS_4pairIKS7_S7_EENS_4lessIS7_EELb1EEENS5_ISC_EEE7destroyEPNS_11__tree_nodeIS8_PvEE:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [477, 188]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEED1B9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [3]
+  _ZNSt3__1plB9nqe210106IcNS_11char_traitsIcEENS_9allocatorIcEEEENS_12basic_stringIT_T0_T1_EERKS9_PKS6_:
+    Hash: 0x07baf9c419883335
+    Counters: 6
+    Block counts: [234, 234, 234, 0, 0, 0]
+  src/strata/search/jsonpath_compile.cpp;_ZN6strata12_GLOBAL__N_110PathParser8read_intERx:
+    Hash: 0x003c26823cd5ba3d
+    Counters: 25
+    Block counts: [0, 0, 2181, 1071, 283, 0, 0, 24, 1110, 1096, 56, 1064, 0, 1086, 1064, 781, 283, 0, 781, 24, 1040, 0, 1040, 781, 24]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED1Ev:
+    Hash: 0x0ae15a44542b0f02
+    Counters: 2
+    Block counts: [0, 0]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder12PredictedKeyENS_9allocatorIS4_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0b15abf25bc6533f
+    Counters: 4
+    Block counts: [0, 0, 572, 0]
+  _ZN6strata8bindings12StagedOutput11direct_sinkEv:
+    Hash: 0x03fd5b907f72eb32
+    Counters: 5
+    Block counts: [6795, 6708, 11, 14770, 9]
+  _ZN6strata7FlatMapINSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEENS_9JsonValueEE4findERKS7_:
+    Hash: 0x0647d3dbfa271a76
+    Counters: 8
+    Block counts: [86001, 16527, 27630, 27630, 0, 0, 0, 0]
+  _ZNSt3__120__throw_out_of_rangeB9nqe210106EPKc:
+    Hash: 0x0ae15a442a4d8805
+    Counters: 2
+    Block counts: [0, 0]
+  _ZNSt3__16vectorIN6strata9JsonValueENS_9allocatorIS2_EEE24__emplace_back_slow_pathIJNS_7variantIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS3_IcEEEES5_NS1_7FlatMapISC_S2_EEEEEEEEPS2_DpOT_:
+    Hash: 0x0adfb9755ca7521f
+    Counters: 9
+    Block counts: [221, 221, 221, 154, 0, 0, 0, 0, 221]
+  _ZN6strata8bindings6native11field_valueEP7_objectS3_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata8bindings7GcPauseC2Ev:
+    Hash: 0x0f9bab1880c12e99
+    Counters: 4
+    Block counts: [60186, 60186, 60184, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler6on_keyENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE:
+    Hash: 0x0f9bab18153ad9d6
+    Counters: 3
+    Block counts: [114, 27516, 0]
+  _ZNK6strata10JsonCursor9get_fieldENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x04535b29cbf34077
+    Counters: 7
+    Block counts: [98, 98, 96, 0, 0, 2, 2]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm5ELm5EEE10__dispatchB9nqe210106IOZNS0_12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE16__generic_assignB9nqe210106INS0_17__move_assignmentISL_LNS0_6_TraitE1EEEEEvOT_EUlRSR_OT0_E_JRNS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEOSZ_EEEDcSR_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [50]
+  _ZN6strata12NdjsonStream9take_lineERNSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x06a13c357500757f
+    Counters: 15
+    Block counts: [4, 6, 0, 28637, 10, 28627, 0, 28627, 6, 6, 28925, 28627, 0, 0, 6]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm2EEE10__dispatchB9nqe210106IOZNS0_6__dtorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEELNS0_6_TraitE1EE9__destroyB9nqe210106EvEUlRT_E_JRNS0_6__baseILSM_1EJDnbdSD_SI_SK_EEEEEEDcSO_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [195776]
+  _ZN6strata8bindings16SchemaCacheLease6SchemaC2Ev:
+    Hash: 0x05c21930cbf67778
+    Counters: 8
+    Block counts: [2057488, 34261648, 2057488, 89456, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE10parse_boolINS_11PlainCursorEEET_S8_:
+    Hash: 0x0c724872fdbf724e
+    Counters: 12
+    Block counts: [7649, 3823, 3826, 3823, 3826, 3823, 3826, 3823, 3826, 3823, 3826, 3826]
+  _ZNSt3__16vectorIPKN6strata9JsonValueENS_9allocatorIS4_EEE9push_backB9nqe210106EOS4_:
+    Hash: 0x08d1c012816237bb
+    Counters: 8
+    Block counts: [0, 10, 12, 8, 12, 0, 0, 12]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder5FrameENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/bindings/python_ndjson.cpp;_ZN6strata8bindings12_GLOBAL__N_116iterator_deallocEP7_object:
+    Hash: 0x0bb9fb608e8f40a1
+    Counters: 4
+    Block counts: [17, 17, 17, 17]
+  src/strata/util/folder.cpp;_ZNSt3__17__sort5B9nqe210106INS_17_ClassicAlgPolicyERZN6strata4util19discover_json_filesENS_17basic_string_viewIcNS_11char_traitsIcEEEEE3$_0PNS_4pairINS_12basic_stringIcS6_NS_9allocatorIcEEEESE_EELi0EEEvT1_SH_SH_SH_SH_T0_:
+    Hash: 0x0d86b9c0ed5d4e0d
+    Counters: 8
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE5valueIZNS3_6on_intExEUlvE_EEbOT_:
+    Hash: 0x0014b8eb06e4f37a
+    Counters: 12
+    Block counts: [638, 100793, 100793, 100793, 4379, 22261, 4335, 56, 7907, 4335, 20, 26]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS5_IS8_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [436, 198, 184]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm0ELm0EEE10__dispatchB9nqe210106IOZNS0_12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE16__generic_assignB9nqe210106INS0_17__move_assignmentISL_LNS0_6_TraitE1EEEEEvOT_EUlRSR_OT0_E_JRNS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEOSZ_EEEDcSR_DpT0_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [0, 2]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE11parse_arrayEv:
+    Hash: 0x09776c1a2055f07d
+    Counters: 29
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE11append_utf8ERNSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEEj:
+    Hash: 0x0f37fb86555f6336
+    Counters: 5
+    Block counts: [25836, 0, 15500, 8764, 1572]
+  _ZN6strata8bindings7rawdict18probe_general_dictEP7_objectPNS1_5EntryEbb:
+    Hash: 0x0baf863f268d4c43
+    Counters: 30
+    Block counts: [17, 51, 3706, 3706, 3672, 3672, 3672, 3672, 51, 3672, 17, 51, 0, 51, 51, 51, 51, 697, 697, 697, 51, 51, 136, 136, 136, 136, 51, 51, 17, 51]
+  _ZN6strata8bindings11parse_types4loadEPKcS3_bbP7_object:
+    Hash: 0x0e772f7e27481e9f
+    Counters: 20
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE9read_hex4ERj:
+    Hash: 0x02c04919a6426ffc
+    Counters: 9
+    Block counts: [0, 109632, 78944, 30688, 0, 27408, 27408, 0, 109632]
+  _ZNSt3__112construct_atB9nqe210106IN6strata8bindings16SchemaCacheLease12DepthSchemasEJS4_EPS4_EEPT_S7_DpOT0_:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [8592, 2864]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE9__emplaceB9nqe210106ILm3EJS8_EEERDaDpOT0_:
+    Hash: 0x045efd1792c35b9c
+    Counters: 4
+    Block counts: [2, 2, 0, 0]
+  _ZNSt3__16vectorINS_3mapINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectNS_4lessIS7_EENS5_INS_4pairIKS7_S9_EEEEEENS5_ISG_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [123, 101, 101]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer12grow_schemasEm:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [12164, 12164]
+  _ZN6strata13eval_jsonpathERKNSt3__16vectorINS_8PathStepENS0_9allocatorIS2_EEEERKNS_9JsonValueE:
+    Hash: 0x07aa3bff56077baf
+    Counters: 71
+    Block counts: [0, 0, 6, 0, 6, 0, 0, 0, 10, 18, 0, 0, 0, 0, 0, 0, 0, 0, 14, 2, 2, 0, 0, 0, 0, 2, 0, 0, 14, 8, 18, 18, 2, 0, 0, 14, 14, 14, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE5valueIZNS3_10on_big_intENSt3__117basic_string_viewIcNS5_11char_traitsIcEEEEEUlvE_EEbOT_:
+    Hash: 0x0014b8eb06e4f37a
+    Counters: 12
+    Block counts: [300, 3660, 3660, 3660, 22, 1549, 6, 36, 424, 6, 20, 8]
+  _ZNSt3__112construct_atB9nqe210106IN6strata8bindings16SchemaCacheLease12DepthSchemasEJEPS4_EEPT_S7_DpOT0_:
+    Hash: 0x0014b8ead66d8c95
+    Counters: 10
+    Block counts: [89456, 22364, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE9push_backB9nqe210106EOS2_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [769, 5163]
+  _ZN6strata8bindings7rawdict12probe_layoutEv:
+    Hash: 0x03510b1ed9883335
+    Counters: 3
+    Block counts: [17, 0, 17]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE9__emplaceB9nqe210106ILm1EJbEEERDaDpOT0_:
+    Hash: 0x045efd1792c35b9c
+    Counters: 4
+    Block counts: [2, 2, 0, 0]
+  _ZN6strata10parse_jsonENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEE:
+    Hash: 0x012a93dadf7fa634
+    Counters: 27
+    Block counts: [0, 0, 30, 0, 0, 0, 30, 30, 8, 67, 75, 67, 8, 67, 5, 3, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0]
+  _ZN6strata4util19discover_json_filesENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x0691d786742d5ca8
+    Counters: 26
+    Block counts: [184, 436, 0, 0, 0, 196, 0, 0, 0, 0, 198, 0, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler15close_containerEv:
+    Hash: 0x07175537a6cde2be
+    Counters: 10
+    Block counts: [15868, 15868, 15868, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIPKN6strata8PathStepENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata4util16find_next_escapeEPKcm:
+    Hash: 0x06bbcda1cfcbcb93
+    Counters: 20
+    Block counts: [31797, 3753658, 2607126, 44241, 4283989, 143502, 24601, 16636, 8288, 8172, 37930, 30542, 13963, 2220297, 2220297, 6292, 6292, 2878, 12444, 10275]
+  _ZN6strata8bindings19PythonObjectBuilder11store_grownENS1_11ValueCursorEP7_object:
+    Hash: 0x07735b69ca6e0e82
+    Counters: 4
+    Block counts: [0, 36, 0, 0]
+  _ZN6strata4util17copy_until_escapeEPKcmPc:
+    Hash: 0x0934de5ecc2a2b8e
+    Counters: 28
+    Block counts: [0, 1140, 817511, 0, 2410650, 426975, 12328, 156342, 1067607, 227793, 420265, 674807, 50, 226469, 2419, 1294, 212895, 145602, 0, 1997, 0, 26, 817511, 817511, 151629, 151629, 420265, 0]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_16Option4initEP7_object:
+    Hash: 0x04ef967e804efa53
+    Counters: 70
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__120__shared_ptr_emplaceIN6strata9JsonValueENS_9allocatorIS2_EEEC2B9nqe210106IJS2_ES4_Li0EEES4_DpOT_:
+    Hash: 0x0ae15a442a4d8805
+    Counters: 2
+    Block counts: [75, 0]
+  src/strata/search/jsonpath_eval.cpp;_ZN6strata12_GLOBAL__N_117collect_recursiveERKNS_9JsonValueERKNSt3__112basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEERNS4_6vectorIPS2_NS8_ISE_EEEE:
+    Hash: 0x0078917c5901f6ed
+    Counters: 11
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt12out_of_rangeC1B9nqe210106EPKc:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [4]
+  _ZNSt3__16vectorIN6strata8bindings16SchemaCacheLease12DepthSchemasENS_9allocatorIS4_EEE8__appendEm:
+    Hash: 0x092e2fc8968ace8f
+    Counters: 15
+    Block counts: [1028, 0, 21336, 1028, 11136, 11136, 936, 0, 0, 0, 0, 0, 0, 0, 11136]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_114strata_compileEP7_objectS1_:
+    Hash: 0x0c24becfafaea550
+    Counters: 13
+    Block counts: [31, 31, 31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_folder.cpp;_ZN6strata8bindings12_GLOBAL__N_120make_folder_iteratorEONSt3__16vectorINS2_12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEENS7_IS9_EEEEP7_objectb:
+    Hash: 0x09a4e9b841c13a43
+    Counters: 6
+    Block counts: [44, 44, 44, 28, 0, 28]
+  _ZN6strata8bindings19PythonObjectBuilder11release_wayERNS1_13PredictionWayE:
+    Hash: 0x01e0495921fd7732
+    Counters: 7
+    Block counts: [51090, 51090, 44858, 0, 835, 33926, 0]
+  _ZN6strata4util24copy_until_escape_scalarEPKcmPc:
+    Hash: 0x056e49bf3b9058a9
+    Counters: 8
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 1997]
+  _ZN6strata8bindings6native10enum_valueEP7_object:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm:
+    Hash: 0x0df061c4cab0e798
+    Counters: 10
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_122format_datetime_fieldsEP7_objectPc:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata8bindings19PythonObjectBuilder5resetEv:
+    Hash: 0x069fdf043b011b26
+    Counters: 22
+    Block counts: [518916, 52992, 52992, 9436, 9436, 518916, 9468, 9436, 300462, 9468, 0, 300462, 9468, 0, 60188, 60188, 60188, 60188, 12, 6, 6, 0]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_116cursor_is_stringEP7_objectS3_:
+    Hash: 0x05fcfa1a0c976867
+    Counters: 3
+    Block counts: [16, 16, 6]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE16__generic_assignB9nqe210106INS0_17__move_assignmentISG_LNS0_6_TraitE1EEEEEvOT_:
+    Hash: 0x01281798692295fb
+    Counters: 7
+    Block counts: [67, 67, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings12query_objectEP7_objectS2_:
+    Hash: 0x056e49bf212f0bbd
+    Counters: 7
+    Block counts: [860, 860, 358, 814, 16, 14, 0]
+  _ZNK6strata10JsonCursor17get_bool_or_throwEv:
+    Hash: 0x07df0bf912f1fd09
+    Counters: 5
+    Block counts: [2, 4, 2, 2, 0]
+  src/strata/util/folder.cpp;_ZNSt3__111__sift_downB9nqe210106INS_17_ClassicAlgPolicyERZN6strata4util19discover_json_filesENS_17basic_string_viewIcNS_11char_traitsIcEEEEE3$_0PNS_4pairINS_12basic_stringIcS6_NS_9allocatorIcEEEESE_EEEEvT1_OT0_NS_15iterator_traitsISH_E15difference_typeESH_:
+    Hash: 0x07a049da41741b07
+    Counters: 14
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/search/jsonpath_compile.cpp;_ZN6strata12_GLOBAL__N_110PathParser9read_nameERNSt3__112basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE:
+    Hash: 0x0e7c31164eb1064c
+    Counters: 8
+    Block counts: [6559, 5452, 1923, 1915, 0, 0, 0, 0]
+  _ZN6strata4util11format_dateEiiiPc:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_112strata_dumpsEP7_objectPKS1_lS1_:
+    Hash: 0x0fd52873082ca3b6
+    Counters: 24
+    Block counts: [36258, 28, 14251, 36268, 36258, 0, 36268, 36268, 36268, 0, 22007, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings15dumps_to_pythonEP7_objectb:
+    Hash: 0x04e0f2b6fdb0ec80
+    Counters: 44
+    Block counts: [0, 0, 0, 21979, 14518, 5280, 10991, 14518, 17195, 5280, 17435, 17195, 7794, 16699, 0, 4784, 17435, 11404, 17349, 17349, 11404, 496, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4784, 4784, 0, 4784, 5280, 17435, 4380, 17435]
+  _ZNSt12length_errorC1B9nqe210106EPKc:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder12PredictedKeyENS_9allocatorIS4_EEE6resizeEm:
+    Hash: 0x03fd5b9059d4ac0d
+    Counters: 5
+    Block counts: [123566, 0, 24102, 0, 24102]
+  src/strata/bindings/python_jsonpath.cpp;_ZN6strata8bindings12_GLOBAL__N_116compiled_executeEP7_objectS3_:
+    Hash: 0x08822042884f5fec
+    Counters: 25
+    Block counts: [8, 8, 8, 6, 6, 4, 4, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object:
+    Hash: 0x0878866e25b5ac7b
+    Counters: 35
+    Block counts: [0, 0, 0, 0, 0, 842, 842, 0, 0, 0, 0, 0, 0, 0, 0, 842, 842, 842, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorINS_4__fs10filesystem15directory_entryENS_9allocatorIS3_EEE26__swap_out_circular_bufferERNS_14__split_bufferIS3_RS5_EE:
+    Hash: 0x0b15abf2a34f2712
+    Counters: 4
+    Block counts: [524, 524, 0, 628]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm1EEE10__dispatchB9nqe210106IOZNS0_6__ctorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE19__generic_constructB9nqe210106INS0_18__move_constructorISL_LNS0_6_TraitE1EEEEEvRSM_OT_EUlST_E_JONS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEEEEDcSS_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [4098]
+  _ZN6strata8bindings19PythonObjectBuilder12on_string_atENS1_11ValueCursorENSt3__117basic_string_viewIcNS3_11char_traitsIcEEEE:
+    Hash: 0x0f9bab18845bd106
+    Counters: 3
+    Block counts: [1814548, 6, 5]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEmEENS_19__map_value_compareIS7_NS_4pairIKS7_mEENS_4lessIS7_EELb1EEENS5_ISC_EEE12__find_equalIS7_EERPNS_16__tree_node_baseIPvEERPNS_15__tree_end_nodeISM_EERKT_:
+    Hash: 0x056e49be8ba4f5a9
+    Counters: 6
+    Block counts: [156, 79, 73, 0, 76, 39]
+  _ZN6strata8bindings6native21dataclass_field_namesEP7_object:
+    Hash: 0x0d24e1d775e67c56
+    Counters: 41
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata4util17format_utc_offsetExPc:
+    Hash: 0x0550aa894fffffff
+    Counters: 2
+    Block counts: [0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12ParserInlineINS_12_GLOBAL__N_117DomBuilderHandlerEE12parse_numberINS_11PlainCursorEEET_S6_:
+    Hash: 0x07307e349520b161
+    Counters: 33
+    Block counts: [490, 0, 0, 0, 0, 0, 330, 25106, 2468, 25100, 2468, 2017, 23083, 2017, 23083, 577, 1172, 719, 725, 235, 322, 22156, 490, 330, 490, 1141, 21015, 1141, 21015, 20685, 265, 0, 570]
+  _ZN6strata16parse_sax_inlineINS_8bindings19PythonObjectBuilderEEENS_6StatusENSt3__117basic_string_viewIcNS4_11char_traitsIcEEEERT_b:
+    Hash: 0x07bab84cff55082a
+    Counters: 15
+    Block counts: [4, 0, 150, 12, 166, 154, 59497, 0, 1920, 57577, 10384, 0, 0, 46, 12]
+  src/strata/json/json_parse.cpp;_ZN6strata12ParserInlineINS_12_GLOBAL__N_117DomBuilderHandlerEE11parse_valueINS_11PlainCursorEEET_S6_:
+    Hash: 0x03164a92b32fe073
+    Counters: 124
+    Block counts: [396, 0, 30, 0, 0, 0, 776, 0, 180, 98331, 0, 0, 0, 0, 0, 0, 120, 0, 30, 0, 0, 30, 542, 64482, 27632, 27630, 13936, 8078, 27630, 98757, 426, 605, 786, 64482, 0, 98331, 0, 0, 28588, 27630, 13936, 8228, 27660, 956, 0, 0, 150, 30, 0, 0, 1032, 64482, 64482, 1032, 45681, 702, 28896, 490, 28896, 27632, 27632, 27630, 27630, 27630, 27630, 702, 542, 45681, 6, 13936, 13936, 0, 8078, 8078, 13936, 8078, 13936, 8078, 27630, 27630, 27630, 27630, 27630, 57121, 0, 490, 25106, 702, 542, 45677, 13936, 8078, 490, 8074, 19556, 702, 542, 45677, 431, 2, 490, 702, 542, 43666, 19169, 2797, 20575, 490, 7361, 542, 37022, 7361, 1406, 12525, 6644, 12525, 6644, 12525, 0, 0, 0, 0, 0, 450]
+  _ZNSt3__16vectorIN6strata8bindings16SchemaCacheLease12DepthSchemasENS_9allocatorIS4_EEE26__swap_out_circular_bufferERNS_14__split_bufferIS4_RS6_EE:
+    Hash: 0x0f9bab1831cec447
+    Counters: 3
+    Block counts: [2864, 2864, 11136]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv:
+    Hash: 0x05c21930a61e8baa
+    Counters: 7
+    Block counts: [129311, 121863, 37261, 32821, 37261, 29141, 21643]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer12write_stringEP7_object:
+    Hash: 0x08c2aba312d06279
+    Counters: 5
+    Block counts: [26404, 21212, 1958996, 0, 0]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEN6strata9JsonValueEEENS5_ISA_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__110unique_ptrINS_11__tree_nodeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEmEEPvEENS_22__tree_node_destructorINS6_ISB_EEEEE5resetB9nqe210106EPSB_:
+    Hash: 0x07735b6a57b9363b
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE18parse_string_valueINS_11PlainCursorEEET_S6_:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [926645, 926633]
+  _ZNSt3__16vectorIPKN6strata8PathStepENS_9allocatorIS4_EEE9push_backB9nqe210106EOS4_:
+    Hash: 0x08d1c012816237bb
+    Counters: 8
+    Block counts: [0, 126, 1456, 767, 1456, 0, 0, 1456]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder12PredictedKeyENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__16vectorIP7_objectNS_9allocatorIS2_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE24__emplace_back_slow_pathIJS6_EEEPS6_DpOT_:
+    Hash: 0x0e42d2246ad4d6e5
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZTWN6strata8bindings16SchemaCacheLease5busy_E:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata8bindings29register_ndjson_iterator_typeEP7_object:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [17]
+  _ZN6strata4util20validate_utf8_scalarEPKcm:
+    Hash: 0x06a13c363294afe0
+    Counters: 16
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings6native12decimal_textEP7_objectRNS0_5PyRefERNSt3__117basic_string_viewIcNS6_11char_traitsIcEEEE:
+    Hash: 0x05763c66aa6285ef
+    Counters: 16
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object:
+    Hash: 0x0aac77a0a7d535f6
+    Counters: 27
+    Block counts: [12951, 146025, 21930, 2281, 1170484, 8383, 22, 0, 0, 8617, 1134480, 0, 4317, 0, 12633, 9297, 1064758, 0, 20245, 19841, 19841, 20245, 19841, 0, 0, 662250, 0]
+  _ZN6strata4util11format_timeEiiiiPc:
+    Hash: 0x03510b1f1b791fa7
+    Counters: 3
+    Block counts: [0, 0, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_no_aliasILb0EEERS5_PKcm:
+    Hash: 0x05d1729fd9e758ba
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer12write_doubleEd:
+    Hash: 0x0f9bab17b4c5fb02
+    Counters: 3
+    Block counts: [219016, 220, 48]
+  _ZN6strata4util11path_existsENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x0d2ae952c4a3a25c
+    Counters: 8
+    Block counts: [29, 35, 35, 34, 0, 6, 0, 0]
+  src/strata/bindings/python_parse_types_walk.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_17convertEP7_objectS4_:
+    Hash: 0x07307e34283ff78e
+    Counters: 26
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__134__uninitialized_allocator_relocateB9nqe210106INS_9allocatorIN6strata8bindings19PythonObjectBuilder6SchemaEEEPS5_EEvRT_T0_SA_SA_:
+    Hash: 0x0f37fb8679bf17ff
+    Counters: 5
+    Block counts: [429, 429, 143, 143, 47]
+  src/strata/util/temporal.cpp;_ZN6strata4util12_GLOBAL__N_19scan_timeENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEERNS0_14TemporalFieldsE:
+    Hash: 0x086277f801ef224a
+    Counters: 36
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_117strata_config_getEP7_objectS1_:
+    Hash: 0x0f1ccb58098110b5
+    Counters: 21
+    Block counts: [5084, 8556, 8556, 5086, 3470, 5084, 2, 2, 3462, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 126, 520]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer7RowLockD1Ev:
+    Hash: 0x056e49beeca6b698
+    Counters: 7
+    Block counts: [129311, 121863, 670, 660688, 135478, 29141, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_externalEPKcm:
+    Hash: 0x021ac18dc84bf372
+    Counters: 9
+    Block counts: [0, 62545, 62545, 76463, 43928, 29356, 62545, 62545, 62545]
+  _ZN6strata4util17from_chars_doubleEPKcS2_Rd:
+    Hash: 0x0620e42234644b02
+    Counters: 17
+    Block counts: [0, 19518, 19518, 19518, 19518, 19518, 19518, 0, 19518, 19518, 0, 19518, 13952, 0, 3, 3, 0]
+  _ZN6strata8bindings21search_file_streamingEPKcRKNSt3__16vectorINS_8PathStepENS3_9allocatorIS5_EEEEPb:
+    Hash: 0x0fe865fdaa491415
+    Counters: 34
+    Block counts: [43407, 352079, 2, 4, 1582, 726, 726, 461, 29, 689, 0, 2, 689, 689, 4, 2, 683, 2, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 461, 461, 461]
+  _ZN6strata8bindings19read_file_to_stringEPKcRNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEE:
+    Hash: 0x0ae15a44542b0f02
+    Counters: 2
+    Block counts: [0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer21compact_general_exactEP7_object:
+    Hash: 0x07df0bf877a17f68
+    Counters: 5
+    Block counts: [32638, 32638, 0, 0, 0]
+  _ZN6strata8bindings12cursor_childEP7_objectPKNS_9JsonValueE:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [0, 8]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler9on_doubleEd:
+    Hash: 0x0070f4c7c731a4e6
+    Counters: 15
+    Block counts: [22998, 22998, 22998, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder12PredictedKeyENS_9allocatorIS4_EEE24__emplace_back_slow_pathIJS4_EEEPS4_DpOT_:
+    Hash: 0x002a5bdd3703ef12
+    Counters: 6
+    Block counts: [501, 501, 0, 0, 0, 501]
+  _ZN6strata4util11format_uuidEyyPc:
+    Hash: 0x086efb33c027e4cb
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZN6strata9parse_saxENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEERNS_14JsonSaxHandlerEb:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNK6strata10JsonCursor5fieldENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x0f37fb86be7cd53e
+    Counters: 5
+    Block counts: [94, 2, 0, 2, 0]
+  _ZN6strata8bindings19PythonObjectBuilder4pushEP7_object:
+    Hash: 0x0d86b9c080f56e0b
+    Counters: 7
+    Block counts: [3857609, 2977920, 62254, 0, 817411, 0, 0]
+  _ZNSt3__16vectorINS_4__fs10filesystem15directory_entryENS_9allocatorIS3_EEE24__emplace_back_slow_pathIJRKS3_EEEPS3_DpOT_:
+    Hash: 0x0e51b993ad59d6e5
+    Counters: 8
+    Block counts: [628, 0, 628, 628, 0, 0, 0, 628]
+  _ZN6strata8bindings16SchemaCacheLeaseC2Ev:
+    Hash: 0x05c219305e3ba0b3
+    Counters: 8
+    Block counts: [36497, 9464, 27033, 9464, 0, 27033, 832, 832]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE5closeEb:
+    Hash: 0x0908b9260f577e4a
+    Counters: 9
+    Block counts: [0, 0, 65491, 65491, 1030, 748, 65491, 5338, 242]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS_19__map_value_compareIS7_NS_4pairIKS7_S7_EENS_4lessIS7_EELb1EEENS5_ISC_EEE12__find_equalIS7_EERPNS_16__tree_node_baseIPvEERPNS_15__tree_end_nodeISM_EERKT_:
+    Hash: 0x056e49be8ba4f5a9
+    Counters: 6
+    Block counts: [156, 79, 73, 0, 76, 39]
+  _ZN6strata8bindings16SchemaCacheLease6Schema8rememberEPKP7_objectl:
+    Hash: 0x0d2ae9529cf6835a
+    Counters: 7
+    Block counts: [52315, 25679, 52315, 25505, 47598, 7364, 17619]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_117strata_config_setEP7_objectS1_:
+    Hash: 0x0e2fd1471a9f5a33
+    Counters: 31
+    Block counts: [4, 4, 8358, 2, 4, 8352, 4828, 3524, 6, 3476, 44, 16, 22, 3460, 22, 16, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3526]
+  src/strata/bindings/python_ndjson.cpp;_ZN6strata8bindings12_GLOBAL__N_113iterator_nextEP7_object:
+    Hash: 0x0febcb4422003ea9
+    Counters: 19
+    Block counts: [11, 4, 4099, 4099, 8, 4, 4, 4102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2]
+  _ZNSt3__16vectorIN6strata9JsonValueENS_9allocatorIS2_EEE13__vdeallocateEv:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [0, 0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE4openEb:
+    Hash: 0x0482cdd58e04e1e6
+    Counters: 17
+    Block counts: [876, 2704, 65497, 65052, 65052, 65052, 689, 5344, 4899, 46719, 4947, 23441, 154, 90, 240, 162, 0]
+  _ZNK6strata10JsonCursor11object_keysEv:
+    Hash: 0x05c2193006d7006c
+    Counters: 8
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNKSt3__129_AllocatorDestroyRangeReverseINS_9allocatorIN6strata9JsonValueEEEPS3_EclB9nqe210106Ev:
+    Hash: 0x0c1a5df9de0d3043
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer21compact_general_holesEP7_object:
+    Hash: 0x07df0bf877a17f68
+    Counters: 5
+    Block counts: [29914, 29914, 0, 0, 0]
+  _ZNSt3__112__destroy_atB9nqe210106INS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEN6strata9JsonValueEEELi0EEEvPT_:
+    Hash: 0x0cb60d68f1ed5f03
+    Counters: 5
+    Block counts: [53160, 53160, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer15write_set_tableEP7_object:
+    Hash: 0x0668df11c52b5eb4
+    Counters: 20
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings5PyRefD2Ev:
+    Hash: 0x0bb9fb60ce0a539b
+    Counters: 5
+    Block counts: [3117982, 3082754, 2837380, 42153, 0]
+  _ZN6strata12JsonDocument11from_stringENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x01e00b2bd52aceee
+    Counters: 23
+    Block counts: [8, 75, 8, 67, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata22consume_parse_warningsEv:
+    Hash: 0x03fd5b8fef8eefea
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZN6strata4util16make_directoriesENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x06b949ed89bc55ae
+    Counters: 7
+    Block counts: [201, 201, 0, 200, 0, 0, 201]
+  _ZN6strata8bindings8KeyCache6internENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE:
+    Hash: 0x0014b8eaf4c2a665
+    Counters: 10
+    Block counts: [5161477, 1522295, 2148, 1045094, 1522295, 2146, 948758, 1878, 1119563, 72321]
+  _ZN6strata8bindings5PyRefaSEOS1_:
+    Hash: 0x0f37fb8699128cfc
+    Counters: 6
+    Block counts: [265, 265, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object:
+    Hash: 0x0d027739c8b34b15
+    Counters: 27
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE10parse_nullINS_11PlainCursorEEET_S6_:
+    Hash: 0x0bb9fb6119114def
+    Counters: 5
+    Block counts: [75828, 75828, 75820, 75820, 75820]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEN6strata9JsonValueEEENS5_ISA_EEE13__vdeallocateEv:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [0, 0, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectEENS_19__map_value_compareIS7_NS_4pairIKS7_S9_EENS_4lessIS7_EELb1EEENS5_ISE_EEE7destroyEPNS_11__tree_nodeISA_PvEE:
+    Hash: 0x03510b1ef4d74962
+    Counters: 3
+    Block counts: [471, 174, 0]
+  _ZN6strata8bindings7rawdict14probe_fill_strEP7_objectPKci:
+    Hash: 0x0f37fb860600206e
+    Counters: 5
+    Block counts: [4335, 4335, 85, 0, 0]
+  _ZNSt3__16vectorINS_4__fs10filesystem15directory_entryENS_9allocatorIS3_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__114__split_bufferIN6strata8bindings19PythonObjectBuilder6SchemaERNS_9allocatorIS4_EEED2Ev:
+    Hash: 0x0bb9fb607336bd4d
+    Counters: 4
+    Block counts: [0, 0, 47, 16]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE11append_utf8ERNSt3__112basic_stringIcNS4_11char_traitsIcEENS4_9allocatorIcEEEEj:
+    Hash: 0x0f37fb86555f6336
+    Counters: 5
+    Block counts: [290008, 3844, 171000, 97380, 17782]
+  _ZNSt3__120__throw_length_errorB9nqe210106EPKc:
+    Hash: 0x0ae15a442a4d8805
+    Counters: 2
+    Block counts: [0, 0]
+  _ZN6strata8bindings11parse_types5loadsEP7_objectbbS3_:
+    Hash: 0x03779df047aa5c3b
+    Counters: 19
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_parse_types_walk.cpp;_ZNSt3__16vectorIN6strata8bindings11parse_types12_GLOBAL__N_14Walk5FrameENS_9allocatorIS6_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_111strata_loadEP7_objectS1_S1_:
+    Hash: 0x0a0389b804eac887
+    Counters: 21
+    Block counts: [14, 111, 982, 982, 0, 982, 982, 12, 14, 111, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings12StagedOutput14write_spanningEPKcm:
+    Hash: 0x07f2c2f1f6b6c34c
+    Counters: 6
+    Block counts: [91135, 69, 212, 68, 1, 212]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE18parse_string_valueINS_11PlainCursorEEET_S8_:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [118548, 118548]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE12__assign_altB9nqe210106ILm4ESD_SD_EEvRNS0_5__altIXT_ET0_EEOT1_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [0, 9]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer18write_mapping_bodyEP7_objectll:
+    Hash: 0x05604138de1dfeca
+    Counters: 44
+    Block counts: [0, 130, 0, 764, 56658, 56658, 1394548, 1394548, 1393682, 39100, 39100, 1176222, 1176222, 56658, 0, 0, 38411, 37837, 0, 246313, 246313, 130, 44456, 152, 22951, 6, 234818, 5902, 6037, 6037, 43856, 22187, 0, 217460, 8364, 4055, 4055, 0, 0, 0, 0, 0, 0, 4629]
+  _ZN6strata8bindings22read_file_or_directoryEPKcRNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEE:
+    Hash: 0x0b729c09071bb3aa
+    Counters: 22
+    Block counts: [0, 0, 2100, 2090, 0, 18, 2100, 0, 2090, 18, 0, 2100, 208, 2100, 0, 0, 0, 0, 18, 2100, 1346, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE17__assign_externalEPKc:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [446]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [6456, 5950, 2092]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE12parse_numberINS_11PlainCursorEEET_S6_:
+    Hash: 0x07307e349520b161
+    Counters: 33
+    Block counts: [8906, 0, 0, 0, 0, 0, 22991, 404622, 109760, 402538, 109734, 84200, 318336, 84158, 318336, 56781, 38983, 13970, 13781, 4875, 53907, 255446, 8906, 22995, 8902, 65535, 189509, 65531, 189509, 166518, 4067, 4, 9349]
+  _ZNK6strata10JsonCursor10array_sizeEv:
+    Hash: 0x07df0bf8374551cf
+    Counters: 5
+    Block counts: [4, 4, 4, 0, 0]
+  src/strata/bindings/python_loads.cpp;_ZN6strata8bindings12_GLOBAL__N_112BuilderLeaseD1Ev:
+    Hash: 0x03510b1f37e0a2a4
+    Counters: 3
+    Block counts: [59497, 2, 59495]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_114cursor_get_strEP7_objectS3_:
+    Hash: 0x02229aecd0f817ba
+    Counters: 16
+    Block counts: [26, 0, 0, 0, 4, 0, 0, 4, 0, 4, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object:
+    Hash: 0x0ed5776af5813473
+    Counters: 29
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings6native22prepare_native_runtimeEv:
+    Hash: 0x0b35dd87cf766e36
+    Counters: 88
+    Block counts: [17, 0, 136, 136, 17, 17, 17, 17, 17, 17, 1445, 17, 0, 17, 17, 357, 17, 1088, 1088, 17, 17, 17, 17, 17, 17, 0, 17, 34, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 17, 0, 0, 51, 17]
+  _ZN6strata8bindings16SchemaCacheLease12DepthSchemas6selectEPKP7_objectl:
+    Hash: 0x0c7248735aadb3b3
+    Counters: 10
+    Block counts: [87429, 76600, 244, 37546, 246313, 24716, 40631, 1765, 61, 17619]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE11append_utf8ERNSt3__112basic_stringIcNS3_11char_traitsIcEENS3_9allocatorIcEEEEj:
+    Hash: 0x0f37fb86555f6336
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectEENS_19__map_value_compareIS7_NS_4pairIKS7_S9_EENS_4lessIS7_EELb1EEENS5_ISE_EEE25__emplace_unique_key_argsIS7_JRS7_RS9_EEENSC_INS_15__tree_iteratorISA_PNS_11__tree_nodeISA_PvEElEEbEERKT_DpOT0_:
+    Hash: 0x03510b1f60c12e99
+    Counters: 3
+    Block counts: [174, 174, 114]
+  _ZN6strata8bindings16make_root_cursorERKNSt3__110shared_ptrIKNS_9JsonValueEEE:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [67]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm4EEE10__dispatchB9nqe210106IOZNS0_6__dtorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEELNS0_6_TraitE1EE9__destroyB9nqe210106EvEUlRT_E_JRNS0_6__baseILSM_1EJDnbdSD_SI_SK_EEEEEEDcSO_DpT0_:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [66963, 7361]
+  _ZNSt3__16vectorINS_4__fs10filesystem15directory_entryENS_9allocatorIS3_EEE9push_backB9nqe210106ERKS3_:
+    Hash: 0x0b15abf2c649cb16
+    Counters: 4
+    Block counts: [628, 0, 128, 0]
+  _ZN6strata8bindings12dump_to_fileEP7_objectPKc:
+    Hash: 0x0347764164e6ad9c
+    Counters: 31
+    Block counts: [199, 0, 0, 398, 398, 0, 199, 199, 0, 267, 0, 0, 213, 0, 0, 213, 199, 199, 199, 14, 0, 0, 0, 199, 199, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder11grow_valuesEv:
+    Hash: 0x0d140a68d852da94
+    Counters: 3
+    Block counts: [132, 0, 103]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS5_IS8_EEE24__emplace_back_slow_pathIJRKS7_S7_EEEPS8_DpOT_:
+    Hash: 0x01cdc1df7953a6ae
+    Counters: 11
+    Block counts: [0, 354, 170, 354, 0, 0, 0, 0, 0, 0, 354]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder6SchemaENS_9allocatorIS4_EEE8__appendEm:
+    Hash: 0x0ee59cdb1150137d
+    Counters: 11
+    Block counts: [351, 315, 117, 105, 115, 47, 47, 0, 0, 0, 47]
+  _ZN6strata8bindings16SchemaCacheLease6Schema6forgetEv:
+    Hash: 0x014c19ca6f6dddd5
+    Counters: 6
+    Block counts: [17271, 17271, 1919616, 16437, 2048, 79984]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEmc:
+    Hash: 0x00b8e87c05820103
+    Counters: 8
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata19StreamSearchHandlerINS1_8bindings15PythonMatchSinkEE5LevelENS_9allocatorIS6_EEE9push_backB9nqe210106EOS6_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [63732, 1765]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder12PredictedKeyENS_9allocatorIS4_EEE8__appendEm:
+    Hash: 0x0fa548223e430f01
+    Counters: 9
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc:
+    Hash: 0x07df0bf8a83ac4d9
+    Counters: 4
+    Block counts: [1362398, 10406, 917492, 444920]
+  _ZNK6strata7FlatMapINSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEENS_9JsonValueEE4findERKS7_:
+    Hash: 0x0647d3dbfa271a76
+    Counters: 8
+    Block counts: [208, 140, 110, 2, 0, 0, 0, 0]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE24__emplace_back_slow_pathIJRKS6_EEEPS6_DpOT_:
+    Hash: 0x009560fe7ddbc35e
+    Counters: 7
+    Block counts: [0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE10parse_boolINS_11PlainCursorEEET_S5_:
+    Hash: 0x01e1f4b20dbf724e
+    Counters: 12
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_115cursor_is_arrayEP7_objectS3_:
+    Hash: 0x05fcfa1a0c976867
+    Counters: 3
+    Block counts: [18, 18, 8]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_110numpy_kindEP7_objectb:
+    Hash: 0x017e76348a542aac
+    Counters: 35
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder12PredictedKey10fill_wordsEv:
+    Hash: 0x027f723a83987680
+    Counters: 6
+    Block counts: [175293, 175293, 0, 0, 48637, 0]
+  src/strata/util/folder.cpp;_ZN6strata4util12_GLOBAL__N_14walkERKNSt3__14__fs10filesystem4pathES7_RKNS2_12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEERNS2_6vectorINS2_4pairISD_SD_EENSB_ISI_EEEERNS2_10error_codeE:
+    Hash: 0x0b48ec18d86fb94e
+    Counters: 87
+    Block counts: [664, 340, 56, 756, 756, 756, 2972, 670, 756, 756, 0, 0, 0, 664, 234, 138, 526, 0, 526, 430, 0, 0, 326, 526, 486, 486, 0, 326, 326, 326, 0, 340, 486, 56, 0, 10, 40, 354, 0, 0, 436, 0, 82, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0, 0, 526, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE24__emplace_back_slow_pathIJRPKcmEEEPS6_DpOT_:
+    Hash: 0x0accd2c64703ef12
+    Counters: 6
+    Block counts: [123, 123, 0, 0, 0, 123]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE12parse_numberINS_11PlainCursorEEET_S5_:
+    Hash: 0x0421fd458520b161
+    Counters: 33
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__14pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES6_EaSB9nqe210106EOS7_:
+    Hash: 0x03510b1eef5cc5c1
+    Counters: 3
+    Block counts: [290, 0, 0]
+  _ZN6strata8bindings11parse_types14ensure_runtimeEv:
+    Hash: 0x0ac7ccae0315130e
+    Counters: 12
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__134__uninitialized_allocator_relocateB9nqe210106INS_9allocatorIN6strata9JsonValueEEEPS3_EEvRT_T0_S8_S8_:
+    Hash: 0x03954e0466648698
+    Counters: 9
+    Block counts: [92413, 92413, 92413, 15533, 0, 0, 0, 0, 0]
+  _ZNSt3__120__shared_ptr_emplaceIN6strata9JsonValueENS_9allocatorIS2_EEE21__on_zero_shared_weakEv:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [75]
+  _ZNSt3__16vectorIN6strata8bindings16SchemaCacheLease12DepthSchemasENS_9allocatorIS4_EEE6resizeEm:
+    Hash: 0x0b15abf2ae3e9bed
+    Counters: 4
+    Block counts: [0, 0, 12164, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEmEENS_19__map_value_compareIS7_NS_4pairIKS7_mEENS_4lessIS7_EELb1EEENS5_ISC_EEE4findIS7_EENS_15__tree_iteratorIS8_PNS_11__tree_nodeIS8_PvEElEERKT_:
+    Hash: 0x0835abb115802dce
+    Counters: 6
+    Block counts: [3875, 1522, 1389, 188, 1616, 1616]
+  _ZN6strata4util12is_directoryENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x002a5bdce928a6d5
+    Counters: 6
+    Block counts: [213, 212, 0, 0, 0, 116]
+  _ZNSt3__16__itoa8__traitsIyE6__readB9nqe210106EPKcS4_RyS5_:
+    Hash: 0x0bb9fb60b5fc1e92
+    Counters: 4
+    Block counts: [233274, 4153738, 4619512, 233274]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_119fastcall_str_optionEP7_objectS1_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [10, 66126]
+  src/strata/bindings/python_folder.cpp;_ZNSt3__16vectorIN6strata8bindings12_GLOBAL__N_15GroupENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEE5valueIZNS3_7on_boolEbEUlvE_EEbOT_:
+    Hash: 0x0398e83c56e4f37a
+    Counters: 14
+    Block counts: [564, 7085, 7085, 7085, 64, 5857, 34, 68, 4307, 34, 26, 22, 272, 20]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE21__grow_by_and_replaceEmmmmmmPKc:
+    Hash: 0x0940c39becb1d8e9
+    Counters: 11
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm5EEE10__dispatchB9nqe210106IOZNS0_6__ctorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE19__generic_constructB9nqe210106INS0_18__move_constructorISL_LNS0_6_TraitE1EEEEEvRSM_OT_EUlST_E_JONS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEEEEDcSS_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [38823]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEmEENS_19__map_value_compareIS7_NS_4pairIKS7_mEENS_4lessIS7_EELb1EEENS5_ISC_EEE25__emplace_unique_key_argsIS7_JRS7_mEEENSA_INS_15__tree_iteratorIS8_PNS_11__tree_nodeIS8_PvEElEEbEERKT_DpOT0_:
+    Hash: 0x03510b1f60c12e99
+    Counters: 3
+    Block counts: [188, 188, 96]
+  _ZNSt3__16vectorIN6strata19StreamSearchHandlerINS1_8bindings15PythonMatchSinkEE5LevelENS_9allocatorIS6_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [6, 689, 689]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE13__vdeallocateEv:
+    Hash: 0x0b15abf25bc6533f
+    Counters: 4
+    Block counts: [0, 0, 386, 0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE10parse_boolINS_11PlainCursorEEET_S6_:
+    Hash: 0x0c724872fdbf724e
+    Counters: 12
+    Block counts: [156209, 87635, 68574, 87633, 68574, 87633, 68574, 87633, 68574, 87633, 68574, 68574]
+  _ZNSt3__16vectorIjNS_9allocatorIjEEE9push_backB9nqe210106EOj:
+    Hash: 0x08d1c012816237bb
+    Counters: 8
+    Block counts: [0, 16575, 7170, 7170, 7170, 0, 0, 7170]
+  _ZNSt3__116__variant_detail6__ctorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE19__generic_constructB9nqe210106INS0_18__move_constructorISG_LNS0_6_TraitE1EEEEEvRSH_OT_:
+    Hash: 0x0937e7fae9513866
+    Counters: 5
+    Block counts: [345769, 345769, 0, 0, 0]
+  _ZN6strata8bindings7rawdict31compact_general_exact_uncheckedEP7_objectPNS1_5EntryE:
+    Hash: 0x002a5bdd2a6b8d75
+    Counters: 7
+    Block counts: [20975, 385472, 32689, 32645, 32645, 32645, 26578]
+  _ZNKSt3__14__fs10filesystem4path8filenameB9nqe210106Ev:
+    Hash: 0x0ae15a44542b0f02
+    Counters: 2
+    Block counts: [756, 0]
+  _ZNSt3__16vectorIjNS_9allocatorIjEEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__16vectorIN6strata8bindings16SchemaCacheLease12DepthSchemasENS_9allocatorIS4_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [19744, 9464, 9464]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm:
+    Hash: 0x0e344ba9225296e6
+    Counters: 10
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_113resolve_classERP11_typeobjectP7_objectS7_:
+    Hash: 0x0bb9fb606f94cf5f
+    Counters: 4
+    Block counts: [1684, 11, 5, 0]
+  _ZNSt3__16vectorIPKN6strata9JsonValueENS_9allocatorIS4_EEE9push_backB9nqe210106ERKS4_:
+    Hash: 0x08d1c012816237bb
+    Counters: 8
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__120__shared_ptr_emplaceIN6strata9JsonValueENS_9allocatorIS2_EEE16__on_zero_sharedEv:
+    Hash: 0x045efd1792c35b9c
+    Counters: 4
+    Block counts: [75, 75, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object:
+    Hash: 0x076b2eb28065b572
+    Counters: 21
+    Block counts: [1867733, 1866997, 267266, 219032, 1211528, 129156, 268286, 148452, 736, 405270, 11002, 4, 18, 64, 45108, 32, 5448, 162, 48, 0, 842]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler6on_intEx:
+    Hash: 0x0070f4c7c731a4e6
+    Counters: 15
+    Block counts: [22106, 22106, 22106, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm1ELm1EEE10__dispatchB9nqe210106IOZNS0_12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE16__generic_assignB9nqe210106INS0_17__move_assignmentISL_LNS0_6_TraitE1EEEEEvOT_EUlRSR_OT0_E_JRNS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEOSZ_EEEDcSR_DpT0_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [0, 2]
+  _ZN6strata8bindings11parse_types6searchEPKcP7_objectbS5_:
+    Hash: 0x08f240131fb39eda
+    Counters: 39
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8bindings16SchemaCacheLease12DepthSchemasENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_113loaded_moduleEP7_object:
+    Hash: 0x0b15abf23e4e7edd
+    Counters: 5
+    Block counts: [871, 871, 11, 860, 11]
+  _ZN6strata8bindings6native8is_numpyEP7_object:
+    Hash: 0x0b15abf2a6c07224
+    Counters: 5
+    Block counts: [842, 0, 0, 0, 0]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_112new_iteratorEP7_object:
+    Hash: 0x0f37fb8621815321
+    Counters: 6
+    Block counts: [0, 0, 0, 0, 0, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC2B9nqe210106EPKcm:
+    Hash: 0x0eee82b30e2adb40
+    Counters: 5
+    Block counts: [175416, 175416, 0, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandlerD1Ev:
+    Hash: 0x0cb60d68ebfb618e
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  _ZN6strata8bindings7rawdict18probe_unicode_dictEP7_objectb:
+    Hash: 0x08fc4894f4bf93e2
+    Counters: 12
+    Block counts: [4080, 4063, 4063, 4063, 51, 51, 51, 51, 17, 51, 51, 51]
+  _ZNSt3__112__destroy_atB9nqe210106IN6strata8bindings16SchemaCacheLease12DepthSchemasELi0EEEvPT_:
+    Hash: 0x05c219303d387f71
+    Counters: 7
+    Block counts: [80152, 81628, 0, 78976, 10280, 1836, 22608]
+  _ZN6strata8bindings6native8classifyEP7_object:
+    Hash: 0x02a19e798885adb5
+    Counters: 78
+    Block counts: [838, 840, 0, 838, 0, 842, 838, 842, 208, 842, 838, 6, 6, 6, 842, 838, 838, 838, 2, 0, 2, 838, 838, 2, 2, 0, 840, 840, 2, 2, 2, 0, 2, 0, 0, 838, 2, 842, 0, 0, 0, 0, 2, 842, 842, 838, 0, 0, 0, 0, 2, 842, 842, 0, 0, 2, 842, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 838, 838]
+  _ZN6strata8bindings20register_cursor_typeEP7_object:
+    Hash: 0x0f37fb865004f03a
+    Counters: 6
+    Block counts: [17, 17, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE26__swap_out_circular_bufferERNS_14__split_bufferIS2_RS4_EE:
+    Hash: 0x0f9bab1831cec447
+    Counters: 3
+    Block counts: [5396, 5396, 5163]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_115cursor_get_boolEP7_objectS3_:
+    Hash: 0x04cc4eb16395f015
+    Counters: 12
+    Block counts: [4, 2, 0, 2, 0, 0, 2, 2, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder9on_int_atENS1_11ValueCursorEx:
+    Hash: 0x0f9bab18845bd106
+    Counters: 3
+    Block counts: [1949097, 0, 27]
+  _ZNK6strata12NdjsonStream8has_nextEv:
+    Hash: 0x02836c42ba5eeb65
+    Counters: 16
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata4util14is_json_numberENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x0af92f9b590068bb
+    Counters: 21
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE24__emplace_back_slow_pathIJS2_EEEPS2_DpOT_:
+    Hash: 0x03c3b8ba13a29ffe
+    Counters: 10
+    Block counts: [0, 5163, 5163, 3299, 0, 0, 0, 0, 0, 5163]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__115allocate_sharedB9nqe210106IN6strata9JsonValueENS_9allocatorIS2_EEJS2_ELi0EEENS_10shared_ptrIT_EERKT0_DpOT1_:
+    Hash: 0x0ae15a442a4d8805
+    Counters: 2
+    Block counts: [75, 0]
+  src/strata/bindings/python_native_types.cpp;_ZN6strata8bindings6native12_GLOBAL__N_111pure_offsetEP7_objectS4_RxRb:
+    Hash: 0x049ab80d10d08d81
+    Counters: 10
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings18make_root_iteratorEP7_object:
+    Hash: 0x09a4e9b83b2b551b
+    Counters: 6
+    Block counts: [4, 4, 6, 5, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE11parse_arrayEv:
+    Hash: 0x0cf6868ca055f07d
+    Counters: 29
+    Block counts: [0, 0, 0, 0, 0, 0, 274446, 30328, 274446, 0, 30328, 0, 274446, 274446, 2, 30328, 30328, 30328, 30328, 30328, 248675, 0, 30328, 2507, 25771, 25771, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder5FrameENS_9allocatorIS4_EEE9push_backB9nqe210106EOS4_:
+    Hash: 0x08d1c012816237bb
+    Counters: 8
+    Block counts: [0, 1625488, 339, 198, 339, 0, 0, 339]
+  _ZN6strata4util13scan_temporalENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x06852e974f1ba50f
+    Counters: 27
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/util/folder.cpp;_ZNSt3__111__introsortINS_17_ClassicAlgPolicyERZN6strata4util19discover_json_filesENS_17basic_string_viewIcNS_11char_traitsIcEEEEE3$_0PNS_4pairINS_12basic_stringIcS6_NS_9allocatorIcEEEESE_EELb0EEEvT1_SH_T0_NS_15iterator_traitsISH_E15difference_typeEb:
+    Hash: 0x06356f0b25fd8483
+    Counters: 80
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 0, 0, 42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 0, 0, 66, 0, 0, 0, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0, 20, 20, 42, 0, 0, 0, 0, 0, 0, 0, 14, 42, 6, 0, 0, 0, 0, 0, 0, 0, 0, 42, 0, 0, 184, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_folder.cpp;_ZN6strata8bindings12_GLOBAL__N_120folder_iterator_selfEP7_object:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [42, 42]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectEENS_19__map_value_compareIS7_NS_4pairIKS7_S9_EENS_4lessIS7_EELb1EEENS5_ISE_EEE4findIS7_EENS_15__tree_iteratorISA_PNS_11__tree_nodeISA_PvEElEERKT_:
+    Hash: 0x0835abb115802dce
+    Counters: 6
+    Block counts: [4298, 2348, 2199, 174, 1362, 1362]
+  _ZN6strata16compile_jsonpathENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEE:
+    Hash: 0x09e3898d67975d79
+    Counters: 196
+    Block counts: [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 151, 0, 149, 0, 0, 1031, 0, 57, 0, 4118, 2, 40, 0, 34, 1838, 0, 1866, 0, 0, 0, 1031, 0, 0, 0, 602, 0, 155, 0, 153, 0, 42, 0, 107, 4068, 57, 57, 0, 0, 1868, 5, 0, 0, 1642, 304, 151, 1838, 2262, 1236, 2129, 1866, 5, 0, 1041, 145, 1081, 1640, 298, 149, 133, 50, 602, 602, 22, 0, 1039, 0, 20, 489, 0, 1864, 155, 153, 153, 1031, 127, 59, 0, 0, 145, 0, 0, 0, 57, 0, 0, 153, 972, 0, 0, 0, 0, 1816, 5, 0, 0, 42, 0, 0, 40, 57, 57, 148, 148, 970, 5, 145, 0, 153, 40, 35, 57, 55, 0, 0, 0, 0, 153, 112, 97, 55, 20, 0, 0, 90, 5, 149, 41, 15, 42, 7, 145, 107, 86, 5, 105, 2, 20, 41, 15, 42, 7, 145, 2, 86, 41, 15, 5, 5, 145, 145, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object:
+    Hash: 0x003c2682c773b821
+    Counters: 25
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIP7_objectNS_9allocatorIS2_EEE9push_backB9nqe210106ERKS2_:
+    Hash: 0x08d1c012816237bb
+    Counters: 8
+    Block counts: [0, 1445536, 30536, 11174, 30536, 0, 0, 30536]
+  src/strata/bindings/python_jsonpath.cpp;_ZN6strata8bindings12_GLOBAL__N_117collect_recursiveEP7_objectS3_RNSt3__16vectorIS3_NS4_9allocatorIS3_EEEE:
+    Hash: 0x085018055f474b86
+    Counters: 8
+    Block counts: [232640, 8866, 0, 540236, 0, 705167, 67876, 49042]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_114cursor_is_nullEP7_objectS3_:
+    Hash: 0x05fcfa1a0c976867
+    Counters: 3
+    Block counts: [16, 16, 6]
+  _ZN6strata8bindings14file_is_ndjsonEPKc:
+    Hash: 0x0e0ae911a7db257f
+    Counters: 9
+    Block counts: [5322, 3010, 2862, 660, 2742, 2742, 2312, 212, 22]
+  src/strata/util/folder.cpp;_ZNSt3__17__sort3B9nqe210106INS_17_ClassicAlgPolicyERZN6strata4util19discover_json_filesENS_17basic_string_viewIcNS_11char_traitsIcEEEEE3$_0PNS_4pairINS_12basic_stringIcS6_NS_9allocatorIcEEEESE_EELi0EEEbT1_SH_SH_T0_:
+    Hash: 0x03fd5b8feb051420
+    Counters: 6
+    Block counts: [56, 40, 2, 4, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder11make_stringENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE:
+    Hash: 0x09e78d631b5530ee
+    Counters: 20
+    Block counts: [9492373, 442529, 455827, 2741928, 1366091, 238105, 2030137, 1639152, 29999, 1167731, 238105, 0, 162284, 29999, 50783, 1167731, 0, 29999, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler7on_boolEb:
+    Hash: 0x0070f4c7c731a4e6
+    Counters: 15
+    Block counts: [1032, 1032, 1032, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder12on_end_arrayEv:
+    Hash: 0x056e49be7c628faa
+    Counters: 6
+    Block counts: [671971, 5736002, 671971, 671971, 671971, 671971]
+  _ZN6strata8bindings16SchemaCacheLeaseD2Ev:
+    Hash: 0x0bb9fb6096eb70b7
+    Counters: 4
+    Block counts: [36497, 9464, 9464, 27033]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC2B9nqe210106ENS_24__uninitialized_size_tagEmRKS4_:
+    Hash: 0x00860b4db53ad9d6
+    Counters: 4
+    Block counts: [234, 0, 0, 0]
+  _ZN6strata8bindings15PythonMatchSinkD2Ev:
+    Hash: 0x0bb9fb60ce0a539b
+    Counters: 5
+    Block counts: [689, 6, 6, 6, 0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE12parse_objectEv:
+    Hash: 0x03cdb03fb92f0844
+    Counters: 50
+    Block counts: [2064680, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2984814, 2984786, 909300, 2975348, 5049494, 2984788, 909300, 2975348, 2064680, 2, 0, 0, 12, 909302, 909302, 909302, 909302, 2984814, 2984814, 2984788, 2984786, 2984786, 909302, 2984784, 2984784, 2975348, 2975348, 1867795, 909300, 1116993, 1116993, 1116993, 1116993, 859292, 2116056, 40542, 0, 0]
+  src/strata/search/jsonpath_compile.cpp;_ZN6strata12_GLOBAL__N_110PathParser11read_quotedERNSt3__112basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEE:
+    Hash: 0x0d9ecc1918f3b20f
+    Counters: 17
+    Block counts: [0, 89, 91, 513, 2, 422, 2, 97, 97, 97, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder6SchemaENS_9allocatorIS4_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0bb9fb60d9227abf
+    Counters: 4
+    Block counts: [0, 0, 691, 0]
+  _ZN6strata12NdjsonStream9parse_allEbPm:
+    Hash: 0x0ebf71b2fc0eebfc
+    Counters: 18
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder10record_keyENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEEP7_object:
+    Hash: 0x0b03d6b01a37183e
+    Counters: 25
+    Block counts: [1119561, 1105151, 1105151, 1105151, 472, 123566, 120402, 1102581, 848, 162, 366503, 572, 165679, 174792, 0, 175293, 0, 118, 24102, 1215, 212, 32606, 0, 0, 0]
+  _ZN6strata4util13format_doubleEdPcm:
+    Hash: 0x0131dfa6155b5618
+    Counters: 20
+    Block counts: [640252, 640252, 3464, 87542, 567061, 138675, 12768, 33045, 136159, 491325, 18689, 122495, 14443, 29617, 11023, 36901, 16327, 394037, 21087, 21087]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer13write_decimalEP7_object:
+    Hash: 0x03fd5b90d7fd875c
+    Counters: 7
+    Block counts: [0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_folder.cpp;_ZNSt3__16vectorIN6strata8bindings12_GLOBAL__N_15GroupENS_9allocatorIS4_EEED1B9nqe210106Ev:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [188, 101, 73]
+  _ZN6strata8bindings12cursor_valueEP7_object:
+    Hash: 0x0ae15a44542b0f02
+    Counters: 2
+    Block counts: [6, 4]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE11parse_valueINS2_11ValueCursorEEET_S6_:
+    Hash: 0x042095c47250c359
+    Counters: 39
+    Block counts: [4758172, 0, 0, 6293532, 177606, 11051704, 4758172, 17509, 152223, 0, 0, 560, 0, 0, 354860, 184432, 291556, 563917, 1814559, 3083904, 208, 254890, 560749, 96, 1987045, 3076106, 3076100, 2625797, 664077, 602526, 1096859, 2395194, 432794, 433480, 230585, 433480, 230585, 433480, 142238]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm2EEE10__dispatchB9nqe210106IOZNS0_6__ctorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE19__generic_constructB9nqe210106INS0_18__move_constructorISL_LNS0_6_TraitE1EEEEEvRSM_OT_EUlST_E_JONS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEEEEDcSS_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [150093]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_122reviving_iterator_nextEP7_object:
+    Hash: 0x0bf7780615d57f59
+    Counters: 25
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE12__assign_altB9nqe210106ILm3ES8_S8_EEvRNS0_5__altIXT_ET0_EEOT1_:
+    Hash: 0x0f9bab17fbe9cc00
+    Counters: 3
+    Block counts: [0, 2, 0]
+  _ZN6strata8bindings11parse_types5queryEP7_objectS3_bS3_:
+    Hash: 0x06338f93d8e70681
+    Counters: 19
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__120__shared_ptr_emplaceIN6strata9JsonValueENS_9allocatorIS2_EEED1Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata8bindings19PythonObjectBuilder10push_valueEP7_object:
+    Hash: 0x0b15abf275030ad7
+    Counters: 5
+    Block counts: [817411, 96, 0, 0, 0]
+  _ZNSt3__16vectorIN6strata8PathStepENS_9allocatorIS2_EEE18__assign_with_sizeB9nqe210106IPS2_S7_EEvT_T0_l:
+    Hash: 0x0fa548227ff4ac38
+    Counters: 9
+    Block counts: [0, 0, 0, 228, 0, 0, 0, 0, 228]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE9read_hex4ERj:
+    Hash: 0x02c04919a6426ffc
+    Counters: 9
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__14pairIKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES6_EC2B9nqe210106IRS7_RS6_Li0EEEOT_OT0_:
+    Hash: 0x03fd5b9085ca1f64
+    Counters: 5
+    Block counts: [188, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_14JsonSaxHandlerEE11scan_stringEv:
+    Hash: 0x09334cfeb8ab3bbf
+    Counters: 34
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings19PythonObjectBuilder13on_big_int_atENS1_11ValueCursorENSt3__117basic_string_viewIcNS3_11char_traitsIcEEEE:
+    Hash: 0x0f9bab18845bd106
+    Counters: 3
+    Block counts: [141403, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandlerD0Ev:
+    Hash: 0x0cb60d68ebfb618e
+    Counters: 5
+    Block counts: [0, 0, 0, 0, 0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object:
+    Hash: 0x031842179185d848
+    Counters: 50
+    Block counts: [311046, 50, 18675233, 18674821, 189005, 397577, 470669, 201703, 311046, 6, 0, 0, 0, 0, 0, 0, 103646, 112379, 0, 18746, 112379, 238604, 238604, 0, 16, 267884, 102, 50, 6, 50, 0, 0, 0, 0, 0, 0, 412, 0, 27495, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE12parse_numberINS2_11ValueCursorEEET_S6_:
+    Hash: 0x0cadd60acc4e4600
+    Counters: 33
+    Block counts: [16989, 0, 0, 0, 0, 0, 12190, 1987045, 1978579, 146, 195846, 1782729, 195786, 1782721, 141403, 42382, 34181, 0, 27458, 10469, 801095, 964153, 16989, 12962, 16985, 162898, 800913, 162130, 800909, 788719, 7964, 6, 18823]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE11scan_stringEv:
+    Hash: 0x09334cfeb8ab3bbf
+    Counters: 34
+    Block counts: [392297, 92892, 358786, 392305, 29128, 392305, 358786, 3858293, 63756, 63756, 3858293, 3858193, 92992, 11638, 290014, 23970, 2, 11369, 18480, 11461, 12559, 12812, 3765301, 0, 0, 0, 290014, 17788, 2, 17784, 17782, 0, 17782, 17782]
+  _ZNSt3__112construct_atB9nqe210106IN6strata9JsonValueEJNS_7variantIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIS2_NS7_IS2_EEEENS1_7FlatMapIS9_S2_EEEEEEPS2_EEPT_SI_DpOT0_:
+    Hash: 0x08380d8ed6c0b25b
+    Counters: 6
+    Block counts: [22014, 22014, 0, 0, 0, 0]
+  _ZNSt3__114__split_bufferIN6strata9JsonValueERNS_9allocatorIS2_EEE17__destruct_at_endB9nqe210106EPS2_:
+    Hash: 0x0c1a5df9de0d3043
+    Counters: 5
+    Block counts: [0, 0, 15533, 0, 0]
+  _ZN6strata12ParserInlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEE12parse_numberINS_11PlainCursorEEET_S8_:
+    Hash: 0x07307e349520b161
+    Counters: 33
+    Block counts: [2267, 0, 0, 0, 0, 0, 1169, 165107, 12044, 164961, 12044, 10748, 154213, 10748, 154213, 3960, 4571, 3513, 3397, 1130, 55568, 96407, 2267, 1169, 2267, 6347, 90050, 6347, 90050, 88881, 1103, 0, 2360]
+  _ZN6strata24set_duplicate_key_policyENS_18DuplicateKeyPolicyE:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [3537]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE9__emplaceB9nqe210106ILm0EJDnEEERDaDpOT0_:
+    Hash: 0x045efd1792c35b9c
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNK6strata10JsonCursor2atEm:
+    Hash: 0x0f37fb86be7cd53e
+    Counters: 5
+    Block counts: [10, 2, 0, 2, 0]
+  _ZN6strata8bindings14query_compiledEP7_objectRKNSt3__16vectorINS_8PathStepENS3_9allocatorIS5_EEEE:
+    Hash: 0x075aa95039c621cd
+    Counters: 110
+    Block counts: [346, 9987, 1082, 0, 346, 204, 3074, 10010, 11210, 0, 11210, 22110, 22110, 204, 0, 0, 10010, 0, 6, 9946, 1258, 9946, 1258, 48, 9987, 9898, 9898, 0, 19746, 1041, 167, 35, 109, 167, 1258, 793, 109, 35, 2842, 109, 2224, 19036, 28379, 0, 0, 19520, 862, 150, 150, 19520, 9898, 29, 1700, 1700, 814, 627, 19307, 28379, 9898, 9898, 18, 6, 6, 606, 8704, 606, 21, 21, 213, 213, 625, 2, 24052, 0, 0, 0, 0, 1142, 0, 1096, 660, 0, 1142, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 791, 0, 0, 0, 0, 0, 0, 0, 0, 0, 618]
+  _ZN6strata4util22is_safe_path_componentENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x0d2ae952a3257e40
+    Counters: 10
+    Block counts: [2, 4, 2, 4312, 4304, 2362, 2360, 2356, 1704, 126]
+  _ZNKSt3__14__fs10filesystem15directory_entry12__get_sym_ftB9nqe210106EPNS_10error_codeE:
+    Hash: 0x0850180563eac444
+    Counters: 13
+    Block counts: [6, 0, 0, 0, 664, 670, 664, 6, 0, 664, 0, 664, 0]
+  _ZN6strata4util15ascii_lowercaseENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE:
+    Hash: 0x030a5b9cf31589a7
+    Counters: 6
+    Block counts: [9152, 268, 1824, 0, 0, 0]
+  _ZN6strata8bindings15loads_to_pythonENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEEbPNS_6StatusE:
+    Hash: 0x0920274f7165ad65
+    Counters: 30
+    Block counts: [126, 1022, 32, 1884, 1979172, 59495, 28627, 59495, 0, 1886, 46, 57565, 1886, 1886, 59495, 34, 34, 32, 0, 0, 1884, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings20make_ndjson_iteratorEONSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEEb:
+    Hash: 0x08fc4894ca8a259a
+    Counters: 10
+    Block counts: [17, 17, 17, 0, 0, 0, 17, 17, 0, 0]
+  _ZNSt3__16vectorIP7_objectNS_9allocatorIS2_EEE9push_backB9nqe210106EOS2_:
+    Hash: 0x08d1c012816237bb
+    Counters: 8
+    Block counts: [0, 1878052, 584, 418, 584, 0, 0, 584]
+  _ZN6strata8bindings19PythonObjectBuilder12make_big_intENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEE:
+    Hash: 0x04a45b3b7c14a776
+    Counters: 5
+    Block counts: [198490, 16980, 0, 0, 16980]
+  _ZNSt3__16vectorIN6strata9JsonValueENS_9allocatorIS2_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm0EEE10__dispatchB9nqe210106IOZNS0_6__dtorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEELNS0_6_TraitE1EE9__destroyB9nqe210106EvEUlRT_E_JRNS0_6__baseILSM_1EJDnbdSD_SI_SK_EEEEEEDcSO_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [2177]
+  _ZN6strata8bindings14dump_to_folderEP7_objectPKcS2_:
+    Hash: 0x07c8db546f0838d5
+    Counters: 162
+    Block counts: [174, 0, 140, 140, 10, 4, 123, 0, 8, 2342, 174, 4, 2174, 77, 2342, 2342, 2, 0, 0, 174, 174, 174, 174, 174, 0, 0, 732, 732, 77, 77, 1184, 1184, 1184, 2342, 172, 174, 172, 732, 732, 446, 183, 183, 0, 0, 101, 2, 0, 77, 1184, 101, 0, 0, 0, 732, 0, 24, 0, 0, 0, 61, 0, 0, 6, 0, 0, 1334, 1334, 4, 4, 4, 1334, 14, 0, 0, 1150, 1150, 6, 0, 188, 0, 0, 4, 10, 2, 40, 148, 148, 75, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 234, 234, 0, 0, 0, 2168, 0, 0, 0, 2342, 0, 0, 0, 0, 0, 0, 0, 148, 0, 0, 140, 140, 0, 0, 0, 174]
+  _ZNK6strata10JsonCursor7get_strEv:
+    Hash: 0x03510b1ec0eebdf1
+    Counters: 3
+    Block counts: [30, 4, 0]
+  _ZN6strata26append_escaped_json_stringENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEERNS0_12basic_stringIcS3_NS0_9allocatorIcEEEE:
+    Hash: 0x0c47b52d36938201
+    Counters: 14
+    Block counts: [40, 64, 31740, 12649, 5002, 4869, 5963, 10820, 3130, 8208, 4863, 23741, 21580, 16892]
+  _ZNK6strata10JsonCursor8get_boolEv:
+    Hash: 0x07735b69b972a322
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  _ZNSt3__16vectorINS_4pairINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEN6strata9JsonValueEEENS5_ISA_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0f9bab1861308eda
+    Counters: 3
+    Block counts: [27630, 55029, 8074]
+  _ZN6strata8bindings16SchemaCacheLease12release_keysERNS1_5StateE:
+    Hash: 0x0b15abf238ae3829
+    Counters: 4
+    Block counts: [78976, 19744, 9464, 0]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm3EEE10__dispatchB9nqe210106IOZNS0_6__ctorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE19__generic_constructB9nqe210106INS0_18__move_constructorISL_LNS0_6_TraitE1EEEEEvRSM_OT_EUlST_E_JONS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEEEEDcSS_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [98353]
+  __clang_call_terminate:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata16parse_sax_inlineINS_19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEEEENS_6StatusENSt3__117basic_string_viewIcNS6_11char_traitsIcEEEERT_b:
+    Hash: 0x07bab84cff55082a
+    Counters: 15
+    Block counts: [2, 0, 2, 2, 6, 4, 689, 689, 4, 685, 3, 0, 0, 2, 2]
+  _ZN6strata8bindings11parse_types13reset_runtimeEv:
+    Hash: 0x0ae15a43ac976867
+    Counters: 2
+    Block counts: [48926, 17]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEaSERKS5_:
+    Hash: 0x07280bebf6d9dce3
+    Counters: 7
+    Block counts: [0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectEENS_19__map_value_compareIS7_NS_4pairIKS7_S9_EENS_4lessIS7_EELb1EEENS5_ISE_EEE16__construct_nodeIJRS7_RS9_EEENS_10unique_ptrINS_11__tree_nodeISA_PvEENS_22__tree_node_destructorINS5_ISQ_EEEEEEDpOT_:
+    Hash: 0x0bb9fb60c5e4cefe
+    Counters: 4
+    Block counts: [1044, 174, 0, 0]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_117reviving_iteratorEP7_objectS4_:
+    Hash: 0x07735b6a3013b2d8
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  _ZN6strata8bindings7rawdict20probe_general_layoutEv:
+    Hash: 0x00cb26927408b705
+    Counters: 32
+    Block counts: [17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 0, 0, 0, 0, 0, 0, 17, 17, 17]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm2ELm2EEE10__dispatchB9nqe210106IOZNS0_12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE16__generic_assignB9nqe210106INS0_17__move_assignmentISL_LNS0_6_TraitE1EEEEEvOT_EUlRSR_OT0_E_JRNS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEOSZ_EEEDcSR_DpT0_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [0, 2]
+  _ZN6strata8bindings6native16format_pure_leafEP7_objectPc:
+    Hash: 0x0b9f6d8e850e0dda
+    Counters: 19
+    Block counts: [0, 842, 0, 836, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__16vectorIP7_objectNS_9allocatorIS2_EEE18__assign_with_sizeB9nqe210106IPKS2_S8_EEvT_T0_l:
+    Hash: 0x0ba1cf378c54783a
+    Counters: 13
+    Block counts: [0, 0, 27238, 602, 0, 0, 14731, 2888, 1070, 2888, 0, 0, 0]
+  src/strata/search/jsonpath_compile.cpp;_ZN6strata12_GLOBAL__N_110PathParser11read_numberERd:
+    Hash: 0x01f83c8102c90091
+    Counters: 15
+    Block counts: [0, 0, 2, 0, 284, 177, 109, 107, 0, 107, 107, 105, 0, 107, 105]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_112cursor_fieldEP7_objectS3_:
+    Hash: 0x01aeca3e041d729c
+    Counters: 14
+    Block counts: [98, 94, 94, 0, 4, 0, 0, 4, 0, 4, 0, 0, 0, 0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE11parse_valueINS_11PlainCursorEEET_S6_:
+    Hash: 0x0baf863fee7d422d
+    Counters: 36
+    Block counts: [2895584, 0, 0, 3044179, 87635, 5939763, 2895584, 9189, 59859, 3044281, 0, 0, 0, 0, 156209, 1118921, 75828, 926645, 421179, 345397, 1118899, 404622, 1117631, 1117629, 898633, 504470, 278855, 714277, 622325, 209807, 228162, 276308, 228162, 276308, 228162, 53501]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm3ELm3EEE10__dispatchB9nqe210106IOZNS0_12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE16__generic_assignB9nqe210106INS0_17__move_assignmentISL_LNS0_6_TraitE1EEEEEvOT_EUlRSR_OT0_E_JRNS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEOSZ_EEEDcSR_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [2]
+  _ZNSt3__16vectorIjNS_9allocatorIjEEE6assignEmRKj:
+    Hash: 0x02836c43694f6b49
+    Counters: 12
+    Block counts: [6037, 0, 0, 0, 12272, 0, 0, 0, 6037, 0, 0, 0]
+  _ZN6strata8bindings12StagedOutput10take_bytesEv:
+    Hash: 0x0b06c0412c3d15c1
+    Counters: 8
+    Block counts: [0, 11404, 11404, 11404, 1518, 8342, 3029, 3029]
+  _ZNK6strata10JsonCursor6get_atEm:
+    Hash: 0x04ff0bb90972a322
+    Counters: 6
+    Block counts: [14, 14, 12, 0, 10, 10]
+  _ZN3jkj9dragonbox6detail4implINS0_21ieee754_binary_traitsINS0_16ieee754_binary64EyiEEE15compute_nearestINS0_6policy4sign8ignore_tENS8_13trailing_zero8remove_tENS8_26decimal_to_binary_rounding17nearest_to_even_tENS8_26binary_to_decimal_rounding9to_even_tENS8_5cache6full_tENS8_23preferred_integer_types7match_tEEENS0_10decimal_fpIyNT4_21decimal_exponent_typeIS5_XcviclL_ZNS6_4min_EiiEngL_ZNS6_5max_kEEL_ZNS6_5min_kEEEEXcviclL_ZNS6_4max_EiiEL_ZNS6_5max_kEEplplngL_ZNS6_5min_kEEL_ZNS6_5kappaEELi1EEEEEXsrT_15return_has_signEXsrT0_21report_trailing_zerosEEENS0_23signed_significand_bitsIS5_EEi:
+    Hash: 0x067baad5d0d0c98a
+    Counters: 24
+    Block counts: [485819, 186322, 305003, 186735, 598, 0, 0, 0, 1416, 1167, 0, 0, 0, 0, 0, 0, 0, 409, 27402, 27402, 32127, 36903, 36903, 45681]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE24__emplace_back_slow_pathIJRNS_17basic_string_viewIcS3_EEEEEPS6_DpOT_:
+    Hash: 0x0accd2c64703ef12
+    Counters: 6
+    Block counts: [424, 424, 0, 0, 0, 424]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_111make_cursorERKNSt3__110shared_ptrIKNS_9JsonValueEEERKNS_10JsonCursorE:
+    Hash: 0x07df0bf881e912b8
+    Counters: 5
+    Block counts: [179, 179, 179, 179, 0]
+  _ZNSt3__116__variant_detail12__assignmentINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENS6_ISB_EEEENSA_7FlatMapIS8_SB_EEEEEE12__assign_altB9nqe210106ILm5ESF_SF_EEvRNS0_5__altIXT_ET0_EEOT1_:
+    Hash: 0x0209aa3e3852da94
+    Counters: 2
+    Block counts: [0, 50]
+  _ZNSt18bad_variant_accessD1Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata8bindings29register_folder_iterator_typeEP7_object:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [17]
+  _ZNSt3__127__tree_balance_after_insertB9nqe210106IPNS_16__tree_node_baseIPvEEEEvT_S5_:
+    Hash: 0x03497ec653ebe778
+    Counters: 20
+    Block counts: [20, 341, 48, 40, 4, 16, 16, 36, 4, 4, 18, 12, 4, 0, 0, 6, 550, 16, 12, 0]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm4EEE10__dispatchB9nqe210106IOZNS0_6__ctorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEEE19__generic_constructB9nqe210106INS0_18__move_constructorISL_LNS0_6_TraitE1EEEEEvRSM_OT_EUlST_E_JONS0_6__baseILSP_1EJDnbdSD_SI_SK_EEEEEEDcSS_DpT0_:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [53018]
+  _ZNSt3__16vectorINS_3mapINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectNS_4lessIS7_EENS5_INS_4pairIKS7_S9_EEEEEENS5_ISG_EEEC2B9nqe210106Em:
+    Hash: 0x01e0495918d5e9e3
+    Counters: 7
+    Block counts: [123, 101, 101, 0, 0, 0, 0]
+  _ZN6strata8bindings7rawdict31compact_general_holes_uncheckedEP7_objectPNS1_5EntryE:
+    Hash: 0x0ce0fbd6072900de
+    Counters: 7
+    Block counts: [44, 528279, 522355, 29965, 29921, 29921, 530440]
+  _ZNSt3__16vectorIPKN6strata9JsonValueENS_9allocatorIS4_EEE16__init_with_sizeB9nqe210106IPKS4_SA_EEvT_T0_m:
+    Hash: 0x049ab80db59e4140
+    Counters: 8
+    Block counts: [4, 4, 4, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_module.cpp;_ZN12_GLOBAL__N_112finish_loadsENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEEbbb:
+    Hash: 0x0fbe462e9b815bff
+    Counters: 18
+    Block counts: [29785, 6, 69, 63, 13, 27894, 63, 63, 6, 0, 0, 0, 0, 0, 0, 0, 0, 4]
+  src/strata/bindings/python_folder.cpp;_ZN6strata8bindings12_GLOBAL__N_120folder_iterator_nextEP7_object:
+    Hash: 0x07a1632dda5be25a
+    Counters: 36
+    Block counts: [50, 22, 2, 126, 50, 32, 50, 50, 22, 4, 0, 50, 32, 0, 50, 22, 4, 0, 0, 2, 120, 0, 76, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC2B9nqe210106INS_17basic_string_viewIcS2_EELi0EEERKT_:
+    Hash: 0x0eee82b30e2adb40
+    Counters: 5
+    Block counts: [258717, 221320, 37397, 0, 16]
+  _ZNSt3__16vectorINS_3mapINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEP7_objectNS_4lessIS7_EENS5_INS_4pairIKS7_S9_EEEEEENS5_ISG_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler12on_end_arrayEv:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  src/strata/bindings/python_dumps.cpp;_ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv:
+    Hash: 0x0bb9fb612b3061e1
+    Counters: 4
+    Block counts: [328, 84, 0, 236]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE25__init_copy_ctor_externalEPKcm:
+    Hash: 0x0eee82b2898afe23
+    Counters: 5
+    Block counts: [1364, 0, 1364, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12ParserInlineINS_12_GLOBAL__N_117DomBuilderHandlerEE9read_hex4ERj:
+    Hash: 0x02c04919a6426ffc
+    Counters: 9
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZNSt3__112__destroy_atB9nqe210106INS_4pairIKNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EELi0EEEvPT_:
+    Hash: 0x03510b1eef5cc5c1
+    Counters: 3
+    Block counts: [188, 0, 0]
+  _ZNSt3__126__throw_bad_variant_accessB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZNSt3__112__destroy_atB9nqe210106IN6strata8PathStepELi0EEEvPT_:
+    Hash: 0x03510b1eef5cc5c1
+    Counters: 3
+    Block counts: [11852, 0, 0]
+  _ZNK6strata10JsonCursor9get_floatEv:
+    Hash: 0x07df0bf912f1fd09
+    Counters: 5
+    Block counts: [8, 10, 8, 2, 0]
+  src/strata/bindings/python_parse_types.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_110search_oneEPKcP7_objectS6_Pb:
+    Hash: 0x05da6cf7dcb27d87
+    Counters: 12
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata12NdjsonStream4nextEv:
+    Hash: 0x0a894fc93e35b876
+    Counters: 7
+    Block counts: [0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings13search_folderEPKcP7_objectb:
+    Hash: 0x06338f92ffabc820
+    Counters: 15
+    Block counts: [87, 142, 87, 142, 28, 59, 59, 59, 0, 0, 0, 0, 0, 0, 0]
+  _ZNK6strata10JsonCursor9get_int64Ev:
+    Hash: 0x08c2aba342d352db
+    Counters: 6
+    Block counts: [14, 14, 10, 8, 0, 8]
+  _ZNSt3__116__variant_detail12__visitation6__base12__dispatcherIJLm3EEE10__dispatchB9nqe210106IOZNS0_6__dtorINS0_8__traitsIJDnbdNS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS_6vectorIN6strata9JsonValueENSB_ISG_EEEENSF_7FlatMapISD_SG_EEEEELNS0_6_TraitE1EE9__destroyB9nqe210106EvEUlRT_E_JRNS0_6__baseILSM_1EJDnbdSD_SI_SK_EEEEEEDcSO_DpT0_:
+    Hash: 0x0ae15a44542b0f02
+    Counters: 2
+    Block counts: [127251, 19775]
+  src/strata/bindings/python_parse_types_walk.cpp;_ZN6strata8bindings11parse_types12_GLOBAL__N_14Walk5storeERKNS0_5PyRefElP7_objectS4_:
+    Hash: 0x0d86b9c0fc2463ed
+    Counters: 8
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata19StreamSearchHandlerINS_8bindings15PythonMatchSinkEEC2ERKNSt3__16vectorINS_8PathStepENS4_9allocatorIS6_EEEERS2_:
+    Hash: 0x014c19ca4c2861eb
+    Counters: 6
+    Block counts: [2271, 1582, 689, 0, 0, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEEmEENS_19__map_value_compareIS7_NS_4pairIKS7_mEENS_4lessIS7_EELb1EEENS5_ISC_EEE16__construct_nodeIJRS7_mEEENS_10unique_ptrINS_11__tree_nodeIS8_PvEENS_22__tree_node_destructorINS5_ISN_EEEEEEDpOT_:
+    Hash: 0x0bb9fb60c5e4cefe
+    Counters: 4
+    Block counts: [1128, 188, 0, 0]
+  _ZN6strata16parse_sax_inlineINS_14JsonSaxHandlerEEENS_6StatusENSt3__117basic_string_viewIcNS3_11char_traitsIcEEEERT_b:
+    Hash: 0x07bab84cff55082a
+    Counters: 15
+    Block counts: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_116cursor_is_numberEP7_objectS3_:
+    Hash: 0x05fcfa1a0c976867
+    Counters: 3
+    Block counts: [16, 16, 6]
+  src/strata/bindings/python_document.cpp;_ZN6strata8bindings12_GLOBAL__N_116cursor_get_floatEP7_objectS3_:
+    Hash: 0x04cc4eb16395f015
+    Counters: 12
+    Block counts: [10, 8, 0, 2, 0, 0, 2, 2, 0, 0, 0, 0]
+  _ZNSt3__16__treeINS_12__value_typeINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEES7_EENS_19__map_value_compareIS7_NS_4pairIKS7_S7_EENS_4lessIS7_EELb1EEENS5_ISC_EEE4findIS7_EENS_15__tree_iteratorIS8_PNS_11__tree_nodeIS8_PvEElEERKT_:
+    Hash: 0x0835abb115802dce
+    Counters: 6
+    Block counts: [3480, 1338, 1205, 188, 1476, 1476]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE9read_hex4ERj:
+    Hash: 0x02c04919a6426ffc
+    Counters: 9
+    Block counts: [0, 1231184, 888888, 342296, 0, 307796, 307796, 0, 1231184]
+  _ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEPKcm:
+    Hash: 0x0f249037a98b56ac
+    Counters: 7
+    Block counts: [0, 0, 0, 0, 0, 0, 0]
+  src/strata/json/json_parse.cpp;_ZN6strata12_GLOBAL__N_117DomBuilderHandler15on_start_objectEv:
+    Hash: 0x0a85541d7c2e80e3
+    Counters: 10
+    Block counts: [8078, 79, 7999, 0, 0, 0, 0, 0, 0, 0]
+  _ZN6strata8bindings8KeyCache7matchesEP7_objectNSt3__117basic_string_viewIcNS4_11char_traitsIcEEEE:
+    Hash: 0x09b78207cd161620
+    Counters: 3
+    Block counts: [2567389, 0, 1307501]
+  _ZNSt3__114__split_bufferINS_4__fs10filesystem15directory_entryERNS_9allocatorIS3_EEED2Ev:
+    Hash: 0x0b15abf1d8f7a859
+    Counters: 4
+    Block counts: [0, 0, 628, 302]
+  _ZN6strata14serialize_jsonERKNS_9JsonValueE:
+    Hash: 0x07735b69d878a5e4
+    Counters: 4
+    Block counts: [0, 0, 0, 0]
+  _ZNSt3__16vectorINS_12basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEENS4_IS6_EEE16__destroy_vectorclB9nqe210106Ev:
+    Hash: 0x0b15abf25bc6533f
+    Counters: 4
+    Block counts: [3253, 436, 135881, 1806]
+  _ZN6strata4util6detail19parse_long_fractionEPKcmyjjbRdRm:
+    Hash: 0x0e533ddf59718d8f
+    Counters: 22
+    Block counts: [85006, 0, 1101483, 996166, 85230, 1080016, 996044, 85006, 23414, 368557, 696246, 368557, 592, 368557, 368557, 71611, 456, 592, 592, 0, 8, 288]
+  _ZNKSt3__14__fs10filesystem15directory_entry8__get_ftB9nqe210106EPNS_10error_codeE:
+    Hash: 0x05c2193038600e5a
+    Counters: 12
+    Block counts: [0, 0, 0, 0, 1190, 0, 1190, 0, 1190, 0, 1190, 0]
+  _ZN6strata8bindings16load_from_folderEPKcbb:
+    Hash: 0x03779df04c5f7d13
+    Counters: 17
+    Block counts: [111, 111, 6, 12, 212, 212, 12, 16, 95, 95, 89, 6, 0, 0, 0, 0, 236]
+  _ZNSt3__134__uninitialized_allocator_relocateB9nqe210106INS_9allocatorIN6strata19StreamSearchHandlerINS2_8bindings15PythonMatchSinkEE5LevelEEEPS7_EEvRT_T0_SC_SC_:
+    Hash: 0x0f9bab1831cec447
+    Counters: 3
+    Block counts: [2335, 2335, 1765]
+  _ZNSt3__16vectorIPKN6strata9JsonValueENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev:
+    Hash: 0x0a4d0ad3efffffff
+    Counters: 1
+    Block counts: [0]
+  _ZN6strata12ParserInlineINS_8bindings19PythonObjectBuilderEE10parse_boolINS2_11ValueCursorEEET_S6_:
+    Hash: 0x0910ccff0f65e72e
+    Counters: 14
+    Block counts: [354860, 0, 96, 177606, 177254, 177606, 177254, 177606, 177254, 177254, 177510, 0, 177254, 0]
+  _ZN6strata8bindings8KeyCacheD2Ev:
+    Hash: 0x03fd5b8ffacfa2a9
+    Counters: 6
+    Block counts: [353792, 430, 222, 0, 691, 0]
+Instrumentation level: IR  entry_first = 0  instrument_loop_entries = 0
+Functions shown: 518
+Total functions: 518
+Maximum function count: 9492373
+Maximum internal block count: 34261648
+Total number of blocks: 6276
+Total count: 600199076

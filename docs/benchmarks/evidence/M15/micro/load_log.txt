@@ -1,0 +1,40 @@
+== import before 2026-09-28 22:36:01
+22:36  up 10 days,  9:43, 1 user, load averages: 2.75 3.49 3.64
+  PID  %CPU COMM
+10618  69.2 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+  918  36.1 /usr/libexec/transparencyd
+53480  35.9 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+25306  10.8 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+37793   8.4 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+== import after 2026-09-28 22:36:08
+22:36  up 10 days,  9:43, 1 user, load averages: 2.77 3.49 3.64
+== import controls before 2026-09-28 22:36:21
+22:36  up 10 days,  9:44, 1 user, load averages: 2.31 3.35 3.58
+  PID  %CPU COMM
+ 2088  41.7 /usr/libexec/sysmond
+53480  35.3 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793  17.2 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+14861   5.3 claude
+  621   2.3 /usr/libexec/locationd
+== import controls after 2026-09-28 22:36:41
+22:36  up 10 days,  9:44, 1 user, load averages: 2.29 3.28 3.55
+== micro before 2026-09-28 22:37:04
+22:37  up 10 days,  9:44, 1 user, load averages: 2.20 3.19 3.51
+  PID  %CPU COMM
+10618  62.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+53480  35.3 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   7.3 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+14861   5.0 claude
+14224   2.4 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+== micro after 2026-09-28 22:38:12
+22:38  up 10 days,  9:45, 1 user, load averages: 3.38 3.45 3.59
+  PID  %CPU COMM
+53480  34.3 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   6.9 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  646   2.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+78101   2.3 claude
+  573   1.2 /usr/libexec/logd
+== facade_kw before 2026-09-28 22:38:23
+22:38  up 10 days,  9:46, 1 user, load averages: 3.40 3.45 3.59
+== facade_kw after 2026-09-28 22:38:24
+22:38  up 10 days,  9:46, 1 user, load averages: 3.40 3.45 3.59
