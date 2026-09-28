@@ -10,8 +10,12 @@ truth, `__index__` and `__float__`, and must write what `item()` returns;
 any other `str` spelling them.
 """
 
+import ctypes
 import enum
+import operator
+import pathlib
 import random
+import subprocess
 import sys
 
 import pytest
@@ -225,6 +229,138 @@ def test_dumps_with_default_never_calls_default_for_the_twins():
     out = strata.dumps_with_default([np.int16(-3), np.float32(0.5), np.bool_(True)], default)
     assert out == "[-3,0.5,true]"
     assert calls == []
+
+
+# ---------------------------------------------------------------------------
+# numpy scalars: the twins' runtime proof (docs/architecture/native_types.md,
+# "Frames, cycles and depth", numpy amendment 2026-09-29; python_native_types.cpp
+# `numpy_twins_hold`). Each image proves the type numbers once, when numpy
+# resolves; if the proof fails, every numpy scalar keeps `item()`.
+# ---------------------------------------------------------------------------
+
+#: The proof's rows: type character, `dtype.num`, `dtype.kind`, C item size.
+TWIN_ROWS = (
+    ("?", 0, "b", 1),
+    ("b", 1, "i", ctypes.sizeof(ctypes.c_byte)),
+    ("B", 2, "u", ctypes.sizeof(ctypes.c_ubyte)),
+    ("h", 3, "i", ctypes.sizeof(ctypes.c_short)),
+    ("H", 4, "u", ctypes.sizeof(ctypes.c_ushort)),
+    ("i", 5, "i", ctypes.sizeof(ctypes.c_int)),
+    ("I", 6, "u", ctypes.sizeof(ctypes.c_uint)),
+    ("l", 7, "i", ctypes.sizeof(ctypes.c_long)),
+    ("L", 8, "u", ctypes.sizeof(ctypes.c_ulong)),
+    ("q", 9, "i", ctypes.sizeof(ctypes.c_longlong)),
+    ("Q", 10, "u", ctypes.sizeof(ctypes.c_ulonglong)),
+    ("f", 11, "f", 4),
+    ("e", 23, "f", 2),
+)
+
+#: By argument, not PYTHONPATH, as in test_native_import.py.
+PACKAGE_ROOT = str(pathlib.Path(strata.__file__).resolve().parent.parent)
+
+#: Run in a fresh interpreter, where both images resolve numpy for the first
+#: time inside the patched window: `numpy.dtype` is what the proof calls, so a
+#: stand-in records which rows each image's proof read, and under REFUSE hands
+#: back float64 for every code, which no row accepts. Then every twin kind, at
+#: its edges, must write what `item()` returns, in both images and both modes.
+PROOF_RUN = """
+import hashlib
+
+import numpy as np
+
+import strata
+
+real = np.dtype
+seen = {"dumps": [], "hook": []}
+phase = "dumps"
+
+
+def stand_in(code):
+    seen[phase].append(code)
+    return real("d") if REFUSE else real(code)
+
+
+np.dtype = stand_in
+try:
+    strata.dumps(np.int8(1))
+    phase = "hook"
+    strata.dumps_with_default(np.int8(1), repr)
+finally:
+    np.dtype = real
+
+scalars = [np.bool_(True), np.bool_(False)]
+for name in ("int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64",
+             "longlong", "ulonglong", "intc", "uintc", "intp", "uintp"):
+    kind = getattr(np, name)
+    info = np.iinfo(kind)
+    scalars += [kind(value) for value in sorted({info.min, info.max, 0, 1, info.max // 3})]
+scalars += list(np.arange(0, 65536, 61, dtype=np.uint16).view(np.float16))
+scalars += [np.float32(value) for value in (0.1, -0.0, 1e-45, 3.4028235e38, float("inf"),
+                                            float("nan"))]
+oracle = strata.dumps([scalar.item() for scalar in scalars], return_type="bytes")
+assert strata.dumps(scalars).encode() == oracle
+assert strata.dumps(scalars, return_type="bytes") == oracle
+assert strata.dumps_with_default(scalars, repr).encode() == oracle
+assert strata.dumps_with_default(scalars, repr, return_type="bytes") == oracle
+print("".join(seen["dumps"]) or "-")
+print("".join(seen["hook"]) or "-")
+print(hashlib.sha256(oracle).hexdigest())
+"""
+
+
+def _proof_run(refuse):
+    """`(rows read by _strata's proof, rows read by the hook's, output digest)`."""
+    code = f"import sys\nsys.path.insert(0, sys.argv[1])\nREFUSE = {refuse!r}\n{PROOF_RUN}"
+    result = subprocess.run(
+        [sys.executable, "-c", code, PACKAGE_ROOT],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.split()
+
+
+def _probe(kind, size):
+    """The proof's probe: True, 0.1, or the integer type's extreme (its minimum when signed)."""
+    if kind == "b":
+        return True
+    if kind == "f":
+        return 0.1
+    return -(2 ** (8 * size - 1)) if kind == "i" else 2 ** (8 * size) - 1
+
+
+def test_the_numpy_twin_proof_holds_on_the_installed_numpy():
+    np = _numpy()
+    for code, number, kind, size in TWIN_ROWS:
+        scalar_type = np.dtype(code).type
+        scalar = scalar_type(_probe(kind, size))
+        assert type(scalar) is scalar_type, code
+        own = scalar.dtype
+        assert (own.num, own.kind, own.itemsize, own.type) == (number, kind, size, scalar_type)
+        if kind == "b":
+            twin = bool(scalar)
+        elif kind == "f":
+            twin = float(scalar)
+        else:
+            twin = operator.index(scalar)
+        item = scalar.item()
+        assert type(twin) is type(item), code
+        assert twin == item, code
+    # Both images' proofs read every row: none refused before the last.
+    rows = "".join(code for code, *_ in TWIN_ROWS)
+    dumps_rows, hook_rows, _ = _proof_run(refuse=False)
+    assert dumps_rows == hook_rows == rows
+
+
+def test_a_refused_numpy_twin_proof_writes_every_scalar_through_item():
+    _numpy()
+    refused_dumps, refused_hook, refused_digest = _proof_run(refuse=True)
+    # Refused at its first row in each image: float64 is not number 0.
+    assert refused_dumps == refused_hook == "?"
+    *_, proven_digest = _proof_run(refuse=False)
+    assert refused_digest == proven_digest
 
 
 # ---------------------------------------------------------------------------

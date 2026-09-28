@@ -55,7 +55,8 @@ enum class Kind : uint8_t {
     Dataclass,
     Set,
     /// A numpy scalar written through `item()`: a subclass, `longdouble`, a
-    /// user dtype -- any scalar the three kinds below do not name.
+    /// user dtype -- any scalar the three kinds below do not name, and every
+    /// scalar when the running numpy did not pass the twins' runtime proof.
     NumpyScalar,
     /// numpy's own `bool_`, whose `item()` is its truth as a `bool`.
     NumpyBool,
@@ -142,9 +143,10 @@ enum class DecimalText : uint8_t { Number, NonFinite, Error };
  * The names `dataclasses.fields(type(@p object))` lists, in order, as a new
  * reference to a tuple of `str`. Cached per type, at most kFieldCacheLimit
  * types (a full cache is cleared). An entry is used only while the type's
- * `__dataclass_fields__` is still the object it was read from and still has
- * the length it had, so a type whose fields are replaced or grown after its
- * first use is read again. Latched caller; nullptr with an error set.
+ * `__dataclass_fields__` is an exact dict holding the keys and field objects
+ * it held when read, by identity and in the same order, so a type whose fields
+ * are replaced, grown, shrunk or swapped in place after its first use is read
+ * again. Latched caller; nullptr with an error set.
  */
 [[nodiscard]] PyObject* dataclass_field_names(PyObject* object);
 

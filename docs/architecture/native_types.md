@@ -72,8 +72,10 @@ Everything type-specific lives outside the writers' translation unit:
 - `src/strata/bindings/python_native_types.{h,cpp}` (both images): the lazily
   resolved type table, the dataclass field-name cache (at most 1024 types, a
   full cache cleared; an entry stands while the type's `__dataclass_fields__`
-  is the object it was read from, at the length it had), and the conversions from
-  a Python object to fields or text. Resolution reads `sys.modules` only — it
+  is an exact dict holding the keys and field objects it held when read, by
+  identity and in order), and the conversions from
+  a Python object to fields or text; `python_numpy_twins.{h,cpp}` (both
+  images) holds the numpy twins' runtime proof. Resolution reads `sys.modules` only — it
   never imports a module — so `import strata` imports none of `datetime`,
   `uuid`, `decimal`, `enum`, `dataclasses` or `numpy`, and a type whose module
   is not imported cannot be present in the document anyway.
@@ -245,6 +247,13 @@ reached. For one that holds only pure natives, no user code runs.
   (1–10), `float32` (11) or `float16` (23) is read through truth,
   `__index__` or `__float__`, which return the `bool`, `int` or `float` its
   `item()` returns; a subclass, `longdouble` and user dtypes keep `item()`.
+  **Amended 2026-09-29 (portable by construction):** those numbers are proven
+  once, when numpy resolves in each image — for each of `? b B h H i I l L q Q f e`,
+  the scalar type `numpy.dtype(code)` names, built from a probe (`True`, the
+  integer type's extreme, `0.1`), has exactly that type, and its own dtype has
+  the expected number, kind and C item size; its twin equals its `item()` in
+  type and value. If any row fails, every numpy scalar keeps `item()` (identical
+  output).
 - A dataclass's fields are read one at a time as they are written (followed
   live, like a wide dict); a set resized while it is being written raises the
   `RuntimeError` its iterator raises. The existing rules for lists and dicts

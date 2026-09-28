@@ -110,6 +110,7 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 | `python_dumps.cpp`                        | `dumps` + all serialization fast paths; `write_native`, the native tail, and its writers               |
 | `python_dumps_hook.cpp`                   | `strata._dumps_hook`: `python_dumps.cpp` compiled again with `default` (both images)                   |
 | `python_native_types.h/.cpp`              | Native type table (from `sys.modules`), pure leaves, conversions; the serializer's `datetime.h` TU     |
+| `python_numpy_twins.h/.cpp`               | The runtime proof of the numpy type numbers the `item()` twins admit (both images)                     |
 | `python_parse_types.h/.cpp`               | `parse_types` (`_strata` only): option and registry, the reviving iterator, the four cold entry points |
 | `python_parse_types_walk.h/.cpp`          | `parse_types`'s revival walk (explicit stack), recognition and its lazily imported runtime             |
 | `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                              |

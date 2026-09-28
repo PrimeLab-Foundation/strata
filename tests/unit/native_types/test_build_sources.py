@@ -17,6 +17,8 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 NATIVE = "src/strata/bindings/python_native_types.cpp"
+#: The numpy twins' runtime proof, split out of NATIVE (the ~800 LOC rule).
+NUMPY_TWINS = "src/strata/bindings/python_numpy_twins.cpp"
 
 
 def _source_lists():
@@ -32,21 +34,26 @@ def _source_lists():
 
 
 def test_the_engine_image_compiles_the_native_type_table():
-    assert _source_lists()["BINDING_SOURCES"].count(NATIVE) == 1
+    sources = _source_lists()["BINDING_SOURCES"]
+    assert sources.count(NATIVE) == 1
+    assert sources.count(NUMPY_TWINS) == 1
+    assert sources.index(NUMPY_TWINS) == sources.index(NATIVE) + 1
 
 
 def test_the_hook_image_compiles_it_after_the_serializer():
     assert _source_lists()["HOOK_BINDING_SOURCES"] == [
         "src/strata/bindings/python_dumps_hook.cpp",
         NATIVE,
+        NUMPY_TWINS,
     ]
 
 
 def test_it_is_not_a_core_source():
     manifest = (PROJECT_ROOT / "src" / "strata" / "core_sources.txt").read_text(encoding="utf-8")
-    assert NATIVE not in manifest
-    assert (PROJECT_ROOT / NATIVE).is_file()
-    assert (PROJECT_ROOT / NATIVE.replace(".cpp", ".h")).is_file()
+    for source in (NATIVE, NUMPY_TWINS):
+        assert source not in manifest
+        assert (PROJECT_ROOT / source).is_file()
+        assert (PROJECT_ROOT / source.replace(".cpp", ".h")).is_file()
 
 
 PARSE_TYPES = "src/strata/bindings/python_parse_types.cpp"

@@ -469,6 +469,61 @@ def test_row7_the_field_name_cache_follows_fields_replaced_or_grown():
     assert both(value) == listed() == '{"a":1,"c":3}'
 
 
+def test_row7_the_field_name_cache_follows_fields_swapped_in_place():
+    # Review P2: an entry stands only while the dict holds the keys and field
+    # objects it was read from, by identity and in order -- the same dict at
+    # the same length is not enough.
+    @dataclasses.dataclass
+    class Swapped:
+        a: int = 1
+
+    @dataclasses.dataclass
+    class Donor:
+        b: int = 2
+        c: int = 3
+
+    value = Swapped()
+    value.b = 2
+    value.c = 3
+
+    def written():
+        listed = ",".join(
+            f'"{field.name}":{getattr(value, field.name)}' for field in dataclasses.fields(value)
+        )
+        out = both(value)
+        assert strata.dumps_with_default(value, repr) == out == "{" + listed + "}"
+        return out
+
+    assert written() == '{"a":1}'
+    declared = Swapped.__dataclass_fields__
+    del declared["a"]  # the review's case: one key out, one in, same dict, same length
+    declared["b"] = Donor.__dataclass_fields__["b"]
+    assert written() == '{"b":2}'
+    declared["b"] = Donor.__dataclass_fields__["c"]  # the value swapped under the same key
+    assert written() == '{"c":3}'
+
+
+def test_row7_pseudo_fields_stay_out_of_cached_and_swapped_entries():
+    @dataclasses.dataclass
+    class WithPseudo:
+        kept: int = 1
+        dropped: int = 2
+        shared: typing.ClassVar[int] = 3
+        seed: dataclasses.InitVar[int] = 0
+
+    value = WithPseudo()
+    assert both(value) == '{"kept":1,"dropped":2}'
+    assert both(value) == '{"kept":1,"dropped":2}'  # from the cached entry
+    declared = WithPseudo.__dataclass_fields__
+    field = declared["dropped"]
+    for pseudo in ("shared", "seed"):  # a ClassVar, then an InitVar, under a field's key
+        declared["dropped"] = declared[pseudo]
+        assert both(value) == '{"kept":1}'
+        assert strata.dumps_with_default(value, repr) == '{"kept":1}'
+    declared["dropped"] = field
+    assert both(value) == '{"kept":1,"dropped":2}'
+
+
 def test_row7_more_dataclass_types_than_the_cache_holds_are_each_written_by_their_fields():
     # python_native_types.h: at most 1024 types are cached; a full cache is cleared.
     kinds = [dataclasses.make_dataclass(f"K{index}", [(f"f{index}", int)]) for index in range(1100)]

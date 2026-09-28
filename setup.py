@@ -509,6 +509,7 @@ BINDING_SOURCES = [
     "src/strata/bindings/python_jsonpath.cpp",
     "src/strata/bindings/python_folder.cpp",
     "src/strata/bindings/python_native_types.cpp",
+    "src/strata/bindings/python_numpy_twins.cpp",
     "src/strata/bindings/python_parse_types.cpp",
     "src/strata/bindings/python_parse_types_walk.cpp",
 ]
@@ -538,6 +539,7 @@ def _core_sources() -> list[str]:
 HOOK_BINDING_SOURCES = [
     "src/strata/bindings/python_dumps_hook.cpp",
     "src/strata/bindings/python_native_types.cpp",
+    "src/strata/bindings/python_numpy_twins.cpp",
 ]
 
 

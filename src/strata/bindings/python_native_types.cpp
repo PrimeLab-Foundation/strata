@@ -11,6 +11,7 @@
 
 #include "python_native_types.h"
 
+#include "python_numpy_twins.h"
 #include "strata/util/temporal.hpp"
 
 #include <datetime.h>
@@ -55,15 +56,6 @@ struct Names {
 
 Names g_names{};
 
-/// numpy's type numbers (`dtype.num`, `NPY_TYPES`: equal in numpy 1.x and 2.x)
-/// of the scalars whose `item()` has an exact twin. `longdouble` (13), whose
-/// `item()` returns itself, is not among them.
-inline constexpr long kNumpyBool = 0;         // NPY_BOOL
-inline constexpr long kNumpyFirstInteger = 1; // NPY_BYTE
-inline constexpr long kNumpyLastInteger = 10; // NPY_ULONGLONG
-inline constexpr long kNumpyFloat32 = 11;     // NPY_FLOAT
-inline constexpr long kNumpyFloat16 = 23;     // NPY_HALF
-
 /**
  * What has been found in `sys.modules` so far. Each group is filled at most
  * once, by the first lookup that finds its module, and holds strong
@@ -85,8 +77,11 @@ struct Table {
     PyObject* dataclasses_fields = nullptr;
     PyTypeObject* numpy_generic = nullptr;
     PyTypeObject* numpy_ndarray = nullptr;
-    /// `type -> (__dataclass_fields__ as read, its length then, field names)`,
-    /// created at the first dataclass.
+    /// Whether numpy_twins_hold() held when numpy resolved. False: every numpy
+    /// scalar is read through `item()`.
+    bool numpy_twins = false;
+    /// `type -> ((key, field, key, field, ...) of __dataclass_fields__ as
+    /// read, field names)`, created at the first dataclass.
     PyObject* field_cache = nullptr;
 };
 
@@ -226,6 +221,11 @@ void resolve_numpy() {
     }
     g_table.numpy_ndarray = ndarray;
     g_table.numpy_generic = generic;
+    // After the types are in the table: a walk the proof's own calls start
+    // finds numpy resolved, twins off, and reads its scalars through item().
+    g_table.numpy_twins = numpy_twins_hold(module.get());
+    if (!g_table.numpy_twins)
+        PyErr_Clear();
 }
 
 /// Look for every module the table does not hold yet. Never raises.
@@ -253,10 +253,10 @@ int has_attribute(PyObject* owner, PyObject* name) {
 /**
  * What a numpy object's dtype makes of it: `None` unless the dtype kind is
  * one of `b i u f`; for an array `NumpyArray`; for a scalar one of the three
- * exact kinds when the dtype's scalar type is the object's own type (not a
- * subclass, whose `item()` may be its own) and its number is one whose
- * `item()` converts as truth, `__index__` or `__float__` does, else
- * `NumpyScalar`. `Error` with an exception set.
+ * exact kinds when the twins' proof held, the dtype's scalar type is the
+ * object's own type (not a subclass, whose `item()` may be its own) and its
+ * number is one whose `item()` converts as truth, `__index__` or `__float__`
+ * does, else `NumpyScalar`. `Error` with an exception set.
  */
 Kind numpy_kind(PyObject* object, bool array) {
     PyRef dtype(PyObject_GetAttr(object, g_names.dtype));
@@ -272,6 +272,8 @@ Kind numpy_kind(PyObject* object, bool array) {
         return Kind::None;
     if (array)
         return Kind::NumpyArray;
+    if (!g_table.numpy_twins)
+        return Kind::NumpyScalar;
     PyRef scalar_type(PyObject_GetAttr(dtype.get(), g_names.scalar_type));
     if (!scalar_type)
         return Kind::Error;
@@ -448,6 +450,41 @@ bool is_non_finite(std::string_view text) noexcept {
     for (const char digit : text.substr(3))
         if (digit < '0' || digit > '9')
             return false;
+    return true;
+}
+
+/// `(key, value, key, value, ...)` of the exact dict @p fields, in order; a new
+/// reference, or nullptr with an error set. Runs no code once the tuple exists.
+PyObject* field_pairs(PyObject* fields) {
+    const Py_ssize_t size = PyDict_GET_SIZE(fields);
+    PyObject* const pairs = PyTuple_New(2 * size);
+    if (pairs == nullptr)
+        return nullptr;
+    Py_ssize_t position = 0;
+    Py_ssize_t index = 0;
+    PyObject* key = nullptr;
+    PyObject* value = nullptr;
+    while (index < 2 * size && PyDict_Next(fields, &position, &key, &value)) {
+        PyTuple_SET_ITEM(pairs, index++, Py_NewRef(key));
+        PyTuple_SET_ITEM(pairs, index++, Py_NewRef(value));
+    }
+    return pairs;
+}
+
+/// Whether the exact dict @p fields holds @p pairs' keys and values, by
+/// identity and in order, and nothing else. Runs no code.
+bool fields_match(PyObject* fields, PyObject* pairs) noexcept {
+    if (2 * PyDict_GET_SIZE(fields) != PyTuple_GET_SIZE(pairs))
+        return false;
+    Py_ssize_t position = 0;
+    Py_ssize_t index = 0;
+    PyObject* key = nullptr;
+    PyObject* value = nullptr;
+    while (PyDict_Next(fields, &position, &key, &value)) {
+        if (PyTuple_GET_ITEM(pairs, index) != key || PyTuple_GET_ITEM(pairs, index + 1) != value)
+            return false;
+        index += 2;
+    }
     return true;
 }
 
@@ -666,18 +703,23 @@ PyObject* dataclass_field_names(PyObject* object) {
             return nullptr;
     }
     PyObject* const cache = g_table.field_cache;
-    // What `dataclasses.fields` reads. A cached entry stands while this is the
-    // same object with the same length; anything else is a miss.
+    // What `dataclasses.fields` reads: it lists this dict's values, in order.
+    // A cached entry stands while an exact dict holds the same keys and
+    // fields, by identity and in order; anything else is a miss.
     const PyRef declared(PyObject_GetAttr(type, g_names.dataclass_fields));
     if (!declared)
         return nullptr;
-    const Py_ssize_t declared_size =
-        PyDict_Check(declared.get()) ? PyDict_GET_SIZE(declared.get()) : -1;
-    PyObject* const cached = PyDict_GetItemWithError(cache, type);
-    if (cached != nullptr && declared_size >= 0 && PyTuple_GET_ITEM(cached, 0) == declared.get() &&
-        PyLong_AsSsize_t(PyTuple_GET_ITEM(cached, 1)) == declared_size)
-        return Py_NewRef(PyTuple_GET_ITEM(cached, 2));
-    if (cached == nullptr && PyErr_Occurred())
+    const bool exact = PyDict_CheckExact(declared.get());
+    if (exact) {
+        PyObject* const cached = PyDict_GetItemWithError(cache, type);
+        if (cached != nullptr && fields_match(declared.get(), PyTuple_GET_ITEM(cached, 0)))
+            return Py_NewRef(PyTuple_GET_ITEM(cached, 1));
+        if (cached == nullptr && PyErr_Occurred())
+            return nullptr;
+    }
+    // Taken before the calls below, which run code that can change the dict.
+    const PyRef pairs(exact ? field_pairs(declared.get()) : nullptr);
+    if (exact && !pairs)
         return nullptr;
     const PyRef fields(PyObject_CallOneArg(g_table.dataclasses_fields, type));
     if (!fields)
@@ -701,10 +743,10 @@ PyObject* dataclass_field_names(PyObject* object) {
         }
         PyTuple_SET_ITEM(names.get(), index, name);
     }
-    if (declared_size < 0) // not a dict: nothing stable to check an entry against
+    // Not an exact dict, or changed while listed: nothing stable to check an entry against.
+    if (!exact || !fields_match(declared.get(), pairs.get()))
         return names.release();
-    const PyRef size(PyLong_FromSsize_t(declared_size));
-    const PyRef entry(size ? PyTuple_Pack(3, declared.get(), size.get(), names.get()) : nullptr);
+    const PyRef entry(PyTuple_Pack(2, pairs.get(), names.get()));
     if (!entry)
         return nullptr;
     if (PyDict_GET_SIZE(cache) >= kFieldCacheLimit)
