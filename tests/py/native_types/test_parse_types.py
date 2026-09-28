@@ -783,3 +783,40 @@ def test_user_code_that_reenters_strata():
     )
     assert type(result["n"]) is Nested
     assert result["n"].text == {"inner": Color.RED, "at": dt.date(2024, 1, 1)}
+
+
+def test_dataclass_fit_check_holds_the_borrowed_key():
+    # Regression: fits() looked each key up in the field-name set while holding
+    # only PyDict_Next's borrowed reference; it now holds a strong reference
+    # across PySet_Contains, so a key's __hash__/__eq__ cannot leave it dangling
+    # (python_parse_types_walk.cpp). This drives every fits() branch -- match,
+    # unknown key, missing required, and once per list element -- and under the
+    # test-py-asan gate guards the reference's lifetime.
+    @dataclasses.dataclass
+    class Record:
+        a: int
+        b: str
+        c: int = 0
+
+    registry = {"rec": Record, "recs": Record}
+
+    # Fits: every key is an init field, every required field present.
+    full = strata.loads('{"rec": {"a": 1, "b": "x", "c": 2}}', parse_types=registry)
+    assert full["rec"] == Record(1, "x", 2)
+    minimal = strata.loads('{"rec": {"a": 1, "b": "x"}}', parse_types=registry)
+    assert minimal["rec"] == Record(1, "x", 0)
+
+    # First fits() loop rejects an unknown key; the dict is left as parsed.
+    extra = strata.loads('{"rec": {"a": 1, "b": "x", "z": 9}}', parse_types=registry)
+    assert extra["rec"] == {"a": 1, "b": "x", "z": 9}
+
+    # Second fits() loop rejects a missing required field.
+    missing = strata.loads('{"rec": {"b": "x"}}', parse_types=registry)
+    assert missing["rec"] == {"b": "x"}
+
+    # A registered name's list runs fits() once per element.
+    listed = strata.loads(
+        '{"recs": [{"a": 1, "b": "x"}, {"a": 2, "b": "y", "z": 0}]}',
+        parse_types=registry,
+    )
+    assert listed["recs"] == [Record(1, "x"), {"a": 2, "b": "y", "z": 0}]

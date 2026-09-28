@@ -510,6 +510,7 @@ BINDING_SOURCES = [
     "src/strata/bindings/python_folder.cpp",
     "src/strata/bindings/python_native_types.cpp",
     "src/strata/bindings/python_parse_types.cpp",
+    "src/strata/bindings/python_parse_types_walk.cpp",
 ]
 
 
