@@ -5,7 +5,10 @@
            profile runtime on the MSVC link line) -> training data
            -> training workload -> gate tests -> llvm-profdata merge
   phase 2  rebuild against the merged profile (/clang:-fprofile-use)
-           -> gate tests -> verification benchmarks
+           -> gate tests
+  phase 3  the hook image alone: instrumented -> native training workload
+           -> its own profile -> rebuild against it -> gate tests; _strata's
+           image is checked unchanged -> verification benchmarks
 
 Both phases run the gate, as the POSIX and MSVC scripts do: an optimized
 build that fails its tests is worth nothing, and PGO is exactly the kind of
@@ -36,6 +39,7 @@ runners ship it under C:\\Program Files\\LLVM).
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -47,6 +51,9 @@ PGO_DIR = PROJECT_ROOT / os.environ.get("PGO_DIR", "build/pgo")
 RAW_DIR = PGO_DIR / "raw"
 WORK_DIR = PGO_DIR / "work"
 PROFILE = PGO_DIR / "strata.profdata"
+HOOK_RAW_DIR = PGO_DIR / "hook-raw"
+HOOK_GATE_DIR = PGO_DIR / "hook-gate-discarded"
+HOOK_PROFILE = PGO_DIR / "hook.profdata"
 BENCH_DATA = PROJECT_ROOT / "benchmarks" / "data" / "generated" / "small"
 BENCH_REPEAT = os.environ.get("PGO_BENCH_REPEAT", "10")
 BENCH_WARMUP = os.environ.get("PGO_BENCH_WARMUP", "2")
@@ -91,6 +98,100 @@ def _install(mode: str, extra_env: dict[str, str]) -> None:
         [sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps", "-e", "."],
         extra_env=env,
     )
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _strata_image() -> Path:
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import importlib.util as u; print(u.find_spec('strata._strata').origin)",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=PROJECT_ROOT,
+    )
+    return Path(probe.stdout.strip()).resolve()
+
+
+def _install_hook(mode: str, extra_env: dict[str, str]) -> None:
+    """Rebuild strata._dumps_hook alone (STRATA_EXTENSIONS), in @p mode for its own profile."""
+    env = {
+        "STRATA_WIN_COMPILER": "clang-cl",
+        "PGO_MODE": "",
+        "STRATA_ENABLE_LTO": "0",
+        "STRATA_EXTENSIONS": "strata._dumps_hook",
+        "STRATA_HOOK_PGO_MODE": mode,
+    }
+    env.update(extra_env)
+    _run(
+        [sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps", "-e", "."],
+        extra_env=env,
+    )
+
+
+def _hook_phase(profdata: str) -> None:
+    """Phase 3: the hook image's own profile (docs/architecture/native_types.md, "Hook profile").
+
+    The hook is instrumented alone while `_strata` is the phase-2 image,
+    trained by scripts/pgo_hook_training.py (the build gate's counts go to a
+    directory that is thrown away), and rebuilt against that profile; no LTO
+    under clang-cl. `_strata`'s image must come out byte for byte unchanged.
+    """
+    image = _strata_image()
+    before = _sha256(image)
+    HOOK_RAW_DIR.mkdir(parents=True)
+    HOOK_GATE_DIR.mkdir(parents=True)
+    print("==> PGO phase 3a: instrumented hook", flush=True)
+    _install_hook("generate", {"LLVM_PROFILE_FILE": str(HOOK_GATE_DIR / "%p.profraw")})
+    print("==> PGO: the hook's native training workload", flush=True)
+    _run(
+        [sys.executable, "scripts/pgo_hook_training.py", "--work-dir", str(WORK_DIR)],
+        extra_env={"PYTHONPATH": ".", "LLVM_PROFILE_FILE": str(HOOK_RAW_DIR / "%p.profraw")},
+    )
+    raw = sorted(HOOK_RAW_DIR.glob("*.profraw"))
+    if not raw:
+        raise SystemExit("The hook's training wrote no .profraw -- it was not instrumented.")
+    _run([profdata, "merge", f"-output={HOOK_PROFILE}", *map(str, raw)])
+    _run(
+        [
+            sys.executable,
+            "scripts/build_identity.py",
+            "--profile",
+            str(HOOK_PROFILE),
+            "--raw",
+            str(HOOK_RAW_DIR),
+            "--recipe",
+            "hook-native-training-clang-cl-v1",
+        ]
+    )
+    print("==> PGO phase 3b: the hook against its own profile", flush=True)
+    _install_hook("use", {"STRATA_HOOK_PGO_PROFILE": str(HOOK_PROFILE)})
+    if _sha256(image) != before:
+        raise SystemExit(f"The hook phase changed _strata's image ({image}).")
+    for module, profile, foreign in (
+        ("strata._dumps_hook", HOOK_PROFILE, PROFILE),
+        ("strata._strata", PROFILE, HOOK_PROFILE),
+    ):
+        _run(
+            [
+                sys.executable,
+                "scripts/build_identity.py",
+                "--check-profiled",
+                module,
+                "--profile",
+                str(profile),
+                "--foreign",
+                str(foreign),
+            ]
+        )
+    print("==> PGO: gate tests on the optimized hook", flush=True)
+    _gate_tests()
 
 
 def _assert_hook_unprofiled(*control: str) -> None:
@@ -240,6 +341,8 @@ def main() -> int:
 
     print("==> PGO: gate tests on the optimized build", flush=True)
     _gate_tests()
+
+    _hook_phase(profdata)
 
     if not BENCH_DATA.is_dir():
         print("==> PGO: generating benchmark data", flush=True)

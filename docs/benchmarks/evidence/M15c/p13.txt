@@ -1,0 +1,9 @@
+row             lib           tip_plain       tip_lto       tip_pgo           tip   n
+t-dc            strata          87.21us       88.51us       96.57us       95.09us  120
+                tip_lto/tip_plain strata: median 1.0140 [1.0016, 1.0263] over 2 blocks
+                tip_pgo/tip_plain strata: median 1.1146 [1.1030, 1.1262] over 2 blocks
+                tip/tip_plain strata: median 1.0908 [1.0884, 1.0933] over 2 blocks
+rec             strata         208.32us      208.81us      205.84us      203.33us  120
+                tip_lto/tip_plain strata: median 1.0009 [0.9959, 1.0059] over 2 blocks
+                tip_pgo/tip_plain strata: median 0.9880 [0.9838, 0.9921] over 2 blocks
+                tip/tip_plain strata: median 0.9752 [0.9701, 0.9803] over 2 blocks

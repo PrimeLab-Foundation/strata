@@ -1,0 +1,2160 @@
+﻿2026-09-29T22:08:38.1623370Z Current runner version: '2.337.0'
+2026-09-29T22:08:38.1668710Z ##[group]Runner Image Provisioner
+2026-09-29T22:08:38.1670480Z Hosted Compute Agent
+2026-09-29T22:08:38.1671540Z Version: 20260819.586
+2026-09-29T22:08:38.1672690Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+2026-09-29T22:08:38.1674140Z Build Date: 2026-08-18T23:20:18Z
+2026-09-29T22:08:38.1675430Z Worker ID: {0dc7f716-fd9d-4d5d-84c1-ac4fb7b14be7}
+2026-09-29T22:08:38.1676790Z Azure Region: westus
+2026-09-29T22:08:38.1677830Z ##[endgroup]
+2026-09-29T22:08:38.1681830Z ##[group]Operating System
+2026-09-29T22:08:38.1682990Z macOS
+2026-09-29T22:08:38.1683880Z 15.7.9
+2026-09-29T22:08:38.1684800Z 24G830
+2026-09-29T22:08:38.1685720Z ##[endgroup]
+2026-09-29T22:08:38.1686700Z ##[group]Runner Image
+2026-09-29T22:08:38.1687900Z Image: macos-15
+2026-09-29T22:08:38.1688930Z Version: 20260824.0482.1
+2026-09-29T22:08:38.1691530Z Included Software: https://github.com/actions/runner-images/blob/macos-15/20260824.0482/images/macos/macos-15-Readme.md
+2026-09-29T22:08:38.1694810Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15%2F20260824.0482
+2026-09-29T22:08:38.1696870Z ##[endgroup]
+2026-09-29T22:08:38.1699310Z ##[group]GITHUB_TOKEN Permissions
+2026-09-29T22:08:38.1703740Z Contents: read
+2026-09-29T22:08:38.1704790Z Metadata: read
+2026-09-29T22:08:38.1705790Z Packages: read
+2026-09-29T22:08:38.1706690Z ##[endgroup]
+2026-09-29T22:08:38.1710240Z Secret source: Actions
+2026-09-29T22:08:38.1711670Z Cache mode: write
+2026-09-29T22:08:38.1712680Z Prepare workflow directory
+2026-09-29T22:08:38.2591440Z Prepare all required actions
+2026-09-29T22:08:38.2683680Z Getting action download info
+2026-09-29T22:08:38.7745920Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-29T22:08:39.0866500Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-09-29T22:08:39.8676900Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-09-29T22:08:40.7166240Z Complete job name: supportability (macos-x86_64)
+2026-09-29T22:08:41.1264100Z ##[group]Run actions/checkout@v4
+2026-09-29T22:08:41.1270480Z with:
+2026-09-29T22:08:41.1273780Z   fetch-depth: 0
+2026-09-29T22:08:41.1276320Z   repository: PrimeLab-Foundation/strata
+2026-09-29T22:08:41.1295360Z   token: ***
+2026-09-29T22:08:41.1298610Z   ssh-strict: true
+2026-09-29T22:08:41.1301200Z   ssh-user: git
+2026-09-29T22:08:41.1303600Z   persist-credentials: true
+2026-09-29T22:08:41.1306150Z   clean: true
+2026-09-29T22:08:41.1308600Z   sparse-checkout-cone-mode: true
+2026-09-29T22:08:41.1311350Z   fetch-tags: false
+2026-09-29T22:08:41.1314440Z   show-progress: true
+2026-09-29T22:08:41.1316760Z   lfs: false
+2026-09-29T22:08:41.1318960Z   submodules: false
+2026-09-29T22:08:41.1321460Z   set-safe-directory: true
+2026-09-29T22:08:41.1324450Z   allow-unsafe-pr-checkout: false
+2026-09-29T22:08:41.1330550Z env:
+2026-09-29T22:08:41.1332830Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:08:41.1335640Z ##[endgroup]
+2026-09-29T22:08:42.2527590Z Syncing repository: PrimeLab-Foundation/strata
+2026-09-29T22:08:42.2540560Z ##[group]Getting Git version info
+2026-09-29T22:08:42.2545810Z Working directory is '/Users/runner/work/strata/strata'
+2026-09-29T22:08:42.2551030Z [command]/usr/local/bin/git version
+2026-09-29T22:08:42.3683930Z git version 2.55.0
+2026-09-29T22:08:42.4497580Z ##[endgroup]
+2026-09-29T22:08:42.4674390Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/bc634a4d-d888-49bc-b308-04a6e4f5b9bd/.gitconfig'
+2026-09-29T22:08:42.4694310Z Temporarily overriding HOME='/Users/runner/work/_temp/bc634a4d-d888-49bc-b308-04a6e4f5b9bd' before making global git config changes
+2026-09-29T22:08:42.4731970Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-29T22:08:42.4738900Z [command]/usr/local/bin/git config --global --add safe.directory /Users/runner/work/strata/strata
+2026-09-29T22:08:42.4814190Z Deleting the contents of '/Users/runner/work/strata/strata'
+2026-09-29T22:08:42.4832200Z ##[group]Initializing the repository
+2026-09-29T22:08:42.4869660Z [command]/usr/local/bin/git init /Users/runner/work/strata/strata
+2026-09-29T22:08:42.5030280Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-29T22:08:42.5053160Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-29T22:08:42.5065220Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-29T22:08:42.5072260Z hint: call:
+2026-09-29T22:08:42.5112920Z hint:
+2026-09-29T22:08:42.5137960Z hint: 	git config --global init.defaultBranch <name>
+2026-09-29T22:08:42.5167930Z hint:
+2026-09-29T22:08:42.5195450Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-29T22:08:42.5202190Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-29T22:08:42.5230140Z hint:
+2026-09-29T22:08:42.5259970Z hint: 	git branch -m <name>
+2026-09-29T22:08:42.5270680Z hint:
+2026-09-29T22:08:42.5297560Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-29T22:08:42.5310190Z Initialized empty Git repository in /Users/runner/work/strata/strata/.git/
+2026-09-29T22:08:42.5460750Z [command]/usr/local/bin/git remote add origin https://github.com/PrimeLab-Foundation/strata
+2026-09-29T22:08:42.5548420Z ##[endgroup]
+2026-09-29T22:08:42.5586870Z ##[group]Disabling automatic garbage collection
+2026-09-29T22:08:42.5636900Z [command]/usr/local/bin/git config --local gc.auto 0
+2026-09-29T22:08:42.5732170Z ##[endgroup]
+2026-09-29T22:08:42.5740910Z ##[group]Setting up auth
+2026-09-29T22:08:42.5761810Z [command]/usr/local/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-29T22:08:42.5797180Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-29T22:08:42.8808670Z [command]/usr/local/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-29T22:08:42.8992890Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-29T22:08:43.1682630Z [command]/usr/local/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-29T22:08:43.2398050Z [command]/usr/local/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-29T22:08:43.4974390Z [command]/usr/local/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-29T22:08:43.4985520Z ##[endgroup]
+2026-09-29T22:08:43.4989660Z ##[group]Fetching the repository
+2026-09-29T22:08:43.4995560Z [command]/usr/local/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-09-29T22:08:47.6246780Z From https://github.com/PrimeLab-Foundation/strata
+2026-09-29T22:08:47.6310180Z  * [new branch]      exp/ab-historic-base        -> origin/exp/ab-historic-base
+2026-09-29T22:08:47.6338210Z  * [new branch]      exp/cold-entry              -> origin/exp/cold-entry
+2026-09-29T22:08:47.6367110Z  * [new branch]      exp/cold-slot-interleave    -> origin/exp/cold-slot-interleave
+2026-09-29T22:08:47.6396360Z  * [new branch]      exp/cross-sample            -> origin/exp/cross-sample
+2026-09-29T22:08:47.6422540Z  * [new branch]      exp/emit-n2                 -> origin/exp/emit-n2
+2026-09-29T22:08:47.6455990Z  * [new branch]      exp/m12-ab-arm              -> origin/exp/m12-ab-arm
+2026-09-29T22:08:47.6460590Z  * [new branch]      exp/m12-base-pin            -> origin/exp/m12-base-pin
+2026-09-29T22:08:47.6526220Z  * [new branch]      exp/m12-base-pin2           -> origin/exp/m12-base-pin2
+2026-09-29T22:08:47.6547140Z  * [new branch]      exp/m12-default-hook        -> origin/exp/m12-default-hook
+2026-09-29T22:08:47.6577090Z  * [new branch]      exp/m12-default-hook-2      -> origin/exp/m12-default-hook-2
+2026-09-29T22:08:47.6610860Z  * [new branch]      exp/m12-source-ab           -> origin/exp/m12-source-ab
+2026-09-29T22:08:47.6641030Z  * [new branch]      exp/m12b-ab-arm             -> origin/exp/m12b-ab-arm
+2026-09-29T22:08:47.6661000Z  * [new branch]      exp/m12b-dumps-with-default -> origin/exp/m12b-dumps-with-default
+2026-09-29T22:08:47.6694850Z  * [new branch]      exp/m13-adapters            -> origin/exp/m13-adapters
+2026-09-29T22:08:47.6726130Z  * [new branch]      exp/m15-ab-arm              -> origin/exp/m15-ab-arm
+2026-09-29T22:08:47.6757740Z  * [new branch]      exp/main-repair             -> origin/exp/main-repair
+2026-09-29T22:08:47.6788420Z  * [new branch]      exp/native-gap              -> origin/exp/native-gap
+2026-09-29T22:08:47.6822460Z  * [new branch]      exp/native-types            -> origin/exp/native-types
+2026-09-29T22:08:47.6861090Z  * [new branch]      exp/p0-integration          -> origin/exp/p0-integration
+2026-09-29T22:08:47.6897950Z  * [new branch]      exp/p0p6-integration        -> origin/exp/p0p6-integration
+2026-09-29T22:08:47.6935420Z  * [new branch]      exp/p23-b1                  -> origin/exp/p23-b1
+2026-09-29T22:08:47.6980170Z  * [new branch]      exp/p23-b1-tests            -> origin/exp/p23-b1-tests
+2026-09-29T22:08:47.7039780Z  * [new branch]      exp/p23-general-tables      -> origin/exp/p23-general-tables
+2026-09-29T22:08:47.7087150Z  * [new branch]      exp/p23-tests-only          -> origin/exp/p23-tests-only
+2026-09-29T22:08:47.7123800Z  * [new branch]      exp/p24-open-cost           -> origin/exp/p24-open-cost
+2026-09-29T22:08:47.7234070Z  * [new branch]      exp/p24-tests-only          -> origin/exp/p24-tests-only
+2026-09-29T22:08:47.7339940Z  * [new branch]      exp/p26-tests-arm           -> origin/exp/p26-tests-arm
+2026-09-29T22:08:47.7407920Z  * [new branch]      exp/p26-win-abi             -> origin/exp/p26-win-abi
+2026-09-29T22:08:47.7463000Z  * [new branch]      exp/p6-acceptance2          -> origin/exp/p6-acceptance2
+2026-09-29T22:08:47.7528750Z  * [new branch]      exp/p6-windows-ab           -> origin/exp/p6-windows-ab
+2026-09-29T22:08:47.7572740Z  * [new branch]      exp/p6-x86-ab               -> origin/exp/p6-x86-ab
+2026-09-29T22:08:47.7603690Z  * [new branch]      exp/p6-x86-regs             -> origin/exp/p6-x86-regs
+2026-09-29T22:08:47.7622370Z  * [new branch]      exp/p6p7-integration        -> origin/exp/p6p7-integration
+2026-09-29T22:08:47.7685620Z  * [new branch]      exp/p7-x86-nofp             -> origin/exp/p7-x86-nofp
+2026-09-29T22:08:47.7738590Z  * [new branch]      exp/p7b-tests-only          -> origin/exp/p7b-tests-only
+2026-09-29T22:08:47.7778230Z  * [new branch]      exp/p8-b1                   -> origin/exp/p8-b1
+2026-09-29T22:08:47.7809070Z  * [new branch]      exp/p8-b12                  -> origin/exp/p8-b12
+2026-09-29T22:08:47.7845890Z  * [new branch]      exp/p8-b2                   -> origin/exp/p8-b2
+2026-09-29T22:08:47.7875500Z  * [new branch]      exp/p9-fused-dicts          -> origin/exp/p9-fused-dicts
+2026-09-29T22:08:47.7936490Z  * [new branch]      exp/p9-probe-flag           -> origin/exp/p9-probe-flag
+2026-09-29T22:08:47.7990840Z  * [new branch]      exp/p9-probe-placement      -> origin/exp/p9-probe-placement
+2026-09-29T22:08:47.8024600Z  * [new branch]      exp/pin-discovery-ab        -> origin/exp/pin-discovery-ab
+2026-09-29T22:08:47.8061810Z  * [new branch]      exp/pin-discovery-test      -> origin/exp/pin-discovery-test
+2026-09-29T22:08:47.8093640Z  * [new branch]      exp/t1-ab                   -> origin/exp/t1-ab
+2026-09-29T22:08:47.8097780Z  * [new branch]      exp/t1-private-cache-leak   -> origin/exp/t1-private-cache-leak
+2026-09-29T22:08:47.8216240Z  * [new branch]      exp/t1-source-ab            -> origin/exp/t1-source-ab
+2026-09-29T22:08:47.8220220Z  * [new branch]      exp/t1-tests-only           -> origin/exp/t1-tests-only
+2026-09-29T22:08:47.8253890Z  * [new branch]      exp/t2-evidence-gates       -> origin/exp/t2-evidence-gates
+2026-09-29T22:08:47.8314580Z  * [new branch]      exp/t3-ab-estimator         -> origin/exp/t3-ab-estimator
+2026-09-29T22:08:47.8350050Z  * [new branch]      exp/win-mixed-probe         -> origin/exp/win-mixed-probe
+2026-09-29T22:08:47.8602200Z  * [new branch]      exp/win-rawwalk-check       -> origin/exp/win-rawwalk-check
+2026-09-29T22:08:47.8651180Z  * [new branch]      main                        -> origin/main
+2026-09-29T22:08:47.8687950Z  * [new branch]      work/benchmark-lead         -> origin/work/benchmark-lead
+2026-09-29T22:08:47.8787790Z  * [new branch]      work/september-7-plan       -> origin/work/september-7-plan
+2026-09-29T22:08:47.8825190Z  * [new tag]         archive/exp/audit-tests     -> archive/exp/audit-tests
+2026-09-29T22:08:47.8863650Z  * [new tag]         archive/exp/cursor          -> archive/exp/cursor
+2026-09-29T22:08:47.8909580Z  * [new tag]         archive/exp/cursor2         -> archive/exp/cursor2
+2026-09-29T22:08:47.8984640Z  * [new tag]         archive/exp/digitchain      -> archive/exp/digitchain
+2026-09-29T22:08:47.9027050Z  * [new tag]         archive/exp/dump-flat-macos -> archive/exp/dump-flat-macos
+2026-09-29T22:08:47.9065820Z  * [new tag]         archive/exp/dumps-n2        -> archive/exp/dumps-n2
+2026-09-29T22:08:47.9105110Z  * [new tag]         archive/exp/e26-p2-profile  -> archive/exp/e26-p2-profile
+2026-09-29T22:08:47.9143060Z  * [new tag]         archive/exp/fix1-reentrant-mutation -> archive/exp/fix1-reentrant-mutation
+2026-09-29T22:08:47.9183210Z  * [new tag]         archive/exp/fix1-reentrant-mutation-v2 -> archive/exp/fix1-reentrant-mutation-v2
+2026-09-29T22:08:47.9214630Z  * [new tag]         archive/exp/fix1-reentrant-mutation-v3 -> archive/exp/fix1-reentrant-mutation-v3
+2026-09-29T22:08:47.9245590Z  * [new tag]         archive/exp/fix1-reentrant-mutation-v4 -> archive/exp/fix1-reentrant-mutation-v4
+2026-09-29T22:08:47.9262610Z  * [new tag]         archive/exp/fix2-surrogate-key -> archive/exp/fix2-surrogate-key
+2026-09-29T22:08:47.9293080Z  * [new tag]         archive/exp/p0-controls     -> archive/exp/p0-controls
+2026-09-29T22:08:47.9327620Z  * [new tag]         archive/exp/p1-attribution  -> archive/exp/p1-attribution
+2026-09-29T22:08:47.9362720Z  * [new tag]         archive/exp/shrink-cold-instruction-footprint -> archive/exp/shrink-cold-instruction-footprint
+2026-09-29T22:08:47.9367410Z  * [new tag]         archive/exp/shrink-write-stack-frames -> archive/exp/shrink-write-stack-frames
+2026-09-29T22:08:47.9393630Z  * [new tag]         archive/exp/terminator      -> archive/exp/terminator
+2026-09-29T22:08:47.9426820Z  * [new tag]         archive/exp/width-flat-format-int64-above-1e4 -> archive/exp/width-flat-format-int64-above-1e4
+2026-09-29T22:08:47.9459150Z  * [new tag]         archive/main-from-scratch-v1 -> archive/main-from-scratch-v1
+2026-09-29T22:08:47.9493980Z  * [new tag]         archive/main-v2             -> archive/main-v2
+2026-09-29T22:08:47.9532450Z  * [new tag]         archive/main-v2-0.1         -> archive/main-v2-0.1
+2026-09-29T22:08:47.9535490Z  * [new tag]         archive/main-v2-long-run-do-nothing -> archive/main-v2-long-run-do-nothing
+2026-09-29T22:08:47.9593970Z  * [new tag]         archive/main-v2-prompt-1    -> archive/main-v2-prompt-1
+2026-09-29T22:08:47.9676460Z  * [new tag]         archive/main-v2-prompt-2    -> archive/main-v2-prompt-2
+2026-09-29T22:08:47.9761940Z  * [new tag]         archive/main-v2-prompt-3    -> archive/main-v2-prompt-3
+2026-09-29T22:08:47.9784920Z  * [new tag]         archive/main-v2-prompt-4    -> archive/main-v2-prompt-4
+2026-09-29T22:08:47.9888580Z [command]/usr/local/bin/git branch --list --remote origin/exp/native-gap
+2026-09-29T22:08:47.9974630Z   origin/exp/native-gap
+2026-09-29T22:08:48.0074710Z [command]/usr/local/bin/git rev-parse refs/remotes/origin/exp/native-gap
+2026-09-29T22:08:48.0089910Z 33465c22eee0fda8e1b52898c16aac6982901a21
+2026-09-29T22:08:48.0222300Z ##[endgroup]
+2026-09-29T22:08:48.0255140Z ##[group]Determining the checkout info
+2026-09-29T22:08:48.0285360Z ##[endgroup]
+2026-09-29T22:08:48.0325540Z [command]/usr/local/bin/git sparse-checkout disable
+2026-09-29T22:08:48.0527360Z [command]/usr/local/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-29T22:08:48.0608190Z ##[group]Checking out the ref
+2026-09-29T22:08:48.0634850Z [command]/usr/local/bin/git checkout --progress --force -B exp/native-gap refs/remotes/origin/exp/native-gap
+2026-09-29T22:08:48.8016030Z Updating files:  46% (785/1676)
+2026-09-29T22:08:48.8246680Z Updating files:  47% (788/1676)
+2026-09-29T22:08:48.9019010Z Updating files:  48% (805/1676)
+2026-09-29T22:08:48.9343970Z Updating files:  49% (822/1676)
+2026-09-29T22:08:48.9983710Z Updating files:  50% (838/1676)
+2026-09-29T22:08:49.0138380Z Updating files:  51% (855/1676)
+2026-09-29T22:08:49.0861080Z Updating files:  52% (872/1676)
+2026-09-29T22:08:49.1324680Z Updating files:  53% (889/1676)
+2026-09-29T22:08:49.1478520Z Updating files:  54% (906/1676)
+2026-09-29T22:08:49.2156570Z Updating files:  55% (922/1676)
+2026-09-29T22:08:49.2690180Z Updating files:  56% (939/1676)
+2026-09-29T22:08:49.3015800Z Updating files:  57% (956/1676)
+2026-09-29T22:08:49.3358610Z Updating files:  58% (973/1676)
+2026-09-29T22:08:49.3612640Z Updating files:  59% (989/1676)
+2026-09-29T22:08:49.3669860Z Updating files:  60% (1006/1676)
+2026-09-29T22:08:49.3796250Z Updating files:  61% (1023/1676)
+2026-09-29T22:08:49.4158300Z Updating files:  62% (1040/1676)
+2026-09-29T22:08:49.4594290Z Updating files:  63% (1056/1676)
+2026-09-29T22:08:49.4781240Z Updating files:  64% (1073/1676)
+2026-09-29T22:08:49.5073990Z Updating files:  65% (1090/1676)
+2026-09-29T22:08:49.5471900Z Updating files:  66% (1107/1676)
+2026-09-29T22:08:49.5659500Z Updating files:  67% (1123/1676)
+2026-09-29T22:08:49.5794920Z Updating files:  68% (1140/1676)
+2026-09-29T22:08:49.5963390Z Updating files:  69% (1157/1676)
+2026-09-29T22:08:49.7928070Z Updating files:  70% (1174/1676)
+2026-09-29T22:08:49.7998330Z Updating files:  71% (1190/1676)
+2026-09-29T22:08:49.8068030Z Updating files:  71% (1202/1676)
+2026-09-29T22:08:49.8111070Z Updating files:  72% (1207/1676)
+2026-09-29T22:08:49.8136400Z Updating files:  73% (1224/1676)
+2026-09-29T22:08:49.8145000Z Updating files:  74% (1241/1676)
+2026-09-29T22:08:49.9488570Z Updating files:  75% (1257/1676)
+2026-09-29T22:08:50.0491270Z Updating files:  76% (1274/1676)
+2026-09-29T22:08:50.1053360Z Updating files:  77% (1291/1676)
+2026-09-29T22:08:50.1123230Z Updating files:  78% (1308/1676)
+2026-09-29T22:08:50.1227060Z Updating files:  79% (1325/1676)
+2026-09-29T22:08:50.1275550Z Updating files:  80% (1341/1676)
+2026-09-29T22:08:50.1331840Z Updating files:  81% (1358/1676)
+2026-09-29T22:08:50.1369530Z Updating files:  82% (1375/1676)
+2026-09-29T22:08:50.1470800Z Updating files:  83% (1392/1676)
+2026-09-29T22:08:50.1650430Z Updating files:  84% (1408/1676)
+2026-09-29T22:08:50.1672760Z Updating files:  85% (1425/1676)
+2026-09-29T22:08:50.1717030Z Updating files:  86% (1442/1676)
+2026-09-29T22:08:50.1763790Z Updating files:  87% (1459/1676)
+2026-09-29T22:08:50.1796680Z Updating files:  88% (1475/1676)
+2026-09-29T22:08:50.1959510Z Updating files:  89% (1492/1676)
+2026-09-29T22:08:50.2242540Z Updating files:  90% (1509/1676)
+2026-09-29T22:08:50.3245180Z Updating files:  91% (1526/1676)
+2026-09-29T22:08:50.3600160Z Updating files:  92% (1542/1676)
+2026-09-29T22:08:50.3952150Z Updating files:  93% (1559/1676)
+2026-09-29T22:08:50.4055000Z Updating files:  94% (1576/1676)
+2026-09-29T22:08:50.4143590Z Updating files:  95% (1593/1676)
+2026-09-29T22:08:50.4245740Z Updating files:  96% (1609/1676)
+2026-09-29T22:08:50.4353450Z Updating files:  97% (1626/1676)
+2026-09-29T22:08:50.4402340Z Updating files:  98% (1643/1676)
+2026-09-29T22:08:50.4436980Z Updating files:  99% (1660/1676)
+2026-09-29T22:08:50.4523610Z Updating files: 100% (1676/1676)
+2026-09-29T22:08:50.4564340Z Updating files: 100% (1676/1676), done.
+2026-09-29T22:08:50.4576380Z Switched to a new branch 'exp/native-gap'
+2026-09-29T22:08:50.4603640Z branch 'exp/native-gap' set up to track 'origin/exp/native-gap'.
+2026-09-29T22:08:50.4724360Z ##[endgroup]
+2026-09-29T22:08:50.5085250Z [command]/usr/local/bin/git log -1 --format=%H
+2026-09-29T22:08:50.5260970Z 33465c22eee0fda8e1b52898c16aac6982901a21
+2026-09-29T22:08:50.5881090Z ##[group]Run actions/setup-python@v5
+2026-09-29T22:08:50.5882020Z with:
+2026-09-29T22:08:50.5883420Z   python-version: 3.12
+2026-09-29T22:08:50.5884220Z   check-latest: false
+2026-09-29T22:08:50.5893220Z   token: ***
+2026-09-29T22:08:50.5893840Z   update-environment: true
+2026-09-29T22:08:50.5894510Z   allow-prereleases: false
+2026-09-29T22:08:50.5895090Z   freethreaded: false
+2026-09-29T22:08:50.5895550Z env:
+2026-09-29T22:08:50.5895930Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:08:50.5896440Z ##[endgroup]
+2026-09-29T22:08:51.0590920Z ##[group]Installed versions
+2026-09-29T22:08:51.0803760Z (node:2212) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-29T22:08:51.0866500Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-29T22:08:51.1458760Z Successfully set up CPython (3.12.10)
+2026-09-29T22:08:51.1467650Z ##[endgroup]
+2026-09-29T22:08:51.1656730Z ##[group]Run make install-bench
+2026-09-29T22:08:51.1657700Z make install-bench
+2026-09-29T22:08:51.1764790Z shell: /bin/bash -e {0}
+2026-09-29T22:08:51.1765490Z env:
+2026-09-29T22:08:51.1765940Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:08:51.1766780Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:08:51.1768130Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:08:51.1769540Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:08:51.1770760Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:08:51.1771970Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:08:51.1773060Z   CC: cc
+2026-09-29T22:08:51.1773450Z   CXX: c++
+2026-09-29T22:08:51.1773900Z ##[endgroup]
+2026-09-29T22:08:53.5233450Z python3 -m venv .venv
+2026-09-29T22:09:00.6153590Z .venv/bin/python -m pip install -U pip setuptools wheel
+2026-09-29T22:09:01.7900070Z Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+2026-09-29T22:09:01.9300110Z Collecting pip
+2026-09-29T22:09:01.9343250Z   Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+2026-09-29T22:09:02.2800260Z Collecting setuptools
+2026-09-29T22:09:02.3621150Z   Downloading setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+2026-09-29T22:09:02.4445660Z Collecting wheel
+2026-09-29T22:09:02.4968960Z   Downloading wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+2026-09-29T22:09:02.5441110Z Collecting packaging>=24.0 (from wheel)
+2026-09-29T22:09:02.5790570Z   Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-09-29T22:09:02.5838130Z Using cached pip-26.2.1-py3-none-any.whl (1.8 MB)
+2026-09-29T22:09:02.6007180Z Downloading setuptools-84.0.0-py3-none-any.whl (818 kB)
+2026-09-29T22:09:02.6976620Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 818.2/818.2 kB 11.4 MB/s eta 0:00:00
+2026-09-29T22:09:02.7382180Z Downloading wheel-0.48.0-py3-none-any.whl (33 kB)
+2026-09-29T22:09:02.7622080Z Downloading packaging-26.3-py3-none-any.whl (129 kB)
+2026-09-29T22:09:02.8625480Z Installing collected packages: setuptools, pip, packaging, wheel
+2026-09-29T22:09:03.7113500Z   Attempting uninstall: pip
+2026-09-29T22:09:03.7155200Z     Found existing installation: pip 25.0.1
+2026-09-29T22:09:03.7747440Z     Uninstalling pip-25.0.1:
+2026-09-29T22:09:03.7885950Z       Successfully uninstalled pip-25.0.1
+2026-09-29T22:09:05.5492980Z Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+2026-09-29T22:09:05.8227740Z .venv/bin/python -m pip install -e '.[dev,bench]'
+2026-09-29T22:09:06.4269030Z Obtaining file:///Users/runner/work/strata/strata
+2026-09-29T22:09:06.4310070Z   Installing build dependencies: started
+2026-09-29T22:09:14.7264390Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:09:14.8266220Z   Checking if build backend supports build_editable: started
+2026-09-29T22:09:15.4343760Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:09:15.4347360Z   Getting requirements to build editable: started
+2026-09-29T22:09:16.3769890Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:09:16.3801160Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:09:17.1411620Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:09:17.3769310Z Collecting cmake>=3.20 (from strata==2026.8.10)
+2026-09-29T22:09:17.3807900Z   Using cached cmake-4.4.3-py3-none-macosx_10_10_universal2.whl.metadata (7.0 kB)
+2026-09-29T22:09:17.4943170Z Collecting pytest>=7 (from strata==2026.8.10)
+2026-09-29T22:09:17.5204370Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T22:09:17.5849960Z Collecting pytest-cov>=4 (from strata==2026.8.10)
+2026-09-29T22:09:17.7200970Z   Downloading pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+2026-09-29T22:09:18.6016160Z Collecting ruff>=0.5 (from strata==2026.8.10)
+2026-09-29T22:09:18.6145750Z   Downloading ruff-0.16.9-py3-none-macosx_10_12_x86_64.whl.metadata (20 kB)
+2026-09-29T22:09:18.7076420Z Collecting pre-commit>=3.5 (from strata==2026.8.10)
+2026-09-29T22:09:18.7215620Z   Downloading pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+2026-09-29T22:09:18.8768690Z Collecting clang-format<22,>=21 (from strata==2026.8.10)
+2026-09-29T22:09:18.8905950Z   Downloading clang_format-21.1.8-py2.py3-none-macosx_10_9_x86_64.whl.metadata (4.7 kB)
+2026-09-29T22:09:19.4584040Z Collecting orjson (from strata==2026.8.10)
+2026-09-29T22:09:19.4733390Z   Downloading orjson-3.12.0-cp312-cp312-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl.metadata (41 kB)
+2026-09-29T22:09:19.6140030Z Collecting msgspec (from strata==2026.8.10)
+2026-09-29T22:09:19.6280360Z   Downloading msgspec-0.22.0-cp312-cp312-macosx_10_13_x86_64.whl.metadata (6.0 kB)
+2026-09-29T22:09:19.7829390Z Collecting ujson (from strata==2026.8.10)
+2026-09-29T22:09:19.8116080Z   Downloading ujson-6.0.0-cp312-cp312-macosx_10_13_x86_64.whl.metadata (10.0 kB)
+2026-09-29T22:09:19.9680540Z Collecting pysimdjson (from strata==2026.8.10)
+2026-09-29T22:09:20.0280690Z   Downloading pysimdjson-7.0.2-cp312-cp312-macosx_10_13_x86_64.whl.metadata (1.1 kB)
+2026-09-29T22:09:20.0751470Z Collecting jmespath (from strata==2026.8.10)
+2026-09-29T22:09:20.0910990Z   Downloading jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T22:09:20.1343070Z Collecting jsonpath-ng (from strata==2026.8.10)
+2026-09-29T22:09:20.1482010Z   Downloading jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+2026-09-29T22:09:20.2927680Z Collecting psutil>=5 (from strata==2026.8.10)
+2026-09-29T22:09:20.3069860Z   Downloading psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl.metadata (22 kB)
+2026-09-29T22:09:20.3583670Z Collecting cfgv>=2.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:20.3721640Z   Downloading cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+2026-09-29T22:09:20.4510360Z Collecting identify>=1.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:20.4634410Z   Downloading identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+2026-09-29T22:09:20.5082280Z Collecting nodeenv>=0.11.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:20.5214730Z   Downloading nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+2026-09-29T22:09:20.6149500Z Collecting pyyaml>=5.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:20.6276750Z   Downloading pyyaml-6.0.3-cp312-cp312-macosx_10_13_x86_64.whl.metadata (2.4 kB)
+2026-09-29T22:09:20.9207280Z Collecting virtualenv>=20.10.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:20.9215080Z   Downloading virtualenv-21.14.0-py3-none-any.whl.metadata (4.1 kB)
+2026-09-29T22:09:20.9217060Z Collecting iniconfig>=1.0.1 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:09:20.9218830Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T22:09:20.9222430Z Requirement already satisfied: packaging>=22 in ./.venv/lib/python3.12/site-packages (from pytest>=7->strata==2026.8.10) (26.3)
+2026-09-29T22:09:20.9591940Z Collecting pluggy<2,>=1.5 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:09:20.9884870Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-09-29T22:09:20.9926950Z Collecting pygments>=2.7.2 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:09:20.9932930Z   Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T22:09:22.0235280Z Collecting coverage>=7.10.6 (from coverage[toml]>=7.10.6->pytest-cov>=4->strata==2026.8.10)
+2026-09-29T22:09:22.1153740Z   Downloading coverage-7.16.2-cp312-cp312-macosx_10_13_x86_64.whl.metadata (8.2 kB)
+2026-09-29T22:09:22.1166360Z Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:22.1175130Z   Downloading distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+2026-09-29T22:09:22.1182830Z Collecting filelock<5,>=3.24.2 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:22.1300220Z   Downloading filelock-4.0.6-py3-none-any.whl.metadata (2.0 kB)
+2026-09-29T22:09:22.1906430Z Collecting platformdirs<5,>=3.9.1 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:22.2033840Z   Downloading platformdirs-4.12.2-py3-none-any.whl.metadata (5.5 kB)
+2026-09-29T22:09:22.2424500Z Collecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:09:22.2556870Z   Downloading python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+2026-09-29T22:09:22.3011240Z Downloading clang_format-21.1.8-py2.py3-none-macosx_10_9_x86_64.whl (1.5 MB)
+2026-09-29T22:09:22.4473240Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.5/1.5 MB 10.7 MB/s  0:00:00
+2026-09-29T22:09:22.4687000Z Using cached cmake-4.4.3-py3-none-macosx_10_10_universal2.whl (54.4 MB)
+2026-09-29T22:09:22.5174020Z Downloading pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)
+2026-09-29T22:09:22.6062030Z Downloading cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
+2026-09-29T22:09:22.6274900Z Downloading identify-2.6.20-py2.py3-none-any.whl (99 kB)
+2026-09-29T22:09:22.6520340Z Downloading nodeenv-1.11.0-py2.py3-none-any.whl (34 kB)
+2026-09-29T22:09:22.6774110Z Downloading psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl (129 kB)
+2026-09-29T22:09:22.6970100Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-09-29T22:09:22.7011610Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-09-29T22:09:22.7048430Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-09-29T22:09:22.7082380Z Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+2026-09-29T22:09:22.7233350Z Downloading pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+2026-09-29T22:09:22.7532280Z Downloading coverage-7.16.2-cp312-cp312-macosx_10_13_x86_64.whl (223 kB)
+2026-09-29T22:09:22.7987300Z Downloading pyyaml-6.0.3-cp312-cp312-macosx_10_13_x86_64.whl (182 kB)
+2026-09-29T22:09:22.8352850Z Downloading ruff-0.16.9-py3-none-macosx_10_12_x86_64.whl (10.2 MB)
+2026-09-29T22:09:23.1474690Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.2/10.2 MB 33.6 MB/s  0:00:00
+2026-09-29T22:09:23.1644410Z Downloading virtualenv-21.14.0-py3-none-any.whl (5.5 MB)
+2026-09-29T22:09:23.2819750Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 46.5 MB/s  0:00:00
+2026-09-29T22:09:23.2979770Z Downloading distlib-0.4.3-py2.py3-none-any.whl (470 kB)
+2026-09-29T22:09:23.3392130Z Downloading filelock-4.0.6-py3-none-any.whl (109 kB)
+2026-09-29T22:09:23.3727490Z Downloading platformdirs-4.12.2-py3-none-any.whl (32 kB)
+2026-09-29T22:09:23.3954470Z Downloading python_discovery-1.6.1-py3-none-any.whl (38 kB)
+2026-09-29T22:09:23.4171830Z Downloading jmespath-1.1.0-py3-none-any.whl (20 kB)
+2026-09-29T22:09:23.4395510Z Downloading jsonpath_ng-1.8.0-py3-none-any.whl (67 kB)
+2026-09-29T22:09:23.4633740Z Downloading msgspec-0.22.0-cp312-cp312-macosx_10_13_x86_64.whl (201 kB)
+2026-09-29T22:09:23.4897280Z Downloading orjson-3.12.0-cp312-cp312-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl (223 kB)
+2026-09-29T22:09:23.6014490Z Downloading pysimdjson-7.0.2-cp312-cp312-macosx_10_13_x86_64.whl (1.7 MB)
+2026-09-29T22:09:23.6831610Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.7/1.7 MB 18.2 MB/s  0:00:00
+2026-09-29T22:09:23.6980500Z Downloading ujson-6.0.0-cp312-cp312-macosx_10_13_x86_64.whl (55 kB)
+2026-09-29T22:09:24.0652330Z Building wheels for collected packages: strata
+2026-09-29T22:09:24.0668420Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:10:25.1834850Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:11:25.8779930Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:12:27.3985890Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:13:28.2559180Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:14:29.1023140Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:15:29.1341400Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:16:29.2278760Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:17:14.7779380Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:17:14.7830260Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4456 sha256=6c109290754c99718b7eb52a22fe9d79dc7a9103b192f1b07ae541d1f530a238
+2026-09-29T22:17:14.7840980Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-ysrqdoh2/wheels/51/60/a8/6b4b28a81728896ca0cc3cb367b690b439c41c36ebd5cb3307
+2026-09-29T22:17:14.7968280Z Successfully built strata
+2026-09-29T22:17:14.9836390Z Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+2026-09-29T22:17:21.7613970Z 
+2026-09-29T22:17:21.7676630Z Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.2 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.14.0
+2026-09-29T22:17:23.0204570Z ##[group]Run make pgo
+2026-09-29T22:17:23.0205490Z make pgo
+2026-09-29T22:17:23.0443730Z shell: /bin/bash -e {0}
+2026-09-29T22:17:23.0444160Z env:
+2026-09-29T22:17:23.0444710Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:17:23.0445640Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:17:23.0447020Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:17:23.0448060Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:17:23.0449480Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:17:23.0450900Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:17:23.0515150Z   PYTHON: python
+2026-09-29T22:17:23.0516090Z   CC: cc
+2026-09-29T22:17:23.0516850Z   CXX: c++
+2026-09-29T22:17:23.0517630Z ##[endgroup]
+2026-09-29T22:17:23.1581700Z ==> PGO: compiler is clang
+2026-09-29T22:17:23.1694100Z ==> PGO phase 1: instrumented build
+2026-09-29T22:17:23.9139170Z Obtaining file:///Users/runner/work/strata/strata
+2026-09-29T22:17:24.0174610Z   Installing build dependencies: started
+2026-09-29T22:17:28.9884030Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:17:28.9899150Z   Checking if build backend supports build_editable: started
+2026-09-29T22:17:29.4558370Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:17:29.4577200Z   Getting requirements to build editable: started
+2026-09-29T22:17:30.0760770Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:17:30.0781270Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:17:30.5152410Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:17:30.5281050Z Building wheels for collected packages: strata
+2026-09-29T22:17:30.5302270Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:18:30.9015450Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:19:10.9883550Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:19:10.9901660Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4456 sha256=22d7b8f419599c45a6514be90c713c8165a2030a733bc91a36b6a3a32f198e6d
+2026-09-29T22:19:10.9905050Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-8w7kvypo/wheels/51/60/a8/6b4b28a81728896ca0cc3cb367b690b439c41c36ebd5cb3307
+2026-09-29T22:19:10.9958620Z Successfully built strata
+2026-09-29T22:19:11.0105560Z Installing collected packages: strata
+2026-09-29T22:19:11.0106770Z   Attempting uninstall: strata
+2026-09-29T22:19:11.0154000Z     Found existing installation: strata 2026.8.10
+2026-09-29T22:19:11.0186130Z     Uninstalling strata-2026.8.10:
+2026-09-29T22:19:11.1223380Z       Successfully uninstalled strata-2026.8.10
+2026-09-29T22:19:11.1361960Z Successfully installed strata-2026.8.10
+2026-09-29T22:19:11.8717550Z ==> PGO: the hook image must carry no profile
+2026-09-29T22:19:11.9566780Z + strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-darwin.so.build.json records no profile or profile flag,
+2026-09-29T22:19:11.9568350Z   and the image links no profile runtime
+2026-09-29T22:19:11.9642320Z ==> PGO: generating training data
+2026-09-29T22:19:12.8669940Z   build/pgo/train.json (10.0 MB)
+2026-09-29T22:19:12.8671420Z   build/pgo/train.ndjson (10.0 MB)
+2026-09-29T22:19:12.8750370Z ==> PGO: running the training workload
+2026-09-29T22:19:13.2555660Z PGO training workload
+2026-09-29T22:19:13.2557100Z   corpus: 4001 records, 10.0 MB
+2026-09-29T22:19:13.2558240Z [1/7] loads
+2026-09-29T22:19:13.2558830Z   loads(str): 1x in 0.07s
+2026-09-29T22:19:13.3594790Z   loads(bytes): 1x in 0.07s
+2026-09-29T22:19:13.4094420Z   loads(sample): 5x in 0.01s
+2026-09-29T22:19:13.4620850Z   loads(cursor): 5x in 0.02s
+2026-09-29T22:19:13.5044230Z   loads(iterator): 3x in 0.01s
+2026-09-29T22:19:13.5800100Z [2/7] dumps
+2026-09-29T22:19:13.5800930Z   dumps(str): 1x in 0.04s
+2026-09-29T22:19:13.6590710Z   dumps(bytes): 3x in 0.04s
+2026-09-29T22:19:13.6959140Z   dumps(sample, bytes): 5x in 0.00s
+2026-09-29T22:19:13.7320630Z   dumps(sample): 5x in 0.00s
+2026-09-29T22:19:13.7669580Z   dumps(parsed sample, bytes): 2x in 0.00s
+2026-09-29T22:19:13.8834320Z [3/7] load
+2026-09-29T22:19:13.8835630Z   load(json): 1x in 0.07s
+2026-09-29T22:19:13.9894530Z   load(ndjson): 1x in 0.07s
+2026-09-29T22:19:14.1188430Z   load(ndjson, iterator): 1x in 0.09s
+2026-09-29T22:19:14.1558350Z [4/7] dump
+2026-09-29T22:19:14.1559620Z   dump(json): 3x in 0.00s
+2026-09-29T22:19:14.1986570Z [5/7] query
+2026-09-29T22:19:14.1988030Z   query $[0].name: 3x in 0.00s
+2026-09-29T22:19:14.2319070Z   query $[*].id: 3x in 0.00s
+2026-09-29T22:19:14.2676010Z   query $[*].items[*].sku: 3x in 0.00s
+2026-09-29T22:19:14.3052310Z   query $..leaf: 3x in 0.00s
+2026-09-29T22:19:14.3389660Z   query $[0:50].score: 3x in 0.00s
+2026-09-29T22:19:14.3737820Z   query $[?(@.id > 100)].name: 3x in 0.00s
+2026-09-29T22:19:14.4157430Z   query $[?(@.id <= 500)]: 3x in 0.00s
+2026-09-29T22:19:14.4511090Z   query $[?(@.name == 'alpha')]: 3x in 0.00s
+2026-09-29T22:19:14.4863890Z   query $[?(@.name != 'alpha')].id: 3x in 0.00s
+2026-09-29T22:19:14.5176230Z   query $[?(@['id'] >= 0)].name: 3x in 0.00s
+2026-09-29T22:19:14.5499530Z   query $[*].nested.child: 3x in 0.00s
+2026-09-29T22:19:14.5855660Z   query $[*].tags[0]: 3x in 0.00s
+2026-09-29T22:19:14.6199250Z   query $.*: 3x in 0.00s
+2026-09-29T22:19:14.6541840Z   query(compiled): 5x in 0.00s
+2026-09-29T22:19:14.7075300Z [6/7] search
+2026-09-29T22:19:14.7076480Z   search json $[*].id: 1x in 0.02s
+2026-09-29T22:19:14.8178680Z   search ndjson $[*].id: 1x in 0.08s
+2026-09-29T22:19:14.9317510Z   search json $..leaf: 1x in 0.08s
+2026-09-29T22:19:15.0449920Z   search ndjson $..leaf: 1x in 0.08s
+2026-09-29T22:19:15.1515520Z   search json $[?(@.id > 100)].name: 1x in 0.07s
+2026-09-29T22:19:15.2613960Z   search ndjson $[?(@.id > 100)].name: 1x in 0.07s
+2026-09-29T22:19:15.2967970Z [7/7] folder mode
+2026-09-29T22:19:15.2968890Z   dump(split_by): 1x in 0.00s
+2026-09-29T22:19:15.3308810Z   load(folder): 1x in 0.00s
+2026-09-29T22:19:15.3636280Z   search(folder): 1x in 0.00s
+2026-09-29T22:19:15.3951730Z PGO training workload complete
+2026-09-29T22:19:15.4087180Z ==> PGO: gate tests on the instrumented build
+2026-09-29T22:19:15.4762130Z + /Users/runner/work/strata/strata/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+2026-09-29T22:19:15.9326700Z -- Configuring done (0.1s)
+2026-09-29T22:19:16.2573270Z -- Generating done (0.2s)
+2026-09-29T22:19:16.2730200Z -- Build files have been written to: /Users/runner/work/strata/strata/build/cmake
+2026-09-29T22:19:16.2760370Z + /Users/runner/work/strata/strata/.venv/bin/cmake --build build/cmake --config Release
+2026-09-29T22:19:17.1199710Z [  0%] Linking CXX executable smoke_tests
+2026-09-29T22:19:17.3092440Z [  6%] Built target smoke_tests
+2026-09-29T22:19:17.5742430Z [  7%] Linking CXX executable json_core_tests
+2026-09-29T22:19:17.7838630Z [ 13%] Built target json_core_tests
+2026-09-29T22:19:18.0631270Z [ 13%] Linking CXX executable json_parse_tests
+2026-09-29T22:19:18.2645690Z [ 19%] Built target json_parse_tests
+2026-09-29T22:19:18.5185280Z [ 20%] Linking CXX executable fast_parse_tests
+2026-09-29T22:19:18.7199370Z [ 25%] Built target fast_parse_tests
+2026-09-29T22:19:19.0014980Z [ 26%] Linking CXX executable value_cursor_tests
+2026-09-29T22:19:19.2021040Z [ 32%] Built target value_cursor_tests
+2026-09-29T22:19:19.5061470Z [ 32%] Linking CXX executable json_serialize_tests
+2026-09-29T22:19:19.7268950Z [ 38%] Built target json_serialize_tests
+2026-09-29T22:19:20.0203710Z [ 39%] Linking CXX executable float_precision_tests
+2026-09-29T22:19:20.2391460Z [ 44%] Built target float_precision_tests
+2026-09-29T22:19:20.5609610Z [ 45%] Linking CXX executable json_cursor_tests
+2026-09-29T22:19:20.7846040Z [ 50%] Built target json_cursor_tests
+2026-09-29T22:19:21.0848110Z [ 51%] Linking CXX executable ndjson_tests
+2026-09-29T22:19:21.2946630Z [ 56%] Built target ndjson_tests
+2026-09-29T22:19:21.5598900Z [ 57%] Linking CXX executable jsonpath_tests
+2026-09-29T22:19:21.7834810Z [ 63%] Built target jsonpath_tests
+2026-09-29T22:19:22.0416770Z [ 63%] Linking CXX executable jsonpath_stream_tests
+2026-09-29T22:19:22.2546670Z [ 69%] Built target jsonpath_stream_tests
+2026-09-29T22:19:22.5431560Z [ 69%] Linking CXX executable scan_tests
+2026-09-29T22:19:22.7574870Z [ 75%] Built target scan_tests
+2026-09-29T22:19:23.0525770Z [ 75%] Linking CXX executable temporal_tests
+2026-09-29T22:19:23.2695100Z [ 81%] Built target temporal_tests
+2026-09-29T22:19:23.5533940Z [ 81%] Linking CXX executable folder_tests
+2026-09-29T22:19:23.7689580Z [ 87%] Built target folder_tests
+2026-09-29T22:19:24.0587990Z [ 87%] Linking CXX executable fuzz_corpus_tests
+2026-09-29T22:19:24.2623690Z [ 93%] Built target fuzz_corpus_tests
+2026-09-29T22:19:24.5306750Z [ 94%] Linking CXX executable stress_deep_tests
+2026-09-29T22:19:24.7290600Z [100%] Built target stress_deep_tests
+2026-09-29T22:19:24.7828040Z + /Users/runner/work/strata/strata/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+2026-09-29T22:19:25.1657110Z Test project /Users/runner/work/strata/strata/build/cmake
+2026-09-29T22:19:25.1697730Z       Start  1: smoke_tests
+2026-09-29T22:19:25.1765580Z  1/16 Test  #1: smoke_tests ......................   Passed    0.01 sec
+2026-09-29T22:19:25.1773650Z       Start  2: json_core_tests
+2026-09-29T22:19:25.1845550Z  2/16 Test  #2: json_core_tests ..................   Passed    0.01 sec
+2026-09-29T22:19:25.1847750Z       Start  3: json_parse_tests
+2026-09-29T22:19:25.1915950Z  3/16 Test  #3: json_parse_tests .................   Passed    0.01 sec
+2026-09-29T22:19:25.1918460Z       Start  4: fast_parse_tests
+2026-09-29T22:19:25.3470770Z  4/16 Test  #4: fast_parse_tests .................   Passed    0.15 sec
+2026-09-29T22:19:25.3475660Z       Start  5: value_cursor_tests
+2026-09-29T22:19:25.3629730Z  5/16 Test  #5: value_cursor_tests ...............   Passed    0.01 sec
+2026-09-29T22:19:25.3632210Z       Start  6: json_serialize_tests
+2026-09-29T22:19:25.3692960Z  6/16 Test  #6: json_serialize_tests .............   Passed    0.01 sec
+2026-09-29T22:19:25.3697260Z       Start  7: float_precision_tests
+2026-09-29T22:19:29.0756460Z  7/16 Test  #7: float_precision_tests ............   Passed    3.70 sec
+2026-09-29T22:19:29.0759500Z       Start  8: json_cursor_tests
+2026-09-29T22:19:29.0814090Z  8/16 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+2026-09-29T22:19:29.0815730Z       Start  9: ndjson_tests
+2026-09-29T22:19:29.0923010Z  9/16 Test  #9: ndjson_tests .....................   Passed    0.01 sec
+2026-09-29T22:19:29.0926060Z       Start 10: jsonpath_tests
+2026-09-29T22:19:29.0975700Z 10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+2026-09-29T22:19:29.0978180Z       Start 11: jsonpath_stream_tests
+2026-09-29T22:19:29.1034330Z 11/16 Test #11: jsonpath_stream_tests ............   Passed    0.01 sec
+2026-09-29T22:19:29.1036680Z       Start 12: scan_tests
+2026-09-29T22:19:29.1318790Z 12/16 Test #12: scan_tests .......................   Passed    0.03 sec
+2026-09-29T22:19:29.1320940Z       Start 13: temporal_tests
+2026-09-29T22:19:29.1586010Z 13/16 Test #13: temporal_tests ...................   Passed    0.03 sec
+2026-09-29T22:19:29.1588300Z       Start 14: folder_tests
+2026-09-29T22:19:29.1774350Z 14/16 Test #14: folder_tests .....................   Passed    0.02 sec
+2026-09-29T22:19:29.1776140Z       Start 15: fuzz_corpus_tests
+2026-09-29T22:19:29.1911630Z 15/16 Test #15: fuzz_corpus_tests ................   Passed    0.01 sec
+2026-09-29T22:19:29.1915280Z       Start 16: stress_deep_tests
+2026-09-29T22:19:29.2004160Z 16/16 Test #16: stress_deep_tests ................   Passed    0.01 sec
+2026-09-29T22:19:29.2017090Z 
+2026-09-29T22:19:29.2018470Z 100% tests passed out of 16
+2026-09-29T22:19:29.2020040Z 
+2026-09-29T22:19:29.2020930Z Total Test time (real) =   4.03 sec
+2026-09-29T22:19:29.2937530Z + pytest tests/py tests/unit --ignore=tests/unit/native_types --ignore=tests/py/native_types --basetemp=/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pytest-of-runner/mv8clqaq
+2026-09-29T22:19:30.3702970Z ============================= test session starts ==============================
+2026-09-29T22:19:30.3704710Z platform darwin -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+2026-09-29T22:19:30.3706000Z rootdir: /Users/runner/work/strata/strata
+2026-09-29T22:19:30.3707020Z configfile: pyproject.toml
+2026-09-29T22:19:30.3707900Z plugins: platformdirs-4.12.2, cov-7.1.0
+2026-09-29T22:19:30.3709330Z collected 3183 items
+2026-09-29T22:19:30.3710000Z 
+2026-09-29T22:19:30.4081660Z tests/py/test_dumps_brace_fold.py .........                              [  0%]
+2026-09-29T22:19:30.4712840Z tests/py/test_dumps_cycles_fused.py .................................... [  1%]
+2026-09-29T22:19:30.5580510Z ....................................................                     [  3%]
+2026-09-29T22:19:30.9737270Z tests/py/test_dumps_general_tables.py ............................       [  3%]
+2026-09-29T22:19:31.8707090Z tests/py/test_dumps_with_default.py .................................... [  5%]
+2026-09-29T22:19:32.3798670Z .............................ss                                          [  6%]
+2026-09-29T22:19:32.4468760Z tests/py/test_dumps_with_default_contract.py ........................... [  6%]
+2026-09-29T22:19:32.6134960Z ........................................................................ [  9%]
+2026-09-29T22:19:32.7820510Z ........................................................................ [ 11%]
+2026-09-29T22:19:32.8924210Z ..........................                                               [ 12%]
+2026-09-29T22:19:32.9007920Z tests/py/test_fused_verification.py ..                                   [ 12%]
+2026-09-29T22:19:32.9477830Z tests/py/test_json_parity.py ........................................... [ 13%]
+2026-09-29T22:19:33.0366520Z ........................................................................ [ 15%]
+2026-09-29T22:19:33.1239900Z ........................................................................ [ 18%]
+2026-09-29T22:19:33.2086630Z ........................................................................ [ 20%]
+2026-09-29T22:19:33.2951090Z ........................................................................ [ 22%]
+2026-09-29T22:19:33.3675270Z ........................................................................ [ 24%]
+2026-09-29T22:19:33.4555220Z ........................................................................ [ 27%]
+2026-09-29T22:19:33.5383810Z ........................................................................ [ 29%]
+2026-09-29T22:19:33.6234580Z ........................................................................ [ 31%]
+2026-09-29T22:19:33.7079030Z ........................................................................ [ 33%]
+2026-09-29T22:19:33.7898430Z ........................................................................ [ 36%]
+2026-09-29T22:19:33.8752770Z ........................................................................ [ 38%]
+2026-09-29T22:19:33.9523400Z ........................................................................ [ 40%]
+2026-09-29T22:19:34.0336150Z ........................................................................ [ 43%]
+2026-09-29T22:19:34.1131330Z ........................................................................ [ 45%]
+2026-09-29T22:19:34.1928770Z ........................................................................ [ 47%]
+2026-09-29T22:19:34.2769370Z ........................................................................ [ 49%]
+2026-09-29T22:19:34.3233470Z .................................                                        [ 50%]
+2026-09-29T22:19:34.4180660Z tests/py/test_path_dispatch.py ................................          [ 51%]
+2026-09-29T22:19:34.4219190Z tests/py/test_py_tests_basetemp.py ..                                    [ 51%]
+2026-09-29T22:19:34.4257430Z tests/py/test_smoke.py ...                                               [ 52%]
+2026-09-29T22:19:35.2505910Z tests/unit/test_ab_analysis.py ......................................    [ 53%]
+2026-09-29T22:19:35.2780430Z tests/unit/test_build_manifest.py ...........                            [ 53%]
+2026-09-29T22:19:35.3137000Z tests/unit/test_canonical_builds.py ....                                 [ 53%]
+2026-09-29T22:19:35.7491020Z tests/unit/test_ci_fetch.py ........................                     [ 54%]
+2026-09-29T22:19:35.9400560Z tests/unit/test_ci_summary.py .......................                    [ 55%]
+2026-09-29T22:19:35.9670450Z tests/unit/test_config.py ...........................                    [ 56%]
+2026-09-29T22:19:36.0051800Z tests/unit/test_core_purity.py ....                                      [ 56%]
+2026-09-29T22:19:36.0321140Z tests/unit/test_cross_sample.py ......                                   [ 56%]
+2026-09-29T22:19:36.1283280Z tests/unit/test_dumps.py ............................................... [ 57%]
+2026-09-29T22:19:36.1517180Z ..........                                                               [ 58%]
+2026-09-29T22:19:36.1881620Z tests/unit/test_dumps_brace_fold.py .........                            [ 58%]
+2026-09-29T22:19:36.5755210Z tests/unit/test_dumps_cold_start.py ....                                 [ 58%]
+2026-09-29T22:19:36.6358500Z tests/unit/test_dumps_contract.py ...................................... [ 59%]
+2026-09-29T22:19:36.7373320Z .............................................................            [ 61%]
+2026-09-29T22:19:36.7896660Z tests/unit/test_dumps_cycles_fused.py .................................. [ 62%]
+2026-09-29T22:19:36.8923540Z ......................................................                   [ 64%]
+2026-09-29T22:19:37.3615260Z tests/unit/test_dumps_general_tables.py ............................     [ 65%]
+2026-09-29T22:19:38.0915270Z tests/unit/test_dumps_latch.py ............................              [ 66%]
+2026-09-29T22:19:38.2631500Z tests/unit/test_dumps_private_cache.py ................................  [ 67%]
+2026-09-29T22:19:39.3765110Z tests/unit/test_dumps_reentrancy.py .................................... [ 68%]
+2026-09-29T22:19:41.4648520Z ......................................................................   [ 70%]
+2026-09-29T22:19:42.6046260Z tests/unit/test_dumps_reentrancy_review.py ............................. [ 71%]
+2026-09-29T22:19:42.9177610Z ..                                                                       [ 71%]
+2026-09-29T22:19:43.0171940Z tests/unit/test_dumps_schema_failure.py ...........................      [ 72%]
+2026-09-29T22:19:43.8665920Z tests/unit/test_dumps_user_step_counter.py ..........................    [ 73%]
+2026-09-29T22:19:43.9098270Z tests/unit/test_dumps_with_default.py .................................. [ 74%]
+2026-09-29T22:19:43.9960060Z ........................................................................ [ 76%]
+2026-09-29T22:19:44.2412920Z .........................................................                [ 78%]
+2026-09-29T22:19:44.2973040Z tests/unit/test_dumps_with_default_state.py ............................ [ 79%]
+2026-09-29T22:19:44.4591640Z ........................................................................ [ 81%]
+2026-09-29T22:19:44.7931170Z ..............                                                           [ 81%]
+2026-09-29T22:19:45.0645630Z tests/unit/test_folder.py .............................................. [ 83%]
+2026-09-29T22:19:45.2791930Z .........................................                                [ 84%]
+2026-09-29T22:19:45.2902130Z tests/unit/test_fused_verification.py ..                                 [ 84%]
+2026-09-29T22:19:45.3946660Z tests/unit/test_hook_build_scope.py ...............................      [ 85%]
+2026-09-29T22:19:45.5773400Z tests/unit/test_json_cursor.py ...........................               [ 86%]
+2026-09-29T22:19:45.6299620Z tests/unit/test_jsonpath.py ............................................ [ 87%]
+2026-09-29T22:19:45.8670510Z .......................................................................  [ 90%]
+2026-09-29T22:19:46.1399820Z tests/unit/test_load_dump.py ........................................... [ 91%]
+2026-09-29T22:19:46.1407710Z                                                                          [ 91%]
+2026-09-29T22:19:46.2023370Z tests/unit/test_loads.py ............................................... [ 92%]
+2026-09-29T22:19:46.3734110Z ........................................................................ [ 95%]
+2026-09-29T22:19:48.1770650Z ................                                                         [ 95%]
+2026-09-29T22:19:48.1906580Z tests/unit/test_native_interleaved_profile.py ...                        [ 95%]
+2026-09-29T22:19:48.3235350Z tests/unit/test_nested_container_probe.py ....                           [ 95%]
+2026-09-29T22:19:48.4419700Z tests/unit/test_path_dispatch.py ................................        [ 96%]
+2026-09-29T22:19:48.5260700Z tests/unit/test_provenance.py ..................                         [ 97%]
+2026-09-29T22:19:48.6439620Z tests/unit/test_regression_check.py ..........................           [ 98%]
+2026-09-29T22:19:48.9241190Z tests/unit/test_search_stream.py .................                       [ 98%]
+2026-09-29T22:19:48.9254870Z tests/unit/test_string_identity_probe.py .                               [ 98%]
+2026-09-29T22:19:49.0851080Z tests/unit/test_supplementary.py .............                           [ 99%]
+2026-09-29T22:19:49.1886190Z tests/unit/test_supportability_check.py ....................             [ 99%]
+2026-09-29T22:19:49.3328060Z tests/unit/test_version.py ....                                          [100%]
+2026-09-29T22:19:49.3328990Z 
+2026-09-29T22:19:49.3329340Z ======================= 3181 passed, 2 skipped in 19.61s =======================
+2026-09-29T22:19:51.3580760Z ==> PGO: merging 17 raw profiles
+2026-09-29T22:19:51.6193300Z ==> PGO phase 2: optimized build (profile + LTO)
+2026-09-29T22:19:52.1552980Z Obtaining file:///Users/runner/work/strata/strata
+2026-09-29T22:19:52.1590260Z   Installing build dependencies: started
+2026-09-29T22:19:57.2370000Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:19:57.2386070Z   Checking if build backend supports build_editable: started
+2026-09-29T22:19:57.7261830Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:19:57.7279580Z   Getting requirements to build editable: started
+2026-09-29T22:19:58.3420670Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:19:58.3442650Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:19:58.7882820Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:19:58.8009840Z Building wheels for collected packages: strata
+2026-09-29T22:19:58.8028630Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:20:58.9508020Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:21:39.7278500Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:21:39.7292660Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4456 sha256=c616cd4c71e550a8e335fda198c09a43ba324f0c1842d9828d64370692e4e6a7
+2026-09-29T22:21:39.7296080Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-nn0wed4j/wheels/51/60/a8/6b4b28a81728896ca0cc3cb367b690b439c41c36ebd5cb3307
+2026-09-29T22:21:39.7340740Z Successfully built strata
+2026-09-29T22:21:39.7460690Z Installing collected packages: strata
+2026-09-29T22:21:39.7462420Z   Attempting uninstall: strata
+2026-09-29T22:21:39.7506330Z     Found existing installation: strata 2026.8.10
+2026-09-29T22:21:39.7530960Z     Uninstalling strata-2026.8.10:
+2026-09-29T22:21:39.8083020Z       Successfully uninstalled strata-2026.8.10
+2026-09-29T22:21:39.8210990Z Successfully installed strata-2026.8.10
+2026-09-29T22:21:40.5272200Z ==> PGO: the hook image must carry no profile
+2026-09-29T22:21:40.6133560Z + strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-darwin.so.build.json records no profile or profile flag,
+2026-09-29T22:21:40.6134880Z   and the image links no profile runtime
+2026-09-29T22:21:40.6202890Z ==> PGO: gate tests on the optimized build
+2026-09-29T22:21:40.6908980Z + /Users/runner/work/strata/strata/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+2026-09-29T22:21:41.1175050Z -- Configuring done (0.1s)
+2026-09-29T22:21:41.3680800Z -- Generating done (0.2s)
+2026-09-29T22:21:41.4479190Z -- Build files have been written to: /Users/runner/work/strata/strata/build/cmake
+2026-09-29T22:21:41.4541820Z + /Users/runner/work/strata/strata/.venv/bin/cmake --build build/cmake --config Release
+2026-09-29T22:21:42.3120970Z [  0%] Linking CXX executable smoke_tests
+2026-09-29T22:21:42.4850720Z [  6%] Built target smoke_tests
+2026-09-29T22:21:42.7266240Z [  7%] Linking CXX executable json_core_tests
+2026-09-29T22:21:42.8960960Z [ 13%] Built target json_core_tests
+2026-09-29T22:21:43.1647110Z [ 13%] Linking CXX executable json_parse_tests
+2026-09-29T22:21:43.3631150Z [ 19%] Built target json_parse_tests
+2026-09-29T22:21:43.6131650Z [ 20%] Linking CXX executable fast_parse_tests
+2026-09-29T22:21:43.8300470Z [ 25%] Built target fast_parse_tests
+2026-09-29T22:21:44.0959100Z [ 26%] Linking CXX executable value_cursor_tests
+2026-09-29T22:21:44.2867250Z [ 32%] Built target value_cursor_tests
+2026-09-29T22:21:44.5583680Z [ 32%] Linking CXX executable json_serialize_tests
+2026-09-29T22:21:44.7660760Z [ 38%] Built target json_serialize_tests
+2026-09-29T22:21:45.0367990Z [ 39%] Linking CXX executable float_precision_tests
+2026-09-29T22:21:45.2254770Z [ 44%] Built target float_precision_tests
+2026-09-29T22:21:45.4741340Z [ 45%] Linking CXX executable json_cursor_tests
+2026-09-29T22:21:45.6678710Z [ 50%] Built target json_cursor_tests
+2026-09-29T22:21:45.9564380Z [ 51%] Linking CXX executable ndjson_tests
+2026-09-29T22:21:46.1503540Z [ 56%] Built target ndjson_tests
+2026-09-29T22:21:46.4017000Z [ 57%] Linking CXX executable jsonpath_tests
+2026-09-29T22:21:46.6358510Z [ 63%] Built target jsonpath_tests
+2026-09-29T22:21:46.9027650Z [ 63%] Linking CXX executable jsonpath_stream_tests
+2026-09-29T22:21:47.0978120Z [ 69%] Built target jsonpath_stream_tests
+2026-09-29T22:21:47.3714700Z [ 69%] Linking CXX executable scan_tests
+2026-09-29T22:21:47.5934050Z [ 75%] Built target scan_tests
+2026-09-29T22:21:47.8553030Z [ 75%] Linking CXX executable temporal_tests
+2026-09-29T22:21:48.0393870Z [ 81%] Built target temporal_tests
+2026-09-29T22:21:48.3096190Z [ 81%] Linking CXX executable folder_tests
+2026-09-29T22:21:48.5054070Z [ 87%] Built target folder_tests
+2026-09-29T22:21:48.7776790Z [ 87%] Linking CXX executable fuzz_corpus_tests
+2026-09-29T22:21:48.9712490Z [ 93%] Built target fuzz_corpus_tests
+2026-09-29T22:21:49.2132380Z [ 94%] Linking CXX executable stress_deep_tests
+2026-09-29T22:21:49.3886130Z [100%] Built target stress_deep_tests
+2026-09-29T22:21:49.4381460Z + /Users/runner/work/strata/strata/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+2026-09-29T22:21:49.7458730Z Test project /Users/runner/work/strata/strata/build/cmake
+2026-09-29T22:21:49.7476640Z       Start  1: smoke_tests
+2026-09-29T22:21:49.7530640Z  1/16 Test  #1: smoke_tests ......................   Passed    0.00 sec
+2026-09-29T22:21:49.7533340Z       Start  2: json_core_tests
+2026-09-29T22:21:49.7582070Z  2/16 Test  #2: json_core_tests ..................   Passed    0.00 sec
+2026-09-29T22:21:49.7585520Z       Start  3: json_parse_tests
+2026-09-29T22:21:49.7855130Z  3/16 Test  #3: json_parse_tests .................   Passed    0.00 sec
+2026-09-29T22:21:49.7893780Z       Start  4: fast_parse_tests
+2026-09-29T22:21:49.9185880Z  4/16 Test  #4: fast_parse_tests .................   Passed    0.15 sec
+2026-09-29T22:21:49.9190160Z       Start  5: value_cursor_tests
+2026-09-29T22:21:49.9361580Z  5/16 Test  #5: value_cursor_tests ...............   Passed    0.02 sec
+2026-09-29T22:21:49.9365020Z       Start  6: json_serialize_tests
+2026-09-29T22:21:49.9419450Z  6/16 Test  #6: json_serialize_tests .............   Passed    0.01 sec
+2026-09-29T22:21:49.9423130Z       Start  7: float_precision_tests
+2026-09-29T22:21:53.5804160Z  7/16 Test  #7: float_precision_tests ............   Passed    3.64 sec
+2026-09-29T22:21:53.5808010Z       Start  8: json_cursor_tests
+2026-09-29T22:21:53.5865940Z  8/16 Test  #8: json_cursor_tests ................   Passed    0.01 sec
+2026-09-29T22:21:53.5866800Z       Start  9: ndjson_tests
+2026-09-29T22:21:53.5982830Z  9/16 Test  #9: ndjson_tests .....................   Passed    0.01 sec
+2026-09-29T22:21:53.5986000Z       Start 10: jsonpath_tests
+2026-09-29T22:21:53.6033170Z 10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+2026-09-29T22:21:53.6034230Z       Start 11: jsonpath_stream_tests
+2026-09-29T22:21:53.6087380Z 11/16 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+2026-09-29T22:21:53.6090250Z       Start 12: scan_tests
+2026-09-29T22:21:53.6362950Z 12/16 Test #12: scan_tests .......................   Passed    0.03 sec
+2026-09-29T22:21:53.6365660Z       Start 13: temporal_tests
+2026-09-29T22:21:53.6634540Z 13/16 Test #13: temporal_tests ...................   Passed    0.03 sec
+2026-09-29T22:21:53.6637420Z       Start 14: folder_tests
+2026-09-29T22:21:53.6830650Z 14/16 Test #14: folder_tests .....................   Passed    0.02 sec
+2026-09-29T22:21:53.6832730Z       Start 15: fuzz_corpus_tests
+2026-09-29T22:21:53.6941980Z 15/16 Test #15: fuzz_corpus_tests ................   Passed    0.01 sec
+2026-09-29T22:21:53.6944470Z       Start 16: stress_deep_tests
+2026-09-29T22:21:53.7022330Z 16/16 Test #16: stress_deep_tests ................   Passed    0.01 sec
+2026-09-29T22:21:53.7035230Z 
+2026-09-29T22:21:53.7036300Z 100% tests passed out of 16
+2026-09-29T22:21:53.7036790Z 
+2026-09-29T22:21:53.7037890Z Total Test time (real) =   3.96 sec
+2026-09-29T22:21:53.7791860Z + pytest tests/py tests/unit --basetemp=/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pytest-of-runner/nsp94p0u
+2026-09-29T22:21:54.9293560Z ============================= test session starts ==============================
+2026-09-29T22:21:54.9294860Z platform darwin -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+2026-09-29T22:21:54.9295680Z rootdir: /Users/runner/work/strata/strata
+2026-09-29T22:21:54.9296210Z configfile: pyproject.toml
+2026-09-29T22:21:54.9296780Z plugins: platformdirs-4.12.2, cov-7.1.0
+2026-09-29T22:21:54.9297410Z collected 3924 items
+2026-09-29T22:21:54.9297650Z 
+2026-09-29T22:21:54.9576730Z tests/py/native_types/test_native_dump.py ..............                 [  0%]
+2026-09-29T22:21:55.1317400Z tests/py/native_types/test_native_fast_paths.py ........ssssssssss...... [  0%]
+2026-09-29T22:21:55.4834870Z .............................                                            [  1%]
+2026-09-29T22:21:55.6318050Z tests/py/native_types/test_native_import.py ...                          [  1%]
+2026-09-29T22:21:55.7167960Z tests/py/native_types/test_native_opt_out.py ........................... [  2%]
+2026-09-29T22:21:55.7178370Z                                                                          [  2%]
+2026-09-29T22:21:55.8998130Z tests/py/native_types/test_native_oracle.py .........                    [  2%]
+2026-09-29T22:21:56.5344180Z tests/py/native_types/test_native_reentrancy.py ........................ [  3%]
+2026-09-29T22:21:58.1091440Z ..................................................                       [  4%]
+2026-09-29T22:21:58.1748120Z tests/py/native_types/test_parse_types.py .............................. [  5%]
+2026-09-29T22:21:58.8643640Z ............................................................             [  6%]
+2026-09-29T22:21:58.9064510Z tests/py/test_dumps_brace_fold.py .........                              [  7%]
+2026-09-29T22:21:58.9763710Z tests/py/test_dumps_cycles_fused.py .................................... [  8%]
+2026-09-29T22:21:59.0782980Z ....................................................                     [  9%]
+2026-09-29T22:21:59.5833640Z tests/py/test_dumps_general_tables.py ............................       [ 10%]
+2026-09-29T22:22:00.5289990Z tests/py/test_dumps_with_default.py .................................... [ 10%]
+2026-09-29T22:22:01.0873240Z .............................ss                                          [ 11%]
+2026-09-29T22:22:01.1402240Z tests/py/test_dumps_with_default_contract.py ........................... [ 12%]
+2026-09-29T22:22:01.2719220Z ........................................................................ [ 14%]
+2026-09-29T22:22:01.4034130Z ........................................................................ [ 16%]
+2026-09-29T22:22:01.5049300Z ..........................                                               [ 16%]
+2026-09-29T22:22:01.5121970Z tests/py/test_fused_verification.py ..                                   [ 16%]
+2026-09-29T22:22:01.5657140Z tests/py/test_json_parity.py ........................................... [ 17%]
+2026-09-29T22:22:01.6447410Z ........................................................................ [ 19%]
+2026-09-29T22:22:01.7310150Z ........................................................................ [ 21%]
+2026-09-29T22:22:01.8144810Z ........................................................................ [ 23%]
+2026-09-29T22:22:01.8986790Z ........................................................................ [ 25%]
+2026-09-29T22:22:01.9907080Z ........................................................................ [ 27%]
+2026-09-29T22:22:02.0665290Z ........................................................................ [ 28%]
+2026-09-29T22:22:02.1563080Z ........................................................................ [ 30%]
+2026-09-29T22:22:02.2391560Z ........................................................................ [ 32%]
+2026-09-29T22:22:02.3237630Z ........................................................................ [ 34%]
+2026-09-29T22:22:02.4093280Z ........................................................................ [ 36%]
+2026-09-29T22:22:02.5003690Z ........................................................................ [ 38%]
+2026-09-29T22:22:02.5901230Z ........................................................................ [ 39%]
+2026-09-29T22:22:02.6742130Z ........................................................................ [ 41%]
+2026-09-29T22:22:02.7571920Z ........................................................................ [ 43%]
+2026-09-29T22:22:02.8352350Z ........................................................................ [ 45%]
+2026-09-29T22:22:02.9253270Z ........................................................................ [ 47%]
+2026-09-29T22:22:02.9690030Z .................................                                        [ 48%]
+2026-09-29T22:22:03.0637130Z tests/py/test_path_dispatch.py ................................          [ 48%]
+2026-09-29T22:22:03.0677980Z tests/py/test_py_tests_basetemp.py ..                                    [ 49%]
+2026-09-29T22:22:03.0713430Z tests/py/test_smoke.py ...                                               [ 49%]
+2026-09-29T22:22:03.1132030Z tests/unit/native_types/test_build_sources.py .......                    [ 49%]
+2026-09-29T22:22:03.5021890Z tests/unit/native_types/test_hook_import_gating.py .......               [ 49%]
+2026-09-29T22:22:03.6225140Z tests/unit/native_types/test_hook_profile_build.py ...............       [ 49%]
+2026-09-29T22:22:03.6419970Z tests/unit/native_types/test_native_benchmark_agreement.py ...........   [ 50%]
+2026-09-29T22:22:03.8470160Z tests/unit/native_types/test_native_benchmark_dataset.py .....           [ 50%]
+2026-09-29T22:22:03.8537930Z tests/unit/native_types/test_native_benchmark_rows.py .......            [ 50%]
+2026-09-29T22:22:03.8836500Z tests/unit/native_types/test_native_ci_fetch.py ....                     [ 50%]
+2026-09-29T22:22:03.9067080Z tests/unit/native_types/test_native_ci_summary.py .....                  [ 50%]
+2026-09-29T22:22:03.9981160Z tests/unit/native_types/test_native_flag.py ..........................s. [ 51%]
+2026-09-29T22:22:04.0951650Z ..                                                                       [ 51%]
+2026-09-29T22:22:04.1249810Z tests/unit/native_types/test_native_identity_ab.py .......               [ 51%]
+2026-09-29T22:22:04.1599900Z tests/unit/native_types/test_native_opt_out.py ......................... [ 52%]
+2026-09-29T22:22:04.2563320Z ........................................................................ [ 54%]
+2026-09-29T22:22:04.3210530Z ..................................................                       [ 55%]
+2026-09-29T22:22:04.3464490Z tests/unit/native_types/test_parse_contract.py ......................... [ 55%]
+2026-09-29T22:22:04.4640650Z .................................................                        [ 57%]
+2026-09-29T22:22:04.4877510Z tests/unit/native_types/test_serializer_contract.py .................... [ 57%]
+2026-09-29T22:22:05.1072830Z ........................................................................ [ 59%]
+2026-09-29T22:22:05.1744090Z ................................................                         [ 60%]
+2026-09-29T22:22:05.2382480Z tests/unit/native_types/test_training_scope.py ............              [ 61%]
+2026-09-29T22:22:06.0502000Z tests/unit/test_ab_analysis.py ......................................    [ 62%]
+2026-09-29T22:22:06.0730550Z tests/unit/test_build_manifest.py ...........                            [ 62%]
+2026-09-29T22:22:06.1053110Z tests/unit/test_canonical_builds.py ....                                 [ 62%]
+2026-09-29T22:22:06.5179320Z tests/unit/test_ci_fetch.py ........................                     [ 63%]
+2026-09-29T22:22:06.7013000Z tests/unit/test_ci_summary.py .......................                    [ 63%]
+2026-09-29T22:22:06.7324560Z tests/unit/test_config.py ...........................                    [ 64%]
+2026-09-29T22:22:06.7659080Z tests/unit/test_core_purity.py ....                                      [ 64%]
+2026-09-29T22:22:06.7888340Z tests/unit/test_cross_sample.py ......                                   [ 64%]
+2026-09-29T22:22:06.8734940Z tests/unit/test_dumps.py ............................................... [ 65%]
+2026-09-29T22:22:06.8962400Z ..........                                                               [ 66%]
+2026-09-29T22:22:06.9265390Z tests/unit/test_dumps_brace_fold.py .........                            [ 66%]
+2026-09-29T22:22:07.2671030Z tests/unit/test_dumps_cold_start.py ....                                 [ 66%]
+2026-09-29T22:22:07.3101120Z tests/unit/test_dumps_contract.py ...................................... [ 67%]
+2026-09-29T22:22:07.4056650Z .............................................................            [ 68%]
+2026-09-29T22:22:07.4716490Z tests/unit/test_dumps_cycles_fused.py .................................. [ 69%]
+2026-09-29T22:22:07.5897940Z ......................................................                   [ 71%]
+2026-09-29T22:22:08.3287650Z tests/unit/test_dumps_general_tables.py ............................     [ 71%]
+2026-09-29T22:22:09.2163360Z tests/unit/test_dumps_latch.py ............................              [ 72%]
+2026-09-29T22:22:09.3539110Z tests/unit/test_dumps_private_cache.py ................................  [ 73%]
+2026-09-29T22:22:10.6837040Z tests/unit/test_dumps_reentrancy.py .................................... [ 74%]
+2026-09-29T22:22:13.0211930Z ......................................................................   [ 76%]
+2026-09-29T22:22:14.3990030Z tests/unit/test_dumps_reentrancy_review.py ............................. [ 76%]
+2026-09-29T22:22:14.7302630Z ..                                                                       [ 76%]
+2026-09-29T22:22:14.8054770Z tests/unit/test_dumps_schema_failure.py ...........................      [ 77%]
+2026-09-29T22:22:15.7215100Z tests/unit/test_dumps_user_step_counter.py ..........................    [ 78%]
+2026-09-29T22:22:15.7677490Z tests/unit/test_dumps_with_default.py .................................. [ 79%]
+2026-09-29T22:22:15.8544720Z ........................................................................ [ 80%]
+2026-09-29T22:22:16.0709350Z .........................................................                [ 82%]
+2026-09-29T22:22:16.1078180Z tests/unit/test_dumps_with_default_state.py ............................ [ 83%]
+2026-09-29T22:22:16.2600240Z ........................................................................ [ 84%]
+2026-09-29T22:22:16.5797950Z ..............                                                           [ 85%]
+2026-09-29T22:22:16.7600180Z tests/unit/test_folder.py .............................................. [ 86%]
+2026-09-29T22:22:16.9439460Z .........................................                                [ 87%]
+2026-09-29T22:22:16.9517320Z tests/unit/test_fused_verification.py ..                                 [ 87%]
+2026-09-29T22:22:17.0340230Z tests/unit/test_hook_build_scope.py ...............................      [ 88%]
+2026-09-29T22:22:17.2361870Z tests/unit/test_json_cursor.py ...........................               [ 89%]
+2026-09-29T22:22:17.2915070Z tests/unit/test_jsonpath.py ............................................ [ 90%]
+2026-09-29T22:22:17.5217590Z .......................................................................  [ 91%]
+2026-09-29T22:22:17.7351580Z tests/unit/test_load_dump.py ........................................... [ 93%]
+2026-09-29T22:22:17.7362150Z                                                                          [ 93%]
+2026-09-29T22:22:17.7986260Z tests/unit/test_loads.py ............................................... [ 94%]
+2026-09-29T22:22:17.9554130Z ........................................................................ [ 96%]
+2026-09-29T22:22:19.7516610Z ................                                                         [ 96%]
+2026-09-29T22:22:19.7657470Z tests/unit/test_native_interleaved_profile.py ...                        [ 96%]
+2026-09-29T22:22:19.9037800Z tests/unit/test_nested_container_probe.py ....                           [ 96%]
+2026-09-29T22:22:20.0446730Z tests/unit/test_path_dispatch.py ................................        [ 97%]
+2026-09-29T22:22:20.1345140Z tests/unit/test_provenance.py ..................                         [ 97%]
+2026-09-29T22:22:20.2452610Z tests/unit/test_regression_check.py ..........................           [ 98%]
+2026-09-29T22:22:20.5070670Z tests/unit/test_search_stream.py .................                       [ 99%]
+2026-09-29T22:22:20.5084370Z tests/unit/test_string_identity_probe.py .                               [ 99%]
+2026-09-29T22:22:20.6652900Z tests/unit/test_supplementary.py .............                           [ 99%]
+2026-09-29T22:22:20.7873980Z tests/unit/test_supportability_check.py ....................             [ 99%]
+2026-09-29T22:22:20.9589940Z tests/unit/test_version.py ....                                          [100%]
+2026-09-29T22:22:20.9590610Z 
+2026-09-29T22:22:20.9590930Z ====================== 3911 passed, 13 skipped in 26.79s =======================
+2026-09-29T22:22:21.5128970Z ==> PGO phase 3a: instrumented hook
+2026-09-29T22:22:22.0568600Z Obtaining file:///Users/runner/work/strata/strata
+2026-09-29T22:22:22.0619790Z   Installing build dependencies: started
+2026-09-29T22:22:25.6650350Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:22:25.6662200Z   Checking if build backend supports build_editable: started
+2026-09-29T22:22:26.0448710Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:22:26.0464600Z   Getting requirements to build editable: started
+2026-09-29T22:22:26.5532570Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:22:26.5549970Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:22:26.9083980Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:22:26.9177960Z Building wheels for collected packages: strata
+2026-09-29T22:22:26.9191370Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:23:27.1437010Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:23:38.2003760Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:23:38.2019310Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4456 sha256=17cabcfffb0fac9bf04642fc11cf7d2691e2d85102146906715ffb3be379db63
+2026-09-29T22:23:38.2028610Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-q4q_2b5r/wheels/51/60/a8/6b4b28a81728896ca0cc3cb367b690b439c41c36ebd5cb3307
+2026-09-29T22:23:38.2066830Z Successfully built strata
+2026-09-29T22:23:38.2193690Z Installing collected packages: strata
+2026-09-29T22:23:38.2194540Z   Attempting uninstall: strata
+2026-09-29T22:23:38.2235970Z     Found existing installation: strata 2026.8.10
+2026-09-29T22:23:38.2262340Z     Uninstalling strata-2026.8.10:
+2026-09-29T22:23:38.2822410Z       Successfully uninstalled strata-2026.8.10
+2026-09-29T22:23:38.2940210Z Successfully installed strata-2026.8.10
+2026-09-29T22:23:38.9435500Z ==> PGO: the hook's native training workload
+2026-09-29T22:23:40.2466520Z ==> PGO phase 3b: the hook against its own profile (+ LTO)
+2026-09-29T22:23:40.8294540Z Obtaining file:///Users/runner/work/strata/strata
+2026-09-29T22:23:40.8342330Z   Installing build dependencies: started
+2026-09-29T22:23:45.4879400Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:23:45.4893240Z   Checking if build backend supports build_editable: started
+2026-09-29T22:23:45.9798480Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:23:45.9820350Z   Getting requirements to build editable: started
+2026-09-29T22:23:46.6662080Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:23:46.6684300Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:23:47.1208860Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:23:47.1326150Z Building wheels for collected packages: strata
+2026-09-29T22:23:47.1343620Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:24:47.8046100Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:24:59.0454060Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:24:59.0571250Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4456 sha256=c03eba0fde7c5412a513f32cf0f1a703eae3ee2105c10c197d45cc566f475621
+2026-09-29T22:24:59.0574000Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-z8_qg_qv/wheels/51/60/a8/6b4b28a81728896ca0cc3cb367b690b439c41c36ebd5cb3307
+2026-09-29T22:24:59.0652180Z Successfully built strata
+2026-09-29T22:24:59.1245270Z Installing collected packages: strata
+2026-09-29T22:24:59.1246390Z   Attempting uninstall: strata
+2026-09-29T22:24:59.1441640Z     Found existing installation: strata 2026.8.10
+2026-09-29T22:24:59.1496700Z     Uninstalling strata-2026.8.10:
+2026-09-29T22:24:59.2074900Z       Successfully uninstalled strata-2026.8.10
+2026-09-29T22:24:59.2201180Z Successfully installed strata-2026.8.10
+2026-09-29T22:25:00.4088640Z ==> PGO: _strata unchanged, the hook on its own profile alone
+2026-09-29T22:25:00.5209160Z + strata._dumps_hook is built against hook.profdata alone and links no profile runtime
+2026-09-29T22:25:00.6020420Z + strata._strata is built against strata.profdata alone and links no profile runtime
+2026-09-29T22:25:00.6084070Z ==> PGO: gate tests on the optimized hook
+2026-09-29T22:25:00.6646580Z + /Users/runner/work/strata/strata/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+2026-09-29T22:25:01.0349870Z -- Configuring done (0.1s)
+2026-09-29T22:25:01.2120670Z -- Generating done (0.1s)
+2026-09-29T22:25:01.2241280Z -- Build files have been written to: /Users/runner/work/strata/strata/build/cmake
+2026-09-29T22:25:01.3242470Z + /Users/runner/work/strata/strata/.venv/bin/cmake --build build/cmake --config Release
+2026-09-29T22:25:01.9261880Z [  0%] Linking CXX executable smoke_tests
+2026-09-29T22:25:02.0823390Z [  6%] Built target smoke_tests
+2026-09-29T22:25:02.3119600Z [  7%] Linking CXX executable json_core_tests
+2026-09-29T22:25:02.4866850Z [ 13%] Built target json_core_tests
+2026-09-29T22:25:02.7423120Z [ 13%] Linking CXX executable json_parse_tests
+2026-09-29T22:25:02.9023170Z [ 19%] Built target json_parse_tests
+2026-09-29T22:25:03.1771470Z [ 20%] Linking CXX executable fast_parse_tests
+2026-09-29T22:25:03.3558780Z [ 25%] Built target fast_parse_tests
+2026-09-29T22:25:03.5822170Z [ 26%] Linking CXX executable value_cursor_tests
+2026-09-29T22:25:03.7367870Z [ 32%] Built target value_cursor_tests
+2026-09-29T22:25:03.9499730Z [ 32%] Linking CXX executable json_serialize_tests
+2026-09-29T22:25:04.1078060Z [ 38%] Built target json_serialize_tests
+2026-09-29T22:25:04.3218680Z [ 39%] Linking CXX executable float_precision_tests
+2026-09-29T22:25:04.4798470Z [ 44%] Built target float_precision_tests
+2026-09-29T22:25:04.6952920Z [ 45%] Linking CXX executable json_cursor_tests
+2026-09-29T22:25:04.8642690Z [ 50%] Built target json_cursor_tests
+2026-09-29T22:25:05.0927800Z [ 51%] Linking CXX executable ndjson_tests
+2026-09-29T22:25:05.2735180Z [ 56%] Built target ndjson_tests
+2026-09-29T22:25:05.5029250Z [ 57%] Linking CXX executable jsonpath_tests
+2026-09-29T22:25:05.6828500Z [ 63%] Built target jsonpath_tests
+2026-09-29T22:25:05.8983660Z [ 63%] Linking CXX executable jsonpath_stream_tests
+2026-09-29T22:25:06.0642900Z [ 69%] Built target jsonpath_stream_tests
+2026-09-29T22:25:06.2800390Z [ 69%] Linking CXX executable scan_tests
+2026-09-29T22:25:06.4847910Z [ 75%] Built target scan_tests
+2026-09-29T22:25:06.7303010Z [ 75%] Linking CXX executable temporal_tests
+2026-09-29T22:25:07.0570650Z [ 81%] Built target temporal_tests
+2026-09-29T22:25:07.6336850Z [ 81%] Linking CXX executable folder_tests
+2026-09-29T22:25:08.1589210Z [ 87%] Built target folder_tests
+2026-09-29T22:25:08.5489310Z [ 87%] Linking CXX executable fuzz_corpus_tests
+2026-09-29T22:25:08.7732030Z [ 93%] Built target fuzz_corpus_tests
+2026-09-29T22:25:09.0292020Z [ 94%] Linking CXX executable stress_deep_tests
+2026-09-29T22:25:09.7584240Z [100%] Built target stress_deep_tests
+2026-09-29T22:25:09.8961680Z + /Users/runner/work/strata/strata/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+2026-09-29T22:25:10.3142770Z Test project /Users/runner/work/strata/strata/build/cmake
+2026-09-29T22:25:10.3251590Z       Start  1: smoke_tests
+2026-09-29T22:25:10.3329200Z  1/16 Test  #1: smoke_tests ......................   Passed    0.01 sec
+2026-09-29T22:25:10.3335130Z       Start  2: json_core_tests
+2026-09-29T22:25:10.3380080Z  2/16 Test  #2: json_core_tests ..................   Passed    0.00 sec
+2026-09-29T22:25:10.3383130Z       Start  3: json_parse_tests
+2026-09-29T22:25:10.3433050Z  3/16 Test  #3: json_parse_tests .................   Passed    0.00 sec
+2026-09-29T22:25:10.3440960Z       Start  4: fast_parse_tests
+2026-09-29T22:25:10.4960150Z  4/16 Test  #4: fast_parse_tests .................   Passed    0.15 sec
+2026-09-29T22:25:10.4963320Z       Start  5: value_cursor_tests
+2026-09-29T22:25:10.5134970Z  5/16 Test  #5: value_cursor_tests ...............   Passed    0.02 sec
+2026-09-29T22:25:10.5136330Z       Start  6: json_serialize_tests
+2026-09-29T22:25:10.5207660Z  6/16 Test  #6: json_serialize_tests .............   Passed    0.01 sec
+2026-09-29T22:25:10.5209310Z       Start  7: float_precision_tests
+2026-09-29T22:25:15.2263600Z  7/16 Test  #7: float_precision_tests ............   Passed    4.70 sec
+2026-09-29T22:25:15.2266530Z       Start  8: json_cursor_tests
+2026-09-29T22:25:15.2315950Z  8/16 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+2026-09-29T22:25:15.2317490Z       Start  9: ndjson_tests
+2026-09-29T22:25:15.2419530Z  9/16 Test  #9: ndjson_tests .....................   Passed    0.01 sec
+2026-09-29T22:25:15.2421040Z       Start 10: jsonpath_tests
+2026-09-29T22:25:15.2471080Z 10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+2026-09-29T22:25:15.2472990Z       Start 11: jsonpath_stream_tests
+2026-09-29T22:25:15.2525540Z 11/16 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+2026-09-29T22:25:15.2527750Z       Start 12: scan_tests
+2026-09-29T22:25:15.2805690Z 12/16 Test #12: scan_tests .......................   Passed    0.03 sec
+2026-09-29T22:25:15.2807520Z       Start 13: temporal_tests
+2026-09-29T22:25:15.3083650Z 13/16 Test #13: temporal_tests ...................   Passed    0.03 sec
+2026-09-29T22:25:15.3085140Z       Start 14: folder_tests
+2026-09-29T22:25:15.3254370Z 14/16 Test #14: folder_tests .....................   Passed    0.02 sec
+2026-09-29T22:25:15.3255140Z       Start 15: fuzz_corpus_tests
+2026-09-29T22:25:15.3356150Z 15/16 Test #15: fuzz_corpus_tests ................   Passed    0.01 sec
+2026-09-29T22:25:15.3357860Z       Start 16: stress_deep_tests
+2026-09-29T22:25:15.3432610Z 16/16 Test #16: stress_deep_tests ................   Passed    0.01 sec
+2026-09-29T22:25:15.3443130Z 
+2026-09-29T22:25:15.3443790Z 100% tests passed out of 16
+2026-09-29T22:25:15.3444100Z 
+2026-09-29T22:25:15.3444260Z Total Test time (real) =   5.03 sec
+2026-09-29T22:25:15.4239540Z + pytest tests/py tests/unit --basetemp=/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pytest-of-runner/xx3y3wu8
+2026-09-29T22:25:16.5594140Z ============================= test session starts ==============================
+2026-09-29T22:25:16.5594960Z platform darwin -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+2026-09-29T22:25:16.5598660Z rootdir: /Users/runner/work/strata/strata
+2026-09-29T22:25:16.5599220Z configfile: pyproject.toml
+2026-09-29T22:25:16.5600060Z plugins: platformdirs-4.12.2, cov-7.1.0
+2026-09-29T22:25:16.5600560Z collected 3924 items
+2026-09-29T22:25:16.5601160Z 
+2026-09-29T22:25:16.5846990Z tests/py/native_types/test_native_dump.py ..............                 [  0%]
+2026-09-29T22:25:16.7506700Z tests/py/native_types/test_native_fast_paths.py ........ssssssssss...... [  0%]
+2026-09-29T22:25:17.1102280Z .............................                                            [  1%]
+2026-09-29T22:25:17.2452770Z tests/py/native_types/test_native_import.py ...                          [  1%]
+2026-09-29T22:25:17.3100090Z tests/py/native_types/test_native_opt_out.py ........................... [  2%]
+2026-09-29T22:25:17.3108190Z                                                                          [  2%]
+2026-09-29T22:25:17.4657760Z tests/py/native_types/test_native_oracle.py .........                    [  2%]
+2026-09-29T22:25:18.0028420Z tests/py/native_types/test_native_reentrancy.py ........................ [  3%]
+2026-09-29T22:25:19.2704720Z ..................................................                       [  4%]
+2026-09-29T22:25:19.3301660Z tests/py/native_types/test_parse_types.py .............................. [  5%]
+2026-09-29T22:25:20.0333020Z ............................................................             [  6%]
+2026-09-29T22:25:20.0633990Z tests/py/test_dumps_brace_fold.py .........                              [  7%]
+2026-09-29T22:25:20.1104320Z tests/py/test_dumps_cycles_fused.py .................................... [  8%]
+2026-09-29T22:25:20.1806430Z ....................................................                     [  9%]
+2026-09-29T22:25:20.8058850Z tests/py/test_dumps_general_tables.py ............................       [ 10%]
+2026-09-29T22:25:21.8045530Z tests/py/test_dumps_with_default.py .................................... [ 10%]
+2026-09-29T22:25:22.2858690Z .............................ss                                          [ 11%]
+2026-09-29T22:25:22.3305190Z tests/py/test_dumps_with_default_contract.py ........................... [ 12%]
+2026-09-29T22:25:22.4560550Z ........................................................................ [ 14%]
+2026-09-29T22:25:22.5797830Z ........................................................................ [ 16%]
+2026-09-29T22:25:22.6707430Z ..........................                                               [ 16%]
+2026-09-29T22:25:22.6773470Z tests/py/test_fused_verification.py ..                                   [ 16%]
+2026-09-29T22:25:22.7180040Z tests/py/test_json_parity.py ........................................... [ 17%]
+2026-09-29T22:25:22.7832130Z ........................................................................ [ 19%]
+2026-09-29T22:25:22.8496240Z ........................................................................ [ 21%]
+2026-09-29T22:25:22.9145210Z ........................................................................ [ 23%]
+2026-09-29T22:25:22.9832940Z ........................................................................ [ 25%]
+2026-09-29T22:25:23.0534580Z ........................................................................ [ 27%]
+2026-09-29T22:25:23.1211570Z ........................................................................ [ 28%]
+2026-09-29T22:25:23.1926330Z ........................................................................ [ 30%]
+2026-09-29T22:25:23.2639250Z ........................................................................ [ 32%]
+2026-09-29T22:25:23.3310310Z ........................................................................ [ 34%]
+2026-09-29T22:25:23.4065810Z ........................................................................ [ 36%]
+2026-09-29T22:25:23.4739440Z ........................................................................ [ 38%]
+2026-09-29T22:25:23.5404030Z ........................................................................ [ 39%]
+2026-09-29T22:25:23.6102410Z ........................................................................ [ 41%]
+2026-09-29T22:25:23.6791070Z ........................................................................ [ 43%]
+2026-09-29T22:25:23.7451370Z ........................................................................ [ 45%]
+2026-09-29T22:25:23.8115250Z ........................................................................ [ 47%]
+2026-09-29T22:25:23.8521880Z .................................                                        [ 48%]
+2026-09-29T22:25:23.9297670Z tests/py/test_path_dispatch.py ................................          [ 48%]
+2026-09-29T22:25:23.9327480Z tests/py/test_py_tests_basetemp.py ..                                    [ 49%]
+2026-09-29T22:25:23.9356100Z tests/py/test_smoke.py ...                                               [ 49%]
+2026-09-29T22:25:23.9728990Z tests/unit/native_types/test_build_sources.py .......                    [ 49%]
+2026-09-29T22:25:24.3067420Z tests/unit/native_types/test_hook_import_gating.py .......               [ 49%]
+2026-09-29T22:25:24.4138980Z tests/unit/native_types/test_hook_profile_build.py ...............       [ 49%]
+2026-09-29T22:25:24.4319640Z tests/unit/native_types/test_native_benchmark_agreement.py ...........   [ 50%]
+2026-09-29T22:25:24.6237020Z tests/unit/native_types/test_native_benchmark_dataset.py .....           [ 50%]
+2026-09-29T22:25:24.6300190Z tests/unit/native_types/test_native_benchmark_rows.py .......            [ 50%]
+2026-09-29T22:25:24.6577990Z tests/unit/native_types/test_native_ci_fetch.py ....                     [ 50%]
+2026-09-29T22:25:24.6774920Z tests/unit/native_types/test_native_ci_summary.py .....                  [ 50%]
+2026-09-29T22:25:24.7600370Z tests/unit/native_types/test_native_flag.py ..........................s. [ 51%]
+2026-09-29T22:25:24.8497630Z ..                                                                       [ 51%]
+2026-09-29T22:25:24.8751740Z tests/unit/native_types/test_native_identity_ab.py .......               [ 51%]
+2026-09-29T22:25:24.9050870Z tests/unit/native_types/test_native_opt_out.py ......................... [ 52%]
+2026-09-29T22:25:24.9959120Z ........................................................................ [ 54%]
+2026-09-29T22:25:25.0534950Z ..................................................                       [ 55%]
+2026-09-29T22:25:25.0758010Z tests/unit/native_types/test_parse_contract.py ......................... [ 55%]
+2026-09-29T22:25:25.1943320Z .................................................                        [ 57%]
+2026-09-29T22:25:25.2136030Z tests/unit/native_types/test_serializer_contract.py .................... [ 57%]
+2026-09-29T22:25:25.7924190Z ........................................................................ [ 59%]
+2026-09-29T22:25:25.8510110Z ................................................                         [ 60%]
+2026-09-29T22:25:25.9109890Z tests/unit/native_types/test_training_scope.py ............              [ 61%]
+2026-09-29T22:25:26.6532220Z tests/unit/test_ab_analysis.py ......................................    [ 62%]
+2026-09-29T22:25:26.6730330Z tests/unit/test_build_manifest.py ...........                            [ 62%]
+2026-09-29T22:25:26.7013660Z tests/unit/test_canonical_builds.py ....                                 [ 62%]
+2026-09-29T22:25:27.0713920Z tests/unit/test_ci_fetch.py ........................                     [ 63%]
+2026-09-29T22:25:27.2275940Z tests/unit/test_ci_summary.py .......................                    [ 63%]
+2026-09-29T22:25:27.2533950Z tests/unit/test_config.py ...........................                    [ 64%]
+2026-09-29T22:25:27.2820700Z tests/unit/test_core_purity.py ....                                      [ 64%]
+2026-09-29T22:25:27.3016030Z tests/unit/test_cross_sample.py ......                                   [ 64%]
+2026-09-29T22:25:27.3832710Z tests/unit/test_dumps.py ............................................... [ 65%]
+2026-09-29T22:25:27.4052130Z ..........                                                               [ 66%]
+2026-09-29T22:25:27.4343800Z tests/unit/test_dumps_brace_fold.py .........                            [ 66%]
+2026-09-29T22:25:27.7750580Z tests/unit/test_dumps_cold_start.py ....                                 [ 66%]
+2026-09-29T22:25:27.8182160Z tests/unit/test_dumps_contract.py ...................................... [ 67%]
+2026-09-29T22:25:27.8949190Z .............................................................            [ 68%]
+2026-09-29T22:25:27.9387670Z tests/unit/test_dumps_cycles_fused.py .................................. [ 69%]
+2026-09-29T22:25:28.0151230Z ......................................................                   [ 71%]
+2026-09-29T22:25:28.5114340Z tests/unit/test_dumps_general_tables.py ............................     [ 71%]
+2026-09-29T22:25:29.2561370Z tests/unit/test_dumps_latch.py ............................              [ 72%]
+2026-09-29T22:25:29.3783760Z tests/unit/test_dumps_private_cache.py ................................  [ 73%]
+2026-09-29T22:25:30.4963010Z tests/unit/test_dumps_reentrancy.py .................................... [ 74%]
+2026-09-29T22:25:32.4603340Z ......................................................................   [ 76%]
+2026-09-29T22:25:33.6593900Z tests/unit/test_dumps_reentrancy_review.py ............................. [ 76%]
+2026-09-29T22:25:33.9196330Z ..                                                                       [ 76%]
+2026-09-29T22:25:33.9887240Z tests/unit/test_dumps_schema_failure.py ...........................      [ 77%]
+2026-09-29T22:25:34.8639850Z tests/unit/test_dumps_user_step_counter.py ..........................    [ 78%]
+2026-09-29T22:25:34.9063490Z tests/unit/test_dumps_with_default.py .................................. [ 79%]
+2026-09-29T22:25:34.9973890Z ........................................................................ [ 80%]
+2026-09-29T22:25:35.2294360Z .........................................................                [ 82%]
+2026-09-29T22:25:35.2887980Z tests/unit/test_dumps_with_default_state.py ............................ [ 83%]
+2026-09-29T22:25:35.4598130Z ........................................................................ [ 84%]
+2026-09-29T22:25:35.7362480Z ..............                                                           [ 85%]
+2026-09-29T22:25:36.0099920Z tests/unit/test_folder.py .............................................. [ 86%]
+2026-09-29T22:25:36.3848000Z .........................................                                [ 87%]
+2026-09-29T22:25:36.3915520Z tests/unit/test_fused_verification.py ..                                 [ 87%]
+2026-09-29T22:25:36.4773840Z tests/unit/test_hook_build_scope.py ...............................      [ 88%]
+2026-09-29T22:25:36.6667610Z tests/unit/test_json_cursor.py ...........................               [ 89%]
+2026-09-29T22:25:36.7083970Z tests/unit/test_jsonpath.py ............................................ [ 90%]
+2026-09-29T22:25:36.9360490Z .......................................................................  [ 91%]
+2026-09-29T22:25:37.1380500Z tests/unit/test_load_dump.py ........................................... [ 93%]
+2026-09-29T22:25:37.1389910Z                                                                          [ 93%]
+2026-09-29T22:25:37.2050320Z tests/unit/test_loads.py ............................................... [ 94%]
+2026-09-29T22:25:37.3645470Z ........................................................................ [ 96%]
+2026-09-29T22:25:38.9712440Z ................                                                         [ 96%]
+2026-09-29T22:25:38.9806610Z tests/unit/test_native_interleaved_profile.py ...                        [ 96%]
+2026-09-29T22:25:39.1003910Z tests/unit/test_nested_container_probe.py ....                           [ 96%]
+2026-09-29T22:25:39.1989280Z tests/unit/test_path_dispatch.py ................................        [ 97%]
+2026-09-29T22:25:39.2831680Z tests/unit/test_provenance.py ..................                         [ 97%]
+2026-09-29T22:25:39.3754720Z tests/unit/test_regression_check.py ..........................           [ 98%]
+2026-09-29T22:25:39.5783380Z tests/unit/test_search_stream.py .................                       [ 99%]
+2026-09-29T22:25:39.5796790Z tests/unit/test_string_identity_probe.py .                               [ 99%]
+2026-09-29T22:25:39.7079030Z tests/unit/test_supplementary.py .............                           [ 99%]
+2026-09-29T22:25:39.7999880Z tests/unit/test_supportability_check.py ....................             [ 99%]
+2026-09-29T22:25:39.9421660Z tests/unit/test_version.py ....                                          [100%]
+2026-09-29T22:25:39.9422270Z 
+2026-09-29T22:25:39.9422560Z ====================== 3911 passed, 13 skipped in 24.16s =======================
+2026-09-29T22:25:40.3451370Z ==> PGO: generating benchmark data
+2026-09-29T22:25:40.3587880Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/small  --num-users 1000 --max-orders 10 --max-items 5  --records 500
+2026-09-29T22:25:40.8699890Z   benchmarks/data/generated/small/users.json  (1680 KB)
+2026-09-29T22:25:40.8702340Z   benchmarks/data/generated/small/users.ndjson  (1679 KB)
+2026-09-29T22:25:40.8703040Z   benchmarks/data/generated/small/flat.json  (209 KB)
+2026-09-29T22:25:40.8703870Z   benchmarks/data/generated/small/nested.json  (148 KB)
+2026-09-29T22:25:40.8704810Z   benchmarks/data/generated/small/wide_arrays.json  (1218 KB)
+2026-09-29T22:25:40.8705550Z   benchmarks/data/generated/small/mixed.json  (34 KB)
+2026-09-29T22:25:40.8763660Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
+2026-09-29T22:25:43.3607320Z   benchmarks/data/generated/medium/users.json  (9883 KB)
+2026-09-29T22:25:43.3609970Z   benchmarks/data/generated/medium/users.ndjson  (9881 KB)
+2026-09-29T22:25:43.3612480Z   benchmarks/data/generated/medium/flat.json  (836 KB)
+2026-09-29T22:25:43.3614560Z   benchmarks/data/generated/medium/nested.json  (594 KB)
+2026-09-29T22:25:43.3615410Z   benchmarks/data/generated/medium/wide_arrays.json  (4874 KB)
+2026-09-29T22:25:43.3616290Z   benchmarks/data/generated/medium/mixed.json  (138 KB)
+2026-09-29T22:25:43.3729400Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/large  --num-users 4000 --max-orders 40 --max-items 20 --records 5000
+2026-09-29T22:25:57.3994770Z   benchmarks/data/generated/large/users.json  (68083 KB)
+2026-09-29T22:25:57.3995610Z   benchmarks/data/generated/large/users.ndjson  (68079 KB)
+2026-09-29T22:25:57.3996380Z   benchmarks/data/generated/large/flat.json  (2092 KB)
+2026-09-29T22:25:57.3997310Z   benchmarks/data/generated/large/nested.json  (1488 KB)
+2026-09-29T22:25:57.3998330Z   benchmarks/data/generated/large/wide_arrays.json  (12185 KB)
+2026-09-29T22:25:57.3999400Z   benchmarks/data/generated/large/mixed.json  (347 KB)
+2026-09-29T22:25:57.4183200Z ==> PGO: verification benchmarks
+2026-09-29T22:26:37.1516160Z wrote build/pgo/bench_results_pgo.md
+2026-09-29T22:26:37.1717180Z ==> PGO complete
+2026-09-29T22:26:37.1717780Z     profile: /Users/runner/work/strata/strata/build/pgo/strata.profdata
+2026-09-29T22:26:37.1718520Z     results: build/pgo/bench_results_pgo.md
+2026-09-29T22:26:37.1720890Z     The installed extension is now the PGO+LTO build.
+2026-09-29T22:26:37.1829460Z ##[group]Run PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+2026-09-29T22:26:37.1831060Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+2026-09-29T22:26:37.1832030Z   --out-dir benchmarks/data/generated/small \
+2026-09-29T22:26:37.1832780Z   --num-users 1000 --max-orders 10 --max-items 5 --records 500
+2026-09-29T22:26:37.1899300Z shell: /bin/bash -e {0}
+2026-09-29T22:26:37.1899690Z env:
+2026-09-29T22:26:37.1900420Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:26:37.1901570Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.1902620Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:26:37.1903560Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.1904480Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.1905490Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.1906140Z ##[endgroup]
+2026-09-29T22:26:37.7626830Z   benchmarks/data/generated/small/users.json  (1680 KB)
+2026-09-29T22:26:37.7780480Z   benchmarks/data/generated/small/users.ndjson  (1679 KB)
+2026-09-29T22:26:37.7782500Z   benchmarks/data/generated/small/flat.json  (209 KB)
+2026-09-29T22:26:37.7784600Z   benchmarks/data/generated/small/nested.json  (148 KB)
+2026-09-29T22:26:37.7789310Z   benchmarks/data/generated/small/wide_arrays.json  (1218 KB)
+2026-09-29T22:26:37.7792090Z   benchmarks/data/generated/small/mixed.json  (34 KB)
+2026-09-29T22:26:37.7983720Z ##[group]Run PYTHONPATH=. .venv/bin/python -m benchmarks.bench_main \
+2026-09-29T22:26:37.7984800Z PYTHONPATH=. .venv/bin/python -m benchmarks.bench_main \
+2026-09-29T22:26:37.7985530Z   --name "ci-macos-x86_64" \
+2026-09-29T22:26:37.7986080Z   --repeat 10 --warmup 2 \
+2026-09-29T22:26:37.7986780Z   --dataset benchmarks/data/generated/small/users.json \
+2026-09-29T22:26:37.7987650Z   --dataset benchmarks/data/generated/small/users.ndjson \
+2026-09-29T22:26:37.7988510Z   --dataset benchmarks/data/generated/small/flat.json \
+2026-09-29T22:26:37.7989360Z   --dataset benchmarks/data/generated/small/nested.json \
+2026-09-29T22:26:37.7990260Z   --dataset benchmarks/data/generated/small/wide_arrays.json \
+2026-09-29T22:26:37.7991170Z   --dataset benchmarks/data/generated/small/mixed.json \
+2026-09-29T22:26:37.7991910Z   --output "bench_ci_macos-x86_64.md"
+2026-09-29T22:26:37.8049930Z shell: /bin/bash -e {0}
+2026-09-29T22:26:37.8050370Z env:
+2026-09-29T22:26:37.8050750Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:26:37.8051410Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.8052420Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:26:37.8053420Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.8054320Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.8055250Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:26:37.8056280Z   PGO_MODE: use
+2026-09-29T22:26:37.8056690Z   STRATA_ENABLE_LTO: 1
+2026-09-29T22:26:37.8057110Z ##[endgroup]
+2026-09-29T22:27:22.4165720Z wrote bench_ci_macos-x86_64.md
+2026-09-29T22:27:22.4406080Z ##[group]Run PYTHONPATH=. .venv/bin/python -m benchmarks.supportability_check \
+2026-09-29T22:27:22.4407340Z PYTHONPATH=. .venv/bin/python -m benchmarks.supportability_check \
+2026-09-29T22:27:22.4408150Z   "bench_ci_macos-x86_64.md"
+2026-09-29T22:27:22.4467840Z shell: /bin/bash -e {0}
+2026-09-29T22:27:22.4468280Z env:
+2026-09-29T22:27:22.4468660Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:27:22.4469340Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.4470340Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:27:22.4471330Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.4472230Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.4473130Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.4473850Z ##[endgroup]
+2026-09-29T22:27:22.5921890Z supportability: bench_ci_macos-x86_64.md: 27/27 declared rows, no problems; 27 rows within 3.0x, no ERROR rows
+2026-09-29T22:27:22.6080430Z ##[group]Run PYTHONPATH=. .venv/bin/python -m benchmarks.native_v1 \
+2026-09-29T22:27:22.6081480Z PYTHONPATH=. .venv/bin/python -m benchmarks.native_v1 \
+2026-09-29T22:27:22.6082320Z   --data benchmarks/data/generated --tiers small \
+2026-09-29T22:27:22.6082990Z   --repeat 30 --warmup 2 \
+2026-09-29T22:27:22.6083590Z   --output "bench_native_macos-x86_64.md"
+2026-09-29T22:27:22.6304650Z shell: /bin/bash -e {0}
+2026-09-29T22:27:22.6305120Z env:
+2026-09-29T22:27:22.6305500Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:27:22.6306150Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.6307220Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:27:22.6308240Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.6309160Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.6310340Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:22.6312810Z   PGO_MODE: use
+2026-09-29T22:27:22.6326390Z   STRATA_ENABLE_LTO: 1
+2026-09-29T22:27:22.6353750Z ##[endgroup]
+2026-09-29T22:27:25.1161960Z native-v1: 2/2 declared rows, 1 extra
+2026-09-29T22:27:25.1162920Z native-v1: 1/1 declared rows, 2 extra
+2026-09-29T22:27:25.1163880Z native-v1: 1/1 declared rows, 2 extra
+2026-09-29T22:27:25.1375810Z ##[group]Run PYTHONPATH=. .venv/bin/python scripts/identity_ab.py \
+2026-09-29T22:27:25.1376800Z PYTHONPATH=. .venv/bin/python scripts/identity_ab.py \
+2026-09-29T22:27:25.1377670Z   --base "234ea15861d2f37b1b55c6251281a49021864441" \
+2026-09-29T22:27:25.1378430Z   --arm-dir "/Users/runner/work/_temp/identity-arm" \
+2026-09-29T22:27:25.1379190Z   --out "identity-macos-x86_64"
+2026-09-29T22:27:25.1379990Z cp "identity-macos-x86_64/identity.txt" "identity-macos-x86_64.txt"
+2026-09-29T22:27:25.1436060Z shell: /bin/bash -e {0}
+2026-09-29T22:27:25.1436500Z env:
+2026-09-29T22:27:25.1436870Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:27:25.1437710Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:25.1438760Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:27:25.1439770Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:25.1440790Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:25.1441700Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:27:25.1442410Z ##[endgroup]
+2026-09-29T22:27:25.2236860Z + git worktree add --force --detach /Users/runner/work/_temp/identity-arm 234ea15861d2f37b1b55c6251281a49021864441
+2026-09-29T22:27:25.2349580Z Preparing worktree (detached HEAD 234ea15)
+2026-09-29T22:27:25.9738720Z HEAD is now at 234ea15 Merge M13: framework adapters, reconciled with native precedence
+2026-09-29T22:27:25.9764480Z + make install-bench
+2026-09-29T22:27:25.9910130Z python3 -m venv .venv
+2026-09-29T22:27:29.2510800Z .venv/bin/python -m pip install -U pip setuptools wheel
+2026-09-29T22:27:29.8347030Z Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+2026-09-29T22:27:29.9312740Z Collecting pip
+2026-09-29T22:27:29.9341760Z   Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+2026-09-29T22:27:30.1460600Z Collecting setuptools
+2026-09-29T22:27:30.1471330Z   Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+2026-09-29T22:27:30.1766670Z Collecting wheel
+2026-09-29T22:27:30.1779340Z   Using cached wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+2026-09-29T22:27:30.2177520Z Collecting packaging>=24.0 (from wheel)
+2026-09-29T22:27:30.2183190Z   Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-09-29T22:27:30.2236130Z Using cached pip-26.2.1-py3-none-any.whl (1.8 MB)
+2026-09-29T22:27:30.2332650Z Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+2026-09-29T22:27:30.2379510Z Using cached wheel-0.48.0-py3-none-any.whl (33 kB)
+2026-09-29T22:27:30.2404510Z Using cached packaging-26.3-py3-none-any.whl (129 kB)
+2026-09-29T22:27:30.2797590Z Installing collected packages: setuptools, pip, packaging, wheel
+2026-09-29T22:27:30.9296850Z   Attempting uninstall: pip
+2026-09-29T22:27:30.9297450Z     Found existing installation: pip 25.0.1
+2026-09-29T22:27:30.9679010Z     Uninstalling pip-25.0.1:
+2026-09-29T22:27:30.9757230Z       Successfully uninstalled pip-25.0.1
+2026-09-29T22:27:32.3512310Z Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+2026-09-29T22:27:32.5984100Z .venv/bin/python -m pip install -e '.[dev,bench]'
+2026-09-29T22:27:33.0646740Z Obtaining file:///Users/runner/work/_temp/identity-arm
+2026-09-29T22:27:33.0687610Z   Installing build dependencies: started
+2026-09-29T22:27:37.3333490Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:27:37.3346320Z   Checking if build backend supports build_editable: started
+2026-09-29T22:27:37.7352400Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:27:37.7370160Z   Getting requirements to build editable: started
+2026-09-29T22:27:38.2753250Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:27:38.2772490Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:27:38.6299640Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:27:38.7996050Z Collecting cmake>=3.20 (from strata==2026.8.10)
+2026-09-29T22:27:38.8021680Z   Using cached cmake-4.4.3-py3-none-macosx_10_10_universal2.whl.metadata (7.0 kB)
+2026-09-29T22:27:38.8524760Z Collecting pytest>=7 (from strata==2026.8.10)
+2026-09-29T22:27:38.8554100Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T22:27:38.9820710Z Collecting pytest-cov>=4 (from strata==2026.8.10)
+2026-09-29T22:27:38.9845110Z   Using cached pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+2026-09-29T22:27:39.5649680Z Collecting ruff>=0.5 (from strata==2026.8.10)
+2026-09-29T22:27:39.5672500Z   Using cached ruff-0.16.9-py3-none-macosx_10_12_x86_64.whl.metadata (20 kB)
+2026-09-29T22:27:39.6275160Z Collecting pre-commit>=3.5 (from strata==2026.8.10)
+2026-09-29T22:27:39.6300960Z   Using cached pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+2026-09-29T22:27:39.7348510Z Collecting clang-format<22,>=21 (from strata==2026.8.10)
+2026-09-29T22:27:39.7381550Z   Using cached clang_format-21.1.8-py2.py3-none-macosx_10_9_x86_64.whl.metadata (4.7 kB)
+2026-09-29T22:27:40.1461700Z Collecting orjson (from strata==2026.8.10)
+2026-09-29T22:27:40.1494670Z   Using cached orjson-3.12.0-cp312-cp312-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl.metadata (41 kB)
+2026-09-29T22:27:40.2625720Z Collecting msgspec (from strata==2026.8.10)
+2026-09-29T22:27:40.2652250Z   Using cached msgspec-0.22.0-cp312-cp312-macosx_10_13_x86_64.whl.metadata (6.0 kB)
+2026-09-29T22:27:40.3875960Z Collecting ujson (from strata==2026.8.10)
+2026-09-29T22:27:40.3899470Z   Using cached ujson-6.0.0-cp312-cp312-macosx_10_13_x86_64.whl.metadata (10.0 kB)
+2026-09-29T22:27:40.4772650Z Collecting pysimdjson (from strata==2026.8.10)
+2026-09-29T22:27:40.4798330Z   Using cached pysimdjson-7.0.2-cp312-cp312-macosx_10_13_x86_64.whl.metadata (1.1 kB)
+2026-09-29T22:27:40.5144460Z Collecting jmespath (from strata==2026.8.10)
+2026-09-29T22:27:40.5176660Z   Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T22:27:40.5509880Z Collecting jsonpath-ng (from strata==2026.8.10)
+2026-09-29T22:27:40.5532830Z   Using cached jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+2026-09-29T22:27:40.6872390Z Collecting psutil>=5 (from strata==2026.8.10)
+2026-09-29T22:27:40.6894500Z   Using cached psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl.metadata (22 kB)
+2026-09-29T22:27:40.7300790Z Collecting cfgv>=2.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:40.7321990Z   Using cached cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+2026-09-29T22:27:40.7980760Z Collecting identify>=1.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:40.8003230Z   Using cached identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+2026-09-29T22:27:40.8367340Z Collecting nodeenv>=0.11.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:40.8390230Z   Using cached nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+2026-09-29T22:27:40.9132490Z Collecting pyyaml>=5.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:40.9154930Z   Using cached pyyaml-6.0.3-cp312-cp312-macosx_10_13_x86_64.whl.metadata (2.4 kB)
+2026-09-29T22:27:40.9885960Z Collecting virtualenv>=20.10.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:40.9907440Z   Using cached virtualenv-21.14.0-py3-none-any.whl.metadata (4.1 kB)
+2026-09-29T22:27:41.0017910Z Collecting iniconfig>=1.0.1 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:27:41.0039580Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T22:27:41.0069180Z Requirement already satisfied: packaging>=22 in ./.venv/lib/python3.12/site-packages (from pytest>=7->strata==2026.8.10) (26.3)
+2026-09-29T22:27:41.0143940Z Collecting pluggy<2,>=1.5 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:27:41.0166360Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-09-29T22:27:41.0352570Z Collecting pygments>=2.7.2 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:27:41.0376020Z   Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T22:27:41.7091720Z Collecting coverage>=7.10.6 (from coverage[toml]>=7.10.6->pytest-cov>=4->strata==2026.8.10)
+2026-09-29T22:27:41.7113780Z   Using cached coverage-7.16.2-cp312-cp312-macosx_10_13_x86_64.whl.metadata (8.2 kB)
+2026-09-29T22:27:41.7505060Z Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:41.7527960Z   Using cached distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+2026-09-29T22:27:41.8158240Z Collecting filelock<5,>=3.24.2 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:41.8181340Z   Using cached filelock-4.0.6-py3-none-any.whl.metadata (2.0 kB)
+2026-09-29T22:27:41.8617290Z Collecting platformdirs<5,>=3.9.1 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:41.8640130Z   Using cached platformdirs-4.12.2-py3-none-any.whl.metadata (5.5 kB)
+2026-09-29T22:27:41.8983570Z Collecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:27:41.9003610Z   Using cached python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+2026-09-29T22:27:41.9198860Z Using cached clang_format-21.1.8-py2.py3-none-macosx_10_9_x86_64.whl (1.5 MB)
+2026-09-29T22:27:41.9328520Z Using cached cmake-4.4.3-py3-none-macosx_10_10_universal2.whl (54.4 MB)
+2026-09-29T22:27:41.9717820Z Using cached pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)
+2026-09-29T22:27:41.9759070Z Using cached cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
+2026-09-29T22:27:41.9779780Z Using cached identify-2.6.20-py2.py3-none-any.whl (99 kB)
+2026-09-29T22:27:41.9807950Z Using cached nodeenv-1.11.0-py2.py3-none-any.whl (34 kB)
+2026-09-29T22:27:41.9830210Z Using cached psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl (129 kB)
+2026-09-29T22:27:41.9864970Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-09-29T22:27:41.9891180Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-09-29T22:27:41.9912740Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-09-29T22:27:41.9933470Z Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+2026-09-29T22:27:41.9962830Z Using cached pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+2026-09-29T22:27:41.9982700Z Using cached coverage-7.16.2-cp312-cp312-macosx_10_13_x86_64.whl (223 kB)
+2026-09-29T22:27:42.0005620Z Using cached pyyaml-6.0.3-cp312-cp312-macosx_10_13_x86_64.whl (182 kB)
+2026-09-29T22:27:42.0035730Z Using cached ruff-0.16.9-py3-none-macosx_10_12_x86_64.whl (10.2 MB)
+2026-09-29T22:27:42.0218350Z Using cached virtualenv-21.14.0-py3-none-any.whl (5.5 MB)
+2026-09-29T22:27:42.0346610Z Using cached distlib-0.4.3-py2.py3-none-any.whl (470 kB)
+2026-09-29T22:27:42.0379970Z Using cached filelock-4.0.6-py3-none-any.whl (109 kB)
+2026-09-29T22:27:42.0412510Z Using cached platformdirs-4.12.2-py3-none-any.whl (32 kB)
+2026-09-29T22:27:42.0438310Z Using cached python_discovery-1.6.1-py3-none-any.whl (38 kB)
+2026-09-29T22:27:42.0470780Z Using cached jmespath-1.1.0-py3-none-any.whl (20 kB)
+2026-09-29T22:27:42.0502610Z Using cached jsonpath_ng-1.8.0-py3-none-any.whl (67 kB)
+2026-09-29T22:27:42.0541150Z Using cached msgspec-0.22.0-cp312-cp312-macosx_10_13_x86_64.whl (201 kB)
+2026-09-29T22:27:42.0570210Z Using cached orjson-3.12.0-cp312-cp312-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl (223 kB)
+2026-09-29T22:27:42.0594910Z Using cached pysimdjson-7.0.2-cp312-cp312-macosx_10_13_x86_64.whl (1.7 MB)
+2026-09-29T22:27:42.0668680Z Using cached ujson-6.0.0-cp312-cp312-macosx_10_13_x86_64.whl (55 kB)
+2026-09-29T22:27:42.3615040Z Building wheels for collected packages: strata
+2026-09-29T22:27:42.3626800Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:28:44.1190750Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:29:44.8949300Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:30:45.3829310Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:31:47.0844190Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:32:41.7297680Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:32:41.7325230Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4469 sha256=3988033a10cde0cf32b55d40e1c4a2f22c1b037172ef61e88a78232746e4120c
+2026-09-29T22:32:41.7329290Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-ddus7iom/wheels/7b/1b/eb/abe54c2d77ec732092c8f62a1f4d1b0633e7a88840a1c7b2be
+2026-09-29T22:32:41.7943800Z Successfully built strata
+2026-09-29T22:32:42.0811570Z Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+2026-09-29T22:32:50.6026480Z 
+2026-09-29T22:32:50.6093260Z Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.2 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.14.0
+2026-09-29T22:32:52.5910710Z + make pgo
+2026-09-29T22:32:52.7202230Z ==> PGO: compiler is clang
+2026-09-29T22:32:52.7447790Z ==> PGO phase 1: instrumented build
+2026-09-29T22:32:53.4204500Z Obtaining file:///Users/runner/work/_temp/identity-arm
+2026-09-29T22:32:53.4254790Z   Installing build dependencies: started
+2026-09-29T22:32:59.0246310Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:32:59.0264640Z   Checking if build backend supports build_editable: started
+2026-09-29T22:32:59.4916260Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:32:59.4935770Z   Getting requirements to build editable: started
+2026-09-29T22:33:00.1125340Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:33:00.1148580Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:33:00.6567640Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:33:00.6733810Z Building wheels for collected packages: strata
+2026-09-29T22:33:00.6763710Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:34:01.9166650Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:34:44.8480480Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:34:44.8508480Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4469 sha256=db4eb1e0c5b3e26cf3e636a185c430a4143047df4abba666a1f4e6294d9b8c0c
+2026-09-29T22:34:44.8513390Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-jsdg3dwq/wheels/7b/1b/eb/abe54c2d77ec732092c8f62a1f4d1b0633e7a88840a1c7b2be
+2026-09-29T22:34:44.8590930Z Successfully built strata
+2026-09-29T22:34:44.8751150Z Installing collected packages: strata
+2026-09-29T22:34:44.8752840Z   Attempting uninstall: strata
+2026-09-29T22:34:44.8805550Z     Found existing installation: strata 2026.8.10
+2026-09-29T22:34:44.8839920Z     Uninstalling strata-2026.8.10:
+2026-09-29T22:34:44.9474460Z       Successfully uninstalled strata-2026.8.10
+2026-09-29T22:34:44.9605880Z Successfully installed strata-2026.8.10
+2026-09-29T22:34:45.9660820Z ==> PGO: the hook image must carry no profile
+2026-09-29T22:34:46.0487180Z + strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-darwin.so.build.json records no profile or profile flag,
+2026-09-29T22:34:46.0489140Z   and the image links no profile runtime
+2026-09-29T22:34:46.0562640Z ==> PGO: generating training data
+2026-09-29T22:34:46.9462930Z   build/pgo/train.json (10.0 MB)
+2026-09-29T22:34:46.9464750Z   build/pgo/train.ndjson (10.0 MB)
+2026-09-29T22:34:46.9534310Z ==> PGO: running the training workload
+2026-09-29T22:34:47.3344610Z PGO training workload
+2026-09-29T22:34:47.3348130Z   corpus: 4001 records, 10.0 MB
+2026-09-29T22:34:47.3349120Z [1/7] loads
+2026-09-29T22:34:47.3349830Z   loads(str): 1x in 0.07s
+2026-09-29T22:34:47.4345390Z   loads(bytes): 1x in 0.07s
+2026-09-29T22:34:47.4838810Z   loads(sample): 5x in 0.01s
+2026-09-29T22:34:47.5450090Z   loads(cursor): 5x in 0.02s
+2026-09-29T22:34:47.5845660Z   loads(iterator): 3x in 0.01s
+2026-09-29T22:34:47.6748830Z [2/7] dumps
+2026-09-29T22:34:47.6749510Z   dumps(str): 1x in 0.05s
+2026-09-29T22:34:47.7663500Z   dumps(bytes): 3x in 0.05s
+2026-09-29T22:34:47.8065150Z   dumps(sample, bytes): 5x in 0.00s
+2026-09-29T22:34:47.8568860Z   dumps(sample): 5x in 0.00s
+2026-09-29T22:34:47.8973810Z   dumps(parsed sample, bytes): 2x in 0.00s
+2026-09-29T22:34:48.0229500Z [3/7] load
+2026-09-29T22:34:48.0230020Z   load(json): 1x in 0.09s
+2026-09-29T22:34:48.1505660Z   load(ndjson): 1x in 0.09s
+2026-09-29T22:34:48.2806860Z   load(ndjson, iterator): 1x in 0.10s
+2026-09-29T22:34:48.3194650Z [4/7] dump
+2026-09-29T22:34:48.3195310Z   dump(json): 3x in 0.00s
+2026-09-29T22:34:48.3591620Z [5/7] query
+2026-09-29T22:34:48.3592470Z   query $[0].name: 3x in 0.00s
+2026-09-29T22:34:48.3937840Z   query $[*].id: 3x in 0.00s
+2026-09-29T22:34:48.4364170Z   query $[*].items[*].sku: 3x in 0.00s
+2026-09-29T22:34:48.4766530Z   query $..leaf: 3x in 0.00s
+2026-09-29T22:34:48.5223540Z   query $[0:50].score: 3x in 0.00s
+2026-09-29T22:34:48.5621760Z   query $[?(@.id > 100)].name: 3x in 0.00s
+2026-09-29T22:34:48.5958890Z   query $[?(@.id <= 500)]: 3x in 0.00s
+2026-09-29T22:34:48.6302510Z   query $[?(@.name == 'alpha')]: 3x in 0.00s
+2026-09-29T22:34:48.6614940Z   query $[?(@.name != 'alpha')].id: 3x in 0.00s
+2026-09-29T22:34:48.6932490Z   query $[?(@['id'] >= 0)].name: 3x in 0.00s
+2026-09-29T22:34:48.7201010Z   query $[*].nested.child: 3x in 0.00s
+2026-09-29T22:34:48.7462750Z   query $[*].tags[0]: 3x in 0.00s
+2026-09-29T22:34:48.7720070Z   query $.*: 3x in 0.00s
+2026-09-29T22:34:48.7985790Z   query(compiled): 5x in 0.00s
+2026-09-29T22:34:48.8492370Z [6/7] search
+2026-09-29T22:34:48.8493070Z   search json $[*].id: 1x in 0.02s
+2026-09-29T22:34:48.9548390Z   search ndjson $[*].id: 1x in 0.07s
+2026-09-29T22:34:49.0573410Z   search json $..leaf: 1x in 0.07s
+2026-09-29T22:34:49.1646320Z   search ndjson $..leaf: 1x in 0.08s
+2026-09-29T22:34:49.2782140Z   search json $[?(@.id > 100)].name: 1x in 0.08s
+2026-09-29T22:34:49.3911220Z   search ndjson $[?(@.id > 100)].name: 1x in 0.07s
+2026-09-29T22:34:49.4328020Z [7/7] folder mode
+2026-09-29T22:34:49.4328700Z   dump(split_by): 1x in 0.00s
+2026-09-29T22:34:49.4775620Z   load(folder): 1x in 0.00s
+2026-09-29T22:34:49.5170370Z   search(folder): 1x in 0.00s
+2026-09-29T22:34:49.5486130Z PGO training workload complete
+2026-09-29T22:34:49.5640240Z ==> PGO: gate tests on the instrumented build
+2026-09-29T22:34:49.6302190Z + /Users/runner/work/_temp/identity-arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+2026-09-29T22:34:50.0474170Z -- Configuring done (0.1s)
+2026-09-29T22:34:50.2114390Z -- Generating done (0.2s)
+2026-09-29T22:34:50.2295680Z -- Build files have been written to: /Users/runner/work/_temp/identity-arm/build/cmake
+2026-09-29T22:34:50.3298630Z + /Users/runner/work/_temp/identity-arm/.venv/bin/cmake --build build/cmake --config Release
+2026-09-29T22:34:51.1423110Z [  0%] Linking CXX executable smoke_tests
+2026-09-29T22:34:51.3406530Z [  6%] Built target smoke_tests
+2026-09-29T22:34:51.6911460Z [  7%] Linking CXX executable json_core_tests
+2026-09-29T22:34:51.9263820Z [ 13%] Built target json_core_tests
+2026-09-29T22:34:52.2434080Z [ 13%] Linking CXX executable json_parse_tests
+2026-09-29T22:34:52.4886460Z [ 19%] Built target json_parse_tests
+2026-09-29T22:34:52.7932720Z [ 20%] Linking CXX executable fast_parse_tests
+2026-09-29T22:34:53.0123190Z [ 25%] Built target fast_parse_tests
+2026-09-29T22:34:53.3015910Z [ 26%] Linking CXX executable value_cursor_tests
+2026-09-29T22:34:53.5225520Z [ 32%] Built target value_cursor_tests
+2026-09-29T22:34:53.7962080Z [ 32%] Linking CXX executable json_serialize_tests
+2026-09-29T22:34:54.0207610Z [ 38%] Built target json_serialize_tests
+2026-09-29T22:34:54.2853770Z [ 39%] Linking CXX executable float_precision_tests
+2026-09-29T22:34:54.4848320Z [ 44%] Built target float_precision_tests
+2026-09-29T22:34:54.7829200Z [ 45%] Linking CXX executable json_cursor_tests
+2026-09-29T22:34:55.0033510Z [ 50%] Built target json_cursor_tests
+2026-09-29T22:34:55.2681940Z [ 51%] Linking CXX executable ndjson_tests
+2026-09-29T22:34:55.4857340Z [ 56%] Built target ndjson_tests
+2026-09-29T22:34:55.7724920Z [ 57%] Linking CXX executable jsonpath_tests
+2026-09-29T22:34:55.9923120Z [ 63%] Built target jsonpath_tests
+2026-09-29T22:34:56.2532710Z [ 63%] Linking CXX executable jsonpath_stream_tests
+2026-09-29T22:34:56.4499610Z [ 69%] Built target jsonpath_stream_tests
+2026-09-29T22:34:56.7232910Z [ 69%] Linking CXX executable scan_tests
+2026-09-29T22:34:56.9424460Z [ 75%] Built target scan_tests
+2026-09-29T22:34:57.2319760Z [ 75%] Linking CXX executable temporal_tests
+2026-09-29T22:34:57.4898690Z [ 81%] Built target temporal_tests
+2026-09-29T22:34:57.8264030Z [ 81%] Linking CXX executable folder_tests
+2026-09-29T22:34:58.0678000Z [ 87%] Built target folder_tests
+2026-09-29T22:34:58.3708570Z [ 87%] Linking CXX executable fuzz_corpus_tests
+2026-09-29T22:34:58.5884530Z [ 93%] Built target fuzz_corpus_tests
+2026-09-29T22:34:58.8725370Z [ 94%] Linking CXX executable stress_deep_tests
+2026-09-29T22:34:59.0925190Z [100%] Built target stress_deep_tests
+2026-09-29T22:34:59.1543030Z + /Users/runner/work/_temp/identity-arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+2026-09-29T22:34:59.5381040Z Test project /Users/runner/work/_temp/identity-arm/build/cmake
+2026-09-29T22:34:59.5428720Z       Start  1: smoke_tests
+2026-09-29T22:34:59.5511870Z  1/16 Test  #1: smoke_tests ......................   Passed    0.01 sec
+2026-09-29T22:34:59.5517540Z       Start  2: json_core_tests
+2026-09-29T22:34:59.5573120Z  2/16 Test  #2: json_core_tests ..................   Passed    0.01 sec
+2026-09-29T22:34:59.5575700Z       Start  3: json_parse_tests
+2026-09-29T22:34:59.5629620Z  3/16 Test  #3: json_parse_tests .................   Passed    0.00 sec
+2026-09-29T22:34:59.5632250Z       Start  4: fast_parse_tests
+2026-09-29T22:34:59.7271750Z  4/16 Test  #4: fast_parse_tests .................   Passed    0.16 sec
+2026-09-29T22:34:59.7273960Z       Start  5: value_cursor_tests
+2026-09-29T22:34:59.7456570Z  5/16 Test  #5: value_cursor_tests ...............   Passed    0.02 sec
+2026-09-29T22:34:59.7458810Z       Start  6: json_serialize_tests
+2026-09-29T22:34:59.7513910Z  6/16 Test  #6: json_serialize_tests .............   Passed    0.00 sec
+2026-09-29T22:34:59.7517290Z       Start  7: float_precision_tests
+2026-09-29T22:35:03.5672290Z  7/16 Test  #7: float_precision_tests ............   Passed    3.81 sec
+2026-09-29T22:35:03.5673610Z       Start  8: json_cursor_tests
+2026-09-29T22:35:03.5729270Z  8/16 Test  #8: json_cursor_tests ................   Passed    0.01 sec
+2026-09-29T22:35:03.5733280Z       Start  9: ndjson_tests
+2026-09-29T22:35:03.5848750Z  9/16 Test  #9: ndjson_tests .....................   Passed    0.01 sec
+2026-09-29T22:35:03.5851160Z       Start 10: jsonpath_tests
+2026-09-29T22:35:03.5896570Z 10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+2026-09-29T22:35:03.5899410Z       Start 11: jsonpath_stream_tests
+2026-09-29T22:35:03.5954380Z 11/16 Test #11: jsonpath_stream_tests ............   Passed    0.01 sec
+2026-09-29T22:35:03.5956630Z       Start 12: scan_tests
+2026-09-29T22:35:03.6301260Z 12/16 Test #12: scan_tests .......................   Passed    0.03 sec
+2026-09-29T22:35:03.6304010Z       Start 13: temporal_tests
+2026-09-29T22:35:03.6372640Z 13/16 Test #13: temporal_tests ...................   Passed    0.01 sec
+2026-09-29T22:35:03.6375710Z       Start 14: folder_tests
+2026-09-29T22:35:03.6592540Z 14/16 Test #14: folder_tests .....................   Passed    0.02 sec
+2026-09-29T22:35:03.6595380Z       Start 15: fuzz_corpus_tests
+2026-09-29T22:35:03.6750370Z 15/16 Test #15: fuzz_corpus_tests ................   Passed    0.01 sec
+2026-09-29T22:35:03.6755110Z       Start 16: stress_deep_tests
+2026-09-29T22:35:03.6834700Z 16/16 Test #16: stress_deep_tests ................   Passed    0.01 sec
+2026-09-29T22:35:03.6848720Z 
+2026-09-29T22:35:03.6849420Z 100% tests passed out of 16
+2026-09-29T22:35:03.6850570Z 
+2026-09-29T22:35:03.6851320Z Total Test time (real) =   4.15 sec
+2026-09-29T22:35:03.7831700Z + pytest tests/py tests/unit --ignore=tests/unit/native_types --ignore=tests/py/native_types --basetemp=/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pytest-of-runner/j3l61eyr
+2026-09-29T22:35:04.9802650Z ============================= test session starts ==============================
+2026-09-29T22:35:04.9803840Z platform darwin -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+2026-09-29T22:35:04.9804920Z rootdir: /Users/runner/work/_temp/identity-arm
+2026-09-29T22:35:04.9805750Z configfile: pyproject.toml
+2026-09-29T22:35:04.9806980Z plugins: platformdirs-4.12.2, cov-7.1.0
+2026-09-29T22:35:04.9807900Z collected 3183 items
+2026-09-29T22:35:04.9808220Z 
+2026-09-29T22:35:05.0237050Z tests/py/test_dumps_brace_fold.py .........                              [  0%]
+2026-09-29T22:35:05.1070710Z tests/py/test_dumps_cycles_fused.py .................................... [  1%]
+2026-09-29T22:35:05.2113630Z ....................................................                     [  3%]
+2026-09-29T22:35:05.6998780Z tests/py/test_dumps_general_tables.py ............................       [  3%]
+2026-09-29T22:35:06.6070440Z tests/py/test_dumps_with_default.py .................................... [  5%]
+2026-09-29T22:35:07.1279110Z .............................ss                                          [  6%]
+2026-09-29T22:35:07.1915130Z tests/py/test_dumps_with_default_contract.py ........................... [  6%]
+2026-09-29T22:35:07.3753400Z ........................................................................ [  9%]
+2026-09-29T22:35:07.5509050Z ........................................................................ [ 11%]
+2026-09-29T22:35:07.6587640Z ..........................                                               [ 12%]
+2026-09-29T22:35:07.6668650Z tests/py/test_fused_verification.py ..                                   [ 12%]
+2026-09-29T22:35:07.7245710Z tests/py/test_json_parity.py ........................................... [ 13%]
+2026-09-29T22:35:07.8053540Z ........................................................................ [ 15%]
+2026-09-29T22:35:07.8864430Z ........................................................................ [ 18%]
+2026-09-29T22:35:07.9703730Z ........................................................................ [ 20%]
+2026-09-29T22:35:08.0622160Z ........................................................................ [ 22%]
+2026-09-29T22:35:08.1514820Z ........................................................................ [ 24%]
+2026-09-29T22:35:08.2355950Z ........................................................................ [ 27%]
+2026-09-29T22:35:08.3269410Z ........................................................................ [ 29%]
+2026-09-29T22:35:08.4088020Z ........................................................................ [ 31%]
+2026-09-29T22:35:08.5015940Z ........................................................................ [ 33%]
+2026-09-29T22:35:08.5865740Z ........................................................................ [ 36%]
+2026-09-29T22:35:08.6904990Z ........................................................................ [ 38%]
+2026-09-29T22:35:08.7718000Z ........................................................................ [ 40%]
+2026-09-29T22:35:08.8583640Z ........................................................................ [ 43%]
+2026-09-29T22:35:08.9509220Z ........................................................................ [ 45%]
+2026-09-29T22:35:09.0350430Z ........................................................................ [ 47%]
+2026-09-29T22:35:09.1201340Z ........................................................................ [ 49%]
+2026-09-29T22:35:09.1647500Z .................................                                        [ 50%]
+2026-09-29T22:35:09.2592980Z tests/py/test_path_dispatch.py ................................          [ 51%]
+2026-09-29T22:35:09.2630290Z tests/py/test_py_tests_basetemp.py ..                                    [ 51%]
+2026-09-29T22:35:09.2668520Z tests/py/test_smoke.py ...                                               [ 52%]
+2026-09-29T22:35:10.1218160Z tests/unit/test_ab_analysis.py ......................................    [ 53%]
+2026-09-29T22:35:10.1464680Z tests/unit/test_build_manifest.py ...........                            [ 53%]
+2026-09-29T22:35:10.1785170Z tests/unit/test_canonical_builds.py ....                                 [ 53%]
+2026-09-29T22:35:10.6250300Z tests/unit/test_ci_fetch.py ........................                     [ 54%]
+2026-09-29T22:35:10.8278420Z tests/unit/test_ci_summary.py .......................                    [ 55%]
+2026-09-29T22:35:10.8608640Z tests/unit/test_config.py ...........................                    [ 56%]
+2026-09-29T22:35:10.8967170Z tests/unit/test_core_purity.py ....                                      [ 56%]
+2026-09-29T22:35:10.9227450Z tests/unit/test_cross_sample.py ......                                   [ 56%]
+2026-09-29T22:35:11.0205420Z tests/unit/test_dumps.py ............................................... [ 57%]
+2026-09-29T22:35:11.0467520Z ..........                                                               [ 58%]
+2026-09-29T22:35:11.0819950Z tests/unit/test_dumps_brace_fold.py .........                            [ 58%]
+2026-09-29T22:35:11.5149990Z tests/unit/test_dumps_cold_start.py ....                                 [ 58%]
+2026-09-29T22:35:11.5838250Z tests/unit/test_dumps_contract.py ...................................... [ 59%]
+2026-09-29T22:35:11.7124680Z .............................................................            [ 61%]
+2026-09-29T22:35:11.7811860Z tests/unit/test_dumps_cycles_fused.py .................................. [ 62%]
+2026-09-29T22:35:11.8899150Z ......................................................                   [ 64%]
+2026-09-29T22:35:12.4209180Z tests/unit/test_dumps_general_tables.py ............................     [ 65%]
+2026-09-29T22:35:13.2181280Z tests/unit/test_dumps_latch.py ............................              [ 66%]
+2026-09-29T22:35:13.3540150Z tests/unit/test_dumps_private_cache.py ................................  [ 67%]
+2026-09-29T22:35:14.5134190Z tests/unit/test_dumps_reentrancy.py .................................... [ 68%]
+2026-09-29T22:35:16.6325060Z ......................................................................   [ 70%]
+2026-09-29T22:35:17.7797000Z tests/unit/test_dumps_reentrancy_review.py ............................. [ 71%]
+2026-09-29T22:35:18.0427040Z ..                                                                       [ 71%]
+2026-09-29T22:35:18.1222950Z tests/unit/test_dumps_schema_failure.py ...........................      [ 72%]
+2026-09-29T22:35:18.8691890Z tests/unit/test_dumps_user_step_counter.py ..........................    [ 73%]
+2026-09-29T22:35:18.9228180Z tests/unit/test_dumps_with_default.py .................................. [ 74%]
+2026-09-29T22:35:19.0187950Z ........................................................................ [ 76%]
+2026-09-29T22:35:19.2456320Z .........................................................                [ 78%]
+2026-09-29T22:35:19.2898790Z tests/unit/test_dumps_with_default_state.py ............................ [ 79%]
+2026-09-29T22:35:19.4495670Z ........................................................................ [ 81%]
+2026-09-29T22:35:19.7848810Z ..............                                                           [ 81%]
+2026-09-29T22:35:19.9816590Z tests/unit/test_folder.py .............................................. [ 83%]
+2026-09-29T22:35:20.1707390Z .........................................                                [ 84%]
+2026-09-29T22:35:20.1783300Z tests/unit/test_fused_verification.py ..                                 [ 84%]
+2026-09-29T22:35:20.2701980Z tests/unit/test_hook_build_scope.py ...............................      [ 85%]
+2026-09-29T22:35:20.4280100Z tests/unit/test_json_cursor.py ...........................               [ 86%]
+2026-09-29T22:35:20.4745490Z tests/unit/test_jsonpath.py ............................................ [ 87%]
+2026-09-29T22:35:20.7278450Z .......................................................................  [ 90%]
+2026-09-29T22:35:20.9276860Z tests/unit/test_load_dump.py ........................................... [ 91%]
+2026-09-29T22:35:20.9285720Z                                                                          [ 91%]
+2026-09-29T22:35:20.9816900Z tests/unit/test_loads.py ............................................... [ 92%]
+2026-09-29T22:35:21.1499640Z ........................................................................ [ 95%]
+2026-09-29T22:35:23.0005330Z ................                                                         [ 95%]
+2026-09-29T22:35:23.0120360Z tests/unit/test_native_interleaved_profile.py ...                        [ 95%]
+2026-09-29T22:35:23.1420080Z tests/unit/test_nested_container_probe.py ....                           [ 95%]
+2026-09-29T22:35:23.2546280Z tests/unit/test_path_dispatch.py ................................        [ 96%]
+2026-09-29T22:35:23.3375900Z tests/unit/test_provenance.py ..................                         [ 97%]
+2026-09-29T22:35:23.4544140Z tests/unit/test_regression_check.py ..........................           [ 98%]
+2026-09-29T22:35:23.7357570Z tests/unit/test_search_stream.py .................                       [ 98%]
+2026-09-29T22:35:23.7377190Z tests/unit/test_string_identity_probe.py .                               [ 98%]
+2026-09-29T22:35:23.9047730Z tests/unit/test_supplementary.py .............                           [ 99%]
+2026-09-29T22:35:24.0166420Z tests/unit/test_supportability_check.py ....................             [ 99%]
+2026-09-29T22:35:24.1606480Z tests/unit/test_version.py ....                                          [100%]
+2026-09-29T22:35:24.1607290Z 
+2026-09-29T22:35:24.1607590Z ======================= 3181 passed, 2 skipped in 19.90s =======================
+2026-09-29T22:35:24.5528270Z ==> PGO: merging 17 raw profiles
+2026-09-29T22:35:24.7364850Z ==> PGO phase 2: optimized build (profile + LTO)
+2026-09-29T22:35:25.2291260Z Obtaining file:///Users/runner/work/_temp/identity-arm
+2026-09-29T22:35:25.2327290Z   Installing build dependencies: started
+2026-09-29T22:35:29.7445020Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:35:29.7458110Z   Checking if build backend supports build_editable: started
+2026-09-29T22:35:30.1579760Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:35:30.1596940Z   Getting requirements to build editable: started
+2026-09-29T22:35:30.7554750Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:35:30.7574910Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:35:31.1685320Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:35:31.1782740Z Building wheels for collected packages: strata
+2026-09-29T22:35:31.1796300Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:36:32.2995980Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:37:26.7557640Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:37:26.7572470Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4469 sha256=6beb34ee7acf9e726f2b014bc9748c5e15c3fac7b4356eed2d14607627beeee0
+2026-09-29T22:37:26.7578140Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-_v1f3gl7/wheels/7b/1b/eb/abe54c2d77ec732092c8f62a1f4d1b0633e7a88840a1c7b2be
+2026-09-29T22:37:26.7858410Z Successfully built strata
+2026-09-29T22:37:26.8023220Z Installing collected packages: strata
+2026-09-29T22:37:26.8026500Z   Attempting uninstall: strata
+2026-09-29T22:37:26.8095920Z     Found existing installation: strata 2026.8.10
+2026-09-29T22:37:26.8139280Z     Uninstalling strata-2026.8.10:
+2026-09-29T22:37:26.8962310Z       Successfully uninstalled strata-2026.8.10
+2026-09-29T22:37:27.0375890Z Successfully installed strata-2026.8.10
+2026-09-29T22:37:27.9534750Z ==> PGO: the hook image must carry no profile
+2026-09-29T22:37:28.1539770Z + strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-darwin.so.build.json records no profile or profile flag,
+2026-09-29T22:37:28.2541750Z   and the image links no profile runtime
+2026-09-29T22:37:28.3102530Z ==> PGO: gate tests on the optimized build
+2026-09-29T22:37:28.3160420Z + /Users/runner/work/_temp/identity-arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+2026-09-29T22:37:28.8279240Z -- Configuring done (0.2s)
+2026-09-29T22:37:29.0293830Z -- Generating done (0.2s)
+2026-09-29T22:37:29.0337220Z -- Build files have been written to: /Users/runner/work/_temp/identity-arm/build/cmake
+2026-09-29T22:37:29.0357310Z + /Users/runner/work/_temp/identity-arm/.venv/bin/cmake --build build/cmake --config Release
+2026-09-29T22:37:29.9937290Z [  0%] Linking CXX executable smoke_tests
+2026-09-29T22:37:30.2480940Z [  6%] Built target smoke_tests
+2026-09-29T22:37:30.5746090Z [  7%] Linking CXX executable json_core_tests
+2026-09-29T22:37:30.7799870Z [ 13%] Built target json_core_tests
+2026-09-29T22:37:31.0769300Z [ 13%] Linking CXX executable json_parse_tests
+2026-09-29T22:37:31.3263190Z [ 19%] Built target json_parse_tests
+2026-09-29T22:37:31.6300570Z [ 20%] Linking CXX executable fast_parse_tests
+2026-09-29T22:37:31.8775760Z [ 25%] Built target fast_parse_tests
+2026-09-29T22:37:32.2416050Z [ 26%] Linking CXX executable value_cursor_tests
+2026-09-29T22:37:32.4766580Z [ 32%] Built target value_cursor_tests
+2026-09-29T22:37:32.7814630Z [ 32%] Linking CXX executable json_serialize_tests
+2026-09-29T22:37:33.0152230Z [ 38%] Built target json_serialize_tests
+2026-09-29T22:37:33.3150510Z [ 39%] Linking CXX executable float_precision_tests
+2026-09-29T22:37:33.5306530Z [ 44%] Built target float_precision_tests
+2026-09-29T22:37:33.8170090Z [ 45%] Linking CXX executable json_cursor_tests
+2026-09-29T22:37:34.0214970Z [ 50%] Built target json_cursor_tests
+2026-09-29T22:37:34.3359230Z [ 51%] Linking CXX executable ndjson_tests
+2026-09-29T22:37:34.5439860Z [ 56%] Built target ndjson_tests
+2026-09-29T22:37:34.8344090Z [ 57%] Linking CXX executable jsonpath_tests
+2026-09-29T22:37:35.0150110Z [ 63%] Built target jsonpath_tests
+2026-09-29T22:37:35.2523830Z [ 63%] Linking CXX executable jsonpath_stream_tests
+2026-09-29T22:37:35.4321280Z [ 69%] Built target jsonpath_stream_tests
+2026-09-29T22:37:35.7141490Z [ 69%] Linking CXX executable scan_tests
+2026-09-29T22:37:35.8940090Z [ 75%] Built target scan_tests
+2026-09-29T22:37:36.1473190Z [ 75%] Linking CXX executable temporal_tests
+2026-09-29T22:37:36.3714180Z [ 81%] Built target temporal_tests
+2026-09-29T22:37:36.6388040Z [ 81%] Linking CXX executable folder_tests
+2026-09-29T22:37:36.8583540Z [ 87%] Built target folder_tests
+2026-09-29T22:37:37.1671110Z [ 87%] Linking CXX executable fuzz_corpus_tests
+2026-09-29T22:37:37.3881960Z [ 93%] Built target fuzz_corpus_tests
+2026-09-29T22:37:37.6793500Z [ 94%] Linking CXX executable stress_deep_tests
+2026-09-29T22:37:37.8708760Z [100%] Built target stress_deep_tests
+2026-09-29T22:37:37.9266100Z + /Users/runner/work/_temp/identity-arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+2026-09-29T22:37:38.3517830Z Test project /Users/runner/work/_temp/identity-arm/build/cmake
+2026-09-29T22:37:38.3597410Z       Start  1: smoke_tests
+2026-09-29T22:37:38.3653050Z  1/16 Test  #1: smoke_tests ......................   Passed    0.01 sec
+2026-09-29T22:37:38.3694950Z       Start  2: json_core_tests
+2026-09-29T22:37:38.3745600Z  2/16 Test  #2: json_core_tests ..................   Passed    0.01 sec
+2026-09-29T22:37:38.3784010Z       Start  3: json_parse_tests
+2026-09-29T22:37:38.3784760Z  3/16 Test  #3: json_parse_tests .................   Passed    0.01 sec
+2026-09-29T22:37:38.3827530Z       Start  4: fast_parse_tests
+2026-09-29T22:37:38.5588560Z  4/16 Test  #4: fast_parse_tests .................   Passed    0.18 sec
+2026-09-29T22:37:38.5653390Z       Start  5: value_cursor_tests
+2026-09-29T22:37:38.5771180Z  5/16 Test  #5: value_cursor_tests ...............   Passed    0.02 sec
+2026-09-29T22:37:38.5774930Z       Start  6: json_serialize_tests
+2026-09-29T22:37:38.5837740Z  6/16 Test  #6: json_serialize_tests .............   Passed    0.01 sec
+2026-09-29T22:37:38.5842230Z       Start  7: float_precision_tests
+2026-09-29T22:37:42.6519960Z  7/16 Test  #7: float_precision_tests ............   Passed    4.07 sec
+2026-09-29T22:37:42.6558770Z       Start  8: json_cursor_tests
+2026-09-29T22:37:42.6590510Z  8/16 Test  #8: json_cursor_tests ................   Passed    0.01 sec
+2026-09-29T22:37:42.6634240Z       Start  9: ndjson_tests
+2026-09-29T22:37:42.6711640Z  9/16 Test  #9: ndjson_tests .....................   Passed    0.01 sec
+2026-09-29T22:37:42.6739670Z       Start 10: jsonpath_tests
+2026-09-29T22:37:42.6762550Z 10/16 Test #10: jsonpath_tests ...................   Passed    0.01 sec
+2026-09-29T22:37:42.6769930Z       Start 11: jsonpath_stream_tests
+2026-09-29T22:37:42.6889600Z 11/16 Test #11: jsonpath_stream_tests ............   Passed    0.01 sec
+2026-09-29T22:37:42.6890450Z       Start 12: scan_tests
+2026-09-29T22:37:42.7124970Z 12/16 Test #12: scan_tests .......................   Passed    0.03 sec
+2026-09-29T22:37:42.7125760Z       Start 13: temporal_tests
+2026-09-29T22:37:42.7167780Z 13/16 Test #13: temporal_tests ...................   Passed    0.00 sec
+2026-09-29T22:37:42.7209160Z       Start 14: folder_tests
+2026-09-29T22:37:42.7345750Z 14/16 Test #14: folder_tests .....................   Passed    0.02 sec
+2026-09-29T22:37:42.7396550Z       Start 15: fuzz_corpus_tests
+2026-09-29T22:37:42.7463360Z 15/16 Test #15: fuzz_corpus_tests ................   Passed    0.01 sec
+2026-09-29T22:37:42.7466750Z       Start 16: stress_deep_tests
+2026-09-29T22:37:42.7539300Z 16/16 Test #16: stress_deep_tests ................   Passed    0.01 sec
+2026-09-29T22:37:42.7597390Z 
+2026-09-29T22:37:42.7607750Z 100% tests passed out of 16
+2026-09-29T22:37:42.7618000Z 
+2026-09-29T22:37:42.7619540Z Total Test time (real) =   4.40 sec
+2026-09-29T22:37:42.8357540Z + pytest tests/py tests/unit --basetemp=/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pytest-of-runner/h386qtx6
+2026-09-29T22:37:44.2489040Z ============================= test session starts ==============================
+2026-09-29T22:37:44.2572840Z platform darwin -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+2026-09-29T22:37:44.2595870Z rootdir: /Users/runner/work/_temp/identity-arm
+2026-09-29T22:37:44.2598420Z configfile: pyproject.toml
+2026-09-29T22:37:44.2600170Z plugins: platformdirs-4.12.2, cov-7.1.0
+2026-09-29T22:37:44.2604280Z collected 3848 items
+2026-09-29T22:37:44.2606080Z 
+2026-09-29T22:37:44.3022640Z tests/py/native_types/test_native_dump.py ..............                 [  0%]
+2026-09-29T22:37:44.5371330Z tests/py/native_types/test_native_fast_paths.py ........ssssssssss..     [  0%]
+2026-09-29T22:37:44.7344010Z tests/py/native_types/test_native_import.py ...                          [  0%]
+2026-09-29T22:37:44.8360250Z tests/py/native_types/test_native_opt_out.py ........................... [  1%]
+2026-09-29T22:37:44.8386410Z                                                                          [  1%]
+2026-09-29T22:37:45.1021670Z tests/py/native_types/test_native_oracle.py .........                    [  1%]
+2026-09-29T22:37:45.8826600Z tests/py/native_types/test_native_reentrancy.py ........................ [  2%]
+2026-09-29T22:37:47.8415060Z ..................................................                       [  3%]
+2026-09-29T22:37:47.9637600Z tests/py/native_types/test_parse_types.py .............................. [  4%]
+2026-09-29T22:37:48.9492620Z ............................................................             [  6%]
+2026-09-29T22:37:49.0089770Z tests/py/test_dumps_brace_fold.py .........                              [  6%]
+2026-09-29T22:37:49.0754140Z tests/py/test_dumps_cycles_fused.py .................................... [  7%]
+2026-09-29T22:37:49.2047060Z ....................................................                     [  8%]
+2026-09-29T22:37:49.8200500Z tests/py/test_dumps_general_tables.py ............................       [  9%]
+2026-09-29T22:37:50.9102490Z tests/py/test_dumps_with_default.py .................................... [ 10%]
+2026-09-29T22:37:51.6031670Z .............................ss                                          [ 11%]
+2026-09-29T22:37:51.6724100Z tests/py/test_dumps_with_default_contract.py ........................... [ 11%]
+2026-09-29T22:37:51.8931810Z ........................................................................ [ 13%]
+2026-09-29T22:37:52.1218030Z ........................................................................ [ 15%]
+2026-09-29T22:37:52.2554140Z ..........................                                               [ 16%]
+2026-09-29T22:37:52.2658710Z tests/py/test_fused_verification.py ..                                   [ 16%]
+2026-09-29T22:37:52.3305510Z tests/py/test_json_parity.py ........................................... [ 17%]
+2026-09-29T22:37:52.4363760Z ........................................................................ [ 19%]
+2026-09-29T22:37:52.5588660Z ........................................................................ [ 21%]
+2026-09-29T22:37:52.6736000Z ........................................................................ [ 23%]
+2026-09-29T22:37:52.7867230Z ........................................................................ [ 24%]
+2026-09-29T22:37:52.9005280Z ........................................................................ [ 26%]
+2026-09-29T22:37:53.0151190Z ........................................................................ [ 28%]
+2026-09-29T22:37:53.1341380Z ........................................................................ [ 30%]
+2026-09-29T22:37:53.2419120Z ........................................................................ [ 32%]
+2026-09-29T22:37:53.3638030Z ........................................................................ [ 34%]
+2026-09-29T22:37:53.4699650Z ........................................................................ [ 36%]
+2026-09-29T22:37:53.5824430Z ........................................................................ [ 38%]
+2026-09-29T22:37:53.6964850Z ........................................................................ [ 39%]
+2026-09-29T22:37:53.8086790Z ........................................................................ [ 41%]
+2026-09-29T22:37:53.9175860Z ........................................................................ [ 43%]
+2026-09-29T22:37:54.0360630Z ........................................................................ [ 45%]
+2026-09-29T22:37:54.1581190Z ........................................................................ [ 47%]
+2026-09-29T22:37:54.2114270Z .................................                                        [ 48%]
+2026-09-29T22:37:54.3071050Z tests/py/test_path_dispatch.py ................................          [ 49%]
+2026-09-29T22:37:54.3101660Z tests/py/test_py_tests_basetemp.py ..                                    [ 49%]
+2026-09-29T22:37:54.3133210Z tests/py/test_smoke.py ...                                               [ 49%]
+2026-09-29T22:37:54.3506720Z tests/unit/native_types/test_build_sources.py .......                    [ 49%]
+2026-09-29T22:37:54.7369060Z tests/unit/native_types/test_hook_import_gating.py .......               [ 49%]
+2026-09-29T22:37:54.7567860Z tests/unit/native_types/test_native_benchmark_agreement.py ...........   [ 49%]
+2026-09-29T22:37:54.9987810Z tests/unit/native_types/test_native_benchmark_dataset.py .....           [ 49%]
+2026-09-29T22:37:55.0129420Z tests/unit/native_types/test_native_benchmark_rows.py .......            [ 50%]
+2026-09-29T22:37:55.0518850Z tests/unit/native_types/test_native_ci_fetch.py ....                     [ 50%]
+2026-09-29T22:37:55.0802640Z tests/unit/native_types/test_native_ci_summary.py .....                  [ 50%]
+2026-09-29T22:37:55.1799170Z tests/unit/native_types/test_native_flag.py ..........................s. [ 51%]
+2026-09-29T22:37:55.2764980Z ..                                                                       [ 51%]
+2026-09-29T22:37:55.3037010Z tests/unit/native_types/test_native_identity_ab.py .......               [ 51%]
+2026-09-29T22:37:55.3355450Z tests/unit/native_types/test_native_opt_out.py ......................... [ 52%]
+2026-09-29T22:37:55.4302830Z ........................................................................ [ 53%]
+2026-09-29T22:37:55.4951820Z ..................................................                       [ 55%]
+2026-09-29T22:37:55.5203600Z tests/unit/native_types/test_parse_contract.py ......................... [ 55%]
+2026-09-29T22:37:55.6502370Z .................................................                        [ 57%]
+2026-09-29T22:37:55.6739470Z tests/unit/native_types/test_serializer_contract.py .................... [ 57%]
+2026-09-29T22:37:56.4604330Z ........................................................................ [ 59%]
+2026-09-29T22:37:56.5038780Z ....................                                                     [ 60%]
+2026-09-29T22:37:56.6023680Z tests/unit/native_types/test_training_scope.py ............              [ 60%]
+2026-09-29T22:37:57.4200570Z tests/unit/test_ab_analysis.py ......................................    [ 61%]
+2026-09-29T22:37:57.4413970Z tests/unit/test_build_manifest.py ...........                            [ 61%]
+2026-09-29T22:37:57.4686490Z tests/unit/test_canonical_builds.py ....                                 [ 61%]
+2026-09-29T22:37:57.8797940Z tests/unit/test_ci_fetch.py ........................                     [ 62%]
+2026-09-29T22:37:58.0555410Z tests/unit/test_ci_summary.py .......................                    [ 62%]
+2026-09-29T22:37:58.0876130Z tests/unit/test_config.py ...........................                    [ 63%]
+2026-09-29T22:37:58.1189540Z tests/unit/test_core_purity.py ....                                      [ 63%]
+2026-09-29T22:37:58.1399710Z tests/unit/test_cross_sample.py ......                                   [ 63%]
+2026-09-29T22:37:58.2251470Z tests/unit/test_dumps.py ............................................... [ 65%]
+2026-09-29T22:37:58.2467880Z ..........                                                               [ 65%]
+2026-09-29T22:37:58.2765890Z tests/unit/test_dumps_brace_fold.py .........                            [ 65%]
+2026-09-29T22:37:58.7934820Z tests/unit/test_dumps_cold_start.py ....                                 [ 65%]
+2026-09-29T22:37:58.8777580Z tests/unit/test_dumps_contract.py ...................................... [ 66%]
+2026-09-29T22:37:59.0053430Z .............................................................            [ 68%]
+2026-09-29T22:37:59.0876980Z tests/unit/test_dumps_cycles_fused.py .................................. [ 69%]
+2026-09-29T22:37:59.2170370Z ......................................................                   [ 70%]
+2026-09-29T22:38:00.0079130Z tests/unit/test_dumps_general_tables.py ............................     [ 71%]
+2026-09-29T22:38:01.4737070Z tests/unit/test_dumps_latch.py ............................              [ 72%]
+2026-09-29T22:38:01.6614090Z tests/unit/test_dumps_private_cache.py ................................  [ 72%]
+2026-09-29T22:38:03.4144470Z tests/unit/test_dumps_reentrancy.py .................................... [ 73%]
+2026-09-29T22:38:06.4417270Z ......................................................................   [ 75%]
+2026-09-29T22:38:08.2387500Z tests/unit/test_dumps_reentrancy_review.py ............................. [ 76%]
+2026-09-29T22:38:08.6494650Z ..                                                                       [ 76%]
+2026-09-29T22:38:08.7622750Z tests/unit/test_dumps_schema_failure.py ...........................      [ 77%]
+2026-09-29T22:38:09.8023040Z tests/unit/test_dumps_user_step_counter.py ..........................    [ 77%]
+2026-09-29T22:38:09.8743020Z tests/unit/test_dumps_with_default.py .................................. [ 78%]
+2026-09-29T22:38:09.9985610Z ........................................................................ [ 80%]
+2026-09-29T22:38:10.2720870Z .........................................................                [ 82%]
+2026-09-29T22:38:10.3068790Z tests/unit/test_dumps_with_default_state.py ............................ [ 82%]
+2026-09-29T22:38:10.4442070Z ........................................................................ [ 84%]
+2026-09-29T22:38:10.7546680Z ..............                                                           [ 84%]
+2026-09-29T22:38:10.9585480Z tests/unit/test_folder.py .............................................. [ 86%]
+2026-09-29T22:38:11.1849410Z .........................................                                [ 87%]
+2026-09-29T22:38:11.1922190Z tests/unit/test_fused_verification.py ..                                 [ 87%]
+2026-09-29T22:38:11.2885720Z tests/unit/test_hook_build_scope.py ...............................      [ 88%]
+2026-09-29T22:38:11.4846250Z tests/unit/test_json_cursor.py ...........................               [ 88%]
+2026-09-29T22:38:11.5443890Z tests/unit/test_jsonpath.py ............................................ [ 89%]
+2026-09-29T22:38:11.8414320Z .......................................................................  [ 91%]
+2026-09-29T22:38:12.0948750Z tests/unit/test_load_dump.py ........................................... [ 92%]
+2026-09-29T22:38:12.0963460Z                                                                          [ 92%]
+2026-09-29T22:38:12.1614530Z tests/unit/test_loads.py ............................................... [ 94%]
+2026-09-29T22:38:12.3546330Z ........................................................................ [ 95%]
+2026-09-29T22:38:14.9912440Z ................                                                         [ 96%]
+2026-09-29T22:38:15.0205490Z tests/unit/test_native_interleaved_profile.py ...                        [ 96%]
+2026-09-29T22:38:15.1874550Z tests/unit/test_nested_container_probe.py ....                           [ 96%]
+2026-09-29T22:38:15.3668630Z tests/unit/test_path_dispatch.py ................................        [ 97%]
+2026-09-29T22:38:15.4875790Z tests/unit/test_provenance.py ..................                         [ 97%]
+2026-09-29T22:38:15.6289800Z tests/unit/test_regression_check.py ..........................           [ 98%]
+2026-09-29T22:38:15.9591800Z tests/unit/test_search_stream.py .................                       [ 99%]
+2026-09-29T22:38:15.9619190Z tests/unit/test_string_identity_probe.py .                               [ 99%]
+2026-09-29T22:38:16.1559070Z tests/unit/test_supplementary.py .............                           [ 99%]
+2026-09-29T22:38:16.3094870Z tests/unit/test_supportability_check.py ....................             [ 99%]
+2026-09-29T22:38:16.5108800Z tests/unit/test_version.py ....                                          [100%]
+2026-09-29T22:38:16.5251910Z 
+2026-09-29T22:38:16.5256110Z ====================== 3835 passed, 13 skipped in 33.19s =======================
+2026-09-29T22:38:17.1682640Z ==> PGO: generating benchmark data
+2026-09-29T22:38:17.1848700Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/small  --num-users 1000 --max-orders 10 --max-items 5  --records 500
+2026-09-29T22:38:17.8164810Z   benchmarks/data/generated/small/users.json  (1680 KB)
+2026-09-29T22:38:17.8165960Z   benchmarks/data/generated/small/users.ndjson  (1679 KB)
+2026-09-29T22:38:17.8167020Z   benchmarks/data/generated/small/flat.json  (209 KB)
+2026-09-29T22:38:17.8170180Z   benchmarks/data/generated/small/nested.json  (148 KB)
+2026-09-29T22:38:17.8171430Z   benchmarks/data/generated/small/wide_arrays.json  (1218 KB)
+2026-09-29T22:38:17.8172580Z   benchmarks/data/generated/small/mixed.json  (34 KB)
+2026-09-29T22:38:17.8256990Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
+2026-09-29T22:38:21.0183600Z   benchmarks/data/generated/medium/users.json  (9883 KB)
+2026-09-29T22:38:21.0184810Z   benchmarks/data/generated/medium/users.ndjson  (9881 KB)
+2026-09-29T22:38:21.0185840Z   benchmarks/data/generated/medium/flat.json  (836 KB)
+2026-09-29T22:38:21.0186780Z   benchmarks/data/generated/medium/nested.json  (594 KB)
+2026-09-29T22:38:21.0187800Z   benchmarks/data/generated/medium/wide_arrays.json  (4874 KB)
+2026-09-29T22:38:21.0189210Z   benchmarks/data/generated/medium/mixed.json  (138 KB)
+2026-09-29T22:38:21.0308950Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/large  --num-users 4000 --max-orders 40 --max-items 20 --records 5000
+2026-09-29T22:38:44.1503260Z   benchmarks/data/generated/large/users.json  (68083 KB)
+2026-09-29T22:38:44.1569860Z   benchmarks/data/generated/large/users.ndjson  (68079 KB)
+2026-09-29T22:38:44.1621610Z   benchmarks/data/generated/large/flat.json  (2092 KB)
+2026-09-29T22:38:44.1636480Z   benchmarks/data/generated/large/nested.json  (1488 KB)
+2026-09-29T22:38:44.1649050Z   benchmarks/data/generated/large/wide_arrays.json  (12185 KB)
+2026-09-29T22:38:44.1669160Z   benchmarks/data/generated/large/mixed.json  (347 KB)
+2026-09-29T22:38:44.1871330Z ==> PGO: verification benchmarks
+2026-09-29T22:39:44.4744750Z wrote build/pgo/bench_results_pgo.md
+2026-09-29T22:39:44.5226610Z ==> PGO complete
+2026-09-29T22:39:44.5231420Z     profile: /Users/runner/work/_temp/identity-arm/build/pgo/strata.profdata
+2026-09-29T22:39:44.5233700Z     results: build/pgo/bench_results_pgo.md
+2026-09-29T22:39:44.5234790Z     The installed extension is now the PGO+LTO build.
+2026-09-29T22:39:44.5465530Z + git worktree remove --force /Users/runner/work/_temp/identity-arm
+2026-09-29T22:39:46.4465930Z + git worktree prune
+2026-09-29T22:39:46.4617060Z + git worktree add --force --detach /Users/runner/work/_temp/identity-arm HEAD
+2026-09-29T22:39:46.4764010Z Preparing worktree (detached HEAD 33465c2)
+2026-09-29T22:39:47.5205380Z Updating files:  92% (1542/1676)
+2026-09-29T22:39:47.6210640Z Updating files:  93% (1559/1676)
+2026-09-29T22:39:47.6211470Z HEAD is now at 33465c2 Record M15c's five-leg sample 36632472320
+2026-09-29T22:39:47.7091220Z Updating files:  94% (1576/1676)
+2026-09-29T22:39:47.7091860Z Updating files:  95% (1593/1676)
+2026-09-29T22:39:47.7092340Z Updating files:  96% (1609/1676)
+2026-09-29T22:39:47.7092820Z Updating files:  97% (1626/1676)
+2026-09-29T22:39:47.7093690Z Updating files:  98% (1643/1676)
+2026-09-29T22:39:47.7094400Z Updating files:  99% (1660/1676)
+2026-09-29T22:39:47.7095440Z Updating files: 100% (1676/1676)
+2026-09-29T22:39:47.7096310Z Updating files: 100% (1676/1676), done.
+2026-09-29T22:39:47.7097060Z + make install-bench
+2026-09-29T22:39:47.7103040Z python3 -m venv .venv
+2026-09-29T22:39:53.6935740Z .venv/bin/python -m pip install -U pip setuptools wheel
+2026-09-29T22:39:54.5446880Z Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+2026-09-29T22:39:54.7350280Z Collecting pip
+2026-09-29T22:39:54.7358200Z   Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+2026-09-29T22:39:54.9188290Z Collecting setuptools
+2026-09-29T22:39:54.9222260Z   Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+2026-09-29T22:39:54.9818350Z Collecting wheel
+2026-09-29T22:39:54.9838020Z   Using cached wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+2026-09-29T22:39:55.0342020Z Collecting packaging>=24.0 (from wheel)
+2026-09-29T22:39:55.0372230Z   Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-09-29T22:39:55.0422360Z Using cached pip-26.2.1-py3-none-any.whl (1.8 MB)
+2026-09-29T22:39:55.0493990Z Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+2026-09-29T22:39:55.0521300Z Using cached wheel-0.48.0-py3-none-any.whl (33 kB)
+2026-09-29T22:39:55.0537700Z Using cached packaging-26.3-py3-none-any.whl (129 kB)
+2026-09-29T22:39:55.1046710Z Installing collected packages: setuptools, pip, packaging, wheel
+2026-09-29T22:39:55.9699980Z   Attempting uninstall: pip
+2026-09-29T22:39:55.9732470Z     Found existing installation: pip 25.0.1
+2026-09-29T22:39:56.0660910Z     Uninstalling pip-25.0.1:
+2026-09-29T22:39:56.0849980Z       Successfully uninstalled pip-25.0.1
+2026-09-29T22:39:57.7187390Z Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+2026-09-29T22:39:57.8355610Z .venv/bin/python -m pip install -e '.[dev,bench]'
+2026-09-29T22:39:58.3704870Z Obtaining file:///Users/runner/work/_temp/identity-arm
+2026-09-29T22:39:58.3736720Z   Installing build dependencies: started
+2026-09-29T22:40:03.2037780Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:40:03.2050600Z   Checking if build backend supports build_editable: started
+2026-09-29T22:40:03.5889570Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:40:03.5905060Z   Getting requirements to build editable: started
+2026-09-29T22:40:04.0930090Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:40:04.0948700Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:40:04.4543060Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:40:04.6288200Z Collecting cmake>=3.20 (from strata==2026.8.10)
+2026-09-29T22:40:04.6551790Z   Using cached cmake-4.4.3-py3-none-macosx_10_10_universal2.whl.metadata (7.0 kB)
+2026-09-29T22:40:04.6800390Z Collecting pytest>=7 (from strata==2026.8.10)
+2026-09-29T22:40:04.6824240Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T22:40:04.7540250Z Collecting pytest-cov>=4 (from strata==2026.8.10)
+2026-09-29T22:40:04.7562820Z   Using cached pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+2026-09-29T22:40:05.2795570Z Collecting ruff>=0.5 (from strata==2026.8.10)
+2026-09-29T22:40:05.2845840Z   Using cached ruff-0.16.9-py3-none-macosx_10_12_x86_64.whl.metadata (20 kB)
+2026-09-29T22:40:05.3214890Z Collecting pre-commit>=3.5 (from strata==2026.8.10)
+2026-09-29T22:40:05.3263400Z   Using cached pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+2026-09-29T22:40:05.4128410Z Collecting clang-format<22,>=21 (from strata==2026.8.10)
+2026-09-29T22:40:05.4153080Z   Using cached clang_format-21.1.8-py2.py3-none-macosx_10_9_x86_64.whl.metadata (4.7 kB)
+2026-09-29T22:40:05.8587260Z Collecting orjson (from strata==2026.8.10)
+2026-09-29T22:40:05.8619060Z   Using cached orjson-3.12.0-cp312-cp312-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl.metadata (41 kB)
+2026-09-29T22:40:05.9797300Z Collecting msgspec (from strata==2026.8.10)
+2026-09-29T22:40:05.9824980Z   Using cached msgspec-0.22.0-cp312-cp312-macosx_10_13_x86_64.whl.metadata (6.0 kB)
+2026-09-29T22:40:06.1148110Z Collecting ujson (from strata==2026.8.10)
+2026-09-29T22:40:06.1171990Z   Using cached ujson-6.0.0-cp312-cp312-macosx_10_13_x86_64.whl.metadata (10.0 kB)
+2026-09-29T22:40:06.2470440Z Collecting pysimdjson (from strata==2026.8.10)
+2026-09-29T22:40:06.2496010Z   Using cached pysimdjson-7.0.2-cp312-cp312-macosx_10_13_x86_64.whl.metadata (1.1 kB)
+2026-09-29T22:40:06.2646790Z Collecting jmespath (from strata==2026.8.10)
+2026-09-29T22:40:06.2670450Z   Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T22:40:06.2832140Z Collecting jsonpath-ng (from strata==2026.8.10)
+2026-09-29T22:40:06.2855600Z   Using cached jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+2026-09-29T22:40:06.3815450Z Collecting psutil>=5 (from strata==2026.8.10)
+2026-09-29T22:40:06.3837850Z   Using cached psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl.metadata (22 kB)
+2026-09-29T22:40:06.4059470Z Collecting cfgv>=2.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:06.4083600Z   Using cached cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+2026-09-29T22:40:06.4580620Z Collecting identify>=1.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:06.4607530Z   Using cached identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+2026-09-29T22:40:06.4786080Z Collecting nodeenv>=0.11.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:06.4811790Z   Using cached nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+2026-09-29T22:40:06.5363790Z Collecting pyyaml>=5.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:06.5386110Z   Using cached pyyaml-6.0.3-cp312-cp312-macosx_10_13_x86_64.whl.metadata (2.4 kB)
+2026-09-29T22:40:06.5941150Z Collecting virtualenv>=20.10.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:06.5963770Z   Using cached virtualenv-21.14.0-py3-none-any.whl.metadata (4.1 kB)
+2026-09-29T22:40:06.6080120Z Collecting iniconfig>=1.0.1 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:40:06.6104950Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T22:40:06.6134740Z Requirement already satisfied: packaging>=22 in ./.venv/lib/python3.12/site-packages (from pytest>=7->strata==2026.8.10) (26.3)
+2026-09-29T22:40:06.6210490Z Collecting pluggy<2,>=1.5 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:40:06.6233740Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-09-29T22:40:06.6434220Z Collecting pygments>=2.7.2 (from pytest>=7->strata==2026.8.10)
+2026-09-29T22:40:06.6457710Z   Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T22:40:07.3709030Z Collecting coverage>=7.10.6 (from coverage[toml]>=7.10.6->pytest-cov>=4->strata==2026.8.10)
+2026-09-29T22:40:07.3737970Z   Using cached coverage-7.16.2-cp312-cp312-macosx_10_13_x86_64.whl.metadata (8.2 kB)
+2026-09-29T22:40:07.3950510Z Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:07.4087220Z   Using cached distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+2026-09-29T22:40:07.4351430Z Collecting filelock<5,>=3.24.2 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:07.4526410Z   Using cached filelock-4.0.6-py3-none-any.whl.metadata (2.0 kB)
+2026-09-29T22:40:07.4722840Z Collecting platformdirs<5,>=3.9.1 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:07.4750170Z   Using cached platformdirs-4.12.2-py3-none-any.whl.metadata (5.5 kB)
+2026-09-29T22:40:07.4938920Z Collecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T22:40:07.4965170Z   Using cached python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+2026-09-29T22:40:07.5149470Z Using cached clang_format-21.1.8-py2.py3-none-macosx_10_9_x86_64.whl (1.5 MB)
+2026-09-29T22:40:07.5192110Z Using cached cmake-4.4.3-py3-none-macosx_10_10_universal2.whl (54.4 MB)
+2026-09-29T22:40:07.5650160Z Using cached pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)
+2026-09-29T22:40:07.5673840Z Using cached cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
+2026-09-29T22:40:07.5695990Z Using cached identify-2.6.20-py2.py3-none-any.whl (99 kB)
+2026-09-29T22:40:07.5717380Z Using cached nodeenv-1.11.0-py2.py3-none-any.whl (34 kB)
+2026-09-29T22:40:07.5745900Z Using cached psutil-7.2.2-cp36-abi3-macosx_10_9_x86_64.whl (129 kB)
+2026-09-29T22:40:07.5781780Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-09-29T22:40:07.5810980Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-09-29T22:40:07.5834350Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-09-29T22:40:07.5859390Z Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+2026-09-29T22:40:07.5893090Z Using cached pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+2026-09-29T22:40:07.5915840Z Using cached coverage-7.16.2-cp312-cp312-macosx_10_13_x86_64.whl (223 kB)
+2026-09-29T22:40:07.5941070Z Using cached pyyaml-6.0.3-cp312-cp312-macosx_10_13_x86_64.whl (182 kB)
+2026-09-29T22:40:07.5966140Z Using cached ruff-0.16.9-py3-none-macosx_10_12_x86_64.whl (10.2 MB)
+2026-09-29T22:40:07.6128460Z Using cached virtualenv-21.14.0-py3-none-any.whl (5.5 MB)
+2026-09-29T22:40:07.6552790Z Using cached distlib-0.4.3-py2.py3-none-any.whl (470 kB)
+2026-09-29T22:40:07.6583080Z Using cached filelock-4.0.6-py3-none-any.whl (109 kB)
+2026-09-29T22:40:07.6607530Z Using cached platformdirs-4.12.2-py3-none-any.whl (32 kB)
+2026-09-29T22:40:07.6629870Z Using cached python_discovery-1.6.1-py3-none-any.whl (38 kB)
+2026-09-29T22:40:07.6658010Z Using cached jmespath-1.1.0-py3-none-any.whl (20 kB)
+2026-09-29T22:40:07.6681320Z Using cached jsonpath_ng-1.8.0-py3-none-any.whl (67 kB)
+2026-09-29T22:40:07.6707050Z Using cached msgspec-0.22.0-cp312-cp312-macosx_10_13_x86_64.whl (201 kB)
+2026-09-29T22:40:07.6735070Z Using cached orjson-3.12.0-cp312-cp312-macosx_10_15_x86_64.macosx_11_0_arm64.macosx_10_15_universal2.whl (223 kB)
+2026-09-29T22:40:07.6760670Z Using cached pysimdjson-7.0.2-cp312-cp312-macosx_10_13_x86_64.whl (1.7 MB)
+2026-09-29T22:40:07.6805670Z Using cached ujson-6.0.0-cp312-cp312-macosx_10_13_x86_64.whl (55 kB)
+2026-09-29T22:40:07.9761600Z Building wheels for collected packages: strata
+2026-09-29T22:40:07.9808120Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:41:08.2581520Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:42:08.2942330Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:43:08.5525410Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:44:09.4011550Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:45:10.5240040Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:45:56.9145740Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:45:56.9162040Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4469 sha256=d76b1b7b3e57ab8141b5c92210a46ed883f8055f19702f0ac47ab5eccda79b0a
+2026-09-29T22:45:56.9164830Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-8yur3ju2/wheels/7b/1b/eb/abe54c2d77ec732092c8f62a1f4d1b0633e7a88840a1c7b2be
+2026-09-29T22:45:56.9203600Z Successfully built strata
+2026-09-29T22:45:57.0332350Z Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+2026-09-29T22:46:01.2927250Z 
+2026-09-29T22:46:01.2971700Z Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.2 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.14.0
+2026-09-29T22:46:01.9795470Z + /Users/runner/work/_temp/identity-arm/.venv/bin/python -m pip install --force-reinstall --no-deps -e .
+2026-09-29T22:46:02.4341360Z Obtaining file:///Users/runner/work/_temp/identity-arm
+2026-09-29T22:46:02.4376180Z   Installing build dependencies: started
+2026-09-29T22:46:06.1368040Z   Installing build dependencies: finished with status 'done'
+2026-09-29T22:46:06.1379580Z   Checking if build backend supports build_editable: started
+2026-09-29T22:46:06.5130010Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T22:46:06.5145300Z   Getting requirements to build editable: started
+2026-09-29T22:46:07.0293270Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T22:46:07.0312060Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T22:46:07.3970290Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T22:46:07.4068240Z Building wheels for collected packages: strata
+2026-09-29T22:46:07.4082870Z   Building editable for strata (pyproject.toml): started
+2026-09-29T22:47:10.3685080Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T22:47:44.0320710Z   Building editable for strata (pyproject.toml): finished with status 'done'
+2026-09-29T22:47:44.0338880Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-macosx_10_13_universal2.whl size=4469 sha256=92223cbe86ad8a6324b1ab9bd3114ac17e83b00dc5dd6c3037d9c7ce1f318127
+2026-09-29T22:47:44.0345390Z   Stored in directory: /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/pip-ephem-wheel-cache-njjx648l/wheels/7b/1b/eb/abe54c2d77ec732092c8f62a1f4d1b0633e7a88840a1c7b2be
+2026-09-29T22:47:44.0408570Z Successfully built strata
+2026-09-29T22:47:44.0572000Z Installing collected packages: strata
+2026-09-29T22:47:44.0573140Z   Attempting uninstall: strata
+2026-09-29T22:47:44.0631950Z     Found existing installation: strata 2026.8.10
+2026-09-29T22:47:44.0663330Z     Uninstalling strata-2026.8.10:
+2026-09-29T22:47:44.1263860Z       Successfully uninstalled strata-2026.8.10
+2026-09-29T22:47:44.1407440Z Successfully installed strata-2026.8.10
+2026-09-29T22:47:45.1731320Z + git worktree remove --force /Users/runner/work/_temp/identity-arm
+2026-09-29T22:47:46.4369120Z __DATA,__const                   b98fbc93aec97f21 b98fbc93aec97f21 identical
+2026-09-29T22:47:46.4370060Z __DATA,__data                    d808a3763ec1a0bb d808a3763ec1a0bb identical
+2026-09-29T22:47:46.4371000Z __DATA,__got                     9923bbfbbc1cc507 9923bbfbbc1cc507 identical
+2026-09-29T22:47:46.4372040Z __DATA,__la_symbol_ptr           5d8a23ca65d14734 5d8a23ca65d14734 identical
+2026-09-29T22:47:46.4373070Z __DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+2026-09-29T22:47:46.4374320Z __DATA,__thread_vars             148e0350e689c8e2 148e0350e689c8e2 identical
+2026-09-29T22:47:46.4375220Z __TEXT,__const                   dc0e3a5d1749cbee dc0e3a5d1749cbee identical
+2026-09-29T22:47:46.4376620Z __TEXT,__cstring                 c6fea8853e76ce39 c6fea8853e76ce39 identical
+2026-09-29T22:47:46.4378450Z __TEXT,__eh_frame                c67f2b9f3206cc09 c67f2b9f3206cc09 identical
+2026-09-29T22:47:46.4410640Z __TEXT,__gcc_except_tab          609ad3bd1ec83544 609ad3bd1ec83544 identical
+2026-09-29T22:47:46.4411530Z __TEXT,__stub_helper             4d9ce5c48cf60fa1 4d9ce5c48cf60fa1 identical
+2026-09-29T22:47:46.4412360Z __TEXT,__stubs                   714e8cc2bc089d08 714e8cc2bc089d08 identical
+2026-09-29T22:47:46.4413900Z __TEXT,__text                    907beb4b0c3625d0 907beb4b0c3625d0 identical
+2026-09-29T22:47:46.4414710Z __TEXT,__unwind_info             707febbc3b72d94d 707febbc3b72d94d identical
+2026-09-29T22:47:46.4415370Z CODE IDENTICAL
+2026-09-29T22:47:46.4415860Z __DATA,__const                   231ca1de7f7bf755 231ca1de7f7bf755 identical
+2026-09-29T22:47:46.4416640Z __DATA,__data                    b518389487626cdb b518389487626cdb identical
+2026-09-29T22:47:46.4417390Z __DATA,__got                     23f54dd17dd9463c 23f54dd17dd9463c identical
+2026-09-29T22:47:46.4418180Z __DATA,__la_symbol_ptr           8c489e33e989ca28 8c489e33e989ca28 identical
+2026-09-29T22:47:46.4419020Z __DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+2026-09-29T22:47:46.4419960Z __DATA,__thread_vars             5346dbcf4f244833 5346dbcf4f244833 identical
+2026-09-29T22:47:46.4420770Z __TEXT,__const                   90a6491fb7877e0e 90a6491fb7877e0e identical
+2026-09-29T22:47:46.4421680Z __TEXT,__cstring                 a4b7aab2c0590234 a4b7aab2c0590234 identical
+2026-09-29T22:47:46.4422490Z __TEXT,__eh_frame                b371ba0a707e240b b371ba0a707e240b identical
+2026-09-29T22:47:46.4423330Z __TEXT,__gcc_except_tab          4aeeffe4d5310854 4aeeffe4d5310854 identical
+2026-09-29T22:47:46.4424190Z __TEXT,__stub_helper             90473cfa432ca2cc 90473cfa432ca2cc identical
+2026-09-29T22:47:46.4425370Z __TEXT,__stubs                   dd5a94d496d43670 dd5a94d496d43670 identical
+2026-09-29T22:47:46.4426150Z __TEXT,__text                    347f0f237371f858 347f0f237371f858 identical
+2026-09-29T22:47:46.4426930Z __TEXT,__unwind_info             9ac202e503035052 9ac202e503035052 identical
+2026-09-29T22:47:46.4427570Z CODE IDENTICAL
+2026-09-29T22:47:46.4427890Z {
+2026-09-29T22:47:46.4428240Z  "base": "234ea15861d2f37b1b55c6251281a49021864441",
+2026-09-29T22:47:46.4428750Z  "plain_exit": 0,
+2026-09-29T22:47:46.4429250Z  "held_pgo_exit": 0
+2026-09-29T22:47:46.4429600Z }
+2026-09-29T22:47:46.4429890Z plain build: exit 0
+2026-09-29T22:47:46.4430280Z held-profile pgo+lto build: exit 0
+2026-09-29T22:47:46.4430610Z 
+2026-09-29T22:47:46.5320150Z ##[group]Run actions/upload-artifact@v4
+2026-09-29T22:47:46.5320760Z with:
+2026-09-29T22:47:46.5321090Z   name: benchmark-macos-x86_64
+2026-09-29T22:47:46.5321820Z   path: bench_ci_*.md
+bench_ci_*.json
+bench_native_*.md
+bench_native_*.json
+identity-*.txt
+
+2026-09-29T22:47:46.5322630Z   if-no-files-found: ignore
+2026-09-29T22:47:46.5323040Z   compression-level: 6
+2026-09-29T22:47:46.5323400Z   overwrite: false
+2026-09-29T22:47:46.5323760Z   include-hidden-files: false
+2026-09-29T22:47:46.5324150Z env:
+2026-09-29T22:47:46.5324440Z   ARCHFLAGS: -arch x86_64
+2026-09-29T22:47:46.5325020Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:47:46.5325950Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.12.10/x64/lib/pkgconfig
+2026-09-29T22:47:46.5326870Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:47:46.5327730Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:47:46.5328710Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.12.10/x64
+2026-09-29T22:47:46.5329380Z ##[endgroup]
+2026-09-29T22:47:47.8370360Z (node:62972) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-29T22:47:47.9193610Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-29T22:47:47.9234690Z With the provided path, there will be 5 files uploaded
+2026-09-29T22:47:47.9235780Z Artifact name is valid!
+2026-09-29T22:47:47.9236280Z Root directory input is valid!
+2026-09-29T22:47:48.3343570Z Beginning upload of artifact content to blob storage
+2026-09-29T22:47:48.3863060Z (node:62972) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-09-29T22:47:48.7656320Z Uploaded bytes 69074
+2026-09-29T22:47:48.8374990Z Finished uploading artifact content to blob storage!
+2026-09-29T22:47:48.8376240Z SHA256 digest of uploaded artifact zip is 77cbafa49077f84de54a3ee4548c653271364c65592deab6e51163e357413022
+2026-09-29T22:47:48.8377320Z Finalizing artifact upload
+2026-09-29T22:47:49.1151900Z Artifact benchmark-macos-x86_64.zip successfully finalized. Artifact ID 11066985894
+2026-09-29T22:47:49.1153390Z Artifact benchmark-macos-x86_64 has been successfully uploaded! Final size is 69074 bytes. Artifact ID is 11066985894
+2026-09-29T22:47:49.1166100Z Artifact download URL: https://github.com/PrimeLab-Foundation/strata/actions/runs/36637770136/artifacts/11066985894
+2026-09-29T22:47:49.1593600Z Post job cleanup.
+2026-09-29T22:47:49.3678540Z (node:62995) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-29T22:47:49.3680050Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-29T22:47:49.3919310Z Post job cleanup.
+2026-09-29T22:47:49.5533680Z [command]/usr/local/bin/git version
+2026-09-29T22:47:49.5631560Z git version 2.55.0
+2026-09-29T22:47:49.5669770Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/34dcf106-7517-4ac6-a41a-d7416ed6b8ae/.gitconfig'
+2026-09-29T22:47:49.5684340Z Temporarily overriding HOME='/Users/runner/work/_temp/34dcf106-7517-4ac6-a41a-d7416ed6b8ae' before making global git config changes
+2026-09-29T22:47:49.5685980Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-29T22:47:49.5691800Z [command]/usr/local/bin/git config --global --add safe.directory /Users/runner/work/strata/strata
+2026-09-29T22:47:49.5805220Z [command]/usr/local/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-29T22:47:49.5900170Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-29T22:47:49.7204790Z [command]/usr/local/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-29T22:47:49.7284480Z http.https://github.com/.extraheader
+2026-09-29T22:47:49.7295750Z [command]/usr/local/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-29T22:47:49.7421770Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-29T22:47:49.8700950Z [command]/usr/local/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-29T22:47:49.8804000Z [command]/usr/local/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-29T22:47:50.0192150Z Cleaning up orphan processes
+2026-09-29T22:47:51.5783190Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

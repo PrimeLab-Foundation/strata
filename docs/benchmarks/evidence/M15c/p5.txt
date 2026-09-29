@@ -1,0 +1,41 @@
+row             lib                  v6            v7   n
+rec             strata         239.57us      235.93us  180
+rec             msgspec        252.31us      251.17us  180
+                strata/msgspec [v6] 0.949
+                strata/msgspec [v7] 0.939
+                v7/v6 strata: median 0.9847 [0.9813, 0.9898] over 3 blocks
+rec-file        strata         322.27us      320.45us  180
+rec-file        msgspec        368.64us      368.35us  180
+                strata/msgspec [v6] 0.874
+                strata/msgspec [v7] 0.870
+                v7/v6 strata: median 0.9952 [0.9841, 1.0074] over 3 blocks
+plain-mixed     strata          30.18us       30.31us  180
+plain-mixed     msgspec         41.33us       41.54us  180
+                strata/msgspec [v6] 0.730
+                strata/msgspec [v7] 0.730
+                v7/v6 strata: median 1.0047 [1.0024, 1.0048] over 3 blocks
+t-enum          strata          72.60us       45.94us  180
+t-enum          msgspec         26.76us       26.78us  180
+                strata/msgspec [v6] 2.713
+                strata/msgspec [v7] 1.715
+                v7/v6 strata: median 0.6332 [0.6314, 0.6335] over 3 blocks
+t-dc            strata          98.05us       82.36us  180
+t-dc            msgspec         64.78us       64.67us  180
+                strata/msgspec [v6] 1.514
+                strata/msgspec [v7] 1.274
+                v7/v6 strata: median 0.8406 [0.8359, 0.8429] over 3 blocks
+t-dec           strata          84.01us       78.74us  180
+t-dec           msgspec         67.89us       68.21us  180
+                strata/msgspec [v6] 1.237
+                strata/msgspec [v7] 1.154
+                v7/v6 strata: median 0.9338 [0.9291, 0.9494] over 3 blocks
+t-set           strata          82.06us       64.74us  180
+t-set           msgspec         96.44us       96.41us  180
+                strata/msgspec [v6] 0.851
+                strata/msgspec [v7] 0.671
+                v7/v6 strata: median 0.7817 [0.7811, 0.8001] over 3 blocks
+t-uuid          strata          26.05us       25.87us  180
+t-uuid          msgspec         66.20us       66.00us  180
+                strata/msgspec [v6] 0.393
+                strata/msgspec [v7] 0.392
+                v7/v6 strata: median 0.9938 [0.9734, 0.9955] over 3 blocks

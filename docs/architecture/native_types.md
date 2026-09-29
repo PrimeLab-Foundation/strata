@@ -682,3 +682,78 @@ Benchmarks: a separate declared workload, `native-v1` (seeded dataset carrying
 
 Rollback: revert the merge. `_strata` is main's, so the canonical standings
 cannot move through this change.
+
+## Hook profile and native emitter costs (M15c; 2026-09-29)
+
+**Problem.** On native-v1, strata `native=True` trailed msgspec on every leg
+(ledger M15b, run 36585989834: `dumps` 1.27–1.60×, `dump` 1.12–1.34×). Phase 0
+(ledger M15c) split the M1's 1.52× into the build and the code: the hook image,
+built unprofiled and without LTO by the M12b rule, reads 0.874× \[0.865, 0.880\]
+of itself with LTO and a profile of its own (1.52× → 1.33×); the rest sat in
+three emitters (per object against msgspec: `Enum` +87 ns, dataclass +86 ns,
+`UUID` +26 ns) and in a numpy probe every non-pure conversion paid. The
+mutation-safety contract (`latch()` per conversion, the row latch per record)
+prices at 6.2% of a record walk and is kept as written.
+
+### Hook profile
+
+`_strata`'s build and profile are untouched: its two phases run exactly as
+before, with the hook unprofiled throughout and guarded so. A third phase
+(clang: `scripts/pgo_build.sh`; clang-cl: `scripts/pgo_build_clang_cl.py`)
+then rebuilds the hook alone (`STRATA_EXTENSIONS=strata._dumps_hook`):
+instrumented (`STRATA_HOOK_PGO_MODE=generate`), trained by
+`scripts/pgo_hook_training.py` — a seeded native corpus of its own (seed 7;
+no benchmark module or dataset), plain documents through `native=True`, the
+file writer and `dumps_with_default`, never numpy — and rebuilt against that
+profile with ThinLTO (`STRATA_HOOK_PGO_MODE=use`; no LTO under clang-cl). The
+build gate's runs of the instrumented hook write to a directory that is
+discarded: the recipe is training-only, so test additions do not move the
+hook's profile (E26-P8's lesson for `_strata`).
+
+| Option                                                                       | Verdict                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **H1. A third phase for the hook alone, after `_strata`'s (chosen)**         | `_strata`'s phases, profile and image unchanged by construction; `_strata`'s image hash is checked equal across the phase; each image proven against its own profile with the other's named as foreign (`build_identity.py --check-profiled`) |
+| H2. Instrument both images in phase 1, split raw profiles by image signature | changes `_strata`'s phase 1 (its one-signature guard) and mixes the two trainings' timing; refused                                                                                                                                            |
+| H3. Train the hook on the gate-inclusive recipe                              | every test addition would move the hook's profile, E26-P8's defect; refused                                                                                                                                                                   |
+
+The invariant M12b stated as "the hook is built unprofiled" becomes: **the
+hook never carries `_strata`'s profile, and nothing the hook runs enters it**
+— unprofiled while `_strata` trains and optimizes, its own profile after.
+gcc keeps the hook plain (every CI leg builds with clang); MSVC refuses the
+hook variables.
+
+### Emitters (hook-only source; `_strata`'s token streams unchanged)
+
+1. **Lazy group probes** (`classify` → `evaluate`): each type-table group is
+   probed only when the checks ahead of it failed; a loaded-but-unresolved
+   group ends the lazy pass and the old order runs. Every result is the old
+   one (docs/decisions.md, 2026-09-29).
+2. **UUID halves without objects** (`split_uuid_int`): `PyLong_AsNativeBytes`
+   (3.13+) or `_PyLong_AsByteArray` read the 128 bits; out of range is the same
+   `ValueError` as before.
+3. **`Enum.value` as `_value_`** (`capture_enum_value`, `stock_enum_value`):
+   proven once when enum resolves, checked per member; row 6's
+   `getattr(member, "value")` is kept exactly (docs/decisions.md, 2026-09-29).
+4. **Dataclass keys escaped once per type** (`encode_keys`) and
+   `__dataclass_fields__` read through the MRO when that is exactly `getattr`
+   (`plain_class_attribute`).
+5. **Native writers not cold in the hook** (`STRATA_NATIVE_FN`): out of line,
+   so the tail stays an inlining boundary, without the size bias `cold` gave
+   them.
+6. **UUID digits read in place** (`uuid_digits`, proven against the byte export
+   when uuid resolves) and **hex written eight digits per word**
+   (`util::format_uuid`).
+7. **Type verdicts** (`classify`): the kind decided for a type is reused while
+   the type's version tag is current -- proven at module init to go stale on
+   every modification of the type or a base -- and only when the type alone
+   decided it.
+
+### Acceptance
+
+- `bash scripts/token_identity.sh`: every `_strata` TU token-identical to main.
+- `make pgo`: phase 3 passes `--check-profiled` both ways and `_strata`'s hash
+  check; both gates green on the optimized hook.
+- Native rows A/B (≥ 30 repeats per launch, A-B-B-A), canonical rows untouched
+  by construction (`_strata` identical), oracle and contract suites green.
+- Kill criterion: a native row that reads worse than the shipped hook on any
+  leg of the five-leg A/B, or a `_strata` identity failure, stops the merge.

@@ -1,0 +1,26 @@
+row             lib               base2       nolatch   n
+rec             strata         383.24us      357.33us  180
+rec             msgspec        251.04us      252.38us  180
+                strata/msgspec [base2] 1.527
+                strata/msgspec [nolatch] 1.416
+                nolatch/base2 strata: median 0.9382 [0.9200, 0.9444] over 3 blocks
+t-enum          strata         127.83us      119.83us  180
+t-enum          msgspec         26.77us       26.82us  180
+                strata/msgspec [base2] 4.776
+                strata/msgspec [nolatch] 4.468
+                nolatch/base2 strata: median 0.9397 [0.9159, 0.9618] over 3 blocks
+t-dc            strata         193.82us      181.68us  180
+t-dc            msgspec         64.61us       64.57us  180
+                strata/msgspec [base2] 3.000
+                strata/msgspec [nolatch] 2.814
+                nolatch/base2 strata: median 0.9316 [0.9239, 0.9341] over 3 blocks
+t-dec           strata         101.03us       96.63us  180
+t-dec           msgspec         68.49us       68.22us  180
+                strata/msgspec [base2] 1.475
+                strata/msgspec [nolatch] 1.416
+                nolatch/base2 strata: median 0.9607 [0.9487, 0.9827] over 3 blocks
+t-set           strata         104.98us      100.68us  180
+t-set           msgspec         95.49us       95.97us  180
+                strata/msgspec [base2] 1.099
+                strata/msgspec [nolatch] 1.049
+                nolatch/base2 strata: median 0.9657 [0.9514, 0.9786] over 3 blocks

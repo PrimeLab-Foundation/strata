@@ -166,7 +166,7 @@ jobs:
         run: |
           PYTHONPATH=. .venv/bin/python -m benchmarks.native_v1 \
             --data benchmarks/data/generated --tiers small \
-            --repeat 10 --warmup 2 \
+            --repeat 30 --warmup 2 \
             --output "bench_native_${{ matrix.platform }}.md"
 
       - name: Same-path identity check against identity_base
@@ -268,7 +268,7 @@ jobs:
         run: |
           PYTHONPATH=. .venv/bin/python -m benchmarks.native_v1 \
             --data benchmarks/data/generated --tiers small \
-            --repeat 10 --warmup 2 \
+            --repeat 30 --warmup 2 \
             --output "bench_native_linux-arm64.md"
 
       - name: Same-path identity check against identity_base
@@ -372,7 +372,7 @@ jobs:
         run: |
           PYTHONPATH=. python -m benchmarks.native_v1 \
             --data benchmarks/data/generated --tiers small \
-            --repeat 10 --warmup 2 \
+            --repeat 30 --warmup 2 \
             --output "bench_native_windows-x86_64.md"
 
       - name: Same-path identity check against identity_base

@@ -1,0 +1,19 @@
+row             lib                base         pgo12   n
+rec             strata         384.55us      187.23us  240
+rec             msgspec        253.50us      252.70us  240
+rec             orjson         472.48us      475.57us  240
+                strata/msgspec [base] 1.517
+                strata/msgspec [pgo12] 0.741
+                pgo12/base strata: median 0.4873 [0.4872, 0.4882] over 3 blocks
+rec-file        strata         478.20us      270.69us  240
+rec-file        msgspec        376.20us      368.84us  240
+rec-file        orjson         607.37us      607.13us  240
+                strata/msgspec [base] 1.271
+                strata/msgspec [pgo12] 0.734
+                pgo12/base strata: median 0.5649 [0.5599, 0.5704] over 3 blocks
+plain-mixed     strata          30.05us       26.65us  240
+plain-mixed     msgspec         41.75us       41.73us  240
+plain-mixed     orjson          37.62us       37.54us  240
+                strata/msgspec [base] 0.720
+                strata/msgspec [pgo12] 0.639
+                pgo12/base strata: median 0.8862 [0.8858, 0.8877] over 3 blocks

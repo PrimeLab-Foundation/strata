@@ -1,0 +1,4633 @@
+{
+  "schema_version": 1,
+  "report_sha256": "64db88f8a1d92564b8f3b2c1c1319259265324a1ba8f4823c2f99133a9c20e00",
+  "name": "native-v1",
+  "environment": {
+    "commit": "bc6d9ba83ad33f6b9e2f3b35d87b07d0b4dcc11e",
+    "python": "3.12.14",
+    "implementation": "CPython",
+    "platform": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39",
+    "machine": "aarch64",
+    "processor": "aarch64",
+    "compiler_flags": "see build provenance",
+    "provenance_schema": "1"
+  },
+  "excluded": {
+    "ujson (native dataset)": "no native type support; not named"
+  },
+  "provenance": {
+    "source": {
+      "commit": "bc6d9ba83ad33f6b9e2f3b35d87b07d0b4dcc11e",
+      "dirty": true,
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked_sha256": {
+        "bench_ci_linux-arm64.json": "f3302a5335d2a54f3990b02a1e6f6d1d732b48ffbb9ea226beb8ff80a51b9bce",
+        "bench_ci_linux-arm64.md": "ba73ca62975f9134998dbce1cef4044a04dc356498226ae7c83a74dbd72a4d1b"
+      }
+    },
+    "extension": {
+      "path": "/home/runner/work/strata/strata/python/strata/_strata.cpython-312-aarch64-linux-gnu.so",
+      "sha256": "071f540ff9fa81c585c7ed949fb93ce7286cd2421a4495ef2cebacb1274498e9",
+      "build": {
+        "schema_version": 1,
+        "extension_sha256": "071f540ff9fa81c585c7ed949fb93ce7286cd2421a4495ef2cebacb1274498e9",
+        "source": {
+          "commit": "bc6d9ba83ad33f6b9e2f3b35d87b07d0b4dcc11e",
+          "dirty": false,
+          "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked_sha256": {}
+        },
+        "complete_compilation": true,
+        "commands": [
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_document.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_document.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_dumps.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_dumps.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_files.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_files.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_folder.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_folder.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_jsonpath.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_jsonpath.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_loads.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_loads.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_module.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_module.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/bindings/python_ndjson.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_ndjson.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/json/json_cursor.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_cursor.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/json/json_document.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_document.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/json/json_parse.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_parse.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/json/json_serialize.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_serialize.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/json/ndjson_stream.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/ndjson_stream.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/search/jsonpath_compile.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/search/jsonpath_compile.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/search/jsonpath_eval.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/search/jsonpath_eval.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/util/dtoa.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/util/dtoa.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/util/folder.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/util/folder.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-fPIC",
+            "-Iinclude",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-I/home/runner/work/strata/strata/.venv/include",
+            "-I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12",
+            "-c",
+            "src/strata/util/scan.cpp",
+            "-o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/util/scan.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-shared",
+            "-Wl,--rpath=/opt/hostedtoolcache/Python/3.12.14/arm64/lib",
+            "-Wl,--rpath=/opt/hostedtoolcache/Python/3.12.14/arm64/lib",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_document.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_dumps.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_files.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_folder.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_jsonpath.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_loads.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_module.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/bindings/python_ndjson.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_cursor.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_document.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_parse.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/json_serialize.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/json/ndjson_stream.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/search/jsonpath_compile.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/search/jsonpath_eval.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/util/dtoa.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/util/folder.o",
+            "/tmp/tmpb2qzc1m6.build-temp/src/strata/util/scan.o",
+            "-L/opt/hostedtoolcache/Python/3.12.14/arm64/lib",
+            "-o",
+            "/tmp/tmpj35ri9cs.build-lib/strata/_strata.cpython-312-aarch64-linux-gnu.so",
+            "-flto=thin",
+            "-fprofile-use=/home/runner/work/strata/strata/build/pgo/strata.profdata"
+          ]
+        ],
+        "linker": {
+          "path": "/usr/bin/ld",
+          "version": "GNU ld (GNU Binutils for Ubuntu) 2.42"
+        },
+        "tool_versions": {
+          "clang++": "Ubuntu clang version 18.1.3 (1ubuntu1)\nTarget: aarch64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /usr/bin"
+        },
+        "pgo_profile": {
+          "path": "/home/runner/work/strata/strata/build/pgo/strata.profdata",
+          "files": {
+            "/home/runner/work/strata/strata/build/pgo/strata.profdata": "e7d28b2a20de48a5d173be63617f792f4b01c1ce82b7f7db6e98788f03251586"
+          },
+          "composition": {
+            "schema_version": 1,
+            "recipe": "gate-inclusive-posix-v1",
+            "raw_inputs": {
+              "build/pgo/raw/4755-6579158045152355685_0.profraw": "93f71a4a1d9c0748bd2a2c3c015de9954a286f09419b2fff1e0b0c37747122b8",
+              "build/pgo/raw/5056-6579158045152355685_0.profraw": "70d8c493086c38372fe2c34f2ae752a4038f445d598f17ce3ae8889525ff6d4d",
+              "build/pgo/raw/5068-6579158045152355685_0.profraw": "86667080abc89fd9a1e99127ba1ca48046760f7941435bc70bdefcf64b80ad6c",
+              "build/pgo/raw/5069-6579158045152355685_0.profraw": "7d847727e36cdf047496717fd530949891767ee51d04c3cb73d70e3bd67ea127",
+              "build/pgo/raw/5070-6579158045152355685_0.profraw": "4464983c2e615c8e11b365338d9ebe6ded4db42adb153f1200d32b91eb6b5b9b",
+              "build/pgo/raw/5071-6579158045152355685_0.profraw": "521e5346716f1105847f7e3de9d9cb89161eb603d16392fb8fd39b832de1a515",
+              "build/pgo/raw/5420-6579158045152355685_0.profraw": "894bcfad433dba68a63b20418aff144c093d048f99f64ca8e840959c715121ef",
+              "build/pgo/raw/5421-6579158045152355685_0.profraw": "d3d6c4a62b6de8a8d2d9a406c44cd14fa892ab7fccb3adc8ebd17cf0b49d3680",
+              "build/pgo/raw/5427-6579158045152355685_0.profraw": "368558903953137f32d09290ec48b06c016a41309c6662962b48346becb6af43",
+              "build/pgo/raw/5631-6579158045152355685_0.profraw": "d4d1a53f6bbe221ea386b8548ac10bdeb8f69578b67963ccf33e800971a78d16",
+              "build/pgo/raw/5931-6579158045152355685_0.profraw": "9d40e8a5ec11385badf822b399c9ae30c79c03847ee571b222f307b3a012e8fa",
+              "build/pgo/raw/5943-6579158045152355685_0.profraw": "da590e63b36e91029746d1feb2d6dfcdc05ca5bd5c9c91bf0f90a8bcd6b93416",
+              "build/pgo/raw/5944-6579158045152355685_0.profraw": "2145378cfe9fced17fb7365e35b36e0720f31854b825a4392860a8341d57f23f",
+              "build/pgo/raw/5945-6579158045152355685_0.profraw": "181625fc1d6b4df039a38dd0eaa572debdebc0245fb166796a9c7a21dbb5278c",
+              "build/pgo/raw/5946-6579158045152355685_0.profraw": "b5a1b3c27951aa6b6112efc1a961e6097a70e44cd9433cca2e50cb38f777947b",
+              "build/pgo/raw/6294-6579158045152355685_0.profraw": "df3cac48056eb33d4dec4a57d9a798a42a0ffb8d4e229ab21616ad7fb1a0e56d",
+              "build/pgo/raw/6295-6579158045152355685_0.profraw": "022e0cbc03591b01a433fbedfe28bff677645d6445aa3cb424c18e568b58d37e"
+            },
+            "workload_sources": {
+              "tests/integrations/conftest.py": "2b3a4b87ce782e7ec2fd6f622611c9866452b9dab683349c03ec94c044f9a6fd",
+              "tests/integrations/test_adapter_imports.py": "33c94dc3fb29e0531e375ed86bb5f842c5b9905dd009b93156321a59566002cc",
+              "tests/integrations/test_aiohttp.py": "65d45b2947ae73d454464446dfe89849c139d03e76e396b2016b861d118171d2",
+              "tests/integrations/test_attrs.py": "3bd888be99c855bb9865ae123f5d8bd4d04f7f88c98890aed9014f11bd394071",
+              "tests/integrations/test_dataclass_rows.py": "07571464401364a7c71caed9b603fbc09f75956e55213989ab909ad7a16d5b6f",
+              "tests/integrations/test_django.py": "e8860da24e16f11fa40e2a1dcddc9ceb9531161caa0869955e262eb705f62f53",
+              "tests/integrations/test_falcon.py": "80f129932b934f4020cb97dbd0f5f656cb7b2f0fbecdaa094df6b32d7661356e",
+              "tests/integrations/test_fastapi.py": "79874d78bb0f95c6cbd3d98b80d611416aad8cd2d5256632a71f7254fc241115",
+              "tests/integrations/test_flask.py": "e7bb5c2b4cae66fce7967faacd2faac4a920de2a99a93569c5e124a0d20554f7",
+              "tests/integrations/test_native_opt_out_greenlet.py": "ba8336ba79dcde32182dadff7c0597e947fdc2131d5431d00f7eea6999c36937",
+              "tests/integrations/test_native_types.py": "0ade1e314f2538abdfa930c31398070417d2bc88dd3e8e582ddcde514ffadb6a",
+              "tests/integrations/test_numpy.py": "cc645d20c5062c95eed5ef0f49d0b3c589eea05ad8ce2f35777fe30ea1f39f92",
+              "tests/integrations/test_pydantic.py": "9ee35265df53eec2cfc45c07dc7a6ac08764de9bc26d2efd3beb8ca4e585c014",
+              "tests/integrations/test_pydantic_adapter.py": "8fb9e748ac413b369d95057e37cbcefafb478fe865cba2ed5a8e38ebdde94b13",
+              "tests/integrations/test_structlog.py": "ed5247e7e78d1f55571b66e9efa47e205e3ad0db21d08a8b69f59eae133bc43c",
+              "tests/py/native_types/conftest.py": "8881e68137e055422c51ccece9db03debac80906eac74176b4a6bc19845b4ad6",
+              "tests/py/native_types/test_native_dump.py": "82daef3bf731be6cabd437559b209da27d5bdfd06f152e04cb9122dce8618088",
+              "tests/py/native_types/test_native_fast_paths.py": "a1569ce273adc5d101c66983af486982a5834c743f1284346721eb1b0485bc17",
+              "tests/py/native_types/test_native_import.py": "197a2aa6d5d807615f109aaf77a7ee7f4ca21c455c0f135cb62441b17e5d1ff2",
+              "tests/py/native_types/test_native_opt_out.py": "dba7b3386ee5eea5dc9d54ff640526ce53215ad41adbfc9c82914f9e96218c7b",
+              "tests/py/native_types/test_native_oracle.py": "a3270ee6238493447bc2963693958cea7f436b6d74491eb4226cc07344735231",
+              "tests/py/native_types/test_native_reentrancy.py": "f68921e392f882ec76cea5d43a4d49dc7ae8bac24162b040ca5567693a624385",
+              "tests/py/native_types/test_parse_types.py": "7570698f774fd89bfb5db13199599693d0595a9feb675726c87b28a870d37905",
+              "tests/py/test_dumps_brace_fold.py": "fb1b9b6a53d86a468f231996dd5d66ac657e3ca2a986bce71fd46a14b9a8ce4b",
+              "tests/py/test_dumps_cycles_fused.py": "f2f36c6a70c4b18989e61ca27dd12c9f8b1da8d41cab693fe44754420347fa25",
+              "tests/py/test_dumps_general_tables.py": "abb9bd9058f22dd22f2a49a7b54a6acd64fb71131152f4aab5efb723b8bb3730",
+              "tests/py/test_dumps_with_default.py": "b31cbcc8fc8d0c81a5c3d575142bc420ddb7948e17b90208c0ef8cd17f329800",
+              "tests/py/test_dumps_with_default_contract.py": "eefce635ed5e31dc07c7c0fcdcd2f94ad6ebc3d8136ea567856220a748ef00b7",
+              "tests/py/test_fused_verification.py": "77900745c57029db456ed111da40ad720bfc7b9994cdf71ba61ac3293b829e60",
+              "tests/py/test_json_parity.py": "923f22a989f4159e5f86ee08dd938dcbc31bafc66128342f31708b1f5cc40601",
+              "tests/py/test_path_dispatch.py": "10caec09f0b0799b521b9cdb95b9345dfbe20d5392615f78e3ed552bb9bae850",
+              "tests/py/test_py_tests_basetemp.py": "9747a30f89a76f47438b8cc4bf0e1bfc0cde49b279af8ad7c1b584b5324bc303",
+              "tests/py/test_smoke.py": "fe7d9acf2491120af044ea636d97e81143d72bf310f1ed56b8c5b26f582b0926",
+              "tests/unit/conftest.py": "3d28f75ae63f0f8b2180d5972e545166b1dee3b209bdbd0402fd3e1452b353d0",
+              "tests/unit/native_types/conftest.py": "f83cb7b13c6064f2fb49cf8d4eb7140feb3f458a845692ab1011d800aafc3e74",
+              "tests/unit/native_types/test_build_sources.py": "5b27bae6abfbe735174902d989a51168ab158d766ad520913100fbec6758b2ce",
+              "tests/unit/native_types/test_hook_import_gating.py": "fa273f05f3e20b413cf4bdac0c979370dd674832d4d3576e55981708e1966c5c",
+              "tests/unit/native_types/test_hook_profile_build.py": "8881b9c9a4443d4511cd1c5767b30d348e59e740f24c4365811056b70c6de334",
+              "tests/unit/native_types/test_native_benchmark_agreement.py": "fdba5cf47de38077097faf819a9e32db3359f35f297b26e5ef894601dbc58751",
+              "tests/unit/native_types/test_native_benchmark_dataset.py": "6e13cfe5f4d60e13f8bdf36e0d22695484173f41d8fcfe07ca75c95432b41339",
+              "tests/unit/native_types/test_native_benchmark_rows.py": "0221e485369e33248988c9e84befa2f5d1ec9648f4b1aceac62f072b3df3a2f4",
+              "tests/unit/native_types/test_native_ci_fetch.py": "d2cadf241c82451b32be2fdf8ae4ebe61f43368b05d1ad73154fc1fdbc518f3a",
+              "tests/unit/native_types/test_native_ci_summary.py": "389ba6e8ea19b7ec2743bd5f07eb4091bae2986e0d0705acc6158576b4d68ed6",
+              "tests/unit/native_types/test_native_flag.py": "c59f4fdf8e2a7ab3f05de76baa2806bd433c7ff4092a3c5ae2aadfe355713b1c",
+              "tests/unit/native_types/test_native_identity_ab.py": "f47faf4d4eef2ffe379f4555510a19c05661946f9dd20ff6a51ead37004c72d9",
+              "tests/unit/native_types/test_native_opt_out.py": "cc16921df92b2260abdee8a6f17f3c1dba83f8467ad38fddb37a44e1a8cb304f",
+              "tests/unit/native_types/test_parse_contract.py": "668fe174e9bfb4c8dbe67fe9a6b1a8b079ad7a73affb96c37f01b500b0327221",
+              "tests/unit/native_types/test_serializer_contract.py": "5506f86a26ad0b5a3f4428e7efda6f1d6c4d2b409399fc74a2dbf5dffc6b783a",
+              "tests/unit/native_types/test_training_scope.py": "ae41c762a0afaebc9201d2ce3cf52690711c231dd55b493bbfadbe664fd20344",
+              "tests/unit/test_ab_analysis.py": "36bdcb924276454932f3c177ff0bfc428fe8afb6c49c64ba8fe766e540025013",
+              "tests/unit/test_build_manifest.py": "a3aae0524190743ac0c288462a2f5836b4f7b5f834508745ee81bdd9a8eb3187",
+              "tests/unit/test_canonical_builds.py": "aedef43e95ed21d8d67f4e42e1b73b48781205c30be6ae83c9d67113453a4fec",
+              "tests/unit/test_ci_fetch.py": "87b7104475a467ae572e3bf15f7d4c9ff96e6adf02788ba480611aae2ff83935",
+              "tests/unit/test_ci_summary.py": "93df57465dfd4afe2ea1cf51e09ae06e9aa9c3ab7b1e8a45ed02cd891c3f1e37",
+              "tests/unit/test_config.py": "579958181bc745b184b605b34490d489cc581ae484bba50185b2fba2e531564c",
+              "tests/unit/test_core_purity.py": "39a495f2bdc5a870568bcbb9bdab00e565b15c48287c87fe1abcfc12b0e09705",
+              "tests/unit/test_cross_sample.py": "7c6c10198baac75e7820d8bcd32b51735d518b88b83f01b4f64755b5873bdea4",
+              "tests/unit/test_dumps.py": "0d42dc4e023a08327829f3fe64329f1a5c1fad623b1323e0651f5addd7961924",
+              "tests/unit/test_dumps_brace_fold.py": "fb1b9b6a53d86a468f231996dd5d66ac657e3ca2a986bce71fd46a14b9a8ce4b",
+              "tests/unit/test_dumps_cold_start.py": "0505006f8accec532f8c896905edd042a25bc2a4cd55cbdecb9fc83485cfebe2",
+              "tests/unit/test_dumps_contract.py": "c20df8863c20c6744e3d664b373079116d3c3f900f85e85d567a8616e2571360",
+              "tests/unit/test_dumps_cycles_fused.py": "f2f36c6a70c4b18989e61ca27dd12c9f8b1da8d41cab693fe44754420347fa25",
+              "tests/unit/test_dumps_general_tables.py": "abb9bd9058f22dd22f2a49a7b54a6acd64fb71131152f4aab5efb723b8bb3730",
+              "tests/unit/test_dumps_latch.py": "f3b0d92870e43b40fa0080dba5aa6d0a8cf6ea7834ee28d547e68558fc4bfb9e",
+              "tests/unit/test_dumps_private_cache.py": "98396cfdd9cca44ae14ae0cbcc4d6eb783f9683fcd7f29b9c91e1705e88b1860",
+              "tests/unit/test_dumps_reentrancy.py": "5009a576f8b71df0ccb9fbca9db5254ecb27529b14675f89141e6166a684eeff",
+              "tests/unit/test_dumps_reentrancy_review.py": "ec67cdc47672795768b27915c55caefeebcc4811822ea385640caa0c0e49179c",
+              "tests/unit/test_dumps_schema_failure.py": "102a988701c493eab1aab5a2bb5d72836b7b43dec80c05931e541e687880e72c",
+              "tests/unit/test_dumps_user_step_counter.py": "d4b4d957183cc3f9ea756f7ffeae278790c2084735a4ccbd9556353f8e123a03",
+              "tests/unit/test_dumps_with_default.py": "738d4f6668e964ba90d68871df282991f567a614a08e3195f16dd4e48a77f41a",
+              "tests/unit/test_dumps_with_default_state.py": "8b89bb9b2da8a3b3cfd9fa0342c7f110a64e3b17774394c6a244d0c1d44eab90",
+              "tests/unit/test_folder.py": "407116bcfe2e7dda1b7c353af967693b3fa6655a4b9d67992813fb2bba2c0bc2",
+              "tests/unit/test_fused_verification.py": "77900745c57029db456ed111da40ad720bfc7b9994cdf71ba61ac3293b829e60",
+              "tests/unit/test_hook_build_scope.py": "2628419c78ffab9b043248975efbf77193496d42f4c32f4f7c7ca2c42ea815d7",
+              "tests/unit/test_json_cursor.py": "1363833f01b171def69f201d70077905f7cb09c2cd64faf306d2212445b47025",
+              "tests/unit/test_jsonpath.py": "e20a05e814ef05656d5a02691b578b4de2cfbfd34f56d83c05171da0335d04c0",
+              "tests/unit/test_load_dump.py": "f7d26119599494597b590be00dafdb5284aaa660416a82194b7d16a784f1543e",
+              "tests/unit/test_loads.py": "431ea47fa9394ec8a7336f0653f0182fe179c4bf0468d330682f794cdaa3e750",
+              "tests/unit/test_native_interleaved_profile.py": "d67fd9416cde8e718ff6dbe6244f0ff1fac0f6eff31bb6c4f79d2389b1c156db",
+              "tests/unit/test_nested_container_probe.py": "d21e24f653a4d396706d6c98e0142d294b569ab9e8dfe9d91982cb05cb5d713c",
+              "tests/unit/test_path_dispatch.py": "10caec09f0b0799b521b9cdb95b9345dfbe20d5392615f78e3ed552bb9bae850",
+              "tests/unit/test_provenance.py": "a0471d921853f04e199c6fb8e2b10812f6fd6dcef6cdc2d600cb8505ac8f98bf",
+              "tests/unit/test_regression_check.py": "5e8c549f1f8de948ef2dfa96d14d9ad2ff0138efd1a04693752b0a061d5ef52d",
+              "tests/unit/test_search_stream.py": "fa2781651d825864de20576082019c0e9db5cd961d43b8dc5ff967bf534e8175",
+              "tests/unit/test_string_identity_probe.py": "7dd2c8d92fecc918d03ef973b1eec04cbde1a5b78864a574c58caf0b23439a02",
+              "tests/unit/test_supplementary.py": "7da4ef1cca19e309d46d674e6949e0fdfc2d9ce86abeddbbf8dca91fb8a2754a",
+              "tests/unit/test_supportability_check.py": "65f3207d9e8bef2a2f457e8c535f057b2ca631f0380ce8f47c046cabf62f50e6",
+              "tests/unit/test_version.py": "d6fdb2c47f66443e8862cfed1973a7c1a707d566cfe7e8e6f1554712b21c520d",
+              "scripts/pgo_training.py": "75461d7cdb47d215198f930403b9b7a8ba19e734602b557360a81e22a8b244bb",
+              "scripts/pgo_training_data.py": "47891200ec2d480ff738d0d0a6bb04508fc6b347ed62ec6a8d5e19a73c000dbe"
+            },
+            "training_data": {
+              "train.json": "30b415d9e93e18ea8f4845469ce215a0d6638b4a2b473c86fab2712f7ed8b5bd",
+              "train.ndjson": "d494e1d39c64aa9b39e03f1874ab518b8c457e3d9bd22ebc726d639229e0f282"
+            },
+            "limitation": "raw profiles include build/test gates and dedicated training; counts are not separated by phase"
+          }
+        },
+        "limitation": null
+      }
+    },
+    "python": {
+      "executable": "/home/runner/work/strata/strata/.venv/bin/python",
+      "version": "3.12.14 (main, Aug 13 2026, 02:48:06) [GCC 13.3.0]"
+    },
+    "versions": {
+      "strata": "2026.8.10",
+      "json": "3.12.14",
+      "orjson": "3.12.0",
+      "msgspec": "0.22.0",
+      "ujson": "6.0.0"
+    },
+    "datasets": [
+      {
+        "name": "mixed.json",
+        "path": "/home/runner/work/strata/strata/benchmarks/data/generated/small/mixed.json",
+        "sha256": "e6761d39e0f157c3ae90d8ef1f04c4ca263343cce65058831bcaa307490e3937"
+      }
+    ],
+    "protocol": {
+      "name": "native-v1",
+      "repeat": 30,
+      "warmup": 2,
+      "preflight_calls": 1,
+      "equivalence_calls_per_library": {
+        "query": 1,
+        "search": 1
+      },
+      "gc": "collect before each timed call",
+      "timer": "perf_counter",
+      "units": "ms",
+      "rss": "current whole-process RSS after all libraries in each row",
+      "equivalence": "rivals: parsed-JSON equality with decimals compared as Decimal; a disagreeing rival is excluded and recorded, never timed"
+    },
+    "limitations": []
+  },
+  "measurements": [
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "min_ms": 0.2959359999294975,
+      "median_ms": 0.29922499999202046,
+      "p95_ms": 0.32905000000482687,
+      "rss_mb": 28.88671875,
+      "error": null,
+      "samples_ms": [
+        0.3329940000185161,
+        0.2980489999799829,
+        0.29852099999061465,
+        0.3179770000087956,
+        0.2961040000855064,
+        0.3202330000249276,
+        0.29686499999570515,
+        0.2975849999984348,
+        0.2984330000117552,
+        0.2985600000329214,
+        0.2986399999826972,
+        0.2990890000091895,
+        0.3191460000380175,
+        0.29823199997736083,
+        0.30768900001021393,
+        0.298368999892773,
+        0.2975119999746312,
+        0.3137290000267967,
+        0.29771300000902556,
+        0.3134739999950398,
+        0.2959359999294975,
+        0.3219530000251325,
+        0.29824099999586906,
+        0.300263999974959,
+        0.29936099997485144,
+        0.32539299991185544,
+        0.3003520000675053,
+        0.3000479999855088,
+        0.3003449999141594,
+        0.32905000000482687
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "min_ms": 0.7562060000054771,
+      "median_ms": 0.7809225000414699,
+      "p95_ms": 0.7965110000895947,
+      "rss_mb": 28.88671875,
+      "error": null,
+      "samples_ms": [
+        0.7818310000402562,
+        0.77683100005288,
+        0.7890069999803018,
+        0.7824709999795232,
+        0.7562060000054771,
+        0.7751670000288868,
+        0.7580699999607532,
+        0.7744229999389063,
+        0.7844539999268818,
+        0.777126999992106,
+        0.7880389999854742,
+        0.780446000021584,
+        0.7810470000322312,
+        0.760030999913397,
+        0.7902549999698749,
+        0.7745899999918038,
+        0.7807980000507087,
+        0.8158389999834981,
+        0.765646999980163,
+        0.7805829999369962,
+        0.7602059999953781,
+        0.7842780000828498,
+        0.7965110000895947,
+        0.761925999995583,
+        0.7911980000017138,
+        0.7864869999139046,
+        0.7881509999378977,
+        0.7665260000067065,
+        0.7931029999781458,
+        0.791895000020304
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "min_ms": 0.3458340000861426,
+      "median_ms": 0.35292199999048535,
+      "p95_ms": 0.3875390000303014,
+      "rss_mb": 28.88671875,
+      "error": null,
+      "samples_ms": [
+        0.3875390000303014,
+        0.3510340000048018,
+        0.3528739999865138,
+        0.3764030000183993,
+        0.35085000001799926,
+        0.3677700000253026,
+        0.3458340000861426,
+        0.3681629999618963,
+        0.3518820000181222,
+        0.35387499997341365,
+        0.3511380000418285,
+        0.3517060000604033,
+        0.37064299999656214,
+        0.35137899999426736,
+        0.3714829999807989,
+        0.35204200003136066,
+        0.3526190000684437,
+        0.3518830000075468,
+        0.3525619999891205,
+        0.36822599997776706,
+        0.3516430000445325,
+        0.37834700003713806,
+        0.3525379999018696,
+        0.35327399996276654,
+        0.3555539999524626,
+        0.40930000000116706,
+        0.35229100001288316,
+        0.3529699999944569,
+        0.35594700000274315,
+        0.37845899998956156
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "min_ms": 4.504954000026373,
+      "median_ms": 4.529671000057078,
+      "p95_ms": 4.562541000041165,
+      "rss_mb": 28.88671875,
+      "error": null,
+      "samples_ms": [
+        4.525475000036749,
+        4.552716000034707,
+        4.515362999995887,
+        4.521187000023019,
+        4.513298999995641,
+        4.521754999927907,
+        4.5359160000089105,
+        4.51452300001165,
+        4.52492399995208,
+        4.509251000058612,
+        4.519635999940874,
+        4.530211000087547,
+        4.535612000040601,
+        4.511722999950507,
+        4.529131000026609,
+        4.520484000067881,
+        4.552884000077029,
+        4.504954000026373,
+        4.537011999900642,
+        4.536203000043315,
+        4.519435000020167,
+        4.553611999995155,
+        4.562541000041165,
+        4.524786999922981,
+        4.542556000046716,
+        4.610013999922558,
+        4.542691999972703,
+        4.534523999950579,
+        4.556068000056257,
+        4.546780000055151
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "min_ms": 0.5297120000022915,
+      "median_ms": 0.5812689999515896,
+      "p95_ms": 0.6208419999893522,
+      "rss_mb": 29.4609375,
+      "error": null,
+      "samples_ms": [
+        0.5709609999939858,
+        0.5844650000881302,
+        0.5857529999957478,
+        0.5792089999658856,
+        0.5933690000574643,
+        0.5898010000464637,
+        0.580840999987231,
+        0.6047699999953693,
+        0.6206099999417347,
+        0.5643360000249231,
+        0.6208419999893522,
+        0.5940180000152395,
+        0.5685930000254302,
+        0.5816969999159483,
+        0.5908809999937148,
+        0.5828409999821815,
+        0.5494159998988835,
+        0.57203300002584,
+        0.643138999976145,
+        0.5748009999706483,
+        0.5382479999980205,
+        0.5645200000117256,
+        0.571960999991461,
+        0.5297120000022915,
+        0.5847609999136694,
+        0.5557839999710268,
+        0.5661120000013398,
+        0.591440999983206,
+        0.6144970000150352,
+        0.5469040000889436
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "min_ms": 1.040278000004946,
+      "median_ms": 1.0723309999320918,
+      "p95_ms": 1.179761999992479,
+      "rss_mb": 29.4609375,
+      "error": null,
+      "samples_ms": [
+        1.179761999992479,
+        1.1083130000315577,
+        1.0773750000225846,
+        1.0997440000437564,
+        1.072902999908365,
+        1.0889919999499398,
+        1.079719000017576,
+        1.088960000060979,
+        1.0644300000421936,
+        1.066031000050316,
+        1.0764630000039688,
+        1.0706309999477526,
+        1.089359000047807,
+        1.0604469999861976,
+        1.0458790000029694,
+        1.0427019999497134,
+        1.1056320000761843,
+        1.0592470000574394,
+        1.08067899998332,
+        1.0835030000180268,
+        1.0675910000372824,
+        1.0743029999957798,
+        1.0568870000042807,
+        1.0463500000241766,
+        1.0413899999548448,
+        1.1963950000790646,
+        1.061638999999559,
+        1.0717589999558186,
+        1.040278000004946,
+        1.0595109999940178
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "min_ms": 0.612137999951301,
+      "median_ms": 0.6450624999843058,
+      "p95_ms": 0.6887079999842172,
+      "rss_mb": 29.4609375,
+      "error": null,
+      "samples_ms": [
+        0.6887079999842172,
+        0.6763000000091779,
+        0.6303620000380761,
+        0.6387870000708062,
+        0.6422339999971882,
+        0.6599870000627561,
+        0.6555790000675188,
+        0.6928919999609207,
+        0.6691309999951045,
+        0.6318980000514784,
+        0.6354739999778758,
+        0.6499379999240773,
+        0.6405300000551506,
+        0.6745160000036776,
+        0.6400190000022121,
+        0.6504589999849486,
+        0.612137999951301,
+        0.6245299999818599,
+        0.6575870000915529,
+        0.6322340000224358,
+        0.6471309999369623,
+        0.6284669999558901,
+        0.617337999983647,
+        0.6609800000205723,
+        0.6483309999794074,
+        0.6429940000316492,
+        0.6258820000084597,
+        0.6411790000129258,
+        0.6633710000869542,
+        0.6471789999977773
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "min_ms": 4.799843000000692,
+      "median_ms": 4.843536000009863,
+      "p95_ms": 4.8828940000475995,
+      "rss_mb": 29.4609375,
+      "error": null,
+      "samples_ms": [
+        4.863437000039994,
+        4.853812999954243,
+        4.861669000092661,
+        4.8595250000289525,
+        4.8828940000475995,
+        4.883685999971021,
+        4.864629000053355,
+        4.873845000020083,
+        4.83505200008949,
+        4.830468000022847,
+        4.857677000018157,
+        4.842660000008436,
+        4.856797000002189,
+        4.851740999924914,
+        4.8170679999657295,
+        4.837773000076595,
+        4.8388520000344215,
+        4.810755000107747,
+        4.854188999956932,
+        4.8110599999517945,
+        4.850220999969679,
+        4.799843000000692,
+        4.810002999988683,
+        4.838572999915414,
+        4.815964000044914,
+        4.8295799999777955,
+        4.813619999936236,
+        4.844412000011289,
+        4.820539999968787,
+        4.849524999940513
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "min_ms": 0.05136899994795385,
+      "median_ms": 0.053349500035437813,
+      "p95_ms": 0.07383399997706874,
+      "rss_mb": 29.4765625,
+      "error": null,
+      "samples_ms": [
+        0.05136899994795385,
+        0.05315399994287873,
+        0.07383399997706874,
+        0.05276199999570963,
+        0.05209799996919173,
+        0.05204100000355538,
+        0.05375299997467664,
+        0.053346000072451716,
+        0.0523620000194569,
+        0.05258600003799074,
+        0.05216900001414615,
+        0.052505999974528095,
+        0.051842000061697036,
+        0.05231300008290418,
+        0.0524970000697067,
+        0.05335299999842391,
+        0.05497000006471353,
+        0.05359299996143818,
+        0.05383399991387705,
+        0.05353699998522643,
+        0.05308200002218655,
+        0.052858000003652705,
+        0.0796100000570732,
+        0.055250000059459126,
+        0.05475299997215188,
+        0.054954000006546266,
+        0.055561999943165574,
+        0.05580200001986668,
+        0.05490599994573131,
+        0.055457000030401105
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "min_ms": 0.050977999990209355,
+      "median_ms": 0.05294150003010145,
+      "p95_ms": 0.07013800006916426,
+      "rss_mb": 29.4765625,
+      "error": null,
+      "samples_ms": [
+        0.050977999990209355,
+        0.052777000064452295,
+        0.05286500004331174,
+        0.05238500000359636,
+        0.07013800006916426,
+        0.05244999999831634,
+        0.05409799996414222,
+        0.052994000043327105,
+        0.05325000006450864,
+        0.05181699998502154,
+        0.05246600005648361,
+        0.051000999974348815,
+        0.0521130000379344,
+        0.05206599996654404,
+        0.05235399999037327,
+        0.051706000022022636,
+        0.053985000022294116,
+        0.054600999987997056,
+        0.053657999956158164,
+        0.051697000003514404,
+        0.0528890000168758,
+        0.053554000032818294,
+        0.05310599999575061,
+        0.07806600001458719,
+        0.05326600000898907,
+        0.05449000002499815,
+        0.054832999921927694,
+        0.0528659999190495,
+        0.05370500002754852,
+        0.053530000059254235
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "min_ms": 0.05477700005940278,
+      "median_ms": 0.056653500053016614,
+      "p95_ms": 0.07440299998506816,
+      "rss_mb": 29.4765625,
+      "error": null,
+      "samples_ms": [
+        0.08573000002343178,
+        0.0552100000277278,
+        0.057041999980356195,
+        0.057088999938059715,
+        0.05579399999078305,
+        0.05477700005940278,
+        0.07440299998506816,
+        0.056562000054327655,
+        0.05530600003567088,
+        0.05606499996702041,
+        0.056128999972315796,
+        0.055409000083272986,
+        0.055800999916755245,
+        0.05600199995114963,
+        0.056586000027891714,
+        0.05666500010192976,
+        0.057178000020030595,
+        0.05625000005693437,
+        0.05622499998025887,
+        0.0571460000173829,
+        0.056002000064836466,
+        0.056642000004103465,
+        0.057953999998971995,
+        0.05769799997779046,
+        0.05762500006767368,
+        0.05802500004392641,
+        0.0731139999743391,
+        0.05771399992227089,
+        0.05828999996992934,
+        0.05737699996188894
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "min_ms": 0.06462499993631354,
+      "median_ms": 0.06661800000529183,
+      "p95_ms": 0.08534699998108408,
+      "rss_mb": 29.4765625,
+      "error": null,
+      "samples_ms": [
+        0.06739399998423323,
+        0.0657220000448433,
+        0.06732999997893785,
+        0.0664980000237847,
+        0.06572199993115646,
+        0.06622600005812274,
+        0.06826599997111771,
+        0.06652199999734876,
+        0.06468200001563673,
+        0.06585799997083086,
+        0.06500999995751044,
+        0.06546600002366176,
+        0.06507299997338123,
+        0.0654179999628468,
+        0.09152999996331346,
+        0.08453899999949499,
+        0.06462499993631354,
+        0.08101899993562256,
+        0.06671400001323491,
+        0.06522599994696066,
+        0.08438600002591556,
+        0.06595399997877394,
+        0.06652199999734876,
+        0.06809000001339882,
+        0.06743400001596456,
+        0.06874600001083309,
+        0.06792199997107673,
+        0.06683399999474204,
+        0.06782600007682049,
+        0.08534699998108408
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "min_ms": 0.22486300008495164,
+      "median_ms": 0.2292510000074799,
+      "p95_ms": 0.25128799995854934,
+      "rss_mb": 29.4765625,
+      "error": null,
+      "samples_ms": [
+        0.23407099990890856,
+        0.25371200001700345,
+        0.22824600000603823,
+        0.22805499997957668,
+        0.227678999976888,
+        0.22651099993709067,
+        0.22634200001903082,
+        0.22899099997175654,
+        0.22547000003214634,
+        0.22547100002157094,
+        0.22486300008495164,
+        0.22533499998189654,
+        0.22729500005880254,
+        0.22715800002970354,
+        0.22983000008025556,
+        0.22951100004320324,
+        0.24253499998394545,
+        0.22759000000860397,
+        0.2415590000737211,
+        0.2257429999872329,
+        0.22807100003774394,
+        0.25128799995854934,
+        0.23092599997198704,
+        0.22994199991899222,
+        0.23087900001428352,
+        0.23060699993493472,
+        0.2301990000432852,
+        0.23082299992438493,
+        0.22999799989520398,
+        0.22999099996923178
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "min_ms": 0.4581169999937629,
+      "median_ms": 0.47355399999560177,
+      "p95_ms": 0.4815180000150576,
+      "rss_mb": 29.4765625,
+      "error": null,
+      "samples_ms": [
+        0.46233299997311406,
+        0.48111799992511806,
+        0.4813980000335505,
+        0.4599410000309945,
+        0.4581169999937629,
+        0.45832499995412945,
+        0.4606699999385455,
+        0.47312599997439975,
+        0.4757740000513877,
+        0.4755580000619375,
+        0.46089299996765476,
+        0.46183799997834285,
+        0.4588609999700566,
+        0.45866900006785727,
+        0.4781260000754628,
+        0.47706199995900533,
+        0.4765259999430782,
+        0.47625399997741624,
+        0.4792299999962779,
+        0.4739820000168038,
+        0.4761419999113059,
+        0.48238199997285847,
+        0.46352599997590005,
+        0.46053300002313335,
+        0.4758129999800076,
+        0.4670299999816052,
+        0.46437299999979587,
+        0.46650900003442075,
+        0.4815180000150576,
+        0.478837999935422
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "order_id": 0,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3329940000185161
+    },
+    {
+      "order_id": 1,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7818310000402562
+    },
+    {
+      "order_id": 2,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3875390000303014
+    },
+    {
+      "order_id": 3,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.525475000036749
+    },
+    {
+      "order_id": 4,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2980489999799829
+    },
+    {
+      "order_id": 5,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.77683100005288
+    },
+    {
+      "order_id": 6,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3510340000048018
+    },
+    {
+      "order_id": 7,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.552716000034707
+    },
+    {
+      "order_id": 8,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.29852099999061465
+    },
+    {
+      "order_id": 9,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7890069999803018
+    },
+    {
+      "order_id": 10,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3528739999865138
+    },
+    {
+      "order_id": 11,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.515362999995887
+    },
+    {
+      "order_id": 12,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3179770000087956
+    },
+    {
+      "order_id": 13,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7824709999795232
+    },
+    {
+      "order_id": 14,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3764030000183993
+    },
+    {
+      "order_id": 15,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.521187000023019
+    },
+    {
+      "order_id": 16,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2961040000855064
+    },
+    {
+      "order_id": 17,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7562060000054771
+    },
+    {
+      "order_id": 18,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.35085000001799926
+    },
+    {
+      "order_id": 19,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.513298999995641
+    },
+    {
+      "order_id": 20,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3202330000249276
+    },
+    {
+      "order_id": 21,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7751670000288868
+    },
+    {
+      "order_id": 22,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3677700000253026
+    },
+    {
+      "order_id": 23,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.521754999927907
+    },
+    {
+      "order_id": 24,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.29686499999570515
+    },
+    {
+      "order_id": 25,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7580699999607532
+    },
+    {
+      "order_id": 26,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3458340000861426
+    },
+    {
+      "order_id": 27,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.5359160000089105
+    },
+    {
+      "order_id": 28,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2975849999984348
+    },
+    {
+      "order_id": 29,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7744229999389063
+    },
+    {
+      "order_id": 30,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3681629999618963
+    },
+    {
+      "order_id": 31,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.51452300001165
+    },
+    {
+      "order_id": 32,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2984330000117552
+    },
+    {
+      "order_id": 33,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7844539999268818
+    },
+    {
+      "order_id": 34,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3518820000181222
+    },
+    {
+      "order_id": 35,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.52492399995208
+    },
+    {
+      "order_id": 36,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2985600000329214
+    },
+    {
+      "order_id": 37,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.777126999992106
+    },
+    {
+      "order_id": 38,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.35387499997341365
+    },
+    {
+      "order_id": 39,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.509251000058612
+    },
+    {
+      "order_id": 40,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2986399999826972
+    },
+    {
+      "order_id": 41,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7880389999854742
+    },
+    {
+      "order_id": 42,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3511380000418285
+    },
+    {
+      "order_id": 43,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.519635999940874
+    },
+    {
+      "order_id": 44,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2990890000091895
+    },
+    {
+      "order_id": 45,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.780446000021584
+    },
+    {
+      "order_id": 46,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3517060000604033
+    },
+    {
+      "order_id": 47,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.530211000087547
+    },
+    {
+      "order_id": 48,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3191460000380175
+    },
+    {
+      "order_id": 49,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7810470000322312
+    },
+    {
+      "order_id": 50,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.37064299999656214
+    },
+    {
+      "order_id": 51,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.535612000040601
+    },
+    {
+      "order_id": 52,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.29823199997736083
+    },
+    {
+      "order_id": 53,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.760030999913397
+    },
+    {
+      "order_id": 54,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.35137899999426736
+    },
+    {
+      "order_id": 55,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.511722999950507
+    },
+    {
+      "order_id": 56,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.30768900001021393
+    },
+    {
+      "order_id": 57,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7902549999698749
+    },
+    {
+      "order_id": 58,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3714829999807989
+    },
+    {
+      "order_id": 59,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.529131000026609
+    },
+    {
+      "order_id": 60,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.298368999892773
+    },
+    {
+      "order_id": 61,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7745899999918038
+    },
+    {
+      "order_id": 62,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.35204200003136066
+    },
+    {
+      "order_id": 63,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.520484000067881
+    },
+    {
+      "order_id": 64,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2975119999746312
+    },
+    {
+      "order_id": 65,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7807980000507087
+    },
+    {
+      "order_id": 66,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3526190000684437
+    },
+    {
+      "order_id": 67,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.552884000077029
+    },
+    {
+      "order_id": 68,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3137290000267967
+    },
+    {
+      "order_id": 69,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.8158389999834981
+    },
+    {
+      "order_id": 70,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3518830000075468
+    },
+    {
+      "order_id": 71,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.504954000026373
+    },
+    {
+      "order_id": 72,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.29771300000902556
+    },
+    {
+      "order_id": 73,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.765646999980163
+    },
+    {
+      "order_id": 74,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3525619999891205
+    },
+    {
+      "order_id": 75,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.537011999900642
+    },
+    {
+      "order_id": 76,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3134739999950398
+    },
+    {
+      "order_id": 77,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7805829999369962
+    },
+    {
+      "order_id": 78,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.36822599997776706
+    },
+    {
+      "order_id": 79,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.536203000043315
+    },
+    {
+      "order_id": 80,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2959359999294975
+    },
+    {
+      "order_id": 81,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7602059999953781
+    },
+    {
+      "order_id": 82,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3516430000445325
+    },
+    {
+      "order_id": 83,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.519435000020167
+    },
+    {
+      "order_id": 84,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3219530000251325
+    },
+    {
+      "order_id": 85,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7842780000828498
+    },
+    {
+      "order_id": 86,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.37834700003713806
+    },
+    {
+      "order_id": 87,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.553611999995155
+    },
+    {
+      "order_id": 88,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.29824099999586906
+    },
+    {
+      "order_id": 89,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7965110000895947
+    },
+    {
+      "order_id": 90,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3525379999018696
+    },
+    {
+      "order_id": 91,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.562541000041165
+    },
+    {
+      "order_id": 92,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.300263999974959
+    },
+    {
+      "order_id": 93,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.761925999995583
+    },
+    {
+      "order_id": 94,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.35327399996276654
+    },
+    {
+      "order_id": 95,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.524786999922981
+    },
+    {
+      "order_id": 96,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.29936099997485144
+    },
+    {
+      "order_id": 97,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7911980000017138
+    },
+    {
+      "order_id": 98,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3555539999524626
+    },
+    {
+      "order_id": 99,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.542556000046716
+    },
+    {
+      "order_id": 100,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.32539299991185544
+    },
+    {
+      "order_id": 101,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7864869999139046
+    },
+    {
+      "order_id": 102,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.40930000000116706
+    },
+    {
+      "order_id": 103,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.610013999922558
+    },
+    {
+      "order_id": 104,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3003520000675053
+    },
+    {
+      "order_id": 105,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7881509999378977
+    },
+    {
+      "order_id": 106,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.35229100001288316
+    },
+    {
+      "order_id": 107,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.542691999972703
+    },
+    {
+      "order_id": 108,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3000479999855088
+    },
+    {
+      "order_id": 109,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7665260000067065
+    },
+    {
+      "order_id": 110,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3529699999944569
+    },
+    {
+      "order_id": 111,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.534523999950579
+    },
+    {
+      "order_id": 112,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3003449999141594
+    },
+    {
+      "order_id": 113,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7931029999781458
+    },
+    {
+      "order_id": 114,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.35594700000274315
+    },
+    {
+      "order_id": 115,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.556068000056257
+    },
+    {
+      "order_id": 116,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.32905000000482687
+    },
+    {
+      "order_id": 117,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.791895000020304
+    },
+    {
+      "order_id": 118,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.37845899998956156
+    },
+    {
+      "order_id": 119,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.546780000055151
+    },
+    {
+      "order_id": 120,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5709609999939858
+    },
+    {
+      "order_id": 121,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.179761999992479
+    },
+    {
+      "order_id": 122,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6887079999842172
+    },
+    {
+      "order_id": 123,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.863437000039994
+    },
+    {
+      "order_id": 124,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5844650000881302
+    },
+    {
+      "order_id": 125,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.1083130000315577
+    },
+    {
+      "order_id": 126,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6763000000091779
+    },
+    {
+      "order_id": 127,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.853812999954243
+    },
+    {
+      "order_id": 128,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5857529999957478
+    },
+    {
+      "order_id": 129,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0773750000225846
+    },
+    {
+      "order_id": 130,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6303620000380761
+    },
+    {
+      "order_id": 131,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.861669000092661
+    },
+    {
+      "order_id": 132,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5792089999658856
+    },
+    {
+      "order_id": 133,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0997440000437564
+    },
+    {
+      "order_id": 134,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6387870000708062
+    },
+    {
+      "order_id": 135,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.8595250000289525
+    },
+    {
+      "order_id": 136,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5933690000574643
+    },
+    {
+      "order_id": 137,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.072902999908365
+    },
+    {
+      "order_id": 138,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6422339999971882
+    },
+    {
+      "order_id": 139,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.8828940000475995
+    },
+    {
+      "order_id": 140,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5898010000464637
+    },
+    {
+      "order_id": 141,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0889919999499398
+    },
+    {
+      "order_id": 142,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6599870000627561
+    },
+    {
+      "order_id": 143,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.883685999971021
+    },
+    {
+      "order_id": 144,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.580840999987231
+    },
+    {
+      "order_id": 145,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.079719000017576
+    },
+    {
+      "order_id": 146,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6555790000675188
+    },
+    {
+      "order_id": 147,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.864629000053355
+    },
+    {
+      "order_id": 148,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6047699999953693
+    },
+    {
+      "order_id": 149,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.088960000060979
+    },
+    {
+      "order_id": 150,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6928919999609207
+    },
+    {
+      "order_id": 151,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.873845000020083
+    },
+    {
+      "order_id": 152,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6206099999417347
+    },
+    {
+      "order_id": 153,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0644300000421936
+    },
+    {
+      "order_id": 154,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6691309999951045
+    },
+    {
+      "order_id": 155,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.83505200008949
+    },
+    {
+      "order_id": 156,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5643360000249231
+    },
+    {
+      "order_id": 157,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.066031000050316
+    },
+    {
+      "order_id": 158,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6318980000514784
+    },
+    {
+      "order_id": 159,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.830468000022847
+    },
+    {
+      "order_id": 160,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6208419999893522
+    },
+    {
+      "order_id": 161,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0764630000039688
+    },
+    {
+      "order_id": 162,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6354739999778758
+    },
+    {
+      "order_id": 163,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.857677000018157
+    },
+    {
+      "order_id": 164,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5940180000152395
+    },
+    {
+      "order_id": 165,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0706309999477526
+    },
+    {
+      "order_id": 166,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6499379999240773
+    },
+    {
+      "order_id": 167,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.842660000008436
+    },
+    {
+      "order_id": 168,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5685930000254302
+    },
+    {
+      "order_id": 169,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.089359000047807
+    },
+    {
+      "order_id": 170,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6405300000551506
+    },
+    {
+      "order_id": 171,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.856797000002189
+    },
+    {
+      "order_id": 172,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5816969999159483
+    },
+    {
+      "order_id": 173,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0604469999861976
+    },
+    {
+      "order_id": 174,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6745160000036776
+    },
+    {
+      "order_id": 175,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.851740999924914
+    },
+    {
+      "order_id": 176,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5908809999937148
+    },
+    {
+      "order_id": 177,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0458790000029694
+    },
+    {
+      "order_id": 178,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6400190000022121
+    },
+    {
+      "order_id": 179,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.8170679999657295
+    },
+    {
+      "order_id": 180,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5828409999821815
+    },
+    {
+      "order_id": 181,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0427019999497134
+    },
+    {
+      "order_id": 182,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6504589999849486
+    },
+    {
+      "order_id": 183,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.837773000076595
+    },
+    {
+      "order_id": 184,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5494159998988835
+    },
+    {
+      "order_id": 185,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.1056320000761843
+    },
+    {
+      "order_id": 186,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.612137999951301
+    },
+    {
+      "order_id": 187,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.8388520000344215
+    },
+    {
+      "order_id": 188,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.57203300002584
+    },
+    {
+      "order_id": 189,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0592470000574394
+    },
+    {
+      "order_id": 190,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6245299999818599
+    },
+    {
+      "order_id": 191,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.810755000107747
+    },
+    {
+      "order_id": 192,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.643138999976145
+    },
+    {
+      "order_id": 193,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.08067899998332
+    },
+    {
+      "order_id": 194,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6575870000915529
+    },
+    {
+      "order_id": 195,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.854188999956932
+    },
+    {
+      "order_id": 196,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5748009999706483
+    },
+    {
+      "order_id": 197,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0835030000180268
+    },
+    {
+      "order_id": 198,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6322340000224358
+    },
+    {
+      "order_id": 199,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.8110599999517945
+    },
+    {
+      "order_id": 200,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5382479999980205
+    },
+    {
+      "order_id": 201,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0675910000372824
+    },
+    {
+      "order_id": 202,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6471309999369623
+    },
+    {
+      "order_id": 203,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.850220999969679
+    },
+    {
+      "order_id": 204,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5645200000117256
+    },
+    {
+      "order_id": 205,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0743029999957798
+    },
+    {
+      "order_id": 206,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6284669999558901
+    },
+    {
+      "order_id": 207,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.799843000000692
+    },
+    {
+      "order_id": 208,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.571960999991461
+    },
+    {
+      "order_id": 209,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0568870000042807
+    },
+    {
+      "order_id": 210,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.617337999983647
+    },
+    {
+      "order_id": 211,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.810002999988683
+    },
+    {
+      "order_id": 212,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5297120000022915
+    },
+    {
+      "order_id": 213,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0463500000241766
+    },
+    {
+      "order_id": 214,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6609800000205723
+    },
+    {
+      "order_id": 215,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.838572999915414
+    },
+    {
+      "order_id": 216,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5847609999136694
+    },
+    {
+      "order_id": 217,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0413899999548448
+    },
+    {
+      "order_id": 218,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6483309999794074
+    },
+    {
+      "order_id": 219,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.815964000044914
+    },
+    {
+      "order_id": 220,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5557839999710268
+    },
+    {
+      "order_id": 221,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.1963950000790646
+    },
+    {
+      "order_id": 222,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6429940000316492
+    },
+    {
+      "order_id": 223,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.8295799999777955
+    },
+    {
+      "order_id": 224,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5661120000013398
+    },
+    {
+      "order_id": 225,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.061638999999559
+    },
+    {
+      "order_id": 226,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6258820000084597
+    },
+    {
+      "order_id": 227,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.813619999936236
+    },
+    {
+      "order_id": 228,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.591440999983206
+    },
+    {
+      "order_id": 229,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0717589999558186
+    },
+    {
+      "order_id": 230,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6411790000129258
+    },
+    {
+      "order_id": 231,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.844412000011289
+    },
+    {
+      "order_id": 232,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6144970000150352
+    },
+    {
+      "order_id": 233,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.040278000004946
+    },
+    {
+      "order_id": 234,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6633710000869542
+    },
+    {
+      "order_id": 235,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.820539999968787
+    },
+    {
+      "order_id": 236,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5469040000889436
+    },
+    {
+      "order_id": 237,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0595109999940178
+    },
+    {
+      "order_id": 238,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6471789999977773
+    },
+    {
+      "order_id": 239,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.849524999940513
+    },
+    {
+      "order_id": 240,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05136899994795385
+    },
+    {
+      "order_id": 241,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.050977999990209355
+    },
+    {
+      "order_id": 242,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.08573000002343178
+    },
+    {
+      "order_id": 243,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06739399998423323
+    },
+    {
+      "order_id": 244,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23407099990890856
+    },
+    {
+      "order_id": 245,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.46233299997311406
+    },
+    {
+      "order_id": 246,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05315399994287873
+    },
+    {
+      "order_id": 247,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.052777000064452295
+    },
+    {
+      "order_id": 248,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0552100000277278
+    },
+    {
+      "order_id": 249,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0657220000448433
+    },
+    {
+      "order_id": 250,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.25371200001700345
+    },
+    {
+      "order_id": 251,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.48111799992511806
+    },
+    {
+      "order_id": 252,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.07383399997706874
+    },
+    {
+      "order_id": 253,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05286500004331174
+    },
+    {
+      "order_id": 254,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.057041999980356195
+    },
+    {
+      "order_id": 255,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06732999997893785
+    },
+    {
+      "order_id": 256,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22824600000603823
+    },
+    {
+      "order_id": 257,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4813980000335505
+    },
+    {
+      "order_id": 258,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05276199999570963
+    },
+    {
+      "order_id": 259,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05238500000359636
+    },
+    {
+      "order_id": 260,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.057088999938059715
+    },
+    {
+      "order_id": 261,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0664980000237847
+    },
+    {
+      "order_id": 262,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22805499997957668
+    },
+    {
+      "order_id": 263,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4599410000309945
+    },
+    {
+      "order_id": 264,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05209799996919173
+    },
+    {
+      "order_id": 265,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.07013800006916426
+    },
+    {
+      "order_id": 266,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05579399999078305
+    },
+    {
+      "order_id": 267,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06572199993115646
+    },
+    {
+      "order_id": 268,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.227678999976888
+    },
+    {
+      "order_id": 269,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4581169999937629
+    },
+    {
+      "order_id": 270,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05204100000355538
+    },
+    {
+      "order_id": 271,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05244999999831634
+    },
+    {
+      "order_id": 272,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05477700005940278
+    },
+    {
+      "order_id": 273,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06622600005812274
+    },
+    {
+      "order_id": 274,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22651099993709067
+    },
+    {
+      "order_id": 275,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.45832499995412945
+    },
+    {
+      "order_id": 276,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05375299997467664
+    },
+    {
+      "order_id": 277,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05409799996414222
+    },
+    {
+      "order_id": 278,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.07440299998506816
+    },
+    {
+      "order_id": 279,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06826599997111771
+    },
+    {
+      "order_id": 280,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22634200001903082
+    },
+    {
+      "order_id": 281,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4606699999385455
+    },
+    {
+      "order_id": 282,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.053346000072451716
+    },
+    {
+      "order_id": 283,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.052994000043327105
+    },
+    {
+      "order_id": 284,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.056562000054327655
+    },
+    {
+      "order_id": 285,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06652199999734876
+    },
+    {
+      "order_id": 286,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22899099997175654
+    },
+    {
+      "order_id": 287,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.47312599997439975
+    },
+    {
+      "order_id": 288,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.0523620000194569
+    },
+    {
+      "order_id": 289,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05325000006450864
+    },
+    {
+      "order_id": 290,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05530600003567088
+    },
+    {
+      "order_id": 291,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06468200001563673
+    },
+    {
+      "order_id": 292,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22547000003214634
+    },
+    {
+      "order_id": 293,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4757740000513877
+    },
+    {
+      "order_id": 294,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05258600003799074
+    },
+    {
+      "order_id": 295,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05181699998502154
+    },
+    {
+      "order_id": 296,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05606499996702041
+    },
+    {
+      "order_id": 297,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06585799997083086
+    },
+    {
+      "order_id": 298,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22547100002157094
+    },
+    {
+      "order_id": 299,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4755580000619375
+    },
+    {
+      "order_id": 300,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05216900001414615
+    },
+    {
+      "order_id": 301,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05246600005648361
+    },
+    {
+      "order_id": 302,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.056128999972315796
+    },
+    {
+      "order_id": 303,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06500999995751044
+    },
+    {
+      "order_id": 304,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22486300008495164
+    },
+    {
+      "order_id": 305,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.46089299996765476
+    },
+    {
+      "order_id": 306,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.052505999974528095
+    },
+    {
+      "order_id": 307,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.051000999974348815
+    },
+    {
+      "order_id": 308,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.055409000083272986
+    },
+    {
+      "order_id": 309,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06546600002366176
+    },
+    {
+      "order_id": 310,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22533499998189654
+    },
+    {
+      "order_id": 311,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.46183799997834285
+    },
+    {
+      "order_id": 312,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.051842000061697036
+    },
+    {
+      "order_id": 313,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.0521130000379344
+    },
+    {
+      "order_id": 314,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.055800999916755245
+    },
+    {
+      "order_id": 315,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06507299997338123
+    },
+    {
+      "order_id": 316,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22729500005880254
+    },
+    {
+      "order_id": 317,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4588609999700566
+    },
+    {
+      "order_id": 318,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05231300008290418
+    },
+    {
+      "order_id": 319,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05206599996654404
+    },
+    {
+      "order_id": 320,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05600199995114963
+    },
+    {
+      "order_id": 321,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0654179999628468
+    },
+    {
+      "order_id": 322,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22715800002970354
+    },
+    {
+      "order_id": 323,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.45866900006785727
+    },
+    {
+      "order_id": 324,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.0524970000697067
+    },
+    {
+      "order_id": 325,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05235399999037327
+    },
+    {
+      "order_id": 326,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.056586000027891714
+    },
+    {
+      "order_id": 327,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.09152999996331346
+    },
+    {
+      "order_id": 328,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22983000008025556
+    },
+    {
+      "order_id": 329,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4781260000754628
+    },
+    {
+      "order_id": 330,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05335299999842391
+    },
+    {
+      "order_id": 331,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.051706000022022636
+    },
+    {
+      "order_id": 332,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05666500010192976
+    },
+    {
+      "order_id": 333,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.08453899999949499
+    },
+    {
+      "order_id": 334,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22951100004320324
+    },
+    {
+      "order_id": 335,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.47706199995900533
+    },
+    {
+      "order_id": 336,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05497000006471353
+    },
+    {
+      "order_id": 337,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.053985000022294116
+    },
+    {
+      "order_id": 338,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.057178000020030595
+    },
+    {
+      "order_id": 339,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06462499993631354
+    },
+    {
+      "order_id": 340,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.24253499998394545
+    },
+    {
+      "order_id": 341,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4765259999430782
+    },
+    {
+      "order_id": 342,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05359299996143818
+    },
+    {
+      "order_id": 343,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.054600999987997056
+    },
+    {
+      "order_id": 344,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05625000005693437
+    },
+    {
+      "order_id": 345,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.08101899993562256
+    },
+    {
+      "order_id": 346,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22759000000860397
+    },
+    {
+      "order_id": 347,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.47625399997741624
+    },
+    {
+      "order_id": 348,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05383399991387705
+    },
+    {
+      "order_id": 349,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.053657999956158164
+    },
+    {
+      "order_id": 350,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05622499998025887
+    },
+    {
+      "order_id": 351,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06671400001323491
+    },
+    {
+      "order_id": 352,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.2415590000737211
+    },
+    {
+      "order_id": 353,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4792299999962779
+    },
+    {
+      "order_id": 354,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05353699998522643
+    },
+    {
+      "order_id": 355,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.051697000003514404
+    },
+    {
+      "order_id": 356,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0571460000173829
+    },
+    {
+      "order_id": 357,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06522599994696066
+    },
+    {
+      "order_id": 358,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.2257429999872329
+    },
+    {
+      "order_id": 359,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4739820000168038
+    },
+    {
+      "order_id": 360,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05308200002218655
+    },
+    {
+      "order_id": 361,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.0528890000168758
+    },
+    {
+      "order_id": 362,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.056002000064836466
+    },
+    {
+      "order_id": 363,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.08438600002591556
+    },
+    {
+      "order_id": 364,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22807100003774394
+    },
+    {
+      "order_id": 365,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4761419999113059
+    },
+    {
+      "order_id": 366,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.052858000003652705
+    },
+    {
+      "order_id": 367,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.053554000032818294
+    },
+    {
+      "order_id": 368,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.056642000004103465
+    },
+    {
+      "order_id": 369,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06595399997877394
+    },
+    {
+      "order_id": 370,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.25128799995854934
+    },
+    {
+      "order_id": 371,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.48238199997285847
+    },
+    {
+      "order_id": 372,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.0796100000570732
+    },
+    {
+      "order_id": 373,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05310599999575061
+    },
+    {
+      "order_id": 374,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.057953999998971995
+    },
+    {
+      "order_id": 375,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06652199999734876
+    },
+    {
+      "order_id": 376,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23092599997198704
+    },
+    {
+      "order_id": 377,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.46352599997590005
+    },
+    {
+      "order_id": 378,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.055250000059459126
+    },
+    {
+      "order_id": 379,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.07806600001458719
+    },
+    {
+      "order_id": 380,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05769799997779046
+    },
+    {
+      "order_id": 381,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06809000001339882
+    },
+    {
+      "order_id": 382,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22994199991899222
+    },
+    {
+      "order_id": 383,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.46053300002313335
+    },
+    {
+      "order_id": 384,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05475299997215188
+    },
+    {
+      "order_id": 385,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05326600000898907
+    },
+    {
+      "order_id": 386,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05762500006767368
+    },
+    {
+      "order_id": 387,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06743400001596456
+    },
+    {
+      "order_id": 388,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23087900001428352
+    },
+    {
+      "order_id": 389,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4758129999800076
+    },
+    {
+      "order_id": 390,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.054954000006546266
+    },
+    {
+      "order_id": 391,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05449000002499815
+    },
+    {
+      "order_id": 392,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05802500004392641
+    },
+    {
+      "order_id": 393,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06874600001083309
+    },
+    {
+      "order_id": 394,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23060699993493472
+    },
+    {
+      "order_id": 395,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4670299999816052
+    },
+    {
+      "order_id": 396,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.055561999943165574
+    },
+    {
+      "order_id": 397,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.054832999921927694
+    },
+    {
+      "order_id": 398,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0731139999743391
+    },
+    {
+      "order_id": 399,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06792199997107673
+    },
+    {
+      "order_id": 400,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.2301990000432852
+    },
+    {
+      "order_id": 401,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.46437299999979587
+    },
+    {
+      "order_id": 402,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05580200001986668
+    },
+    {
+      "order_id": 403,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.0528659999190495
+    },
+    {
+      "order_id": 404,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05771399992227089
+    },
+    {
+      "order_id": 405,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06683399999474204
+    },
+    {
+      "order_id": 406,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23082299992438493
+    },
+    {
+      "order_id": 407,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.46650900003442075
+    },
+    {
+      "order_id": 408,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05490599994573131
+    },
+    {
+      "order_id": 409,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05370500002754852
+    },
+    {
+      "order_id": 410,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05828999996992934
+    },
+    {
+      "order_id": 411,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06782600007682049
+    },
+    {
+      "order_id": 412,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22999799989520398
+    },
+    {
+      "order_id": 413,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4815180000150576
+    },
+    {
+      "order_id": 414,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.055457000030401105
+    },
+    {
+      "order_id": 415,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.053530000059254235
+    },
+    {
+      "order_id": 416,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05737699996188894
+    },
+    {
+      "order_id": 417,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.08534699998108408
+    },
+    {
+      "order_id": 418,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22999099996923178
+    },
+    {
+      "order_id": 419,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.478837999935422
+    }
+  ]
+}

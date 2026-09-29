@@ -10,13 +10,12 @@
 #include "strata/util/temporal.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <string_view>
 
 namespace strata::util {
 
 namespace {
-
-constexpr char kHexDigits[] = "0123456789abcdef";
 
 /// Days per month of a common year, January first.
 constexpr uint8_t kDaysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -31,6 +30,28 @@ constexpr size_t kMinDateTimeLength = kDateLength + 1 + kTimeLength;
 inline void write_two(uint32_t value, char* out) noexcept {
     out[0] = static_cast<char>('0' + value / 10 % 10);
     out[1] = static_cast<char>('0' + value % 10);
+}
+
+/**
+ * The eight lowercase hex digits of @p value, most significant first, with no
+ * per-digit loop: the nibbles are spread one per byte of a 64-bit word (byte
+ * i holds nibble i), each byte becomes its ASCII digit by one add -- `'0'`,
+ * plus `'a' - '0' - 10` where the nibble is 10 or more, a flag read from bit
+ * 4 of nibble + 6 -- and the bytes are stored most significant first. No
+ * byte can carry into its neighbour (at most 15 + 6 before the flag, 15 + 87
+ * after), and the shifts fix the order independently of the host's
+ * endianness. Equal to the table lookup per digit it replaced
+ * (tests/cpp/test_temporal.cpp checks it against that reference).
+ */
+inline void write_hex8(uint32_t value, char* out) noexcept {
+    uint64_t x = value;
+    x = ((x & 0xFFFF0000ULL) << 16) | (x & 0x0000FFFFULL);
+    x = ((x & 0x0000FF000000FF00ULL) << 8) | (x & 0x000000FF000000FFULL);
+    x = ((x & 0x00F000F000F000F0ULL) << 4) | (x & 0x000F000F000F000FULL);
+    const uint64_t letters = ((x + 0x0606060606060606ULL) >> 4) & 0x0101010101010101ULL;
+    x += 0x3030303030303030ULL + letters * static_cast<uint64_t>('a' - '0' - 10);
+    for (int index = 0; index < 8; ++index)
+        out[index] = static_cast<char>(x >> (8 * (7 - index)));
 }
 
 [[nodiscard]] inline bool is_digit(char c) noexcept {
@@ -198,15 +219,21 @@ size_t format_utc_offset(int64_t seconds, char* out) noexcept {
 }
 
 size_t format_uuid(uint64_t hi, uint64_t lo, char* out) noexcept {
-    size_t pos = 0;
-    for (size_t digit = 0; digit < 32; ++digit) {
-        if (digit == 8 || digit == 12 || digit == 16 || digit == 20) {
-            out[pos++] = '-';
-        }
-        const uint64_t half = digit < 16 ? hi : lo;
-        const unsigned shift = static_cast<unsigned>(60 - 4 * (digit % 16));
-        out[pos++] = kHexDigits[(half >> shift) & 0xF];
-    }
+    // The 32 digits first, eight at a time, then the 8-4-4-4-12 grouping.
+    char hex[32];
+    write_hex8(static_cast<uint32_t>(hi >> 32), hex);
+    write_hex8(static_cast<uint32_t>(hi), hex + 8);
+    write_hex8(static_cast<uint32_t>(lo >> 32), hex + 16);
+    write_hex8(static_cast<uint32_t>(lo), hex + 24);
+    std::memcpy(out, hex, 8);
+    out[8] = '-';
+    std::memcpy(out + 9, hex + 8, 4);
+    out[13] = '-';
+    std::memcpy(out + 14, hex + 12, 4);
+    out[18] = '-';
+    std::memcpy(out + 19, hex + 16, 4);
+    out[23] = '-';
+    std::memcpy(out + 24, hex + 20, 12);
     return kUuidLength;
 }
 

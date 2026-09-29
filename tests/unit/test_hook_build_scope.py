@@ -30,12 +30,28 @@ class _Extension:
         self.__dict__.update(kwargs)
 
 
-def _extensions(monkeypatch, tmp_path, mode: str, lto: str) -> dict[str, _Extension]:
-    """setup.py's Extensions under one PGO phase, read without setuptools."""
+def _extensions(
+    monkeypatch, tmp_path, mode: str, lto: str, **hook_env: str
+) -> dict[str, _Extension]:
+    """setup.py's Extensions under one PGO phase, read without setuptools.
+
+    `hook_env` sets the hook's own variables (STRATA_HOOK_PGO_MODE, ...);
+    unnamed ones are cleared, so a phase-3 environment around the test run
+    cannot leak into what `_strata`'s phases are pinned to produce.
+    """
     profile = tmp_path / "strata.profile"
     profile.write_bytes(b"")
-    for name in ("SKIP_TESTS", "STRATA_WIN_COMPILER", "STRATA_MARCH"):
+    for name in (
+        "SKIP_TESTS",
+        "STRATA_WIN_COMPILER",
+        "STRATA_MARCH",
+        "STRATA_HOOK_PGO_MODE",
+        "STRATA_HOOK_PGO_PROFILE",
+        "STRATA_EXTENSIONS",
+    ):
         monkeypatch.delenv(name, raising=False)
+    for name, value in hook_env.items():
+        monkeypatch.setenv(name, value)
     monkeypatch.setenv("PGO_MODE", mode)
     monkeypatch.setenv("STRATA_ENABLE_LTO", lto)
     monkeypatch.setenv("STRATA_PGO_PROFILE", str(profile))

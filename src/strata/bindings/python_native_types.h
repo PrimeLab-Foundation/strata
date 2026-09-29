@@ -175,11 +175,18 @@ enum class DecimalText : uint8_t { Number, NonFinite, Error };
  * reference to a tuple of `str`. Cached per type, at most kFieldCacheLimit
  * types (a full cache is cleared). An entry is used only while the type's
  * `__dataclass_fields__` is an exact dict holding the keys and field objects
- * it held when read, by identity and in the same order, so a type whose fields
- * are replaced, grown, shrunk or swapped in place after its first use is read
- * again. Latched caller; nullptr with an error set.
+ * it held when read, by identity and in the same order, and each field still
+ * has the `name` and `_field_type` it had then (by identity), so a type whose
+ * fields are replaced, grown, shrunk, swapped, renamed or re-kinded in place
+ * after its first use is read again. Latched caller; nullptr with an error set.
+ *
+ * @p keys receives, when the names come from a cache entry, a new reference
+ * to a tuple of `bytes`: each name's JSON key exactly as the dataclass writer
+ * would emit it through the core escaper -- `,` ahead of every name but the
+ * first, the escaped name in quotes, `:` -- else nullptr (the writer then
+ * escapes each name itself, and a name with no UTF-8 encoding raises there).
  */
-[[nodiscard]] PyObject* dataclass_field_names(PyObject* object);
+[[nodiscard]] PyObject* dataclass_field_names(PyObject* object, PyObject*& keys);
 
 /// Types the dataclass field-name cache holds before it is cleared.
 inline constexpr Py_ssize_t kFieldCacheLimit = 1024;

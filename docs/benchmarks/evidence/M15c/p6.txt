@@ -1,0 +1,26 @@
+row             lib                  v6            v8   n
+rec             strata         242.01us      208.08us  180
+rec             msgspec        251.08us      251.49us  180
+                strata/msgspec [v6] 0.964
+                strata/msgspec [v8] 0.827
+                v8/v6 strata: median 0.8644 [0.8206, 0.8658] over 3 blocks
+rec-file        strata         327.79us      288.18us  180
+rec-file        msgspec        366.14us      364.26us  180
+                strata/msgspec [v6] 0.895
+                strata/msgspec [v8] 0.791
+                v8/v6 strata: median 0.9030 [0.8362, 0.9033] over 3 blocks
+plain-mixed     strata          30.25us       30.21us  180
+plain-mixed     msgspec         41.54us       41.53us  180
+                strata/msgspec [v6] 0.728
+                strata/msgspec [v8] 0.728
+                v8/v6 strata: median 0.9983 [0.9941, 0.9992] over 3 blocks
+t-enum          strata          73.13us       46.39us  180
+t-enum          msgspec         26.84us       26.82us  180
+                strata/msgspec [v6] 2.725
+                strata/msgspec [v8] 1.730
+                v8/v6 strata: median 0.6334 [0.6186, 0.6375] over 3 blocks
+t-dc            strata          98.61us       82.41us  180
+t-dc            msgspec         64.93us       64.59us  180
+                strata/msgspec [v6] 1.519
+                strata/msgspec [v8] 1.276
+                v8/v6 strata: median 0.8386 [0.8228, 0.8431] over 3 blocks

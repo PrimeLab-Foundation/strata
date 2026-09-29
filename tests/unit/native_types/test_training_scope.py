@@ -116,6 +116,11 @@ def _gated_build_ext(monkeypatch):
         "STRATA_WIN_COMPILER",
         "STRATA_MARCH",
         "SKIP_TESTS",
+        # The hook's own phase (scripts/pgo_build*.{sh,py} phase 3) runs this gate with
+        # these set; a plain build has none of them (run 36637770136, Windows).
+        "STRATA_HOOK_PGO_MODE",
+        "STRATA_HOOK_PGO_PROFILE",
+        "STRATA_EXTENSIONS",
     ):
         monkeypatch.delenv(name, raising=False)
     setuptools = types.ModuleType("setuptools")
@@ -148,3 +153,15 @@ def test_setup_gate_scopes_only_an_instrumented_build(monkeypatch, mode, trainin
     assert (layer, script) == ("Python", "py_tests.py")
     assert args[:2] == ("--path", str(facade.parent))
     assert ("--training" in args) is training
+
+
+def test_the_plain_build_reading_ignores_the_hook_phase_environment(monkeypatch):
+    # The hook's own PGO phase runs the build gate -- this suite included -- with its variables
+    # set; a reading of setup.py as a plain build must clear them. Run 36637770136's Windows gate
+    # failed here: STRATA_HOOK_PGO_MODE reached setup.py, whose default compiler there (MSVC)
+    # refuses it. An invalid mode fails the same way on every host.
+    monkeypatch.setenv("STRATA_HOOK_PGO_MODE", "not-a-mode")
+    monkeypatch.setenv("STRATA_HOOK_PGO_PROFILE", "/nonexistent/hook.profdata")
+    monkeypatch.setenv("STRATA_EXTENSIONS", "strata._dumps_hook")
+    command, _ = _gated_build_ext(monkeypatch)
+    assert command is not None

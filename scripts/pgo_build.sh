@@ -4,6 +4,9 @@
 #   phase 1  instrumented build (no LTO) -> training data -> training workload
 #            -> gate tests -> llvm-profdata merge
 #   phase 2  rebuild with the merged profile and LTO -> gate tests
+#   phase 3  (clang) the hook image alone: instrumented -> native training
+#            workload -> its own profile -> rebuild with it and LTO -> gate
+#            tests; _strata's image is checked unchanged
 #            -> verification benchmarks
 #
 # Both phases run the gate: an optimized build that fails its tests is worth
@@ -151,6 +154,71 @@ echo "==> PGO: the hook image must carry no profile"
 
 echo "==> PGO: gate tests on the optimized build"
 gate_tests
+
+# --- phase 3: the hook's own profile ---------------------------------------
+# strata._dumps_hook (native=True, parse_types, dumps_with_default) gets a
+# profile of its own, trained by a native workload once _strata is optimized
+# and uninstrumented, so no count of either image reaches the other's profile
+# (docs/architecture/native_types.md, "Hook profile"). Only the hook is
+# rebuilt (STRATA_EXTENSIONS), and _strata's image must come out unchanged.
+# clang only: the CI legs all build with clang; a gcc build keeps the hook plain.
+if [[ "$KIND" == "clang" ]]; then
+    HOOK_RAW_DIR="$PGO_DIR/hook-raw"
+    HOOK_GATE_DIR="$PGO_DIR/hook-gate-discarded"
+    HOOK_PROFILE="$ROOT_DIR/$PGO_DIR/hook.profdata"
+    mkdir -p "$HOOK_RAW_DIR" "$HOOK_GATE_DIR"
+    strata_image="$("$VPY" -c 'import importlib.util as u; print(u.find_spec("strata._strata").origin)')"
+    strata_hash="$(shasum -a 256 "$strata_image" | cut -d' ' -f1)"
+    unset PGO_MODE STRATA_PGO_PROFILE
+    export STRATA_ENABLE_LTO=0
+    export STRATA_EXTENSIONS=strata._dumps_hook
+
+    echo "==> PGO phase 3a: instrumented hook"
+    # The build gate runs against the instrumented hook; its counts go to a
+    # directory that is thrown away: the hook trains on its workload alone.
+    STRATA_HOOK_PGO_MODE=generate LLVM_PROFILE_FILE="$ROOT_DIR/$HOOK_GATE_DIR/%p-%m.profraw" \
+        "$VPY" -m pip install --force-reinstall --no-deps -e .
+    echo "==> PGO: the hook's native training workload"
+    LLVM_PROFILE_FILE="$ROOT_DIR/$HOOK_RAW_DIR/%p-%m.profraw" PYTHONPATH=. \
+        "$VPY" scripts/pgo_hook_training.py --work-dir "$WORK_DIR"
+    shopt -s nullglob
+    hook_raw=("$HOOK_RAW_DIR"/*.profraw)
+    shopt -u nullglob
+    if [[ "${#hook_raw[@]}" -eq 0 ]]; then
+        echo "Error: the hook's training wrote no .profraw -- it was not instrumented." >&2
+        exit 1
+    fi
+    hook_signatures="$(printf '%s\n' "${hook_raw[@]##*/}" |
+        sed -E 's/^[0-9]+-([0-9]+)_[0-9]+\.profraw$/\1/' | sort -u)"
+    if [[ "$(printf '%s\n' "$hook_signatures" | wc -l | tr -d ' ')" -ne 1 ]]; then
+        echo "Error: hook training profiles from more than one image: $(tr '\n' ' ' <<<"$hook_signatures")" >&2
+        exit 1
+    fi
+    merge_tool="$(profdata_tool)"
+    $merge_tool merge -output="$HOOK_PROFILE" "${hook_raw[@]}"
+    "$VPY" scripts/build_identity.py --profile "$HOOK_PROFILE" --raw "$HOOK_RAW_DIR" \
+        --recipe hook-native-training-v1
+
+    echo "==> PGO phase 3b: the hook against its own profile (+ LTO)"
+    STRATA_HOOK_PGO_MODE=use STRATA_HOOK_PGO_PROFILE="$HOOK_PROFILE" \
+        "$VPY" -m pip install --force-reinstall --no-deps -e .
+    unset STRATA_EXTENSIONS STRATA_ENABLE_LTO
+
+    echo "==> PGO: _strata unchanged, the hook on its own profile alone"
+    if [[ "$(shasum -a 256 "$strata_image" | cut -d' ' -f1)" != "$strata_hash" ]]; then
+        echo "Error: the hook phase changed _strata's image ($strata_image)." >&2
+        exit 1
+    fi
+    "$VPY" scripts/build_identity.py --check-profiled strata._dumps_hook \
+        --profile "$HOOK_PROFILE" --foreign "$PROFILE"
+    "$VPY" scripts/build_identity.py --check-profiled strata._strata \
+        --profile "$PROFILE" --foreign "$HOOK_PROFILE"
+
+    echo "==> PGO: gate tests on the optimized hook"
+    gate_tests
+else
+    echo "==> PGO: $KIND build -- the hook stays unprofiled (phase 3 is clang-only)"
+fi
 
 # --- verification ----------------------------------------------------------
 if [[ ! -d "$BENCH_DATA" ]]; then

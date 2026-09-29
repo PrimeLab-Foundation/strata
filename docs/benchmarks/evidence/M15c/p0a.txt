@@ -1,0 +1,25 @@
+row             lib                base         base2           lto           pgo        pgolto   n
+rec             strata         384.72us      382.08us      361.65us      350.25us      335.77us  240
+rec             msgspec        253.04us      252.04us      251.93us      252.54us      252.53us  240
+rec             orjson         478.96us      478.09us      475.92us      475.51us      475.55us  240
+                strata/msgspec [base] 1.520
+                strata/msgspec [base2] 1.516
+                strata/msgspec [lto] 1.436
+                strata/msgspec [pgo] 1.387
+                strata/msgspec [pgolto] 1.330
+                base2/base strata: median 0.9936 [0.9745, 1.0090] over 3 blocks
+                lto/base strata: median 0.9334 [0.9265, 0.9641] over 3 blocks
+                pgo/base strata: median 0.9039 [0.8884, 0.9562] over 3 blocks
+                pgolto/base strata: median 0.8740 [0.8647, 0.8803] over 3 blocks
+rec-file        strata         483.18us      471.05us      451.73us      444.15us      423.69us  240
+rec-file        msgspec        378.76us      362.82us      365.46us      373.34us      365.94us  240
+rec-file        orjson         610.68us      595.89us      599.37us      610.16us      598.13us  240
+                strata/msgspec [base] 1.276
+                strata/msgspec [base2] 1.298
+                strata/msgspec [lto] 1.236
+                strata/msgspec [pgo] 1.190
+                strata/msgspec [pgolto] 1.158
+                base2/base strata: median 0.9783 [0.9310, 1.0179] over 3 blocks
+                lto/base strata: median 0.9456 [0.8882, 0.9786] over 3 blocks
+                pgo/base strata: median 0.9239 [0.8768, 0.9640] over 3 blocks
+                pgolto/base strata: median 0.8899 [0.8341, 0.9002] over 3 blocks

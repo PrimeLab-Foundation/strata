@@ -1,0 +1,21 @@
+row             lib                base        pgolto            v4       pgolto4   n
+rec             strata         384.50us      336.67us      286.95us      244.84us  240
+rec             msgspec        254.61us      252.90us      253.24us      251.99us  240
+rec             orjson         483.49us      477.62us      474.68us      478.56us  240
+                strata/msgspec [base] 1.510
+                strata/msgspec [pgolto] 1.331
+                strata/msgspec [v4] 1.133
+                strata/msgspec [pgolto4] 0.972
+                pgolto/base strata: median 0.8711 [0.8666, 0.8853] over 3 blocks
+                v4/base strata: median 0.7495 [0.7315, 0.7779] over 3 blocks
+                pgolto4/base strata: median 0.6374 [0.6210, 0.6446] over 3 blocks
+rec-file        strata         489.70us      428.29us      378.23us      330.83us  240
+rec-file        msgspec        379.59us      372.26us      370.98us      370.21us  240
+rec-file        orjson         628.47us      604.74us      604.20us      606.80us  240
+                strata/msgspec [base] 1.290
+                strata/msgspec [pgolto] 1.151
+                strata/msgspec [v4] 1.020
+                strata/msgspec [pgolto4] 0.894
+                pgolto/base strata: median 0.8767 [0.8709, 0.8858] over 3 blocks
+                v4/base strata: median 0.7740 [0.7529, 0.7928] over 3 blocks
+                pgolto4/base strata: median 0.6819 [0.6634, 0.6827] over 3 blocks

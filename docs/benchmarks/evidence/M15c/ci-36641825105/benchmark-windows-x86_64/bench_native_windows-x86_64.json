@@ -1,0 +1,4777 @@
+{
+  "schema_version": 1,
+  "report_sha256": "e4d129f39d5fcf72df698e8f0cc328c1258f867f16fdf6a05b7bda86a33dc602",
+  "name": "native-v1",
+  "environment": {
+    "commit": "271a2a0864aa430c4690ca9b609e4201e13cfb51",
+    "python": "3.12.10",
+    "implementation": "CPython",
+    "platform": "Windows-2025Server-10.0.26100-SP0",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 17 Stepping 1, AuthenticAMD",
+    "compiler_flags": "see build provenance",
+    "provenance_schema": "1"
+  },
+  "excluded": {
+    "ujson (native dataset)": "no native type support; not named"
+  },
+  "provenance": {
+    "source": {
+      "commit": "271a2a0864aa430c4690ca9b609e4201e13cfb51",
+      "dirty": true,
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked_sha256": {
+        "bench_ci_windows-x86_64.json": "0396d019caec87c854ff88ce802c245bce303da6a67a4177ce6ee18ef9277455",
+        "bench_ci_windows-x86_64.md": "6ee6a83482a36cf8e87df54618a85d7b793310558d6d1f0b376e48e43f4175c3"
+      }
+    },
+    "extension": {
+      "path": "D:\\a\\strata\\strata\\python\\strata\\_strata.cp312-win_amd64.pyd",
+      "sha256": "051ea26fb9ee349be0cdb10dc9af1587a1ef6490d4afac58da5d0c3172917194",
+      "build": {
+        "schema_version": 1,
+        "extension_sha256": "051ea26fb9ee349be0cdb10dc9af1587a1ef6490d4afac58da5d0c3172917194",
+        "source": {
+          "commit": "271a2a0864aa430c4690ca9b609e4201e13cfb51",
+          "dirty": false,
+          "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked_sha256": {}
+        },
+        "complete_compilation": true,
+        "commands": [
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_document.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_document.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_dumps.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_dumps.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_files.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_files.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_folder.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_folder.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_jsonpath.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_jsonpath.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_loads.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_loads.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_module.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_module.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/bindings/python_ndjson.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_ndjson.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/json/json_cursor.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_cursor.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/json/json_document.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_document.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/json/json_parse.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_parse.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/json/json_serialize.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_serialize.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/json/ndjson_stream.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\ndjson_stream.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/search/jsonpath_compile.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\search\\jsonpath_compile.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/search/jsonpath_eval.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\search\\jsonpath_eval.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/util/dtoa.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\util\\dtoa.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/util/folder.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\util\\folder.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE",
+            "/c",
+            "/nologo",
+            "/O2",
+            "/W3",
+            "/DNDEBUG",
+            "/MD",
+            "-Iinclude",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\include",
+            "-IC:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\Include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\include",
+            "-IC:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Auxiliary\\VS\\include",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.26100.0\\ucrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\um",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\shared",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\winrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.26100.0\\\\cppwinrt",
+            "-IC:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\include\\um",
+            "/EHsc",
+            "/Tpsrc/strata/util/scan.cpp",
+            "/FoC:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\util\\scan.obj",
+            "/std:c++20",
+            "/O2",
+            "/Zc:__cplusplus",
+            "/D_USE_STD_VECTOR_ALGORITHMS=0",
+            "/arch:AVX2",
+            "/clang:-O3",
+            "/clang:-fprofile-use=D:\\a\\strata\\strata\\build\\pgo\\strata.profdata"
+          ],
+          [
+            "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX86\\x64\\link.exe",
+            "/nologo",
+            "/INCREMENTAL:NO",
+            "/DLL",
+            "/MANIFEST:EMBED,ID=2",
+            "/MANIFESTUAC:NO",
+            "/LIBPATH:C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\libs",
+            "/LIBPATH:C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64",
+            "/LIBPATH:C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\PCbuild\\amd64",
+            "/LIBPATH:C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\ATLMFC\\lib\\x64",
+            "/LIBPATH:C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\lib\\x64",
+            "/LIBPATH:C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8.1\\lib\\um\\x64",
+            "/LIBPATH:C:\\Program Files (x86)\\Windows Kits\\10\\lib\\10.0.26100.0\\ucrt\\x64",
+            "/LIBPATH:C:\\Program Files (x86)\\Windows Kits\\10\\\\lib\\10.0.26100.0\\\\um\\x64",
+            "/EXPORT:PyInit__strata",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_document.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_dumps.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_files.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_folder.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_jsonpath.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_loads.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_module.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\python_ndjson.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_cursor.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_document.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_parse.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\json_serialize.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\json\\ndjson_stream.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\search\\jsonpath_compile.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\search\\jsonpath_eval.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\util\\dtoa.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\util\\folder.obj",
+            "C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\util\\scan.obj",
+            "/OUT:C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmp383dwr0d.build-lib\\strata\\_strata.cp312-win_amd64.pyd",
+            "/IMPLIB:C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\tmpjbcke_0o.build-temp\\Release\\src\\strata\\bindings\\_strata.cp312-win_amd64.lib"
+          ]
+        ],
+        "linker": null,
+        "tool_versions": {
+          "C:\\Program Files\\LLVM\\bin\\clang-cl.EXE": "clang version 20.1.8\nTarget: x86_64-pc-windows-msvc\nThread model: posix\nInstalledDir: C:\\Program Files\\LLVM\\bin",
+          "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX86\\x64\\link.exe": "Microsoft (R) Incremental Linker Version 14.51.36257.0\r\nCopyright (C) Microsoft Corporation.  All rights reserved.\r\n\r\n usage: LINK [options] [files] [@commandfile]\r\n\r\n   options:\r\n\r\n      /ALIGN:#\r\n      /ALLOWBIND[:NO]\r\n      /ALLOWISOLATION[:NO]\r\n      /APPCONTAINER[:NO]\r\n      /ASSEMBLYDEBUG[:DISABLE]\r\n      /ASSEMBLYLINKRESOURCE:filename\r\n      /ASSEMBLYMODULE:filename\r\n      /ASSEMBLYRESOURCE:filename[,[name][,PRIVATE]]\r\n      /BASE:{address[,size]|@filename,key}\r\n      /CLRIMAGETYPE:{IJW|PURE|SAFE|SAFE32BITPREFERRED}\r\n      /CLRLOADEROPTIMIZATION:{MD|MDH|NONE|SD}\r\n      /CLRSUPPORTLASTERROR[:{NO|SYSTEMDLL}]\r\n      /CLRTHREADATTRIBUTE:{MTA|NONE|STA}\r\n      /CLRUNMANAGEDCODECHECK[:NO]\r\n      /DEBUG[:{FASTLINK|FULL|NONE}]\r\n      /DEF:filename\r\n      /DEFAULTLIB:library\r\n      /DELAY:{NOBIND|UNLOAD}\r\n      /DELAYLOAD:dll\r\n      /DELAYSIGN[:NO]\r\n      /DEPENDENTLOADFLAG:flag\r\n      /DLL\r\n      /DRIVER[:{UPONLY|WDM}]\r\n      /DYNAMICBASE[:NO]\r\n      /DYNAMICDEOPT\r\n      /DYNAMICDEOPT:SUFFIX=extension\r\n      /DYNAMICDEOPT:SYNC\r\n      /DYNAMICDEOPT-ALLOWICF\r\n      /EMITVOLATILEMETADATA[:NO]\r\n      /ENTRY:symbol\r\n      /ERRORREPORT:{NONE|PROMPT|QUEUE|SEND}\r\n      /EXPORT:symbol\r\n      /EXPORTPADMIN[:size]\r\n      /FASTFAIL[:NO]\r\n      /FASTGENPROFILE[:{COUNTER32|COUNTER64|EXACT|MEMMAX=#|MEMMIN=#|NOEXACT|\r\n                        NOPATH|NOTRACKEH|PATH|PGD=filename|TRACKEH}]\r\n      /FILEALIGN:#\r\n      /FIXED[:NO]\r\n      /FORCE[:{MULTIPLE|UNRESOLVED}]\r\n      /FUNCTIONPADMIN[:size]\r\n      /GUARD:{CF|NO}\r\n      /GENPROFILE[:{COUNTER32|COUNTER64|EXACT|MEMMAX=#|MEMMIN=#|NOEXACT|\r\n                    NOPATH|NOTRACKEH|PATH|PGD=filename|TRACKEH}]\r\n      /HEAP:reserve[,commit]\r\n      /HIGHENTROPYVA[:NO]\r\n      /IDLOUT:filename\r\n      /IGNORE:#\r\n      /IGNOREIDL\r\n      /ILK:filename\r\n      /IMPLIB:filename\r\n      /INCLUDE:symbol\r\n      /INCREMENTAL[:NO]\r\n      /INTEGRITYCHECK\r\n      /KERNEL\r\n      /KEYCONTAINER:name\r\n      /KEYFILE:filename\r\n      /LARGEADDRESSAWARE[:NO]\r\n      /LIBPATH:dir\r\n      /LINKREPRO:dir\r\n      /LINKREPROFULLPATHRSP:filename\r\n      /LINKREPROTARGET:filename\r\n      /LTCG[:{INCREMENTAL|NOSTATUS|OFF|STATUS|}]\r\n      /LTCGOUT:filename\r\n      /MACHINE:{ARM64|ARM64EC|ARM64X|EBC|X64|X86}\r\n      /MANIFEST[:{EMBED[,ID=#]|NO}]\r\n      /MANIFESTDEPENDENCY:manifest dependency\r\n      /MANIFESTFILE:filename\r\n      /MANIFESTINPUT:filename\r\n      /MANIFESTUAC[:{NO|UAC fragment}]\r\n      /MAP[:filename]\r\n      /MAPINFO:{EXPORTS|PDATA}\r\n      /MERGE:from=to\r\n      /MIDL:@commandfile\r\n      /NATVIS:filename\r\n      /NOASSEMBLY\r\n      /NODEFAULTLIB[:library]\r\n      /NOENTRY\r\n      /NOEXP\r\n      /NOIMPLIB\r\n      /NOLOGO\r\n      /NXCOMPAT[:NO]\r\n      /OPT:{ICF[=iterations]|LBR|NOICF|NOLBR|NOREF|REF}\r\n      /ORDER:@filename\r\n      /OUT:filename\r\n      /PDB:filename\r\n      /PDBINJECT:{MAPFILE}\r\n      /PDBSTRIPPED[:filename]\r\n      /PROFILE\r\n      /RELEASE\r\n      /SAFESEH[:NO]\r\n      /SECTION:name,[[!]{DEKPRSW}][,ALIGN=#]\r\n      /SOURCELINK:filename\r\n      /SPD:filename\r\n      /SPDEMBED\r\n      /SPDIN:filename\r\n      /SPGO\r\n      /STACK:reserve[,commit]\r\n      /STUB:filename\r\n      /SUBSYSTEM:{BOOT_APPLICATION|CONSOLE|EFI_APPLICATION|\r\n                  EFI_BOOT_SERVICE_DRIVER|EFI_ROM|EFI_RUNTIME_DRIVER|\r\n                  NATIVE|POSIX|WINDOWS|WINDOWSCE}[,#[.##]]\r\n      /SWAPRUN:{CD|NET}\r\n      /TLBID:#\r\n      /TLBOUT:filename\r\n      /TIME\r\n      /TSAWARE[:NO]\r\n      /USEPROFILE[:{AGGRESSIVE|PGD=filename}]\r\n      /VERBOSE[:{CLR|ICF|INCR|LIB|REF|SAFESEH|UNUSEDDELAYLOAD|UNUSEDLIBS}]\r\n      /VERSION:#[.#]\r\n      /WINMD[:{NO|ONLY}]\r\n      /WINMDDELAYSIGN[:NO]\r\n      /WINMDFILE:filename\r\n      /WINMDKEYCONTAINER:name\r\n      /WINMDKEYFILE:filename\r\n      /WHOLEARCHIVE[:library]\r\n      /WX[:NO]\r\n      /WX[:nnnn[,nnnn...]]"
+        },
+        "pgo_profile": {
+          "path": "D:\\a\\strata\\strata\\build\\pgo\\strata.profdata",
+          "files": {
+            "D:\\a\\strata\\strata\\build\\pgo\\strata.profdata": "92db10e7db16aa386d126b6facc46ad773139ecb769fed691bfa2f76c7f0bb91"
+          },
+          "composition": {
+            "schema_version": 1,
+            "recipe": "gate-inclusive-clang-cl-v1",
+            "raw_inputs": {
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\1504.profraw": "d97451b7e873b68d43c2eac41cb6642d2e334bdf867c14c7a8ae5533c9b4d21c",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\2588.profraw": "f8677b2e9106db414304d23962b3eb5c844c5ead303aefb5490b41bde504b8b2",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\3496.profraw": "0dc435780944163bb5f0b5d15804cb4328a7e864c280b9fbed8066d62cd8e9c0",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\3520.profraw": "9e8747a73e605dbf23b360e8e2bca650e17ed462b752a8987092389102787dfd",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\3628.profraw": "f103df9a562a48359b74ab4bd142aa6750f5bbe38430d220747f8d6a22c9b166",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\3732.profraw": "29af7d06f6f4d6d5396ba9c2fbdc3543efd637162224807ea409720fda892268",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\4460.profraw": "f103df9a562a48359b74ab4bd142aa6750f5bbe38430d220747f8d6a22c9b166",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\5412.profraw": "1ded63b371fdec5aa4c19baa81658d89dbfd3d0331ac1f96289cdb95fe3d4d8e",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\6808.profraw": "f8677b2e9106db414304d23962b3eb5c844c5ead303aefb5490b41bde504b8b2",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\7104.profraw": "9d64c9591d7dc009e61fa8fa754a2e018280855257ea2df56ec90fb97595fdaa",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\7496.profraw": "f103df9a562a48359b74ab4bd142aa6750f5bbe38430d220747f8d6a22c9b166",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\7508.profraw": "29af7d06f6f4d6d5396ba9c2fbdc3543efd637162224807ea409720fda892268",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\7992.profraw": "d97451b7e873b68d43c2eac41cb6642d2e334bdf867c14c7a8ae5533c9b4d21c",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\8484.profraw": "55d033340332c7f36934c11ba2d4e3da4ba01d7f271a0cffd76c34ee0f7e23a2",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\8692.profraw": "9d64c9591d7dc009e61fa8fa754a2e018280855257ea2df56ec90fb97595fdaa",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\9036.profraw": "1ded63b371fdec5aa4c19baa81658d89dbfd3d0331ac1f96289cdb95fe3d4d8e",
+              "D:\\a\\strata\\strata\\build\\pgo\\raw\\9688.profraw": "f103df9a562a48359b74ab4bd142aa6750f5bbe38430d220747f8d6a22c9b166"
+            },
+            "workload_sources": {
+              "tests\\integrations\\conftest.py": "9431d2fc6a22c9951244c25d1c5786a87bda3a3b2d9ac2f1d83ef7d2a3a8b87a",
+              "tests\\integrations\\test_adapter_imports.py": "7aea752f0b43deb4455f0263810de2b5451eb548e3efc5c5dad4dd6980fb3b17",
+              "tests\\integrations\\test_aiohttp.py": "3d3170c911a5aff5b0a265becb3923d3801ecc7fa65b3a6d97421a82f42c040e",
+              "tests\\integrations\\test_attrs.py": "99fd67bb82de45d61ec262cf1259db8f5edc758276b2a868688026dad69471b7",
+              "tests\\integrations\\test_dataclass_rows.py": "e5efe5b6def1e59ea8bc78d421e2d197b6a6fe64db0e37ae3d6be22ea9683bc8",
+              "tests\\integrations\\test_django.py": "4b5aa6d4903d603cf207ac9f682812cacb12f62273ba2f3b93656857a842de72",
+              "tests\\integrations\\test_falcon.py": "c4c83bac08dfdf11c8755875547d89046cd189a2381d5e380edecdf12a875d2c",
+              "tests\\integrations\\test_fastapi.py": "b98f4a97ebe9fbc6b06b448c66459f8f8fc117ff9f10f2914d92730ec757f246",
+              "tests\\integrations\\test_flask.py": "fc7e039afd9a655faae75eca64994af5081f8f193b47f339d1881bac80c90a14",
+              "tests\\integrations\\test_native_opt_out_greenlet.py": "6824ad58a484fca12a4697c57c7bb16eb83965bd0945d90a541198f8069df7ab",
+              "tests\\integrations\\test_native_types.py": "026f2894fcdeebbe1a787cc0e2b776dce06028816c75027ab84d318ed77f0a43",
+              "tests\\integrations\\test_numpy.py": "019a0bedc3632ec7160e44f9023a29f9700084177606620ceeffe413f1043b69",
+              "tests\\integrations\\test_pydantic.py": "a19e1a70eafdc155642e09de0de51ae4989b7479cd11cb8d5c0a2966b1e20f63",
+              "tests\\integrations\\test_pydantic_adapter.py": "c14280419178ad85279a685d9ae3ca32c0baca86825b5167f5228521572f9edd",
+              "tests\\integrations\\test_structlog.py": "58ecb6db3f8a43b22554b221f1f80b48cf5b30c6952fd6cc4989888c438a99ea",
+              "tests\\py\\native_types\\conftest.py": "4532911ffba6160883c190b201e2c5fe47c314f5857ebe725d504464a624e03d",
+              "tests\\py\\native_types\\test_native_dump.py": "774cf02d9fd0311813a680b30a02bdf8c0f238472a2157cb76733d5bb49085ca",
+              "tests\\py\\native_types\\test_native_fast_paths.py": "cae72cbd4b5ca9d47d0921c0b61f035ff185d5f5d8081f8cb7efcaee38d9ee2c",
+              "tests\\py\\native_types\\test_native_import.py": "f2aa60d394683050b7760b9480f92fb7039aa5fbc90bad3bb3beb3bbb9d69927",
+              "tests\\py\\native_types\\test_native_opt_out.py": "c984daf108338942f08796644e0369021c86ae91f87e5cfb4b1900bc1f160924",
+              "tests\\py\\native_types\\test_native_oracle.py": "041e83e2387c11c6c4f509da833dafb82ed6928929caa84520046ccd7effe5cd",
+              "tests\\py\\native_types\\test_native_reentrancy.py": "9a2b91c1a86574611d34a2d44b54a1745fca2fc7f3439dbf8c6711906720ff12",
+              "tests\\py\\native_types\\test_parse_types.py": "a4ca0fcdfbf24fec4e4a210c9cd41928890c378508d44a47c7586f636af8585c",
+              "tests\\py\\test_dumps_brace_fold.py": "0a6e6cc14c8bc98a06d5271f6217c57c99f24403051a96a76b58ef7d14bfb11f",
+              "tests\\py\\test_dumps_cycles_fused.py": "65cfaf5ba95b1e71ce53dcb77c56992d6f7a1e390b5d76197a46a1cdf928761e",
+              "tests\\py\\test_dumps_general_tables.py": "90784c9a9f990e479061409ea0a7218213288efc14c1f5ad0d13bf17a2fbb84c",
+              "tests\\py\\test_dumps_with_default.py": "2ce64ca1f58c46af378694f57a091496d5fc832eee8071c7f10daee0cf55ba73",
+              "tests\\py\\test_dumps_with_default_contract.py": "545255a87b95fa8b76e80700fc7e0ce55487fdec97de0d1100c3216f2762b4f5",
+              "tests\\py\\test_fused_verification.py": "a8b150da312aea5d018651717c6d138caae16712346967aa904db659289e7eb2",
+              "tests\\py\\test_json_parity.py": "6e70ccb3e8b16307053c48917c57f44900175fe6d563384ae22a2fa621172353",
+              "tests\\py\\test_path_dispatch.py": "5201ffc0a5f1c46c1351313200d045d7f33fac6ccac40593b9dec7d16a236ee4",
+              "tests\\py\\test_py_tests_basetemp.py": "26c94fe428048b59c0b447d9055d08be5d31eee3e08a50422e3e58cbdff413b4",
+              "tests\\py\\test_smoke.py": "0fd1c798bc7967b82d690dd101494c62b51f1c11a8dea295c179071cbc43a729",
+              "tests\\unit\\conftest.py": "421b605f909c171fd7626ca410aa8db7c2be63c973690bad6a30b10b033c9710",
+              "tests\\unit\\native_types\\conftest.py": "3b0c0d19a0e8e3914ec24fe8a84c91efff0263949b6a0a99ded9e2487a6d5d3b",
+              "tests\\unit\\native_types\\test_build_sources.py": "1c8c35c570fc7f34c62aa0ea818f6ac6f7ae7c5f4af4f173d5e033960002e314",
+              "tests\\unit\\native_types\\test_hook_import_gating.py": "dd7bfbf08fa210908166bc51f62d7796cee7cabe673c1fa0444b795a30a267c4",
+              "tests\\unit\\native_types\\test_hook_profile_build.py": "bf772c5e9105273348949b2dcf59969fcc5427cc9e906488494db5f8e239a220",
+              "tests\\unit\\native_types\\test_native_benchmark_agreement.py": "659af0fed4924037207a78daa0d2b3eabb3d5e04e75e4e5c95f5dee7655d2759",
+              "tests\\unit\\native_types\\test_native_benchmark_dataset.py": "b79db1fa31282dfa7c276594b4b00c6549230b6d2304f40f768a5b4d553be701",
+              "tests\\unit\\native_types\\test_native_benchmark_rows.py": "c32276bc6a1d6f06a7a9b7d7a984a160fe1cfc818d347db7a61ef7ba17791712",
+              "tests\\unit\\native_types\\test_native_ci_fetch.py": "0b84f8064c652927b6e18d62151bbf71c36921b49febdc562fcf95f55b55aef4",
+              "tests\\unit\\native_types\\test_native_ci_summary.py": "7c10f6d8ae571035348c10894cd788c9fd04a386bdf0896bae2886d032801b93",
+              "tests\\unit\\native_types\\test_native_flag.py": "5ec9414d5323c99dc40e4947cbfd7fc3b6ece3c366e4530497fa7f7f07912085",
+              "tests\\unit\\native_types\\test_native_identity_ab.py": "4f9a79e15c01795fe92b9766698f3624c630529f6e39c35c998a5bc22765ccb4",
+              "tests\\unit\\native_types\\test_native_opt_out.py": "fcf76f2ed2690464929136598f307fb1d61adf6a40283cbef94095e6c25c0b58",
+              "tests\\unit\\native_types\\test_parse_contract.py": "1d77fe4c9458e96623695cc11d2271b510f2c962ba279915acab9a12c7a4f761",
+              "tests\\unit\\native_types\\test_serializer_contract.py": "2cf9ae6dd92c664c148a20c0b9ee7fb415e59e838b78cb461a4b2741143248c7",
+              "tests\\unit\\native_types\\test_training_scope.py": "eeba78d7f615805670d522e23021ee6105b4e2816fe6b511d2283bd1386bfe44",
+              "tests\\unit\\test_ab_analysis.py": "64fbb068d7adba3531e4d787be318a27392ca7ede952a5f6c370ceb3f17b105d",
+              "tests\\unit\\test_build_manifest.py": "92f99ec5a9dfc951f7c4c26b817d1dbe07c29ea2c1f27d48ca46d7d5c351f693",
+              "tests\\unit\\test_canonical_builds.py": "036fccd22d2bc38f5af82779aa5b0b0fe109a4ad4500c9fdfe48cfc5038998bf",
+              "tests\\unit\\test_ci_fetch.py": "06b6013d177b69a4cd93217e0043125f58ec4b177b5798547b0c38b95d8cc5e2",
+              "tests\\unit\\test_ci_summary.py": "3182c90584b62280666010b77b51529fa4fc9c38eb60d6836aa1e3bdcd518f17",
+              "tests\\unit\\test_config.py": "6259d709492fb376ed758065f3d13f09b9686883f0f2665164cadb913110d785",
+              "tests\\unit\\test_core_purity.py": "344436185ea267766cb4b856078426dd0823308b5a8843e1dcdda79ebc6bc9d2",
+              "tests\\unit\\test_cross_sample.py": "8788e8056224b318ec7734af5d06609a1c796fa9f1bb0a4168de257e07a705ef",
+              "tests\\unit\\test_dumps.py": "f87a5a41ddbc85ca58cd7bd5d5d4c8b79ee97a1ef7bcb16dccdf4d19efa32d13",
+              "tests\\unit\\test_dumps_brace_fold.py": "0a6e6cc14c8bc98a06d5271f6217c57c99f24403051a96a76b58ef7d14bfb11f",
+              "tests\\unit\\test_dumps_cold_start.py": "ed629b514e6fae9fa43d076b2adc4d7b8d2f7e63ec89ec26311c99427c5f4c92",
+              "tests\\unit\\test_dumps_contract.py": "75b88381f66daf033c1685be7eb2277ed493882fac89db0b1dcbbca66ce85eb8",
+              "tests\\unit\\test_dumps_cycles_fused.py": "65cfaf5ba95b1e71ce53dcb77c56992d6f7a1e390b5d76197a46a1cdf928761e",
+              "tests\\unit\\test_dumps_general_tables.py": "90784c9a9f990e479061409ea0a7218213288efc14c1f5ad0d13bf17a2fbb84c",
+              "tests\\unit\\test_dumps_latch.py": "ffd7ba44186c510f5a774f89ceff01b85aac1d52e98d6ef74538049c564dc9c2",
+              "tests\\unit\\test_dumps_private_cache.py": "591cb1b9c4a055f64eeed41f5929cc69527854c7eb5507fc3fa277b275b867b5",
+              "tests\\unit\\test_dumps_reentrancy.py": "7c869c27de17ab51754cf75d887b1bfe2ec69042a59a60923e53e75d72cf40dd",
+              "tests\\unit\\test_dumps_reentrancy_review.py": "bbe4762494334509b2d21081f81439f58fbfc97112b5f58a452f6251b0709ebd",
+              "tests\\unit\\test_dumps_schema_failure.py": "a5552752ef82405db6520dab124c5c280e1cdb2a0d305820f6a55b277ed81342",
+              "tests\\unit\\test_dumps_user_step_counter.py": "abbf22ef78eb3c5399337770ab2dc1eafe02b10008c21698e12d555807ee13d2",
+              "tests\\unit\\test_dumps_with_default.py": "28b2a56412ec41ccafc7ae95f519a4db9d3708a2bd2193774e3cc7e35b16f101",
+              "tests\\unit\\test_dumps_with_default_state.py": "e2808e9283b1ccba066b5f7510146a8f97a573e087109ad02eee8b11ae478cb7",
+              "tests\\unit\\test_folder.py": "c73be06ee33cb73ec820fece7280be80db847e5120d630962631ed94ee8f8318",
+              "tests\\unit\\test_fused_verification.py": "a8b150da312aea5d018651717c6d138caae16712346967aa904db659289e7eb2",
+              "tests\\unit\\test_hook_build_scope.py": "eba47ccec1ad1b964bd8bde58154f068bc1cdd2969560ae30c383b6504206548",
+              "tests\\unit\\test_json_cursor.py": "ed079ac5c31b6ffbb7f9abfd94c54cf6fab0d47203ff0511d5ded02463b71567",
+              "tests\\unit\\test_jsonpath.py": "4deb5da330c008a910ccb0e2a5b0a66e364c6f4cdeb8326b71c708837b4b8586",
+              "tests\\unit\\test_load_dump.py": "6b4c0e0a5bd28e2d27511b150befb1c8782deb6c5750711fea9241f7e2149265",
+              "tests\\unit\\test_loads.py": "531daccbc87ed7ac658ef3edaf88f88079dc56aec758fe18b22e470335ec841a",
+              "tests\\unit\\test_native_interleaved_profile.py": "c35fd27bb7eeeaa1c44d3052a3574363faa9d601a65e5407ba73af15cde58cf7",
+              "tests\\unit\\test_nested_container_probe.py": "e8e962904b140d82a9b1a5db345a07607aefe5d9d4ca9856a9d53f1ed154d726",
+              "tests\\unit\\test_path_dispatch.py": "5201ffc0a5f1c46c1351313200d045d7f33fac6ccac40593b9dec7d16a236ee4",
+              "tests\\unit\\test_provenance.py": "78031f22360cd73a32cdbbcfc48ec0c81c9b216ce71f12ebdfd82e67d6827550",
+              "tests\\unit\\test_regression_check.py": "07ec9d852730ff9ca61ab3319fabd2a11c3b153f2ffaad40d8f0787e6c84034a",
+              "tests\\unit\\test_search_stream.py": "4d4f022d087cbf3a33a859bfbd847e800bad8c91071dc707c755cd5757bfb07e",
+              "tests\\unit\\test_string_identity_probe.py": "d2657eedc31fa9fbe6c6d392ca13c02e9aea1c01af655a799bd1116983415d8b",
+              "tests\\unit\\test_supplementary.py": "d2cecae57270b4411097a0944e2099f101ee718e863f290fb3ec93d62a69985d",
+              "tests\\unit\\test_supportability_check.py": "c8fb365a95c70d29a2d6877ee630e94290c8c5163181f22df0b0cdca6228a3ae",
+              "tests\\unit\\test_version.py": "be129bfcaa2f22e6af2d1a693d3e3584fc0ee29614b6c7f77c4cc4689aa86a7d",
+              "scripts\\pgo_training.py": "bc9ab1bcfe7daf24e3994a700c5127cbac03311c21cbf5f16fe0a0d03a043a61",
+              "scripts\\pgo_training_data.py": "a4a237ddef34d32a1908d86b8879e4d05e55e8172355431de7955b80004ece94"
+            },
+            "training_data": {
+              "train.json": "30b415d9e93e18ea8f4845469ce215a0d6638b4a2b473c86fab2712f7ed8b5bd",
+              "train.ndjson": "801f596324a5ba2ce4568b10fb142502b53b6ee5a4b9398be4b1616281c48cd2"
+            },
+            "limitation": "raw profiles include build/test gates and dedicated training; counts are not separated by phase"
+          }
+        },
+        "limitation": null
+      }
+    },
+    "python": {
+      "executable": "C:\\hostedtoolcache\\windows\\Python\\3.12.10\\x64\\python.exe",
+      "version": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]"
+    },
+    "versions": {
+      "strata": "2026.8.10",
+      "json": "3.12.10",
+      "orjson": "3.12.0",
+      "msgspec": "0.22.0",
+      "ujson": "6.0.0"
+    },
+    "datasets": [
+      {
+        "name": "mixed.json",
+        "path": "D:\\a\\strata\\strata\\benchmarks\\data\\generated\\small\\mixed.json",
+        "sha256": "e6761d39e0f157c3ae90d8ef1f04c4ca263343cce65058831bcaa307490e3937"
+      }
+    ],
+    "protocol": {
+      "name": "native-v1",
+      "repeat": 30,
+      "warmup": 2,
+      "preflight_calls": 1,
+      "equivalence_calls_per_library": {
+        "query": 1,
+        "search": 1
+      },
+      "gc": "collect before each timed call",
+      "timer": "perf_counter",
+      "units": "ms",
+      "rss": "current whole-process RSS after all libraries in each row",
+      "equivalence": "rivals: parsed-JSON equality with decimals compared as Decimal; a disagreeing rival is excluded and recorded, never timed"
+    },
+    "limitations": []
+  },
+  "measurements": [
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "min_ms": 0.2590000000282089,
+      "median_ms": 0.26289999993878155,
+      "p95_ms": 0.30119999996713887,
+      "rss_mb": 33.08984375,
+      "error": null,
+      "samples_ms": [
+        0.29510000001664594,
+        0.2607999999781896,
+        0.2607999999781896,
+        0.2590000000282089,
+        0.2827000000706903,
+        0.2600999999913256,
+        0.26219999995191756,
+        0.2620000000206346,
+        0.262999999904423,
+        0.30119999996713887,
+        0.26170000001002336,
+        0.2634000001080494,
+        0.26370000000497384,
+        0.2620000000206346,
+        0.26309999998375133,
+        0.2915000000029977,
+        0.26360000003933237,
+        0.2627999999731401,
+        0.26159999993069505,
+        0.4347000000279877,
+        0.2659000000448941,
+        0.26060000004690664,
+        0.2792000000226835,
+        0.26360000003933237,
+        0.26260000004185713,
+        0.268899999923633,
+        0.26219999995191756,
+        0.25959999993574456,
+        0.2607000000125481,
+        0.2868999999918742
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "min_ms": 0.6240999999818087,
+      "median_ms": 0.6351999999765212,
+      "p95_ms": 0.6637000000182525,
+      "rss_mb": 33.08984375,
+      "error": null,
+      "samples_ms": [
+        0.6614000000126907,
+        0.6296000000247659,
+        0.6254999999555366,
+        0.6455000000187283,
+        0.6627999999864187,
+        0.6306999999878826,
+        0.6277999999610984,
+        0.6300999999666601,
+        0.6343000000015309,
+        0.647999999955573,
+        0.6637000000182525,
+        0.6336999999803083,
+        0.6324999999378633,
+        0.6487000000561238,
+        0.6411999999045292,
+        0.6627000000207772,
+        0.6365000000414511,
+        0.6296999999904074,
+        0.6241999999474501,
+        1.1749000000236265,
+        0.6282000000510379,
+        0.6245000000717482,
+        0.6495999999742708,
+        0.6270999999742344,
+        0.6360999999515116,
+        0.6562999999459862,
+        0.655100000017228,
+        0.6240999999818087,
+        0.6276000000298154,
+        0.655100000017228
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "min_ms": 0.3087000000050466,
+      "median_ms": 0.31300000000555883,
+      "p95_ms": 0.47010000002956076,
+      "rss_mb": 33.08984375,
+      "error": null,
+      "samples_ms": [
+        0.34549999998034764,
+        0.3153000000111206,
+        0.31599999999798456,
+        0.3198999999085572,
+        0.3431000000091444,
+        0.3130999999712003,
+        0.31290000003991736,
+        0.31290000003991736,
+        0.3126999999949476,
+        0.3124999999499778,
+        0.3150000000005093,
+        0.3123999999843363,
+        0.3137999999580643,
+        0.30990000004749163,
+        0.31490000003486784,
+        0.34190000008038623,
+        0.47010000002956076,
+        0.3104999999550273,
+        0.3097999999681633,
+        0.5373999999847001,
+        0.3096000000368804,
+        0.3189000000247688,
+        0.3333000000793618,
+        0.31089999993128004,
+        0.314199999934317,
+        0.3104999999550273,
+        0.31219999993936653,
+        0.3087000000050466,
+        0.31149999995250255,
+        0.3113999999868611
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "min_ms": 3.8047000000460685,
+      "median_ms": 3.8427500000466353,
+      "p95_ms": 4.4375999999601845,
+      "rss_mb": 33.08984375,
+      "error": null,
+      "samples_ms": [
+        3.8687999999638123,
+        3.834800000049654,
+        3.834999999980937,
+        3.8994999999886204,
+        3.8436000000956483,
+        3.8503000000673637,
+        3.934599999979582,
+        6.423100000006343,
+        3.8241999999399923,
+        3.8047000000460685,
+        3.864199999952689,
+        3.841899999997622,
+        3.870900000038091,
+        3.8372000000208573,
+        3.93860000008317,
+        3.866400000106296,
+        3.8438000000269312,
+        3.830500000049142,
+        4.061299999989387,
+        4.4375999999601845,
+        3.8307999999460662,
+        3.833600000007209,
+        3.834299999994073,
+        3.8306000000147833,
+        3.857899999957226,
+        3.817099999992024,
+        3.8190999999869746,
+        3.820599999926344,
+        3.8240000000087093,
+        3.9357000000563858
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "min_ms": 0.5002999999987878,
+      "median_ms": 0.5496499999821935,
+      "p95_ms": 0.6583999999065782,
+      "rss_mb": 33.94140625,
+      "error": null,
+      "samples_ms": [
+        0.5349000000478554,
+        0.5272999999306194,
+        0.502899999901274,
+        0.5655999999589767,
+        0.5018000000518441,
+        0.5163999999240332,
+        0.7365999999819905,
+        0.6101000000171553,
+        0.5002999999987878,
+        0.5270999999993364,
+        0.5300999999917622,
+        0.5217000000357075,
+        0.530800000092313,
+        0.5502999999862368,
+        0.5826000000297427,
+        0.5717000000231565,
+        0.5276000000549175,
+        0.5896000000120694,
+        0.5554000000529413,
+        0.5778999999392909,
+        0.5466000000069471,
+        0.5310999999892374,
+        0.5558999999948355,
+        0.5608999999822117,
+        0.5496999999650143,
+        0.6583999999065782,
+        0.5495999999993728,
+        0.5679999999301799,
+        0.5557000000635526,
+        0.5194000000301457
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "min_ms": 0.8963000000221655,
+      "median_ms": 0.9433000000171887,
+      "p95_ms": 1.0632000000896369,
+      "rss_mb": 33.94140625,
+      "error": null,
+      "samples_ms": [
+        0.9674000000359229,
+        0.9655000000066138,
+        0.900900000033289,
+        0.9430000000065775,
+        0.9069999999837819,
+        0.9090999999443738,
+        1.352900000028967,
+        0.9112000000186526,
+        0.9639999999535576,
+        0.8963000000221655,
+        0.9436000000278,
+        0.923999999940861,
+        0.9058000000550237,
+        1.0632000000896369,
+        0.9318999999550215,
+        0.9314000000131273,
+        0.9218999999802691,
+        1.0220000000344953,
+        0.9352999999236999,
+        0.9215999999696578,
+        0.9832000000642438,
+        1.0057000000642802,
+        1.0091999999986,
+        0.9749000000738306,
+        0.9337999999843305,
+        0.993600000015249,
+        0.9568000000399479,
+        0.9307000000262633,
+        0.9595000000217624,
+        0.9599999999636566
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "min_ms": 0.5743000000393295,
+      "median_ms": 0.605450000023211,
+      "p95_ms": 0.6779000000278756,
+      "rss_mb": 33.94140625,
+      "error": null,
+      "samples_ms": [
+        0.5743000000393295,
+        0.6343999999671723,
+        0.5744000000049709,
+        0.5864999999403153,
+        0.6227999999737222,
+        0.5846999999903346,
+        0.8489000000508895,
+        0.5783000000292304,
+        0.5989999999655993,
+        0.6258999999317894,
+        0.5787999999711246,
+        0.605100000029779,
+        0.6328000000621614,
+        0.6654000000025917,
+        0.6565999999565975,
+        0.6128999999646112,
+        0.5919999999832726,
+        0.605800000016643,
+        0.5959999999731735,
+        0.6048999999848093,
+        0.6032999999661115,
+        0.6003999999393272,
+        0.6476999999449617,
+        0.6220999999868582,
+        0.641399999949499,
+        0.6313999999747466,
+        0.6779000000278756,
+        0.6419000000050801,
+        0.598199999899407,
+        0.5961999999044565
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "min_ms": 4.133700000011231,
+      "median_ms": 4.199850000020433,
+      "p95_ms": 6.216800000061085,
+      "rss_mb": 33.94140625,
+      "error": null,
+      "samples_ms": [
+        4.168499999991582,
+        4.140300000017305,
+        4.153500000029453,
+        4.147299999999632,
+        4.269399999998313,
+        4.147100000068349,
+        6.216800000061085,
+        4.136700000003657,
+        4.133700000011231,
+        4.136600000038015,
+        4.135000000019318,
+        11.199199999964549,
+        4.232099999967431,
+        4.2283000000225,
+        4.234599999904276,
+        4.208400000038637,
+        4.186699999991106,
+        4.236999999989166,
+        4.397199999971235,
+        4.216899999960333,
+        4.183399999988069,
+        4.174599999942075,
+        4.259999999931097,
+        4.3114000000059605,
+        4.231099999969956,
+        4.220599999939623,
+        4.19529999999213,
+        4.204400000048736,
+        4.155200000013792,
+        4.144800000062787
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "min_ms": 0.04349999994701648,
+      "median_ms": 0.044399999978850246,
+      "p95_ms": 0.05939999994097889,
+      "rss_mb": 34.07421875,
+      "error": null,
+      "samples_ms": [
+        0.04400000000259752,
+        0.045300000010684016,
+        0.04430000001320877,
+        0.04449999994449172,
+        0.04509999996571423,
+        0.04369999999198626,
+        0.04400000000259752,
+        0.046499999939442205,
+        0.044399999978850246,
+        0.044299999899521936,
+        0.04449999994449172,
+        0.04409999996823899,
+        0.04369999999198626,
+        0.04409999996823899,
+        0.04400000000259752,
+        0.04510000007940107,
+        0.04400000000259752,
+        0.04450000005817856,
+        0.06859999996322586,
+        0.046099999963189475,
+        0.05939999994097889,
+        0.04419999993388046,
+        0.045300000010684016,
+        0.04520000004504254,
+        0.04379999995762773,
+        0.0446999999894615,
+        0.043900000036956044,
+        0.044399999978850246,
+        0.04349999994701648,
+        0.044399999978850246
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "min_ms": 0.044399999978850246,
+      "median_ms": 0.04549999999881038,
+      "p95_ms": 0.06680000001324515,
+      "rss_mb": 34.07421875,
+      "error": null,
+      "samples_ms": [
+        0.04520000004504254,
+        0.04509999996571423,
+        0.0455000000556538,
+        0.044399999978850246,
+        0.04460000002382003,
+        0.04560000002129527,
+        0.04630000000815926,
+        0.04549999994196696,
+        0.04460000002382003,
+        0.044399999978850246,
+        0.04809999995813996,
+        0.045199999931355705,
+        0.044399999978850246,
+        0.048199999923781434,
+        0.045800000066265056,
+        0.044399999978850246,
+        0.04450000005817856,
+        0.07259999995312683,
+        0.06680000001324515,
+        0.047100000074351556,
+        0.05520000001979497,
+        0.050099999953090446,
+        0.04579999995257822,
+        0.0446999999894615,
+        0.045599999907608435,
+        0.044799999955102976,
+        0.04449999994449172,
+        0.04490000003443129,
+        0.046099999963189475,
+        0.046200000042517786
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "min_ms": 0.04139999998642452,
+      "median_ms": 0.04225000003543755,
+      "p95_ms": 0.06029999997281266,
+      "rss_mb": 34.07421875,
+      "error": null,
+      "samples_ms": [
+        0.042600000028869545,
+        0.04230000001825829,
+        0.06029999997281266,
+        0.041699999997035775,
+        0.04219999993892998,
+        0.041699999997035775,
+        0.04219999993892998,
+        0.04319999993640522,
+        0.04279999996015249,
+        0.042499999949541234,
+        0.042099999973288504,
+        0.04139999998642452,
+        0.04590000003190653,
+        0.04560000002129527,
+        0.04179999996267725,
+        0.04200000000764703,
+        0.0416000000313943,
+        0.0678000000107204,
+        0.0446999999894615,
+        0.042200000052616815,
+        0.04239999998389976,
+        0.0442000000475673,
+        0.041599999917707464,
+        0.042200000052616815,
+        0.042499999949541234,
+        0.043000000005122274,
+        0.041699999997035775,
+        0.04269999999451102,
+        0.04210000008697534,
+        0.04189999992831872
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "min_ms": 0.06120000000464643,
+      "median_ms": 0.06369999999833453,
+      "p95_ms": 0.09669999997186096,
+      "rss_mb": 34.07421875,
+      "error": null,
+      "samples_ms": [
+        0.0651999999945474,
+        0.06710000002385641,
+        0.06480000001829467,
+        0.06670000004760368,
+        0.06270000005770271,
+        0.0625999999783744,
+        0.06169999994654063,
+        0.06319999999959691,
+        0.0634000000445667,
+        0.06419999999707215,
+        0.06359999997584964,
+        0.06400000006578921,
+        0.06299999995462713,
+        0.08100000002286833,
+        0.06380000002081943,
+        0.06419999999707215,
+        0.0634000000445667,
+        0.09669999997186096,
+        0.06559999997080013,
+        0.06329999996523838,
+        0.06359999997584964,
+        0.10039999995115068,
+        0.07210000001123262,
+        0.06380000002081943,
+        0.06299999995462713,
+        0.06429999996271363,
+        0.06330000007892522,
+        0.06310000003395544,
+        0.06120000000464643,
+        0.06269999994401587
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "min_ms": 0.189200000022538,
+      "median_ms": 0.19290000000182772,
+      "p95_ms": 0.23880000003373425,
+      "rss_mb": 34.07421875,
+      "error": null,
+      "samples_ms": [
+        0.19550000001800072,
+        0.194400000054884,
+        0.1901999999063264,
+        0.23290000001452427,
+        0.1909999999725187,
+        0.19210000004932226,
+        0.19810000003417372,
+        0.1935999999886917,
+        0.22200000000793807,
+        0.19190000000435248,
+        0.1916999999593827,
+        0.19459999998616695,
+        0.1955999999836422,
+        0.18980000004376052,
+        0.19329999997808045,
+        0.1947999999174499,
+        0.1913000000968168,
+        0.30209999999897263,
+        0.19190000000435248,
+        0.23880000003373425,
+        0.19450000002052548,
+        0.19480000003113673,
+        0.19059999999626598,
+        0.19509999992806115,
+        0.1916999999593827,
+        0.19249999991188815,
+        0.192500000025575,
+        0.189200000022538,
+        0.19010000005437178,
+        0.191800000038711
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "min_ms": 0.3771000000369895,
+      "median_ms": 0.38140000003750174,
+      "p95_ms": 0.41780000003655005,
+      "rss_mb": 34.07421875,
+      "error": null,
+      "samples_ms": [
+        0.3911999999672844,
+        0.3801999999950567,
+        0.377899999989495,
+        0.41590000000724103,
+        0.3771000000369895,
+        0.4065000000537111,
+        0.3796999999394757,
+        0.38059999997130944,
+        0.41780000003655005,
+        0.37820000000010623,
+        0.3782999999657477,
+        0.3778000000238535,
+        0.3790000000662985,
+        0.41020000003300083,
+        0.3782999999657477,
+        0.3957000000127664,
+        0.3790000000662985,
+        0.655800000004092,
+        0.381700000048113,
+        0.4169000000047163,
+        0.38299999994251266,
+        0.38500000005115,
+        0.3804000000400265,
+        0.378400000045076,
+        0.4040000000031796,
+        0.37810000003446476,
+        0.4004999999551728,
+        0.3811000000268905,
+        0.40719999992688827,
+        0.40750000005118636
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "order_id": 0,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.29510000001664594
+    },
+    {
+      "order_id": 1,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6614000000126907
+    },
+    {
+      "order_id": 2,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.34549999998034764
+    },
+    {
+      "order_id": 3,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8687999999638123
+    },
+    {
+      "order_id": 4,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2607999999781896
+    },
+    {
+      "order_id": 5,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6296000000247659
+    },
+    {
+      "order_id": 6,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3153000000111206
+    },
+    {
+      "order_id": 7,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.834800000049654
+    },
+    {
+      "order_id": 8,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2607999999781896
+    },
+    {
+      "order_id": 9,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6254999999555366
+    },
+    {
+      "order_id": 10,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.31599999999798456
+    },
+    {
+      "order_id": 11,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.834999999980937
+    },
+    {
+      "order_id": 12,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2590000000282089
+    },
+    {
+      "order_id": 13,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6455000000187283
+    },
+    {
+      "order_id": 14,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3198999999085572
+    },
+    {
+      "order_id": 15,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8994999999886204
+    },
+    {
+      "order_id": 16,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2827000000706903
+    },
+    {
+      "order_id": 17,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6627999999864187
+    },
+    {
+      "order_id": 18,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3431000000091444
+    },
+    {
+      "order_id": 19,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8436000000956483
+    },
+    {
+      "order_id": 20,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2600999999913256
+    },
+    {
+      "order_id": 21,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6306999999878826
+    },
+    {
+      "order_id": 22,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3130999999712003
+    },
+    {
+      "order_id": 23,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8503000000673637
+    },
+    {
+      "order_id": 24,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26219999995191756
+    },
+    {
+      "order_id": 25,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6277999999610984
+    },
+    {
+      "order_id": 26,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.31290000003991736
+    },
+    {
+      "order_id": 27,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.934599999979582
+    },
+    {
+      "order_id": 28,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2620000000206346
+    },
+    {
+      "order_id": 29,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6300999999666601
+    },
+    {
+      "order_id": 30,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.31290000003991736
+    },
+    {
+      "order_id": 31,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 6.423100000006343
+    },
+    {
+      "order_id": 32,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.262999999904423
+    },
+    {
+      "order_id": 33,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6343000000015309
+    },
+    {
+      "order_id": 34,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3126999999949476
+    },
+    {
+      "order_id": 35,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8241999999399923
+    },
+    {
+      "order_id": 36,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.30119999996713887
+    },
+    {
+      "order_id": 37,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.647999999955573
+    },
+    {
+      "order_id": 38,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3124999999499778
+    },
+    {
+      "order_id": 39,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8047000000460685
+    },
+    {
+      "order_id": 40,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26170000001002336
+    },
+    {
+      "order_id": 41,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6637000000182525
+    },
+    {
+      "order_id": 42,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3150000000005093
+    },
+    {
+      "order_id": 43,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.864199999952689
+    },
+    {
+      "order_id": 44,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2634000001080494
+    },
+    {
+      "order_id": 45,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6336999999803083
+    },
+    {
+      "order_id": 46,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3123999999843363
+    },
+    {
+      "order_id": 47,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.841899999997622
+    },
+    {
+      "order_id": 48,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26370000000497384
+    },
+    {
+      "order_id": 49,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6324999999378633
+    },
+    {
+      "order_id": 50,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3137999999580643
+    },
+    {
+      "order_id": 51,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.870900000038091
+    },
+    {
+      "order_id": 52,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2620000000206346
+    },
+    {
+      "order_id": 53,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6487000000561238
+    },
+    {
+      "order_id": 54,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.30990000004749163
+    },
+    {
+      "order_id": 55,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8372000000208573
+    },
+    {
+      "order_id": 56,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26309999998375133
+    },
+    {
+      "order_id": 57,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6411999999045292
+    },
+    {
+      "order_id": 58,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.31490000003486784
+    },
+    {
+      "order_id": 59,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.93860000008317
+    },
+    {
+      "order_id": 60,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2915000000029977
+    },
+    {
+      "order_id": 61,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6627000000207772
+    },
+    {
+      "order_id": 62,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.34190000008038623
+    },
+    {
+      "order_id": 63,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.866400000106296
+    },
+    {
+      "order_id": 64,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26360000003933237
+    },
+    {
+      "order_id": 65,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6365000000414511
+    },
+    {
+      "order_id": 66,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.47010000002956076
+    },
+    {
+      "order_id": 67,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8438000000269312
+    },
+    {
+      "order_id": 68,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2627999999731401
+    },
+    {
+      "order_id": 69,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6296999999904074
+    },
+    {
+      "order_id": 70,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3104999999550273
+    },
+    {
+      "order_id": 71,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.830500000049142
+    },
+    {
+      "order_id": 72,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26159999993069505
+    },
+    {
+      "order_id": 73,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6241999999474501
+    },
+    {
+      "order_id": 74,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3097999999681633
+    },
+    {
+      "order_id": 75,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.061299999989387
+    },
+    {
+      "order_id": 76,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.4347000000279877
+    },
+    {
+      "order_id": 77,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.1749000000236265
+    },
+    {
+      "order_id": 78,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5373999999847001
+    },
+    {
+      "order_id": 79,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.4375999999601845
+    },
+    {
+      "order_id": 80,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2659000000448941
+    },
+    {
+      "order_id": 81,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6282000000510379
+    },
+    {
+      "order_id": 82,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3096000000368804
+    },
+    {
+      "order_id": 83,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8307999999460662
+    },
+    {
+      "order_id": 84,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26060000004690664
+    },
+    {
+      "order_id": 85,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6245000000717482
+    },
+    {
+      "order_id": 86,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3189000000247688
+    },
+    {
+      "order_id": 87,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.833600000007209
+    },
+    {
+      "order_id": 88,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2792000000226835
+    },
+    {
+      "order_id": 89,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6495999999742708
+    },
+    {
+      "order_id": 90,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3333000000793618
+    },
+    {
+      "order_id": 91,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.834299999994073
+    },
+    {
+      "order_id": 92,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26360000003933237
+    },
+    {
+      "order_id": 93,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6270999999742344
+    },
+    {
+      "order_id": 94,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.31089999993128004
+    },
+    {
+      "order_id": 95,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8306000000147833
+    },
+    {
+      "order_id": 96,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26260000004185713
+    },
+    {
+      "order_id": 97,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6360999999515116
+    },
+    {
+      "order_id": 98,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.314199999934317
+    },
+    {
+      "order_id": 99,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.857899999957226
+    },
+    {
+      "order_id": 100,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.268899999923633
+    },
+    {
+      "order_id": 101,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6562999999459862
+    },
+    {
+      "order_id": 102,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3104999999550273
+    },
+    {
+      "order_id": 103,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.817099999992024
+    },
+    {
+      "order_id": 104,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.26219999995191756
+    },
+    {
+      "order_id": 105,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.655100000017228
+    },
+    {
+      "order_id": 106,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.31219999993936653
+    },
+    {
+      "order_id": 107,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8190999999869746
+    },
+    {
+      "order_id": 108,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.25959999993574456
+    },
+    {
+      "order_id": 109,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6240999999818087
+    },
+    {
+      "order_id": 110,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3087000000050466
+    },
+    {
+      "order_id": 111,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.820599999926344
+    },
+    {
+      "order_id": 112,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2607000000125481
+    },
+    {
+      "order_id": 113,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6276000000298154
+    },
+    {
+      "order_id": 114,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.31149999995250255
+    },
+    {
+      "order_id": 115,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8240000000087093
+    },
+    {
+      "order_id": 116,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.2868999999918742
+    },
+    {
+      "order_id": 117,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.655100000017228
+    },
+    {
+      "order_id": 118,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.3113999999868611
+    },
+    {
+      "order_id": 119,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.9357000000563858
+    },
+    {
+      "order_id": 120,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5349000000478554
+    },
+    {
+      "order_id": 121,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9674000000359229
+    },
+    {
+      "order_id": 122,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5743000000393295
+    },
+    {
+      "order_id": 123,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.168499999991582
+    },
+    {
+      "order_id": 124,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5272999999306194
+    },
+    {
+      "order_id": 125,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9655000000066138
+    },
+    {
+      "order_id": 126,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6343999999671723
+    },
+    {
+      "order_id": 127,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.140300000017305
+    },
+    {
+      "order_id": 128,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.502899999901274
+    },
+    {
+      "order_id": 129,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.900900000033289
+    },
+    {
+      "order_id": 130,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5744000000049709
+    },
+    {
+      "order_id": 131,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.153500000029453
+    },
+    {
+      "order_id": 132,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5655999999589767
+    },
+    {
+      "order_id": 133,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9430000000065775
+    },
+    {
+      "order_id": 134,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5864999999403153
+    },
+    {
+      "order_id": 135,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.147299999999632
+    },
+    {
+      "order_id": 136,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5018000000518441
+    },
+    {
+      "order_id": 137,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9069999999837819
+    },
+    {
+      "order_id": 138,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6227999999737222
+    },
+    {
+      "order_id": 139,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.269399999998313
+    },
+    {
+      "order_id": 140,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5163999999240332
+    },
+    {
+      "order_id": 141,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9090999999443738
+    },
+    {
+      "order_id": 142,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5846999999903346
+    },
+    {
+      "order_id": 143,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.147100000068349
+    },
+    {
+      "order_id": 144,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.7365999999819905
+    },
+    {
+      "order_id": 145,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.352900000028967
+    },
+    {
+      "order_id": 146,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.8489000000508895
+    },
+    {
+      "order_id": 147,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 6.216800000061085
+    },
+    {
+      "order_id": 148,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6101000000171553
+    },
+    {
+      "order_id": 149,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9112000000186526
+    },
+    {
+      "order_id": 150,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5783000000292304
+    },
+    {
+      "order_id": 151,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.136700000003657
+    },
+    {
+      "order_id": 152,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5002999999987878
+    },
+    {
+      "order_id": 153,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9639999999535576
+    },
+    {
+      "order_id": 154,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5989999999655993
+    },
+    {
+      "order_id": 155,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.133700000011231
+    },
+    {
+      "order_id": 156,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5270999999993364
+    },
+    {
+      "order_id": 157,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.8963000000221655
+    },
+    {
+      "order_id": 158,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6258999999317894
+    },
+    {
+      "order_id": 159,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.136600000038015
+    },
+    {
+      "order_id": 160,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5300999999917622
+    },
+    {
+      "order_id": 161,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9436000000278
+    },
+    {
+      "order_id": 162,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5787999999711246
+    },
+    {
+      "order_id": 163,
+      "round_id": 10,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.135000000019318
+    },
+    {
+      "order_id": 164,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5217000000357075
+    },
+    {
+      "order_id": 165,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.923999999940861
+    },
+    {
+      "order_id": 166,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.605100000029779
+    },
+    {
+      "order_id": 167,
+      "round_id": 11,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 11.199199999964549
+    },
+    {
+      "order_id": 168,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.530800000092313
+    },
+    {
+      "order_id": 169,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9058000000550237
+    },
+    {
+      "order_id": 170,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6328000000621614
+    },
+    {
+      "order_id": 171,
+      "round_id": 12,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.232099999967431
+    },
+    {
+      "order_id": 172,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5502999999862368
+    },
+    {
+      "order_id": 173,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0632000000896369
+    },
+    {
+      "order_id": 174,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6654000000025917
+    },
+    {
+      "order_id": 175,
+      "round_id": 13,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.2283000000225
+    },
+    {
+      "order_id": 176,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5826000000297427
+    },
+    {
+      "order_id": 177,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9318999999550215
+    },
+    {
+      "order_id": 178,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6565999999565975
+    },
+    {
+      "order_id": 179,
+      "round_id": 14,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.234599999904276
+    },
+    {
+      "order_id": 180,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5717000000231565
+    },
+    {
+      "order_id": 181,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9314000000131273
+    },
+    {
+      "order_id": 182,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6128999999646112
+    },
+    {
+      "order_id": 183,
+      "round_id": 15,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.208400000038637
+    },
+    {
+      "order_id": 184,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5276000000549175
+    },
+    {
+      "order_id": 185,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9218999999802691
+    },
+    {
+      "order_id": 186,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5919999999832726
+    },
+    {
+      "order_id": 187,
+      "round_id": 16,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.186699999991106
+    },
+    {
+      "order_id": 188,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5896000000120694
+    },
+    {
+      "order_id": 189,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0220000000344953
+    },
+    {
+      "order_id": 190,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.605800000016643
+    },
+    {
+      "order_id": 191,
+      "round_id": 17,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.236999999989166
+    },
+    {
+      "order_id": 192,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5554000000529413
+    },
+    {
+      "order_id": 193,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9352999999236999
+    },
+    {
+      "order_id": 194,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5959999999731735
+    },
+    {
+      "order_id": 195,
+      "round_id": 18,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.397199999971235
+    },
+    {
+      "order_id": 196,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5778999999392909
+    },
+    {
+      "order_id": 197,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9215999999696578
+    },
+    {
+      "order_id": 198,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6048999999848093
+    },
+    {
+      "order_id": 199,
+      "round_id": 19,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.216899999960333
+    },
+    {
+      "order_id": 200,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5466000000069471
+    },
+    {
+      "order_id": 201,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9832000000642438
+    },
+    {
+      "order_id": 202,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6032999999661115
+    },
+    {
+      "order_id": 203,
+      "round_id": 20,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.183399999988069
+    },
+    {
+      "order_id": 204,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5310999999892374
+    },
+    {
+      "order_id": 205,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0057000000642802
+    },
+    {
+      "order_id": 206,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6003999999393272
+    },
+    {
+      "order_id": 207,
+      "round_id": 21,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.174599999942075
+    },
+    {
+      "order_id": 208,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5558999999948355
+    },
+    {
+      "order_id": 209,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 1.0091999999986
+    },
+    {
+      "order_id": 210,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6476999999449617
+    },
+    {
+      "order_id": 211,
+      "round_id": 22,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.259999999931097
+    },
+    {
+      "order_id": 212,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5608999999822117
+    },
+    {
+      "order_id": 213,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9749000000738306
+    },
+    {
+      "order_id": 214,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6220999999868582
+    },
+    {
+      "order_id": 215,
+      "round_id": 23,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.3114000000059605
+    },
+    {
+      "order_id": 216,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5496999999650143
+    },
+    {
+      "order_id": 217,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9337999999843305
+    },
+    {
+      "order_id": 218,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.641399999949499
+    },
+    {
+      "order_id": 219,
+      "round_id": 24,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.231099999969956
+    },
+    {
+      "order_id": 220,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6583999999065782
+    },
+    {
+      "order_id": 221,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.993600000015249
+    },
+    {
+      "order_id": 222,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6313999999747466
+    },
+    {
+      "order_id": 223,
+      "round_id": 25,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.220599999939623
+    },
+    {
+      "order_id": 224,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5495999999993728
+    },
+    {
+      "order_id": 225,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9568000000399479
+    },
+    {
+      "order_id": 226,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6779000000278756
+    },
+    {
+      "order_id": 227,
+      "round_id": 26,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.19529999999213
+    },
+    {
+      "order_id": 228,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5679999999301799
+    },
+    {
+      "order_id": 229,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9307000000262633
+    },
+    {
+      "order_id": 230,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6419000000050801
+    },
+    {
+      "order_id": 231,
+      "round_id": 27,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.204400000048736
+    },
+    {
+      "order_id": 232,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5557000000635526
+    },
+    {
+      "order_id": 233,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9595000000217624
+    },
+    {
+      "order_id": 234,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.598199999899407
+    },
+    {
+      "order_id": 235,
+      "round_id": 28,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.155200000013792
+    },
+    {
+      "order_id": 236,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5194000000301457
+    },
+    {
+      "order_id": 237,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.9599999999636566
+    },
+    {
+      "order_id": 238,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5961999999044565
+    },
+    {
+      "order_id": 239,
+      "round_id": 29,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 4.144800000062787
+    },
+    {
+      "order_id": 240,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04400000000259752
+    },
+    {
+      "order_id": 241,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04520000004504254
+    },
+    {
+      "order_id": 242,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.042600000028869545
+    },
+    {
+      "order_id": 243,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0651999999945474
+    },
+    {
+      "order_id": 244,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19550000001800072
+    },
+    {
+      "order_id": 245,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3911999999672844
+    },
+    {
+      "order_id": 246,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.045300000010684016
+    },
+    {
+      "order_id": 247,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04509999996571423
+    },
+    {
+      "order_id": 248,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04230000001825829
+    },
+    {
+      "order_id": 249,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06710000002385641
+    },
+    {
+      "order_id": 250,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.194400000054884
+    },
+    {
+      "order_id": 251,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3801999999950567
+    },
+    {
+      "order_id": 252,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04430000001320877
+    },
+    {
+      "order_id": 253,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.0455000000556538
+    },
+    {
+      "order_id": 254,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.06029999997281266
+    },
+    {
+      "order_id": 255,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06480000001829467
+    },
+    {
+      "order_id": 256,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1901999999063264
+    },
+    {
+      "order_id": 257,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.377899999989495
+    },
+    {
+      "order_id": 258,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04449999994449172
+    },
+    {
+      "order_id": 259,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.044399999978850246
+    },
+    {
+      "order_id": 260,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.041699999997035775
+    },
+    {
+      "order_id": 261,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06670000004760368
+    },
+    {
+      "order_id": 262,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23290000001452427
+    },
+    {
+      "order_id": 263,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.41590000000724103
+    },
+    {
+      "order_id": 264,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04509999996571423
+    },
+    {
+      "order_id": 265,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04460000002382003
+    },
+    {
+      "order_id": 266,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04219999993892998
+    },
+    {
+      "order_id": 267,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06270000005770271
+    },
+    {
+      "order_id": 268,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1909999999725187
+    },
+    {
+      "order_id": 269,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3771000000369895
+    },
+    {
+      "order_id": 270,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04369999999198626
+    },
+    {
+      "order_id": 271,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04560000002129527
+    },
+    {
+      "order_id": 272,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.041699999997035775
+    },
+    {
+      "order_id": 273,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0625999999783744
+    },
+    {
+      "order_id": 274,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19210000004932226
+    },
+    {
+      "order_id": 275,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4065000000537111
+    },
+    {
+      "order_id": 276,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04400000000259752
+    },
+    {
+      "order_id": 277,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04630000000815926
+    },
+    {
+      "order_id": 278,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04219999993892998
+    },
+    {
+      "order_id": 279,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06169999994654063
+    },
+    {
+      "order_id": 280,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19810000003417372
+    },
+    {
+      "order_id": 281,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3796999999394757
+    },
+    {
+      "order_id": 282,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.046499999939442205
+    },
+    {
+      "order_id": 283,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04549999994196696
+    },
+    {
+      "order_id": 284,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04319999993640522
+    },
+    {
+      "order_id": 285,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06319999999959691
+    },
+    {
+      "order_id": 286,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1935999999886917
+    },
+    {
+      "order_id": 287,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.38059999997130944
+    },
+    {
+      "order_id": 288,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.044399999978850246
+    },
+    {
+      "order_id": 289,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04460000002382003
+    },
+    {
+      "order_id": 290,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04279999996015249
+    },
+    {
+      "order_id": 291,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0634000000445667
+    },
+    {
+      "order_id": 292,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22200000000793807
+    },
+    {
+      "order_id": 293,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.41780000003655005
+    },
+    {
+      "order_id": 294,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.044299999899521936
+    },
+    {
+      "order_id": 295,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.044399999978850246
+    },
+    {
+      "order_id": 296,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.042499999949541234
+    },
+    {
+      "order_id": 297,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06419999999707215
+    },
+    {
+      "order_id": 298,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19190000000435248
+    },
+    {
+      "order_id": 299,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.37820000000010623
+    },
+    {
+      "order_id": 300,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04449999994449172
+    },
+    {
+      "order_id": 301,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04809999995813996
+    },
+    {
+      "order_id": 302,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.042099999973288504
+    },
+    {
+      "order_id": 303,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06359999997584964
+    },
+    {
+      "order_id": 304,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1916999999593827
+    },
+    {
+      "order_id": 305,
+      "round_id": 10,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3782999999657477
+    },
+    {
+      "order_id": 306,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04409999996823899
+    },
+    {
+      "order_id": 307,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.045199999931355705
+    },
+    {
+      "order_id": 308,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04139999998642452
+    },
+    {
+      "order_id": 309,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06400000006578921
+    },
+    {
+      "order_id": 310,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19459999998616695
+    },
+    {
+      "order_id": 311,
+      "round_id": 11,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3778000000238535
+    },
+    {
+      "order_id": 312,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04369999999198626
+    },
+    {
+      "order_id": 313,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.044399999978850246
+    },
+    {
+      "order_id": 314,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04590000003190653
+    },
+    {
+      "order_id": 315,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06299999995462713
+    },
+    {
+      "order_id": 316,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1955999999836422
+    },
+    {
+      "order_id": 317,
+      "round_id": 12,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3790000000662985
+    },
+    {
+      "order_id": 318,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04409999996823899
+    },
+    {
+      "order_id": 319,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.048199999923781434
+    },
+    {
+      "order_id": 320,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04560000002129527
+    },
+    {
+      "order_id": 321,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.08100000002286833
+    },
+    {
+      "order_id": 322,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.18980000004376052
+    },
+    {
+      "order_id": 323,
+      "round_id": 13,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.41020000003300083
+    },
+    {
+      "order_id": 324,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04400000000259752
+    },
+    {
+      "order_id": 325,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.045800000066265056
+    },
+    {
+      "order_id": 326,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04179999996267725
+    },
+    {
+      "order_id": 327,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06380000002081943
+    },
+    {
+      "order_id": 328,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19329999997808045
+    },
+    {
+      "order_id": 329,
+      "round_id": 14,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3782999999657477
+    },
+    {
+      "order_id": 330,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04510000007940107
+    },
+    {
+      "order_id": 331,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.044399999978850246
+    },
+    {
+      "order_id": 332,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04200000000764703
+    },
+    {
+      "order_id": 333,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06419999999707215
+    },
+    {
+      "order_id": 334,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1947999999174499
+    },
+    {
+      "order_id": 335,
+      "round_id": 15,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3957000000127664
+    },
+    {
+      "order_id": 336,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04400000000259752
+    },
+    {
+      "order_id": 337,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04450000005817856
+    },
+    {
+      "order_id": 338,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0416000000313943
+    },
+    {
+      "order_id": 339,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0634000000445667
+    },
+    {
+      "order_id": 340,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1913000000968168
+    },
+    {
+      "order_id": 341,
+      "round_id": 16,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3790000000662985
+    },
+    {
+      "order_id": 342,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04450000005817856
+    },
+    {
+      "order_id": 343,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.07259999995312683
+    },
+    {
+      "order_id": 344,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0678000000107204
+    },
+    {
+      "order_id": 345,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.09669999997186096
+    },
+    {
+      "order_id": 346,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.30209999999897263
+    },
+    {
+      "order_id": 347,
+      "round_id": 17,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.655800000004092
+    },
+    {
+      "order_id": 348,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.06859999996322586
+    },
+    {
+      "order_id": 349,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.06680000001324515
+    },
+    {
+      "order_id": 350,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0446999999894615
+    },
+    {
+      "order_id": 351,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06559999997080013
+    },
+    {
+      "order_id": 352,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19190000000435248
+    },
+    {
+      "order_id": 353,
+      "round_id": 18,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.381700000048113
+    },
+    {
+      "order_id": 354,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.046099999963189475
+    },
+    {
+      "order_id": 355,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.047100000074351556
+    },
+    {
+      "order_id": 356,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.042200000052616815
+    },
+    {
+      "order_id": 357,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06329999996523838
+    },
+    {
+      "order_id": 358,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23880000003373425
+    },
+    {
+      "order_id": 359,
+      "round_id": 19,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4169000000047163
+    },
+    {
+      "order_id": 360,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05939999994097889
+    },
+    {
+      "order_id": 361,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.05520000001979497
+    },
+    {
+      "order_id": 362,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04239999998389976
+    },
+    {
+      "order_id": 363,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06359999997584964
+    },
+    {
+      "order_id": 364,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19450000002052548
+    },
+    {
+      "order_id": 365,
+      "round_id": 20,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.38299999994251266
+    },
+    {
+      "order_id": 366,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04419999993388046
+    },
+    {
+      "order_id": 367,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.050099999953090446
+    },
+    {
+      "order_id": 368,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0442000000475673
+    },
+    {
+      "order_id": 369,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.10039999995115068
+    },
+    {
+      "order_id": 370,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19480000003113673
+    },
+    {
+      "order_id": 371,
+      "round_id": 21,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.38500000005115
+    },
+    {
+      "order_id": 372,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.045300000010684016
+    },
+    {
+      "order_id": 373,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04579999995257822
+    },
+    {
+      "order_id": 374,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.041599999917707464
+    },
+    {
+      "order_id": 375,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.07210000001123262
+    },
+    {
+      "order_id": 376,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19059999999626598
+    },
+    {
+      "order_id": 377,
+      "round_id": 22,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3804000000400265
+    },
+    {
+      "order_id": 378,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04520000004504254
+    },
+    {
+      "order_id": 379,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.0446999999894615
+    },
+    {
+      "order_id": 380,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.042200000052616815
+    },
+    {
+      "order_id": 381,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06380000002081943
+    },
+    {
+      "order_id": 382,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19509999992806115
+    },
+    {
+      "order_id": 383,
+      "round_id": 23,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.378400000045076
+    },
+    {
+      "order_id": 384,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04379999995762773
+    },
+    {
+      "order_id": 385,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.045599999907608435
+    },
+    {
+      "order_id": 386,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.042499999949541234
+    },
+    {
+      "order_id": 387,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06299999995462713
+    },
+    {
+      "order_id": 388,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.1916999999593827
+    },
+    {
+      "order_id": 389,
+      "round_id": 24,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4040000000031796
+    },
+    {
+      "order_id": 390,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.0446999999894615
+    },
+    {
+      "order_id": 391,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.044799999955102976
+    },
+    {
+      "order_id": 392,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.043000000005122274
+    },
+    {
+      "order_id": 393,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06429999996271363
+    },
+    {
+      "order_id": 394,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19249999991188815
+    },
+    {
+      "order_id": 395,
+      "round_id": 25,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.37810000003446476
+    },
+    {
+      "order_id": 396,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.043900000036956044
+    },
+    {
+      "order_id": 397,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04449999994449172
+    },
+    {
+      "order_id": 398,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.041699999997035775
+    },
+    {
+      "order_id": 399,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06330000007892522
+    },
+    {
+      "order_id": 400,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.192500000025575
+    },
+    {
+      "order_id": 401,
+      "round_id": 26,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4004999999551728
+    },
+    {
+      "order_id": 402,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.044399999978850246
+    },
+    {
+      "order_id": 403,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04490000003443129
+    },
+    {
+      "order_id": 404,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04269999999451102
+    },
+    {
+      "order_id": 405,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06310000003395544
+    },
+    {
+      "order_id": 406,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.189200000022538
+    },
+    {
+      "order_id": 407,
+      "round_id": 27,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3811000000268905
+    },
+    {
+      "order_id": 408,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04349999994701648
+    },
+    {
+      "order_id": 409,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.046099999963189475
+    },
+    {
+      "order_id": 410,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04210000008697534
+    },
+    {
+      "order_id": 411,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06120000000464643
+    },
+    {
+      "order_id": 412,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.19010000005437178
+    },
+    {
+      "order_id": 413,
+      "round_id": 28,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.40719999992688827
+    },
+    {
+      "order_id": 414,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.044399999978850246
+    },
+    {
+      "order_id": 415,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.046200000042517786
+    },
+    {
+      "order_id": 416,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04189999992831872
+    },
+    {
+      "order_id": 417,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.06269999994401587
+    },
+    {
+      "order_id": 418,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.191800000038711
+    },
+    {
+      "order_id": 419,
+      "round_id": 29,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.40750000005118636
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+row             lib                  v5            v6   n
+rec             strata         263.09us      239.04us  180
+rec             msgspec        250.49us      249.98us  180
+                strata/msgspec [v5] 1.050
+                strata/msgspec [v6] 0.956
+                v6/v5 strata: median 0.9044 [0.9030, 0.9116] over 3 blocks
+rec-file        strata         346.80us      321.47us  180
+rec-file        msgspec        362.56us      363.44us  180
+                strata/msgspec [v5] 0.957
+                strata/msgspec [v6] 0.885
+                v6/v5 strata: median 0.9254 [0.9201, 0.9369] over 3 blocks
+t-uuid          strata          70.95us       26.12us  180
+t-uuid          msgspec         66.09us       65.88us  180
+                strata/msgspec [v5] 1.073
+                strata/msgspec [v6] 0.396
+                v6/v5 strata: median 0.3686 [0.3650, 0.3696] over 3 blocks
+plain-mixed     strata          30.23us       30.26us  180
+plain-mixed     msgspec         41.40us       41.37us  180
+                strata/msgspec [v5] 0.730
+                strata/msgspec [v6] 0.731
+                v6/v5 strata: median 1.0010 [1.0010, 1.0015] over 3 blocks

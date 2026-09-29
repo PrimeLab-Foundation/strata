@@ -1,0 +1,19 @@
+row             lib                base           tip   n
+rec             strata         387.82us      203.78us  240
+rec             msgspec        254.58us      253.88us  240
+rec             orjson         479.84us      475.33us  240
+                strata/msgspec [base] 1.523
+                strata/msgspec [tip] 0.803
+                tip/base strata: median 0.5238 [0.5200, 0.5331] over 3 blocks
+rec-file        strata         485.88us      289.57us  240
+rec-file        msgspec        380.34us      372.94us  240
+rec-file        orjson         620.57us      617.60us  240
+                strata/msgspec [base] 1.277
+                strata/msgspec [tip] 0.776
+                tip/base strata: median 0.5974 [0.5715, 0.6153] over 3 blocks
+plain-mixed     strata          30.01us       26.70us  240
+plain-mixed     msgspec         41.61us       41.89us  240
+plain-mixed     orjson          37.52us       37.54us  240
+                strata/msgspec [base] 0.721
+                strata/msgspec [tip] 0.637
+                tip/base strata: median 0.8897 [0.8866, 0.8916] over 3 blocks

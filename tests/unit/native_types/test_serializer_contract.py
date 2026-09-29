@@ -8,14 +8,18 @@ the api.md `dumps` bullets that carry them. Integration corpora, re-entrancy and
 file output are in tests/py/native_types/.
 """
 
+import abc
+import contextlib
 import dataclasses
 import datetime as dt
 import enum
+import json
 import pathlib
 import re
 import subprocess
 import sys
 import textwrap
+import types
 import typing
 import uuid
 import warnings
@@ -37,6 +41,21 @@ def both(obj):
 
 def text_of(out):
     return out.decode() if isinstance(out, bytes) else out
+
+
+def _ref(obj):
+    """native_types.md, "The oracle": `str(u)`, `.value`, the fields by `getattr`."""
+    if isinstance(obj, enum.Enum):
+        return obj.value
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return {field.name: getattr(obj, field.name) for field in dataclasses.fields(obj)}
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def _oracle(obj):
+    return json.dumps(obj, default=_ref, separators=(",", ":"), ensure_ascii=False)
 
 
 def _python_stack_depth():
@@ -265,6 +284,31 @@ def test_row4_an_int_that_is_not_an_int_raises_type_error():
         strata.dumps(broken, native=True)
 
 
+class UuidKey(uuid.UUID):
+    """Not the exact type: its `.int` is read through `getattr`, never the slot."""
+
+
+@pytest.mark.parametrize("number", [0, 2**64 - 1, 2**64, 2**127, 2**128 - 1])
+@pytest.mark.parametrize("kind", [uuid.UUID, UuidKey])
+def test_row4_the_int_splits_at_its_64_bit_halves(kind, number):
+    # Row 4: "from `.int`" -- each half boundary, from the slot and from getattr.
+    value = kind(int=number)
+    assert both(value) == f'"{value}"' == _oracle(value)
+
+
+@pytest.mark.parametrize("stored", [1 << 128, -1])
+@pytest.mark.parametrize("kind", [uuid.UUID, UuidKey])
+def test_row4_an_int_outside_128_bits_raises_the_range_message_on_both_paths(kind, stored):
+    # Row 4 (docs/decisions.md 2026-09-28): refused with one message whether
+    # the int is read from the exact type's slot or through a subclass.
+    broken = kind(int=1)
+    object.__setattr__(broken, "int", stored)
+    message = r"^UUID\.int is out of range \(need a 128-bit value\)$"
+    for mode in MODES:
+        with pytest.raises(ValueError, match=message):
+            strata.dumps(broken, return_type=mode, native=True)
+
+
 # ---------------------------------------------------------------------------
 # Row 5: `decimal.Decimal`
 # ---------------------------------------------------------------------------
@@ -363,6 +407,108 @@ def test_row6_value_is_read_with_getattr():
             return "from the property"
 
     assert both(Custom.A) == '"from the property"'
+
+
+def test_row6_value_is_the_property_a_base_enum_defines():
+    # Row 6 ("read with getattr"): a `value` the members' base overrides.
+    class OwnValue(enum.Enum):
+        @property
+        def value(self):
+            return ["own", self._value_]
+
+    class Inherits(OwnValue):
+        A = 1
+
+    assert both(Inherits.A) == '["own",1]' == _oracle(Inherits.A)
+
+
+def test_row6_value_is_read_through_the_class_getattribute():
+    # Row 6 ("read with getattr"): a class `__getattribute__` sees the reads
+    # `getattr(member, "value")` makes, in order, and its answer is written.
+    reads = []
+
+    class Watched(enum.Enum):
+        A = 1
+
+        def __getattribute__(self, name):
+            reads.append(name)
+            return super().__getattribute__(name)
+
+    class Intercepting(enum.Enum):
+        A = 1
+
+        def __getattribute__(self, name):
+            return "seen" if name == "value" else super().__getattribute__(name)
+
+    reads.clear()
+    assert Watched.A.value == 1
+    through_getattr = reads[:]
+    reads.clear()
+    assert strata.dumps(Watched.A, native=True) == "1"
+    assert reads == through_getattr
+    assert through_getattr[0] == "value"
+    assert both(Intercepting.A) == '"seen"'
+
+
+#: `Enum.value` as the enum module defines it: the descriptor the proof captured.
+STOCK_VALUE = enum.Enum.__dict__["value"]
+
+
+def _fget_stand_in(self):
+    return ["fget", self._value_]
+
+
+@contextlib.contextmanager
+def _stock_value_patched(part):
+    """Replace one proven piece of `Enum.value` for the block; restore it after."""
+    if part == "code":
+        owner, name = STOCK_VALUE.fget, "__code__"
+        replacement = (lambda self: ["code", self._value_]).__code__
+    elif part == "fget":
+        owner, name = STOCK_VALUE, "fget"
+        replacement = _fget_stand_in
+    else:
+        owner, name = type(STOCK_VALUE), "__get__"
+        stock_get = owner.__get__
+
+        def replacement(self, instance, ownerclass=None):
+            if instance is None:
+                return stock_get(self, instance, ownerclass)
+            return ["get", instance._value_]
+
+    inherited = isinstance(owner, type) and name not in vars(owner)
+    saved = getattr(owner, name)
+    setattr(owner, name, replacement)
+    try:
+        yield
+    finally:
+        if inherited:
+            delattr(owner, name)
+        else:
+            setattr(owner, name, saved)
+
+
+@pytest.mark.parametrize("part", ["code", "fget", "get"])
+def test_row6_value_follows_a_patched_stock_descriptor(part):
+    # Row 6 ("read with getattr"): the `_value_` shortcut stands only while
+    # the stock descriptor's fget code, its fget and its class's `__get__`
+    # are the proven ones (python_native_types.cpp `stock_enum_value`).
+    members = [Color.ONE, Perm.R | Perm.W]
+    assert both(members) == "[1,6]"
+    with _stock_value_patched(part):
+        assert both(members) == f'[["{part}",1],["{part}",6]]' == _oracle(members)
+    assert both(members) == "[1,6]"
+
+
+@pytest.mark.parametrize("kind", [Color, Perm])
+def test_error_contract_a_member_without_value_raises_what_getattr_raises(kind):
+    # Row 6 ("read with getattr") and "Error contract": the same AttributeError.
+    bare = object.__new__(kind)
+    with pytest.raises(AttributeError) as through_getattr:
+        _ = bare.value
+    with pytest.raises(AttributeError) as raised:
+        strata.dumps(bare, native=True)
+    assert str(raised.value) == str(through_getattr.value)
 
 
 def test_error_contract_an_enum_chain_longer_than_the_depth_limit_raises():
@@ -598,6 +744,97 @@ def test_error_contract_an_unset_field_raises_its_attribute_error():
 def test_row7_a_dataclass_class_is_not_an_instance():
     with pytest.raises(TypeError, match="^Object of type type is not JSON serializable$"):
         strata.dumps(Point, native=True)
+
+
+def test_row7_a_cached_entry_writes_what_filling_it_wrote():
+    # Row 7: the first write lists the fields and fills the type's entry; the
+    # next is served from it, and both are the oracle's text.
+    @dataclasses.dataclass
+    class Fresh:
+        x: int = 1
+        name: str = "n"
+
+    filled = both(Fresh())
+    assert both(Fresh()) == filled == _oracle(Fresh()) == '{"x":1,"name":"n"}'
+
+
+def test_row7_a_field_name_that_needs_escaping_is_escaped_as_a_dict_key():
+    # Row 7 and the dict-key rule: a `Field.name` holding a quote, a backslash,
+    # control characters or non-ASCII text gets the bytes a dict key gets,
+    # filled and cached.
+    @dataclasses.dataclass
+    class Renamed:
+        a: int = 0
+        b: int = 1
+        c: int = 2
+        d: int = 3
+
+    names = ['a"b', "\\", "c\x01\n\x1f", "ключ"]
+    for field, name in zip(dataclasses.fields(Renamed), names, strict=True):
+        field.name = name
+    instance = Renamed.__new__(Renamed)
+    for position, name in enumerate(names):
+        setattr(instance, name, position)
+    expected = '{"a\\"b":0,"\\\\":1,"c\\u0001\\n\\u001f":2,"ключ":3}'
+    for _ in range(2):
+        assert both(instance) == expected == _oracle(instance)
+    assert both(dict(zip(names, range(4), strict=True))) == expected
+
+
+def test_row7_a_dataclass_whose_metaclass_is_not_type_is_an_object_of_its_fields():
+    # Row 7: `type(obj)` has `__dataclass_fields__` however its metaclass answers.
+    # An ABC with nothing abstract, so it can be instantiated: only ABCMeta matters.
+    @dataclasses.dataclass
+    class Shape(abc.ABC):  # noqa: B024
+        side: int = 2
+        label: str = "sq"
+
+    for _ in range(2):
+        assert both(Shape()) == '{"side":2,"label":"sq"}' == _oracle(Shape())
+
+
+def test_error_contract_a_surrogate_field_name_raises_at_that_field():
+    # api.md `dumps` (a lone surrogate is UnicodeEncodeError on every call) and
+    # row 7: the field before it is read and written, the one after it is not.
+    reads = []
+
+    @dataclasses.dataclass
+    class Tail:
+        first: int = 1
+        bad: int = 2
+        last: int = 3
+
+    dataclasses.fields(Tail)[1].name = "\ud800"
+    Tail.first = property(lambda self: reads.append("first") or 1)
+    Tail.last = property(lambda self: reads.append("last") or 3)
+    instance = Tail.__new__(Tail)
+    setattr(instance, "\ud800", 2)
+    for _ in range(2):
+        with pytest.raises(UnicodeEncodeError, match="surrogates not allowed"):
+            strata.dumps(instance, native=True)
+    assert reads == ["first", "first"]
+
+
+@pytest.mark.parametrize("metaclass", [type, abc.ABCMeta])
+def test_row7_fields_replaced_after_first_use_are_re_read(metaclass):
+    # Row 7 (docs/decisions.md 2026-09-29, review P2): a replaced
+    # `__dataclass_fields__` is listed again, its names escaped again.
+    @dataclasses.dataclass
+    class Record(metaclass("Base", (), {})):
+        a: int = 1
+
+    @dataclasses.dataclass
+    class Donor:
+        b: int = 2
+
+    (field,) = dataclasses.fields(Donor)
+    field.name = 'b"q'
+    value = Record()
+    setattr(value, 'b"q', 2)
+    assert both(value) == '{"a":1}'
+    Record.__dataclass_fields__ = {"b": field}
+    for _ in range(2):
+        assert both(value) == '{"b\\"q":2}' == _oracle(value)
 
 
 # ---------------------------------------------------------------------------
@@ -933,3 +1170,36 @@ def test_hook_a_temporal_subclass_is_passed_to_default(mode):
     out = strata.dumps_with_default(TEMPORAL_SUBCLASSES, default, return_type=mode)
     assert text_of(out) == "[" + ",".join(f'"{v.isoformat()}"' for v in TEMPORAL_SUBCLASSES) + "]"
     assert seen == TEMPORAL_SUBCLASSES
+
+
+# ---------------------------------------------------------------------------
+# Re-entrancy: type-table resolution (a `sys.modules` probe and attribute reads
+# on a module the user may have replaced).
+# ---------------------------------------------------------------------------
+
+
+def test_resolution_a_fake_module_under_the_numpy_name_changes_no_other_row():
+    # "Re-entrancy" (type-table resolution): a module under numpy's name that
+    # holds none of its classes resolves nothing, and every row ahead of numpy
+    # is decided as before -- while it is in `sys.modules` and once it is gone.
+    # Unresolved-group coverage in a fresh interpreter: tests/py/native_types.
+    @dataclasses.dataclass
+    class Line:
+        tag: object
+        price: object
+
+    document = [Color.RED, Decimal("1.50"), Line(Rank.HIGH, Decimal("-0")), Wrapper.INNER]
+    expected = '["red",1.50,{"tag":5,"price":-0},"red"]'
+    missing = object()
+    saved = sys.modules.get("numpy", missing)
+    sys.modules["numpy"] = types.ModuleType("numpy")
+    try:
+        assert both(document) == expected
+        with pytest.raises(TypeError, match="^Object of type object is not JSON serializable$"):
+            strata.dumps(object(), native=True)
+    finally:
+        if saved is missing:
+            del sys.modules["numpy"]
+        else:
+            sys.modules["numpy"] = saved
+    assert both(document) == expected

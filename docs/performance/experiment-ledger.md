@@ -4633,3 +4633,166 @@ waits on it.
 - **Closing state.** Clauses 1, 3, 4 and 5 hold as above; clause 2's artifact is
   `identity-m1/build_spec.txt` (`_strata`'s `Extension` and inputs, and `core_sources.txt`, equal
   `38eaa9f`'s at `9a17e02`; neither file changes to `565fab2`). Not merged; no further dispatch.
+
+## M15c — the msgspec gap on native-v1: the hook's own profile and four emitter levers
+
+- 2026-09-29 · `exp/native-gap` over main `234ea15`, uncommitted. Record:
+  [`native_types.md`](../architecture/native_types.md), "Hook profile and native emitter costs
+  (M15c)"; docs/decisions.md, 2026-09-29 (four M15c lines). Evidence:
+  `docs/benchmarks/evidence/M15c/` (`PROVENANCE.txt` names instrument, host and every packet).
+  Target: strata `native=True` at or below msgspec on native-v1 `dumps`/`dump` (M15b's closing
+  follow-up: 1.27–1.60× / 1.12–1.34× across five legs, run 36585989834).
+
+- **Phase 0(a), the build: 37% of the M1's `dumps` gap** (`p0a`; M1 Max, native.small, 240
+  samples per arm, ABCDEEDCBA ×3). strata medians: shipped hook 384.72 µs, rebuilt A/A 382.08
+  (paired 0.9936 \[0.9745, 1.0090\]), `-flto=thin` 361.65 (0.9334), own profile 350.25 (0.9039),
+  both 335.77 (**0.8740 \[0.8647, 0.8803\]**); msgspec 252.5. Ratio to msgspec 1.520 → 1.330;
+  `dump` 1.276 → 1.158 (0.8899 \[0.8341, 0.9002\]). Profile: `experiments/native-gap/train_native.py`
+  (seed 7, not the benchmark's 42).
+
+- **Phase 0(b), the emitters** (`p0b`; lists of 1000 distinct objects, ns per object, PGO+LTO
+  arm vs msgspec): Enum 114.0 vs 26.8, int-valued Enum 114.6 vs 20.5, dataclass 151.3 vs 65.2,
+  UUID 92.4 vs 66.8, Decimal 90.4 vs 66.6, date 15.0 vs 7.6, datetime 20.5 vs 13.1, time 18.2
+  vs 10.9, set 94.8 vs 96.5; plain int/str strata ahead. Per-field ablation of the records, excess
+  over msgspec per record: `status` (Enum) +82.5 ns, `address` (dataclass) +74.7, `uuid` +31.9,
+  `amount` (Decimal) +8.9, `born` (date) +5.2, `created_at` 0.0, `labels` (set) +3.3. Causes read
+  from the source: `Enum.value` is a Python-level `enum.property` (81 ns vs 18.5 ns for `_value_`
+  on 3.14; 123 vs 27 on 3.10); every non-pure `classify` probed `sys.modules` for numpy (absent);
+  the UUID split built an `int` (`PyNumber_Rshift`) and made two rich compares; a dataclass read
+  `__dataclass_fields__` through `type.__getattribute__` twice and escaped each key per object.
+
+- **The contract's price, kept** (`p0c`; attribution-only arm with `latch()` a no-op,
+  `experiments/native-gap/probe-no-latch.patch`, never merged): records 0.9382 \[0.9200, 0.9444\]
+  (about 50 ns per record, the row latch and the per-conversion `user_steps_`), Enum 0.9397,
+  dataclass 0.9316, Decimal 0.9607, set 0.9657. api.md's mutation rows are binding; nothing below
+  touches `latch()`, the row latch or `user_steps_`.
+
+- **Phase 1, levers, one at a time** (`p1a`; plain `-O3` builds as CI ships the hook today,
+  cumulative, 120 samples per arm, paired to the rebuilt base): records `dumps` 385.08 µs →
+  L1 lazy group probes 357.97 (0.9404) → L2 UUID halves 341.75 (0.8930) → L3 Enum stock
+  descriptor 321.25 (0.8394) → L4 dataclass keys and MRO read 283.95 (**0.7410 \[0.7316,
+  0.7503\]**); `dump` 0.7630 \[0.7626, 0.7634\]. Per type after L4: Enum 0.6248, dataclass 0.5784,
+  UUID 0.7634, Decimal 0.8678, set 0.8725 (L1 and L4's MRO read), date 1.0050 (untouched path).
+  Go on all four.
+
+- **Levers with the profile retrained on them** (`p1b`; 240 samples per arm): `dumps` records
+  strata 244.84 µs vs msgspec 251.99 (**0.972×**), paired to the shipped hook 0.6374 \[0.6210,
+  0.6446\]; `dump` 330.83 vs 370.21 (**0.894×**). Plain levers alone: 1.133× / 1.020×.
+
+- **Phase 1b, from a profile of the lever build** (`sample_v5.txt`, macOS `sample` of the plain
+  L1–L4 hook on the record loop): `util::format_uuid` 5.5% of top-of-stack samples,
+  `_PyLong_AsByteArray` under `PyLong_AsNativeBytes` 4.4%, `PyType_IsSubtype` 4.4% + its stub
+  1.4%, `_tlv_get_addr` 7.1% (mostly `_PyType_Lookup` on 3.14), `latch()` 3.5%. Four further
+  levers, plain builds, 180 samples per arm, paired strata ratios:
+
+  - **L9 native writers not cold** (`p3`, v4 → v5): records 0.9217 \[0.9181, 0.9252\], file
+    0.9510, Enum 0.9000, dataclass 0.8584, Decimal 0.9547, date 0.9481, datetime 0.9594; the
+    no-native flag analog (`plain-mixed` through `native=True`) 1.0120 \[1.0113, 1.0125\], a
+    resolved +1.2% on a row the shipped hook reads 30.00 µs and msgspec 41.6. Go.
+  - **L10 UUID digit reader + L11 eight-digit hex, one arm** (`p4`, v5 → v6): UUID lists 0.3686
+    \[0.3650, 0.3696\] (70.95 → 26.12 ns per UUID; msgspec 66), records 0.9044, file 0.9254,
+    `plain-mixed` 1.0010. The split comes from the profile above, not from separate arms. Go.
+  - **L12 type verdicts** — first build (`p5`, v7): slots indexed by `address >> 4`; the record's
+    Decimal, Enum and dataclass classes shared slot 1, so records read only 0.9847 while per-type
+    lists read Enum 0.6332, set 0.7817. Fixed by Fibonacci hashing (`p6`, v6 → v8): records
+    **0.8644 \[0.8206, 0.8658\]**, file 0.9030, Enum 0.6334, dataclass 0.8386, `plain-mixed`
+    0.9983. Go.
+  - Plain build after L1–L12: records strata 208.08 µs vs msgspec 251.6 (**0.827×**), file 0.791×.
+
+- **L9's plain-document cost, priced and accepted** (lead, 2026-09-29): `plain-mixed` through
+  `native=True` reads +1.2% \[1.0113, 1.0125\] on the plain build (`p3`); the row stays at 0.73×
+  msgspec, and the profiled hook reads it at 0.8862 of the shipped hook (`p9`, below).
+
+- **Profiled hook, L1–L12** (`p9`; `d18a7fa` source, the phase-3 recipe by hand:
+  `-fprofile-generate` → `scripts/pgo_hook_training.py` → `-flto=thin -fprofile-use`; ABBA ×3,
+  repeat 40, 240 samples): records `dumps` strata 187.23 µs vs msgspec 252.70, **0.741×**
+  (paired to the shipped hook **0.4873 \[0.4872, 0.4882\]**); `dump` 270.69 vs 368.84 µs,
+  **0.734×** (0.5649 \[0.5599, 0.5704\]); `plain-mixed` 0.639× msgspec (0.8862 \[0.8858, 0.8877\]).
+
+- **Correctness: the dataclass field cache and a Field changed in place** (`5bc815d`; present
+  on main since M15). The entry was checked against `__dataclass_fields__`'s keys and Field
+  objects by identity, not against what `dataclasses.fields` reads from them, so a Field whose
+  `name` or `_field_type` was reassigned after first use kept its old key (a probe wrote
+  `{"a\"b":0,...}` where the oracle wrote `{"renamed":99,...}`). Each entry now snapshots every
+  field's `name` and `_field_type` and is refused when either changed; an exact `Field` is read in
+  place while its class's version tag is current, anything else by `getattr`. Tests pin the
+  cached path, the refreshed entry, a re-kinded field and a Field subclass; all three fail on the
+  pre-fix build (`v8`) and pass on the fix. Price, plain builds, ABBA ×4, 240 samples (`p8`):
+  dataclass lists +5.35% \[1.0529, 1.0551\] (+4.4 ns per two-field object), records +0.75%
+  \[1.0002, 1.0698\], file +1.8% \[0.9956, 1.1146\] (the upper bounds are one loaded block). A
+  first version with a reference taken per read cost the lists +11.2% (`p7`); the kept one
+  compares borrowed. No cheaper invalidation chosen (lead's call).
+
+- **Windows' third phase** (`4c92d3e`, `scripts/pgo_build_clang_cl.py` `_hook_phase`): verified
+  on the M1 to the depth it allows — `setup.py` under a simulated clang-cl build gives the hook
+  `/clang:-fprofile-use=<hook.profdata>` and `_strata` its own profile, no LTO on either; the
+  phase, driven with its commands recorded, runs instrument → train → merge → record → rebuild →
+  `--check-profiled` both ways → gate in that order, and refuses a changed `_strata` image
+  (`tests/unit/native_types/test_hook_profile_build.py`). Not run on Windows: the first five-leg
+  dispatch is its first execution.
+
+- **Final tip `57e1aa8`, profiled, and what the field-cache fix costs under the profile.**
+  `make gate` exit 0 (C++ 16/16, Python 3965 passed / 2 skipped, Python coverage 100%);
+  `scripts/token_identity.sh 234ea15`: 18/18 `_strata` TUs identical per ISA; `make pgo`
+  exit 0 with phase 3's `_strata` hash check and both `--check-profiled` guards passing. Shipped
+  hook vs the tip's pipeline-built hook (`p10`, 240 samples): records `dumps` **0.803×** msgspec
+  (paired 0.5238 \[0.5200, 0.5331\]), `dump` **0.776×** (0.5974 \[0.5715, 0.6153\]),
+  `plain-mixed` 0.637×. Against the profiled L1–L12 build in one session (`p11`, `p12`): the tip
+  reads records 1.0850 \[1.0719, 1.0902\] and dataclass lists 1.2919 \[1.2808, 1.2988\]; a hand
+  build of the tip with the pipeline's profile bytes reads the same (1.0877, 1.2978), so the
+  recipe is not the cause. The profile is: per dataclass object the tip reads plain 87.2 ns,
+  LTO 88.5, PGO 96.6, PGO+LTO 95.1 (`p13`), where L1–L12 went 82.6 plain → 74.3 profiled. The
+  profile's counts show the in-place Field read taken (`field_states_match` 496 000 calls, 1 736
+  000 iterations; the generic `field_attribute` 14), and `sample` puts 28.6% of a dataclass loop in
+  `dataclass_field_names`' own body (`sample_tip_dc.txt`), where L1–L12's does not reach the top
+  of the list. Mechanism not yet found; no cheaper invalidation chosen (lead's call).
+
+- **The profiled cost, cured by E26-P23's shape** (one bounded cycle, lead-approved): the
+  field-cache miss path (list through `dataclasses.fields`, snapshot, encode, fill) moves out of
+  `dataclass_field_names` into `refresh_field_names`, `STRATA_COLD_FN`, and `field_states_match`
+  goes out of line (`STRATA_NOINLINE_HOT`); the training payload already reached the miss path
+  only at fill (2 of 496 000 calls). One `make pgo` cycle (exit 0, both guards and the `_strata`
+  hash check passing), same session against the profiled L1–L12 build (`p14`, 240 samples):
+  records **1.0069 \[0.9809, 1.0200\]** (the previous tip 1.0963), file 1.0115 \[0.9465,
+  1.0192\] (1.0781), dataclass lists 1.0572 \[1.0315, 1.0724\] (1.2954) — the unprofiled price
+  (+0.75% / +5.35%) restored. strata/msgspec: records 0.752×, file 0.730×. Kept.
+
+- **Five-leg sample 36632472320** (`bc6d9ba`, `identity_base=234ea15`; the one approved
+  dispatch; `ci-36632472320/verdict.txt`). Three legs complete: linux-x86_64, macos-arm64 and
+  linux-arm64 read native-v1 `dumps` **0.832×, 0.817×, 0.848×** msgspec and `dump` **0.875×,
+  0.917×, 0.901×** (M15b's sample: 1.60/1.34, 1.38/1.31, 1.47/1.26), canonical 27/27 each,
+  tripwire green, phase 3's `_strata` hash check and both `--check-profiled` guards passing.
+  Identity: plain `_strata` IDENTICAL on four legs; held IDENTICAL on linux-x86_64, macos-arm64,
+  macos-x86_64; linux-arm64's held `.text`, `.rela.plt` and `.note.gnu.build-id` differ — M15b's
+  three sections, ruled layout-only there, not re-verified here (the plan's stop condition).
+  macos-x86_64 passed every step but lost its reports to an artifact-service timeout. Windows
+  failed its plain install gate on three tests that assumed a clang/gcc host (fixed in `66adccf`);
+  its clang-cl hook phase has still never run. No second dispatch.
+
+- **linux-arm64 held identity, re-proved at this revision** (lead-approved;
+  `linux-arm64-replay/`): M15b's replay (ubuntu:24.04, clang 18.1.3, native arm64 on the M1),
+  base `234ea15`, head `33465c2`. `identity_ab.py` reproduces CI exactly — plain CODE IDENTICAL,
+  held `.text`/`.rela.plt`/`.note.gnu.build-id` differ — and `normalised_disassembly.py` reads
+  423/423 functions, 407 identical, 16 differing only in page-offset slot immediates, **0
+  beyond**. Layout, not code: identity accepted under the M12b standard, per the lead's M15b
+  criterion. (16 slot-only functions against M15b's 7; M15b's step-2 noise control not rerun.)
+
+- **Second five-leg sample 36637770136** (`33465c2`; `ci-36637770136/verdict.txt`). Four legs
+  complete, canonical 27/27 each, tripwire green, phase 3's guards passing: native-v1 `dumps` /
+  `dump` vs msgspec linux-x86_64 **0.845 / 0.849**, macos-arm64 **0.725 / 0.844**,
+  macos-x86_64 **0.799 / 0.864**, linux-arm64 **0.846 / 0.878**; identity held IDENTICAL on all
+  but linux-arm64 (the replay above). Windows passed both clang-cl `_strata` phases and failed
+  phase 3a's install gate: `test_training_scope.py`'s plain-build reading of `setup.py` inherited
+  `STRATA_HOOK_PGO_MODE`, which MSVC (the default there) refuses — fixed in `c99d938`; the
+  hook's clang-cl profile has still never been built in CI.
+
+- **Third sample 36641825105, Windows judged** (`271a2a0`; `ci-36641825105/verdict.txt`).
+  **Windows passes end to end** — the clang-cl hook phase's first complete run: instrumented hook,
+  native training, merge, rebuild against its own profile, `_strata` hash unchanged, both
+  `--check-profiled` guards, gate green; plain and held identity CODE IDENTICAL; native-v1
+  `dumps` **0.840×** and `dump` **0.908×** msgspec (M15b's 1.27 / 1.12); canonical 26/27
+  (`dumps mixed` 1.051× orjson). Extra POSIX samples: linux-arm64 0.838 / 0.879, macos-arm64
+  0.720 / 0.885, macos-x86_64 0.775 / 0.822, linux-x86_64 0.794 / 0.883 — the last on a new host
+  class (EPYC 9V45; both earlier samples EPYC 7763) where canonical read 20/27 with seven serializer
+  rows 1.003–1.132× orjson, `_strata` code-identical to main on that leg in that run.
+  Native-v1 across the three samples, every leg and row: strata 0.720–0.917× msgspec.
