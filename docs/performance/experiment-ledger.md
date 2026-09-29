@@ -4539,13 +4539,13 @@ waits on it.
     (inferred from `armBheld2`: the flag test changes its control flow), so a held arm cannot
     attribute a five-leg row to the code as the record assumes.
 
-## M15b — native types behind a flag: `_strata` identical to main, local evidence; five-leg run prepared
+## M15b — native types behind a flag: `_strata` identical to main, local evidence; five-leg run, no identity verdict
 
 - 2026-09-29 · `exp/native-types` over main `38eaa9f`, thirteen commits `84800ba` to `6aed644`
   (`git log --oneline 643a089..HEAD`). Record: [`native_types.md`](../architecture/native_types.md),
   "Flag shape (M15b)" (`84800ba`); docs/decisions.md, 2026-09-29, "User-directed flag shape" to the
-  end. Evidence: `docs/benchmarks/evidence/M15b/`. **Status: not merged; the five-leg
-  `benchmark.yml` run with `identity_base=38eaa9f` is prepared, not dispatched.**
+  end. Evidence: `docs/benchmarks/evidence/M15b/`. **Status: not merged; five-leg run 36582916306
+  (`identity_base=38eaa9f`) gave no identity verdict on any leg; one re-dispatch is owed.**
 
 - **Shape (user-directed; supersedes default-on and fallback (b), never built).** `_strata` is
   main's; `dumps`/`dump` gain `native=False`, `parse_types` stays opt-in, both routed by the facade
@@ -4581,5 +4581,23 @@ waits on it.
   ms, single run, no CI. Both images are unprofiled here; in CI `_strata` is PGO'd, the hook never.
 
 - **Training scope and next.** Native suites stay outside `--training`; the trained-scope
-  deviation is decisions.md's last line. Next, awaiting the user's approval: the prepared five-leg
+  deviation is decisions.md's last line. Next, approved and dispatched below: the prepared five-leg
   run, clause 4 on every CI leg (`1593526` gives identity legs 180 minutes). Open: clause 2.
+
+- **Five-leg run 36582916306: no leg produced an identity verdict** (`ci-36582916306/`; `82e3fa5`,
+  2026-09-29 14:28–14:44 UTC; one dispatch, as approved). All five legs concluded failure: the CI
+  half of clause 4 is unmet and the M1 proof stands alone. Both causes are tooling or test defects,
+  fixed in `b8436a1` (evidence `e9a37c1`). POSIX legs: canonical suite, tripwire and native-v1
+  passed, then `git worktree add` found no base: `${{ identity_base != '' && 0 || 1 }}` is 1 (0
+  is falsy in an Actions expression), so the checkout stayed shallow; fix: depths `'0'`/`'1'`.
+  Windows: both images built and linked, the instrumented phase passed; the optimized-phase gate
+  failed 10 tests in two `tests/unit/native_types/` files, a child interpreter unable to import
+  `strata` (POSIX-only path split; fix: `pathlib`), so clang-cl identity is still unverified.
+  Owed: one re-dispatch on `b8436a1` or later, which needs fresh approval.
+
+- **native-v1 in CI: strata `native=True` second, behind msgspec, on every native row** (four
+  POSIX legs; small tier, 10 repeats, one run per leg, no interval). Median ratio to msgspec:
+  `dumps` 1.32–1.61×, `dump` 1.18–1.35×; ahead of orjson and stdlib `json` on each. Flag rows
+  (`mixed.small`, hook unprofiled): `native=True` costs 1.05–1.11× `native=False`; on linux-arm64
+  it trails orjson (0.058 vs 0.057 ms), on linux-x86_64 it ties it (0.059 ms). Follow-up target
+  (the lead's direction, not pursued now): the msgspec gap on native `dumps`/`dump`.
