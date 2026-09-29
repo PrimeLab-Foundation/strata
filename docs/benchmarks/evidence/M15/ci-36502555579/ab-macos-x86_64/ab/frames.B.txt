@@ -1,0 +1,15 @@
+   1 strata::bindings::(anonymous namespace)::Serializer::build_schema(strata::bindings::SchemaCacheLease::DepthSchemas&, unsigned long) frame 0x58
+   1 strata::bindings::(anonymous namespace)::Serializer::grow_schemas(unsigned long) frame 0x38
+   1 strata::bindings::(anonymous namespace)::Serializer::write_dataclass(_object*) frame 0x38
+   1 strata::bindings::(anonymous namespace)::Serializer::write_decimal(_object*) frame 0x20
+   1 strata::bindings::(anonymous namespace)::Serializer::write_enum(_object*) frame 0x28
+   1 strata::bindings::(anonymous namespace)::Serializer::write_mapping_body(_object*, long, long) frame 0x98
+   1 strata::bindings::(anonymous namespace)::Serializer::write_mapping_uncached(_object*) frame 0x28
+   1 strata::bindings::(anonymous namespace)::Serializer::write_mapping(_object*) frame 0x48
+   1 strata::bindings::(anonymous namespace)::Serializer::write_native(_object*) frame 0x50
+   3 strata::bindings::(anonymous namespace)::Serializer::write_native(_object*) stack_chk
+   1 strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*) frame 0xa8
+   1 strata::bindings::(anonymous namespace)::Serializer::write_scalar_run(_object**, long) frame 0x38
+   1 strata::bindings::(anonymous namespace)::Serializer::write_set_table(_object*) frame 0x18
+   1 strata::bindings::(anonymous namespace)::Serializer::write_set(_object*) frame 0x30
+   1 strata::bindings::(anonymous namespace)::Serializer::write(_object*) frame 0x88

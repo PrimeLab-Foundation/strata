@@ -1,0 +1,22 @@
+Obtaining file:///home/runner/work/_temp/strata-arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_x86_64.whl size=4376 sha256=19c1397362d2f123b92145bbc222ccb2c99a2bcbff7ed13f0bb72d4b85cc4d83
+  Stored in directory: /tmp/pip-ephem-wheel-cache-vqx7mtgw/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10

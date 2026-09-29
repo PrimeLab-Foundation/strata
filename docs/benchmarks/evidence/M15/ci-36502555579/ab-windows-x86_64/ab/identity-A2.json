@@ -1,0 +1,41 @@
+{
+ "code_identical": true,
+ "sections": [
+  {
+   "section": ".data",
+   "a": "4f16b78a34b1d3704f320267bf774e62ef974d538a06ea2d29288fbb7a067be0",
+   "b": "4f16b78a34b1d3704f320267bf774e62ef974d538a06ea2d29288fbb7a067be0",
+   "identical": true
+  },
+  {
+   "section": ".pdata",
+   "a": "219d6e656e34c51e276fc9a35af76a2abd9eb2a37e15bb463ed2c1d95a46749b",
+   "b": "219d6e656e34c51e276fc9a35af76a2abd9eb2a37e15bb463ed2c1d95a46749b",
+   "identical": true
+  },
+  {
+   "section": ".rdata",
+   "a": "d3a287b0b2f547030025a232970687617b99fd05961e538ce8fb7f59ef973843",
+   "b": "574580f7000a82e23e878cdbac03e756fa92a706308902e4f4cd46f3d3987f94",
+   "identical": false
+  },
+  {
+   "section": ".reloc",
+   "a": "5f1ba849e19cd97db7afc7c4097a6793ac5717588395fb2b749c9f40d09669ba",
+   "b": "5f1ba849e19cd97db7afc7c4097a6793ac5717588395fb2b749c9f40d09669ba",
+   "identical": true
+  },
+  {
+   "section": ".rsrc",
+   "a": "0f66fddfa6873918ee3b52f9f612d4dd48908aa17e1704b6f26c2d954545f7d2",
+   "b": "0f66fddfa6873918ee3b52f9f612d4dd48908aa17e1704b6f26c2d954545f7d2",
+   "identical": true
+  },
+  {
+   "section": ".text",
+   "a": "0273ce9ad87599216cdaa4ff123381e1106003bdd15f260b2c303c78169bd6e8",
+   "b": "0273ce9ad87599216cdaa4ff123381e1106003bdd15f260b2c303c78169bd6e8",
+   "identical": true
+  }
+ ]
+}
