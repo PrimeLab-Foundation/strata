@@ -42,10 +42,11 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   └── util/                # scan.hpp (utf-8/whitespace/escapes), fast_parse.hpp, dtoa.hpp, temporal.hpp (date/time/UUID text)
 ├── src/strata/
 │   ├── core_sources.txt     # the single core source list, read by CMake and setup.py
+│   ├── native_sources.txt   # the hook image's extra sources (native types, parse_types walk)
 │   ├── json/                # json_parse.cpp (DOM builder), json_serialize.cpp
 │   ├── search/              # jsonpath_compile.cpp, jsonpath_eval.cpp
 │   ├── util/                # scan.cpp, dtoa.cpp, folder.cpp, temporal.cpp
-│   └── bindings/            # CPython layer: module, loads, dumps (+ python_dumps_hook.cpp: the dumps_with_default image), files, ndjson, cursor
+│   └── bindings/            # CPython layer: module, loads, dumps (+ python_dumps_hook.cpp: the dumps_with_default AND native= image, with python_native_types.* and python_parse_types_walk.*), files, ndjson, cursor
 ├── python/strata/           # thin facade: __init__, serialize (loads/dumps), config
 ├── tests/
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
@@ -128,7 +129,25 @@ image (`strata._dumps_hook`, compiled from the same serializer source) so that `
 builds byte-identical to main, merged as 9434607 after meeting its A/B criterion across
 runs 36279771980, 36291977906 and 36297571366 (docs/performance/experiment-ledger.md,
 M12b; still owed there: criterion 6's two CI samples and criterion 9's quiet-window
-re-measure). The rebuild is versioned calver,
+re-measure). M15 (native type support) was first built default-on inside `_strata` and
+refused by its kill criterion — macos-x86_64 small `dumps nested` past +2% on two
+clean-control draws (runs 36502555579, 36529483744) with a repeated sub-2% N2 dumps
+carpet; the static mechanism was `write()`'s +48 B tail plus ~20 KB of image text
+(ledger, M15; the clean-control ruling and fallback record in docs/decisions.md and
+docs/architecture/native_types.md). Its successor M15b landed as merge b7acf8f
+(2026-09-29): `dumps`/`dump` gain `native=` (default False; datetime/date/time as
+RFC 3339, UUID, Enum `.value`, dataclass, Decimal, set/frozenset, numpy lazy-probed)
+routed in the facade to the hook image, `parse_types` (default False) on
+`loads`/`load`/`search`/`query` revives recognized values post-parse from the same
+image, and `_strata` ships proven identical to main on all five legs (four byte-clean,
+linux-arm64 by the M12b normalised-disassembly standard after a container replay pinned
+the held-profile drift to guard-shifted debug-line metadata — evidence under
+docs/benchmarks/evidence/M15b/). The native-v1 benchmark section reports both flag
+states beside the unchanged 135-row canonical (that run's sample: 134/135); strata is
+second on every native row behind msgspec (`dumps` 1.27–1.60x, `dump` 1.12–1.34x — the
+ledger's named follow-up target) and ahead of orjson and stdlib, with the flag costing
+1.00–1.10x on mixed. Still owed: the M13 adapter branch's reconciliation with native
+precedence (docs/decisions.md, 2026-09-29). The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
 (see `docs/context/api.md`).
 
