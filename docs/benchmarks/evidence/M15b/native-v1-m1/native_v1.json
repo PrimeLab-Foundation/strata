@@ -1,0 +1,1995 @@
+{
+  "schema_version": 1,
+  "report_sha256": "64b038faab60ef4509116c429a1b4adf31f21835fad700462c1830011ab93f58",
+  "name": "native-v1",
+  "environment": {
+    "commit": "f2bdc410cb4a2e379388a180bc20efaaadc53f27",
+    "python": "3.14.7",
+    "implementation": "CPython",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "processor": "Apple M1 Max",
+    "compiler_flags": "see build provenance",
+    "provenance_schema": "1"
+  },
+  "excluded": {
+    "ujson (native dataset)": "no native type support; not named"
+  },
+  "provenance": {
+    "source": {
+      "commit": "1593526936ca0ece07106bb706bdc6ec5e40d237",
+      "dirty": true,
+      "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "untracked_sha256": {
+        "docs/benchmarks/evidence/M15b/facade/facade_ab.py": "339c2955b4aee3a99e22453efc6ac67bf6d6c3cf514277f9fa113aa927e43d37",
+        "docs/benchmarks/evidence/M15b/facade/facade_ab.txt": "6b3be5302f3354cb93643496c34ed7a585243dcb4e04f5405151838616b7c965"
+      }
+    },
+    "extension": {
+      "path": "/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/python/strata/_strata.cpython-314-darwin.so",
+      "sha256": "b97108254507edf59ceba47e70fec6bf80c74276dd540fdcd87a4bcfaa377a2b",
+      "build": {
+        "schema_version": 1,
+        "extension_sha256": "b97108254507edf59ceba47e70fec6bf80c74276dd540fdcd87a4bcfaa377a2b",
+        "source": {
+          "commit": "f2bdc410cb4a2e379388a180bc20efaaadc53f27",
+          "dirty": true,
+          "patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "untracked_sha256": {
+            "docs/benchmarks/evidence/M15b/identity-m1/PROVENANCE.txt": "38ffbe05dc558da8e31ee3085c10d3dcb531d90a50ffbb288217b0c9c7e5dc90",
+            "docs/benchmarks/evidence/M15b/identity-m1/identity.txt": "1ac697f12babebb7230e9fe26e291415b9e6bfafc41549c604d3e3f9cc45961d",
+            "docs/benchmarks/evidence/M15b/identity-m1/identity_ab.log": "2d338fb51d23c1bece69d5b82b2d72229d1fe54609e076ce081ddcdaebea7830",
+            "docs/benchmarks/evidence/M15b/identity-m1/identity_pgo.json": "38c9b4220be90a55a7af81c7e8dcdc6093c80decc73483acdf6411e5ecdf40c5",
+            "docs/benchmarks/evidence/M15b/identity-m1/identity_plain.json": "a8eae20b1640c757ecc12f1c38f1887545bdb1f61e505fd78618661cced02d8f",
+            "docs/benchmarks/evidence/M15b/identity-m1/token_identity.txt": "a11f30640d7df04d706fd3f422c094c8c1316b5f2bdb6a58c4159adc97711ade"
+          }
+        },
+        "complete_compilation": true,
+        "commands": [
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_document.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_document.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_dumps.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_dumps.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_files.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_files.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_folder.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_folder.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_jsonpath.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_jsonpath.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_loads.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_loads.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_module.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_module.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/bindings/python_ndjson.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_ndjson.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/json/json_cursor.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_cursor.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/json/json_document.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_document.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/json/json_parse.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_parse.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/json/json_serialize.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_serialize.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/json/ndjson_stream.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/ndjson_stream.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/search/jsonpath_compile.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/search/jsonpath_compile.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/search/jsonpath_eval.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/search/jsonpath_eval.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/util/dtoa.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/util/dtoa.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/util/folder.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/util/folder.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-Iinclude",
+            "-I/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-I/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/include",
+            "-I/opt/homebrew/opt/python@3.14/Frameworks/Python.framework/Versions/3.14/include/python3.14",
+            "-c",
+            "src/strata/util/scan.cpp",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/util/scan.o",
+            "-std=c++20",
+            "-O3",
+            "-D_LIBCPP_DISABLE_AVAILABILITY",
+            "-march=native"
+          ],
+          [
+            "clang++",
+            "-fno-strict-overflow",
+            "-Wsign-compare",
+            "-Wunreachable-code",
+            "-fno-common",
+            "-dynamic",
+            "-DNDEBUG",
+            "-g",
+            "-O3",
+            "-Wall",
+            "-bundle",
+            "-undefined",
+            "dynamic_lookup",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_document.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_dumps.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_files.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_folder.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_jsonpath.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_loads.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_module.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/bindings/python_ndjson.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_cursor.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_document.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_parse.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/json_serialize.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/json/ndjson_stream.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/search/jsonpath_compile.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/search/jsonpath_eval.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/util/dtoa.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/util/folder.o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmpyj_eus2l.build-temp/src/strata/util/scan.o",
+            "-o",
+            "/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/.ctx-mode-4c1Rtm/tmp56v15p7w.build-lib/strata/_strata.cpython-314-darwin.so"
+          ]
+        ],
+        "linker": {
+          "path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld",
+          "version": "@(#)PROGRAM:ld PROJECT:ld-1267\nBUILD 16:38:58 Jun  8 2026\nconfigured to support archs: armv6 armv7 armv7s arm64 arm64e arm64_32 i386 x86_64 x86_64h armv6m armv7k armv7m armv7em armv8m.main armv8.1m.main\nwill use ld-classic for: armv6 armv7 armv7s i386 armv6m armv7k armv7m armv7em\nLTO support using: LLVM version 21.0.0 (static support for 30, runtime is 30)\nTAPI support using: Apple TAPI version 21.0.0 (tapi-2100.0.2.6)"
+        },
+        "tool_versions": {
+          "clang++": "Apple clang version 21.0.0 (clang-2100.1.1.101)\nTarget: arm64-apple-darwin25.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
+        },
+        "pgo_profile": null,
+        "limitation": null
+      }
+    },
+    "python": {
+      "executable": "/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv/bin/python",
+      "version": "3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)]"
+    },
+    "versions": {
+      "strata": "2026.8.10",
+      "json": "3.14.7",
+      "orjson": "3.11.9",
+      "msgspec": "0.21.1",
+      "ujson": "5.13.0"
+    },
+    "datasets": [
+      {
+        "name": "mixed.json",
+        "path": "/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/benchmarks/data/generated/small/mixed.json",
+        "sha256": "e6761d39e0f157c3ae90d8ef1f04c4ca263343cce65058831bcaa307490e3937"
+      }
+    ],
+    "protocol": {
+      "name": "native-v1",
+      "repeat": 10,
+      "warmup": 1,
+      "preflight_calls": 1,
+      "equivalence_calls_per_library": {
+        "query": 1,
+        "search": 1
+      },
+      "gc": "collect before each timed call",
+      "timer": "perf_counter",
+      "units": "ms",
+      "rss": "current whole-process RSS after all libraries in each row",
+      "equivalence": "rivals: parsed-JSON equality with decimals compared as Decimal; a disagreeing rival is excluded and recorded, never timed"
+    },
+    "limitations": []
+  },
+  "measurements": [
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "min_ms": 0.3833749797195196,
+      "median_ms": 0.3913959953933954,
+      "p95_ms": 0.43583300430327654,
+      "rss_mb": 33.9375,
+      "error": null,
+      "samples_ms": [
+        0.40733302012085915,
+        0.3845419269055128,
+        0.38474996108561754,
+        0.3907920327037573,
+        0.3974999999627471,
+        0.39199995808303356,
+        0.3833749797195196,
+        0.3921249881386757,
+        0.38816698361188173,
+        0.43583300430327654
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "min_ms": 0.48745900858193636,
+      "median_ms": 0.49520842730998993,
+      "p95_ms": 0.514750019647181,
+      "rss_mb": 33.9375,
+      "error": null,
+      "samples_ms": [
+        0.4954999312758446,
+        0.4885409725829959,
+        0.49341702833771706,
+        0.4949169233441353,
+        0.514750019647181,
+        0.48745900858193636,
+        0.5058340029790998,
+        0.4875840386375785,
+        0.4991660825908184,
+        0.5078340182080865
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "min_ms": 0.2633749973028898,
+      "median_ms": 0.26895845076069236,
+      "p95_ms": 0.2951250644400716,
+      "rss_mb": 33.9375,
+      "error": null,
+      "samples_ms": [
+        0.2734169829636812,
+        0.2640410093590617,
+        0.26570900809019804,
+        0.2661250764504075,
+        0.2951250644400716,
+        0.2864579437300563,
+        0.26649993378669024,
+        0.2714169677346945,
+        0.2633749973028898,
+        0.2744169905781746
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "min_ms": 3.0672919237986207,
+      "median_ms": 3.1211460009217262,
+      "p95_ms": 3.359750029630959,
+      "rss_mb": 33.9375,
+      "error": null,
+      "samples_ms": [
+        3.1300419941544533,
+        3.097291919402778,
+        3.0672919237986207,
+        3.2790829427540302,
+        3.150500007905066,
+        3.076291992329061,
+        3.120000008493662,
+        3.1222919933497906,
+        3.088792087510228,
+        3.359750029630959
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "min_ms": 0.574458041228354,
+      "median_ms": 0.6104789790697396,
+      "p95_ms": 0.6899579893797636,
+      "rss_mb": 34.921875,
+      "error": null,
+      "samples_ms": [
+        0.6172079592943192,
+        0.5912500200793147,
+        0.60374999884516,
+        0.574458041228354,
+        0.5982090951874852,
+        0.5936670349910855,
+        0.6785830482840538,
+        0.6285839481279254,
+        0.6271249148994684,
+        0.6899579893797636
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "min_ms": 0.6768330931663513,
+      "median_ms": 0.7168125011958182,
+      "p95_ms": 0.7818329613655806,
+      "rss_mb": 34.921875,
+      "error": null,
+      "samples_ms": [
+        0.7701249560341239,
+        0.7122090319171548,
+        0.6768330931663513,
+        0.7136670174077153,
+        0.7301669102162123,
+        0.7126251002773643,
+        0.7314590038731694,
+        0.7818329613655806,
+        0.719957984983921,
+        0.6886250339448452
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "min_ms": 0.43795909732580185,
+      "median_ms": 0.48916699597612023,
+      "p95_ms": 0.6463750032708049,
+      "rss_mb": 34.921875,
+      "error": null,
+      "samples_ms": [
+        0.5228330846875906,
+        0.4515000618994236,
+        0.6463750032708049,
+        0.4410829860717058,
+        0.4782089963555336,
+        0.5772090516984463,
+        0.5099170375615358,
+        0.43795909732580185,
+        0.5001249955967069,
+        0.443084049038589
+      ]
+    },
+    {
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "min_ms": 3.3106670016422868,
+      "median_ms": 3.4143124939873815,
+      "p95_ms": 3.896250040270388,
+      "rss_mb": 34.921875,
+      "error": null,
+      "samples_ms": [
+        3.3942910376936197,
+        3.395124920643866,
+        3.3106670016422868,
+        3.4877919824793935,
+        3.896250040270388,
+        3.433500067330897,
+        3.3535839756950736,
+        3.80583293735981,
+        3.351958002895117,
+        3.8730000378564
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "min_ms": 0.03583403304219246,
+      "median_ms": 0.04266650648787618,
+      "p95_ms": 0.05625002086162567,
+      "rss_mb": 35.171875,
+      "error": null,
+      "samples_ms": [
+        0.04133302718400955,
+        0.0439999857917428,
+        0.04416704177856445,
+        0.038707978092134,
+        0.05020794924348593,
+        0.0363329891115427,
+        0.048208050429821014,
+        0.05625002086162567,
+        0.040416023693978786,
+        0.03583403304219246
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "min_ms": 0.03416708204895258,
+      "median_ms": 0.04164606798440218,
+      "p95_ms": 0.04795799031853676,
+      "rss_mb": 35.171875,
+      "error": null,
+      "samples_ms": [
+        0.03599992487579584,
+        0.041792052797973156,
+        0.04437495954334736,
+        0.04187505692243576,
+        0.0415000831708312,
+        0.04795799031853676,
+        0.03783300053328276,
+        0.03699993249028921,
+        0.04533305764198303,
+        0.03416708204895258
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "min_ms": 0.044874963350594044,
+      "median_ms": 0.05400000372901559,
+      "p95_ms": 0.0701249809935689,
+      "rss_mb": 35.171875,
+      "error": null,
+      "samples_ms": [
+        0.05200004670768976,
+        0.04837499000132084,
+        0.05425000563263893,
+        0.054416945204138756,
+        0.05462497938424349,
+        0.053750001825392246,
+        0.05837506614625454,
+        0.0701249809935689,
+        0.044915941543877125,
+        0.044874963350594044
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "min_ms": 0.049458001740276814,
+      "median_ms": 0.05393702303990722,
+      "p95_ms": 0.0653750030323863,
+      "rss_mb": 35.171875,
+      "error": null,
+      "samples_ms": [
+        0.05079200491309166,
+        0.05141703877598047,
+        0.0653750030323863,
+        0.05925004370510578,
+        0.057875062339007854,
+        0.0524159986525774,
+        0.05725002847611904,
+        0.055458047427237034,
+        0.049458001740276814,
+        0.050999922677874565
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "min_ms": 0.21954206749796867,
+      "median_ms": 0.22756250109523535,
+      "p95_ms": 0.23849995341151953,
+      "rss_mb": 35.171875,
+      "error": null,
+      "samples_ms": [
+        0.22874993737787008,
+        0.22662500850856304,
+        0.23229105863720179,
+        0.23849995341151953,
+        0.23804197553545237,
+        0.22412498947232962,
+        0.22849999368190765,
+        0.224666902795434,
+        0.22087502293288708,
+        0.21954206749796867
+      ]
+    },
+    {
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "min_ms": 0.35933300387114286,
+      "median_ms": 0.3828125190921128,
+      "p95_ms": 0.42820803355425596,
+      "rss_mb": 35.171875,
+      "error": null,
+      "samples_ms": [
+        0.37174997851252556,
+        0.4119159420952201,
+        0.3677919739857316,
+        0.3860420547425747,
+        0.42820803355425596,
+        0.37100003100931644,
+        0.4047499969601631,
+        0.37958298344165087,
+        0.35933300387114286,
+        0.3964169882237911
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "order_id": 0,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.40733302012085915
+    },
+    {
+      "order_id": 1,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.4954999312758446
+    },
+    {
+      "order_id": 2,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2734169829636812
+    },
+    {
+      "order_id": 3,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.1300419941544533
+    },
+    {
+      "order_id": 4,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3845419269055128
+    },
+    {
+      "order_id": 5,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.4885409725829959
+    },
+    {
+      "order_id": 6,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2640410093590617
+    },
+    {
+      "order_id": 7,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.097291919402778
+    },
+    {
+      "order_id": 8,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.38474996108561754
+    },
+    {
+      "order_id": 9,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.49341702833771706
+    },
+    {
+      "order_id": 10,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.26570900809019804
+    },
+    {
+      "order_id": 11,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.0672919237986207
+    },
+    {
+      "order_id": 12,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3907920327037573
+    },
+    {
+      "order_id": 13,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.4949169233441353
+    },
+    {
+      "order_id": 14,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2661250764504075
+    },
+    {
+      "order_id": 15,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.2790829427540302
+    },
+    {
+      "order_id": 16,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3974999999627471
+    },
+    {
+      "order_id": 17,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.514750019647181
+    },
+    {
+      "order_id": 18,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2951250644400716
+    },
+    {
+      "order_id": 19,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.150500007905066
+    },
+    {
+      "order_id": 20,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.39199995808303356
+    },
+    {
+      "order_id": 21,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.48745900858193636
+    },
+    {
+      "order_id": 22,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2864579437300563
+    },
+    {
+      "order_id": 23,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.076291992329061
+    },
+    {
+      "order_id": 24,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3833749797195196
+    },
+    {
+      "order_id": 25,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.5058340029790998
+    },
+    {
+      "order_id": 26,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.26649993378669024
+    },
+    {
+      "order_id": 27,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.120000008493662
+    },
+    {
+      "order_id": 28,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.3921249881386757
+    },
+    {
+      "order_id": 29,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.4875840386375785
+    },
+    {
+      "order_id": 30,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2714169677346945
+    },
+    {
+      "order_id": 31,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.1222919933497906
+    },
+    {
+      "order_id": 32,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.38816698361188173
+    },
+    {
+      "order_id": 33,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.4991660825908184
+    },
+    {
+      "order_id": 34,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2633749973028898
+    },
+    {
+      "order_id": 35,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.088792087510228
+    },
+    {
+      "order_id": 36,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.43583300430327654
+    },
+    {
+      "order_id": 37,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.5078340182080865
+    },
+    {
+      "order_id": 38,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.2744169905781746
+    },
+    {
+      "order_id": 39,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.359750029630959
+    },
+    {
+      "order_id": 40,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6172079592943192
+    },
+    {
+      "order_id": 41,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7701249560341239
+    },
+    {
+      "order_id": 42,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5228330846875906
+    },
+    {
+      "order_id": 43,
+      "round_id": 0,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.3942910376936197
+    },
+    {
+      "order_id": 44,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5912500200793147
+    },
+    {
+      "order_id": 45,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7122090319171548
+    },
+    {
+      "order_id": 46,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.4515000618994236
+    },
+    {
+      "order_id": 47,
+      "round_id": 1,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.395124920643866
+    },
+    {
+      "order_id": 48,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.60374999884516
+    },
+    {
+      "order_id": 49,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6768330931663513
+    },
+    {
+      "order_id": 50,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.6463750032708049
+    },
+    {
+      "order_id": 51,
+      "round_id": 2,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.3106670016422868
+    },
+    {
+      "order_id": 52,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.574458041228354
+    },
+    {
+      "order_id": 53,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7136670174077153
+    },
+    {
+      "order_id": 54,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.4410829860717058
+    },
+    {
+      "order_id": 55,
+      "round_id": 3,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.4877919824793935
+    },
+    {
+      "order_id": 56,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5982090951874852
+    },
+    {
+      "order_id": 57,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7301669102162123
+    },
+    {
+      "order_id": 58,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.4782089963555336
+    },
+    {
+      "order_id": 59,
+      "round_id": 4,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.896250040270388
+    },
+    {
+      "order_id": 60,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.5936670349910855
+    },
+    {
+      "order_id": 61,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7126251002773643
+    },
+    {
+      "order_id": 62,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5772090516984463
+    },
+    {
+      "order_id": 63,
+      "round_id": 5,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.433500067330897
+    },
+    {
+      "order_id": 64,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6785830482840538
+    },
+    {
+      "order_id": 65,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7314590038731694
+    },
+    {
+      "order_id": 66,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5099170375615358
+    },
+    {
+      "order_id": 67,
+      "round_id": 6,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.3535839756950736
+    },
+    {
+      "order_id": 68,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6285839481279254
+    },
+    {
+      "order_id": 69,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.7818329613655806
+    },
+    {
+      "order_id": 70,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.43795909732580185
+    },
+    {
+      "order_id": 71,
+      "round_id": 7,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.80583293735981
+    },
+    {
+      "order_id": 72,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6271249148994684
+    },
+    {
+      "order_id": 73,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.719957984983921
+    },
+    {
+      "order_id": 74,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.5001249955967069
+    },
+    {
+      "order_id": 75,
+      "round_id": 8,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.351958002895117
+    },
+    {
+      "order_id": 76,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "strata",
+      "elapsed_ms": 0.6899579893797636
+    },
+    {
+      "order_id": 77,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "orjson",
+      "elapsed_ms": 0.6886250339448452
+    },
+    {
+      "order_id": 78,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "msgspec",
+      "elapsed_ms": 0.443084049038589
+    },
+    {
+      "order_id": 79,
+      "round_id": 9,
+      "section": "dump",
+      "dataset": "native.small",
+      "library": "json",
+      "elapsed_ms": 3.8730000378564
+    },
+    {
+      "order_id": 80,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04133302718400955
+    },
+    {
+      "order_id": 81,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.03599992487579584
+    },
+    {
+      "order_id": 82,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05200004670768976
+    },
+    {
+      "order_id": 83,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.05079200491309166
+    },
+    {
+      "order_id": 84,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22874993737787008
+    },
+    {
+      "order_id": 85,
+      "round_id": 0,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.37174997851252556
+    },
+    {
+      "order_id": 86,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.0439999857917428
+    },
+    {
+      "order_id": 87,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.041792052797973156
+    },
+    {
+      "order_id": 88,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.04837499000132084
+    },
+    {
+      "order_id": 89,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.05141703877598047
+    },
+    {
+      "order_id": 90,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22662500850856304
+    },
+    {
+      "order_id": 91,
+      "round_id": 1,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4119159420952201
+    },
+    {
+      "order_id": 92,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.04416704177856445
+    },
+    {
+      "order_id": 93,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04437495954334736
+    },
+    {
+      "order_id": 94,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05425000563263893
+    },
+    {
+      "order_id": 95,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0653750030323863
+    },
+    {
+      "order_id": 96,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23229105863720179
+    },
+    {
+      "order_id": 97,
+      "round_id": 2,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3677919739857316
+    },
+    {
+      "order_id": 98,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.038707978092134
+    },
+    {
+      "order_id": 99,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04187505692243576
+    },
+    {
+      "order_id": 100,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.054416945204138756
+    },
+    {
+      "order_id": 101,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.05925004370510578
+    },
+    {
+      "order_id": 102,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23849995341151953
+    },
+    {
+      "order_id": 103,
+      "round_id": 3,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3860420547425747
+    },
+    {
+      "order_id": 104,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05020794924348593
+    },
+    {
+      "order_id": 105,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.0415000831708312
+    },
+    {
+      "order_id": 106,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05462497938424349
+    },
+    {
+      "order_id": 107,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.057875062339007854
+    },
+    {
+      "order_id": 108,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.23804197553545237
+    },
+    {
+      "order_id": 109,
+      "round_id": 4,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.42820803355425596
+    },
+    {
+      "order_id": 110,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.0363329891115427
+    },
+    {
+      "order_id": 111,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04795799031853676
+    },
+    {
+      "order_id": 112,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.053750001825392246
+    },
+    {
+      "order_id": 113,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.0524159986525774
+    },
+    {
+      "order_id": 114,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22412498947232962
+    },
+    {
+      "order_id": 115,
+      "round_id": 5,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.37100003100931644
+    },
+    {
+      "order_id": 116,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.048208050429821014
+    },
+    {
+      "order_id": 117,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.03783300053328276
+    },
+    {
+      "order_id": 118,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.05837506614625454
+    },
+    {
+      "order_id": 119,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.05725002847611904
+    },
+    {
+      "order_id": 120,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22849999368190765
+    },
+    {
+      "order_id": 121,
+      "round_id": 6,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.4047499969601631
+    },
+    {
+      "order_id": 122,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.05625002086162567
+    },
+    {
+      "order_id": 123,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.03699993249028921
+    },
+    {
+      "order_id": 124,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.0701249809935689
+    },
+    {
+      "order_id": 125,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.055458047427237034
+    },
+    {
+      "order_id": 126,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.224666902795434
+    },
+    {
+      "order_id": 127,
+      "round_id": 7,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.37958298344165087
+    },
+    {
+      "order_id": 128,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.040416023693978786
+    },
+    {
+      "order_id": 129,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.04533305764198303
+    },
+    {
+      "order_id": 130,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.044915941543877125
+    },
+    {
+      "order_id": 131,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.049458001740276814
+    },
+    {
+      "order_id": 132,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.22087502293288708
+    },
+    {
+      "order_id": 133,
+      "round_id": 8,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.35933300387114286
+    },
+    {
+      "order_id": 134,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=False)",
+      "elapsed_ms": 0.03583403304219246
+    },
+    {
+      "order_id": 135,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "strata (native=True)",
+      "elapsed_ms": 0.03416708204895258
+    },
+    {
+      "order_id": 136,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "orjson",
+      "elapsed_ms": 0.044874963350594044
+    },
+    {
+      "order_id": 137,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "msgspec",
+      "elapsed_ms": 0.050999922677874565
+    },
+    {
+      "order_id": 138,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "ujson",
+      "elapsed_ms": 0.21954206749796867
+    },
+    {
+      "order_id": 139,
+      "round_id": 9,
+      "section": "dumps",
+      "dataset": "mixed.small (native flag)",
+      "library": "json",
+      "elapsed_ms": 0.3964169882237911
+    }
+  ]
+}
