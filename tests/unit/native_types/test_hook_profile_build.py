@@ -29,6 +29,14 @@ def _flags(extension: _Extension) -> list[str]:
     return [*extension.extra_compile_args, *extension.extra_link_args]
 
 
+# setup.py reads the host compiler: on Windows the default is MSVC, which refuses the hook's
+# variables (test_msvc_refuses_the_hook_profile); the clang-cl spelling has its own test below.
+posix_spelling = pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX clang/gcc spelling; clang-cl is simulated below"
+)
+
+
+@posix_spelling
 def test_hook_generate_instruments_the_hook_alone(monkeypatch, tmp_path):
     extensions = _extensions(monkeypatch, tmp_path, "", "0", STRATA_HOOK_PGO_MODE="generate")
     assert [f for f in _flags(extensions["strata._dumps_hook"]) if "profile-generate" in f]
@@ -37,6 +45,7 @@ def test_hook_generate_instruments_the_hook_alone(monkeypatch, tmp_path):
     assert not [f for f in engine if build_identity.PROFILE_FLAG.search(f) or LTO_FLAG.search(f)]
 
 
+@posix_spelling
 def test_each_image_gets_its_own_profile_and_never_the_others(monkeypatch, tmp_path):
     hook_profile = tmp_path / "hook.profdata"
     hook_profile.write_bytes(b"")
@@ -56,6 +65,7 @@ def test_each_image_gets_its_own_profile_and_never_the_others(monkeypatch, tmp_p
         assert [f for f in _flags(extensions["strata._dumps_hook"]) if LTO_FLAG.search(f)]
 
 
+@posix_spelling
 def test_hook_use_requires_its_own_profile(monkeypatch, tmp_path):
     with pytest.raises(SystemExit, match="STRATA_HOOK_PGO_PROFILE"):
         _extensions(monkeypatch, tmp_path, "", "0", STRATA_HOOK_PGO_MODE="use")
@@ -259,3 +269,10 @@ def test_clang_cl_hook_phase_refuses_a_changed_strata_image(monkeypatch, tmp_pat
     monkeypatch.setattr(script, "_run", run)
     with pytest.raises(SystemExit, match="changed _strata's image"):
         script._hook_phase("llvm-profdata")
+
+
+def test_msvc_refuses_the_hook_profile(monkeypatch, tmp_path):
+    # MSVC's PGO rides on a .pgd shared by one link; the hook's phase is clang/clang-cl only.
+    monkeypatch.setattr(sys, "platform", "win32")
+    with pytest.raises(SystemExit, match="not supported with MSVC"):
+        _extensions(monkeypatch, tmp_path, "", "0", STRATA_HOOK_PGO_MODE="generate")
