@@ -1,7 +1,11 @@
 # Decision record: native types — serializer default-on, opt-in `parse_types`
 
-Status: **accepted for implementation** (2026-09-28), branch `exp/native-types`
-over main `38eaa9f`. Roadmap: M15. Scope approved by the user on 2026-09-28:
+Status: **refused in this shape by its own kill criterion** (2026-09-29): paired
+draws 2 and 3 (runs 36520746091, 36529483744) resolved macos-x86_64 small
+`dumps nested` past +2% on a clean-control leg twice (docs/decisions.md,
+2026-09-29). The successor under decision is fallback (b), handed over in the
+last section, "Fallback (b) handover". Accepted for implementation 2026-09-28,
+branch `exp/native-types` over main `38eaa9f`. Roadmap: M15. Scope approved by the user on 2026-09-28:
 (A) native emitters, on by default, in `dumps`, `dump` and `dumps_with_default`
 for `datetime`/`date`/`time`, `uuid.UUID`, `enum.Enum`, dataclasses,
 `decimal.Decimal`, `set`/`frozenset` and numpy scalars and arrays; (B) an opt-in
@@ -456,3 +460,121 @@ widens float32; the precedence order of the table above; registry shape R1 and
 its best-effort rules; recognition grammar strictness (1–6 fraction digits,
 `T`/`t`, `Z`/`z`, `-00:00` as UTC, UUIDs either case); `query` takes a `bool`
 only; `search` with `parse_types` leaves the streaming path.
+
+## Fallback (b) handover (2026-09-29; design only, not built)
+
+Why a successor, and what the measurements say it must do. The shape above
+fired its kill criterion on macos-x86_64 small `dumps nested` (bytes +3.98% and
++3.74% on draws 2 and 3, whose A2 on that leg was byte-identical to A, so it
+controlled launch noise, not build variation); the Neoverse-N2 resolved a carpet
+of sub-2% `dumps` losses on draws 2 and 3 (+0.37 to +1.38%; draw 1, on the
+pre-boundary source, resolved one); linux-x86_64's draw-1
+`dumps flat` loss was an inliner flip that the boundary (74d78ca) removed. The
+static diff of the timed arms (docs/benchmarks/evidence/M15/ci-36520746091/)
+leaves two candidate costs on the fired leg: `write()`'s V4 tail (+48 B: a flag
+load, a test, a tail-call block) and the layout shift of about 20 KB of added
+`_strata` text (native writers, `python_native_types`, `python_numpy_twins`,
+`python_parse_types*`, `temporal`) — every other hot writer there is main's
+size. Fallback (b) removes the second and keeps the first; (a) — natives in
+`dumps_with_default` only — removes both but gives up default-on, which the
+user approved and the lead's ruling keeps.
+
+### Shape
+
+**`_strata` keeps only the tail and a cold sink; everything native lives in a
+second image.** The second image is `strata._dumps_hook`, which already
+compiles `python_dumps.cpp` with every native emitter and the full serializer
+(M12b; `setup.py` `HOOK_BINDING_SOURCES`), is imported on first use, and is
+built unprofiled, so it cannot perturb `_strata`'s profile. It gains a
+PyCapsule (`strata._dumps_hook._native_api`) exporting two C functions; no new
+public name.
+
+Moves out of `_strata`'s link (into the hook image and the C++ tests only):
+`python_native_types.cpp`, `python_numpy_twins.cpp`, `python_parse_types.cpp`,
+`python_parse_types_walk.cpp`, and `src/strata/util/temporal.cpp`, which leaves
+`core_sources.txt` for a second manifest (`native_sources.txt`) read by CMake
+and by the hook `Extension` — `_strata` links without `-dead_strip`/`--gc-sections`,
+so a core source it does not call would still move its layout. The native
+writer members of `Serializer` (`write_native` and the per-kind writers,
+`write_key_cold`, `NativeFrame`, `push_open_cold`) go under
+`#if defined(STRATA_DUMPS_HOOK)`, as `write_unsupported` already does.
+
+Stays in `_strata`:
+
+- `write()`'s tail, token for token as V4 (`if (g_native_bridge) return write_via_bridge(object);`
+  then main's `PyErr_Format`), and nothing else in `python_dumps.cpp`.
+- One cold sink, `write_via_bridge`, in a new TU linked last
+  (`python_native_bridge.cpp`, ~80 lines) reached through a `Serializer`
+  friend thunk that exposes only `out_`, `latch()`, `open_`/`open_count_`,
+  `depth_limit_` and `user_steps_` — no writer.
+- `parse_types` routing moves to the facade: `loads`/`load`/`search`/`query`
+  call the hook image's entries when `parse_types is not False` (dispatch, which
+  the convention allows; one Python `is` test per call, priced by the per-call
+  floor of M12's criterion 9), so `strata_loads`/`strata_load`/`strata_query`/
+  `strata_search` return to main's bytes.
+
+### The fragment interface at the unsupported tail
+
+```c
+// strata._dumps_hook._native_api (PyCapsule), version 1
+typedef struct {
+    PyObject* const* open;      // _strata's open-container stack (borrowed, latched)
+    Py_ssize_t open_count;      // its depth
+    int depth_limit;            // Py_GetRecursionLimit() at the walk's start
+    int cycle_policy;           // _strata's g_cycle_policy, read at the call
+} StrataNativeContext;
+
+// Serialize one unsupported object as a JSON fragment. Returns 1 and a new bytes
+// object in *fragment, 0 when the object is not native (no exception set: the
+// caller raises its own TypeError), -1 with an exception set.
+int (*encode_native)(PyObject* obj, const StrataNativeContext*, PyObject** fragment);
+// parse_types revival lives entirely in the hook image and is called by the facade.
+```
+
+- **Order of work in `write_via_bridge`.** Resolve the capsule lazily: the
+  import is user code, so `latch()` first and a strong reference on `obj`
+  (`write_int`'s rule); a failed import sets `g_native_bridge = false` for the
+  process and raises the `ImportError` (no silent fallback). Then call
+  `encode_native`; on 1, `out_.write_spanning` the fragment's bytes and release
+  it (the release is step 4 of `python_dumps.cpp`'s header; the latch already
+  moved `user_steps_`).
+- **Depth.** The hook image's walker starts at `open_count` with
+  `depth_limit` — a nested container inside a dataclass counts the ancestors in
+  `_strata` exactly as today.
+- **Cycles.** The hook image's `Frame`/`NativeFrame` probe `open[0..open_count)`
+  as well as its own stack, so a dataclass or set that reaches back to a
+  container `_strata` has open is a cycle under `cycle_policy`, emitted in the
+  fragment (`null` or `ValueError`) and warned from the hook image after its own
+  latch. The one-container-late caveat (api.md, Config) is unchanged.
+- **Output identity.** A fragment is the bytes the current branch writes for
+  that object; the existing `tests/{unit,py}/native_types/` corpora pin it
+  unchanged, plus one test that a native object inside a 1024-deep document
+  reports the same depth error as today.
+- **Cost.** One capsule call and one bytes allocation per native object (the
+  fragment) — cold by design; the admission table (docs/benchmarks/evidence/M15/micro2/)
+  is re-read and every kind must stay below the `dumps_with_default` hook.
+
+### Byte-parity obligation (acceptance before any timing)
+
+Every `_strata` symbol is byte-identical to main's except `write()`'s tail
+block and the functions of `python_native_bridge.cpp` (plus `PyInit__strata`'s
+one flag store, if the flag is not set from the bridge), on every leg, by the
+M12b tooling on `exp/m12b-ab-arm` / `exp/m15-ab-arm`
+(`benchmarks/image_identity.py`, `benchmarks/normalised_disassembly.py`, and
+`docs/benchmarks/evidence/M15/linux-symbols/`'s replay of CI's PGO builds):
+plain builds on arm64 and x86-64, and the Linux clang 18 replay of the PGO+LTO
+images against the run's own profiles. `_strata`'s Section `__text` growth is
+the tail plus the bridge, a few hundred bytes, not the 18–25 KB of this branch.
+
+### Residual risk and the experiment to run first
+
+M12 priced a tail test alone at linux-x86_64 `dumps flat` +0.99–1.67% with the
+profile held equal; (b) keeps that tail. Before building (b), price the tail by
+itself: one paired five-leg draw of main plus only the V4 tail and a bridge stub
+that raises the unchanged `TypeError` (no second image, no natives), against
+main. If macos-x86_64 small `dumps nested` or the N2 carpet reproduces there,
+the cost is the tail and (b) cannot fix it — only (a), or a tail that is not in
+`write()` (for example routing through the existing `PyErr_Format` call and
+recovering after it, which runs no user code only if the exception is caught
+before any handler sees it — unexplored). If the stub is clean, the
+layout component was the cost and (b) is the design to build.

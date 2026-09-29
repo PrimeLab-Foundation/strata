@@ -4310,13 +4310,13 @@ waits on it.
   to main after the gate passed on the merged tree. Evidence:
   `build/evidence/benchmark-lead/pin-discovery-test/ab-36353898103/`.
 
-## M15 — native types: static checks, training scope, the local A/B; five-leg draws 1–2 not clean
+## M15 — native types: static checks, training scope, the local A/B; kill fired on draws 2–3
 
 - 2026-09-28..29 · `exp/native-types` over main `38eaa9f`, twelve commits `d6e543a` to `e5d9510`.
   Record: [`native_types.md`](../architecture/native_types.md) and its 2026-09-28/29 amendments;
   docs/decisions.md, 2026-09-28/29. Evidence: `docs/benchmarks/evidence/M15/` (tracked copy of
-  `build/evidence/M15/`, index `INDEX.txt`), the base of the paths below. **Status: local
-  evidence complete; five-leg draws 1–2 not clean, kill not fired (lead's ruling); not merged.**
+  `build/evidence/M15/`, index `INDEX.txt`), the base of the paths below. **Status: kill fired
+  on five-leg draws 2–3 (lead's ruling); refused in this shape, not merged; fallback (b) pending.**
 
 - **Pre-specified (the record).** Estimate: static checks 1–3 hold on both ISAs; the pinned
   local A/B reads no canonical row past its A/A floor by more than +1.7% and none past +2%; on
@@ -4498,6 +4498,38 @@ waits on it.
   linux-arm64 and macos-x86_64 from the run's artifacts, before a draw 3. Fallback if fired, in
   place of the record's: native emitters in a separate image off the unsupported tail, keeping
   natives on by default (a design refused once for its retry semantics, `dumps_with_default.md`).
+
+- **Static A/B/A2 symbol diff of draw 2's arms** (`ci-36520746091/{hotsyms,machosyms}_draw2.txt`;
+  no rebuild). On macos-x86_64, macos-arm64 and linux-arm64 every hot writer is main's size except
+  `write()`, grown by the V4 tail alone (+48/+60/+60 B). linux-x86_64 differs in hot/cold split
+  placement and, parse-side, B inlines `scan_string()` and `parse_value` grows 28 652 → 39 625 B,
+  read as profile-summary churn (plain objects byte-identical); B resolves no parse loss there in
+  any draw. Windows' `.pyd` has no symbols; its `.pdata` ranges leave draw 2's `dumps flat` open.
+
+- **Five-leg A/B, draw 3: macos-x86_64 `dumps nested` resolves again.** Run 36529483744, arms as
+  draw 2, 6 × 60 (`ci-36529483744/verdict.txt`). Resolved, B vs A: macos-x86_64 (A2 clean) small
+  `dumps nested` b +3.74 \[+0.47, +4.83\] (2.10), 5/6, s +4.12 \[+2.56, +8.27\] (3.39), 6/6, three
+  `dumps flat` gains, −3.11 to −4.15; linux-arm64 (A2 clean, a distinct build) seven serializer
+  losses, +0.37 to +1.38 — small `nested` `dump` +1.38 \[+0.08, +2.35\] (0.97), six `dumps` b rows
+  6/6 each — and four gains; windows small `load wide_arrays` +2.04, `dump flat` +1.37, discounted
+  (its A2 resolves two losses); linux-x86_64, macos-arm64 nothing (the former's A2 resolves three).
+
+- **Kill criterion fired** (lead's ruling, docs/decisions.md, 2026-09-29): canonical macos-x86_64
+  small `dumps nested` b resolved past +2% on two clean-control draws — draw 2 +3.98 \[+2.37,
+  +4.67\] (1.36), draw 3 +3.74 (past +2% in its point estimate, not its CI). The firing rests on
+  that rule, not the record's held-profile attribution (below). No further draw; canonical never
+  dispatched. Caveat (`ab/arms.txt`): there A2 has A's hash in draws 2–3, so it controls launches,
+  not builds (draw 1's distinct A2 resolved `dump mixed` +4.42); B's two hashes differ; both lose.
+
+- **Mechanism (inferred; not timed).** Two candidate costs remain on the fired leg: `write()`'s V4
+  tail (+48 B) and the layout of about 20 KB of added `_strata` text (native writers,
+  `parse_types`, `temporal`); no arm separates them — M12's class of cost, measured larger. The
+  N2's sub-2% `dumps` losses recur: one in draw 1 (`296d2ea`; its A2 resolved that series the other
+  way), eight and seven in draws 2–3, A2 clean — each under the gate, together a standings risk.
+
+- **Next: fallback (b), decision pending** (`native_types.md`, "Fallback (b) handover"; not built):
+  natives, `parse_types` and `temporal` move to `strata._dumps_hook`, `_strata` keeping the V4
+  tail — the added text goes, the tail stays; (a) drops both and gives up default-on.
 
 - **Recorded, not resolved.**
 
