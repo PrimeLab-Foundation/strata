@@ -52,6 +52,27 @@ def on_a_fresh_thread(body):
     return box["value"]
 
 
+def in_a_fresh_interpreter(code, *args):
+    """Runs `code` (argv: package root, *args) in a child interpreter; returns its stdout lines.
+
+    For documents that recurse to the depth limit: how much C stack that takes
+    is the build's own, and an overflow ends the child, never the suite.
+    """
+    # The package root goes in by argument: the build gate's fresh build is
+    # named by no environment variable.
+    package_root = str(pathlib.Path(strata.__file__).resolve().parent.parent)
+    prelude = "import sys\nsys.path.insert(0, sys.argv[1])\n"
+    result = subprocess.run(
+        [sys.executable, "-c", prelude + textwrap.dedent(code), package_root, *args],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.splitlines()
+
+
 class Once:
     """Runs `action` (then a collection) on its first call; returns `result` every time."""
 
@@ -393,48 +414,74 @@ def test_a_dataclass_cycle_in_dumps_with_default_follows_the_policy(mode, cycle_
 
 @pytest.mark.parametrize("mode", MODES)
 def test_an_enum_chain_past_the_limit_raises_inside_a_document(mode):
-    class Loop(enum.Enum):
-        SELF = 1
+    # The chain recurses to the depth limit, so it runs in a child interpreter.
+    lines = in_a_fresh_interpreter(
+        """
+        import enum
+        import strata
 
-    member = Loop.SELF
-    member._value_ = member
-    try:
-        with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps({"rows": [{"id": 1, "state": member}]}, return_type=mode)
-        with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps_with_default([member], str, return_type=mode)
-    finally:
+        class Loop(enum.Enum):
+            SELF = 1
+
+        mode = sys.argv[2]
+        member = Loop.SELF
+        member._value_ = member
+        for call in (
+            lambda: strata.dumps({"rows": [{"id": 1, "state": member}]}, return_type=mode),
+            lambda: strata.dumps_with_default([member], str, return_type=mode),
+        ):
+            try:
+                call()
+            except ValueError as error:
+                print(error)
         member._value_ = 1
-    assert text(strata.dumps({"state": member}, return_type=mode)) == '{"state":1}'
-
-
-@dataclasses.dataclass
-class Link:
-    next: object = None
-
-
-def _chain(levels):
-    node = None
-    for _ in range(levels):
-        node = Link(node)
-    return node
+        out = strata.dumps({"state": member}, return_type=mode)
+        print(out.decode() if isinstance(out, bytes) else out)
+        """,
+        mode,
+    )
+    assert lines == ["Maximum serialization depth exceeded"] * 2 + ['{"state":1}']
 
 
 @pytest.mark.parametrize("mode", MODES)
 def test_dataclasses_nested_to_the_depth_limit_on_a_thread(mode):
-    limit = sys.getrecursionlimit()
+    # A fresh thread gets the platform's default stack; the chain recurses to
+    # the depth limit on it, so it runs in a child interpreter.
+    lines = in_a_fresh_interpreter(
+        """
+        import dataclasses, threading
+        import strata
 
-    def at_limit():
-        return text(strata.dumps(_chain(limit), return_type=mode))
+        @dataclasses.dataclass
+        class Link:
+            next: object = None
 
-    out = on_a_fresh_thread(at_limit)
-    assert out == '{"next":' * limit + "null" + "}" * limit
+        def chain(levels):
+            node = None
+            for _ in range(levels):
+                node = Link(node)
+            return node
 
-    def past_limit():
-        return strata.dumps(_chain(limit + 1), return_type=mode)
+        mode, limit, out = sys.argv[2], sys.getrecursionlimit(), []
 
-    with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-        on_a_fresh_thread(past_limit)
+        def run():
+            written = strata.dumps(chain(limit), return_type=mode)
+            written = written.decode() if isinstance(written, bytes) else written
+            out.append(written == '{"next":' * limit + "null" + "}" * limit)
+            try:
+                strata.dumps(chain(limit + 1), return_type=mode)
+            except ValueError as error:
+                out.append(error)
+
+        thread = threading.Thread(target=run)
+        thread.start()
+        thread.join()
+        for line in out:
+            print(line)
+        """,
+        mode,
+    )
+    assert lines == ["True", "Maximum serialization depth exceeded"]
 
 
 def test_a_dataclass_type_left_without_an_owner_while_its_fields_are_read_is_held():

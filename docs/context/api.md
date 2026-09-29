@@ -259,8 +259,9 @@ the registry entry it applies, and writes a result back only into a slot or key
 that still holds what it read, so a container user code mutates mid-walk is
 never read after it is freed (what is returned is then the container as user
 code left it). The walk keeps its own stack rather than recursing, so a thread
-that can parse a document can revive it (a 1023-deep registered document on a
-256 KiB thread stack is test-pinned).
+that can parse a document can revive it (test-pinned for a 1023-deep registered
+document: it revives on the smallest thread stack, of 256 KiB to 8 MiB in
+powers of two, on which it parses with `parse_types` unset).
 
 ## File & folder I/O
 

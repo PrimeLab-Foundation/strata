@@ -11,8 +11,11 @@ file output are in tests/py/native_types/.
 import dataclasses
 import datetime as dt
 import enum
+import pathlib
 import re
+import subprocess
 import sys
+import textwrap
 import typing
 import uuid
 import warnings
@@ -361,18 +364,34 @@ def test_row6_value_is_read_with_getattr():
 
 
 def test_error_contract_an_enum_chain_longer_than_the_depth_limit_raises():
-    class Loop(enum.Enum):
-        SELF = 1
+    # The chain recurses to the depth limit; how much C stack that takes is the
+    # build's own, so it runs in a child interpreter an overflow cannot outlive.
+    code = """
+        import enum, sys
+        sys.path.insert(0, sys.argv[1])
+        import strata
 
-    member = Loop.SELF
-    member._value_ = member
-    try:
-        with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps(member)
-        with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps([{"a": member}])
-    finally:
-        member._value_ = 1
+        class Loop(enum.Enum):
+            SELF = 1
+
+        member = Loop.SELF
+        member._value_ = member
+        for document in (member, [{"a": member}]):
+            try:
+                strata.dumps(document)
+            except ValueError as error:
+                print(error)
+        """
+    package_root = str(pathlib.Path(strata.__file__).resolve().parent.parent)
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(code), package_root],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["Maximum serialization depth exceeded"] * 2
 
 
 def test_row6_a_chain_of_exactly_the_depth_limit_is_written():

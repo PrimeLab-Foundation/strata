@@ -16,9 +16,11 @@ import enum
 import gc
 import json
 import os
+import pathlib
 import random
 import re
-import threading
+import subprocess
+import sys
 import uuid
 
 import pytest
@@ -709,46 +711,85 @@ def test_user_code_that_clears_the_private_registry_mid_list():
     assert len(cleared) == 1
 
 
-def test_a_registered_document_at_the_parse_cap_revives_on_a_small_thread():
-    # Review P2: the walk is iterative, so a level costs no C stack; a
-    # 1023-deep registered chain and a 1024-deep list revive on a 256 KiB thread.
-    @dataclasses.dataclass
-    class Nest:
-        n: object
+#: Thread stacks tried for the parse-cap documents, smallest first (KiB).
+STACK_LADDER_KIB = (256, 512, 1024, 2048, 4096, 8192)
 
-    depth = 1023
-    chain = '{"n":' * depth + '"2024-01-01"' + "}" * depth
-    lists = "[" * 1024 + '"2024-01-01"' + "]" * 1024
-    box = {}
+#: argv: package root, stack KiB, "parse" (plain) or "revive" (parse_types).
+AT_THE_CAP = """
+import dataclasses, sys, threading
+sys.path.insert(0, sys.argv[1])
+import strata
 
-    def run():
-        try:
-            box["chain"] = strata.loads(chain, parse_types={"n": Nest})
-            box["lists"] = strata.loads(lists, parse_types=True)
-        except BaseException as error:  # re-raised on the calling thread
-            box["error"] = error
+@dataclasses.dataclass
+class Nest:
+    n: object
 
-    # Under the sanitized gate the parser's own frames need 512 KiB for this
-    # document with parse_types unset, so the stack scales there; the claim is
-    # pinned by the plain suites.
-    kib = 1024 if os.environ.get("STRATA_ASAN_GATE") == "1" else 256
-    saved = threading.stack_size(kib * 1024)
-    try:
-        thread = threading.Thread(target=run)
-        thread.start()
-        thread.join()
-    finally:
-        threading.stack_size(saved)
-    if "error" in box:
-        raise box["error"]
-    node, levels = box["chain"]["n"], 0
+depth = 1023
+chain = '{"n":' * depth + '"2024-01-01"' + "}" * depth
+lists = "[" * 1024 + '"2024-01-01"' + "]" * 1024
+
+def parse():
+    strata.loads(chain)
+    strata.loads(lists)
+    return "parsed"
+
+def revive():
+    node, levels = strata.loads(chain, parse_types={"n": Nest})["n"], 0
     while isinstance(node, Nest):
         node, levels = node.n, levels + 1
-    assert (levels, node) == (depth - 1, "2024-01-01")
-    node, levels = box["lists"], 0
-    while isinstance(node, list):
-        node, levels = node[0], levels + 1
-    assert (levels, node) == (1024, dt.date(2024, 1, 1))
+    item, nested = strata.loads(lists, parse_types=True), 0
+    while isinstance(item, list):
+        item, nested = item[0], nested + 1
+    return f"{levels} {type(node).__name__} {node} {nested} {type(item).__name__} {item}"
+
+box = {}
+run = {"parse": parse, "revive": revive}[sys.argv[3]]
+threading.stack_size(int(sys.argv[2]) * 1024)
+thread = threading.Thread(target=lambda: box.update(out=run()))
+thread.start()
+thread.join()
+print(box["out"])
+"""
+
+
+def _at_the_cap(mode, kib):
+    # A rung too small for the parse overflows on purpose. Under the sanitized
+    # gate ASan would write that report into the gate's log directory, which
+    # prints it after a green run, so each child reports on its own stderr.
+    env = dict(os.environ)
+    if "ASAN_OPTIONS" in env:
+        options = env["ASAN_OPTIONS"].split(":")
+        env["ASAN_OPTIONS"] = ":".join(o for o in options if not o.startswith("log_path="))
+    # The package root goes in by argument: the build gate's fresh build is
+    # named by no environment variable.
+    package_root = str(pathlib.Path(strata.__file__).resolve().parent.parent)
+    return subprocess.run(
+        [sys.executable, "-c", AT_THE_CAP, package_root, str(kib), mode],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+        env=env,
+    )
+
+
+def test_a_registered_document_at_the_parse_cap_revives_on_the_stack_its_parse_needs():
+    # Review P2: the walk is iterative, so reviving needs no more C stack than
+    # the parse. How much the parse needs is the build's own (CI run
+    # 36497513720: a linux-arm64 PGO+LTO build overflowed a fixed 256 KiB), so
+    # the claim is relative: on the smallest rung where the plain parse of a
+    # 1023-deep chain and a 1024-deep list succeeds, both revive. Each attempt
+    # runs in its own interpreter, so an overflow ends that child, not the suite.
+    for kib in STACK_LADDER_KIB:
+        parsed = _at_the_cap("parse", kib)
+        if parsed.returncode == 0:
+            break
+    else:
+        pytest.fail(f"the plain parse failed on every stack up to {kib} KiB:\n{parsed.stderr}")
+    assert parsed.stdout.strip() == "parsed"
+    revived = _at_the_cap("revive", kib)
+    assert revived.returncode == 0, f"parsed on {kib} KiB, did not revive:\n{revived.stderr}"
+    assert revived.stdout.split() == ["1022", "str", "2024-01-01", "1024", "date", "2024-01-01"]
 
 
 def test_user_code_that_mutates_a_revived_value():

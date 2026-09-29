@@ -21,4 +21,8 @@ Directory map (each has its own PROVENANCE.txt where the producing agent wrote o
   attr/             attribution of that loss (inliner deferral flip) and the fix 809621c;
   attr/full/        full 26-row A/B of 809621c vs main + same-session A/A: no resolved loss
   symbols/          symbol sizes of the serializer across arms
+  linux-arm64-docker/  CI run 36497513720's parse-cap stack failure: python:3.12 linux/arm64
+                    container builds (gcc -O3, clang 19 -O3 / ThinLTO / PGO+LTO), stack_probe.py's
+                    smallest stack per parse (16 KiB steps), the old test and both suites
+  local-stack-fix/  the same fix on the dev M1: make test, make test-py-asan, the ASan ladder
 Timings are the dev M1 under shared load; each session's uptime/top-5 is in its load_log.txt.
