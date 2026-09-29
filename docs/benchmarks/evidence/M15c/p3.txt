@@ -1,0 +1,41 @@
+row             lib                  v4            v5   n
+rec             strata         283.17us      260.74us  180
+rec             msgspec        251.25us      250.07us  180
+                strata/msgspec [v4] 1.127
+                strata/msgspec [v5] 1.043
+                v5/v4 strata: median 0.9217 [0.9181, 0.9252] over 3 blocks
+rec-file        strata         359.97us      340.98us  180
+rec-file        msgspec        360.48us      363.19us  180
+                strata/msgspec [v4] 0.999
+                strata/msgspec [v5] 0.939
+                v5/v4 strata: median 0.9510 [0.9379, 0.9549] over 3 blocks
+plain-mixed     strata          29.76us       30.11us  180
+plain-mixed     msgspec         41.32us       41.40us  180
+                strata/msgspec [v4] 0.720
+                strata/msgspec [v5] 0.727
+                v5/v4 strata: median 1.0120 [1.0113, 1.0125] over 3 blocks
+t-enum          strata          79.64us       71.76us  180
+t-enum          msgspec         26.84us       26.77us  180
+                strata/msgspec [v4] 2.968
+                strata/msgspec [v5] 2.681
+                v5/v4 strata: median 0.9000 [0.8997, 0.9165] over 3 blocks
+t-dc            strata         112.23us       96.53us  180
+t-dc            msgspec         64.90us       64.42us  180
+                strata/msgspec [v4] 1.729
+                strata/msgspec [v5] 1.498
+                v5/v4 strata: median 0.8584 [0.8521, 0.8656] over 3 blocks
+t-dec           strata          87.59us       83.47us  180
+t-dec           msgspec         68.43us       67.61us  180
+                strata/msgspec [v4] 1.280
+                strata/msgspec [v5] 1.235
+                v5/v4 strata: median 0.9547 [0.9498, 0.9552] over 3 blocks
+t-date          strata          14.28us       13.54us  180
+t-date          msgspec          7.54us        7.53us  180
+                strata/msgspec [v4] 1.893
+                strata/msgspec [v5] 1.799
+                v5/v4 strata: median 0.9481 [0.9479, 0.9492] over 3 blocks
+t-dt            strata          20.22us       19.40us  180
+t-dt            msgspec         13.00us       13.00us  180
+                strata/msgspec [v4] 1.555
+                strata/msgspec [v5] 1.493
+                v5/v4 strata: median 0.9594 [0.9585, 0.9595] over 3 blocks

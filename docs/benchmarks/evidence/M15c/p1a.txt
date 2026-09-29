@@ -1,0 +1,89 @@
+row             lib               base2            v1            v2            v3            v4   n
+rec             strata         385.08us      357.97us      341.75us      321.25us      283.95us  120
+rec             msgspec        252.36us      255.50us      252.32us      253.37us      251.52us  120
+                strata/msgspec [base2] 1.526
+                strata/msgspec [v1] 1.401
+                strata/msgspec [v2] 1.354
+                strata/msgspec [v3] 1.268
+                strata/msgspec [v4] 1.129
+                v1/base2 strata: median 0.9404 [0.9361, 0.9447] over 2 blocks
+                v2/base2 strata: median 0.8930 [0.8885, 0.8976] over 2 blocks
+                v3/base2 strata: median 0.8394 [0.8340, 0.8448] over 2 blocks
+                v4/base2 strata: median 0.7410 [0.7316, 0.7503] over 2 blocks
+rec-file        strata         484.16us      440.34us      431.29us      419.56us      369.99us  120
+rec-file        msgspec        372.67us      362.45us      367.70us      386.60us      371.37us  120
+                strata/msgspec [base2] 1.299
+                strata/msgspec [v1] 1.215
+                strata/msgspec [v2] 1.173
+                strata/msgspec [v3] 1.085
+                strata/msgspec [v4] 0.996
+                v1/base2 strata: median 0.9104 [0.9089, 0.9120] over 2 blocks
+                v2/base2 strata: median 0.8908 [0.8873, 0.8942] over 2 blocks
+                v3/base2 strata: median 0.8676 [0.8617, 0.8735] over 2 blocks
+                v4/base2 strata: median 0.7630 [0.7626, 0.7634] over 2 blocks
+t-enum          strata         129.02us      114.52us      115.26us       81.85us       80.06us  120
+t-enum          msgspec         27.10us       27.08us       27.06us       26.90us       26.94us  120
+                strata/msgspec [base2] 4.761
+                strata/msgspec [v1] 4.229
+                strata/msgspec [v2] 4.259
+                strata/msgspec [v3] 3.043
+                strata/msgspec [v4] 2.972
+                v1/base2 strata: median 0.8942 [0.8867, 0.9018] over 2 blocks
+                v2/base2 strata: median 0.8992 [0.8904, 0.9081] over 2 blocks
+                v3/base2 strata: median 0.6387 [0.6309, 0.6464] over 2 blocks
+                v4/base2 strata: median 0.6248 [0.6170, 0.6327] over 2 blocks
+t-dc            strata         194.17us      175.52us      175.04us      175.41us      112.16us  120
+t-dc            msgspec         65.12us       64.72us       64.95us       64.51us       64.45us  120
+                strata/msgspec [base2] 2.982
+                strata/msgspec [v1] 2.712
+                strata/msgspec [v2] 2.695
+                strata/msgspec [v3] 2.719
+                strata/msgspec [v4] 1.740
+                v1/base2 strata: median 0.9050 [0.8916, 0.9184] over 2 blocks
+                v2/base2 strata: median 0.9054 [0.9002, 0.9105] over 2 blocks
+                v3/base2 strata: median 0.9045 [0.8930, 0.9160] over 2 blocks
+                v4/base2 strata: median 0.5784 [0.5711, 0.5857] over 2 blocks
+t-uuid          strata          93.95us       93.96us       72.89us       72.53us       71.59us  120
+t-uuid          msgspec         65.88us       65.86us       65.92us       65.58us       65.80us  120
+                strata/msgspec [base2] 1.426
+                strata/msgspec [v1] 1.427
+                strata/msgspec [v2] 1.106
+                strata/msgspec [v3] 1.106
+                strata/msgspec [v4] 1.088
+                v1/base2 strata: median 1.0017 [0.9970, 1.0064] over 2 blocks
+                v2/base2 strata: median 0.7774 [0.7756, 0.7793] over 2 blocks
+                v3/base2 strata: median 0.7738 [0.7674, 0.7801] over 2 blocks
+                v4/base2 strata: median 0.7634 [0.7600, 0.7667] over 2 blocks
+t-dec           strata         101.59us       88.68us       90.12us       87.81us       87.81us  120
+t-dec           msgspec         68.56us       68.55us       68.87us       67.59us       68.11us  120
+                strata/msgspec [base2] 1.482
+                strata/msgspec [v1] 1.294
+                strata/msgspec [v2] 1.309
+                strata/msgspec [v3] 1.299
+                strata/msgspec [v4] 1.289
+                v1/base2 strata: median 0.8770 [0.8588, 0.8951] over 2 blocks
+                v2/base2 strata: median 0.8895 [0.8712, 0.9077] over 2 blocks
+                v3/base2 strata: median 0.8674 [0.8550, 0.8798] over 2 blocks
+                v4/base2 strata: median 0.8678 [0.8482, 0.8875] over 2 blocks
+t-set           strata         105.45us       97.15us       96.93us       96.57us       91.69us  120
+t-set           msgspec         97.32us       98.21us       97.58us       96.19us       97.20us  120
+                strata/msgspec [base2] 1.084
+                strata/msgspec [v1] 0.989
+                strata/msgspec [v2] 0.993
+                strata/msgspec [v3] 1.004
+                strata/msgspec [v4] 0.943
+                v1/base2 strata: median 0.9258 [0.9089, 0.9427] over 2 blocks
+                v2/base2 strata: median 0.9233 [0.9073, 0.9394] over 2 blocks
+                v3/base2 strata: median 0.9189 [0.9017, 0.9360] over 2 blocks
+                v4/base2 strata: median 0.8725 [0.8559, 0.8890] over 2 blocks
+t-date          strata          14.31us       14.24us       14.25us       14.25us       14.36us  120
+t-date          msgspec          7.58us        7.56us        7.63us        7.57us        7.53us  120
+                strata/msgspec [base2] 1.888
+                strata/msgspec [v1] 1.885
+                strata/msgspec [v2] 1.868
+                strata/msgspec [v3] 1.882
+                strata/msgspec [v4] 1.907
+                v1/base2 strata: median 0.9981 [0.9862, 1.0100] over 2 blocks
+                v2/base2 strata: median 1.0003 [0.9858, 1.0149] over 2 blocks
+                v3/base2 strata: median 0.9973 [0.9870, 1.0077] over 2 blocks
+                v4/base2 strata: median 1.0050 [0.9995, 1.0104] over 2 blocks

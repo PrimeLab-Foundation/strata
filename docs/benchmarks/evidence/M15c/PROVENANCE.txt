@@ -1,0 +1,29 @@
+M15c local evidence (M1 Max, macOS 26.6.2, Apple clang 21.0.0 clang-2100.1.1.101, CPython 3.14.7,
+msgspec 0.21.1, orjson 3.11.9). Branch exp/native-gap over main 234ea15, uncommitted working tree.
+1-min load 1.3-2.3 during runs (a user Python process at ~24% CPU on one core).
+
+Instrument: experiments/native-gap/{build_hook_variant.py,native_probe.py,drive.py}.
+Each arm = a package copy (facade + main's _strata, hash 90bd8f60b3d81537) + one hook image,
+launched as a fresh process per launch (PYTHONPATH), libraries rotated within each repeat,
+gc.collect() before each sample, per-call time of an inner loop of ~2 ms.
+Hook arms are rebuilt from the commands the installed hook's *.build.json recorded, plus flags.
+
+p0a_build_arms.jsonl   phase 0(a): base (shipped hook 4590b155), base2 (rebuilt, A/A), lto (-flto=thin),
+                       pgo (-fprofile-use), pgolto (both); profile from experiments/native-gap/train_native.py
+                       (seed 7); order ABCDEEDCBA x3, repeat 40 -> 240 samples per arm/row/lib.
+p0b_per_type.jsonl     phase 0(b): per-type lists of 1000 objects and per-field ablations of the native-v1
+                       small records; arms base, pgolto; ABBA x2, repeat 30 -> 120 samples.
+p0c_latch_probe.jsonl  contract price: base2 vs the no-op-latch attribution arm
+                       (experiments/native-gap/probe-no-latch.patch, never merged); ABBA x3, repeat 30.
+p1a_levers_plain.jsonl levers, plain -O3 builds, cumulative: v1 lazy group probes, v2 + UUID halves,
+                       v3 + Enum stock descriptor, v4 + dataclass keys/MRO read; ABCDEEDCBA x2, repeat 30.
+p1b_levers_pgolto.jsonl base, pgolto (unchanged source), v4 (plain), pgolto4 (v4 source, profile retrained
+                       on v4); ABCDDCBA x3, repeat 40.
+*.txt                  drive.py read of each packet (medians; per-block paired strata ratios vs base).
+p3.jsonl   L9: v4 vs v5 (native writers not cold), plain builds; ABBA x3, repeat 30.
+p4.jsonl   L10+L11 measured jointly: v5 vs v6 (UUID digit reader + eight-digit hex); ABBA x3, repeat 30.
+           Split from sample_v5.txt (macOS `sample`, 5 s, 1 ms): format_uuid 203 of 3693 top-of-stack
+           samples, _PyLong_AsByteArray 161 + PyLong_AsNativeBytes 22; neither in sample_v6.txt's top list.
+p5.jsonl   L12 first build (v7): verdict slots indexed by address >> 4 -- a record's Decimal, Enum and
+           dataclass classes collided in one slot; rec 0.9847 only. Kept as the negative control.
+p6.jsonl   L12 as kept (v8): Fibonacci-hashed slots; v6 vs v8; ABBA x3, repeat 30.

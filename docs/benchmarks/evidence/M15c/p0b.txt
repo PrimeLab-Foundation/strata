@@ -1,0 +1,124 @@
+row             lib                base        pgolto   n
+rec             strata         382.66us      337.86us  120
+rec             msgspec        252.76us      252.82us  120
+rec             orjson         477.97us      475.17us  120
+                strata/msgspec [base] 1.514
+                strata/msgspec [pgolto] 1.336
+                pgolto/base strata: median 0.8900 [0.8682, 0.9117] over 2 blocks
+rec-plain       strata          22.87us       22.15us  120
+rec-plain       msgspec         48.31us       47.94us  120
+rec-plain       orjson          34.88us       34.78us  120
+                strata/msgspec [base] 0.473
+                strata/msgspec [pgolto] 0.462
+                pgolto/base strata: median 0.9695 [0.9568, 0.9821] over 2 blocks
+t-int           strata           2.85us        2.82us  120
+t-int           msgspec          6.26us        6.27us  120
+t-int           orjson           3.65us        3.65us  120
+                strata/msgspec [base] 0.455
+                strata/msgspec [pgolto] 0.450
+                pgolto/base strata: median 0.9911 [0.9899, 0.9923] over 2 blocks
+t-str           strata           4.85us        4.84us  120
+t-str           msgspec          7.63us        7.66us  120
+t-str           orjson           8.93us        8.94us  120
+                strata/msgspec [base] 0.635
+                strata/msgspec [pgolto] 0.631
+                pgolto/base strata: median 0.9988 [0.9978, 0.9999] over 2 blocks
+t-dt            strata          20.08us       20.47us  120
+t-dt            msgspec         13.10us       13.05us  120
+t-dt            orjson          26.60us       26.56us  120
+                strata/msgspec [base] 1.533
+                strata/msgspec [pgolto] 1.569
+                pgolto/base strata: median 1.0186 [1.0154, 1.0219] over 2 blocks
+t-dt-tz         strata          38.34us       37.92us  120
+t-dt-tz         orjson         111.60us      111.30us  120
+                pgolto/base strata: median 0.9904 [0.9802, 1.0006] over 2 blocks
+t-date          strata          14.36us       15.00us  120
+t-date          msgspec          7.62us        7.57us  120
+t-date          orjson          16.10us       15.98us  120
+                strata/msgspec [base] 1.884
+                strata/msgspec [pgolto] 1.982
+                pgolto/base strata: median 1.0458 [1.0418, 1.0498] over 2 blocks
+t-time          strata          18.79us       18.18us  120
+t-time          msgspec         10.87us       10.91us  120
+t-time          orjson          22.76us       22.70us  120
+                strata/msgspec [base] 1.729
+                strata/msgspec [pgolto] 1.666
+                pgolto/base strata: median 0.9672 [0.9642, 0.9701] over 2 blocks
+t-uuid          strata          93.89us       92.40us  120
+t-uuid          msgspec         66.76us       66.94us  120
+t-uuid          orjson          55.01us       54.73us  120
+                strata/msgspec [base] 1.406
+                strata/msgspec [pgolto] 1.380
+                pgolto/base strata: median 0.9852 [0.9839, 0.9864] over 2 blocks
+t-dec           strata          99.20us       90.40us  120
+t-dec           msgspec         67.23us       66.13us  120
+t-dec           orjson         254.69us      253.84us  120
+                strata/msgspec [base] 1.476
+                strata/msgspec [pgolto] 1.367
+                pgolto/base strata: median 0.9210 [0.9036, 0.9384] over 2 blocks
+t-enum          strata         126.80us      114.00us  120
+t-enum          msgspec         26.78us       26.80us  120
+t-enum          orjson          87.29us       87.51us  120
+                strata/msgspec [base] 4.735
+                strata/msgspec [pgolto] 4.254
+                pgolto/base strata: median 0.9082 [0.9002, 0.9163] over 2 blocks
+t-enum-int      strata         127.78us      114.58us  120
+t-enum-int      msgspec         20.43us       20.49us  120
+t-enum-int      orjson          80.39us       80.85us  120
+                strata/msgspec [base] 6.255
+                strata/msgspec [pgolto] 5.592
+                pgolto/base strata: median 0.9035 [0.8941, 0.9130] over 2 blocks
+t-dc            strata         192.58us      151.25us  120
+t-dc            msgspec         65.05us       65.48us  120
+t-dc            orjson          62.92us       63.76us  120
+                strata/msgspec [base] 2.961
+                strata/msgspec [pgolto] 2.310
+                pgolto/base strata: median 0.7861 [0.7774, 0.7947] over 2 blocks
+t-set           strata         104.02us       94.85us  120
+t-set           msgspec         96.30us       96.75us  120
+t-set           orjson         279.07us      278.30us  120
+                strata/msgspec [base] 1.080
+                strata/msgspec [pgolto] 0.980
+                pgolto/base strata: median 0.9137 [0.9137, 0.9137] over 2 blocks
+rec-no-uuid     strata         325.88us      281.46us  120
+rec-no-uuid     msgspec        212.21us      212.51us  120
+rec-no-uuid     orjson         445.30us      440.85us  120
+                strata/msgspec [base] 1.536
+                strata/msgspec [pgolto] 1.324
+                pgolto/base strata: median 0.8797 [0.8586, 0.9009] over 2 blocks
+rec-no-created_atstrata         372.47us      329.64us  120
+rec-no-created_atmsgspec        244.22us      245.18us  120
+rec-no-created_atorjson         460.89us      456.98us  120
+                strata/msgspec [base] 1.525
+                strata/msgspec [pgolto] 1.344
+                pgolto/base strata: median 0.8987 [0.8800, 0.9175] over 2 blocks
+rec-no-born     strata         372.88us      329.25us  120
+rec-no-born     msgspec        246.76us      246.85us  120
+rec-no-born     orjson         466.93us      459.64us  120
+                strata/msgspec [base] 1.511
+                strata/msgspec [pgolto] 1.334
+                pgolto/base strata: median 0.8891 [0.8740, 0.9043] over 2 blocks
+rec-no-amount   strata         330.52us      291.52us  120
+rec-no-amount   msgspec        211.02us      210.78us  120
+rec-no-amount   orjson         329.06us      328.14us  120
+                strata/msgspec [base] 1.566
+                strata/msgspec [pgolto] 1.383
+                pgolto/base strata: median 0.8815 [0.8744, 0.8886] over 2 blocks
+rec-no-status   strata         317.11us      281.15us  120
+rec-no-status   msgspec        236.91us      237.57us  120
+rec-no-status   orjson         426.01us      424.58us  120
+                strata/msgspec [base] 1.338
+                strata/msgspec [pgolto] 1.183
+                pgolto/base strata: median 0.8930 [0.8743, 0.9116] over 2 blocks
+rec-no-address  strata         284.08us      262.56us  120
+rec-no-address  msgspec        212.80us      216.03us  120
+rec-no-address  orjson         437.07us      436.81us  120
+                strata/msgspec [base] 1.335
+                strata/msgspec [pgolto] 1.215
+                pgolto/base strata: median 0.9263 [0.9161, 0.9364] over 2 blocks
+rec-no-labels   strata         320.46us      288.08us  120
+rec-no-labels   msgspec        205.13us      203.96us  120
+rec-no-labels   orjson         319.60us      319.05us  120
+                strata/msgspec [base] 1.562
+                strata/msgspec [pgolto] 1.412
+                pgolto/base strata: median 0.9048 [0.8896, 0.9200] over 2 blocks

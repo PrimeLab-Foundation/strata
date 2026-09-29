@@ -1,0 +1,67 @@
+row             lib                base         final   n
+rec             strata         383.66us      247.44us  180
+rec             msgspec        252.64us      253.76us  180
+rec             orjson         474.85us      474.61us  180
+                strata/msgspec [base] 1.519
+                strata/msgspec [final] 0.975
+                final/base strata: median 0.6467 [0.6386, 0.6503] over 3 blocks
+rec-file        strata         484.05us      329.66us  180
+rec-file        msgspec        377.03us      370.05us  180
+rec-file        orjson         609.84us      599.62us  180
+                strata/msgspec [base] 1.284
+                strata/msgspec [final] 0.891
+                final/base strata: median 0.6791 [0.6768, 0.6827] over 3 blocks
+plain-mixed     strata          30.00us       26.68us  180
+plain-mixed     msgspec         41.57us       41.67us  180
+plain-mixed     orjson          37.61us       37.48us  180
+                strata/msgspec [base] 0.722
+                strata/msgspec [final] 0.640
+                final/base strata: median 0.8894 [0.8873, 0.8898] over 3 blocks
+plain-users     strata        1464.67us     1326.19us  180
+plain-users     msgspec       2672.35us     2674.85us  180
+plain-users     orjson        2034.73us     2031.75us  180
+                strata/msgspec [base] 0.548
+                strata/msgspec [final] 0.496
+                final/base strata: median 0.9083 [0.9072, 0.9094] over 3 blocks
+t-enum          strata         127.95us       66.75us  180
+t-enum          msgspec         26.73us       26.86us  180
+t-enum          orjson          87.68us       87.51us  180
+                strata/msgspec [base] 4.787
+                strata/msgspec [final] 2.485
+                final/base strata: median 0.5211 [0.5175, 0.5295] over 3 blocks
+t-dc            strata         192.15us       89.94us  180
+t-dc            msgspec         64.58us       64.74us  180
+t-dc            orjson          62.45us       63.38us  180
+                strata/msgspec [base] 2.975
+                strata/msgspec [final] 1.389
+                final/base strata: median 0.4690 [0.4648, 0.4706] over 3 blocks
+t-uuid          strata          94.60us       68.26us  180
+t-uuid          msgspec         66.02us       66.03us  180
+t-uuid          orjson          54.37us       54.44us  180
+                strata/msgspec [base] 1.433
+                strata/msgspec [final] 1.034
+                final/base strata: median 0.7211 [0.7211, 0.7223] over 3 blocks
+t-dec           strata          98.76us       78.71us  180
+t-dec           msgspec         65.90us       65.76us  180
+t-dec           orjson         250.85us      249.08us  180
+                strata/msgspec [base] 1.499
+                strata/msgspec [final] 1.197
+                final/base strata: median 0.7961 [0.7936, 0.8051] over 3 blocks
+t-set           strata         104.27us       75.71us  180
+t-set           msgspec         96.16us       96.98us  180
+t-set           orjson         276.37us      280.03us  180
+                strata/msgspec [base] 1.084
+                strata/msgspec [final] 0.781
+                final/base strata: median 0.7246 [0.7192, 0.7322] over 3 blocks
+t-date          strata          14.22us       14.80us  180
+t-date          msgspec          7.56us        7.60us  180
+t-date          orjson          15.98us       16.08us  180
+                strata/msgspec [base] 1.881
+                strata/msgspec [final] 1.947
+                final/base strata: median 1.0383 [1.0371, 1.0721] over 3 blocks
+t-dt            strata          20.01us       20.29us  180
+t-dt            msgspec         13.00us       13.00us  180
+t-dt            orjson          26.49us       26.55us  180
+                strata/msgspec [base] 1.540
+                strata/msgspec [final] 1.561
+                final/base strata: median 1.0136 [1.0110, 1.0177] over 3 blocks

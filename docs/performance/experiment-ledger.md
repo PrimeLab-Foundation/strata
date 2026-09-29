@@ -4633,3 +4633,68 @@ waits on it.
 - **Closing state.** Clauses 1, 3, 4 and 5 hold as above; clause 2's artifact is
   `identity-m1/build_spec.txt` (`_strata`'s `Extension` and inputs, and `core_sources.txt`, equal
   `38eaa9f`'s at `9a17e02`; neither file changes to `565fab2`). Not merged; no further dispatch.
+
+## M15c — the msgspec gap on native-v1: the hook's own profile and four emitter levers
+
+- 2026-09-29 · `exp/native-gap` over main `234ea15`, uncommitted. Record:
+  [`native_types.md`](../architecture/native_types.md), "Hook profile and native emitter costs
+  (M15c)"; docs/decisions.md, 2026-09-29 (four M15c lines). Evidence:
+  `docs/benchmarks/evidence/M15c/` (`PROVENANCE.txt` names instrument, host and every packet).
+  Target: strata `native=True` at or below msgspec on native-v1 `dumps`/`dump` (M15b's closing
+  follow-up: 1.27–1.60× / 1.12–1.34× across five legs, run 36585989834).
+
+- **Phase 0(a), the build: 37% of the M1's `dumps` gap** (`p0a`; M1 Max, native.small, 240
+  samples per arm, ABCDEEDCBA ×3). strata medians: shipped hook 384.72 µs, rebuilt A/A 382.08
+  (paired 0.9936 \[0.9745, 1.0090\]), `-flto=thin` 361.65 (0.9334), own profile 350.25 (0.9039),
+  both 335.77 (**0.8740 \[0.8647, 0.8803\]**); msgspec 252.5. Ratio to msgspec 1.520 → 1.330;
+  `dump` 1.276 → 1.158 (0.8899 \[0.8341, 0.9002\]). Profile: `experiments/native-gap/train_native.py`
+  (seed 7, not the benchmark's 42).
+
+- **Phase 0(b), the emitters** (`p0b`; lists of 1000 distinct objects, ns per object, PGO+LTO
+  arm vs msgspec): Enum 114.0 vs 26.8, int-valued Enum 114.6 vs 20.5, dataclass 151.3 vs 65.2,
+  UUID 92.4 vs 66.8, Decimal 90.4 vs 66.6, date 15.0 vs 7.6, datetime 20.5 vs 13.1, time 18.2
+  vs 10.9, set 94.8 vs 96.5; plain int/str strata ahead. Per-field ablation of the records, excess
+  over msgspec per record: `status` (Enum) +82.5 ns, `address` (dataclass) +74.7, `uuid` +31.9,
+  `amount` (Decimal) +8.9, `born` (date) +5.2, `created_at` 0.0, `labels` (set) +3.3. Causes read
+  from the source: `Enum.value` is a Python-level `enum.property` (81 ns vs 18.5 ns for `_value_`
+  on 3.14; 123 vs 27 on 3.10); every non-pure `classify` probed `sys.modules` for numpy (absent);
+  the UUID split built an `int` (`PyNumber_Rshift`) and made two rich compares; a dataclass read
+  `__dataclass_fields__` through `type.__getattribute__` twice and escaped each key per object.
+
+- **The contract's price, kept** (`p0c`; attribution-only arm with `latch()` a no-op,
+  `experiments/native-gap/probe-no-latch.patch`, never merged): records 0.9382 \[0.9200, 0.9444\]
+  (about 50 ns per record, the row latch and the per-conversion `user_steps_`), Enum 0.9397,
+  dataclass 0.9316, Decimal 0.9607, set 0.9657. api.md's mutation rows are binding; nothing below
+  touches `latch()`, the row latch or `user_steps_`.
+
+- **Phase 1, levers, one at a time** (`p1a`; plain `-O3` builds as CI ships the hook today,
+  cumulative, 120 samples per arm, paired to the rebuilt base): records `dumps` 385.08 µs →
+  L1 lazy group probes 357.97 (0.9404) → L2 UUID halves 341.75 (0.8930) → L3 Enum stock
+  descriptor 321.25 (0.8394) → L4 dataclass keys and MRO read 283.95 (**0.7410 \[0.7316,
+  0.7503\]**); `dump` 0.7630 \[0.7626, 0.7634\]. Per type after L4: Enum 0.6248, dataclass 0.5784,
+  UUID 0.7634, Decimal 0.8678, set 0.8725 (L1 and L4's MRO read), date 1.0050 (untouched path).
+  Go on all four.
+
+- **Levers with the profile retrained on them** (`p1b`; 240 samples per arm): `dumps` records
+  strata 244.84 µs vs msgspec 251.99 (**0.972×**), paired to the shipped hook 0.6374 \[0.6210,
+  0.6446\]; `dump` 330.83 vs 370.21 (**0.894×**). Plain levers alone: 1.133× / 1.020×.
+
+- **Phase 1b, from a profile of the lever build** (`sample_v5.txt`, macOS `sample` of the plain
+  L1–L4 hook on the record loop): `util::format_uuid` 5.5% of top-of-stack samples,
+  `_PyLong_AsByteArray` under `PyLong_AsNativeBytes` 4.4%, `PyType_IsSubtype` 4.4% + its stub
+  1.4%, `_tlv_get_addr` 7.1% (mostly `_PyType_Lookup` on 3.14), `latch()` 3.5%. Four further
+  levers, plain builds, 180 samples per arm, paired strata ratios:
+
+  - **L9 native writers not cold** (`p3`, v4 → v5): records 0.9217 \[0.9181, 0.9252\], file
+    0.9510, Enum 0.9000, dataclass 0.8584, Decimal 0.9547, date 0.9481, datetime 0.9594; the
+    no-native flag analog (`plain-mixed` through `native=True`) 1.0120 \[1.0113, 1.0125\], a
+    resolved +1.2% on a row the shipped hook reads 30.00 µs and msgspec 41.6. Go.
+  - **L10 UUID digit reader + L11 eight-digit hex, one arm** (`p4`, v5 → v6): UUID lists 0.3686
+    \[0.3650, 0.3696\] (70.95 → 26.12 ns per UUID; msgspec 66), records 0.9044, file 0.9254,
+    `plain-mixed` 1.0010. The split comes from the profile above, not from separate arms. Go.
+  - **L12 type verdicts** — first build (`p5`, v7): slots indexed by `address >> 4`; the record's
+    Decimal, Enum and dataclass classes shared slot 1, so records read only 0.9847 while per-type
+    lists read Enum 0.6332, set 0.7817. Fixed by Fibonacci hashing (`p6`, v6 → v8): records
+    **0.8644 \[0.8206, 0.8658\]**, file 0.9030, Enum 0.6334, dataclass 0.8386, `plain-mixed`
+    0.9983. Go.
+  - Plain build after L1–L12: records strata 208.08 µs vs msgspec 251.6 (**0.827×**), file 0.791×.
