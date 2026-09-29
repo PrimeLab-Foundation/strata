@@ -4768,3 +4768,20 @@ waits on it.
   macos-x86_64 passed every step but lost its reports to an artifact-service timeout. Windows
   failed its plain install gate on three tests that assumed a clang/gcc host (fixed in `66adccf`);
   its clang-cl hook phase has still never run. No second dispatch.
+
+- **linux-arm64 held identity, re-proved at this revision** (lead-approved;
+  `linux-arm64-replay/`): M15b's replay (ubuntu:24.04, clang 18.1.3, native arm64 on the M1),
+  base `234ea15`, head `33465c2`. `identity_ab.py` reproduces CI exactly — plain CODE IDENTICAL,
+  held `.text`/`.rela.plt`/`.note.gnu.build-id` differ — and `normalised_disassembly.py` reads
+  423/423 functions, 407 identical, 16 differing only in page-offset slot immediates, **0
+  beyond**. Layout, not code: identity accepted under the M12b standard, per the lead's M15b
+  criterion. (16 slot-only functions against M15b's 7; M15b's step-2 noise control not rerun.)
+
+- **Second five-leg sample 36637770136** (`33465c2`; `ci-36637770136/verdict.txt`). Four legs
+  complete, canonical 27/27 each, tripwire green, phase 3's guards passing: native-v1 `dumps` /
+  `dump` vs msgspec linux-x86_64 **0.845 / 0.849**, macos-arm64 **0.725 / 0.844**,
+  macos-x86_64 **0.799 / 0.864**, linux-arm64 **0.846 / 0.878**; identity held IDENTICAL on all
+  but linux-arm64 (the replay above). Windows passed both clang-cl `_strata` phases and failed
+  phase 3a's install gate: `test_training_scope.py`'s plain-build reading of `setup.py` inherited
+  `STRATA_HOOK_PGO_MODE`, which MSVC (the default there) refuses — fixed in `c99d938`; the
+  hook's clang-cl profile has still never been built in CI.

@@ -1,0 +1,23 @@
+M15c second five-leg sample: benchmark.yml run 36637770136, ref exp/native-gap 33465c2 (bc6d9ba's
+source + 66adccf's test fix), identity_base=234ea15861d2f37b1b55c6251281a49021864441,
+2026-09-29 22:13-22:47 UTC. Lead-approved re-dispatch. Workflow conclusion: failure.
+Sources: steps.txt, <leg>_job.log, benchmark-<leg>/ (all four POSIX artifacts uploaded).
+
+leg              PGO + hook phase 3 guards   identity plain / held   canonical  tripwire  native-v1 dumps / dump (strata/msgspec, ms)
+linux-x86_64     success, both pass          IDENTICAL / IDENTICAL   27/27      success   0.845 (0.334/0.396) / 0.849 (0.552/0.650)
+macos-arm64      success, both pass          IDENTICAL / IDENTICAL   27/27      success   0.725 (0.234/0.322) / 0.844 (0.482/0.571)
+macos-x86_64     success, both pass          IDENTICAL / IDENTICAL   27/27      success   0.799 (0.432/0.541) / 0.864 (0.712/0.824)
+linux-arm64      success, both pass          IDENTICAL / DIFFERS     27/27      success   0.846 (0.304/0.359) / 0.878 (0.568/0.648)
+                 held: the same three sections as run 36632472320; this revision's local replay
+                 (../linux-arm64-replay/) reads 423/423 functions, 16 differing only in page-offset
+                 slot immediates, 0 beyond -- layout, not code, under the lead's M15b criterion.
+windows-x86_64   clang-cl phases 1-2 success (gates green on both); phase 3a's install gate failed
+                 5 tests in tests/unit/native_types/test_training_scope.py: the plain-build reading
+                 of setup.py inherited STRATA_HOOK_PGO_MODE=generate, which setup.py's default
+                 compiler on Windows (MSVC) refuses. The hook's clang-cl profile was never built;
+                 no canonical or native-v1 numbers. Fixed in c99d938 (the reader clears the hook
+                 phase's variables; an invalid mode pins it on every host).
+
+Flag rows (mixed.small, no native object; ms) native=False / native=True / orjson:
+  linux-arm64 0.0561/0.0553/0.0580; linux-x86_64 0.0540/0.0540/0.0569;
+  macos-arm64 0.0446/0.0429/0.0538; macos-x86_64 0.0571/0.0563/0.0679
