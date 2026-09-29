@@ -10,7 +10,7 @@
  * date-time or UUID string, and the post-order revival walk.
  * python_parse_types.cpp owns the option and its private registry, the four
  * cold entry points and the lazy iterator, and reaches the walk only through
- * the three functions declared here. `_strata` only.
+ * the three functions declared here. `strata._dumps_hook` only.
  */
 
 #include "python_types.h"

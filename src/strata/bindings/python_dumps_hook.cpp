@@ -315,9 +315,11 @@ PyMODINIT_FUNC PyInit__dumps_hook(void) {
     // loads this image against a fake `_strata` with `config_get` alone, to
     // drive `dumps_with_default` on its own), which must still load the hook
     // for `dumps_with_default`'s sake -- so a missing entry here is not fatal
-    // to the module, and surfaces instead from the first `parse_types` call.
+    // to the module, and surfaces instead from the first `parse_types` call,
+    // chained as that call's `__cause__` (adopt_prepare_failure()) rather than
+    // lost to PyErr_Clear().
     if (!parse_types::prepare_runtime(strata_module.get()))
-        PyErr_Clear();
+        parse_types::adopt_prepare_failure();
 
     PyObject* module = PyModule_Create(&kHookModuleDef);
     if (module == nullptr)

@@ -367,6 +367,34 @@ def test_ndjson_lazy_iterator_revives_line_by_line(tmp_path):
         next(lazy)
 
 
+def test_ndjson_lazy_iterator_next_is_not_reentrant(tmp_path):
+    # A registry type's __post_init__ that calls next() on the very iterator
+    # revivifying it must not corrupt state or skip a record (docs/decisions.md,
+    # RevivingIterator re-entrancy guard). `triggered` fires the probe only on
+    # the first construction: the expected value below builds a second,
+    # unrelated `Reenters("x")` for comparison, once the iterator is exhausted.
+    path = _write(tmp_path / "a.ndjson", '{"r": {"name": "x"}}\n{"r": {"name": "y"}}\n')
+    lazy = None
+    triggered = False
+
+    @dataclasses.dataclass
+    class Reenters:
+        name: str
+
+        def __post_init__(self):
+            nonlocal triggered
+            if self.name == "x" and not triggered:
+                triggered = True
+                with pytest.raises(
+                    ValueError,
+                    match=re.escape("strata._dumps_hook: RevivingIterator already executing"),
+                ):
+                    next(lazy)
+
+    lazy = strata.load(path, iterator=True, parse_types={"r": Reenters})
+    assert list(lazy) == [{"r": Reenters("x")}, {"r": Reenters("y")}]
+
+
 def test_skip_errors_drops_invalid_lines_only(tmp_path):
     path = _write(tmp_path / "a.ndjson", '"2024-01-01"\n{bad\n"12:00:00"\n')
     expected = [dt.date(2024, 1, 1), dt.time(12)]
@@ -557,6 +585,36 @@ def test_search_law_on_a_folder(tmp_path, parse_types):
         assert strata.search(root, expression, parse_types=parse_types) == expected
         lazy = strata.search(root, expression, iterator=True, parse_types=parse_types)
         assert list(lazy) == expected
+
+
+def test_search_folder_lazy_iterator_next_is_not_reentrant(tmp_path):
+    # Same guard, search mode: a re-entrant next() while `buffer` is mid-refill
+    # must not overwrite it (a leak) or skip the file being searched. `triggered`
+    # fires the probe only on the first construction: the expected value below
+    # builds a second, unrelated `Reenters("x")` for comparison, once the
+    # iterator is exhausted.
+    root = tmp_path / "folder"
+    _write(root / "a.json", json.dumps([{"r": {"name": "x"}}]))
+    _write(root / "b.json", json.dumps([{"r": {"name": "y"}}]))
+    lazy = None
+    triggered = False
+
+    @dataclasses.dataclass
+    class Reenters:
+        name: str
+
+        def __post_init__(self):
+            nonlocal triggered
+            if self.name == "x" and not triggered:
+                triggered = True
+                with pytest.raises(
+                    ValueError,
+                    match=re.escape("strata._dumps_hook: RevivingIterator already executing"),
+                ):
+                    next(lazy)
+
+    lazy = strata.search(root, "$[*]", iterator=True, parse_types={"r": Reenters})
+    assert list(lazy) == [{"r": Reenters("x")}, {"r": Reenters("y")}]
 
 
 def test_search_scalar_root_matches_only_the_root(tmp_path):

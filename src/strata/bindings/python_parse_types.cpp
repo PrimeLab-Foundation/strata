@@ -44,6 +44,11 @@ struct StrataApi {
 
 StrataApi g_strata{};
 
+/// The exception `prepare_runtime` left set at module init, when it failed --
+/// held so the first entry point that finds the runtime unready can chain it
+/// as `__cause__` instead of losing it to `PyErr_Clear()`. Null otherwise.
+PyObject* g_prepare_failure = nullptr;
+
 /// False, with an error set, when `prepare_runtime` could not resolve
 /// `_strata`'s entries (only against a stand-in `_strata` missing one of
 /// them; a real `_strata` always has all four).
@@ -52,6 +57,15 @@ StrataApi g_strata{};
         return true;
     PyErr_SetString(PyExc_RuntimeError, "strata._dumps_hook: strata._strata does not provide the "
                                         "loads/load/query/compile entries parse_types needs");
+    if (g_prepare_failure != nullptr) {
+        PyObject* type = nullptr;
+        PyObject* value = nullptr;
+        PyObject* traceback = nullptr;
+        PyErr_Fetch(&type, &value, &traceback);
+        PyErr_NormalizeException(&type, &value, &traceback);
+        PyException_SetCause(value, Py_NewRef(g_prepare_failure));
+        PyErr_Restore(type, value, traceback);
+    }
     return false;
 }
 
@@ -338,6 +352,7 @@ struct RevivingIteratorObject {
     PyObject* compiled; ///< search mode: the compiled path
     PyObject* buffer;   ///< search mode: the current file's matches
     Py_ssize_t position;
+    bool running; ///< guards against a re-entrant __next__ (docs/decisions.md)
 };
 
 #if defined(__clang__) || defined(__GNUC__)
@@ -364,6 +379,20 @@ PyObject* reviving_iterator_self(PyObject* self) { return Py_NewRef(self); }
 PyObject* reviving_iterator_next(PyObject* self) {
     STRATA_CPP_TRY
     auto* const iterator = reinterpret_cast<RevivingIteratorObject*>(self);
+    // A registry type's __init__/_missing_ runs arbitrary Python and may call
+    // next() on this very iterator (revive mode: the record just fetched by
+    // PyIter_Next() is not yet revived; search mode: `buffer` is mid-refill).
+    // Without this guard a re-entrant call in search mode overwrites `buffer`
+    // without a DECREF (a leak) and its match is skipped.
+    if (iterator->running) {
+        PyErr_SetString(PyExc_ValueError, "strata._dumps_hook: RevivingIterator already executing");
+        return nullptr;
+    }
+    iterator->running = true;
+    struct RunningGuard {
+        bool* const flag;
+        ~RunningGuard() { *flag = false; }
+    } guard{&iterator->running};
     if (iterator->inner != nullptr) {
         PyObject* const record = PyIter_Next(iterator->inner);
         return record == nullptr ? nullptr : revive(record, iterator->registry);
@@ -413,6 +442,7 @@ PyObject* reviving_iterator_next(PyObject* self) {
     self->compiled = nullptr;
     self->buffer = nullptr;
     self->position = 0;
+    self->running = false;
     return self;
 }
 
@@ -449,13 +479,33 @@ PyObject* reviving_iterator_next(PyObject* self) {
 // Runtime
 // ---------------------------------------------------------------------------
 
+void adopt_prepare_failure() noexcept {
+    PyObject* type = nullptr;
+    PyObject* value = nullptr;
+    PyObject* traceback = nullptr;
+    PyErr_Fetch(&type, &value, &traceback);
+    if (type == nullptr && value == nullptr)
+        return;
+    PyErr_NormalizeException(&type, &value, &traceback);
+    if (value != nullptr && traceback != nullptr)
+        PyException_SetTraceback(value, traceback);
+    Py_XDECREF(type);
+    Py_XDECREF(traceback);
+    Py_XSETREF(g_prepare_failure, value);
+}
+
 bool prepare_runtime(PyObject* strata_module) {
     PyRef loads_fn(PyObject_GetAttrString(strata_module, "loads"));
     PyRef load_fn(PyObject_GetAttrString(strata_module, "load"));
     PyRef query_fn(PyObject_GetAttrString(strata_module, "query"));
     PyRef compile_fn(PyObject_GetAttrString(strata_module, "compile"));
-    if (!loads_fn || !load_fn || !query_fn || !compile_fn)
+    if (!loads_fn || !load_fn || !query_fn || !compile_fn) {
+        // A re-initialised runtime (embedding) must not leave a previous,
+        // successful call's pointers in place: those would point into the
+        // finalized runtime that owned them, yet still pass runtime_ready().
+        g_strata = StrataApi{};
         return false;
+    }
     g_strata.loads = loads_fn.release();
     g_strata.load = load_fn.release();
     g_strata.query = query_fn.release();

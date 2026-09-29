@@ -31,6 +31,12 @@ namespace strata::bindings::parse_types {
 /// runs.
 [[nodiscard]] bool prepare_runtime(PyObject* strata_module);
 
+/// Adopt the exception `prepare_runtime` left set (module init only, on
+/// failure): stored so the first entry point call that finds the runtime
+/// unready chains it as that call's `__cause__` instead of losing it to
+/// `PyErr_Clear()`. Consumes the currently set exception.
+void adopt_prepare_failure() noexcept;
+
 /// `loads_typed(source, *, return_type="dict", iterator=False, parse_types)`.
 [[nodiscard]] PyObject* loads_typed(PyObject* self, PyObject* const* args, Py_ssize_t nargs,
                                     PyObject* kwnames);
