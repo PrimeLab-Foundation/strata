@@ -1,0 +1,790 @@
++ git worktree add --force --detach /work/arm 234ea15861d2f37b1b55c6251281a49021864441
+Preparing worktree (detached HEAD 234ea15)
+HEAD is now at 234ea15 Merge M13: framework adapters, reconciled with native precedence
++ make install-bench
+python3 -m venv .venv
+.venv/bin/python -m pip install -U pip setuptools wheel
+Installing collected packages: setuptools, pip, packaging, wheel
+  Attempting uninstall: pip
+    Found existing installation: pip 24.0
+    Uninstalling pip-24.0:
+      Successfully uninstalled pip-24.0
+Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+.venv/bin/python -m pip install -e '.[dev,bench]'
+Obtaining file:///work/arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4435 sha256=4c287f07f7d755057918411cce7db86cd5d3a2e50f8e7213383fb8400e433399
+  Stored in directory: /tmp/pip-ephem-wheel-cache-vf_8hd17/wheels/01/95/4d/bd34b16ae3c0ec46f51124274be9d50fdfc0fb761d1b5eec18
+Successfully built strata
+Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+
+Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.2 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.14.0
++ make pgo
+==> PGO: compiler is clang
+==> PGO phase 1: instrumented build
+Obtaining file:///work/arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4435 sha256=eb4ee90d597d1cc9ca135a75f38f43f28967a4554dda596b91597f69f8482dfc
+  Stored in directory: /tmp/pip-ephem-wheel-cache-m5pekwxl/wheels/01/95/4d/bd34b16ae3c0ec46f51124274be9d50fdfc0fb761d1b5eec18
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10
+==> PGO: the hook image must carry no profile
++ strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-aarch64-linux-gnu.so.build.json records no profile or profile flag,
+  and the image links no profile runtime
+==> PGO: generating training data
+  build/pgo/train.json (10.0 MB)
+  build/pgo/train.ndjson (10.0 MB)
+==> PGO: running the training workload
+PGO training workload
+  corpus: 4001 records, 10.0 MB
+[1/7] loads
+  loads(str): 1x in 0.03s
+  loads(bytes): 1x in 0.03s
+  loads(sample): 5x in 0.01s
+  loads(cursor): 5x in 0.01s
+  loads(iterator): 3x in 0.00s
+[2/7] dumps
+  dumps(str): 1x in 0.02s
+  dumps(bytes): 3x in 0.03s
+  dumps(sample, bytes): 5x in 0.00s
+  dumps(sample): 5x in 0.00s
+  dumps(parsed sample, bytes): 2x in 0.00s
+[3/7] load
+  load(json): 1x in 0.03s
+  load(ndjson): 1x in 0.04s
+  load(ndjson, iterator): 1x in 0.04s
+[4/7] dump
+  dump(json): 3x in 0.00s
+[5/7] query
+  query $[0].name: 3x in 0.00s
+  query $[*].id: 3x in 0.00s
+  query $[*].items[*].sku: 3x in 0.00s
+  query $..leaf: 3x in 0.00s
+  query $[0:50].score: 3x in 0.00s
+  query $[?(@.id > 100)].name: 3x in 0.00s
+  query $[?(@.id <= 500)]: 3x in 0.00s
+  query $[?(@.name == 'alpha')]: 3x in 0.00s
+  query $[?(@.name != 'alpha')].id: 3x in 0.00s
+  query $[?(@['id'] >= 0)].name: 3x in 0.00s
+  query $[*].nested.child: 3x in 0.00s
+  query $[*].tags[0]: 3x in 0.00s
+  query $.*: 3x in 0.00s
+  query(compiled): 5x in 0.00s
+[6/7] search
+  search json $[*].id: 1x in 0.01s
+  search ndjson $[*].id: 1x in 0.04s
+  search json $..leaf: 1x in 0.04s
+  search ndjson $..leaf: 1x in 0.04s
+  search json $[?(@.id > 100)].name: 1x in 0.04s
+  search ndjson $[?(@.id > 100)].name: 1x in 0.04s
+[7/7] folder mode
+  dump(split_by): 1x in 0.00s
+  load(folder): 1x in 0.00s
+  search(folder): 1x in 0.00s
+PGO training workload complete
+==> PGO: gate tests on the instrumented build
++ /work/arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /work/arm/build/cmake
++ /work/arm/.venv/bin/cmake --build build/cmake --config Release
+gmake[1]: Entering directory '/work/arm/build/cmake'
+gmake[2]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[  0%] Linking CXX executable smoke_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[  6%] Built target smoke_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[  7%] Linking CXX executable json_core_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 13%] Built target json_core_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 13%] Linking CXX executable json_parse_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 19%] Built target json_parse_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 20%] Linking CXX executable fast_parse_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 25%] Built target fast_parse_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 26%] Linking CXX executable value_cursor_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 32%] Built target value_cursor_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 32%] Linking CXX executable json_serialize_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 38%] Built target json_serialize_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 39%] Linking CXX executable float_precision_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 44%] Built target float_precision_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 45%] Linking CXX executable json_cursor_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 50%] Built target json_cursor_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 51%] Linking CXX executable ndjson_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 56%] Built target ndjson_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 57%] Linking CXX executable jsonpath_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 63%] Built target jsonpath_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 63%] Linking CXX executable jsonpath_stream_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 69%] Built target jsonpath_stream_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 69%] Linking CXX executable scan_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 75%] Built target scan_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 75%] Linking CXX executable temporal_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 81%] Built target temporal_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 81%] Linking CXX executable folder_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 87%] Built target folder_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 87%] Linking CXX executable fuzz_corpus_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 93%] Built target fuzz_corpus_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 94%] Linking CXX executable stress_deep_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[100%] Built target stress_deep_tests
+gmake[2]: Leaving directory '/work/arm/build/cmake'
+gmake[1]: Leaving directory '/work/arm/build/cmake'
++ /work/arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+Test project /work/arm/build/cmake
+      Start  1: smoke_tests
+ 1/16 Test  #1: smoke_tests ......................   Passed    0.00 sec
+      Start  2: json_core_tests
+ 2/16 Test  #2: json_core_tests ..................   Passed    0.00 sec
+      Start  3: json_parse_tests
+ 3/16 Test  #3: json_parse_tests .................   Passed    0.00 sec
+      Start  4: fast_parse_tests
+ 4/16 Test  #4: fast_parse_tests .................   Passed    0.07 sec
+      Start  5: value_cursor_tests
+ 5/16 Test  #5: value_cursor_tests ...............   Passed    0.01 sec
+      Start  6: json_serialize_tests
+ 6/16 Test  #6: json_serialize_tests .............   Passed    0.00 sec
+      Start  7: float_precision_tests
+ 7/16 Test  #7: float_precision_tests ............   Passed    2.26 sec
+      Start  8: json_cursor_tests
+ 8/16 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+      Start  9: ndjson_tests
+ 9/16 Test  #9: ndjson_tests .....................   Passed    0.00 sec
+      Start 10: jsonpath_tests
+10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+      Start 11: jsonpath_stream_tests
+11/16 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+      Start 12: scan_tests
+12/16 Test #12: scan_tests .......................   Passed    0.01 sec
+      Start 13: temporal_tests
+13/16 Test #13: temporal_tests ...................   Passed    0.00 sec
+      Start 14: folder_tests
+14/16 Test #14: folder_tests .....................   Passed    0.00 sec
+      Start 15: fuzz_corpus_tests
+15/16 Test #15: fuzz_corpus_tests ................   Passed    0.00 sec
+      Start 16: stress_deep_tests
+16/16 Test #16: stress_deep_tests ................   Passed    0.00 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =   2.38 sec
++ pytest tests/py tests/unit --ignore=tests/unit/native_types --ignore=tests/py/native_types --basetemp=/tmp/pytest-of-root/gjdxo6qh
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0
+rootdir: /work/arm
+configfile: pyproject.toml
+plugins: cov-7.1.0, platformdirs-4.12.2
+collected 3183 items
+
+tests/py/test_dumps_brace_fold.py .........                              [  0%]
+tests/py/test_dumps_cycles_fused.py .................................... [  1%]
+....................................................                     [  3%]
+tests/py/test_dumps_general_tables.py ............................       [  3%]
+tests/py/test_dumps_with_default.py .................................... [  5%]
+.............................ss                                          [  6%]
+tests/py/test_dumps_with_default_contract.py ........................... [  6%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+..........................                                               [ 12%]
+tests/py/test_fused_verification.py ..                                   [ 12%]
+tests/py/test_json_parity.py ........................................... [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+.................................                                        [ 50%]
+tests/py/test_path_dispatch.py ................................          [ 51%]
+tests/py/test_py_tests_basetemp.py ..                                    [ 51%]
+tests/py/test_smoke.py ...                                               [ 52%]
+tests/unit/test_ab_analysis.py ......................................    [ 53%]
+tests/unit/test_build_manifest.py ...........                            [ 53%]
+tests/unit/test_canonical_builds.py ....                                 [ 53%]
+tests/unit/test_ci_fetch.py ........................                     [ 54%]
+tests/unit/test_ci_summary.py .......................                    [ 55%]
+tests/unit/test_config.py ...........................                    [ 56%]
+tests/unit/test_core_purity.py ....                                      [ 56%]
+tests/unit/test_cross_sample.py ......                                   [ 56%]
+tests/unit/test_dumps.py ............................................... [ 57%]
+..........                                                               [ 58%]
+tests/unit/test_dumps_brace_fold.py .........                            [ 58%]
+tests/unit/test_dumps_cold_start.py ....                                 [ 58%]
+tests/unit/test_dumps_contract.py ...................................... [ 59%]
+.............................................................            [ 61%]
+tests/unit/test_dumps_cycles_fused.py .................................. [ 62%]
+......................................................                   [ 64%]
+tests/unit/test_dumps_general_tables.py ............................     [ 65%]
+tests/unit/test_dumps_latch.py ............................              [ 66%]
+tests/unit/test_dumps_private_cache.py ................................  [ 67%]
+tests/unit/test_dumps_reentrancy.py .................................... [ 68%]
+......................................................................   [ 70%]
+tests/unit/test_dumps_reentrancy_review.py ............................. [ 71%]
+..                                                                       [ 71%]
+tests/unit/test_dumps_schema_failure.py ...........................      [ 72%]
+tests/unit/test_dumps_user_step_counter.py ..........................    [ 73%]
+tests/unit/test_dumps_with_default.py .................................. [ 74%]
+........................................................................ [ 76%]
+.........................................................                [ 78%]
+tests/unit/test_dumps_with_default_state.py ............................ [ 79%]
+........................................................................ [ 81%]
+..............                                                           [ 81%]
+tests/unit/test_folder.py .............................................. [ 83%]
+.........................................                                [ 84%]
+tests/unit/test_fused_verification.py ..                                 [ 84%]
+tests/unit/test_hook_build_scope.py ...............................      [ 85%]
+tests/unit/test_json_cursor.py ...........................               [ 86%]
+tests/unit/test_jsonpath.py ............................................ [ 87%]
+.......................................................................  [ 90%]
+tests/unit/test_load_dump.py ........................................... [ 91%]
+                                                                         [ 91%]
+tests/unit/test_loads.py ............................................... [ 92%]
+........................................................................ [ 95%]
+................                                                         [ 95%]
+tests/unit/test_native_interleaved_profile.py ...                        [ 95%]
+tests/unit/test_nested_container_probe.py ....                           [ 95%]
+tests/unit/test_path_dispatch.py ................................        [ 96%]
+tests/unit/test_provenance.py ..................                         [ 97%]
+tests/unit/test_regression_check.py ..........................           [ 98%]
+tests/unit/test_search_stream.py .................                       [ 98%]
+tests/unit/test_string_identity_probe.py .                               [ 98%]
+tests/unit/test_supplementary.py .............                           [ 99%]
+tests/unit/test_supportability_check.py ....................             [ 99%]
+tests/unit/test_version.py ....                                          [100%]
+
+======================= 3181 passed, 2 skipped in 7.53s ========================
+==> PGO: merging 17 raw profiles
+==> PGO phase 2: optimized build (profile + LTO)
+Obtaining file:///work/arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4435 sha256=19e7d23dd50a4e815dd2770cc777167faf866e5403f3f3ba54fe96a08c18eb50
+  Stored in directory: /tmp/pip-ephem-wheel-cache-su8mzjmz/wheels/01/95/4d/bd34b16ae3c0ec46f51124274be9d50fdfc0fb761d1b5eec18
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10
+==> PGO: the hook image must carry no profile
++ strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-aarch64-linux-gnu.so.build.json records no profile or profile flag,
+  and the image links no profile runtime
+==> PGO: gate tests on the optimized build
++ /work/arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /work/arm/build/cmake
++ /work/arm/.venv/bin/cmake --build build/cmake --config Release
+gmake[1]: Entering directory '/work/arm/build/cmake'
+gmake[2]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[  0%] Linking CXX executable smoke_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[  6%] Built target smoke_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[  7%] Linking CXX executable json_core_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 13%] Built target json_core_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 13%] Linking CXX executable json_parse_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 19%] Built target json_parse_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 20%] Linking CXX executable fast_parse_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 25%] Built target fast_parse_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 26%] Linking CXX executable value_cursor_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 32%] Built target value_cursor_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 32%] Linking CXX executable json_serialize_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 38%] Built target json_serialize_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 39%] Linking CXX executable float_precision_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 44%] Built target float_precision_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 45%] Linking CXX executable json_cursor_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 50%] Built target json_cursor_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 51%] Linking CXX executable ndjson_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 56%] Built target ndjson_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 57%] Linking CXX executable jsonpath_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 63%] Built target jsonpath_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 63%] Linking CXX executable jsonpath_stream_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 69%] Built target jsonpath_stream_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 69%] Linking CXX executable scan_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 75%] Built target scan_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 75%] Linking CXX executable temporal_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 81%] Built target temporal_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 81%] Linking CXX executable folder_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 87%] Built target folder_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 87%] Linking CXX executable fuzz_corpus_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[ 93%] Built target fuzz_corpus_tests
+gmake[3]: Entering directory '/work/arm/build/cmake'
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+gmake[3]: Entering directory '/work/arm/build/cmake'
+[ 94%] Linking CXX executable stress_deep_tests
+gmake[3]: Leaving directory '/work/arm/build/cmake'
+[100%] Built target stress_deep_tests
+gmake[2]: Leaving directory '/work/arm/build/cmake'
+gmake[1]: Leaving directory '/work/arm/build/cmake'
++ /work/arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+Test project /work/arm/build/cmake
+      Start  1: smoke_tests
+ 1/16 Test  #1: smoke_tests ......................   Passed    0.00 sec
+      Start  2: json_core_tests
+ 2/16 Test  #2: json_core_tests ..................   Passed    0.00 sec
+      Start  3: json_parse_tests
+ 3/16 Test  #3: json_parse_tests .................   Passed    0.00 sec
+      Start  4: fast_parse_tests
+ 4/16 Test  #4: fast_parse_tests .................   Passed    0.07 sec
+      Start  5: value_cursor_tests
+ 5/16 Test  #5: value_cursor_tests ...............   Passed    0.01 sec
+      Start  6: json_serialize_tests
+ 6/16 Test  #6: json_serialize_tests .............   Passed    0.00 sec
+      Start  7: float_precision_tests
+ 7/16 Test  #7: float_precision_tests ............   Passed    2.27 sec
+      Start  8: json_cursor_tests
+ 8/16 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+      Start  9: ndjson_tests
+ 9/16 Test  #9: ndjson_tests .....................   Passed    0.00 sec
+      Start 10: jsonpath_tests
+10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+      Start 11: jsonpath_stream_tests
+11/16 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+      Start 12: scan_tests
+12/16 Test #12: scan_tests .......................   Passed    0.01 sec
+      Start 13: temporal_tests
+13/16 Test #13: temporal_tests ...................   Passed    0.00 sec
+      Start 14: folder_tests
+14/16 Test #14: folder_tests .....................   Passed    0.00 sec
+      Start 15: fuzz_corpus_tests
+15/16 Test #15: fuzz_corpus_tests ................   Passed    0.00 sec
+      Start 16: stress_deep_tests
+16/16 Test #16: stress_deep_tests ................   Passed    0.00 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =   2.38 sec
++ pytest tests/py tests/unit --basetemp=/tmp/pytest-of-root/txu_v6v6
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0
+rootdir: /work/arm
+configfile: pyproject.toml
+plugins: cov-7.1.0, platformdirs-4.12.2
+collected 3848 items
+
+tests/py/native_types/test_native_dump.py ..............                 [  0%]
+tests/py/native_types/test_native_fast_paths.py ........ssssssssss..     [  0%]
+tests/py/native_types/test_native_import.py ...                          [  0%]
+tests/py/native_types/test_native_opt_out.py ........................... [  1%]
+                                                                         [  1%]
+tests/py/native_types/test_native_oracle.py .........                    [  1%]
+tests/py/native_types/test_native_reentrancy.py ........................ [  2%]
+..................................................                       [  3%]
+tests/py/native_types/test_parse_types.py .............................. [  4%]
+............................................................             [  6%]
+tests/py/test_dumps_brace_fold.py .........                              [  6%]
+tests/py/test_dumps_cycles_fused.py .................................... [  7%]
+....................................................                     [  8%]
+tests/py/test_dumps_general_tables.py ............................       [  9%]
+tests/py/test_dumps_with_default.py .................................... [ 10%]
+.............................ss                                          [ 11%]
+tests/py/test_dumps_with_default_contract.py ........................... [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+..........................                                               [ 16%]
+tests/py/test_fused_verification.py ..                                   [ 16%]
+tests/py/test_json_parity.py ........................................... [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+.................................                                        [ 48%]
+tests/py/test_path_dispatch.py ................................          [ 49%]
+tests/py/test_py_tests_basetemp.py ..                                    [ 49%]
+tests/py/test_smoke.py ...                                               [ 49%]
+tests/unit/native_types/test_build_sources.py .......                    [ 49%]
+tests/unit/native_types/test_hook_import_gating.py .......               [ 49%]
+tests/unit/native_types/test_native_benchmark_agreement.py ...........   [ 49%]
+tests/unit/native_types/test_native_benchmark_dataset.py .....           [ 49%]
+tests/unit/native_types/test_native_benchmark_rows.py .......            [ 50%]
+tests/unit/native_types/test_native_ci_fetch.py ....                     [ 50%]
+tests/unit/native_types/test_native_ci_summary.py .....                  [ 50%]
+tests/unit/native_types/test_native_flag.py ..........................s. [ 51%]
+..                                                                       [ 51%]
+tests/unit/native_types/test_native_identity_ab.py .......               [ 51%]
+tests/unit/native_types/test_native_opt_out.py ......................... [ 52%]
+........................................................................ [ 53%]
+..................................................                       [ 55%]
+tests/unit/native_types/test_parse_contract.py ......................... [ 55%]
+.................................................                        [ 57%]
+tests/unit/native_types/test_serializer_contract.py .................... [ 57%]
+........................................................................ [ 59%]
+....................                                                     [ 60%]
+tests/unit/native_types/test_training_scope.py ............              [ 60%]
+tests/unit/test_ab_analysis.py ......................................    [ 61%]
+tests/unit/test_build_manifest.py ...........                            [ 61%]
+tests/unit/test_canonical_builds.py ....                                 [ 61%]
+tests/unit/test_ci_fetch.py ........................                     [ 62%]
+tests/unit/test_ci_summary.py .......................                    [ 62%]
+tests/unit/test_config.py ...........................                    [ 63%]
+tests/unit/test_core_purity.py ....                                      [ 63%]
+tests/unit/test_cross_sample.py ......                                   [ 63%]
+tests/unit/test_dumps.py ............................................... [ 65%]
+..........                                                               [ 65%]
+tests/unit/test_dumps_brace_fold.py .........                            [ 65%]
+tests/unit/test_dumps_cold_start.py ....                                 [ 65%]
+tests/unit/test_dumps_contract.py ...................................... [ 66%]
+.............................................................            [ 68%]
+tests/unit/test_dumps_cycles_fused.py .................................. [ 69%]
+......................................................                   [ 70%]
+tests/unit/test_dumps_general_tables.py ............................     [ 71%]
+tests/unit/test_dumps_latch.py ............................              [ 72%]
+tests/unit/test_dumps_private_cache.py ................................  [ 72%]
+tests/unit/test_dumps_reentrancy.py .................................... [ 73%]
+......................................................................   [ 75%]
+tests/unit/test_dumps_reentrancy_review.py ............................. [ 76%]
+..                                                                       [ 76%]
+tests/unit/test_dumps_schema_failure.py ...........................      [ 77%]
+tests/unit/test_dumps_user_step_counter.py ..........................    [ 77%]
+tests/unit/test_dumps_with_default.py .................................. [ 78%]
+........................................................................ [ 80%]
+.........................................................                [ 82%]
+tests/unit/test_dumps_with_default_state.py ............................ [ 82%]
+........................................................................ [ 84%]
+..............                                                           [ 84%]
+tests/unit/test_folder.py .............................................. [ 86%]
+.........................................                                [ 87%]
+tests/unit/test_fused_verification.py ..                                 [ 87%]
+tests/unit/test_hook_build_scope.py ...............................      [ 88%]
+tests/unit/test_json_cursor.py ...........................               [ 88%]
+tests/unit/test_jsonpath.py ............................................ [ 89%]
+.......................................................................  [ 91%]
+tests/unit/test_load_dump.py ........................................... [ 92%]
+                                                                         [ 92%]
+tests/unit/test_loads.py ............................................... [ 94%]
+........................................................................ [ 95%]
+................                                                         [ 96%]
+tests/unit/test_native_interleaved_profile.py ...                        [ 96%]
+tests/unit/test_nested_container_probe.py ....                           [ 96%]
+tests/unit/test_path_dispatch.py ................................        [ 97%]
+tests/unit/test_provenance.py ..................                         [ 97%]
+tests/unit/test_regression_check.py ..........................           [ 98%]
+tests/unit/test_search_stream.py .................                       [ 99%]
+tests/unit/test_string_identity_probe.py .                               [ 99%]
+tests/unit/test_supplementary.py .............                           [ 99%]
+tests/unit/test_supportability_check.py ....................             [ 99%]
+tests/unit/test_version.py ....                                          [100%]
+
+====================== 3835 passed, 13 skipped in 10.60s =======================
+==> PGO: generating benchmark data
+make[1]: Entering directory '/work/arm'
+PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/small  --num-users 1000 --max-orders 10 --max-items 5  --records 500
+  benchmarks/data/generated/small/users.json  (1680 KB)
+  benchmarks/data/generated/small/users.ndjson  (1679 KB)
+  benchmarks/data/generated/small/flat.json  (209 KB)
+  benchmarks/data/generated/small/nested.json  (148 KB)
+  benchmarks/data/generated/small/wide_arrays.json  (1218 KB)
+  benchmarks/data/generated/small/mixed.json  (34 KB)
+PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
+  benchmarks/data/generated/medium/users.json  (9883 KB)
+  benchmarks/data/generated/medium/users.ndjson  (9881 KB)
+  benchmarks/data/generated/medium/flat.json  (836 KB)
+  benchmarks/data/generated/medium/nested.json  (594 KB)
+  benchmarks/data/generated/medium/wide_arrays.json  (4874 KB)
+  benchmarks/data/generated/medium/mixed.json  (138 KB)
+PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/large  --num-users 4000 --max-orders 40 --max-items 20 --records 5000
+  benchmarks/data/generated/large/users.json  (68083 KB)
+  benchmarks/data/generated/large/users.ndjson  (68079 KB)
+  benchmarks/data/generated/large/flat.json  (2092 KB)
+  benchmarks/data/generated/large/nested.json  (1488 KB)
+  benchmarks/data/generated/large/wide_arrays.json  (12185 KB)
+  benchmarks/data/generated/large/mixed.json  (347 KB)
+make[1]: Leaving directory '/work/arm'
+==> PGO: verification benchmarks
+wrote build/pgo/bench_results_pgo.md
+==> PGO complete
+    profile: /work/arm/build/pgo/strata.profdata
+    results: build/pgo/bench_results_pgo.md
+    The installed extension is now the PGO+LTO build.
++ git worktree remove --force /work/arm
++ git worktree prune
++ git worktree add --force --detach /work/arm HEAD
+Preparing worktree (detached HEAD 33465c2)
+HEAD is now at 33465c2 Record M15c's five-leg sample 36632472320
++ make install-bench
+python3 -m venv .venv
+.venv/bin/python -m pip install -U pip setuptools wheel
+Installing collected packages: setuptools, pip, packaging, wheel
+  Attempting uninstall: pip
+    Found existing installation: pip 24.0
+    Uninstalling pip-24.0:
+      Successfully uninstalled pip-24.0
+Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+.venv/bin/python -m pip install -e '.[dev,bench]'
+Obtaining file:///work/arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4435 sha256=37ae3b84f3e4d27b3277fa455a242a74b34b1e1af023c3450c260eccef62687b
+  Stored in directory: /tmp/pip-ephem-wheel-cache-ci4t_9hr/wheels/01/95/4d/bd34b16ae3c0ec46f51124274be9d50fdfc0fb761d1b5eec18
+Successfully built strata
+Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+
+Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.2 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.14.0
++ /work/arm/.venv/bin/python -m pip install --force-reinstall --no-deps -e .
+Obtaining file:///work/arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4435 sha256=6bbad340c666dc1e53ba3a7ffd23990d3aa78da5c5d22c9122353e39ef806ab0
+  Stored in directory: /tmp/pip-ephem-wheel-cache-_ltctujx/wheels/01/95/4d/bd34b16ae3c0ec46f51124274be9d50fdfc0fb761d1b5eec18
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10
++ git worktree remove --force /work/arm
+.data                            40fe2822642d0bcf 40fe2822642d0bcf identical
+.data.rel.ro                     d90267a0d988b91f d90267a0d988b91f identical
+.dynamic                         37634c5803c1953a 37634c5803c1953a identical
+.dynstr                          6a987cdbfeb8d98e 6a987cdbfeb8d98e identical
+.dynsym                          a5ee17770de31cd7 a5ee17770de31cd7 identical
+.eh_frame                        22eebab584de0ce5 22eebab584de0ce5 identical
+.eh_frame_hdr                    d269407c4be7dcec d269407c4be7dcec identical
+.fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+.fini_array                      c237cc40fc35d255 c237cc40fc35d255 identical
+.gcc_except_table                f24d23d5554b5e58 f24d23d5554b5e58 identical
+.gnu.hash                        0fba2dc6a6d69ffb 0fba2dc6a6d69ffb identical
+.gnu.version                     3ce6c9dd74f6a57e 3ce6c9dd74f6a57e identical
+.gnu.version_r                   eb37e9020cb8788e eb37e9020cb8788e identical
+.got                             bb90b811013f8dcd bb90b811013f8dcd identical
+.got.plt                         f6d179319ae0c144 f6d179319ae0c144 identical
+.init                            a2755c8e0a00c8ef a2755c8e0a00c8ef identical
+.init_array                      e245decbf4c9b120 e245decbf4c9b120 identical
+.note.gnu.build-id               c573834eef8ef60f a395b887f56dfdb9 differs
+.plt                             58b7ebbb518fd1c1 58b7ebbb518fd1c1 identical
+.rela.dyn                        067863d39b1d00bd 067863d39b1d00bd identical
+.rela.plt                        d288cf614684e274 d288cf614684e274 identical
+.rodata                          89d484a63a9570eb 89d484a63a9570eb identical
+.tdata                           fef02424157f106b fef02424157f106b identical
+.text                            56446cc79800d389 56446cc79800d389 identical
+CODE IDENTICAL
+.data                            5d7b9f80e8c41bf9 5d7b9f80e8c41bf9 identical
+.data.rel.ro                     8cdff47f0310cf0f 8cdff47f0310cf0f identical
+.dynamic                         046c5f6252bf1605 046c5f6252bf1605 identical
+.dynstr                          01a527b7653d25a7 01a527b7653d25a7 identical
+.dynsym                          268044233c90fac1 268044233c90fac1 identical
+.eh_frame                        d4c0d459f9bae179 d4c0d459f9bae179 identical
+.eh_frame_hdr                    a95aea40a3d8f905 a95aea40a3d8f905 identical
+.fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+.fini_array                      ada84b6310d13ee3 ada84b6310d13ee3 identical
+.gcc_except_table                c9acca4a3f24921d c9acca4a3f24921d identical
+.gnu.hash                        17987ff19b0796c5 17987ff19b0796c5 identical
+.gnu.version                     6623a7b5c3a3aec5 6623a7b5c3a3aec5 identical
+.gnu.version_r                   c7ce7c4e1fae3500 c7ce7c4e1fae3500 identical
+.got                             6a07dd3da284bd9f 6a07dd3da284bd9f identical
+.got.plt                         67d3469fed48cc3a 67d3469fed48cc3a identical
+.init                            84489c4f3550e0dd 84489c4f3550e0dd identical
+.init_array                      fd2b5bf078ab3741 fd2b5bf078ab3741 identical
+.note.gnu.build-id               b33bdd345acf5c83 647d2c853a8ff237 differs
+.plt                             52f16e582c944353 52f16e582c944353 identical
+.rela.dyn                        294b2c746ccdbca7 294b2c746ccdbca7 identical
+.rela.plt                        250bbd509bd9bbb3 9a397877e0544b53 differs
+.rodata                          d8f3d512d6ae7d0b d8f3d512d6ae7d0b identical
+.tdata                           fef02424157f106b fef02424157f106b identical
+.text                            2c004c948dd214fa 35a54a0468f3d60e DIFFERS (gate)
+CODE DIFFERS: stop before timing
+{
+ "base": "234ea15861d2f37b1b55c6251281a49021864441",
+ "plain_exit": 0,
+ "held_pgo_exit": 1
+}
+plain build: exit 0
+held-profile pgo+lto build: exit 1
+
