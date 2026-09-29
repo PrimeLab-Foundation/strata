@@ -28,3 +28,22 @@ the load. Loads (load_log.txt): fix_screen waited its 45 minutes and ran at 1-mi
 symbols_m1.txt    __text sizes of the serializer (../symbols/symbol_table.py's measure): armA,
                   arm809621c, armFix
 write_calls_m1.txt  write()'s bl/b targets per arm (symbol_table.calls_from)
+
+Added by the second session on this screen (the one that added screen.sh's gate guard)
+  armBoundary       build/evidence/M15/armBoundary/ is a byte copy of armFix (not copied here
+                    again): _strata sha256 66049b0a809f454b, md5 13c84d63994c2036113683f52026f6bd,
+                    profile sha256 9fcc27be8b6ca958, build.json source.commit 74d78ca dirty False
+                    complete_compilation True; plus make_pgo.log and bench_results_pgo.{md,json}.
+                    Not rebuilt: m15-pgo was detached and clean at 74d78ca when armFix was made.
+  hot_symbols.py    attr/hot_symbols_table.txt's format (offset from the first __text symbol /
+                    size / address mod 64, via attr/layout.py's text_symbols) plus `size -m`
+                    Section __text per arm
+  hot_symbols_table.txt   armA vs arm809621c (../attr/arm809621c) vs armBoundary;
+                    __text 222564 / 247464 / 249476
+  layout_armA_arm809621c_armBoundary.txt   attr/layout.py over the same three arms
+  opcode_match_arm809621c_armBoundary.txt  otool -tV of ten hot functions, arm809621c vs
+                    armBoundary, masking absolute addresses, adrp page immediates and the
+                    ICF-folded vector::__throw_length_error alias name: 0 residual differences
+                    in each, same instruction counts
+  Gate guard outcome: gate_seen=0 on both legs (the main checkout's gate processes had ended by
+                    06:26; they ran from about 06:03: make gate, then make test-py-asan).
