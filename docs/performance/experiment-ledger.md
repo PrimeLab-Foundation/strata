@@ -4310,13 +4310,13 @@ waits on it.
   to main after the gate passed on the merged tree. Evidence:
   `build/evidence/benchmark-lead/pin-discovery-test/ab-36353898103/`.
 
-## M15 — native types: static checks, training scope, the local A/B; five-leg draw 1 not clean
+## M15 — native types: static checks, training scope, the local A/B; five-leg draws 1–2 not clean
 
 - 2026-09-28..29 · `exp/native-types` over main `38eaa9f`, twelve commits `d6e543a` to `e5d9510`.
   Record: [`native_types.md`](../architecture/native_types.md) and its 2026-09-28/29 amendments;
   docs/decisions.md, 2026-09-28/29. Evidence: `docs/benchmarks/evidence/M15/` (tracked copy of
   `build/evidence/M15/`, index `INDEX.txt`), the base of the paths below. **Status: local
-  evidence complete; five-leg draw 1 not clean on linux-x86_64, kill not fired; not merged.**
+  evidence complete; five-leg draws 1–2 not clean, kill not fired (lead's ruling); not merged.**
 
 - **Pre-specified (the record).** Estimate: static checks 1–3 hold on both ISAs; the pinned
   local A/B reads no canonical row past its A/A floor by more than +1.7% and none past +2%; on
@@ -4460,6 +4460,44 @@ waits on it.
   not canonical (bytes +1.58%). The canonical step is held. A hard inlining-boundary fix is in
   progress, to be checked on Linux clang symbol tables before one more paired draw; the lead's
   rule for it: linux-x86_64 small `dumps flat` resolving past +2% again fires the kill criterion.
+
+- **Inlining boundary `74d78ca`.** The native cold writers call no helper a hot writer inlines:
+  dataclass keys via `write_key_cold`, framed writers via `NativeFrame`/`push_open_cold`, never
+  `Frame` (`python_dumps.cpp` header); `make gate` passed (`gate-74d78ca/`). Checked before
+  dispatch on Linux and the M1, not on windows or macos-x86_64:
+
+  - *Linux symbols* (`linux-symbols/PROVENANCE.txt`): clang 18.1.3 replays run 36502555579's
+    PGO+LTO compiles on its own profiles and matches its A and B images (`nm -S`: 0 of 473/537
+    x86-64, 0 of 296/354 arm64 symbols differ). The fix on profile-B (trained on `296d2ea`):
+    `write`, `write_mapping_body` and `write_mapping` call exactly what main's call on both
+    ISAs; no `write_string`/`write_string_bytes` symbol (`{x86,arm64}/symbols.*.tsv`).
+  - *M1 screen* (`boundary-screen/`; 8 rows, 13 series, 6 × 60; floor A vs A2): no resolved loss;
+    gains medium `dumps users` b −0.98 \[−1.14, −0.03\] (0.45) and small `dumps mixed` s −0.84
+    \[−1.98, −0.02\] (0.69). B vs A ran at 1-min load 2.87–3.13, the A/A at 2.36.
+
+- **Five-leg A/B, draw 2: losses past +2% on three legs; every A2 control clean.** Run
+  36520746091, B = `exp/m15-ab-arm` `afd1550` (source and build files as `74d78ca`), otherwise as
+  draw 1 (`ci-36520746091/verdict.txt`). Resolved:
+
+  - *macos-x86_64:* small `dumps nested` b +3.98 \[+2.37, +4.67\] (1.36), 6/6, draw 1's row;
+    small `dumps wide_arrays` b +2.51 \[+0.15, +4.61\] (2.34), 5/6; six gains, −1.75 to −4.16.
+  - *windows-x86_64:* small `dumps flat` b +3.26 \[+2.68, +4.37\] (0.71), s +3.30 (0.74), 6/6;
+    draw 1 read +0.62/+0.82 there, unresolved.
+  - *macos-arm64:* small `loads flat` +2.91 \[+0.99, +3.70\] (1.95), 6/6; B changes its entry
+    point only, the parse code is byte-identical (docs/decisions.md).
+  - *linux-arm64:* eight `dumps` losses, +0.62 to +1.31 (medium `users` b); three parse gains.
+  - *linux-x86_64:* one gain, small `load mixed` −1.06; draw 1's small `dumps flat` no longer
+    resolves (s +2.02 \[−1.62, +5.02\] (0.50)).
+
+- **Kill criterion not fired, by the lead's ruling** (docs/decisions.md, 2026-09-29): only a leg
+  whose own A2 resolves nothing counts, so draw 1's macos-x86_64 `dumps nested` +3.96 (A2 +4.42
+  there) is discounted, reversing the draw-2 record's reading that it fired. One clean-control
+  resolution past +2% each: macos-x86_64 `dumps nested`, windows `dumps flat`, macos-arm64
+  `loads flat` and, by the rule though unnamed, macos-x86_64 `dumps wide_arrays`; a second on
+  one row fires it. Canonical step held. Next (the lead): a static A/B symbol diff of windows,
+  linux-arm64 and macos-x86_64 from the run's artifacts, before a draw 3. Fallback if fired, in
+  place of the record's: native emitters in a separate image off the unsupported tail, keeping
+  natives on by default (a design refused once for its retry semantics, `dumps_with_default.md`).
 
 - **Recorded, not resolved.**
 
