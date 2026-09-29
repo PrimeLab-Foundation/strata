@@ -1,0 +1,22 @@
+row             lib                base         pgo12           tip   n
+rec             strata         380.57us      186.66us      201.63us  240
+rec             msgspec        252.17us      251.23us      252.29us  240
+                strata/msgspec [base] 1.509
+                strata/msgspec [pgo12] 0.743
+                strata/msgspec [tip] 0.799
+                pgo12/base strata: median 0.4914 [0.4896, 0.5227] over 3 blocks
+                tip/base strata: median 0.5312 [0.5292, 0.5320] over 3 blocks
+rec-file        strata         472.22us      270.02us      284.69us  240
+rec-file        msgspec        371.53us      370.46us      372.67us  240
+                strata/msgspec [base] 1.271
+                strata/msgspec [pgo12] 0.729
+                strata/msgspec [tip] 0.764
+                pgo12/base strata: median 0.5692 [0.5577, 0.6104] over 3 blocks
+                tip/base strata: median 0.5976 [0.5921, 0.6180] over 3 blocks
+t-dc            strata         192.10us       74.22us       95.75us  240
+t-dc            msgspec         64.63us       64.66us       64.52us  240
+                strata/msgspec [base] 2.972
+                strata/msgspec [pgo12] 1.148
+                strata/msgspec [tip] 1.484
+                pgo12/base strata: median 0.3865 [0.3846, 0.3874] over 3 blocks
+                tip/base strata: median 0.4996 [0.4953, 0.5012] over 3 blocks

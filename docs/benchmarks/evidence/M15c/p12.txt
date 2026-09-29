@@ -1,0 +1,15 @@
+row             lib               pgo12       handtip           tip   n
+rec             strata         186.31us      203.27us      201.88us  240
+rec             msgspec        250.36us      250.39us      249.81us  240
+                strata/msgspec [pgo12] 0.744
+                strata/msgspec [handtip] 0.812
+                strata/msgspec [tip] 0.808
+                handtip/pgo12 strata: median 1.0877 [1.0862, 1.2055] over 3 blocks
+                tip/pgo12 strata: median 1.0850 [1.0719, 1.0902] over 3 blocks
+t-dc            strata          74.32us       96.21us       96.08us  240
+t-dc            msgspec         64.54us       64.52us       64.54us  240
+                strata/msgspec [pgo12] 1.152
+                strata/msgspec [handtip] 1.491
+                strata/msgspec [tip] 1.489
+                handtip/pgo12 strata: median 1.2978 [1.2841, 1.3003] over 3 blocks
+                tip/pgo12 strata: median 1.2919 [1.2808, 1.2988] over 3 blocks

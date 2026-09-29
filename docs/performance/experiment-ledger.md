@@ -4730,3 +4730,19 @@ waits on it.
   `--check-profiled` both ways → gate in that order, and refuses a changed `_strata` image
   (`tests/unit/native_types/test_hook_profile_build.py`). Not run on Windows: the first five-leg
   dispatch is its first execution.
+
+- **Final tip `57e1aa8`, profiled, and what the field-cache fix costs under the profile.**
+  `make gate` exit 0 (C++ 16/16, Python 3965 passed / 2 skipped, Python coverage 100%);
+  `scripts/token_identity.sh 234ea15`: 18/18 `_strata` TUs identical per ISA; `make pgo`
+  exit 0 with phase 3's `_strata` hash check and both `--check-profiled` guards passing. Shipped
+  hook vs the tip's pipeline-built hook (`p10`, 240 samples): records `dumps` **0.803×** msgspec
+  (paired 0.5238 \[0.5200, 0.5331\]), `dump` **0.776×** (0.5974 \[0.5715, 0.6153\]),
+  `plain-mixed` 0.637×. Against the profiled L1–L12 build in one session (`p11`, `p12`): the tip
+  reads records 1.0850 \[1.0719, 1.0902\] and dataclass lists 1.2919 \[1.2808, 1.2988\]; a hand
+  build of the tip with the pipeline's profile bytes reads the same (1.0877, 1.2978), so the
+  recipe is not the cause. The profile is: per dataclass object the tip reads plain 87.2 ns,
+  LTO 88.5, PGO 96.6, PGO+LTO 95.1 (`p13`), where L1–L12 went 82.6 plain → 74.3 profiled. The
+  profile's counts show the in-place Field read taken (`field_states_match` 496 000 calls, 1 736
+  000 iterations; the generic `field_attribute` 14), and `sample` puts 28.6% of a dataclass loop in
+  `dataclass_field_names`' own body (`sample_tip_dc.txt`), where L1–L12's does not reach the top
+  of the list. Mechanism not yet found; no cheaper invalidation chosen (lead's call).
