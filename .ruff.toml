@@ -3,7 +3,7 @@ target-version = "py310"
 
 # Markdown belongs to mdformat + markdownlint; ruff would otherwise reformat the
 # Python code blocks inside curated docs and fight the markdown formatter.
-extend-exclude = ["*.md"]
+extend-exclude = ["*.md", "docs/benchmarks/evidence"]
 
 [lint]
 select = [
