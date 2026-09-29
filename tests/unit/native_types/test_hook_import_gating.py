@@ -10,6 +10,7 @@ import it at all -- the same rule `tests/unit/native_types/test_native_flag.py`
 pins for `dumps`/`dump` with `native=False`.
 """
 
+import pathlib
 import subprocess
 import sys
 import textwrap
@@ -20,7 +21,9 @@ import strata
 
 
 def _fresh(code):
-    package_root = strata.__file__.rsplit("/python/", 1)[0] + "/python"
+    # The directory holding the imported `strata` package, whatever the
+    # separator and wherever the gate installed it (Windows, run 36582916306).
+    package_root = str(pathlib.Path(strata.__file__).resolve().parent.parent)
     result = subprocess.run(
         [sys.executable, "-c", f"import sys\nsys.path.insert(0, {package_root!r})\n" + code],
         capture_output=True,

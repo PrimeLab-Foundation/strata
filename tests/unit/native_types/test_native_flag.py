@@ -13,6 +13,7 @@ import dataclasses
 import datetime as dt
 import decimal
 import enum
+import pathlib
 import subprocess
 import sys
 import textwrap
@@ -94,7 +95,9 @@ def test_numpy_scalar_and_array_native_false_raise_the_unchanged_type_error():
 
 
 def _fresh(code):
-    package_root = strata.__file__.rsplit("/python/", 1)[0] + "/python"
+    # The directory holding the imported `strata` package, whatever the
+    # separator and wherever the gate installed it (Windows, run 36582916306).
+    package_root = str(pathlib.Path(strata.__file__).resolve().parent.parent)
     result = subprocess.run(
         [sys.executable, "-c", f"import sys\nsys.path.insert(0, {package_root!r})\n" + code],
         capture_output=True,

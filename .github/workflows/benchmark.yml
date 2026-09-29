@@ -97,8 +97,10 @@ jobs:
           # Full history only when the identity check will run a `git
           # worktree add` against an older ref: identity_ab.py needs that
           # ref present locally, which a shallow (depth-1) checkout may not
-          # have. The default shallow clone is kept for every other run.
-          fetch-depth: ${{ github.event.inputs.identity_base != '' && 0 || 1 }}
+          # have. The default shallow clone is kept for every other run. The
+          # depths are strings: a bare 0 is falsy in an expression, so
+          # `cond && 0 || 1` yielded 1 (run 36582916306).
+          fetch-depth: ${{ github.event.inputs.identity_base != '' && '0' || '1' }}
 
       - uses: actions/setup-python@v5
         with:
@@ -205,8 +207,10 @@ jobs:
           # Full history only when the identity check will run a `git
           # worktree add` against an older ref: identity_ab.py needs that
           # ref present locally, which a shallow (depth-1) checkout may not
-          # have. The default shallow clone is kept for every other run.
-          fetch-depth: ${{ github.event.inputs.identity_base != '' && 0 || 1 }}
+          # have. The default shallow clone is kept for every other run. The
+          # depths are strings: a bare 0 is falsy in an expression, so
+          # `cond && 0 || 1` yielded 1 (run 36582916306).
+          fetch-depth: ${{ github.event.inputs.identity_base != '' && '0' || '1' }}
 
       - uses: actions/setup-python@v5
         with:
@@ -308,8 +312,10 @@ jobs:
           # Full history only when the identity check will run a `git
           # worktree add` against an older ref: identity_ab.py needs that
           # ref present locally, which a shallow (depth-1) checkout may not
-          # have. The default shallow clone is kept for every other run.
-          fetch-depth: ${{ github.event.inputs.identity_base != '' && 0 || 1 }}
+          # have. The default shallow clone is kept for every other run. The
+          # depths are strings: a bare 0 is falsy in an expression, so
+          # `cond && 0 || 1` yielded 1 (run 36582916306).
+          fetch-depth: ${{ github.event.inputs.identity_base != '' && '0' || '1' }}
 
       - uses: actions/setup-python@v5
         with:
