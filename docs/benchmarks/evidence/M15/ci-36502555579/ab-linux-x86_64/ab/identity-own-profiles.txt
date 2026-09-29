@@ -1,0 +1,26 @@
+.data                            9ff7f0e2976a1355 40a2f9d56098b20b differs
+.data.rel.ro                     54091b343f1342b2 ea3b1752b88d534f differs
+.dynamic                         bed7fe515b12f5c7 782abd2dfbfe6272 differs
+.dynstr                          4d9713484a90058e 60cb7a8d34ded573 differs
+.dynsym                          cd190eb979d112ee 10f19d5e0aaadf85 differs
+.eh_frame                        208a40d90cd1cabf bb2123b26ed3a70d differs
+.eh_frame_hdr                    99b6342879ab570b 42330c6e8ad57375 differs
+.fini                            6a4f3e5efc7c1f7e 6a4f3e5efc7c1f7e identical
+.fini_array                      bb511e301ef071ce 488eb43a814cf081 differs
+.gcc_except_table                dc3a4e17da08bccf 60ec7afe818b8669 differs
+.gnu.hash                        d6a3d95996df5df9 6f72d2a4de335268 differs
+.gnu.version                     633068e1c75b1142 e53a4aca12e83368 differs
+.gnu.version_r                   7796889a3af8c8a2 9440ffed346c6197 differs
+.got                             71818ecc26433c32 c76903cde8580d1c differs
+.got.plt                         35c66cea170999b4 4ad9fbbf4268b69b differs
+.init                            b47b1c823e030233 0904ac9fa04cdfb0 differs
+.init_array                      285fa9124513be50 3e01c4e5adf72dd0 differs
+.note.gnu.build-id               91d358df1545a273 4e9be895918259fd differs
+.plt                             d8d71911f3d0989c d88e3488273c8004 differs
+.plt.got                         b6d84d9144c00036 813cca2fb4b4763e differs
+.rela.dyn                        a8b9fd6abe897ce6 13011569e0e1b575 differs
+.rela.plt                        68ebf145dff12ca1 b278cbab2fa8058a differs
+.rodata                          c06c00d9a2588efc 3ac1ebda6e7b3b69 differs
+.tdata                           fef02424157f106b fef02424157f106b identical
+.text                            434645d6ae20dd38 61bf7c098483e944 DIFFERS (gate)
+CODE DIFFERS: stop before timing

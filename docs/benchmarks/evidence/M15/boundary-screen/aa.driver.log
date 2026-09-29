@@ -1,0 +1,171 @@
+PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py \
+		--build A=/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/armA/_strata.cpython-314-darwin.so --build B=/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/armA2/_strata.cpython-314-darwin.so \
+		--target /Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so \
+		--out /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/boundary-screen/aa.tsv --row small:flat:dumps --row small:flat:dump --row small:users:dumps --row medium:users:dumps --row small:users:loads --row small:mixed:dumps --row small:wide_arrays:dumps --row small:wide_arrays:dump --blocks 6 --repeat 60
+# target   /Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so
+# build A  /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/armA/_strata.cpython-314-darwin.so  md5=1609bb3e318d8f9e2c552fa4675795f2
+# build B  /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/armA2/_strata.cpython-314-darwin.so  md5=800e32c62dc8a5c05de7912d938268eb
+# order    ABBAABBAABBAABBAABBAABBAA (25 launches)
+# rows     small:flat:dumps small:flat:dump small:users:dumps medium:users:dumps small:users:loads small:mixed:dumps small:wide_arrays:dumps small:wide_arrays:dump  repeat=60
+# launch 00 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L00 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=2.36,3.41,4.04 cpus=10 t=07:01:56
+# launch 01 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L01 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=2.44,3.40,4.03 cpus=10 t=07:02:09
+# launch 02 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L02 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=2.20,3.30,3.98 cpus=10 t=07:02:21
+# launch 03 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L03 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=2.01,3.22,3.95 cpus=10 t=07:02:34
+# launch 04 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L04 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=1.79,3.11,3.90 cpus=10 t=07:02:47
+# launch 05 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L05 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=2.40,3.20,3.92 cpus=10 t=07:03:00
+# launch 06 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L06 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=2.39,3.16,3.89 cpus=10 t=07:03:13
+# launch 07 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L07 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=2.47,3.14,3.87 cpus=10 t=07:03:26
+# launch 08 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L08 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=2.24,3.07,3.83 cpus=10 t=07:03:38
+# launch 09 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L09 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=2.11,3.00,3.80 cpus=10 t=07:03:51
+# launch 10 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L10 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=1.94,2.93,3.76 cpus=10 t=07:04:04
+# launch 11 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L11 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=1.73,2.84,3.71 cpus=10 t=07:04:17
+# launch 12 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L12 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=1.62,2.77,3.68 cpus=10 t=07:04:29
+# launch 13 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L13 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=1.62,2.72,3.65 cpus=10 t=07:04:42
+# launch 14 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L14 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=1.53,2.66,3.61 cpus=10 t=07:04:55
+# launch 15 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L15 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=1.41,2.58,3.57 cpus=10 t=07:05:08
+# launch 16 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L16 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=4.28,3.12,3.74 cpus=10 t=07:05:21
+# launch 17 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L17 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=4.00,3.10,3.72 cpus=10 t=07:05:34
+# launch 18 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L18 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=3.70,3.07,3.71 cpus=10 t=07:05:46
+# launch 19 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L19 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=4.41,3.24,3.76 cpus=10 t=07:05:59
+# launch 20 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L20 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=3.73,3.14,3.71 cpus=10 t=07:06:12
+# launch 21 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L21 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=3.71,3.16,3.71 cpus=10 t=07:06:25
+# launch 22 build=B md5=800e32c62dc8a5c05de7912d938268eb
+# L22 build=B extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=800e32c62dc8a5c05de7912d938268eb load=3.11,3.05,3.66 cpus=10 t=07:06:38
+# launch 23 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L23 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=2.78,2.98,3.63 cpus=10 t=07:06:50
+# launch 24 build=A md5=1609bb3e318d8f9e2c552fa4675795f2
+# L24 build=A extension=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so md5=1609bb3e318d8f9e2c552fa4675795f2 load=2.61,2.93,3.60 cpus=10 t=07:07:03
+# wrote /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/boundary-screen/aa.tsv (25 of 25 launches)
+# restored /Users/borysbardysh/worktrees/strata/main-pgo/python/strata/_strata.cpython-314-darwin.so to md5=800e32c62dc8a5c05de7912d938268eb
+== launch medians (ms)
+row/engine                    L00:A       L01:B       L02:B       L03:A       L04:A       L05:B       L06:B       L07:A       L08:A       L09:B       L10:B       L11:A       L12:A       L13:B       L14:B       L15:A       L16:A       L17:B       L18:B       L19:A       L20:A       L21:B       L22:B       L23:A       L24:A       
+md-users-dumps orjson-bytes   13.6043    13.5023    13.5886    13.3416    13.4805    13.5431    13.4474    13.5040    13.7269    13.5138    13.3571    13.4443    13.4986    13.4686    13.5162    13.4172    13.5108    13.5067    13.4516    13.3924    13.4804    13.6176    13.5165    13.4864    13.4634    
+md-users-dumps orjson-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+md-users-dumps orjson-loads   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+md-users-dumps strata-bytes   7.6670     7.6799     7.6847     7.6263     7.6818     7.6962     7.6446     7.6801     7.6791     7.6610     7.6753     7.6795     7.6660     7.6863     7.6961     7.6921     7.6977     7.6845     7.6894     7.6559     7.6705     7.6794     7.6641     7.6506     7.6876     
+md-users-dumps strata-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+md-users-dumps strata-loads   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+md-users-dumps strata-str     9.4175     9.4333     9.6016     9.3072     9.4106     9.4512     9.3774     9.3131     9.3456     9.1964     9.3424     9.3414     9.5460     9.3775     9.4020     9.3761     9.4432     9.3704     9.3764     9.2758     9.4226     9.3678     9.3909     9.4333     9.3124     
+sm-flat-dump orjson-bytes     -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dump orjson-dump      0.3187     0.3099     0.3142     0.3112     0.3186     0.3204     0.3196     0.3118     0.3154     0.3197     0.3167     0.3156     0.3150     0.3110     0.3120     0.3144     0.3109     0.3172     0.3100     0.3115     0.3180     0.3194     0.3159     0.3084     0.3115     
+sm-flat-dump orjson-loads     -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dump strata-bytes     -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dump strata-dump      0.2671     0.2576     0.2595     0.2576     0.2615     0.2634     0.2670     0.2589     0.2625     0.2664     0.2634     0.2666     0.2609     0.2599     0.2599     0.2673     0.2564     0.2633     0.2575     0.2599     0.2631     0.2652     0.2595     0.2561     0.2579     
+sm-flat-dump strata-loads     -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dump strata-str       -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dumps orjson-bytes    0.2195     0.2213     0.2204     0.2200     0.2200     0.2203     0.2205     0.2197     0.2211     0.2192     0.2199     0.2205     0.2192     0.2208     0.2207     0.2201     0.2204     0.2224     0.2194     0.2199     0.2196     0.2208     0.2204     0.2189     0.2209     
+sm-flat-dumps orjson-dump     -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dumps orjson-loads    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dumps strata-bytes    0.1718     0.1718     0.1718     0.1713     0.1714     0.1716     0.1715     0.1725     0.1716     0.1716     0.1700     0.1719     0.1719     0.1712     0.1720     0.1733     0.1709     0.1721     0.1717     0.1723     0.1716     0.1721     0.1710     0.1715     0.1712     
+sm-flat-dumps strata-dump     -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dumps strata-loads    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-flat-dumps strata-str      0.1880     0.1883     0.1885     0.1885     0.1890     0.1879     0.1884     0.1895     0.1884     0.1888     0.1879     0.1896     0.1885     0.1882     0.1886     0.1900     0.1879     0.1894     0.1884     0.1893     0.1881     0.1894     0.1886     0.1885     0.1889     
+sm-mixed-dumps orjson-bytes   0.0364     0.0360     0.0369     0.0363     0.0363     0.0365     0.0362     0.0363     0.0364     0.0361     0.0362     0.0368     0.0367     0.0362     0.0363     0.0362     0.0391     0.0359     0.0365     0.0362     0.0365     0.0374     0.0365     0.0365     0.0366     
+sm-mixed-dumps orjson-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-mixed-dumps orjson-loads   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-mixed-dumps strata-bytes   0.0283     0.0283     0.0284     0.0281     0.0281     0.0283     0.0282     0.0284     0.0284     0.0280     0.0282     0.0284     0.0283     0.0281     0.0280     0.0281     0.0300     0.0282     0.0284     0.0282     0.0283     0.0281     0.0284     0.0283     0.0283     
+sm-mixed-dumps strata-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-mixed-dumps strata-loads   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-mixed-dumps strata-str     0.0304     0.0304     0.0306     0.0303     0.0302     0.0303     0.0305     0.0307     0.0306     0.0302     0.0303     0.0307     0.0305     0.0302     0.0301     0.0302     0.0332     0.0303     0.0307     0.0305     0.0304     0.0302     0.0307     0.0304     0.0304     
+sm-users-dumps orjson-bytes   1.9864     1.9411     1.9384     1.9412     1.9463     1.9466     1.9394     1.9385     1.9809     1.9388     1.9373     1.9421     2.0129     1.9399     1.9480     1.9427     1.9430     1.9402     1.9362     1.9441     1.9390     1.9425     1.9381     1.9409     1.9398     
+sm-users-dumps orjson-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-dumps orjson-loads   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-dumps strata-bytes   1.2582     1.2520     1.2484     1.2520     1.2470     1.2539     1.2452     1.2516     1.2512     1.2464     1.2507     1.2511     1.2989     1.2481     1.2534     1.2488     1.2540     1.2479     1.2521     1.2501     1.2483     1.2491     1.2510     1.2469     1.2474     
+sm-users-dumps strata-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-dumps strata-loads   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-dumps strata-str     1.3843     1.3742     1.3727     1.3750     1.3715     1.3817     1.3688     1.3780     1.3753     1.3697     1.3751     1.3748     1.4383     1.3726     1.3751     1.3718     1.3756     1.3721     1.3750     1.3753     1.3707     1.3698     1.3727     1.3675     1.3709     
+sm-users-loads orjson-bytes   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-loads orjson-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-loads orjson-loads   7.6728     7.8568     7.7027     7.7042     7.6962     7.7131     7.7244     7.6993     7.6579     7.7139     7.6861     7.7402     7.7105     7.7139     7.6612     7.7040     8.0790     7.6466     7.6854     7.6626     7.7393     7.6915     7.7167     7.6920     7.7114     
+sm-users-loads strata-bytes   -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-loads strata-dump    -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-users-loads strata-loads   5.6905     5.8527     5.7203     5.7047     5.7223     5.6928     5.7332     5.7042     5.6582     5.7243     5.6871     5.7412     5.7030     5.7158     5.6937     5.7154     5.9348     5.6667     5.6971     5.6861     5.7435     5.6908     5.7210     5.7143     5.7323     
+sm-users-loads strata-str     -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dump orjson-bytes-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dump orjson-dump1.4546     1.4612     1.4286     1.4505     1.4368     1.4604     1.4596     1.4452     1.4435     1.4646     1.4681     1.4412     1.4619     1.4601     1.4900     1.4519     1.4595     1.4718     1.4350     1.4403     1.4341     1.4639     1.4562     1.4271     1.4561     
+sm-wide_arrays-dump orjson-loads-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dump strata-bytes-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dump strata-dump1.1620     1.1568     1.1484     1.1662     1.1544     1.1585     1.1547     1.1552     1.1528     1.1604     1.1875     1.1520     1.1580     1.1627     1.1846     1.1611     1.1573     1.1848     1.1705     1.1597     1.1614     1.1553     1.1531     1.1618     1.1632     
+sm-wide_arrays-dump strata-loads-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dump strata-str-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dumps orjson-bytes1.1114     1.1101     1.0846     1.0908     1.0785     1.1065     1.0934     1.0992     1.0521     1.1191     1.1109     1.0726     1.1158     1.1124     1.1809     1.0949     1.0968     1.0806     1.1716     1.1162     1.0973     1.1096     1.0649     1.0997     1.0959     
+sm-wide_arrays-dumps orjson-dump-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dumps orjson-loads-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dumps strata-bytes0.9090     0.9087     0.9097     0.9091     0.9093     0.9098     0.9092     0.9083     0.9095     0.9119     0.9083     0.9089     0.9093     0.9132     0.9080     0.9121     0.9089     0.9091     0.9093     0.9098     0.9094     0.9147     0.9145     0.9095     0.9103     
+sm-wide_arrays-dumps strata-dump-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dumps strata-loads-          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          -          
+sm-wide_arrays-dumps strata-str0.9914     0.9915     0.9911     0.9929     0.9932     0.9925     0.9917     0.9909     0.9925     0.9940     0.9912     0.9915     0.9930     0.9958     0.9905     0.9949     0.9918     0.9919     0.9931     0.9916     0.9910     0.9984     1.0009     0.9912     0.9923     
+
+file: /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/boundary-screen/aa.tsv
+launches: L00:A L01:B L02:B L03:A L04:A L05:B L06:B L07:A L08:A L09:B L10:B L11:A L12:A L13:B L14:B L15:A L16:A L17:B L18:B L19:A L20:A L21:B L22:B L23:A L24:A
+baseline: A   candidate: B   blocks: 6   leading: none   trailing: L24   min samples/launch: 10
+blocks: L00L01L02L03  L04L05L06L07  L08L09L10L11  L12L13L14L15  L16L17L18L19  L20L21L22L23
+
+row                   engine        rival          blk  raw strata  raw rival  normalised    ci low   ci high   pos
+md-users-dumps        strata-bytes  orjson-bytes     6      +0.14%     +0.23%      -0.09%    -0.32%    +0.45%  1/6
+                                    blocks (normalised): -0.08 -0.16 +0.96 -0.10 -0.07 -0.47
+md-users-dumps        strata-str    orjson-bytes     6      -0.18%     +0.23%      +0.13%    -1.07%    +0.82%  3/6
+                                    blocks (normalised): +1.11 +0.54 +0.31 -1.01 -0.05 -1.13
+sm-flat-dump          strata-dump   orjson-dump      6      +0.50%     +0.83%      -0.45%    -0.68%    +0.26%  2/6
+                                    blocks (normalised): -0.53 +0.40 -0.76 -0.60 +0.11 -0.38
+sm-flat-dumps         strata-bytes  orjson-bytes     6      -0.13%     +0.41%      -0.40%    -0.86%    -0.06%  1/6
+                                    blocks (normalised): -0.32 -0.47 +0.04 -1.07 -0.15 -0.65
+sm-flat-dumps         strata-str    orjson-bytes     6      -0.12%     +0.41%      -0.35%    -0.88%    +0.05%  1/6
+                                    blocks (normalised): -0.40 -0.82 +0.26 -0.93 -0.16 -0.29
+sm-mixed-dumps        strata-bytes  orjson-bytes     6      -0.31%     -0.29%      +0.09%    -0.60%    +0.54%  5/6
+                                    blocks (normalised): +0.11 +0.02 +0.21 +0.07 +0.87 -1.21
+sm-mixed-dumps        strata-str    orjson-bytes     6      -0.43%     -0.29%      -0.14%    -0.69%    +0.13%  2/6
+                                    blocks (normalised): +0.15 -0.12 +0.12 -0.16 -0.56 -0.83
+sm-users-dumps        strata-bytes  orjson-bytes     6      -0.19%     -0.74%      +0.15%    -0.06%    +0.91%  4/6
+                                    blocks (normalised): +0.83 -0.01 +0.99 -0.10 +0.12 +0.18
+sm-users-dumps        strata-str    orjson-bytes     6      -0.17%     -0.74%      +0.14%    -0.25%    +0.89%  5/6
+                                    blocks (normalised): +0.78 +0.01 +1.01 -0.51 +0.14 +0.14
+sm-users-loads        strata-loads  orjson-loads     6      -0.04%     -0.07%      +0.14%    -0.27%    +0.38%  4/6
+                                    blocks (normalised): +0.37 -0.28 +0.09 +0.18 +0.39 -0.25
+sm-wide_arrays-dump   strata-dump   orjson-dump      6      +0.68%     +1.28%      -0.25%    -1.89%    +0.81%  2/6
+                                    blocks (normalised): -0.46 -1.15 +0.20 -0.03 +1.41 -2.64
+sm-wide_arrays-dumps  strata-bytes  orjson-bytes     6      +0.04%     +1.40%      -1.28%    -4.08%    +1.00%  2/6
+                                    blocks (normalised): +0.36 -0.94 -4.64 -3.52 -1.61 +1.65
+sm-wide_arrays-dumps  strata-str    orjson-bytes     6      +0.03%     +1.40%      -1.26%    -4.13%    +1.10%  2/6
+                                    blocks (normalised): +0.26 -1.01 -4.67 -3.59 -1.51 +1.95
+
+raw strata / raw rival: the same block estimator on the unnormalised medians.
+normalised: strata/rival measured in the same process, then blocked.
+ci: bootstrap over whole blocks of the median block effect (2000 resamples).
+
+== drift: the trailing baseline launch against the leading one
+md-users-dumps        strata-bytes  strata +0.27%   rival -1.04%   normalised +1.32%
+md-users-dumps        strata-str    strata -1.12%   rival -1.04%   normalised -0.08%
+sm-flat-dump          strata-dump   strata -3.46%   rival -2.25%   normalised -1.24%
+sm-flat-dumps         strata-bytes  strata -0.33%   rival +0.63%   normalised -0.95%
+sm-flat-dumps         strata-str    strata +0.50%   rival +0.63%   normalised -0.13%
+sm-mixed-dumps        strata-bytes  strata -0.15%   rival +0.46%   normalised -0.60%
+sm-mixed-dumps        strata-str    strata -0.07%   rival +0.46%   normalised -0.52%
+sm-users-dumps        strata-bytes  strata -0.85%   rival -2.35%   normalised +1.53%
+sm-users-dumps        strata-str    strata -0.97%   rival -2.35%   normalised +1.41%
+sm-users-loads        strata-loads  strata +0.73%   rival +0.50%   normalised +0.23%
+sm-wide_arrays-dump   strata-dump   strata +0.10%   rival +0.11%   normalised -0.01%
+sm-wide_arrays-dumps  strata-bytes  strata +0.14%   rival -1.39%   normalised +1.56%
+sm-wide_arrays-dumps  strata-str    strata +0.09%   rival -1.39%   normalised +1.50%

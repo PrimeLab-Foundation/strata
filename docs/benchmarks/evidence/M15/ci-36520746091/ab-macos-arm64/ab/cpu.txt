@@ -1,0 +1,5 @@
+platform macos-arm64
+Darwin sjc22-be108-0bd00e3d-7c91-43ee-92f4-b45e4d4e0e88-46B1C1449C1A.local 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:16:43 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_VMAPPLE arm64
+arm arm64
+Apple M1 (Virtual)
+3

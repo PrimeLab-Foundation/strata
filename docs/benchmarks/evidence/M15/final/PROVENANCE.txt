@@ -1,0 +1,27 @@
+M15 final local evidence, exp/native-types 5b876d1 vs main 38eaa9f, 2026-09-28/29, dev M1 (arm64,
+Darwin 25.6.0), Apple clang 21.0.0 (clang-2100.1.1.101), CPython 3.14.7 (Homebrew).
+
+codegen/  plain -O3 (../codegen/build.sh ~/worktrees/strata/m15-pgo at 5b876d1, both ISAs; x86_64 is
+          the macOS SysV cross build) -> codegen/5b876d1/<isa>/; main objects are ../codegen/main/.
+  check1_write_masked.<isa>.txt  masked_check.py: write() with in-function targets, RIP displacements
+                                 and nop padding masked; LCS of main vs candidate + non-equal opcodes
+  write_diff.<isa>.txt           ../codegen/funcdiff.py on write() (unmasked)
+  check2.py, check2.txt          sizeof(Serializer), fields, stage_ record/offset, dumps_to_python frame
+  dumps_to_python_diff.<isa>.txt funcdiff.py on dumps_to_python
+  check3_objects.<isa>.txt       ../codegen/sectcmp.py (non-__DWARF sections, relocations, symbols)
+  check3_python_module.<isa>.txt, funcs.python_dumps.<isa>.txt  ../codegen/allfuncdiff.py
+
+armBown3/ `make pgo` in ~/worktrees/strata/m15-pgo (5b876d1, clean): make_pgo.log (exit 0; gates
+          3186 passed 2 skipped / 3576 passed 2 skipped; ctest 16/16 twice; no hash-mismatch warning),
+          both images + *.build.json, strata.profdata (+inputs), profdata_show_all.txt
+          (llvm-profdata show --all-functions --counts), bench_results_pgo.md.
+new_func_counts.py/.txt  records new or CFG-changed vs armA's profile, block-counter sums
+entry_counts.py/.txt     function_entry_count after pgo-instr-use (copy of ../check4_entry_counts.py
+                         with python_parse_types_walk.cpp and python_module.cpp added); entry_ir/
+
+ab/       run_ab.sh (../ab/run_ab.sh with E= this dir), wait_load.sh (1-min load < 2.5, 45-min budget);
+          own3_ab = armA vs armBown3, aa3 = armA vs armA2; 26 rows, 6 ABBA blocks x 60; analysis
+          benchmarks/ab_blocks.py (main-pgo) --aa; own3_ab_aa3.summarize.txt = ../ab/summarize.py.
+          own3_ab started 00:17 at 1-min load 2.67 on the lead's instruction (wait reached 2.28 at
+          23:57); aa3 started at 2.30. Loads before/after in load_log.txt. main-pgo _strata restored to
+          1a9c29ccda03 (armA2) after each session. Nothing was killed.

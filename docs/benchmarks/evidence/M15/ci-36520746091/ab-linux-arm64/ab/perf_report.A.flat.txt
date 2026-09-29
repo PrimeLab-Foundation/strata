@@ -1,0 +1,40 @@
+    61.18%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.4622379473299063012]  -      -            
+    37.80%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                       -      -            
+     0.15%  [.] _PyEval_EvalFrameDefault                                                                                -      -            
+     0.03%  [.] _Py_dict_lookup                                                                                         -      -            
+     0.02%  [.] _Py_HashBytes                                                                                           -      -            
+     0.02%  [.] (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*)                          -      -            
+     0.02%  [.] PyObject_Vectorcall                                                                                     -      -            
+     0.02%  [.] PyObject_Malloc                                                                                         -      -            
+     0.02%  [k] 0xffffac2d4b3a06bc                                                                                      -      -            
+     0.01%  [.] PyDict_GetItemWithError                                                                                 -      -            
+     0.01%  [.] strlen@plt                                                                                              -      -            
+     0.01%  [.] initialize_locals                                                                                       -      -            
+     0.01%  [.] object_dealloc                                                                                          -      -            
+     0.01%  [.] PyObject_Free                                                                                           -      -            
+     0.01%  [.] _PyFrame_ClearExceptCode                                                                                -      -            
+     0.01%  [.] gc_collect_main                                                                                         -      -            
+     0.01%  [.] _Py_hashtable_get                                                                                       -      -            
+     0.01%  [.] insertdict                                                                                              -      -            
+     0.01%  [.] 0x000000000000052c                                                                                      -      -            
+     0.01%  [.] visit_decref                                                                                            -      -            
+     0.01%  [.] 0x00000000000952fc                                                                                      -      -            
+     0.01%  [.] deduce_unreachable                                                                                      -      -            
+     0.01%  [.] PyDict_GetItemWithError@plt                                                                             -      -            
+     0.01%  [.] PyFloat_FromDouble                                                                                      -      -            
+     0.01%  [.] type_new                                                                                                -      -            
+     0.01%  [.] dictresize                                                                                              -      -            
+     0.01%  [.] malloc                                                                                                  -      -            
+     0.01%  [.] _PyDictKeys_StringLookup                                                                                -      -            
+     0.01%  [.] scan_once_unicode                                                                                       -      -            
+     0.01%  [.] unicode_decode_utf8                                                                                     -      -            
+     0.01%  [.] _PyDict_GetItem_KnownHash                                                                               -      -            
+     0.01%  [.] PyObject_SetAttr                                                                                        -      -            
+     0.01%  [.] r_object                                                                                                -      -            
+     0.01%  [k] 0xffffac2d4b3a0c60                                                                                      -      -            
+     0.01%  [k] 0xffffac2d4a625618                                                                                      -      -            
+     0.00%  [.] 0x0000000000093d68                                                                                      -      -            
+     0.00%  [.] 0x000000000009597c                                                                                      -      -            
+     0.00%  [.] 0x0000000000094ec8                                                                                      -      -            
+     0.00%  [.] 0x00000000000a1bb0                                                                                      -      -            
+     0.00%  [.] 0x0000000000094118                                                                                      -      -            

@@ -1,0 +1,38 @@
+file: /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/attr/aa_s1.tsv
+launches: L00:A L01:B L02:B L03:A L04:A L05:B L06:B L07:A L08:A L09:B L10:B L11:A L12:A L13:B L14:B L15:A L16:A L17:B L18:B L19:A L20:A L21:B L22:B L23:A L24:A
+baseline: A   candidate: B   blocks: 6   leading: none   trailing: L24   min samples/launch: 10
+blocks: L00L01L02L03  L04L05L06L07  L08L09L10L11  L12L13L14L15  L16L17L18L19  L20L21L22L23
+A/A control: /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/attr/c2_screen.tsv (6 blocks)
+
+row                   engine        rival          blk  raw strata  raw rival  normalised    ci low   ci high   pos       A/A    floor
+md-users-dumps        strata-bytes  orjson-bytes     6      +0.63%     +0.48%      +0.21%    -0.48%    +0.56%  4/6    -0.34%    1.86%
+                                    blocks (normalised): +0.36 -0.78 +0.27 +0.14 +0.76 -0.18
+md-users-dumps        strata-str    orjson-bytes     6      +0.61%     +0.48%      +0.08%    -1.24%    +0.92%  3/6    +0.45%    1.97%
+                                    blocks (normalised): +0.19 -0.37 -0.02 +1.04 -2.11 +0.80
+sm-flat-dump          strata-dump   orjson-dump      6      +1.47%     +1.25%      +1.78%    -2.03%    +5.56%  4/6    -0.73%    2.35%
+                                    blocks (normalised): -1.61 -2.44 +7.06 +2.16 +1.40 +4.07
+sm-flat-dumps         strata-bytes  orjson-bytes     6      +0.27%     -0.13%      +0.74%    +0.40%    +0.96%  6/6    -0.05%    1.00%
+                                    blocks (normalised): +0.71 +0.98 +0.78 +0.15 +0.95 +0.65
+sm-flat-dumps         strata-str    orjson-bytes     6      +0.21%     -0.13%      +0.33%    -0.35%    +0.94%  4/6    +0.20%    0.72%
+                                    blocks (normalised): +1.14 +0.74 -0.61 +0.22 -0.09 +0.44
+sm-users-dumps        strata-bytes  orjson-bytes     6      -0.31%     -0.06%      -0.05%    -0.57%    +0.38%  3/6    -0.25%    1.39%
+                                    blocks (normalised): +0.65 +0.11 +0.04 -0.15 -0.77 -0.37
+sm-users-dumps        strata-str    orjson-bytes     6      +0.19%     -0.06%      +0.07%    -0.30%    +0.47%  3/6    -0.32%    1.08%
+                                    blocks (normalised): -0.04 -0.40 +0.63 +0.30 -0.19 +0.19
+sm-users-loads        strata-loads  orjson-loads     6      -0.88%     -0.66%      -0.17%    -0.88%    +0.07%  2/6    -0.02%    0.59%
+                                    blocks (normalised): -0.09 -1.43 -0.32 +0.07 -0.26 +0.08
+
+raw strata / raw rival: the same block estimator on the unnormalised medians.
+normalised: strata/rival measured in the same process, then blocked.
+ci: bootstrap over whole blocks of the median block effect (2000 resamples).
+A/A: the identical estimator on two launches of one binary; floor = max(|ci low|, |ci high|).
+
+== drift: the trailing baseline launch against the leading one
+md-users-dumps        strata-bytes  strata +4.30%   rival +2.43%   normalised +1.82%
+md-users-dumps        strata-str    strata +6.13%   rival +2.43%   normalised +3.61%
+sm-flat-dump          strata-dump   strata +8.63%   rival +4.69%   normalised +3.77%
+sm-flat-dumps         strata-bytes  strata +0.83%   rival +0.75%   normalised +0.08%
+sm-flat-dumps         strata-str    strata +0.95%   rival +0.75%   normalised +0.20%
+sm-users-dumps        strata-bytes  strata +0.99%   rival -1.16%   normalised +2.18%
+sm-users-dumps        strata-str    strata +1.09%   rival -1.16%   normalised +2.28%
+sm-users-loads        strata-loads  strata -0.17%   rival -0.70%   normalised +0.54%

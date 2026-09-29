@@ -1,0 +1,50 @@
+# main/arm64/obj/python_dumps.o -> variants/V4/python_dumps.arm64.o
+# functions: before 70, after 77, common 70, identical 65, differ 5
+# outlined bodies: before 13, after 30; bodies only before 2, only after 19
+only-after     73  __ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object
+only-after    109  __ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+only-after     40  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_decimalEP7_object
+only-after    107  __ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object
+only-after     46  __ZN6strata8bindings12_GLOBAL__N_110Serializer17write_native_textEPKcl
+only-after     89  __ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object
+only-after     23  __ZN6strata8bindings5PyRefaSEOS1_
+DIFFERS  insns 93 -> 89  (-5 +1)  __ZN6strata8bindings12_GLOBAL__N_110Serializer12build_schemaERNS0_16SchemaCacheLease12DepthSchemasEm
+DIFFERS  insns 40 -> 39  (-7 +6)  __ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv
+DIFFERS  insns 84 -> 81  (-29 +26)  __ZN6strata8bindings12_GLOBAL__N_110Serializer22write_mapping_uncachedEP7_object
+DIFFERS  insns 281 -> 293  (-3 +15)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+DIFFERS  insns 41 -> 33  (-20 +12)  __ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+--- 
++++ 
+@@ -257,5 +257,10 @@
+ add sp, sp, #0x50
+ b <SELF+0x404>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
+-tbnz w9, #0x1d, <SELF+0x448>
++tbnz w9, #0x1d, <SELF+0x45c>
++adrp x9, <page>  @__ZN6strata8bindings6native15g_runtime_readyE
++ldr x9, [x9]  @__ZN6strata8bindings6native15g_runtime_readyE
++ldrb w9, [x9]
++cmp w9, #0x1
++b.eq <SELF+0x478>
+ adrp x9, <page>  @_PyExc_TypeError
+ ldr x9, [x9]  @_PyExc_TypeError
+@@ -265,5 +270,5 @@
+ adrp x1, <page>  @<__cstring:"Object of type %s is not JSON serializable">
+ add x1, x1, #0x0  @<__cstring:"Object of type %s is not JSON serializable">
+-bl <SELF+0x428>  @_PyErr_Format
++bl <SELF+0x43c>  @_PyErr_Format
+ mov w0, #0x0
+ ldp x29, x30, [sp, #0x40]
+@@ -279,3 +284,10 @@
+ ldp d9, d8, [sp, #0x10]
+ add sp, sp, #0x50
+-b <SELF+0x460>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++b <SELF+0x474>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++mov x0, x19
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <SELF+0x490>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object

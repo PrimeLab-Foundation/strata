@@ -1,0 +1,46 @@
+0000000000000088 0000000000000001 b guard variable for strata::bindings::(anonymous namespace)::Serializer::write_key_cold(_object*)::scratch[abi:cxx11]
+0000000000000028 0000000000000001 b guard variable for strata::bindings::dumps_to_python(_object*, bool)::shared_out[abi:cxx11] [clone .llvm.12840680010460543158]
+0000000000000029 0000000000000001 b _ZZN6strata8bindings15dumps_to_pythonEP7_objectbE11shared_busy.llvm.12840680010460543158
+0000000000000000 0000000000000008 d _ZZN6strata8bindings15dumps_to_pythonEP7_objectbE9size_hint.llvm.12840680010460543158
+000000000003a850 0000000000000018 T strata::bindings::prepare_dumps_runtime()
+0000000000000068 0000000000000020 b strata::bindings::(anonymous namespace)::Serializer::write_key_cold(_object*)::scratch[abi:cxx11]
+0000000000000008 0000000000000020 b _ZZN6strata8bindings15dumps_to_pythonEP7_objectbE10shared_outB5cxx11.llvm.12840680010460543158
+000000000000aeb8 0000000000000027 t strata::bindings::(anonymous namespace)::Serializer::push_open_cold(_object*)
+000000000000a4a0 0000000000000039 t strata::bindings::(anonymous namespace)::Serializer::close_container(_object*)
+0000000000019aca 000000000000003e t strata::bindings::(anonymous namespace)::Serializer::compact_general_exact(_object*)
+0000000000019fa4 000000000000003e t strata::bindings::(anonymous namespace)::Serializer::compact_general_holes(_object*)
+000000000003e2e2 0000000000000059 t strata::bindings::(anonymous namespace)::Serializer::compact_general_exact(_object*) [clone .cold]
+000000000003f496 0000000000000059 t strata::bindings::(anonymous namespace)::Serializer::compact_general_holes(_object*) [clone .cold]
+000000000003a868 000000000000005b t strata::bindings::prepare_dumps_runtime() [clone .cold]
+000000000000a430 000000000000006f t strata::bindings::(anonymous namespace)::Serializer::RowLock::~RowLock()
+0000000000018bd2 0000000000000074 t strata::bindings::(anonymous namespace)::Serializer::latch()
+00000000000407ff 0000000000000084 t strata::bindings::(anonymous namespace)::Serializer::build_schema(strata::bindings::SchemaCacheLease::DepthSchemas&, unsigned long) [clone .cold]
+000000000000a710 000000000000008f t strata::bindings::(anonymous namespace)::Serializer::write_native_text(char const*, long)
+000000000000a4da 0000000000000095 t strata::bindings::(anonymous namespace)::Serializer::emit_cycle_placeholder()
+000000000000a674 0000000000000096 t strata::bindings::(anonymous namespace)::Serializer::Frame::handle_cycle() const
+000000000000a7a0 00000000000000ad t strata::bindings::(anonymous namespace)::Serializer::write_decimal(_object*)
+000000000000afa2 00000000000000d5 t strata::bindings::(anonymous namespace)::Serializer::write_key_cold(_object*)
+0000000000032c90 00000000000000e8 t (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*)
+000000000004f8a8 00000000000000ec t (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*) [clone .cold]
+000000000000a570 0000000000000104 t strata::bindings::(anonymous namespace)::Serializer::Frame::Frame(strata::bindings::(anonymous namespace)::Serializer&, _object*)
+000000000000b078 0000000000000176 t strata::bindings::(anonymous namespace)::Serializer::write_set_table(_object*)
+000000000003a94b 0000000000000178 t strata::bindings::dumps_to_python(_object*, bool) [clone .cold]
+000000000003d97f 00000000000001b0 t strata::bindings::(anonymous namespace)::Serializer::write_mapping(_object*) [clone .cold]
+0000000000009aae 00000000000001b1 t strata::bindings::(anonymous namespace)::Serializer::write_native(_object*)
+000000000000a84e 00000000000001e3 t strata::bindings::(anonymous namespace)::Serializer::write_enum(_object*)
+000000000003e0b7 000000000000022b t strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*) [clone .cold]
+000000000000ac86 0000000000000231 t strata::bindings::(anonymous namespace)::Serializer::write_set(_object*)
+000000000000aa32 0000000000000253 t strata::bindings::(anonymous namespace)::Serializer::write_dataclass(_object*)
+000000000001c1dc 00000000000003ff t strata::bindings::(anonymous namespace)::Serializer::build_schema(strata::bindings::SchemaCacheLease::DepthSchemas&, unsigned long)
+0000000000018310 00000000000004f2 t strata::bindings::(anonymous namespace)::Serializer::write_mapping(_object*)
+000000000003e490 0000000000000535 t strata::bindings::(anonymous namespace)::Serializer::write_scalar_run(_object**, long)
+000000000004012b 00000000000006d4 t strata::bindings::(anonymous namespace)::Serializer::write_mapping_uncached(_object*) [clone .cold]
+0000000000009c60 00000000000007c5 t strata::bindings::(anonymous namespace)::Serializer::grow_schemas(unsigned long)
+0000000000013390 00000000000007f7 T strata::bindings::dumps_to_python(_object*, bool)
+000000000001b7aa 0000000000000a32 t strata::bindings::(anonymous namespace)::Serializer::write_mapping_uncached(_object*)
+000000000003e9c5 0000000000000ad1 t strata::bindings::(anonymous namespace)::Serializer::write_scalar_run(_object**, long) [clone .cold]
+000000000003f4ef 0000000000000c3c t strata::bindings::(anonymous namespace)::Serializer::write_mapping_body(_object*, long, long) [clone .cold]
+0000000000018c50 0000000000000e7a t strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)
+0000000000019ff0 00000000000017ba t strata::bindings::(anonymous namespace)::Serializer::write_mapping_body(_object*, long, long)
+000000000003aac3 0000000000002ad2 t strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.12840680010460543158] [clone .cold]
+0000000000013b90 00000000000045df t strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.12840680010460543158]

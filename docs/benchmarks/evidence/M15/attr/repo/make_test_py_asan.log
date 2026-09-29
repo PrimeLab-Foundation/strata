@@ -1,0 +1,383 @@
++ compiler         Apple clang version 21.0.0 (clang-2100.1.1.101)
++ sanitizer flags  -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g
++ runtime          /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/lib/darwin/libclang_rt.asan_osx_dynamic.dylib (preloaded via DYLD_INSERT_LIBRARIES)
++ virtualenv       .venv-asan  (3.14.7)
++ ASAN_OPTIONS     detect_leaks=0:abort_on_error=1:malloc_context_size=30:log_path=/Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/asan-ext/logs/asan:strip_env=0
++ UBSAN_OPTIONS    print_stacktrace=1:halt_on_error=1
++ armed            __asan_init resolves in the interpreter
++ staged tree      /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/asan-ext/tree (335 tracked files)
+── seeding the staged C++ build (unsanitized: the corpus job owns that) ──
++ /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv-asan/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+-- The CXX compiler identification is AppleClang 21.0.0.21000101
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done (0.5s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/asan-ext/tree/build/cmake
++ /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/.venv-asan/bin/cmake --build build/cmake --config Release
+[  0%] Building CXX object CMakeFiles/fast_parse_tests.dir/tests/cpp/test_fast_parse.cpp.o
+[  1%] Building CXX object CMakeFiles/json_serialize_tests.dir/tests/cpp/test_json_serialize.cpp.o
+[  1%] Building CXX object CMakeFiles/json_parse_tests.dir/tests/cpp/test_json_parse.cpp.o
+[  2%] Building CXX object CMakeFiles/value_cursor_tests.dir/tests/cpp/test_value_cursor.cpp.o
+[  2%] Building CXX object CMakeFiles/json_core_tests.dir/tests/cpp/test_json_core.cpp.o
+[  2%] Building CXX object CMakeFiles/ndjson_tests.dir/tests/cpp/test_ndjson.cpp.o
+[  2%] Building CXX object CMakeFiles/smoke_tests.dir/tests/cpp/test_smoke.cpp.o
+[  2%] Building CXX object CMakeFiles/float_precision_tests.dir/tests/cpp/test_float_precision.cpp.o
+[  2%] Building CXX object CMakeFiles/jsonpath_tests.dir/tests/cpp/test_jsonpath.cpp.o
+[  2%] Building CXX object CMakeFiles/json_cursor_tests.dir/tests/cpp/test_json_cursor.cpp.o
+[  2%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/json/json_cursor.cpp.o
+[  3%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/json/json_cursor.cpp.o
+[  4%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/json/json_cursor.cpp.o
+[  5%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/json/json_cursor.cpp.o
+[  5%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/json/json_cursor.cpp.o
+[  6%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/json/json_cursor.cpp.o
+[  6%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/json/json_cursor.cpp.o
+[  7%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/json/json_cursor.cpp.o
+[  8%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/json/json_document.cpp.o
+[  8%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/json/json_document.cpp.o
+[  8%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/json/json_document.cpp.o
+[  8%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/json/json_document.cpp.o
+[  8%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/json/json_cursor.cpp.o
+[  9%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/json/json_document.cpp.o
+[  9%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/json/json_cursor.cpp.o
+[  9%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/json/json_document.cpp.o
+[ 10%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/json/json_document.cpp.o
+[ 10%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/json/json_document.cpp.o
+[ 11%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/json/json_parse.cpp.o
+[ 12%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/json/json_parse.cpp.o
+[ 12%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/json/json_parse.cpp.o
+[ 13%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/json/json_parse.cpp.o
+[ 13%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/json/json_parse.cpp.o
+[ 14%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/json/json_document.cpp.o
+[ 15%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/json/json_document.cpp.o
+[ 16%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/json/json_parse.cpp.o
+[ 16%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/json/json_parse.cpp.o
+[ 17%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/json/json_parse.cpp.o
+[ 17%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/json/json_parse.cpp.o
+[ 17%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/json/json_parse.cpp.o
+[ 18%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 18%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 18%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 18%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 18%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 19%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 20%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 20%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 21%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 21%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 22%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 23%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 24%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 25%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 25%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 26%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 26%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 27%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 27%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 27%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 27%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 28%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 28%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 28%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 28%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 29%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 30%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 30%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 31%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 32%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 32%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 33%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 34%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 35%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 36%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 36%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 36%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 37%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 37%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/util/dtoa.cpp.o
+[ 38%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/util/dtoa.cpp.o
+[ 38%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/util/dtoa.cpp.o
+[ 38%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/util/dtoa.cpp.o
+[ 38%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/util/dtoa.cpp.o
+[ 38%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 39%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/util/dtoa.cpp.o
+[ 39%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 40%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/util/dtoa.cpp.o
+[ 41%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/util/folder.cpp.o
+[ 41%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/util/folder.cpp.o
+[ 42%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/util/folder.cpp.o
+[ 43%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/util/folder.cpp.o
+[ 44%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/util/folder.cpp.o
+[ 44%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/util/folder.cpp.o
+[ 44%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/util/folder.cpp.o
+[ 44%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/util/dtoa.cpp.o
+[ 45%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/util/folder.cpp.o
+[ 46%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/util/dtoa.cpp.o
+[ 47%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/util/dtoa.cpp.o
+[ 47%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/util/folder.cpp.o
+[ 47%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/util/folder.cpp.o
+[ 48%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/util/scan.cpp.o
+[ 48%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/util/scan.cpp.o
+[ 48%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/util/scan.cpp.o
+[ 48%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/util/scan.cpp.o
+[ 48%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/util/scan.cpp.o
+[ 49%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/util/scan.cpp.o
+[ 50%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/util/scan.cpp.o
+[ 50%] Building CXX object CMakeFiles/smoke_tests.dir/src/strata/util/temporal.cpp.o
+[ 51%] Building CXX object CMakeFiles/float_precision_tests.dir/src/strata/util/temporal.cpp.o
+[ 52%] Building CXX object CMakeFiles/jsonpath_tests.dir/src/strata/util/temporal.cpp.o
+[ 53%] Building CXX object CMakeFiles/ndjson_tests.dir/src/strata/util/temporal.cpp.o
+[ 53%] Building CXX object CMakeFiles/json_serialize_tests.dir/src/strata/util/temporal.cpp.o
+[ 54%] Building CXX object CMakeFiles/json_cursor_tests.dir/src/strata/util/temporal.cpp.o
+[ 54%] Building CXX object CMakeFiles/json_core_tests.dir/src/strata/util/temporal.cpp.o
+[ 54%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/util/scan.cpp.o
+[ 55%] Linking CXX executable smoke_tests
+[ 55%] Linking CXX executable jsonpath_tests
+[ 55%] Linking CXX executable float_precision_tests
+[ 55%] Linking CXX executable ndjson_tests
+[ 56%] Building CXX object CMakeFiles/json_parse_tests.dir/src/strata/util/temporal.cpp.o
+[ 58%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/util/scan.cpp.o
+[ 58%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/util/scan.cpp.o
+[ 58%] Linking CXX executable json_cursor_tests
+[ 59%] Linking CXX executable json_serialize_tests
+[ 59%] Built target smoke_tests
+[ 59%] Built target jsonpath_tests
+[ 59%] Built target ndjson_tests
+[ 59%] Built target float_precision_tests
+[ 59%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/tests/cpp/test_jsonpath_stream.cpp.o
+[ 60%] Linking CXX executable json_core_tests
+[ 60%] Built target json_cursor_tests
+[ 61%] Building CXX object CMakeFiles/scan_tests.dir/tests/cpp/test_scan.cpp.o
+[ 61%] Building CXX object CMakeFiles/temporal_tests.dir/tests/cpp/test_temporal.cpp.o
+[ 61%] Built target json_serialize_tests
+[ 61%] Building CXX object CMakeFiles/folder_tests.dir/tests/cpp/test_folder.cpp.o
+[ 61%] Building CXX object CMakeFiles/value_cursor_tests.dir/src/strata/util/temporal.cpp.o
+[ 62%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/tests/cpp/test_fuzz_corpus.cpp.o
+[ 62%] Building CXX object CMakeFiles/fast_parse_tests.dir/src/strata/util/temporal.cpp.o
+[ 62%] Built target json_core_tests
+[ 62%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/json/json_cursor.cpp.o
+[ 62%] Building CXX object CMakeFiles/stress_deep_tests.dir/tests/cpp/test_stress_deep.cpp.o
+[ 62%] Linking CXX executable json_parse_tests
+[ 62%] Built target json_parse_tests
+[ 62%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/json/json_cursor.cpp.o
+[ 63%] Linking CXX executable value_cursor_tests
+[ 64%] Linking CXX executable fast_parse_tests
+[ 64%] Built target value_cursor_tests
+[ 65%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/json/json_cursor.cpp.o
+[ 65%] Built target fast_parse_tests
+[ 66%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/json/json_cursor.cpp.o
+[ 66%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/json/json_cursor.cpp.o
+[ 67%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/json/json_document.cpp.o
+[ 68%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/json/json_cursor.cpp.o
+[ 69%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/json/json_document.cpp.o
+[ 70%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/json/json_document.cpp.o
+[ 70%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/json/json_document.cpp.o
+[ 70%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/json/json_document.cpp.o
+[ 70%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/json/json_document.cpp.o
+[ 70%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/json/json_parse.cpp.o
+[ 70%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/json/json_parse.cpp.o
+[ 71%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 71%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/json/json_parse.cpp.o
+[ 72%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/json/json_parse.cpp.o
+[ 73%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 74%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 75%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/json/json_parse.cpp.o
+[ 75%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 76%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/json/json_parse.cpp.o
+[ 76%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 76%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 77%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 78%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 78%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 79%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 80%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 80%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 80%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 81%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 81%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/json/json_serialize.cpp.o
+[ 81%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 81%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 81%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 82%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/util/dtoa.cpp.o
+[ 83%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/util/dtoa.cpp.o
+[ 83%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/util/folder.cpp.o
+[ 83%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/util/folder.cpp.o
+[ 84%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/util/dtoa.cpp.o
+[ 85%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/util/scan.cpp.o
+[ 85%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 86%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 86%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/util/folder.cpp.o
+[ 86%] Building CXX object CMakeFiles/scan_tests.dir/src/strata/util/temporal.cpp.o
+[ 87%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/json/ndjson_stream.cpp.o
+[ 88%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/util/scan.cpp.o
+[ 89%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/util/scan.cpp.o
+[ 89%] Building CXX object CMakeFiles/jsonpath_stream_tests.dir/src/strata/util/temporal.cpp.o
+[ 89%] Building CXX object CMakeFiles/fuzz_corpus_tests.dir/src/strata/util/temporal.cpp.o
+[ 90%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 90%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/util/dtoa.cpp.o
+[ 91%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/util/folder.cpp.o
+[ 91%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/util/scan.cpp.o
+[ 92%] Building CXX object CMakeFiles/temporal_tests.dir/src/strata/util/temporal.cpp.o
+[ 92%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/search/jsonpath_compile.cpp.o
+[ 92%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/util/dtoa.cpp.o
+[ 93%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/util/folder.cpp.o
+[ 94%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/search/jsonpath_eval.cpp.o
+[ 95%] Linking CXX executable fuzz_corpus_tests
+[ 96%] Linking CXX executable scan_tests
+[ 96%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/util/scan.cpp.o
+[ 97%] Building CXX object CMakeFiles/stress_deep_tests.dir/src/strata/util/temporal.cpp.o
+[ 97%] Built target fuzz_corpus_tests
+[ 97%] Built target scan_tests
+[ 98%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/util/folder.cpp.o
+[ 98%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/util/dtoa.cpp.o
+[ 98%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/util/scan.cpp.o
+[ 99%] Linking CXX executable jsonpath_stream_tests
+[100%] Building CXX object CMakeFiles/folder_tests.dir/src/strata/util/temporal.cpp.o
+[100%] Built target jsonpath_stream_tests
+[100%] Linking CXX executable temporal_tests
+[100%] Built target temporal_tests
+[100%] Linking CXX executable stress_deep_tests
+[100%] Built target stress_deep_tests
+[100%] Linking CXX executable folder_tests
+[100%] Built target folder_tests
+
+── building the extension (pip install, both setup.py gates run inside) ──
+Processing ./build/asan-ext/tree
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building wheel for strata (pyproject.toml): started
+  Building wheel for strata (pyproject.toml): still running...
+  Building wheel for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-cp314-cp314-macosx_26_0_arm64.whl size=606274 sha256=572c6ecc1ce9a41ba280049359c2c13514299b294861eff0e5a24d267b1e7e1b
+  Stored in directory: /private/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/pip-ephem-wheel-cache-qufs9t6g/wheels/f0/f7/af/651dab04e865be6911d74a6af384607a4191af54c9ddf6aa53
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10
+
+── the installed extensions link the sanitizer runtime ──
++ .venv-asan/lib/python3.14/site-packages/strata/_strata.cpython-314-darwin.so (1359408 bytes)
+.venv-asan/lib/python3.14/site-packages/strata/_strata.cpython-314-darwin.so:
+	@rpath/libclang_rt.asan_osx_dynamic.dylib (compatibility version 0.0.0, current version 0.0.0)
++ undefined ASan symbols in _strata: 35
++ .venv-asan/lib/python3.14/site-packages/strata/_dumps_hook.cpython-314-darwin.so (398480 bytes)
+.venv-asan/lib/python3.14/site-packages/strata/_dumps_hook.cpython-314-darwin.so:
+	@rpath/libclang_rt.asan_osx_dynamic.dylib (compatibility version 0.0.0, current version 0.0.0)
++ undefined ASan symbols in _dumps_hook: 31
+
+── tests/py + tests/unit under ASan + UBSan ──
++ pytest tests/py tests/unit --basetemp=/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/pytest-of-borysbardysh/1ro0p999
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/asan-ext/tree
+configfile: pyproject.toml
+collected 3574 items / 1 skipped
+
+tests/py/native_types/test_native_fast_paths.py ........ssssssss..       [  0%]
+tests/py/native_types/test_native_import.py ...                          [  0%]
+tests/py/native_types/test_native_oracle.py .........                    [  0%]
+tests/py/native_types/test_native_reentrancy.py ........................ [  1%]
+..................................................                       [  2%]
+tests/py/native_types/test_parse_types.py .............................. [  3%]
+..........................................................               [  5%]
+tests/py/test_dumps_brace_fold.py .........                              [  5%]
+tests/py/test_dumps_cycles_fused.py .................................... [  6%]
+....................................................                     [  8%]
+tests/py/test_dumps_general_tables.py ............................       [  8%]
+tests/py/test_dumps_with_default.py .................................... [  9%]
+.............................ss                                          [ 10%]
+tests/py/test_dumps_with_default_contract.py ........................... [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+..........................                                               [ 16%]
+tests/py/test_fused_verification.py ..                                   [ 16%]
+tests/py/test_json_parity.py ........................................... [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+.................................                                        [ 50%]
+tests/py/test_path_dispatch.py ................................          [ 51%]
+tests/py/test_py_tests_basetemp.py ..                                    [ 51%]
+tests/py/test_smoke.py ...                                               [ 51%]
+tests/unit/native_types/test_build_sources.py .....                      [ 51%]
+tests/unit/native_types/test_parse_contract.py ......................... [ 52%]
+.................................................                        [ 53%]
+tests/unit/native_types/test_serializer_contract.py .................... [ 54%]
+........................................................................ [ 56%]
+...............                                                          [ 56%]
+tests/unit/native_types/test_training_scope.py ............              [ 57%]
+tests/unit/test_ab_analysis.py ......................................    [ 58%]
+tests/unit/test_build_manifest.py ......                                 [ 58%]
+tests/unit/test_canonical_builds.py ....                                 [ 58%]
+tests/unit/test_ci_fetch.py ........................                     [ 59%]
+tests/unit/test_ci_summary.py .......................                    [ 59%]
+tests/unit/test_config.py ...........................                    [ 60%]
+tests/unit/test_core_purity.py ....                                      [ 60%]
+tests/unit/test_cross_sample.py ......                                   [ 60%]
+tests/unit/test_dumps.py ............................................... [ 62%]
+..........                                                               [ 62%]
+tests/unit/test_dumps_brace_fold.py .........                            [ 62%]
+tests/unit/test_dumps_cold_start.py ....                                 [ 62%]
+tests/unit/test_dumps_contract.py ...................................... [ 63%]
+.............................................................            [ 65%]
+tests/unit/test_dumps_cycles_fused.py .................................. [ 66%]
+......................................................                   [ 68%]
+tests/unit/test_dumps_general_tables.py ............................     [ 68%]
+tests/unit/test_dumps_latch.py ............................              [ 69%]
+tests/unit/test_dumps_private_cache.py ................................  [ 70%]
+tests/unit/test_dumps_reentrancy.py .................................... [ 71%]
+......................................................................   [ 73%]
+tests/unit/test_dumps_reentrancy_review.py ............................. [ 74%]
+..                                                                       [ 74%]
+tests/unit/test_dumps_schema_failure.py ...........................      [ 75%]
+tests/unit/test_dumps_user_step_counter.py ..........................    [ 75%]
+tests/unit/test_dumps_with_default.py .................................. [ 76%]
+........................................................................ [ 78%]
+...................................................................      [ 80%]
+tests/unit/test_dumps_with_default_state.py ............................ [ 81%]
+........................................................................ [ 83%]
+..............                                                           [ 83%]
+tests/unit/test_folder.py .............................................. [ 85%]
+.........................................                                [ 86%]
+tests/unit/test_fused_verification.py ..                                 [ 86%]
+tests/unit/test_hook_build_scope.py ...............................      [ 87%]
+tests/unit/test_json_cursor.py ...........................               [ 88%]
+tests/unit/test_jsonpath.py ............................................ [ 89%]
+.......................................................................  [ 91%]
+tests/unit/test_load_dump.py ........................................... [ 92%]
+                                                                         [ 92%]
+tests/unit/test_loads.py ............................................... [ 93%]
+........................................................................ [ 95%]
+................                                                         [ 96%]
+tests/unit/test_native_interleaved_profile.py ...                        [ 96%]
+tests/unit/test_path_dispatch.py ................................        [ 97%]
+tests/unit/test_provenance.py ..................                         [ 97%]
+tests/unit/test_regression_check.py ..........................           [ 98%]
+tests/unit/test_search_stream.py .................                       [ 98%]
+tests/unit/test_string_identity_probe.py .                               [ 98%]
+tests/unit/test_supplementary.py ............s                           [ 99%]
+tests/unit/test_supportability_check.py ....................             [ 99%]
+tests/unit/test_version.py ....                                          [100%]
+
+====================== 3563 passed, 12 skipped in 32.12s =======================
+
+ASAN GATE PASSED in 123s — bindings clean under ASan + UBSan.

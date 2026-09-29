@@ -1,0 +1,4 @@
+functions: A 423, B 423, only in one 0
+identical after name and address normalisation: 416/423
+differing only in page-offset slot immediates: 7
+differing beyond that: 0

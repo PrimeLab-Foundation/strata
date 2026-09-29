@@ -1,0 +1,10 @@
+uptime (before): 17:20  up 11 days,  4:27, 1 user, load averages: 3.15 3.63 3.68
+dumps(tiny) bytes: A 126.4 ns/call, B 140.8 ns/call, paired B-A median +14.4 ns [+14.3, +14.7] 95% CI (+11.396% [+11.320%, +11.627%]); n/batch=856 repeats=61
+loads(tiny bytes): A 203.8 ns/call, B 216.7 ns/call, paired B-A median +14.0 ns [+13.6, +14.5] 95% CI (+6.892% [+6.667%, +7.137%]); n/batch=1000 repeats=61
+dump(tiny -> tmp file): A 72562.5 ns/call, B 67375.0 ns/call, paired B-A median -5854.0 ns [-8374.5, -2437.0] 95% CI (-8.068% [-11.541%, -3.358%]); n/batch=2 repeats=61
+load(tiny .json): A 13148.1 ns/call, B 13185.2 ns/call, paired B-A median -10.2 ns [-174.1, +75.9] 95% CI (-0.077% [-1.324%, +0.578%]); n/batch=45 repeats=61
+query(tiny, "$.a"): A 310.5 ns/call, B 330.6 ns/call, paired B-A median +17.2 ns [+16.1, +18.4] 95% CI (+5.527% [+5.183%, +5.941%]); n/batch=585 repeats=61
+search(tiny .json, "$.a"): A 13627.7 ns/call, B 13610.5 ns/call, paired B-A median +37.2 ns [-59.8, +110.5] 95% CI (+0.273% [-0.439%, +0.811%]); n/batch=46 repeats=61
+dumps(small mixed.json) bytes: A 29806.0 ns/call, B 29846.3 ns/call, paired B-A median +36.4 ns [-106.8, +110.7] 95% CI (+0.122% [-0.358%, +0.371%]); n/batch=32 repeats=61
+loads(small mixed.json bytes): A 120178.6 ns/call, B 120410.7 ns/call, paired B-A median +250.0 ns [-136.9, +571.4] 95% CI (+0.208% [-0.114%, +0.475%]); n/batch=7 repeats=61
+uptime (after): 17:20  up 11 days,  4:27, 1 user, load averages: 3.15 3.63 3.68

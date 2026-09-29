@@ -1,0 +1,47 @@
+M15 (native types) -- static hot-path checks 1, 2, 7 of docs/architecture/native_types.md,
+2026-09-28, dev M1 (arm64, macOS 26 / Darwin 25.6.0), Apple clang 21.0.0 (clang-2100.1.1.101),
+CPython 3.14.7 headers (/opt/homebrew/opt/python@3.14/.../include/python3.14).
+
+Arms (detached worktrees outside the repo)
+  main = 38eaa9f  ~/worktrees/strata/cg-main
+  b    = 2f494a9  ~/worktrees/strata/cg-b
+
+Builds (build.sh <tree> <out> <isa>): the M12 method (build/evidence/benchmark-lead/M12/codegen/
+build_arm.sh), plain release, no PGO, no LTO; binding sources read from each tree's setup.py
+BINDING_SOURCES + core_sources.txt (main 18 TUs, b 20 TUs).
+  arm64 : -arch arm64 -march=native
+  x86_64: -arch x86_64 -fomit-frame-pointer -march=x86-64-v3 (macOS cross build, SysV)
+  common: -fno-strict-overflow -Wsign-compare -Wunreachable-code -fno-common -dynamic -DNDEBUG -g
+          -O3 -Wall -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY
+  <arm>/<isa>/: obj/, _strata.so, size-m.txt, sources.txt, record-layouts.python_dumps.txt
+  (-Xclang -fdump-record-layouts of python_dumps.cpp), serializer-layout.txt, dumps_to_python.s
+
+Files
+  write_diff.<isa>.txt, write_diff_full.<isa>.txt   check 1: funcdiff.py (M12) on Serializer::write
+  write_<isa>.both.txt                              check 1: both arms' write() with offsets
+  dumps_to_python_diff.<isa>.txt                    check 2: funcdiff.py on dumps_to_python
+  <arm>/<isa>/serializer-layout.txt                 check 2: sizeof/offsets of Serializer
+  symsizes.<isa>.txt                                check 7: symsizes.py (M12) per-function __text
+  symbol_sizes_py.<isa>.txt                         check 7: benchmarks/symbol_sizes.py as is (Mach-O:
+                                                    "no sized symbols")
+  symbol_sizes_macho.py, symbol_sizes_macho.<isa>.txt  check 7: symbol_sizes.py's report with the
+                                                    symsizes.py measure substituted for its readers
+  allfuncdiff.py, funcs.<object>.<isa>.txt          check 7: every function of the changed objects,
+                                                    normalized symbolized streams (adrp pages,
+                                                    string labels, outlined-function numbering)
+
+Check-1 source variants (variant.sh <name>: python_dumps.cpp of the cg-b tree as edited, both ISAs,
+against main's objects; variants/<name>/{variant.patch, write_diff*.<isa>.txt, funcs.*.txt})
+  V1  not_tail_called on write_native (STRATA_NOT_TAIL_CALLED, clang only)
+  V2  V1 + write_native as a static member taking (Serializer&, PyObject*)
+  V3-type  main's PyErr tail behind `if (native::maybe_native(type))` (out-of-line stub, true)
+  V3  the same with Py_TYPE(object) as the argument
+  V4  main's PyErr tail behind `if (native::g_runtime_ready)` (a flag prepare_native_runtime sets);
+      the winner: V4-native-runtime-ready.patch; variants/V4/build/<isa>/ is the linked V4 extension,
+      symsizes_{b,main}_to_V4.<isa>.txt its per-function __text against b and main
+
+What this does not claim
+  - Nothing about PGO+LTO builds (the shipped recipe) or about training counts (check 7's second
+    clause, and check 4).
+  - x86_64 is a macOS cross build; Win64 and Linux arm64 were not compiled. The hook image
+    (strata._dumps_hook) was not built.

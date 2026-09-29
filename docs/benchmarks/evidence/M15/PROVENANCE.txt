@@ -1,0 +1,43 @@
+M15 (native types) -- PGO arms and hot-path checks 3, 4, 7, 2026-09-28, dev M1 (arm64, macOS 26 /
+Darwin 25.6.0), Apple clang 21.0.0 (clang-2100.1.1.101), CPython 3.14.7 (Homebrew), venvs with the
+same 28 packages as ~/worktrees/strata/main-pgo/.venv (pip freeze, strata excluded).
+The machine was shared with other agents (load average 5-6); nothing here is a timing.
+
+Arms (each dir: _strata + _dumps_hook .so with *.build.json, the profile used, its inputs, the log)
+  armA      main 38eaa9f, `make pgo` in ~/worktrees/strata/main-pgo (earlier run, not by this agent);
+            profile sha256 7703c629...; armA/main-pgo-snapshot/ = that worktree's outputs copied
+            before A2 overwrote them.
+  armA2     main 38eaa9f, `make pgo` again, same worktree. Profile byte-identical to armA's
+            (7703c629...); every non-__DWARF section of _strata identical to armA's (the .so hashes
+            differ: LC_UUID and debug info).
+  armB      10521a9, `make pgo` in ~/worktrees/strata/m15-pgo (detached). Profile sha256
+            405f3c58...; phase-1 gate 3186 passed 2 skipped, phase-2 gate 3541 passed 2 skipped,
+            ctest 16/16.
+  armBheld  10521a9, phase 2 of scripts/pgo_build.sh only (build_held.sh: PGO_MODE=use,
+            STRATA_ENABLE_LTO=1, STRATA_PGO_PROFILE=armA/strata.profdata, pip -v for the
+            diagnostics); gate 3536 passed 4 skipped. hash_mismatch.txt: the six clang
+            "function control flow change detected (hash mismatch)" warnings of its log.
+
+Section __text of _strata (size -m): armA 222564, armA2 222564, armB 240872, armBheld 265228.
+
+Checks
+  codegen/                  plain -O3 builds (see codegen/PROVENANCE.txt); codegen/10521a9/ is this
+                            commit, check 3 = codegen/check3_objects.txt (sectcmp.py: every
+                            non-__DWARF section, relocations, symbol table) and
+                            codegen/check3_python_module.<isa>.txt (allfuncdiff.py).
+  check4_counts.py/.txt     arm B's profile against arm A's: records new in B, records whose CFG hash
+                            changed, new plain-build functions without a record.
+  check4_entry_counts.py/.txt  function_entry_count of every function of python_native_types.cpp,
+                            python_parse_types.cpp, temporal.cpp and the new python_dumps members,
+                            from the build's own compile line + -print-after=pgo-instr-use.
+  check4_keyword_ir.py, check4_keyword_arms.txt, check4_ir/  branch weights on the parse_types arms
+                            of strata_loads/load/query/search, same method.
+  check4_attribute.py, check4_attribute_nodes.py, check4_attribution/  which trained tests reach
+                            the native code: arm B's instrumented image (same image signature
+                            6580872072169673062 as arm B's phase 1) rebuilt in m15-pgo, every
+                            training test file and the training workload in its own process, then
+                            each test of the nine files that reached it.
+
+State left behind
+  ~/worktrees/strata/main-pgo carries arm A2's build installed; ~/worktrees/strata/m15-pgo carries the
+  instrumented attribution image installed (arm B's optimized image is in armB/).

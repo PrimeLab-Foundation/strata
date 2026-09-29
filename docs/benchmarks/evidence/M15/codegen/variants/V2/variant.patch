@@ -1,0 +1,90 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index ddca1a6..e2336ff 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -267,7 +267,7 @@ class Serializer {
+         if (PyDict_Check(object))
+             return write_mapping(object);
+ 
+-        return write_native(object);
++        return write_native(*this, object);
+     }
+ 
+ #if defined(STRATA_DUMPS_HOOK)
+@@ -356,12 +356,13 @@ class Serializer {
+      * write_int) -- then type resolution, which itself reads attributes of
+      * modules the user may have replaced.
+      */
+-    [[nodiscard]] STRATA_COLD_FN bool write_native(PyObject* object) {
++    [[nodiscard]] STRATA_COLD_FN STRATA_NOT_TAIL_CALLED static bool write_native(Serializer& self,
++                                                                      PyObject* object) {
+         char text[native::kTextCapacity];
+         const size_t pure = native::format_pure_leaf(object, text);
+         if (pure != 0)
+-            return write_native_text(text, static_cast<Py_ssize_t>(pure));
+-        latch();
++            return self.write_native_text(text, static_cast<Py_ssize_t>(pure));
++        self.latch();
+         const PyRef guard(Py_NewRef(object));
+         const native::Kind kind = native::classify(object);
+         switch (kind) {
+@@ -370,17 +371,17 @@ class Serializer {
+         case native::Kind::DateTime:
+         case native::Kind::Date:
+         case native::Kind::Time:
+-            return write_native_text(text, native::format_temporal(object, kind, text));
++            return self.write_native_text(text, native::format_temporal(object, kind, text));
+         case native::Kind::Uuid:
+-            return write_native_text(text, native::format_uuid(object, text));
++            return self.write_native_text(text, native::format_uuid(object, text));
+         case native::Kind::Decimal:
+-            return write_decimal(object);
++            return self.write_decimal(object);
+         case native::Kind::Enum:
+-            return write_enum(object);
++            return self.write_enum(object);
+         case native::Kind::Dataclass:
+-            return write_dataclass(object);
++            return self.write_dataclass(object);
+         case native::Kind::Set:
+-            return write_set(object);
++            return self.write_set(object);
+         case native::Kind::NumpyScalar:
+         case native::Kind::NumpyArray: {
+             const PyRef plain(native::numpy_plain(object, kind));
+@@ -391,14 +392,14 @@ class Serializer {
+             // comes back as itself. That object is unsupported, rather than
+             // handed back to this tail without end.
+             if (!native::is_numpy(plain.get()))
+-                return write(plain.get());
++                return self.write(plain.get());
+             break;
+         }
+         case native::Kind::None:
+             break;
+         }
+ #if defined(STRATA_DUMPS_HOOK)
+-        return write_unsupported(object);
++        return self.write_unsupported(object);
+ #else
+         PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
+                      Py_TYPE(object)->tp_name);
+diff --git a/src/strata/bindings/python_types.h b/src/strata/bindings/python_types.h
+index 454d8c6..525abb8 100644
+--- a/src/strata/bindings/python_types.h
++++ b/src/strata/bindings/python_types.h
+@@ -71,6 +71,14 @@ struct JsonValue;
+ #define STRATA_NOINLINE_WIN64
+ #endif
+ 
++// A call that must stay a call: clang otherwise turns `return f(x);` into a
++// sibling call, which reshapes the caller's shared epilogue.
++#if defined(__clang__)
++#define STRATA_NOT_TAIL_CALLED __attribute__((not_tail_called))
++#else
++#define STRATA_NOT_TAIL_CALLED
++#endif
++
+ namespace strata::bindings {
+ 
+ // --- Entry points shared between the binding translation units -------------

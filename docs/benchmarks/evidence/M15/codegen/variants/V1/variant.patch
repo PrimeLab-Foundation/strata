@@ -1,0 +1,32 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index ddca1a6..148fff5 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -356,7 +356,7 @@ class Serializer {
+      * write_int) -- then type resolution, which itself reads attributes of
+      * modules the user may have replaced.
+      */
+-    [[nodiscard]] STRATA_COLD_FN bool write_native(PyObject* object) {
++    [[nodiscard]] STRATA_COLD_FN STRATA_NOT_TAIL_CALLED bool write_native(PyObject* object) {
+         char text[native::kTextCapacity];
+         const size_t pure = native::format_pure_leaf(object, text);
+         if (pure != 0)
+diff --git a/src/strata/bindings/python_types.h b/src/strata/bindings/python_types.h
+index 454d8c6..525abb8 100644
+--- a/src/strata/bindings/python_types.h
++++ b/src/strata/bindings/python_types.h
+@@ -71,6 +71,14 @@ struct JsonValue;
+ #define STRATA_NOINLINE_WIN64
+ #endif
+ 
++// A call that must stay a call: clang otherwise turns `return f(x);` into a
++// sibling call, which reshapes the caller's shared epilogue.
++#if defined(__clang__)
++#define STRATA_NOT_TAIL_CALLED __attribute__((not_tail_called))
++#else
++#define STRATA_NOT_TAIL_CALLED
++#endif
++
+ namespace strata::bindings {
+ 
+ // --- Entry points shared between the binding translation units -------------

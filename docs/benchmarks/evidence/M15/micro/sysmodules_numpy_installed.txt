@@ -1,0 +1,2 @@
+with numpy installed, B watched after import: []
+[1]

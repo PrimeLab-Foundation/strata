@@ -1,0 +1,6 @@
+functions: A 2, B 2, only in one 0
+identical after name and address normalisation: 0/2
+differing only in page-offset slot immediates: 0
+differing beyond that: 2
+  .text: 6296 changed lines, e.g. ['-leaq 0x46591(%rip), %rax', '-movq %rax, 0x56002(%rip)', '-leaq 0x55fe3(%rip), %rcx', '-movq $0x20, 0x55ff8(%rip)']
+  PyInit__strata: 48302 changed lines, e.g. ['-movq 0x4a054(%rip), %rax', '+movq 0x56ec4(%rip), %rax', '+xorl %esi, %esi', '-callq <PyInit__strata+0x2140>']

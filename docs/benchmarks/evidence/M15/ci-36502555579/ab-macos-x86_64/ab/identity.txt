@@ -1,0 +1,15 @@
+__DATA,__const                   c698be27e05b9acc 90b11fad8be831af differs
+__DATA,__data                    2807aab3d2e46ae1 b0f1a54ceb350588 differs
+__DATA,__got                     23f54dd17dd9463c 550b25084a78bce8 differs
+__DATA,__la_symbol_ptr           8c489e33e989ca28 15c369aa321ebb7e differs
+__DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+__DATA,__thread_vars             5346dbcf4f244833 5346dbcf4f244833 identical
+__TEXT,__const                   90a6491fb7877e0e dbc764786b560c79 differs
+__TEXT,__cstring                 a4b7aab2c0590234 dc31ff41e43229bb differs
+__TEXT,__eh_frame                9ab2b12086540713 a692506865a53982 differs
+__TEXT,__gcc_except_tab          23526863a5a3211c b48eff3c52fe1edc differs
+__TEXT,__stub_helper             90473cfa432ca2cc 74cd14621826edfd differs
+__TEXT,__stubs                   dd5a94d496d43670 94b5e4797d0916c3 differs
+__TEXT,__text                    c08f47c419edcb98 4110158a6b6f3e46 DIFFERS (gate)
+__TEXT,__unwind_info             aea8254097000ee9 9656a8bba3be3bfd differs
+CODE DIFFERS: stop before timing

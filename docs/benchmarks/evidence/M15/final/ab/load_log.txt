@@ -1,0 +1,65 @@
+== own3_ab wait-start 2026-09-28 23:34:41
+23:34  up 10 days, 10:42, 1 user, load averages: 6.55 7.78 6.67
+  PID  %CPU COMM
+10618  63.8 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+89671  32.1 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   8.7 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+89420   5.3 node
+14861   4.8 claude
+== own3_ab wait-end 2026-09-28 23:57:13
+23:57  up 10 days, 11:04, 1 user, load averages: 2.28 4.31 5.35
+  PID  %CPU COMM
+89671  35.7 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+  760  19.9 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores
+37793   8.5 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+76686   3.6 /Users/borysbardysh/Library/Application Support/Claude/claude-code/2.1.281/claude.app/Contents/MacOS/claude
+  573   1.5 /usr/libexec/logd
+== own3_ab start-label: started 00:17 at 1-min load above 2.5 on the lead's instruction; the wait reached QUIET (2.28) at 23:57:13
+== own3_ab before 2026-09-29 00:17:47
+ 0:17  up 10 days, 11:25, 1 user, load averages: 2.67 2.20 3.01
+  PID  %CPU COMM
+ 3039  34.7 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+14861  12.4 claude
+25306  10.3 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+37793   6.0 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+ 8744   3.7 node
+== own3_ab after 2026-09-29 00:29:18
+ 0:29  up 10 days, 11:36, 1 user, load averages: 5.28 3.68 3.33
+  PID  %CPU COMM
+10618 147.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+ 3039  36.8 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   7.0 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  646   3.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+  602   1.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds
+== aa3 wait-start 2026-09-29 00:29:18
+ 0:29  up 10 days, 11:36, 1 user, load averages: 5.28 3.68 3.33
+  PID  %CPU COMM
+10618 136.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+ 3039  31.7 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+12659   7.1 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared
+37793   6.2 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  646   3.0 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+== aa3 wait-end 2026-09-29 00:31:03
+ 0:31  up 10 days, 11:38, 1 user, load averages: 2.30 3.22 3.20
+  PID  %CPU COMM
+ 3039  37.3 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+ 2443  28.9 /Applications/JetBrains Toolbox.app/Contents/MacOS/jetbrains-toolbox
+37793   9.7 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+89362   5.5 /Users/borysbardysh/.local/share/claude/versions/2.1.278
+  646   1.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+== aa3 before 2026-09-29 00:31:03
+ 0:31  up 10 days, 11:38, 1 user, load averages: 2.30 3.22 3.20
+  PID  %CPU COMM
+ 3039  37.3 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+ 2443  28.9 /Applications/JetBrains Toolbox.app/Contents/MacOS/jetbrains-toolbox
+37793   9.7 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+89362   5.5 /Users/borysbardysh/.local/share/claude/versions/2.1.278
+  646   1.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+== aa3 after 2026-09-29 00:42:29
+ 0:42  up 10 days, 11:50, 1 user, load averages: 2.43 2.60 2.80
+  PID  %CPU COMM
+ 3039  33.4 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   7.5 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  825   2.1 /usr/libexec/searchpartyd
+82312   1.9 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+  646   1.9 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer

@@ -1,0 +1,8 @@
+# /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/codegen/main/arm64/obj/python_module.o -> /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/final/codegen/5b876d1/arm64/obj/python_module.o
+# functions: before 16, after 16, common 16, identical 11, differ 5
+# outlined bodies: before 0, after 0; bodies only before 0, only after 0
+DIFFERS  insns 112 -> 132  (-53 +73)  __ZN12_GLOBAL__N_111strata_loadEP7_objectS1_S1_
+DIFFERS  insns 201 -> 237  (-136 +172)  __ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_
+DIFFERS  insns 96 -> 109  (-50 +63)  __ZN12_GLOBAL__N_112strata_queryEP7_objectS1_S1_
+DIFFERS  insns 113 -> 127  (-70 +84)  __ZN12_GLOBAL__N_113strata_searchEP7_objectS1_S1_
+DIFFERS  insns 40 -> 69  (-19 +48)  ltmp0

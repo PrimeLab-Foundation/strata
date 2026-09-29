@@ -1,0 +1,10 @@
+== arm64
+  main: sizeof(Serializer)=120; stage_ in strata::bindings::StagedOutput at offset 64, sizeof 8256; dumps_to_python 367 insns, frame stp 96 + sub sp 8464 = 8560 bytes
+  cand: sizeof(Serializer)=120; stage_ in strata::bindings::StagedOutput at offset 64, sizeof 8256; dumps_to_python 367 insns, frame stp 96 + sub sp 8464 = 8560 bytes
+  Serializer fields identical: True
+  dumps_to_python stream identical: True
+== x86_64
+  main: sizeof(Serializer)=120; stage_ in strata::bindings::StagedOutput at offset 64, sizeof 8256; dumps_to_python 468 insns, frame 6 pushq (48) + 8456 = 8504 bytes (+8 return address)
+  cand: sizeof(Serializer)=120; stage_ in strata::bindings::StagedOutput at offset 64, sizeof 8256; dumps_to_python 468 insns, frame 6 pushq (48) + 8456 = 8504 bytes (+8 return address)
+  Serializer fields identical: True
+  dumps_to_python stream identical: True

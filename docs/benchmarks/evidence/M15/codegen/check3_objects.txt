@@ -1,0 +1,46 @@
+== arm64
+IDENTICAL  dtoa.o  (3 sections + relocations + symbols)
+IDENTICAL  folder.o  (4 sections + relocations + symbols)
+IDENTICAL  json_cursor.o  (4 sections + relocations + symbols)
+IDENTICAL  json_document.o  (5 sections + relocations + symbols)
+IDENTICAL  json_parse.o  (9 sections + relocations + symbols)
+IDENTICAL  json_serialize.o  (5 sections + relocations + symbols)
+IDENTICAL  jsonpath_compile.o  (7 sections + relocations + symbols)
+IDENTICAL  jsonpath_eval.o  (4 sections + relocations + symbols)
+IDENTICAL  ndjson_stream.o  (5 sections + relocations + symbols)
+IDENTICAL  python_document.o  (5 sections + relocations + symbols)
+DIFFERS    python_dumps.o  __LD,__compact_unwind __TEXT,__const __TEXT,__gcc_except_tab __TEXT,__text relocations symbols
+IDENTICAL  python_files.o  (4 sections + relocations + symbols)
+IDENTICAL  python_folder.o  (5 sections + relocations + symbols)
+IDENTICAL  python_jsonpath.o  (6 sections + relocations + symbols)
+IDENTICAL  python_loads.o  (8 sections + relocations + symbols)
+DIFFERS    python_module.o  __DATA,__data __LD,__compact_unwind __TEXT,__cstring __TEXT,__gcc_except_tab __TEXT,__text relocations symbols
+IDENTICAL  python_ndjson.o  (5 sections + relocations + symbols)
+IDENTICAL  scan.o  (2 sections + relocations + symbols)
+only-after python_native_types.o
+only-after python_parse_types.o
+only-after temporal.o
+# 16 of 18 common objects identical
+== x86_64
+IDENTICAL  dtoa.o  (6 sections + relocations + symbols)
+IDENTICAL  folder.o  (8 sections + relocations + symbols)
+IDENTICAL  json_cursor.o  (6 sections + relocations + symbols)
+IDENTICAL  json_document.o  (6 sections + relocations + symbols)
+IDENTICAL  json_parse.o  (13 sections + relocations + symbols)
+IDENTICAL  json_serialize.o  (8 sections + relocations + symbols)
+IDENTICAL  jsonpath_compile.o  (7 sections + relocations + symbols)
+IDENTICAL  jsonpath_eval.o  (5 sections + relocations + symbols)
+IDENTICAL  ndjson_stream.o  (6 sections + relocations + symbols)
+IDENTICAL  python_document.o  (6 sections + relocations + symbols)
+DIFFERS    python_dumps.o  __LD,__compact_unwind __TEXT,__eh_frame __TEXT,__gcc_except_tab __TEXT,__text relocations symbols
+IDENTICAL  python_files.o  (5 sections + relocations + symbols)
+IDENTICAL  python_folder.o  (6 sections + relocations + symbols)
+IDENTICAL  python_jsonpath.o  (10 sections + relocations + symbols)
+IDENTICAL  python_loads.o  (12 sections + relocations + symbols)
+DIFFERS    python_module.o  __DATA,__const __DATA,__data __LD,__compact_unwind __TEXT,__cstring __TEXT,__eh_frame __TEXT,__gcc_except_tab __TEXT,__text relocations symbols
+IDENTICAL  python_ndjson.o  (6 sections + relocations + symbols)
+IDENTICAL  scan.o  (3 sections + relocations + symbols)
+only-after python_native_types.o
+only-after python_parse_types.o
+only-after temporal.o
+# 16 of 18 common objects identical

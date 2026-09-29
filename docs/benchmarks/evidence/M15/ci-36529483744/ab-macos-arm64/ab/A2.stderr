@@ -1,0 +1,59 @@
+# target   /Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so
+# build A  /Users/runner/work/strata/strata/arms/A.so  md5=0a52e217784a2c3516ddc1a360bd52cf
+# build B  /Users/runner/work/strata/strata/arms/A2.so  md5=ac82229b565f717df0c0c5e2c353d4a7
+# order    ABBAABBAABBAABBAABBAABBAA (25 launches)
+# rows     small:users:loads small:users:dumps small:users:load small:users:dump small:users:ndload small:flat:loads small:flat:dumps small:flat:load small:flat:dump small:nested:loads small:nested:dumps small:nested:load small:nested:dump small:wide_arrays:loads small:wide_arrays:dumps small:wide_arrays:load small:wide_arrays:dump small:mixed:loads small:mixed:dumps small:mixed:load small:mixed:dump medium:flat:dumps medium:users:dumps medium:mixed:dumps medium:wide_arrays:loads  repeat=60
+# facade   /Users/runner/work/strata/strata/python/strata swapped per launch
+# launch 00 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L00 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.54,1.52,1.73 cpus=3 t=06:53:58
+# launch 01 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L01 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.52,1.52,1.72 cpus=3 t=06:54:28
+# launch 02 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L02 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.41,1.49,1.70 cpus=3 t=06:54:55
+# launch 03 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L03 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.43,1.48,1.69 cpus=3 t=06:55:21
+# launch 04 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L04 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.62,1.52,1.70 cpus=3 t=06:55:48
+# launch 05 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L05 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.54,1.52,1.69 cpus=3 t=06:56:15
+# launch 06 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L06 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.71,1.56,1.70 cpus=3 t=06:56:41
+# launch 07 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L07 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.61,1.54,1.69 cpus=3 t=06:57:08
+# launch 08 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L08 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.61,1.55,1.68 cpus=3 t=06:57:35
+# launch 09 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L09 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.47,1.52,1.67 cpus=3 t=06:58:01
+# launch 10 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L10 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.28,1.47,1.64 cpus=3 t=06:58:27
+# launch 11 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L11 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.53,1.51,1.65 cpus=3 t=06:58:54
+# launch 12 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L12 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.48,1.50,1.65 cpus=3 t=06:59:21
+# launch 13 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L13 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.32,1.46,1.63 cpus=3 t=06:59:48
+# launch 14 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L14 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.29,1.44,1.61 cpus=3 t=07:00:23
+# launch 15 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L15 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.30,1.43,1.60 cpus=3 t=07:01:01
+# launch 16 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L16 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.40,1.43,1.59 cpus=3 t=07:01:39
+# launch 17 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L17 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.33,1.40,1.57 cpus=3 t=07:02:20
+# launch 18 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L18 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.35,1.39,1.56 cpus=3 t=07:03:02
+# launch 19 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L19 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.52,1.42,1.56 cpus=3 t=07:03:45
+# launch 20 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L20 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.58,1.44,1.56 cpus=3 t=07:04:28
+# launch 21 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L21 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.44,1.42,1.54 cpus=3 t=07:05:13
+# launch 22 build=B md5=ac82229b565f717df0c0c5e2c353d4a7 facade_md5=8045c859563f90acf92a73b882358a78
+# L22 build=B extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=ac82229b565f717df0c0c5e2c353d4a7 load=1.47,1.43,1.54 cpus=3 t=07:05:58
+# launch 23 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L23 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.96,1.55,1.58 cpus=3 t=07:06:47
+# launch 24 build=A md5=0a52e217784a2c3516ddc1a360bd52cf facade_md5=8045c859563f90acf92a73b882358a78
+# L24 build=A extension=/Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so md5=0a52e217784a2c3516ddc1a360bd52cf load=1.85,1.57,1.58 cpus=3 t=07:07:33
+# wrote ab/A2.tsv (25 of 25 launches)
+# restored /Users/runner/work/strata/strata/python/strata/_strata.cpython-312-darwin.so to md5=5d6ef61574517f6fa75dc2c9b2134c93
+# restored facade /Users/runner/work/strata/strata/python/strata to md5=bc19225b9639128ba9fd166d5e3f1bef

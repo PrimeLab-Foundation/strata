@@ -1,0 +1,8 @@
+QUIET fix_screen load=2.30 waited=2346
+GATE fix_screen gate_seen=0 gate_clear=06:35:48 TIMEOUT load=2.87 waited=2707
+session fix_screen exit 0
+QUIET aa load=2.47 waited=797
+GATE aa gate_seen=0 gate_clear=07:01:10 QUIET load=2.36 waited=888
+session aa exit 0
+1a9c29ccda03
+session exit 0

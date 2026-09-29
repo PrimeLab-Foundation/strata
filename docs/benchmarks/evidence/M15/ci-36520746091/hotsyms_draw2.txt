@@ -1,0 +1,118 @@
+== ab-linux-x86_64: symbols A=479 A2=479 B=543
+      260    260    260  Serializer::Frame::Frame(Serializer&, _object*)
+       57     57     57  Serializer::close_container(_object*)
+      116    116    116  Serializer::latch()
+        0      0     39  Serializer::push_open_cold(_object*)  <- B differs
+        0      0  17887  Serializer::write(_object*) (.llvm.12840680010460543158)  <- B differs
+        0      0  10962  Serializer::write(_object*) (.llvm.12840680010460543158.cold)  <- B differs
+        0  17585      0  Serializer::write(_object*) (.llvm.3723460443189190556)
+        0  11217      0  Serializer::write(_object*) (.llvm.3723460443189190556.cold)
+    17585      0      0  Serializer::write(_object*) (.llvm.4602079393583410756)  <- B differs (A2 differs too)
+    11217      0      0  Serializer::write(_object*) (.llvm.4602079393583410756.cold)  <- B differs (A2 differs too)
+        0      0    595  Serializer::write_dataclass(_object*)  <- B differs
+        0      0    173  Serializer::write_decimal(_object*)  <- B differs
+        0      0    483  Serializer::write_enum(_object*)  <- B differs
+        0      0    213  Serializer::write_key_cold(_object*)  <- B differs
+     1194   1194   1266  Serializer::write_mapping(_object*)  <- B differs
+      482    482    432  Serializer::write_mapping(_object*) (.cold)  <- B differs
+     5978   5978   6074  Serializer::write_mapping_body(_object*, long, long)  <- B differs
+     3238   3238   3132  Serializer::write_mapping_body(_object*, long, long) (.cold)  <- B differs
+     2610   2610   2610  Serializer::write_mapping_uncached(_object*)
+     1748   1748   1748  Serializer::write_mapping_uncached(_object*) (.cold)
+        0      0    433  Serializer::write_native(_object*)  <- B differs
+        0      0    143  Serializer::write_native_text(char const*, long)  <- B differs
+     3706   3706   3706  Serializer::write_record_fused(_object*)
+      555    555    555  Serializer::write_record_fused(_object*) (.cold)
+     1328   1328   1333  Serializer::write_scalar_run(_object**, long)  <- B differs
+     2784   2784   2769  Serializer::write_scalar_run(_object**, long) (.cold)  <- B differs
+        0      0    561  Serializer::write_set(_object*)  <- B differs
+        0      0    374  Serializer::write_set_table(_object*)  <- B differs
+   other functions: 443 shared, 57 differ A vs B while A == A2
+      28823 ->  39806  strata::PlainCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_val
+      14098 ->  19507  strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_array()
+       8097 ->   9947  strata::PlainCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_val
+       3569 ->   4679  strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_array() (.cold)
+       5446 ->   4754  strata::bindings::dump_to_folder(_object*, char const*, _object*) (.cold)
+      10242 ->  10802  strata::bindings::dump_to_folder(_object*, char const*, _object*)
+       4219 ->   4727  strata::ParserInline<strata::StreamSearchHandler<strata::bindings::PythonMatchSink>>::scan
+       2175 ->   1711  strata::ParserInline<strata::StreamSearchHandler<strata::bindings::PythonMatchSink>>::scan
+   in A (and A2) but not B: ['strata::ParserInline<strata::bindings::PythonObjectBuilder>::scan_string()', 'strata::ParserInline<strata::bindings::PythonObjectBuilder>::scan_string() (.cold)']
+   new in B (non-native): ['strata::util::(anonymous namespace)::scan_date(char const*, strata::ut', 'strata::util::(anonymous namespace)::scan_time(std::basic_string_view<', 'strata::util::is_json_number(std::basic_string_view<char, std::char_tr', 'Serializer::write(_object*) (.llvm.12840680010460543158)', 'Serializer::write(_object*) (.llvm.12840680010460543158.cold)', 'BuilderLease::~BuilderLease() (.llvm.15977699299583999155)', 'resolve_path(_object*, std::vector<strata::PathStep, std::allocator<st', 'resolve_path(_object*, std::vector<strata::PathStep, std::allocator<st', 'compiled_repr(_object*) (.llvm.3185941032504835597)', 'iterator_next(_object*) (.llvm.6546633454028015061)', 'iterator_next(_object*) (.llvm.6546633454028015061.cold)', 'iterator_self(_object*) (.llvm.6546633454028015061)']
+== ab-linux-arm64: symbols A=302 A2=302 B=362
+      344    344    344  Serializer::Frame::Frame(Serializer&, _object*)
+       80     80     80  Serializer::close_container(_object*)
+      164    164    164  Serializer::latch()
+        0      0     80  Serializer::push_open_cold(_object*)  <- B differs
+    27100  27100      0  Serializer::write(_object*) (.llvm.4622379473299063012)  <- B differs
+        0      0  27160  Serializer::write(_object*) (.llvm.9743728156913283896)  <- B differs
+        0      0    668  Serializer::write_dataclass(_object*)  <- B differs
+        0      0    208  Serializer::write_decimal(_object*)  <- B differs
+        0      0    552  Serializer::write_enum(_object*)  <- B differs
+        0      0    252  Serializer::write_key_cold(_object*)  <- B differs
+     1676   1676   1676  Serializer::write_mapping(_object*)
+     8500   8500   8500  Serializer::write_mapping_body(_object*, long, long)
+     3740   3740   3740  Serializer::write_mapping_uncached(_object*)
+        0      0    580  Serializer::write_native(_object*)  <- B differs
+        0      0    184  Serializer::write_native_text(char const*, long)  <- B differs
+     3960   3960   3960  Serializer::write_record_fused(_object*)
+     3744   3744   3744  Serializer::write_scalar_run(_object**, long)
+        0      0    680  Serializer::write_set(_object*)  <- B differs
+        0      0    456  Serializer::write_set_table(_object*)  <- B differs
+   other functions: 282 shared, 7 differ A vs B while A == A2
+      20088 ->  20252  strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_array()
+        768 ->    928  (anonymous namespace)::strata_loads(_object*, _object* const*, long, _object*)
+        680 ->    800  PyInit__strata
+      43504 ->  43396  strata::PlainCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_val
+        436 ->    512  (anonymous namespace)::strata_load(_object*, _object*, _object*)
+        356 ->    400  (anonymous namespace)::strata_query(_object*, _object*, _object*)
+        416 ->    456  (anonymous namespace)::strata_search(_object*, _object*, _object*)
+   in A (and A2) but not B: ['Serializer::write(_object*) (.llvm.4622379473299063012)', 'BuilderLease::~BuilderLease() (.llvm.10748588630253882618)', 'resolve_path(_object*, std::vector<strata::PathStep, std::allocator<strata::PathStep>>&) (.llvm.14277646275647947064)', 'compiled_repr(_object*) (.llvm.14277646275647947064)', 'iterator_next(_object*) (.llvm.13042986008015542551)', 'iterator_self(_object*) (.llvm.13042986008015542551)', 'cursor_dealloc(_object*) (.llvm.5401547863127740878)', 'compiled_dealloc(_object*) (.llvm.14277646275647947064)']
+   new in B (non-native): ['strata::util::(anonymous namespace)::scan_date(char const*, strata::ut', 'strata::util::(anonymous namespace)::scan_time(std::basic_string_view<', 'strata::util::is_json_number(std::basic_string_view<char, std::char_tr', 'Serializer::write(_object*) (.llvm.9743728156913283896)', 'BuilderLease::~BuilderLease() (.llvm.6683101090438696061)', 'resolve_path(_object*, std::vector<strata::PathStep, std::allocator<st', 'compiled_repr(_object*) (.llvm.12040073215838898168)', 'iterator_next(_object*) (.llvm.17501818649197531939)', 'iterator_self(_object*) (.llvm.17501818649197531939)', 'cursor_dealloc(_object*) (.llvm.12145741904506194383)', 'compiled_dealloc(_object*) (.llvm.12040073215838898168)', 'iterator_dealloc(_object*) (.llvm.17501818649197531939)']
+== ab-macos-x86_64: symbols A=315 A2=315 B=378
+        0      0      0  Serializer::close_container(_object*)
+        0      0      0  Serializer::latch()
+        0      0      0  Serializer::push_open(_object*)
+        0      0      0  Serializer::push_open_cold(_object*)
+        0      0      0  Serializer::write(_object*)
+        0      0      0  Serializer::write_dataclass(_object*)
+        0      0      0  Serializer::write_decimal(_object*)
+        0      0      0  Serializer::write_enum(_object*)
+        0      0      0  Serializer::write_key_cold(_object*)
+        0      0      0  Serializer::write_mapping(_object*)
+        0      0      0  Serializer::write_mapping_body(_object*, long, long)
+        0      0      0  Serializer::write_mapping_uncached(_object*)
+        0      0      0  Serializer::write_native(_object*)
+        0      0      0  Serializer::write_native_text(char const*, long)
+        0      0      0  Serializer::write_record_fused(_object*)
+        0      0      0  Serializer::write_scalar_run(_object**, long)
+        0      0      0  Serializer::write_set(_object*)
+        0      0      0  Serializer::write_set_table(_object*)
+        0      0      0  Serializer::write_string_bytes(char const*, unsigned long)
+   other functions: 305 shared, 0 differ A vs B while A == A2
+   in A (and A2) but not B: []
+   new in B (non-native): ['strata::util::(anonymous namespace)::scan_date(char const*, strata::ut', 'strata::util::(anonymous namespace)::scan_time(std::__1::basic_string_', 'strata::util::is_json_number(std::__1::basic_string_view<char, std::__', 'strata::bindings::StagedOutput::write_spanning(char const*, unsigned l', 'strata::bindings::PyRef::operator=(strata::bindings::PyRef&&)', 'std::__1::vector<std::__1::basic_string<char, std::__1::char_traits<ch']
+== ab-macos-arm64: symbols A=319 A2=319 B=382
+        0      0      0  Serializer::Frame::Frame(Serializer&, _object*)
+        0      0      0  Serializer::close_container(_object*)
+        0      0      0  Serializer::latch()
+        0      0      0  Serializer::push_open_cold(_object*)
+        0      0      0  Serializer::write(_object*)
+        0      0      0  Serializer::write_dataclass(_object*)
+        0      0      0  Serializer::write_decimal(_object*)
+        0      0      0  Serializer::write_enum(_object*)
+        0      0      0  Serializer::write_key_cold(_object*)
+        0      0      0  Serializer::write_mapping(_object*)
+        0      0      0  Serializer::write_mapping_body(_object*, long, long)
+        0      0      0  Serializer::write_mapping_uncached(_object*)
+        0      0      0  Serializer::write_native(_object*)
+        0      0      0  Serializer::write_native_text(char const*, long)
+        0      0      0  Serializer::write_record_fused(_object*)
+        0      0      0  Serializer::write_scalar_run(_object**, long)
+        0      0      0  Serializer::write_set(_object*)
+        0      0      0  Serializer::write_set_table(_object*)
+        0      0      0  Serializer::write_string_bytes(char const*, unsigned long)
+   other functions: 309 shared, 0 differ A vs B while A == A2
+   in A (and A2) but not B: []
+   new in B (non-native): ['strata::util::(anonymous namespace)::scan_date(char const*, strata::ut', 'strata::util::(anonymous namespace)::scan_time(std::__1::basic_string_', 'strata::util::is_json_number(std::__1::basic_string_view<char, std::__', 'strata::bindings::StagedOutput::write_spanning(char const*, unsigned l', 'strata::bindings::PyRef::operator=(strata::bindings::PyRef&&)', 'std::__1::vector<std::__1::basic_string<char, std::__1::char_traits<ch']
+== ab-windows-x86_64: symbols A=0 A2=0 B=0
+   (no usable symbol table in this image)

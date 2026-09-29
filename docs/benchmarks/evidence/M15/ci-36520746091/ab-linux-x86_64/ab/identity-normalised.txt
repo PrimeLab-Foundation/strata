@@ -1,0 +1,24 @@
+functions: A 635, B 736, only in one 119
+identical after name and address normalisation: 222/626
+differing only in page-offset slot immediates: 0
+differing beyond that: 404
+  only in one: PyCallable_Check@plt
+  only in one: PyCapsule_GetPointer@plt
+  only in one: PyCapsule_Import@plt
+  only in one: PyDict_Clear@plt
+  only in one: PyDict_Copy@plt
+  only in one: PyDict_GetItemString@plt
+  only in one: PyFrozenSet_New@plt
+  only in one: PyImport_GetModuleDict@plt
+  only in one: PyImport_ImportModule@plt
+  only in one: PyInit__strata.cold
+  .plt: 4 changed lines, e.g. ['-pushq 0x5bfca(%rip)', '-jmpq *0x5bfcc(%rip)', '+pushq 0x69fca(%rip)', '+jmpq *0x69fcc(%rip)']
+  PyBool_FromLong@plt: 4 changed lines, e.g. ['-jmpq *0x5baea(%rip)', '-pushq $0x9c', '+jmpq *0x6993a(%rip)', '+pushq $0xd2']
+  PyBytes_AsStringAndSize@plt: 4 changed lines, e.g. ['-jmpq *0x5baf2(%rip)', '-pushq $0x9b', '+jmpq *0x69942(%rip)', '+pushq $0xd1']
+  PyBytes_FromStringAndSize@plt: 4 changed lines, e.g. ['-jmpq *0x5be6a(%rip)', '-pushq $0x2c', '+jmpq *0x69de2(%rip)', '+pushq $0x3d']
+  PyDict_Contains@plt: 4 changed lines, e.g. ['-jmpq *0x5be4a(%rip)', '-pushq $0x30', '+jmpq *0x69db2(%rip)', '+pushq $0x43']
+  PyDict_DelItem@plt: 4 changed lines, e.g. ['-jmpq *0x5bd32(%rip)', '-pushq $0x53', '+jmpq *0x69c62(%rip)', '+pushq $0x6d']
+  PyDict_DelItemString@plt: 4 changed lines, e.g. ['-jmpq *0x5bb52(%rip)', '-pushq $0x8f', '+jmpq *0x699aa(%rip)', '+pushq $0xc4']
+  PyDict_GetItemWithError@plt: 4 changed lines, e.g. ['-jmpq *0x5bc82(%rip)', '-pushq $0x69', '+jmpq *0x69b4a(%rip)', '+pushq $0x90']
+  PyDict_New@plt: 4 changed lines, e.g. ['-jmpq *0x5bcea(%rip)', '-pushq $0x5c', '+jmpq *0x69bea(%rip)', '+pushq $0x7c']
+  PyDict_Next@plt: 4 changed lines, e.g. ['-jmpq *0x5be32(%rip)', '-pushq $0x33', '+jmpq *0x69d9a(%rip)', '+pushq $0x46']

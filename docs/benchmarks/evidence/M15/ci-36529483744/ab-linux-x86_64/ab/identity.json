@@ -1,0 +1,155 @@
+{
+ "code_identical": false,
+ "sections": [
+  {
+   "section": ".data",
+   "a": "40694c1058783e855cf1e39f3b7d635ef08eb24168c22d920340ede91dfa39ea",
+   "b": "837758dfd9de15cbc7658b0a62275f09c0d7aa2745ec825057b80f658917a079",
+   "identical": false
+  },
+  {
+   "section": ".data.rel.ro",
+   "a": "5770a5dace491501c66a5b84a80289c66413dd3cf0613a55ad5be2abe05666df",
+   "b": "f371ce8fbf936a81e6858a31e2fbae42724d24418f0941d0004bd9bc8365f4e0",
+   "identical": false
+  },
+  {
+   "section": ".dynamic",
+   "a": "67cb993d39979cfa4c6d421ce7f479b7c3e9dc8581a92429143dec82d7a503ec",
+   "b": "97a5cae76035b074248133c76b3822f18dd6b6469a59cc54490b591fbff4cab3",
+   "identical": false
+  },
+  {
+   "section": ".dynstr",
+   "a": "4d9713484a90058ed694ff567e9d3313b10f833a9b795d0081b34c64aa76c03e",
+   "b": "5959743a11de27472ebbb4f003863ae023c678ecffac532d7212c0522f85f65d",
+   "identical": false
+  },
+  {
+   "section": ".dynsym",
+   "a": "3605f28c9977b09e7483a3fac639aa26e2b166315c8a8693f086f8ff2f0381da",
+   "b": "089a3c86b7d524248a6d1e0cc8320b73ba94a6343a6668267528dc655d2b1656",
+   "identical": false
+  },
+  {
+   "section": ".eh_frame",
+   "a": "ef90652abeada03aa467ed1d03b43b080c05e6647cb53817e1e54a573d54b0a1",
+   "b": "2d07acbd31582cb86b177bfef236e43da52b87a11f5f2c57c5530d53f661d275",
+   "identical": false
+  },
+  {
+   "section": ".eh_frame_hdr",
+   "a": "a9abce8aebf411743859a5e729e0a8e55bd875a563a11ba5045d973a3c45df5c",
+   "b": "d1e35383f6a8c185115602a20bdde893283456256d8b37af02bd93f3ea21d0f6",
+   "identical": false
+  },
+  {
+   "section": ".fini",
+   "a": "6a4f3e5efc7c1f7ee7d6f21afd9ed040ba1d7f0b97bb12b016f5b176cc558bd8",
+   "b": "6a4f3e5efc7c1f7ee7d6f21afd9ed040ba1d7f0b97bb12b016f5b176cc558bd8",
+   "identical": true
+  },
+  {
+   "section": ".fini_array",
+   "a": "1d77e52147f630e7982a91eebd811cde1b356d14d650ed489f1b969a47826ac2",
+   "b": "d7d92d32067e7981c3d5ee7793c35c12c6ee93e9a4f74d7ae656baf4aafd02fb",
+   "identical": false
+  },
+  {
+   "section": ".gcc_except_table",
+   "a": "46180ff47932175f2c6d82d33e9c7de0bbd2b04a3ae50e0a50970654cb4659bd",
+   "b": "5c3bc0320e94e8f101d956d16ad96120c9315af77b2b42c2dcaabb5d3eeceb87",
+   "identical": false
+  },
+  {
+   "section": ".gnu.hash",
+   "a": "d6a3d95996df5df90eeb49e76a17e32b95c6fad2e8f23c5c387da73b012b8707",
+   "b": "6f72d2a4de3352681f346da7299d3754207c1fdb25f94b95939f718938545c06",
+   "identical": false
+  },
+  {
+   "section": ".gnu.version",
+   "a": "633068e1c75b11421255f60d5a088f7d100c5cf7a6dd35268fd5f78790d179ad",
+   "b": "e53a4aca12e83368e6f5019c32af54e75dc435953ebf87742c470ccce1139014",
+   "identical": false
+  },
+  {
+   "section": ".gnu.version_r",
+   "a": "7796889a3af8c8a204dc9ed3efabd822ab52e45e1fbd7bc635ea382eb886f337",
+   "b": "9440ffed346c6197367de510a6b85e4cad0bf1e57a289d9d469e6c4cd08e2bf9",
+   "identical": false
+  },
+  {
+   "section": ".got",
+   "a": "71818ecc26433c32172dd9a3544657971c7078daa2257da7c3c303e08693cb23",
+   "b": "c76903cde8580d1c809ac5352aab33af5a310ad05126294d66e06db880c463ed",
+   "identical": false
+  },
+  {
+   "section": ".got.plt",
+   "a": "f6a375e90df725f241538143b6229bf50916a573ff9ccc6ad57c9d2ccb9050f4",
+   "b": "813d8e21294116720717ddbe3899bf309ab7c77313f65e2b57653baaea1443be",
+   "identical": false
+  },
+  {
+   "section": ".init",
+   "a": "f8c8c1e172f595de4a9b3fb3447d5b46752f98c0edb1251f3f358081d97d4cf4",
+   "b": "52de21eb98a6286f302cf32d4bcba725b77818a2426c6d0d04d54dedf8379485",
+   "identical": false
+  },
+  {
+   "section": ".init_array",
+   "a": "1daeacc59bcba74b10e9efa2f21a2cfb54f29fe62703677a4b7ac42870ca65d5",
+   "b": "b1018ab919204165214b212326866d3d3b1558e33b568fdfb13767ee8155d4f3",
+   "identical": false
+  },
+  {
+   "section": ".note.gnu.build-id",
+   "a": "27ada3b1ce3c2fddf883cbac66002b486cde7c9952a62f05b9bdb52e046a0bdf",
+   "b": "aac4e6a09c2750e121bc46f49a32b685af9bc7172dc81d2ef768b46b7ada76b3",
+   "identical": false
+  },
+  {
+   "section": ".plt",
+   "a": "f8107fc3c8723f027cbbdbe9086c7e6d64f5f73922dafe3cbf34824e16f96ef1",
+   "b": "56e5564a2762ecf22a2b55373103f84dbc8c469ce2e8eb1d57f2444084cf4877",
+   "identical": false
+  },
+  {
+   "section": ".plt.got",
+   "a": "cc49e5ffb56accaeef13a58befd29d7c3b05d477f665cec2ea8bd1ddd5d93a18",
+   "b": "42846e21a0ecdfd648a5b4efcbe13507023a31aa556166cad1234998dae55d8d",
+   "identical": false
+  },
+  {
+   "section": ".rela.dyn",
+   "a": "5aa9bb271c9ce1154de3baf6f0ed0a2e8fab28b54f8ae43a50e87dcbf98a0803",
+   "b": "cf3b961bef46f829e573d51675b5ba75cf641197bca7b720fda9bfe12582665b",
+   "identical": false
+  },
+  {
+   "section": ".rela.plt",
+   "a": "93f06e458d317be80324d89452e7f89ea31386655682775604c886f008aebed5",
+   "b": "a6c3129cd7a286024ec032e619465f7e383bd81608f93e9299eb591a16c3aa6f",
+   "identical": false
+  },
+  {
+   "section": ".rodata",
+   "a": "a295904448a7e4d9c9b229d69820ca996c795b56c0163113605af43578c41891",
+   "b": "9d7ce693226191ab939b6bf5c94b6e7ffb68e751b1eeca60a35b6debbe219023",
+   "identical": false
+  },
+  {
+   "section": ".tdata",
+   "a": "fef02424157f106b48d04276276c15ebba9c516e6024d4f82ea2f648af3e09c8",
+   "b": "fef02424157f106b48d04276276c15ebba9c516e6024d4f82ea2f648af3e09c8",
+   "identical": true
+  },
+  {
+   "section": ".text",
+   "a": "e12c9f1a6095e7ed4d0238d043f3ecdf832aae1b23e4ca4c7bb51694cd7b5c00",
+   "b": "85a83d2f5f20c7759f1c54d98d814d48ee0ff02930c0d692eb92c2462bb9d955",
+   "identical": false
+  }
+ ]
+}

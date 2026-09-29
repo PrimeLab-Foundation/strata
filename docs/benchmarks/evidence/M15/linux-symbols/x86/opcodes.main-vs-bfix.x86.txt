@@ -1,0 +1,4 @@
+write: insns A 6449 {'hot': 2531} -> B 6465 {'hot': 2476}; opcode delta: {'popq': 6, 'jmp': 4, 'movq': 3, 'je': 2, 'addq': 1, 'jne': -1, 'nopl': 1, 'cmpb': 1, 'nopw': -1}
+write_mapping_body: insns A 2101 {'hot': 747} -> B 2098 {'hot': 723}; opcode delta: {'jmp': -2, 'nop': -1}
+write_mapping: insns A 425 {'hot': 113} -> B 426 {'hot': 98}; opcode delta: {'nopl': 1}
+write_mapping_uncached: insns A 956 {'hot': 362} -> B 956 {'hot': 362}; opcode delta: {}

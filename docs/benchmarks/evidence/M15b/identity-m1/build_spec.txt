@@ -1,0 +1,13 @@
+M15b acceptance 2 (build spec): setup.py at HEAD vs 38eaa9f, top-level AST comparison
+(ast.dump of every module-level function, class and assignment), 2026-09-29, HEAD 9a17e02.
+
+Extension("strata._strata", ...) block: textually identical (11 lines each).
+Identical _strata inputs: BINDING_SOURCES, _core_sources, _compile_args, _link_args.
+Transitive helpers of _compile_args/_link_args/_core_sources: _clang_cl_optimization_args,
+  _clang_runtime_dir, _compile_args, _compiler_kind, _core_sources, _is_universal_build,
+  _link_args, _msvc_optimization_args, _optimization_args -- none changed.
+Changed top-level names: HOOK_BINDING_SOURCES, NATIVE_MANIFEST, _native_sources, ext_modules
+  (the strata._dumps_hook Extension: sources + define_macros STRATA_DUMPS_HOOK=1), and
+  TestGatedBuildExt (passes --training to the Python gate when PGO_MODE=generate: training
+  scope, acceptance 5; no compile or link argument).
+src/strata/core_sources.txt: identical to 38eaa9f (git diff empty).

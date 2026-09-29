@@ -27,7 +27,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── benchmarking/        # skill doc: benchmark suite, gating, standings
 │   ├── performance/         # skill doc: optimization playbook + negative results
 │   ├── history/             # skill doc: project lineage and ../archive/ map
-│   └── benchmarks/          # machine-written results: tier reports, ci/ per platform-arch, ci_summary.md
+│   └── benchmarks/          # machine-written results: tier reports, ci/ per platform-arch, ci_summary.md, evidence/<milestone>/ (A/B and codegen packets copied out of build/evidence)
 ├── .clang-format / .ruff.toml / .editorconfig / .markdownlint.yaml   # style configs
 ├── .pre-commit-config.yaml  # style gates: ruff, clang-format, mdformat, markdownlint
 ├── .github/workflows/       # ci.yml (matrix, coverage, style, corpus) + fuzz/benchmark/pgo
@@ -39,18 +39,18 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 ├── scripts/                 # automation: cpp_tests, py_tests, asan_py_tests, fmt, lint, gate, coverage, fuzz, pgo_*
 ├── include/strata/          # public C++ headers (core; never CPython)
 │   ├── json/                # value model, SAX handler, parser, parse + serialize API
-│   └── util/                # scan.hpp (utf-8/whitespace/escapes), fast_parse.hpp, dtoa.hpp
+│   └── util/                # scan.hpp (utf-8/whitespace/escapes), fast_parse.hpp, dtoa.hpp, temporal.hpp (date/time/UUID text)
 ├── src/strata/
 │   ├── core_sources.txt     # the single core source list, read by CMake and setup.py
 │   ├── json/                # json_parse.cpp (DOM builder), json_serialize.cpp
 │   ├── search/              # jsonpath_compile.cpp, jsonpath_eval.cpp
-│   ├── util/                # scan.cpp, dtoa.cpp, folder.cpp
+│   ├── util/                # scan.cpp, dtoa.cpp, folder.cpp, temporal.cpp
 │   └── bindings/            # CPython layer: module, loads, dumps (+ python_dumps_hook.cpp: the dumps_with_default image), files, ndjson, cursor
 ├── python/strata/           # thin facade: __init__, serialize (loads/dumps), config
 ├── tests/
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
-│   ├── py/                  # integration tests
-│   ├── unit/                # clause-by-clause contract suite
+│   ├── py/                  # integration tests (native_types/: kept out of PGO training, py_tests.py --training)
+│   ├── unit/                # clause-by-clause contract suite (native_types/: likewise)
 │   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON) + committed seed corpus/
 │
 ├── benchmarks/              # harness, datasets, regression gate and the CI fetch/summary tools

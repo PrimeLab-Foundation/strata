@@ -1,0 +1,40 @@
+    63.53%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.12840680010460543158]                -      -            
+    33.64%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                                      -      -            
+     1.58%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.12840680010460543158] [clone .cold]  -      -            
+     0.26%  [.] _PyEval_EvalFrameDefault.cold                                                                                          -      -            
+     0.04%  [.] PyObject_Free                                                                                                          -      -            
+     0.04%  [.] cfree                                                                                                                  -      -            
+     0.04%  [.] 0x0000000000000bfb                                                                                                     -      -            
+     0.03%  [.] _Py_dict_lookup                                                                                                        -      -            
+     0.02%  [.] PyDict_GetItemWithError                                                                                                -      -            
+     0.02%  [.] __tls_get_addr                                                                                                         -      -            
+     0.02%  [.] initialize_locals                                                                                                      -      -            
+     0.02%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                                      -      -            
+     0.02%  [.] PyObject_Malloc                                                                                                        -      -            
+     0.02%  [.] update_one_slot                                                                                                        -      -            
+     0.01%  [.] _PyCode_Quicken                                                                                                        -      -            
+     0.01%  [.] _Py_HashBytes                                                                                                          -      -            
+     0.01%  [.] deduce_unreachable                                                                                                     -      -            
+     0.01%  [.] malloc                                                                                                                 -      -            
+     0.01%  [k] 0xffffffffabd2c39c                                                                                                     -      -            
+     0.01%  [k] 0xfffffffface2f9e7                                                                                                     -      -            
+     0.01%  [.] 0x00000000001a1640                                                                                                     -      -            
+     0.01%  [.] PyDict_SetDefault                                                                                                      -      -            
+     0.01%  [.] PyObject_Vectorcall                                                                                                    -      -            
+     0.01%  [.] PyType_GenericAlloc                                                                                                    -      -            
+     0.01%  [.] Py_GetRecursionLimit                                                                                                   -      -            
+     0.01%  [.] _PyUnicode_InternImmortal                                                                                              -      -            
+     0.01%  [.] _Py_GetBaseOpcode                                                                                                      -      -            
+     0.01%  [.] _Py_NewReference                                                                                                       -      -            
+     0.01%  [.] _Py_hashtable_get                                                                                                      -      -            
+     0.01%  [.] clock_gettime                                                                                                          -      -            
+     0.01%  [.] type_ready                                                                                                             -      -            
+     0.01%  [.] visit_decref                                                                                                           -      -            
+     0.01%  [.] 0x00000000000ab2dc                                                                                                     -      -            
+     0.00%  [.] PyCMethod_New                                                                                                          -      -            
+     0.00%  [.] PyDict_DelItem                                                                                                         -      -            
+     0.00%  [.] PyFloat_FromDouble                                                                                                     -      -            
+     0.00%  [.] PyList_Append                                                                                                          -      -            
+     0.00%  [.] PyMem_Calloc                                                                                                           -      -            
+     0.00%  [.] PyObject_GetAttr                                                                                                       -      -            
+     0.00%  [.] PyObject_RichCompareBool                                                                                               -      -            

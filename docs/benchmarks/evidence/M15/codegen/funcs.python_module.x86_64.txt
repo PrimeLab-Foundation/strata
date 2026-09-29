@@ -1,0 +1,72 @@
+# main/x86_64/obj/python_module.o -> b/x86_64/obj/python_module.o
+# functions: before 16, after 16, common 16, identical 15, differ 1
+# outlined bodies: before 0, after 0; bodies only before 0, only after 0
+DIFFERS  insns 42 -> 46  (-17 +21)  _PyInit__strata
+
+## _PyInit__strata
+--- 
++++ 
+@@ -1,42 +1,46 @@
+ pushq %rbx
++xorl %ebx, %ebx
+ xorl %edi, %edi
+-callq <SELF+0x8>  @__ZN6strata24set_duplicate_key_policyENS_18DuplicateKeyPolicyE
++callq <SELF+0xa>  @__ZN6strata24set_duplicate_key_policyENS_18DuplicateKeyPolicyE
+ leaq (%rip), %rdi =__cstring:"warn"  @__cstring
+ movl $0x4, %esi
+-callq <SELF+0x19>  @__ZN6strata8bindings16set_cycle_policyENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE
+-callq <SELF+0x1e>  @__ZN6strata8bindings21prepare_dumps_runtimeEv
++callq <SELF+0x1b>  @__ZN6strata8bindings16set_cycle_policyENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE
++callq <SELF+0x20>  @__ZN6strata8bindings21prepare_dumps_runtimeEv
++callq <SELF+0x25>  @__ZN6strata8bindings6native22prepare_native_runtimeEv
++testb %al, %al
++je <SELF+0x88>
+ leaq (%rip), %rdi  @__ZN12_GLOBAL__N_110kModuleDefE
+ movl $0x3f5, %esi
+-callq <SELF+0x2f>  @_PyModule_Create2
++callq <SELF+0x3a>  @_PyModule_Create2
+ testq %rax, %rax
+-je <SELF+0x7b>
++je <SELF+0x86>
+ movq %rax, %rbx
+ movq %rax, %rdi
+-callq <SELF+0x3f>  @__ZN6strata8bindings20register_cursor_typeEP7_object
++callq <SELF+0x4a>  @__ZN6strata8bindings20register_cursor_typeEP7_object
+ testb %al, %al
+-je <SELF+0x67>
++je <SELF+0x72>
+ movq %rbx, %rdi
+-callq <SELF+0x4b>  @__ZN6strata8bindings29register_ndjson_iterator_typeEP7_object
++callq <SELF+0x56>  @__ZN6strata8bindings29register_ndjson_iterator_typeEP7_object
+ testb %al, %al
+-je <SELF+0x67>
++je <SELF+0x72>
+ movq %rbx, %rdi
+-callq <SELF+0x57>  @__ZN6strata8bindings23register_jsonpath_typesEP7_object
++callq <SELF+0x62>  @__ZN6strata8bindings23register_jsonpath_typesEP7_object
+ testb %al, %al
+-je <SELF+0x67>
++je <SELF+0x72>
+ movq %rbx, %rdi
+-callq <SELF+0x63>  @__ZN6strata8bindings29register_folder_iterator_typeEP7_object
++callq <SELF+0x6e>  @__ZN6strata8bindings29register_folder_iterator_typeEP7_object
+ testb %al, %al
+-jne <SELF+0x7d>
++jne <SELF+0x88>
+ movl (%rbx), %eax
+ testl %eax, %eax
+-js <SELF+0x7b>
++js <SELF+0x86>
+ decl %eax
+ movl %eax, (%rbx)
+-jne <SELF+0x7b>
++jne <SELF+0x86>
+ movq %rbx, %rdi
+-callq <SELF+0x7b>  @__Py_Dealloc
++callq <SELF+0x86>  @__Py_Dealloc
+ xorl %ebx, %ebx
+ movq %rbx, %rax
+ popq %rbx
+ retq
+-nopw %cs:(%rax,%rax)
++nopl (%rax)

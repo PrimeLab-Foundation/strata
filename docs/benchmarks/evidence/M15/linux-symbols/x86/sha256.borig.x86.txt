@@ -1,0 +1,2 @@
+eb0f1510a6d29aa11defd506f6c6b55c98abfc876b136f9e2e2e969bcb5a8f98  /work/out/x86/borig/_strata.so
+4090868dfc1defae45b3cde748a9ec5077b9d6f2cdb28cb509e4a15aa5980b4b  /work/prof/x86/B.profdata

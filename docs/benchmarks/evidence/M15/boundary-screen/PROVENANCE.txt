@@ -1,0 +1,49 @@
+M15 boundary screen, 2026-09-29, dev M1 (arm64, Darwin 25.6.0), Apple clang 21.0.0, CPython 3.14.7.
+Tracked copy of build/evidence/M15/boundary-screen/.
+
+Arms
+  armA   = main 38eaa9f `make pgo` (../armA, not copied again)
+  armA2  = main rebuilt and retrained (../armA2), the A/A control
+  armFix = `make pgo` of 74d78ca (the native tail as a hard inlining boundary) in
+           ~/worktrees/strata/m15-pgo, exit 0 (make_pgo.log: ctest 16/16 twice, pytest 3186 and 3581
+           passed); armFix/ holds the image (.gz), the profile (.gz) and its inputs, sha256.txt; the
+           image's build.json (commit 74d78ca, dirty False) stays in build/evidence (*.build.json is
+           ignored)
+
+Session (session.sh): wait_load.sh (1-min load < 2.5, 45-min budget per label, kills nothing), then
+screen.sh: 8 rows -- the attribution screen's five (small flat dumps/dump, small users dumps,
+medium users dumps, small users loads) plus the three linux-x86_64 rows run 36502555579 resolved
+against strata (small mixed dumps, small wide_arrays dumps, small wide_arrays dump) -- 6 ABBA
+blocks x repeat 60 through `make probe-ab-rows` from ~/worktrees/strata/main-pgo (main's facade).
+fix_screen = armA vs armFix; aa = armA vs armA2, same session; analyze.sh -> ab_blocks.py --aa ->
+fix_screen.aa.analysis.{txt,json}, fix_screen_aa.summarize.txt (resolved = |effect| > the A/A floor
+and the block-bootstrap interval excludes zero).
+
+screen.sh carries a gate guard another session added at 06:06, before the file first ran (its
+header): it waits until no build or test process runs under the main checkout, then re-waits for
+the load. Loads (load_log.txt): fix_screen waited its 45 minutes and ran at 1-min load 2.87 -> 3.13
+(TIMEOUT, 06:41-06:47); aa ran at 2.36 (QUIET, 07:01-07:07). main-pgo's _strata was 1a9c29ccda03
+(armA2) before and after.
+
+symbols_m1.txt    __text sizes of the serializer (../symbols/symbol_table.py's measure): armA,
+                  arm809621c, armFix
+write_calls_m1.txt  write()'s bl/b targets per arm (symbol_table.calls_from)
+
+Added by the second session on this screen (the one that added screen.sh's gate guard)
+  armBoundary       build/evidence/M15/armBoundary/ is a byte copy of armFix (not copied here
+                    again): _strata sha256 66049b0a809f454b, md5 13c84d63994c2036113683f52026f6bd,
+                    profile sha256 9fcc27be8b6ca958, build.json source.commit 74d78ca dirty False
+                    complete_compilation True; plus make_pgo.log and bench_results_pgo.{md,json}.
+                    Not rebuilt: m15-pgo was detached and clean at 74d78ca when armFix was made.
+  hot_symbols.py    attr/hot_symbols_table.txt's format (offset from the first __text symbol /
+                    size / address mod 64, via attr/layout.py's text_symbols) plus `size -m`
+                    Section __text per arm
+  hot_symbols_table.txt   armA vs arm809621c (../attr/arm809621c) vs armBoundary;
+                    __text 222564 / 247464 / 249476
+  layout_armA_arm809621c_armBoundary.txt   attr/layout.py over the same three arms
+  opcode_match_arm809621c_armBoundary.txt  otool -tV of ten hot functions, arm809621c vs
+                    armBoundary, masking absolute addresses, adrp page immediates and the
+                    ICF-folded vector::__throw_length_error alias name: 0 residual differences
+                    in each, same instruction counts
+  Gate guard outcome: gate_seen=0 on both legs (the main checkout's gate processes had ended by
+                    06:26; they ran from about 06:03: make gate, then make test-py-asan).

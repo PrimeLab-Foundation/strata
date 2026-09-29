@@ -1,0 +1,238 @@
+# main/x86_64/obj/python_dumps.o -> b/x86_64/obj/python_dumps.o
+# functions: before 69, after 76, common 69, identical 67, differ 2
+# outlined bodies: before 0, after 0; bodies only before 0, only after 0
+only-after     91  __ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object
+only-after    141  __ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+only-after     49  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_decimalEP7_object
+only-after    162  __ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object
+only-after     42  __ZN6strata8bindings12_GLOBAL__N_110Serializer17write_native_textEPKcl
+only-after    139  __ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object
+only-after     28  __ZN6strata8bindings5PyRefaSEOS1_
+DIFFERS  insns 309 -> 309  (-1 +1)  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+DIFFERS  insns 186 -> 181  (-64 +59)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+--- 
++++ 
+@@ -307,3 +307,3 @@
+ movq %rbx, %rdi
+ callq <SELF+0x4c9>  @__Unwind_Resume
+-nopl (%rax)
++nop
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+--- 
++++ 
+@@ -8,11 +8,11 @@
+ je <SELF+0xe6>
+ cmpq (%rip), %rax  @_PyLong_Type@GOTPCREL
+-je <SELF+0x291>
++je <SELF+0x29e>
+ cmpq (%rip), %rax  @_PyDict_Type@GOTPCREL
+-je <SELF+0x19e>
++je <SELF+0x1a8>
+ cmpq (%rip), %rax  @_PyList_Type@GOTPCREL
+-je <SELF+0x282>
++je <SELF+0x292>
+ cmpq (%rip), %rsi  @__Py_NoneStruct@GOTPCREL
+-je <SELF+0x1ca>
++je <SELF+0x1da>
+ cmpq (%rip), %rsi  @__Py_TrueStruct@GOTPCREL
+ setne %cl
+@@ -20,5 +20,5 @@
+ setne %dl
+ testb %dl, %cl
+-jne <SELF+0x1ff>
++jne <SELF+0x20f>
+ movq (%rdi), %rax
+ movq 0x38(%rax), %rcx
+@@ -37,17 +37,17 @@
+ addq 0x38(%rax), %rcx
+ cmpq (%rip), %rsi  @__Py_TrueStruct@GOTPCREL
+-je <SELF+0x251>
++je <SELF+0x25e>
+ movb $0x65, 0x4(%rcx)
+ movl $0x736c6166, (%rcx)
+ addq $0x5, 0x38(%rax)
+-jmp <SELF+0x192>
++jmp <SELF+0x269>
+ movl 0x20(%rsi), %eax
+ notl %eax
+ testb $0x60, %al
+-jne <SELF+0x14b>
++jne <SELF+0x152>
+ movq 0x10(%rsi), %rdx
+ addq $0x28, %rsi
+ callq <SELF+0xe1>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+-jmp <SELF+0x192>
++jmp <SELF+0x269>
+ vmovq 0x10(%rsi), %xmm0
+ movq (%rdi), %rbx
+@@ -70,27 +70,23 @@
+ movabsq $0x7ff0000000000000, %rdx
+ cmpq %rdx, %rcx
+-jl <SELF+0x181>
++jl <SELF+0x192>
+ movl $0x6c6c756e, (%rax)
+ movl $0x4, %eax
+-jmp <SELF+0x18e>
+-movq %rdi, %r14
++addq %rax, 0x38(%rbx)
++jmp <SELF+0x269>
++movq %rdi, %rbx
+ movq $0x0, 0x8(%rsp)
+ leaq 0x8(%rsp), %rax
+ movq %rsi, %rdi
+ movq %rax, %rsi
+-callq <SELF+0x167>  @_PyUnicode_AsUTF8AndSize
++callq <SELF+0x16e>  @_PyUnicode_AsUTF8AndSize
++movq %rax, %rsi
+ testq %rax, %rax
+-setne %bl
+-je <SELF+0x194>
++setne %al
++je <SELF+0x18a>
+ movq 0x8(%rsp), %rdx
+-movq %r14, %rdi
+-movq %rax, %rsi
+-callq <SELF+0x17f>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+-jmp <SELF+0x194>
+-movl $0x28, %esi
+-movq %rax, %rdi
+-callq <SELF+0x18e>  @__ZN6strata4util13format_doubleEdPcm
+-addq %rax, 0x38(%rbx)
+-movb $0x1, %bl
++movq %rbx, %rdi
++movl %eax, %ebx
++callq <SELF+0x188>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+ movl %ebx, %eax
+ addq $0x18, %rsp
+@@ -98,89 +94,88 @@
+ popq %r14
+ retq
++movl $0x28, %esi
++movq %rax, %rdi
++callq <SELF+0x19f>  @__ZN6strata4util13format_doubleEdPcm
++addq %rax, 0x38(%rbx)
++jmp <SELF+0x269>
+ movq 0x8(%rdi), %rax
+ movq 0x10(%rdi), %rcx
+ cmpq %rcx, %rax
+-je <SELF+0x1be>
+-nopl (%rax,%rax)
++je <SELF+0x1ce>
++nopw %cs:(%rax,%rax)
+ cmpq %rsi, (%rax)
+-je <SELF+0x234>
++je <SELF+0x241>
+ addq $0x8, %rax
+ cmpq %rcx, %rax
+-jne <SELF+0x1b0>
++jne <SELF+0x1c0>
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <SELF+0x1ca>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
++jmp <SELF+0x1da>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
+ movq (%rdi), %rax
+ movq 0x38(%rax), %rcx
+ leaq 0x4(%rcx), %rdx
+ cmpq 0x18(%rax), %rdx
+-jbe <SELF+0x1f2>
++jbe <SELF+0x202>
+ movl $0x4, %esi
+ movq %rdi, %rbx
+ movq %rax, %rdi
+-callq <SELF+0x1eb>  @__ZN6strata8bindings12StagedOutput8overflowEm
++callq <SELF+0x1fb>  @__ZN6strata8bindings12StagedOutput8overflowEm
+ movq (%rbx), %rax
+ movq 0x38(%rax), %rcx
+ movq 0x10(%rax), %rdx
+ movl $0x6c6c756e, (%rdx,%rcx)
+-jmp <SELF+0x257>
++jmp <SELF+0x264>
+ testb $0x10, 0xab(%rax)
+-jne <SELF+0x245>
++jne <SELF+0x252>
+ movq %rsi, %r14
+ movq %rdi, %rbx
+ movq (%rip), %rsi  @_PyFloat_Type@GOTPCREL
+ movq %rax, %rdi
+-callq <SELF+0x21d>  @_PyType_IsSubtype
++callq <SELF+0x22d>  @_PyType_IsSubtype
+ testl %eax, %eax
+-je <SELF+0x261>
++je <SELF+0x273>
+ vmovq 0x10(%r14), %xmm0
+ movq %rbx, %rdi
+-callq <SELF+0x22f>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_doubleEd
+-jmp <SELF+0x192>
++callq <SELF+0x23f>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_doubleEd
++jmp <SELF+0x269>
+ cmpq %rcx, %rax
+-je <SELF+0x1be>
++je <SELF+0x1ce>
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <SELF+0x245>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++jmp <SELF+0x252>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <SELF+0x251>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_stringEP7_object
++jmp <SELF+0x25e>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_stringEP7_object
+ movl $0x65757274, (%rcx)
+ addq $0x4, 0x38(%rax)
+-jmp <SELF+0x192>
+-movq %r14, %rsi
+-movq 0x8(%r14), %rax
+-movq 0xa8(%rax), %rcx
+-testl $0x1000000, %ecx
+-jne <SELF+0x28e>
+-testl $0x6000000, %ecx
+-je <SELF+0x29d>
+-movq %rbx, %rdi
++movb $0x1, %al
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <SELF+0x28e>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
++retq
++movq %r14, %rsi
++movq 0x8(%r14), %rax
++movq 0xa8(%rax), %rax
+ movq %rbx, %rdi
++testl $0x1000000, %eax
++jne <SELF+0x29e>
++testl $0x6000000, %eax
++je <SELF+0x2aa>
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <SELF+0x29d>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
+-testl $0x20000000, %ecx
+-jne <SELF+0x2c8>
+-movq (%rip), %rcx  @_PyExc_TypeError@GOTPCREL
+-movq (%rcx), %rdi
+-movq 0x18(%rax), %rdx
+-leaq (%rip), %rsi =__cstring:"Object of type %s is not JSON serializable"  @__cstring
+-xorl %ebx, %ebx
+-xorl %eax, %eax
+-callq <SELF+0x2c3>  @_PyErr_Format
+-jmp <SELF+0x194>
+-movq %rbx, %rdi
++jmp <SELF+0x29e>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
+ addq $0x18, %rsp
+ popq %rbx
+ popq %r14
+-jmp <SELF+0x2d7>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+-nopw (%rax,%rax)
++jmp <SELF+0x2aa>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
++testl $0x20000000, %eax
++jne <SELF+0x246>
++addq $0x18, %rsp
++popq %rbx
++popq %r14
++jmp <SELF+0x2bd>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
++nopl (%rax)

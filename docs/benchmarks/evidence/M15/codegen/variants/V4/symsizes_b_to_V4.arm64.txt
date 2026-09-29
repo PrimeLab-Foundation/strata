@@ -1,0 +1,3 @@
+  +136    1036 ->   1172  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+   +12     632 ->    644  __ZN6strata8bindings6native22prepare_native_runtimeEv
+total  169132 -> 169280  (+148)

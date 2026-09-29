@@ -1,0 +1,5 @@
+import: A median 1219.4 us (IQR 1168.0-1327.7), B median 1246.4 us (IQR 1173.7-1348.9); effect +2.27% [-0.02, +3.99] rounds=60 B>A in 37
+wall: A median 27132.1 us (IQR 26320.1-28640.7), B median 27292.3 us (IQR 26085.2-28887.8); effect +0.49% [-1.24, +1.77] rounds=60 B>A in 33
+sys.modules A: watched before=[] after=[] file=/Users/borysbardysh/worktrees/strata/main-pgo/python/strata/__init__.py version=2026.8.10
+sys.modules B: watched before=[] after=[] file=/Users/borysbardysh/worktrees/strata/m15-pgo/python/strata/__init__.py version=2026.8.10
+modules new on import: A 6, B 6; B extra []; B missing []

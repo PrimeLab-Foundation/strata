@@ -1,0 +1,30 @@
+0000000000051250 (__DATA,__thread_vars) non-external guard variable for strata::bindings::(anonymous namespace)::Serializer::write_key_cold(_object*)::scratch
+0000000000051368 (__DATA,__thread_bss) non-external __ZGVZN6strata8bindings12_GLOBAL__N_110Serializer14write_key_coldEP7_objectE7scratch$tlv$init
+000000000003559c (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_enum(_object*)
+0000000000035050 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::build_schema(strata::bindings::SchemaCacheLease::DepthSchemas&, unsigned long)
+0000000000034788 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::grow_schemas(unsigned long)
+000000000003434c (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_native(_object*)
+00000000000354d0 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_decimal(_object*)
+000000000000453c (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_mapping(_object*)
+0000000000035cb8 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::push_open_cold(_object*)
+0000000000035da4 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_key_cold(_object*)
+00000000000072e0 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::close_container(_object*)
+00000000000357b4 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_dataclass(_object*)
+0000000000035ec4 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_set_table(_object*)
+00000000000073b8 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_scalar_run(_object**, long)
+0000000000035418 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_native_text(char const*, long)
+0000000000008234 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_mapping_body(_object*, long, long)
+0000000000005a28 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)
+0000000000004ba8 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_string_bytes(char const*, unsigned long)
+00000000000346e4 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::compact_general_exact(_object*)
+0000000000034dac (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::compact_general_holes(_object*)
+0000000000034bec (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::emit_cycle_placeholder()
+0000000000034e50 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_mapping_uncached(_object*)
+0000000000007330 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::Frame::Frame(strata::bindings::(anonymous namespace)::Serializer&, _object*)
+0000000000034640 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::latch()
+0000000000001adc (__TEXT,__text) non-external (was a private external) strata::bindings::(anonymous namespace)::Serializer::write(_object*)
+0000000000006f7c (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::RowLock::~RowLock()
+0000000000035a20 (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::write_set(_object*)
+0000000000034ccc (__TEXT,__text) non-external strata::bindings::(anonymous namespace)::Serializer::Frame::handle_cycle() const
+0000000000051238 (__DATA,__thread_vars) non-external strata::bindings::(anonymous namespace)::Serializer::write_key_cold(_object*)::scratch
+00000000000513e0 (__DATA,__thread_bss) non-external __ZZN6strata8bindings12_GLOBAL__N_110Serializer14write_key_coldEP7_objectE7scratch$tlv$init

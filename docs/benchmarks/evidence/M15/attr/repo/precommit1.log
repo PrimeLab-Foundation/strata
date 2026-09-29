@@ -1,0 +1,10 @@
+ruff (legacy alias)..................................(no files to check)Skipped
+ruff format..........................................(no files to check)Skipped
+fix end of files.........................................................Passed
+trim trailing whitespace.................................................Passed
+mixed line ending........................................................Passed
+check yaml...........................................(no files to check)Skipped
+check toml...........................................(no files to check)Skipped
+clang-format.............................................................Passed
+mdformat.............................................(no files to check)Skipped
+markdownlint-cli2....................................(no files to check)Skipped

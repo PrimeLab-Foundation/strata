@@ -1,0 +1,5 @@
+platform macos-x86_64
+Darwin sat12-jr311-1257d590-c962-49cc-9f67-c3a2b83cdeb2-6A1B248C2A69.local 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:50:07 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_X86_64 x86_64
+i386 x86_64
+Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz
+4

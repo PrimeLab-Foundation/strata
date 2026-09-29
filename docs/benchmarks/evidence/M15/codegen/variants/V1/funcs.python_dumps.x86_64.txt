@@ -1,0 +1,12 @@
+# /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/codegen/main/x86_64/obj/python_dumps.o -> /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/codegen/variants/V1/python_dumps.x86_64.o
+# functions: before 69, after 76, common 69, identical 67, differ 2
+# outlined bodies: before 0, after 0; bodies only before 0, only after 0
+only-after     91  __ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object
+only-after    141  __ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+only-after     49  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_decimalEP7_object
+only-after    162  __ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object
+only-after     42  __ZN6strata8bindings12_GLOBAL__N_110Serializer17write_native_textEPKcl
+only-after    139  __ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object
+only-after     28  __ZN6strata8bindings5PyRefaSEOS1_
+DIFFERS  insns 309 -> 309  (-1 +1)  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+DIFFERS  insns 186 -> 186  (-63 +63)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object

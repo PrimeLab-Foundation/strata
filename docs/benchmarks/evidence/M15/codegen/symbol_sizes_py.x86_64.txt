@@ -1,0 +1,4 @@
+== main/x86_64/_strata.so  (via nm)
+   no sized symbols — stripped, or this reader reports no sizes
+== b/x86_64/_strata.so  (via nm)
+   no sized symbols — stripped, or this reader reports no sizes

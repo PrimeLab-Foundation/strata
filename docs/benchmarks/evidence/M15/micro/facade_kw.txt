@@ -1,0 +1,2 @@
+tiny: facade-A 198.8 ns/call, facade-B 237.7 ns/call, paired diff median +38.0 ns (IQR +35.7..+40.4), +19.584% ; n/batch=2248 repeats=61
+small-mixed: facade-A 110294.8 ns/call, facade-B 110652.2 ns/call, paired diff median +197.1 ns (IQR -757.2..+2314.1), +0.324% ; n/batch=26 repeats=61

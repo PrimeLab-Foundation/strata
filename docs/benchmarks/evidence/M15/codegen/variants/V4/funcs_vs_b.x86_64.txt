@@ -1,0 +1,4 @@
+# b/x86_64/obj/python_dumps.o -> variants/V4/python_dumps.x86_64.o
+# functions: before 76, after 76, common 76, identical 75, differ 1
+# outlined bodies: before 0, after 0; bodies only before 0, only after 0
+DIFFERS  insns 181 -> 194  (-57 +70)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object

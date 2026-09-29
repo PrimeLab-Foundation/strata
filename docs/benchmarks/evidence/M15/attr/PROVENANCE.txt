@@ -1,0 +1,24 @@
+M15 serializer-row attribution, 2026-09-29, dev M1 (arm64, Darwin 25.6.0), Apple clang 21.0.0
+(clang-2100.1.1.101), CPython 3.14.7. Arms: armA = main 38eaa9f make pgo (../armA), armA2 = its
+rebuild (../armA2), armBown3 = 5b876d1 make pgo (../final/armBown3).
+
+layout.py                     nm -nm / otool: __text offset, size, addr mod 64, bl/b targets of the hot writers
+layout_armA_armBown3.txt      armA vs armBown3; layout_armA_armBown3_armC2.txt adds armC2
+hot_symbols_table.txt         hot writers + the seven cold members: offset/size/mod64 per arm
+hot_writer_callers.txt        callers of each hot writer from -O0 IR (A=main, B=5b876d1, C2)
+opcode_match_armA_armC2.txt   in-order mnemonic match of every serializer function, armA vs armC2
+prelink/                      prelink_{A,B,C2}.remarks.txt: -Rpass(-missed)=inline on
+                              python_dumps.cpp with each arm's own profdata, -flto=thin pre-link)
+armC2/                        `make pgo` in ~/worktrees/strata/m15-pgo at 5b876d1 + armC2/C2.patch (exit 0;
+                              gates 3186/3576 passed, ctest 16/16 twice); images, build.json, profdata
+codegen/                      static checks 1-2 on the C2 tree (../codegen/build.sh, masked_check.py, check2.py);
+                              check1 outputs byte-identical to ../final/codegen's for 5b876d1, check2 identical
+screen.sh, wait_load.sh       5-row screen (sm-flat-dumps, sm-flat-dump, sm-users-dumps, md-users-dumps,
+                              sm-users-loads), 6 ABBA blocks x 60, main-pgo facade
+c2_screen.tsv / aa_s1.tsv     armA vs armC2 / armA vs armA2, same session; c2_screen.summarize.txt
+repo/                         809621c on exp/native-types: make install, make test, make test-py-asan,
+                              pre-commit x2 logs
+arm809621c/                   `make pgo` of the clean commit 809621c in m15-pgo (dirty False)
+full/                         26-row run_ab.sh: fix_ab = armA vs arm809621c, aa_full = armA vs armA2;
+                              fix_ab_aa_full.summarize.txt; loads in full/load_log.txt
+Nothing was killed. main-pgo _strata restored to 1a9c29ccda03 (armA2) after each session.

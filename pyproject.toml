@@ -67,6 +67,9 @@ integrations = [
   "pydantic>=2",
   "attrs>=22.2",
   "numpy>=1.26",
+  # The native-types differential (docs/architecture/native_types.md, rows 1-4
+  # and 6); a comparison target here, never a dependency of strata itself.
+  "orjson>=3.10",
 ]
 
 [project.urls]

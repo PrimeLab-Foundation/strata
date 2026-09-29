@@ -1,0 +1,16 @@
+1	call	PyDict_Next@plt
+2	call	PyErr_Format@plt
+1	call	PyErr_SetString@plt
+1	call	_Py_Dealloc@plt
+1	call	_Unwind_Resume@plt
+1	call	_ZSt20__throw_length_errorPKc@plt
+1	call	_ZdlPv@plt
+1	call	_Znwm@plt
+2	call	__clang_call_terminate
+1	call	memcpy@plt
+1	call	strata::bindings::(anonymous namespace)::Serializer::Frame::handle_cycle() const
+1	call	strata::bindings::(anonymous namespace)::Serializer::close_container(_object*)
+1	call	strata::bindings::(anonymous namespace)::Serializer::compact_general_holes(_object*)
+2	call	strata::bindings::(anonymous namespace)::Serializer::write_mapping_body(_object*, long, long)
+1	call	strata::bindings::(anonymous namespace)::Serializer::write_mapping_uncached(_object*)
+1	call	strata::bindings::StagedOutput::overflow(unsigned long)

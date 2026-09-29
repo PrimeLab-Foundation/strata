@@ -1,0 +1,82 @@
+== fix_screen wait-start 2026-09-29 05:55:56
+ 5:55  up 10 days, 17:03, 1 user, load averages: 11.21 10.12 7.17
+  PID  %CPU COMM
+53926  82.9 /Library/Apple/System/Library/CoreServices/XProtect.app/Contents/MacOS/XProtectRemediatorAdload
+37793  74.9 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+ 1696  51.1 /System/Library/PrivateFrameworks/XprotectFramework.framework/Versions/A/XPCServices/XprotectService.xpc/Contents/MacOS/XprotectService
+14861  31.4 claude
+78066   3.2 /Applications/Docker.app/Contents/MacOS/com.docker.backend
+== fix_screen wait-end 2026-09-29 06:35:02
+ 6:35  up 10 days, 17:42, 1 user, load averages: 2.30 4.04 5.56
+  PID  %CPU COMM
+60665  58.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+  648   7.3 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+37793   7.1 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+89362   2.6 /Users/borysbardysh/.local/share/claude/versions/2.1.278
+78101   2.5 claude
+== fix_screen gate-wait-start 2026-09-29 06:35:02
+ 6:35  up 10 days, 17:42, 1 user, load averages: 2.30 4.04 5.56
+  PID  %CPU COMM
+60665  65.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+ 1696  42.4 /System/Library/PrivateFrameworks/XprotectFramework.framework/Versions/A/XPCServices/XprotectService.xpc/Contents/MacOS/XprotectService
+82312  16.8 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+37793  12.3 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+90028   4.5 /usr/libexec/trustd
+GATE fix_screen gate_seen=0 gate_clear=06:35:48 TIMEOUT load=2.87 waited=2707
+== fix_screen before 2026-09-29 06:41:03
+ 6:41  up 10 days, 17:48, 1 user, load averages: 2.87 4.02 5.11
+  PID  %CPU COMM
+60665 134.7 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+  973  61.3 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd
+  625  14.5 /usr/libexec/dasd
+73882  14.1 /System/Library/ExtensionKit/Extensions/AssetMetricsExtension.appex/Contents/MacOS/AssetMetricsExtension
+    1  10.4 /sbin/launchd
+== fix_screen after 2026-09-29 06:47:08
+ 6:47  up 10 days, 17:54, 1 user, load averages: 3.13 3.76 4.68
+  PID  %CPU COMM
+60665  69.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+82312   5.7 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+37793   5.4 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+89362   2.3 /Users/borysbardysh/.local/share/claude/versions/2.1.278
+45026   1.9 /Users/borysbardysh/Library/Application Support/Claude/claude-code/2.1.281/claude.app/Contents/MacOS/claude
+== aa wait-start 2026-09-29 06:47:08
+ 6:47  up 10 days, 17:54, 1 user, load averages: 3.13 3.76 4.68
+  PID  %CPU COMM
+60665  69.6 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+82312   5.7 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+37793   5.4 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+89362   2.3 /Users/borysbardysh/.local/share/claude/versions/2.1.278
+45026   1.9 /Users/borysbardysh/Library/Application Support/Claude/claude-code/2.1.281/claude.app/Contents/MacOS/claude
+== aa wait-end 2026-09-29 07:00:25
+ 7:00  up 10 days, 18:08, 1 user, load averages: 2.47 3.72 4.21
+  PID  %CPU COMM
+60665  94.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+25306  19.4 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+ 1022  17.7 /System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd
+80332  13.3 /Users/borysbardysh/Library/Caches/JetBrains/PyCharm2026.2/code-provenance/chatter-105-2dda02/chatter
+37793  11.0 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+== aa gate-wait-start 2026-09-29 07:00:25
+ 7:00  up 10 days, 18:08, 1 user, load averages: 2.47 3.72 4.21
+  PID  %CPU COMM
+60665  94.9 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+25306  19.4 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+ 1022  17.7 /System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd
+80332  13.3 /Users/borysbardysh/Library/Caches/JetBrains/PyCharm2026.2/code-provenance/chatter-105-2dda02/chatter
+37793  11.0 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+GATE aa gate_seen=0 gate_clear=07:01:10 QUIET load=2.36 waited=888
+== aa before 2026-09-29 07:01:56
+ 7:01  up 10 days, 18:09, 1 user, load averages: 2.36 3.41 4.04
+  PID  %CPU COMM
+37793  17.8 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+25306  10.6 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+14861   5.9 claude
+31005   1.1 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine
+82312   0.9 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+== aa after 2026-09-29 07:07:16
+ 7:07  up 10 days, 18:14, 1 user, load averages: 2.36 2.87 3.57
+  PID  %CPU COMM
+37793  11.1 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+25306   1.4 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+82312   0.8 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+  577   0.8 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd
+  602   0.5 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds

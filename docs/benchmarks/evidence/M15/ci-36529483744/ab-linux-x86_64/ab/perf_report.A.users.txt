@@ -1,0 +1,40 @@
+    63.92%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.11943961986628997916]                -      -            
+    30.47%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                                      -      -            
+     4.34%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.11943961986628997916] [clone .cold]  -      -            
+     0.07%  [.] deduce_unreachable                                                                                                     -      -            
+     0.05%  [.] _PyEval_EvalFrameDefault.cold                                                                                          -      -            
+     0.05%  [.] _Py_dict_lookup                                                                                                        -      -            
+     0.04%  [.] _Py_set_387controlword                                                                                                 -      -            
+     0.04%  [.] gc_collect_main                                                                                                        -      -            
+     0.04%  [k] 0xffffffff95649529                                                                                                     -      -            
+     0.03%  [.] PyObject_Malloc                                                                                                        -      -            
+     0.03%  [.] scan_once_unicode                                                                                                      -      -            
+     0.03%  [.] visit_decref                                                                                                           -      -            
+     0.03%  [.] visit_reachable                                                                                                        -      -            
+     0.03%  [k] 0xffffffff9452c39c                                                                                                     -      -            
+     0.03%  [.] PyObject_Free                                                                                                          -      -            
+     0.02%  [.] _Py_dg_strtod                                                                                                          -      -            
+     0.02%  [.] __tls_get_addr                                                                                                         -      -            
+     0.02%  [.] dict_traverse                                                                                                          -      -            
+     0.02%  [.] scanstring_unicode                                                                                                     -      -            
+     0.02%  [.] _Py_hashtable_get                                                                                                      -      -            
+     0.01%  [.] PyObject_GC_UnTrack                                                                                                    -      -            
+     0.01%  [.] insert_to_emptydict                                                                                                    -      -            
+     0.01%  [.] list_traverse                                                                                                          -      -            
+     0.01%  [k] 0xffffffff9489e37a                                                                                                     -      -            
+     0.01%  [k] 0xffffffff94cdb1f8                                                                                                     -      -            
+     0.01%  [k] 0xffffffff95649b80                                                                                                     -      -            
+     0.01%  [.] PyDict_SetDefault                                                                                                      -      -            
+     0.01%  [.] PyFloat_FromDouble                                                                                                     -      -            
+     0.01%  [.] PyLong_FromString                                                                                                      -      -            
+     0.01%  [.] PyMem_Realloc                                                                                                          -      -            
+     0.01%  [.] PyOS_string_to_double                                                                                                  -      -            
+     0.01%  [.] PyObject_Vectorcall                                                                                                    -      -            
+     0.01%  [.] PyUnicode_Substring                                                                                                    -      -            
+     0.01%  [.] _PyCode_Quicken                                                                                                        -      -            
+     0.01%  [.] _PyDict_MaybeUntrack                                                                                                   -      -            
+     0.01%  [.] _PyType_Lookup                                                                                                         -      -            
+     0.01%  [.] _Py_HashBytes                                                                                                          -      -            
+     0.01%  [.] cfree                                                                                                                  -      -            
+     0.01%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                                      -      -            
+     0.01%  [.] type_is_gc                                                                                                             -      -            

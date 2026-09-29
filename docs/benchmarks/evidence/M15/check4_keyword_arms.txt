@@ -1,0 +1,16 @@
+== _ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_  entry: !{!"function_entry_count", i64 29868}
+   block invoke.cont29: br %cmp31 -> if.end38 | if.else33  !{!"branch_weights", i32 29868, i32 0}
+   block if.end51: br %or.cond -> if.then55 | if.end60  !{!"branch_weights", i32 0, i32 29866}
+   call in block if.then55: _ZN6strata8bindings11parse_types5loadsEP7_objectbbS3_
+== _ZN12_GLOBAL__N_111strata_loadEP7_objectS1_S1_  entry: !{!"function_entry_count", i64 982}
+   block invoke.cont: br %tobool.not -> cleanup30 | if.end  !{!"branch_weights", i32 0, i32 982}
+   block if.end: br %cmp.not -> if.end6 | if.then1  !{!"branch_weights", i32 982, i32 0}
+   call in block if.then1: _ZN6strata8bindings11parse_types4loadEPKcS3_bbP7_object
+== _ZN12_GLOBAL__N_112strata_queryEP7_objectS1_S1_  entry: !{!"function_entry_count", i64 874}
+   block invoke.cont: br %tobool.not -> cleanup22 | if.end  !{!"branch_weights", i32 0, i32 874}
+   block if.end: br %cmp.not -> if.end5 | if.then1  !{!"branch_weights", i32 874, i32 0}
+   call in block if.then1: _ZN6strata8bindings11parse_types5queryEP7_objectS3_bS3_
+== _ZN12_GLOBAL__N_113strata_searchEP7_objectS1_S1_  entry: !{!"function_entry_count", i64 946}
+   block invoke.cont: br %tobool.not -> cleanup29 | if.end  !{!"branch_weights", i32 0, i32 946}
+   block if.end: br %cmp.not -> if.end5 | if.then1  !{!"branch_weights", i32 946, i32 0}
+   call in block if.then1: _ZN6strata8bindings11parse_types6searchEPKcP7_objectbS5_

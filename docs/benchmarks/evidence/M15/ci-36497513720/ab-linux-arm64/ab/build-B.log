@@ -1,0 +1,706 @@
+python -m venv .venv
+.venv/bin/python -m pip install -U pip setuptools wheel
+Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+Collecting pip
+  Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+Collecting setuptools
+  Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting wheel
+  Using cached wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+Collecting packaging>=24.0 (from wheel)
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Using cached pip-26.2.1-py3-none-any.whl (1.8 MB)
+Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+Using cached wheel-0.48.0-py3-none-any.whl (33 kB)
+Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Installing collected packages: setuptools, pip, packaging, wheel
+  Attempting uninstall: pip
+    Found existing installation: pip 25.0.1
+    Uninstalling pip-25.0.1:
+      Successfully uninstalled pip-25.0.1
+Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+.venv/bin/python -m pip install -e '.[dev,bench]'
+Obtaining file:///home/runner/work/_temp/strata-arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Collecting cmake>=3.20 (from strata==2026.8.10)
+  Using cached cmake-4.4.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl.metadata (7.0 kB)
+Collecting pytest>=7 (from strata==2026.8.10)
+  Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+Collecting pytest-cov>=4 (from strata==2026.8.10)
+  Using cached pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+Collecting ruff>=0.5 (from strata==2026.8.10)
+  Using cached ruff-0.16.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (20 kB)
+Collecting pre-commit>=3.5 (from strata==2026.8.10)
+  Using cached pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+Collecting clang-format<22,>=21 (from strata==2026.8.10)
+  Using cached clang_format-21.1.8-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl.metadata (4.7 kB)
+Collecting orjson (from strata==2026.8.10)
+  Using cached orjson-3.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (41 kB)
+Collecting msgspec (from strata==2026.8.10)
+  Using cached msgspec-0.21.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (5.8 kB)
+Collecting ujson (from strata==2026.8.10)
+  Using cached ujson-6.0.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (10.0 kB)
+Collecting pysimdjson (from strata==2026.8.10)
+  Using cached pysimdjson-7.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (1.1 kB)
+Collecting jmespath (from strata==2026.8.10)
+  Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+Collecting jsonpath-ng (from strata==2026.8.10)
+  Using cached jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+Collecting psutil>=5 (from strata==2026.8.10)
+  Using cached psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (22 kB)
+Collecting cfgv>=2.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+  Using cached cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+Collecting identify>=1.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+  Using cached identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+Collecting nodeenv>=0.11.1 (from pre-commit>=3.5->strata==2026.8.10)
+  Using cached nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+Collecting pyyaml>=5.1 (from pre-commit>=3.5->strata==2026.8.10)
+  Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (2.4 kB)
+Collecting virtualenv>=20.10.0 (from pre-commit>=3.5->strata==2026.8.10)
+  Using cached virtualenv-21.13.0-py3-none-any.whl.metadata (3.9 kB)
+Collecting iniconfig>=1.0.1 (from pytest>=7->strata==2026.8.10)
+  Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+Requirement already satisfied: packaging>=22 in ./.venv/lib/python3.12/site-packages (from pytest>=7->strata==2026.8.10) (26.3)
+Collecting pluggy<2,>=1.5 (from pytest>=7->strata==2026.8.10)
+  Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+Collecting pygments>=2.7.2 (from pytest>=7->strata==2026.8.10)
+  Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting coverage>=7.10.6 (from coverage[toml]>=7.10.6->pytest-cov>=4->strata==2026.8.10)
+  Using cached coverage-7.16.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (8.2 kB)
+Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+  Using cached distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+Collecting filelock<5,>=3.24.2 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+  Using cached filelock-4.0.6-py3-none-any.whl.metadata (2.0 kB)
+Collecting platformdirs<5,>=3.9.1 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+  Using cached platformdirs-4.12.1-py3-none-any.whl.metadata (5.5 kB)
+Collecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+  Using cached python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+Using cached clang_format-21.1.8-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl (1.7 MB)
+Using cached cmake-4.4.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl (30.3 MB)
+Using cached pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)
+Using cached cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
+Using cached identify-2.6.20-py2.py3-none-any.whl (99 kB)
+Using cached nodeenv-1.11.0-py2.py3-none-any.whl (34 kB)
+Using cached psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (156 kB)
+Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+Using cached pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+Using cached coverage-7.16.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (259 kB)
+Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (775 kB)
+Using cached ruff-0.16.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (10.0 MB)
+Using cached virtualenv-21.13.0-py3-none-any.whl (5.5 MB)
+Using cached distlib-0.4.3-py2.py3-none-any.whl (470 kB)
+Using cached filelock-4.0.6-py3-none-any.whl (109 kB)
+Using cached platformdirs-4.12.1-py3-none-any.whl (33 kB)
+Using cached python_discovery-1.6.1-py3-none-any.whl (38 kB)
+Using cached jmespath-1.1.0-py3-none-any.whl (20 kB)
+Using cached jsonpath_ng-1.8.0-py3-none-any.whl (67 kB)
+Using cached msgspec-0.21.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (218 kB)
+Using cached orjson-3.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (130 kB)
+Using cached pysimdjson-7.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (2.8 MB)
+Using cached ujson-6.0.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (57 kB)
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4378 sha256=215b60e62d1a166d00c4a8237f097f0d7c27985519642388b84fea2fa15d27ba
+  Stored in directory: /tmp/pip-ephem-wheel-cache-gh5votup/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819
+Successfully built strata
+Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+
+Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.21.1 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.1 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.13.0
+==> PGO: compiler is clang
+==> PGO phase 1: instrumented build
+Obtaining file:///home/runner/work/_temp/strata-arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4378 sha256=5b4a0989b108935393c186a060a6d4887dfc8181bd908c70ac9374c9d7526d8d
+  Stored in directory: /tmp/pip-ephem-wheel-cache-kbvb_iol/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10
+==> PGO: the hook image must carry no profile
++ strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-aarch64-linux-gnu.so.build.json records no profile or profile flag,
+  and the image links no profile runtime
+==> PGO: generating training data
+  build/pgo/train.json (10.0 MB)
+  build/pgo/train.ndjson (10.0 MB)
+==> PGO: running the training workload
+PGO training workload
+  corpus: 4001 records, 10.0 MB
+[1/7] loads
+  loads(str): 1x in 0.04s
+  loads(bytes): 1x in 0.04s
+  loads(sample): 5x in 0.01s
+  loads(cursor): 5x in 0.01s
+  loads(iterator): 3x in 0.01s
+[2/7] dumps
+  dumps(str): 1x in 0.03s
+  dumps(bytes): 3x in 0.03s
+  dumps(sample, bytes): 5x in 0.00s
+  dumps(sample): 5x in 0.00s
+  dumps(parsed sample, bytes): 2x in 0.00s
+[3/7] load
+  load(json): 1x in 0.04s
+  load(ndjson): 1x in 0.04s
+  load(ndjson, iterator): 1x in 0.04s
+[4/7] dump
+  dump(json): 3x in 0.00s
+[5/7] query
+  query $[0].name: 3x in 0.00s
+  query $[*].id: 3x in 0.00s
+  query $[*].items[*].sku: 3x in 0.00s
+  query $..leaf: 3x in 0.00s
+  query $[0:50].score: 3x in 0.00s
+  query $[?(@.id > 100)].name: 3x in 0.00s
+  query $[?(@.id <= 500)]: 3x in 0.00s
+  query $[?(@.name == 'alpha')]: 3x in 0.00s
+  query $[?(@.name != 'alpha')].id: 3x in 0.00s
+  query $[?(@['id'] >= 0)].name: 3x in 0.00s
+  query $[*].nested.child: 3x in 0.00s
+  query $[*].tags[0]: 3x in 0.00s
+  query $.*: 3x in 0.00s
+  query(compiled): 5x in 0.00s
+[6/7] search
+  search json $[*].id: 1x in 0.02s
+  search ndjson $[*].id: 1x in 0.04s
+  search json $..leaf: 1x in 0.04s
+  search ndjson $..leaf: 1x in 0.05s
+  search json $[?(@.id > 100)].name: 1x in 0.04s
+  search ndjson $[?(@.id > 100)].name: 1x in 0.04s
+[7/7] folder mode
+  dump(split_by): 1x in 0.00s
+  load(folder): 1x in 0.00s
+  search(folder): 1x in 0.00s
+PGO training workload complete
+==> PGO: gate tests on the instrumented build
++ /home/runner/work/_temp/strata-arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/runner/work/_temp/strata-arm/build/cmake
++ /home/runner/work/_temp/strata-arm/.venv/bin/cmake --build build/cmake --config Release
+gmake[1]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[2]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[  1%] Linking CXX executable smoke_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[  6%] Built target smoke_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[  7%] Linking CXX executable json_core_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 12%] Built target json_core_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 12%] Linking CXX executable json_parse_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 18%] Built target json_parse_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 19%] Linking CXX executable fast_parse_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 24%] Built target fast_parse_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 25%] Linking CXX executable value_cursor_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 31%] Built target value_cursor_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 32%] Linking CXX executable json_serialize_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 38%] Built target json_serialize_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 38%] Linking CXX executable float_precision_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 44%] Built target float_precision_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 44%] Linking CXX executable json_cursor_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 50%] Built target json_cursor_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 50%] Linking CXX executable ndjson_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 56%] Built target ndjson_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 56%] Linking CXX executable jsonpath_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 62%] Built target jsonpath_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 63%] Linking CXX executable jsonpath_stream_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 68%] Built target jsonpath_stream_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 69%] Linking CXX executable scan_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 75%] Built target scan_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 75%] Linking CXX executable temporal_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 81%] Built target temporal_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 81%] Linking CXX executable folder_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 87%] Built target folder_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 88%] Linking CXX executable fuzz_corpus_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 94%] Built target fuzz_corpus_tests
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[ 94%] Linking CXX executable stress_deep_tests
+gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+[100%] Built target stress_deep_tests
+gmake[2]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+gmake[1]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
++ /home/runner/work/_temp/strata-arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+Test project /home/runner/work/_temp/strata-arm/build/cmake
+      Start  1: smoke_tests
+ 1/16 Test  #1: smoke_tests ......................   Passed    0.00 sec
+      Start  2: json_core_tests
+ 2/16 Test  #2: json_core_tests ..................   Passed    0.00 sec
+      Start  3: json_parse_tests
+ 3/16 Test  #3: json_parse_tests .................   Passed    0.00 sec
+      Start  4: fast_parse_tests
+ 4/16 Test  #4: fast_parse_tests .................   Passed    0.06 sec
+      Start  5: value_cursor_tests
+ 5/16 Test  #5: value_cursor_tests ...............   Passed    0.01 sec
+      Start  6: json_serialize_tests
+ 6/16 Test  #6: json_serialize_tests .............   Passed    0.00 sec
+      Start  7: float_precision_tests
+ 7/16 Test  #7: float_precision_tests ............   Passed    2.30 sec
+      Start  8: json_cursor_tests
+ 8/16 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+      Start  9: ndjson_tests
+ 9/16 Test  #9: ndjson_tests .....................   Passed    0.00 sec
+      Start 10: jsonpath_tests
+10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+      Start 11: jsonpath_stream_tests
+11/16 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+      Start 12: scan_tests
+12/16 Test #12: scan_tests .......................   Passed    0.02 sec
+      Start 13: temporal_tests
+13/16 Test #13: temporal_tests ...................   Passed    0.00 sec
+      Start 14: folder_tests
+14/16 Test #14: folder_tests .....................   Passed    0.00 sec
+      Start 15: fuzz_corpus_tests
+15/16 Test #15: fuzz_corpus_tests ................   Passed    0.00 sec
+      Start 16: stress_deep_tests
+16/16 Test #16: stress_deep_tests ................   Passed    0.00 sec
+
+100% tests passed out of 16
+
+Total Test time (real) =   2.42 sec
++ pytest tests/py tests/unit --ignore=tests/unit/native_types --ignore=tests/py/native_types --basetemp=/tmp/pytest-of-runner/m5hcgnwy
+============================= test session starts ==============================
+platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+rootdir: /home/runner/work/_temp/strata-arm
+configfile: pyproject.toml
+plugins: platformdirs-4.12.1, cov-7.1.0
+collected 3188 items
+
+tests/py/test_dumps_brace_fold.py .........                              [  0%]
+tests/py/test_dumps_cycles_fused.py .................................... [  1%]
+....................................................                     [  3%]
+tests/py/test_dumps_general_tables.py ............................       [  3%]
+tests/py/test_dumps_with_default.py .................................... [  5%]
+.............................ss                                          [  6%]
+tests/py/test_dumps_with_default_contract.py ........................... [  6%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+..........................                                               [ 12%]
+tests/py/test_fused_verification.py ..                                   [ 12%]
+tests/py/test_json_parity.py ........................................... [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+.................................                                        [ 50%]
+tests/py/test_path_dispatch.py ................................          [ 51%]
+tests/py/test_py_tests_basetemp.py ..                                    [ 51%]
+tests/py/test_smoke.py ...                                               [ 51%]
+tests/unit/test_ab_analysis.py ......................................    [ 53%]
+tests/unit/test_build_manifest.py ......                                 [ 53%]
+tests/unit/test_canonical_builds.py ....                                 [ 53%]
+tests/unit/test_ci_fetch.py ........................                     [ 54%]
+tests/unit/test_ci_summary.py .......................                    [ 54%]
+tests/unit/test_config.py ...........................                    [ 55%]
+tests/unit/test_core_purity.py ....                                      [ 55%]
+tests/unit/test_cross_sample.py ......                                   [ 56%]
+tests/unit/test_dumps.py ............................................... [ 57%]
+..........                                                               [ 57%]
+tests/unit/test_dumps_brace_fold.py .........                            [ 58%]
+tests/unit/test_dumps_cold_start.py ....                                 [ 58%]
+tests/unit/test_dumps_contract.py ...................................... [ 59%]
+.............................................................            [ 61%]
+tests/unit/test_dumps_cycles_fused.py .................................. [ 62%]
+......................................................                   [ 64%]
+tests/unit/test_dumps_general_tables.py ............................     [ 65%]
+tests/unit/test_dumps_latch.py ............................              [ 65%]
+tests/unit/test_dumps_private_cache.py ................................  [ 66%]
+tests/unit/test_dumps_reentrancy.py .................................... [ 68%]
+......................................................................   [ 70%]
+tests/unit/test_dumps_reentrancy_review.py ............................. [ 71%]
+..                                                                       [ 71%]
+tests/unit/test_dumps_schema_failure.py ...........................      [ 72%]
+tests/unit/test_dumps_user_step_counter.py ..........................    [ 72%]
+tests/unit/test_dumps_with_default.py .................................. [ 73%]
+........................................................................ [ 76%]
+...................................................................      [ 78%]
+tests/unit/test_dumps_with_default_state.py ............................ [ 79%]
+........................................................................ [ 81%]
+..............                                                           [ 81%]
+tests/unit/test_folder.py .............................................. [ 83%]
+.........................................                                [ 84%]
+tests/unit/test_fused_verification.py ..                                 [ 84%]
+tests/unit/test_hook_build_scope.py ...............................      [ 85%]
+tests/unit/test_json_cursor.py ...........................               [ 86%]
+tests/unit/test_jsonpath.py ............................................ [ 87%]
+.......................................................................  [ 90%]
+tests/unit/test_load_dump.py ........................................... [ 91%]
+                                                                         [ 91%]
+tests/unit/test_loads.py ............................................... [ 92%]
+........................................................................ [ 95%]
+................                                                         [ 95%]
+tests/unit/test_native_interleaved_profile.py ...                        [ 95%]
+tests/unit/test_nested_container_probe.py ....                           [ 95%]
+tests/unit/test_path_dispatch.py ................................        [ 96%]
+tests/unit/test_provenance.py ..................                         [ 97%]
+tests/unit/test_regression_check.py ..........................           [ 98%]
+tests/unit/test_search_stream.py .................                       [ 98%]
+tests/unit/test_string_identity_probe.py .                               [ 98%]
+tests/unit/test_supplementary.py .............                           [ 99%]
+tests/unit/test_supportability_check.py ....................             [ 99%]
+tests/unit/test_version.py ....                                          [100%]
+
+======================= 3186 passed, 2 skipped in 8.53s ========================
+==> PGO: merging 17 raw profiles
+==> PGO phase 2: optimized build (profile + LTO)
+Obtaining file:///home/runner/work/_temp/strata-arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'error'
+  error: subprocess-exited-with-error
+  
+  × Building editable for strata (pyproject.toml) did not run successfully.
+  │ exit code: 1
+  ╰─> [239 lines of output]
+      running editable_wheel
+      creating /tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info
+      writing /tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info/PKG-INFO
+      writing dependency_links to /tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info/dependency_links.txt
+      writing requirements to /tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info/requires.txt
+      writing top-level names to /tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info/top_level.txt
+      writing manifest file '/tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info/SOURCES.txt'
+      reading manifest file '/tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info/SOURCES.txt'
+      reading manifest template 'MANIFEST.in'
+      warning: no files found matching '*.c' under directory 'src'
+      warning: no files found matching '*.cc' under directory 'src'
+      warning: no files found matching '*.cxx' under directory 'src'
+      warning: no files found matching '*.hpp' under directory 'src'
+      warning: no files found matching '*.inc' under directory 'src'
+      warning: no files found matching '*.h' under directory 'tests'
+      warning: no files found matching '*.hpp' under directory 'tests'
+      warning: no files found matching '*.json' under directory 'tests'
+      adding license file 'LICENSE'
+      writing manifest file '/tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata.egg-info/SOURCES.txt'
+      creating '/tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata-2026.8.10.dist-info'
+      creating /tmp/pip-ephem-wheel-cache-cb2pgsmf/wheels/52/33/a0/5b6b2078a60ab0013e828747db2e1ebf023c74b3d2d39d1819/tmpztakgbwl/.tmp-5jyjciov/strata-2026.8.10.dist-info/WHEEL
+      running build_py
+      running build_ext
+      
+      ======================================================================
+      GATE 1/2: C++ test suite (pre-build)
+      ======================================================================
+      + /home/runner/work/_temp/strata-arm/.venv/bin/python /home/runner/work/_temp/strata-arm/scripts/cpp_tests.py
+      + /home/runner/work/_temp/strata-arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+      -- Configuring done (0.0s)
+      -- Generating done (0.0s)
+      -- Build files have been written to: /home/runner/work/_temp/strata-arm/build/cmake
+      + /home/runner/work/_temp/strata-arm/.venv/bin/cmake --build build/cmake --config Release
+      gmake[1]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[2]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [  1%] Linking CXX executable smoke_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [  6%] Built target smoke_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [  7%] Linking CXX executable json_core_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 12%] Built target json_core_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 12%] Linking CXX executable json_parse_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 18%] Built target json_parse_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 19%] Linking CXX executable fast_parse_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 24%] Built target fast_parse_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 25%] Linking CXX executable value_cursor_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 31%] Built target value_cursor_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 32%] Linking CXX executable json_serialize_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 38%] Built target json_serialize_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 38%] Linking CXX executable float_precision_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 44%] Built target float_precision_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 44%] Linking CXX executable json_cursor_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 50%] Built target json_cursor_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 50%] Linking CXX executable ndjson_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 56%] Built target ndjson_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 56%] Linking CXX executable jsonpath_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 62%] Built target jsonpath_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 63%] Linking CXX executable jsonpath_stream_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 68%] Built target jsonpath_stream_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 69%] Linking CXX executable scan_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 75%] Built target scan_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 75%] Linking CXX executable temporal_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 81%] Built target temporal_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 81%] Linking CXX executable folder_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 87%] Built target folder_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 88%] Linking CXX executable fuzz_corpus_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 94%] Built target fuzz_corpus_tests
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[3]: Entering directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [ 94%] Linking CXX executable stress_deep_tests
+      gmake[3]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      [100%] Built target stress_deep_tests
+      gmake[2]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      gmake[1]: Leaving directory '/home/runner/work/_temp/strata-arm/build/cmake'
+      + /home/runner/work/_temp/strata-arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+      Test project /home/runner/work/_temp/strata-arm/build/cmake
+            Start  1: smoke_tests
+       1/16 Test  #1: smoke_tests ......................   Passed    0.00 sec
+            Start  2: json_core_tests
+       2/16 Test  #2: json_core_tests ..................   Passed    0.00 sec
+            Start  3: json_parse_tests
+       3/16 Test  #3: json_parse_tests .................   Passed    0.00 sec
+            Start  4: fast_parse_tests
+       4/16 Test  #4: fast_parse_tests .................   Passed    0.06 sec
+            Start  5: value_cursor_tests
+       5/16 Test  #5: value_cursor_tests ...............   Passed    0.01 sec
+            Start  6: json_serialize_tests
+       6/16 Test  #6: json_serialize_tests .............   Passed    0.00 sec
+            Start  7: float_precision_tests
+       7/16 Test  #7: float_precision_tests ............   Passed    2.30 sec
+            Start  8: json_cursor_tests
+       8/16 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+            Start  9: ndjson_tests
+       9/16 Test  #9: ndjson_tests .....................   Passed    0.00 sec
+            Start 10: jsonpath_tests
+      10/16 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+            Start 11: jsonpath_stream_tests
+      11/16 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+            Start 12: scan_tests
+      12/16 Test #12: scan_tests .......................   Passed    0.02 sec
+            Start 13: temporal_tests
+      13/16 Test #13: temporal_tests ...................   Passed    0.00 sec
+            Start 14: folder_tests
+      14/16 Test #14: folder_tests .....................   Passed    0.00 sec
+            Start 15: fuzz_corpus_tests
+      15/16 Test #15: fuzz_corpus_tests ................   Passed    0.00 sec
+            Start 16: stress_deep_tests
+      16/16 Test #16: stress_deep_tests ................   Passed    0.00 sec
+      
+      100% tests passed out of 16
+      
+      Total Test time (real) =   2.42 sec
+      
+      ======================================================================
+      Building the strata._strata and strata._dumps_hook extensions
+      ======================================================================
+      building 'strata._strata' extension
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_document.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_document.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_dumps.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_dumps.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_files.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_files.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_folder.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_folder.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_jsonpath.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_jsonpath.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_loads.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_loads.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_module.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_module.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_native_types.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_native_types.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_ndjson.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_ndjson.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_numpy_twins.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_numpy_twins.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_parse_types.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_parse_types.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_parse_types_walk.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_parse_types_walk.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_cursor.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/json/json_cursor.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_document.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/json/json_document.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_parse.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/json/json_parse.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_serialize.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/json/json_serialize.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/ndjson_stream.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/json/ndjson_stream.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/search/jsonpath_compile.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/search/jsonpath_compile.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/search/jsonpath_eval.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/search/jsonpath_eval.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/dtoa.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/util/dtoa.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/folder.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/util/folder.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/scan.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/util/scan.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/temporal.cpp -o /tmp/tmp63809qsc.build-temp/src/strata/util/temporal.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -shared -Wl,--rpath=/opt/hostedtoolcache/Python/3.12.14/arm64/lib -Wl,--rpath=/opt/hostedtoolcache/Python/3.12.14/arm64/lib /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_document.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_dumps.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_files.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_folder.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_jsonpath.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_loads.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_module.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_native_types.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_ndjson.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_numpy_twins.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_parse_types.o /tmp/tmp63809qsc.build-temp/src/strata/bindings/python_parse_types_walk.o /tmp/tmp63809qsc.build-temp/src/strata/json/json_cursor.o /tmp/tmp63809qsc.build-temp/src/strata/json/json_document.o /tmp/tmp63809qsc.build-temp/src/strata/json/json_parse.o /tmp/tmp63809qsc.build-temp/src/strata/json/json_serialize.o /tmp/tmp63809qsc.build-temp/src/strata/json/ndjson_stream.o /tmp/tmp63809qsc.build-temp/src/strata/search/jsonpath_compile.o /tmp/tmp63809qsc.build-temp/src/strata/search/jsonpath_eval.o /tmp/tmp63809qsc.build-temp/src/strata/util/dtoa.o /tmp/tmp63809qsc.build-temp/src/strata/util/folder.o /tmp/tmp63809qsc.build-temp/src/strata/util/scan.o /tmp/tmp63809qsc.build-temp/src/strata/util/temporal.o -L/opt/hostedtoolcache/Python/3.12.14/arm64/lib -o /tmp/tmp0wivw2tl.build-lib/strata/_strata.cpython-312-aarch64-linux-gnu.so -flto=thin -fprofile-use=/home/runner/work/_temp/strata-arm/build/pgo/strata.profdata
+      building 'strata._dumps_hook' extension
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_dumps_hook.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/bindings/python_dumps_hook.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_native_types.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/bindings/python_native_types.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/bindings/python_numpy_twins.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/bindings/python_numpy_twins.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_cursor.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_cursor.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_document.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_document.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_parse.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_parse.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/json_serialize.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_serialize.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/json/ndjson_stream.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/ndjson_stream.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/search/jsonpath_compile.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/search/jsonpath_compile.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/search/jsonpath_eval.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/search/jsonpath_eval.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/dtoa.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/dtoa.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/folder.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/folder.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/scan.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/scan.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -fPIC -Iinclude -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -I/home/runner/work/_temp/strata-arm/.venv/include -I/opt/hostedtoolcache/Python/3.12.14/arm64/include/python3.12 -c src/strata/util/temporal.cpp -o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/temporal.o -std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY -march=native -ffunction-sections -fdata-sections -fvisibility=hidden
+      clang++ -fno-strict-overflow -Wsign-compare -DNDEBUG -g -O3 -Wall -shared -Wl,--rpath=/opt/hostedtoolcache/Python/3.12.14/arm64/lib -Wl,--rpath=/opt/hostedtoolcache/Python/3.12.14/arm64/lib /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/bindings/python_dumps_hook.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/bindings/python_native_types.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/bindings/python_numpy_twins.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_cursor.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_document.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_parse.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/json_serialize.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/json/ndjson_stream.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/search/jsonpath_compile.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/search/jsonpath_eval.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/dtoa.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/folder.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/scan.o /tmp/tmp63809qsc.build-temp/strata._dumps_hook/src/strata/util/temporal.o -L/opt/hostedtoolcache/Python/3.12.14/arm64/lib -o /tmp/tmp0wivw2tl.build-lib/strata/_dumps_hook.cpython-312-aarch64-linux-gnu.so -Wl,--gc-sections
+      copying /tmp/tmp0wivw2tl.build-lib/strata/_strata.cpython-312-aarch64-linux-gnu.so -> python/strata
+      copying /tmp/tmp0wivw2tl.build-lib/strata/_dumps_hook.cpython-312-aarch64-linux-gnu.so -> python/strata
+      
+      ======================================================================
+      GATE 2/2: Python test suites (post-build)
+      ======================================================================
+      + /home/runner/work/_temp/strata-arm/.venv/bin/python /home/runner/work/_temp/strata-arm/scripts/py_tests.py --path /home/runner/work/_temp/strata-arm/python
+      + pytest tests/py tests/unit --basetemp=/tmp/pytest-of-runner/kyvlpzcd
+        import path prefix: /home/runner/work/_temp/strata-arm/python
+      ============================= test session starts ==============================
+      platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+      rootdir: /home/runner/work/_temp/strata-arm
+      configfile: pyproject.toml
+      collected 3578 items / 1 skipped
+      
+      tests/py/native_types/test_native_fast_paths.py ........ssssssssss..     [  0%]
+      tests/py/native_types/test_native_import.py ...                          [  0%]
+      tests/py/native_types/test_native_oracle.py .........                    [  0%]
+      tests/py/native_types/test_native_reentrancy.py ........................ [  1%]
+      ..................................................                       [  2%]
+      tests/py/native_types/test_parse_types.py .............................. [  3%]
+      ......................................................  test temp files kept for inspection: /tmp/pytest-of-runner/kyvlpzcd
+      Python tests failed — aborting build (test-gated build)
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+  ERROR: Failed building editable for strata
+Failed to build strata
+error: failed-wheel-build-for-install
+
+× Failed to build installable wheels for some pyproject.toml based projects
+╰─> strata
+make: *** [Makefile:145: pgo] Error 1

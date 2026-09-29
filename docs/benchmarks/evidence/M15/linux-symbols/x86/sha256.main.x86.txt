@@ -1,0 +1,2 @@
+80fa66b0015161dece1904490860c7ba1b5770e4a05cd8f07de9a513eed7a1cc  /work/out/x86/main/_strata.so
+1c77be1b89466f6a70205f88f484d874c56845e45f5753ed0f60683e77b939a2  /work/prof/x86/A.profdata

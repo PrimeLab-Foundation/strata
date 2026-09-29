@@ -1,0 +1,11 @@
+# Native-type C++ translation units: compiled only where native types are
+# used - the C++ temporal test binary and `strata._dumps_hook` - never into
+# `strata._strata` (docs/architecture/native_types.md, "Flag shape (M15b)").
+#
+# Read by CMakeLists.txt (tests/cpp/test_temporal.cpp) and by setup.py (the
+# `_dumps_hook` extension). One repository-relative path per line; '#'
+# comments and blank lines ignored. Keep this file ASCII-only: CMake's
+# file(STRINGS) treats non-ASCII bytes as separators and would split a
+# comment line into bogus entries.
+
+src/strata/util/temporal.cpp

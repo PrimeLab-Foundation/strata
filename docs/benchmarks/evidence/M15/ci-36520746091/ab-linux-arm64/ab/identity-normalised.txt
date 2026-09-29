@@ -1,0 +1,24 @@
+functions: A 460, B 566, only in one 108
+identical after name and address normalisation: 126/459
+differing only in page-offset slot immediates: 0
+differing beyond that: 333
+  only in one: PyCallable_Check@plt
+  only in one: PyCapsule_GetPointer@plt
+  only in one: PyCapsule_Import@plt
+  only in one: PyDict_Clear@plt
+  only in one: PyDict_Copy@plt
+  only in one: PyDict_GetItemString@plt
+  only in one: PyFrozenSet_New@plt
+  only in one: PyImport_GetModuleDict@plt
+  only in one: PyImport_ImportModule@plt
+  only in one: PyIter_Next@plt
+  .plt: 2 changed lines, e.g. ['-adrp x16, <GCC_except_table10+0x1650c>', '+adrp x16, <GCC_except_table10+0x16c78>']
+  PyBool_FromLong@plt: 10 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x500]', '-add x16, x16, #0x500', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyBytes_AsStringAndSize@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x4f8]', '-add x16, x16, #0x4f8', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyBytes_FromStringAndSize@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x170]', '-add x16, x16, #0x170', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyDict_Contains@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x190]', '-add x16, x16, #0x190', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyDict_DelItem@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x2b8]', '-add x16, x16, #0x2b8', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyDict_DelItemString@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x488]', '-add x16, x16, #0x488', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyDict_GetItemWithError@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x368]', '-add x16, x16, #0x368', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyDict_New@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x2f0]', '-add x16, x16, #0x2f0', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']
+  PyDict_Next@plt: 6 changed lines, e.g. ['-adrp x16, <_GLOBAL_OFFSET_TABLE_+0x178>', '-ldr x17, [x16, #0x1b8]', '-add x16, x16, #0x1b8', '+adrp x16, <_GLOBAL_OFFSET_TABLE_+0x1a0>']

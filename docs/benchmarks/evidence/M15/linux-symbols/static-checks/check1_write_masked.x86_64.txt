@@ -1,0 +1,15 @@
+# __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+# raw instructions: main 186, candidate 194
+# masked (nop padding dropped): main 185, candidate 193
+# main instructions matched in order: 185/185 -> ALL
+# non-equal opcodes: 2 (insert)
+insert main[172:172] cand[172:175]  (main tail position 172/185, -0 +3)
+  + movq (%rip), %rcx  @__ZN6strata8bindings6native15g_runtime_readyE@GOTPCREL
+  + cmpb $0x1, (%rcx)
+  + je <SELF>
+insert main[185:185] cand[188:193]  (main tail position 185/185, -0 +5)
+  + movq %rbx, %rdi
+  + addq $0x18, %rsp
+  + popq %rbx
+  + popq %r14
+  + jmp <SELF>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object

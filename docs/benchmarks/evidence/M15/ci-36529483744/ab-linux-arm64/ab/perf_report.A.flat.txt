@@ -1,0 +1,40 @@
+    62.09%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.846964709874196916]  -      -            
+    36.74%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                      -      -            
+     0.23%  [.] _PyEval_EvalFrameDefault                                                                               -      -            
+     0.11%  [.] _Py_dict_lookup                                                                                        -      -            
+     0.03%  [.] initialize_locals                                                                                      -      -            
+     0.03%  [.] cfree                                                                                                  -      -            
+     0.03%  [.] update_one_slot                                                                                        -      -            
+     0.02%  [.] PyDict_GetItemWithError                                                                                -      -            
+     0.02%  [.] PyObject_Free                                                                                          -      -            
+     0.02%  [.] visit_decref                                                                                           -      -            
+     0.02%  [.] _Py_hashtable_get                                                                                      -      -            
+     0.02%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                      -      -            
+     0.02%  [.] malloc                                                                                                 -      -            
+     0.02%  [.] PyObject_Vectorcall                                                                                    -      -            
+     0.01%  [.] PyFloat_FromDouble@plt                                                                                 -      -            
+     0.01%  [k] 0xffffb0b1ec3806bc                                                                                     -      -            
+     0.01%  [.] scanstring_unicode                                                                                     -      -            
+     0.01%  [.] _PyCfg_OptimizeCodeUnit                                                                                -      -            
+     0.01%  [.] 0x0000000000092b20                                                                                     -      -            
+     0.01%  [.] operator new(unsigned long)                                                                            -      -            
+     0.01%  [.] _PyEvalFramePushAndInit                                                                                -      -            
+     0.01%  [.] deduce_unreachable                                                                                     -      -            
+     0.01%  [.] PyObject_Malloc                                                                                        -      -            
+     0.01%  [.] visit_reachable                                                                                        -      -            
+     0.01%  [.] dict_dealloc                                                                                           -      -            
+     0.01%  [.] 0x0000000000008d30                                                                                     -      -            
+     0.01%  [.] list_traverse                                                                                          -      -            
+     0.01%  [.] _PyObject_GC_New                                                                                       -      -            
+     0.01%  [.] _PyType_Lookup                                                                                         -      -            
+     0.01%  [.] _PyCode_Quicken                                                                                        -      -            
+     0.01%  [.] PyErr_Occurred                                                                                         -      -            
+     0.01%  [k] 0xffffb0b1ec380c44                                                                                     -      -            
+     0.01%  [.] _Py_HashBytes                                                                                          -      -            
+     0.01%  [k] 0xffffb0b1eb1fc520                                                                                     -      -            
+     0.01%  [k] 0xffffb0b1ec3ba0ac                                                                                     -      -            
+     0.00%  [.] 0x000000000000d380                                                                                     -      -            
+     0.00%  [.] 0x000000000000052c                                                                                     -      -            
+     0.00%  [.] 0x00000000000941bc                                                                                     -      -            
+     0.00%  [.] _PyFrame_ClearExceptCode                                                                               -      -            
+     0.00%  [.] Py_GetRecursionLimit@plt                                                                               -      -            

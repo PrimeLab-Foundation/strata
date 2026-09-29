@@ -1,0 +1,40 @@
+    66.30%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.11943961986628997916]                -      -            
+    31.74%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                                      -      -            
+     1.03%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.11943961986628997916] [clone .cold]  -      -            
+     0.17%  [.] _PyEval_EvalFrameDefault.cold                                                                                          -      -            
+     0.08%  [.] _Py_dict_lookup                                                                                                        -      -            
+     0.02%  [.] visit_decref                                                                                                           -      -            
+     0.01%  [.] PyObject_Vectorcall                                                                                                    -      -            
+     0.01%  [.] _Py_HashBytes                                                                                                          -      -            
+     0.01%  [.] tupledealloc                                                                                                           -      -            
+     0.01%  [.] visit_reachable                                                                                                        -      -            
+     0.01%  [k] 0xffffffff9452c39c                                                                                                     -      -            
+     0.01%  [k] 0xffffffff95649529                                                                                                     -      -            
+     0.01%  [.] PyObject_Free                                                                                                          -      -            
+     0.01%  [.] PyUnicode_CompareWithASCIIString                                                                                       -      -            
+     0.01%  [.] Py_GetRecursionLimit                                                                                                   -      -            
+     0.01%  [.] _PyCompile_InstrSize                                                                                                   -      -            
+     0.01%  [.] deopt_code                                                                                                             -      -            
+     0.01%  [.] initialize_locals                                                                                                      -      -            
+     0.01%  [.] object_dealloc                                                                                                         -      -            
+     0.01%  [.] py_get_monotonic_clock                                                                                                 -      -            
+     0.01%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                                      -      -            
+     0.01%  [.] tupletraverse                                                                                                          -      -            
+     0.01%  [.] type_traverse                                                                                                          -      -            
+     0.01%  [.] update_one_slot                                                                                                        -      -            
+     0.01%  [.] 0x000000000000a3b5                                                                                                     -      -            
+     0.00%  [.] (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*)                                         -      -            
+     0.00%  [.] PyDict_GetItemWithError                                                                                                -      -            
+     0.00%  [.] PyErr_Occurred                                                                                                         -      -            
+     0.00%  [.] PyErr_Occurred@plt                                                                                                     -      -            
+     0.00%  [.] PyFloat_FromDouble                                                                                                     -      -            
+     0.00%  [.] PyMem_Calloc                                                                                                           -      -            
+     0.00%  [.] PyObject_GC_Track                                                                                                      -      -            
+     0.00%  [.] PyObject_IS_GC                                                                                                         -      -            
+     0.00%  [.] PyObject_Malloc                                                                                                        -      -            
+     0.00%  [.] PyObject_SetAttr                                                                                                       -      -            
+     0.00%  [.] PySet_Add                                                                                                              -      -            
+     0.00%  [.] PyTuple_GetSlice                                                                                                       -      -            
+     0.00%  [.] PyTuple_Pack                                                                                                           -      -            
+     0.00%  [.] Py_XDECREF                                                                                                             -      -            
+     0.00%  [.] _PyCode_Quicken                                                                                                        -      -            
