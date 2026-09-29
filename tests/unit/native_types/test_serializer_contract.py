@@ -435,6 +435,18 @@ def test_row7_a_dataclass_is_an_object_of_its_fields_in_order():
     assert both(Frozen(2, [Point(0, 0.0)])) == '{"b":2,"a":[{"x":0,"y":0.0,"label":"p"}]}'
 
 
+def test_row7_field_names_are_the_bytes_a_dict_key_of_that_name_gets():
+    # The native tail writes a field name through the core escaper, never the
+    # hot string writer (python_dumps.cpp, "hard inlining boundary"); its bytes
+    # stay the ones a dict key of the same name gets, whatever the script or
+    # the length (past any small-string buffer and the stage's 16-byte block).
+    long_name = "a_field_name_longer_than_a_small_string_buffer_" * 3
+    names = ["café", "ключ", "名前", long_name]
+    value = dataclasses.make_dataclass("Named", [(name, int) for name in names])(1, 2, 3, 4)
+    assert both(value) == both(dict(zip(names, (1, 2, 3, 4), strict=True)))
+    assert both(value) == '{"café":1,"ключ":2,"名前":3,"' + long_name + '":4}'
+
+
 def test_row7_extra_instance_attributes_are_not_written():
     point = Point(1, 2.0)
     point.extra = "hidden"

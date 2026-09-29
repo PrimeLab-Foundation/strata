@@ -41,7 +41,7 @@
  *      decimal context can be created lazily), each `Enum.value` read, the
  *      dataclass field-name lookup and each field read, a set subclass's
  *      iterator and each of its steps (an exact set's table walk runs
- *      nothing itself; each non-plain element it writes is latched), and
+ *      nothing itself; each element it writes is latched and held), and
  *      numpy's dtype read and `item()`/`tolist()` or their twins. A
  *      pure leaf -- an exact `datetime`/`date`/`time` whose tzinfo is `None`
  *      or exactly `datetime.timezone`, an exact `uuid.UUID` -- calls nothing
@@ -135,6 +135,44 @@
  * remembers, so it only ever remembers exact `str` objects, whose release
  * cannot run a `__del__` or a weakref callback while another record's row is
  * staged. A dict with a `str` subclass key takes the plain walk instead.
+ *
+ * ## The native tail is a hard inlining boundary
+ *
+ * The native cold writers -- write_native (its numpy arms included),
+ * write_native_text, write_decimal, write_enum, write_dataclass with its key
+ * writer write_key_cold, write_set and write_set_table -- call only:
+ *
+ *   - write(), latch(), emit_cycle_placeholder(), and NativeFrame with its
+ *     push_open_cold (its destructor is close_container) -- never Frame,
+ *     whose constructor the hot writers inline;
+ *   - the StagedOutput primitives main's own cold writers already call:
+ *     ensure, put, write, advance, cursor, write_spanning;
+ *   - python_native_types.h and python_numpy_twins.h, the CPython API,
+ *     PyRef, and std::string's members on write_key_cold's own scratch (as
+ *     main's cold build_schema uses them on the schema blob);
+ *   - core functions that are out of line in main's images -- the core
+ *     escaper, append_escaped_json_string.
+ *
+ * Nothing else: none of the helpers the hot writers inline (write_string,
+ * write_string_bytes, write_int, write_double, is_plain_scalar,
+ * is_compact_int, direct_sink, Frame's constructor, push_open), however
+ * natural the call looks. Whether a hot writer inlines a helper depends on
+ * how many callers the helper has and where they sit, not on profile counts
+ * alone (the two profiles' counts for these writers are identical), and in
+ * M15 each new cold caller of one flipped it under PGO: write_string on the
+ * M1's Apple clang (`dumps flat` +1.5-3%); then, with the call moved one
+ * level down, write_string_bytes on Ubuntu clang 18 -- out of line on both
+ * Linux legs, write() 17501 -> 16640 bytes and write_mapping_body
+ * 6091 -> 5021 on linux-x86_64, small `dumps flat` +1.58%/+2.15% in run
+ * 36502555579 -- and, once that call was gone, Frame's constructor, which
+ * the three framed native writers moved out of write_mapping and one site
+ * of write() there. The threshold sits at a different level per compiler and
+ * per helper, so no call-site nudge clears every leg; a boundary the cold
+ * code never crosses does. A new native writer keeps to the same list, and
+ * its check is a symbol table on every compiler a CI leg uses: no hot helper
+ * newly out of line, and write(), write_mapping_body and write_mapping
+ * calling what they call in main
+ * (docs/benchmarks/evidence/M15/linux-symbols/).
  */
 
 #include "python_dumps_output.h"
@@ -484,7 +522,7 @@ class Serializer {
      * bound covers them.
      */
     [[nodiscard]] STRATA_COLD_FN bool write_enum(PyObject* member) {
-        const Frame frame(*this, member);
+        const NativeFrame frame(*this, member);
         if (frame.repeated())
             return frame.handle_cycle();
         if (!frame.within_depth_limit())
@@ -518,11 +556,11 @@ class Serializer {
      * as it is written (followed live, like a wide dict). The Frame is on the
      * instance itself and opens before the first field, so an instance that
      * contains itself meets the cycle policy as a dict does, and the instance
-     * takes one level of the depth limit. Keys go through the escaper every
-     * key uses (write_string_bytes); nothing is copied into a temporary dict.
+     * takes one level of the depth limit. Keys go through the core escaper
+     * (write_key_cold); nothing is copied into a temporary dict.
      */
     [[nodiscard]] STRATA_COLD_FN bool write_dataclass(PyObject* object) {
-        const Frame frame(*this, object);
+        const NativeFrame frame(*this, object);
         if (frame.repeated())
             return frame.handle_cycle();
         if (!frame.within_depth_limit())
@@ -540,14 +578,10 @@ class Serializer {
                 out_.ensure(1);
                 out_.put(',');
             }
-            // The name's UTF-8 goes straight to the escaper, not through
-            // write_string: see write_string for why it keeps hot callers only.
-            Py_ssize_t size = 0;
-            const char* const utf8 = PyUnicode_AsUTF8AndSize(name, &size);
-            if (utf8 == nullptr || !write_string_bytes(utf8, static_cast<size_t>(size)))
+            // Not write_string or write_string_bytes: the native tail is a
+            // hard inlining boundary (this file's header).
+            if (!write_key_cold(name))
                 return false;
-            out_.ensure(1);
-            out_.put(':');
             latch();
             const PyRef value(native::field_value(object, name));
             if (!value || !write(value.get()))
@@ -555,6 +589,26 @@ class Serializer {
         }
         out_.ensure(1);
         out_.put('}');
+        return true;
+    }
+
+    /**
+     * A dataclass field name and its colon, escaped by the core escaper --
+     * the one definition of escaping, which write_string_bytes defers to and
+     * the schema cache stores, so the bytes are the ones write_string_bytes
+     * would emit -- into this function's own per-thread scratch (never
+     * direct_sink()'s), then spanned into the output.
+     */
+    [[nodiscard]] STRATA_COLD_FN bool write_key_cold(PyObject* name) {
+        Py_ssize_t size = 0;
+        const char* const utf8 = PyUnicode_AsUTF8AndSize(name, &size);
+        if (utf8 == nullptr)
+            return false;
+        static thread_local std::string scratch;
+        scratch.clear();
+        append_escaped_json_string(std::string_view(utf8, static_cast<size_t>(size)), scratch);
+        scratch.push_back(':');
+        out_.write_spanning(scratch.data(), scratch.size());
         return true;
     }
 
@@ -568,7 +622,7 @@ class Serializer {
      * the `RuntimeError` its iterator raises.
      */
     [[nodiscard]] STRATA_COLD_FN bool write_set(PyObject* object) {
-        const Frame frame(*this, object);
+        const NativeFrame frame(*this, object);
         if (frame.repeated())
             return frame.handle_cycle();
         if (!frame.within_depth_limit())
@@ -611,12 +665,15 @@ class Serializer {
      * The walk is proven against the iterator at module init
      * (native::set_table_walk_ready).
      *
-     * A key is borrowed from the table while it is written only when it is a
-     * plain scalar, which runs nothing; any other key is a user-code step --
-     * `latch()`, then a strong reference, as write_native takes on the
-     * object it converts -- because the code it runs can remove it. While
-     * nothing has run, the set is as it was, so once `used` keys are written
-     * no live slot is left and the scan stops there instead of at the mask.
+     * Every key is written as a user-code step -- `latch()`, then a strong
+     * reference, as write_native takes on the object it converts -- because
+     * the code a key can run can remove it from the set. A plain scalar runs
+     * nothing and would not need either, but telling one apart takes
+     * is_plain_scalar, a helper the hot writers inline, which the native tail
+     * never calls (this file's header); the latch is the conservative answer
+     * for every key instead, and costs a set a few loads per element once the
+     * walk is latched. For the same reason the scan runs to the mask, as the
+     * iterator's does, rather than stopping after `used` keys.
      */
     [[nodiscard]] STRATA_COLD_FN bool write_set_table(PyObject* object) {
         const auto* const set = reinterpret_cast<PySetObject*>(object);
@@ -625,15 +682,11 @@ class Serializer {
         out_.ensure(1);
         out_.put('[');
         Py_ssize_t position = 0;
-        Py_ssize_t written = 0;
-        bool ran_code = false;
         for (bool first = true;; first = false) {
             if (set->used != size) {
                 PyErr_SetString(PyExc_RuntimeError, "Set changed size during iteration");
                 return false;
             }
-            if (written == size && !ran_code)
-                break;
             const setentry* const table = set->table;
             const Py_ssize_t mask = set->mask;
             while (position <= mask &&
@@ -643,17 +696,10 @@ class Serializer {
                 break;
             PyObject* const key = table[position].key;
             ++position;
-            ++written;
             if (!first) {
                 out_.ensure(1);
                 out_.put(',');
             }
-            if (is_plain_scalar(key)) {
-                if (!write(key))
-                    return false;
-                continue;
-            }
-            ran_code = true;
             latch();
             const PyRef held(Py_NewRef(key));
             if (!write(key))
@@ -731,14 +777,12 @@ class Serializer {
     }
 
     /**
-     * A `str` as a JSON string. Only the hot writers call it (write,
-     * write_mapping_body, write_mapping_uncached): LLVM keeps
-     * write_string_bytes out of it only while every caller would inline it
-     * (the inliner's deferral, which counts on the last-call bonus). One cold
-     * caller -- M15's write_dataclass did this -- lets write_string_bytes
-     * inline here, write_string grows past the hot-call threshold, and
-     * write() and write_mapping_body pay a call per string under PGO
-     * (`dumps flat` +1.5-3% on the M1). Cold writers call write_string_bytes.
+     * A `str` as a JSON string. Only the writers main has always had call it
+     * or write_string_bytes (write, write_mapping_body, write_mapping_uncached):
+     * one more caller, even a cold one, moves the inliner's decision for both
+     * and write() and write_mapping_body then pay a call per string under PGO
+     * -- M15 did it twice, one level apart per compiler. The native tail's
+     * boundary in this file's header is the rule that keeps them out.
      */
     [[nodiscard]] bool write_string(PyObject* object) {
         // Compact ASCII is the overwhelmingly common shape and its bytes are
@@ -1977,6 +2021,54 @@ class Serializer {
     };
 
     /**
+     * Frame for the native tail (write_enum, write_dataclass, write_set): the
+     * same probe of `open_`, the same depth test and the same placeholder, in
+     * code of its own. Frame's constructor is a helper the hot writers inline
+     * -- main inlines it into write_mapping and into one site of write() --
+     * so the tail never constructs one (this file's header): on linux-x86_64
+     * the three native writers constructing Frame moved it out of both. The
+     * probe is a loop rather than Frame's std::find, the push is
+     * push_open_cold, and the placeholder is emit_cycle_placeholder, whose
+     * body is Frame::handle_cycle's; the pop is close_container, as Frame's.
+     */
+    class NativeFrame {
+      public:
+        NativeFrame(Serializer& owner, PyObject* container) : owner_(owner), container_(container) {
+            for (PyObject* const open : owner_.open_) {
+                if (open == container) {
+                    repeated_ = true;
+                    return;
+                }
+            }
+            owner_.push_open_cold(container);
+        }
+
+        ~NativeFrame() {
+            if (!repeated_)
+                owner_.close_container(container_);
+        }
+
+        NativeFrame(const NativeFrame&) = delete;
+        NativeFrame& operator=(const NativeFrame&) = delete;
+
+        [[nodiscard]] bool repeated() const noexcept { return repeated_; }
+
+        [[nodiscard]] bool within_depth_limit() const {
+            if (static_cast<int>(owner_.open_count_) <= owner_.depth_limit_)
+                return true;
+            PyErr_SetString(PyExc_ValueError, "Maximum serialization depth exceeded");
+            return false;
+        }
+
+        [[nodiscard]] bool handle_cycle() const { return owner_.emit_cycle_placeholder(); }
+
+      private:
+        Serializer& owner_;
+        PyObject* container_;
+        bool repeated_ = false;
+    };
+
+    /**
      * The deferred frame of the sequence and record loops: the container goes
      * on `open_` the first time the loop is about to walk a child that could
      * run user code -- which is exactly the first element that is not an exact
@@ -2102,13 +2194,21 @@ class Serializer {
         }
     }
 
-    /// Push a container on `open_`. The only writer of the stack, so
-    /// `open_count_ == open_.size()` is a structural fact rather than a
-    /// convention two call sites have to remember: the depth checks and
-    /// `latch()` then read one integer instead of computing a vector's size
-    /// from its two pointers.
+    /// Push a container on `open_`. With its cold twin below, the only writer
+    /// of the stack, so `open_count_ == open_.size()` is a structural fact
+    /// rather than a convention every call site has to remember: the depth
+    /// checks and `latch()` then read one integer instead of computing a
+    /// vector's size from its two pointers.
     void push_open(PyObject* container) {
         open_.push_back(container);
+        ++open_count_;
+    }
+
+    /// push_open for NativeFrame, out of line and through emplace_back -- a
+    /// different instantiation from push_back's -- so the native tail shares
+    /// no inlined helper with the hot writers (this file's header).
+    STRATA_COLD_FN void push_open_cold(PyObject* container) {
+        open_.emplace_back(container);
         ++open_count_;
     }
 

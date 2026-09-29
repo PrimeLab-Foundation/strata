@@ -1,0 +1,42 @@
+A=main+profile-A	B-orig+profile-B	B-fix-v1 (no NativeFrame)+profile-B	B-fix+profile-B	symbol
+17501	16640	17693	17803	Serializer::write()
+11172	7979	10955	10917	Serializer::write() [clone .cold]
+6091	5021	6182	6182	Serializer::write_mapping_body()
+3706	3706	3706	3706	Serializer::write_record_fused()
+3217	2180	3116	3116	Serializer::write_mapping_body() [clone .cold]
+2755	2740	2740	2740	Serializer::write_scalar_run() [clone .cold]
+2610	1749	2610	2610	Serializer::write_mapping_uncached()
+2047	2047	2047	2047	strata::bindings::dumps_to_python()
+1995	1995	1995	1995	Serializer::grow_schemas(unsigned long)
+1707	784	1707	1707	Serializer::write_mapping_uncached() [clone .cold]
+1343	1348	1348	1348	Serializer::write_scalar_run()
+0	1278	0	0	Serializer::write_string_bytes()
+1194	838	838	1266	Serializer::write_mapping()
+1051	1051	1051	1051	Serializer::build_schema()
+0	837	0	0	Serializer::write_string_bytes() [clone .cold]
+0	693	781	760	Serializer::write_dataclass()
+0	566	566	713	Serializer::write_set()
+0	479	479	674	Serializer::write_enum()
+555	555	555	555	Serializer::write_record_fused() [clone .cold]
+0	535	418	418	Serializer::write_set_table()
+482	401	401	432	Serializer::write_mapping() [clone .cold]
+0	0	464	464	Serializer::write_key_cold()
+0	433	433	433	Serializer::write_native()
+260	417	417	260	Serializer::Frame::Frame(Serializer&, _object*)
+376	376	376	376	strata::bindings::dumps_to_python() [clone .cold]
+270	236	236	236	(anonymous namespace)::strata_dumps() [clone .cold]
+205	232	232	232	(anonymous namespace)::strata_dumps()
+0	0	0	219	Serializer::push_open_cold()
+0	173	173	173	Serializer::write_decimal()
+150	150	150	150	Serializer::Frame::handle_cycle() const
+149	149	149	149	Serializer::emit_cycle_placeholder()
+0	143	143	143	Serializer::write_native_text()
+132	132	132	132	Serializer::build_schema() [clone .cold]
+116	116	116	116	Serializer::latch()
+111	111	111	111	Serializer::RowLock::~RowLock()
+89	89	89	89	Serializer::compact_general_holes() [clone .cold]
+89	89	89	89	Serializer::compact_general_exact() [clone .cold]
+62	62	62	62	Serializer::compact_general_holes()
+62	62	62	62	Serializer::compact_general_exact()
+57	57	57	57	Serializer::close_container()
+0	39	39	0	Serializer::Frame::Frame(Serializer&, _object*) [clone .cold]

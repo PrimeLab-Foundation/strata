@@ -1,0 +1,2 @@
+b7a12d277e55e0481126704e2dc3c3c5a0fc9c90c3f88eb5cacb1014135a08d9  /work/out/arm64/main/_strata.so
+35666dcfb2f6047ac6087a01bc7655dd0de1c5772e5b5e51c2e20e8b7bd84414  /work/prof/arm64/A.profdata

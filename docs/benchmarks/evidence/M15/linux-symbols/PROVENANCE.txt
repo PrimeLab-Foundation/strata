@@ -1,0 +1,61 @@
+M15 native tail as a hard inlining boundary -- Linux clang symbol evidence, 2026-09-29.
+Replays CI run 36502555579's PGO+LTO builds (compile only, no training) against that run's own
+profiles, to check the fix before any dispatch.
+
+Container: ubuntu:24.04 + apt clang llvm python3.12-dev binutils libstdc++-14-dev (Dockerfile) --
+Ubuntu clang 18.1.3 (1ubuntu1), GNU ld 2.42, GCC 14.2.0 headers, the toolchain in the CI images'
+.comment and *.so.build.json. libstdc++-14-dev is required: without it clang picks GCC 13's headers
+and the replay differs from CI in 85 functions. CPython headers 3.12.3 (CI: 3.12.14).
+  x86 : --platform linux/amd64 (Rosetta), -march=native -> -march=znver3 (CI host EPYC 7763)
+  arm64: --platform linux/arm64 native, -march=native -> -march=armv9-a (what clang 18's driver
+         makes of -march=native on the Neoverse-N2 runner; -mcpu=neoverse-n2 differs in 107)
+build_ci.sh  replays arms/<arm>.so.build.json's recorded commands (the 23 TUs, then the link) with
+             only the hosted-toolcache include path, the profile path and -march rewritten
+             (cmds.<arm>.<isa>.txt are the exact commands run). Flags as CI: -O3 -flto=thin
+             -fprofile-use, -fsplit-machine-functions and -fomit-frame-pointer on x86 only.
+
+Arms (per ISA)
+  main   = 38eaa9f source, CI profile-A     (build/evidence/M15/ci-36502555579/ab-linux-*/ab/profile-A)
+  borig  = 296d2ea source, CI profile-B     (the CI B arm)
+  bfix   = exp/native-types with the boundary, CI profile-B (profile hashes still match for every
+           function the fix does not edit; compile-stderr.bfix.* lists the four cold writers whose
+           counts are discarded, write_enum/write_dataclass/write_set/write_set_table)
+  bfix-v1 (x86 only) = the first cut: dataclass keys through write_key_cold and the set walk without
+           is_plain_scalar, but the native writers still constructing Frame (x86/variant-v1.patch)
+
+Reproduction (the pre-dispatch condition): repro.main-vs-CI-A.<isa>.txt and
+repro.borig-vs-CI-B.<isa>.txt -- nm -S text-symbol sizes of the replay against CI's A.so / B.so:
+0 of 473 / 537 (x86) and 0 of 296 / 354 (arm64) symbols differ.
+
+Files per ISA (x86/, arm64/)
+  symbols.<isa>.tsv            serializer symbol sizes, main / B-orig / B-fix (table.py; .cold = the
+                               split-off part on x86)
+  calls.<isa>/<arm>.<fn>.calls.txt  call/tail-call targets of write, write_mapping_body, write_mapping
+  opcodes.main-vs-{borig,bfix}.<isa>.txt  opcode-multiset delta of each hot writer (hot + .cold)
+  profile-summary.{A,B}.<isa>.txt  llvm-profdata --detailed-summary heads
+  nm.<arm>.<isa>.txt, sha256.<arm>.<isa>.txt, compile-stderr.<arm>.<isa>.txt, clang.<isa>.txt
+  x86/variant-v1.symbols.x86.tsv  main / B-orig / B-fix-v1 / B-fix
+static-checks/                 checks 1-2 (plain builds, M1: arm64 native + x86_64 cross) of the fix
+                               against build/evidence/M15/codegen/main, by final/codegen's
+                               masked_check.py and check2.py; check 1 byte-identical to final/'s
+
+Readings
+  - B-orig reproduces the flip on both Linux legs: write_string_bytes out of line (x86 1278 + 837
+    cold, arm64 2012), write() 17501 -> 16640 (x86) / 27100 -> 23512 (arm64).
+  - bfix-v1 brought write_string_bytes back inline and write_mapping_uncached to main's bytes, but
+    Frame::Frame kept B's 417 + 39 cold (main 260) and was no longer inlined into write_mapping
+    (838, main 1194) or one site of write() (x86 calls: 2 Frame::Frame calls, main 1): the three
+    framed native writers were a second flip of the same kind. NativeFrame removes it.
+  - bfix: write, write_mapping_body and write_mapping call exactly what main's call (both ISAs);
+    no write_string / write_string_bytes symbol; Frame::Frame 260 (x86) / 344 (arm64), main's.
+    arm64 (no machine-function splitting): write_mapping_body 8500, write_mapping 1676,
+    write_mapping_uncached 3740 -- main's bytes and opcodes; write() 27160 vs 27100, +15
+    instructions, which are the V4 tail (flag load, test, branches, the tail call to write_native
+    and its own epilogue: ldp x7, mov x2 -- static check 1's +5/+7).
+    x86: write() 17803 + 10917 cold vs 17501 + 11172 (+16 instructions: the same tail, cmpb/je/jmp,
+    popq x6 epilogue); write_mapping_body 6182 + 3116 vs 6091 + 3217 (opcodes: -2 jmp, -1 nop);
+    write_mapping 1266 + 432 vs 1194 + 482 (+1 nopl); write_mapping_uncached identical. The x86
+    residuals outside the tail are hot/cold split placement only. The per-function block counts of
+    these writers are identical in profile-A and profile-B; the profile summary is not (B: 511
+    functions, 6319 blocks, total count 589342900; A: 454, 5183, 587046224), and
+    -fsplit-machine-functions reads its cold threshold from that summary.

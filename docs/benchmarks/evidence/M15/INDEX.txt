@@ -30,3 +30,7 @@ Timings are the dev M1 under shared load; each session's uptime/top-5 is in its 
                       stopped before a sample (see docs/decisions.md 2026-09-29, build-and-test)
   ci-36502555579/    five-leg paired A/B run 36502555579 (exp/m15-ab-arm 296d2ea, base 38eaa9f, 6 x 60):
                       every leg timed; verdict.py classifies resolved rows (CI excludes 0, |effect| > floor)
+  linux-symbols/     the native tail as a hard inlining boundary: CI run 36502555579's PGO+LTO builds replayed in
+                      ubuntu:24.04 / clang 18.1.3 (x86 via Rosetta, arm64 native) against that run's profiles --
+                      main and 296d2ea reproduce CI's A.so / B.so symbol for symbol; the fix restores main's calls
+                      in write, write_mapping_body and write_mapping on both ISAs; static checks 1-2 of the fix

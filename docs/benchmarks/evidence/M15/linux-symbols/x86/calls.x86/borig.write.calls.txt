@@ -1,0 +1,35 @@
+1	call	PyErr_Clear@plt
+1	call	PyErr_Format@plt
+3	call	PyErr_Occurred@plt
+2	call	PyErr_SetString@plt
+3	call	PyLong_AsLongLongAndOverflow@plt
+2	call	PyObject_Str@plt
+1	call	PyType_IsSubtype@plt
+4	call	PyUnicode_AsUTF8AndSize@plt
+7	call	_Py_Dealloc@plt
+1	call	_Unwind_Resume@plt
+2	call	_ZN6strata26append_escaped_json_stringESt17basic_string_viewIcSt11char_traitsIcEERNSt7__cxx1112basic_stringIcS2_SaIcEEE@plt
+1	call	_ZN6strata4util13format_doubleEdPcm@plt
+1	call	_ZN6strata4util24copy_until_escape_scalarEPKcmPc@plt
+2	call	_ZSt20__throw_length_errorPKc@plt
+2	call	_ZdlPv@plt
+2	call	_Znwm@plt
+12	call	__clang_call_terminate
+2	call	__cxa_thread_atexit@plt
+8	call	__tls_get_addr@plt
+4	call	memcpy@plt
+4	call	memset@plt
+2	call	std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>::_M_mutate(unsigned long, unsigned long, char const*, unsigned long)
+2	call	strata::bindings::(anonymous namespace)::Serializer::Frame::Frame(strata::bindings::(anonymous namespace)::Serializer&, _object*)
+2	call	strata::bindings::(anonymous namespace)::Serializer::Frame::handle_cycle() const
+5	call	strata::bindings::(anonymous namespace)::Serializer::close_container(_object*)
+2	call	strata::bindings::(anonymous namespace)::Serializer::latch()
+4	call	strata::bindings::(anonymous namespace)::Serializer::write(_object*) ()
+2	call	strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)
+3	call	strata::bindings::(anonymous namespace)::Serializer::write_scalar_run(_object**, long)
+1	call	strata::bindings::(anonymous namespace)::Serializer::write_string_bytes(char const*, unsigned long)
+2	call	strata::bindings::PyRef::~PyRef()
+33	call	strata::bindings::StagedOutput::overflow(unsigned long)
+6	call	strata::bindings::StagedOutput::write_spanning(char const*, unsigned long)
+4	call	strata::util::detail::write_digits_fixed(unsigned long, char*, unsigned long)
+2	call	strata::util::find_next_escape(char const*, unsigned long)

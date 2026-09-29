@@ -1,0 +1,12 @@
+Instrumentation level: IR  entry_first = 0
+Total functions: 454
+Maximum function count: 5735916
+Maximum internal block count: 34261648
+Total number of blocks: 5183
+Total count: 587046224
+Detailed summary:
+1 blocks with count >= 34261648 account for 1 percentage of the total counts.
+4 blocks with count >= 6360944 account for 10 percentage of the total counts.
+14 blocks with count >= 5161583 account for 20 percentage of the total counts.
+26 blocks with count >= 3858441 account for 30 percentage of the total counts.
+46 blocks with count >= 2984464 account for 40 percentage of the total counts.

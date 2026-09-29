@@ -1,0 +1,5 @@
+warning: src/strata/bindings/python_dumps.cpp: function control flow change detected (hash mismatch) _ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object Hash = 890259287844142857 up to 0 count discarded [-Wbackend-plugin]
+warning: src/strata/bindings/python_dumps.cpp: function control flow change detected (hash mismatch) _ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object Hash = 688056642785297964 up to 0 count discarded [-Wbackend-plugin]
+warning: src/strata/bindings/python_dumps.cpp: function control flow change detected (hash mismatch) _ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object Hash = 194648684672745857 up to 0 count discarded [-Wbackend-plugin]
+warning: src/strata/bindings/python_dumps.cpp: function control flow change detected (hash mismatch) _ZN6strata8bindings12_GLOBAL__N_110Serializer15write_set_tableEP7_object Hash = 477729238035323064 up to 0 count discarded [-Wbackend-plugin]
+4 warnings generated.
