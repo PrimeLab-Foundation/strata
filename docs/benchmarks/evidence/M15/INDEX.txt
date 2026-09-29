@@ -36,3 +36,4 @@ Timings are the dev M1 under shared load; each session's uptime/top-5 is in its 
                       in write, write_mapping_body and write_mapping on both ISAs; static checks 1-2 of the fix
   boundary-screen/   74d78ca `make pgo` on the dev M1: 8-row screen vs armA (the attribution five + the three rows
                       run 36502555579 resolved on linux-x86_64) and the same-session A/A vs armA2; M1 symbol table
+  ci-36520746091/    paired draw 2 (exp/m15-ab-arm afd1550 = 74d78ca + arm tooling, base 38eaa9f, 6 x 60): verdict.txt

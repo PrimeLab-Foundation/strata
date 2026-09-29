@@ -1,0 +1,40 @@
+    64.83%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.4622379473299063012]  -      -            
+    33.65%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                       -      -            
+     0.10%  [.] _PyEval_EvalFrameDefault                                                                                -      -            
+     0.10%  [.] gc_collect_main                                                                                         -      -            
+     0.09%  [.] _Py_dict_lookup                                                                                         -      -            
+     0.08%  [.] deduce_unreachable                                                                                      -      -            
+     0.07%  [.] PyObject_Malloc                                                                                         -      -            
+     0.06%  [.] PyObject_Free                                                                                           -      -            
+     0.05%  [k] 0xffffac2d4b3a06bc                                                                                      -      -            
+     0.05%  [.] _Py_HashBytes                                                                                           -      -            
+     0.04%  [.] visit_reachable                                                                                         -      -            
+     0.04%  [.] visit_decref                                                                                            -      -            
+     0.03%  [.] scanstring_unicode                                                                                      -      -            
+     0.03%  [.] PyUnicode_Substring                                                                                     -      -            
+     0.02%  [.] scan_once_unicode                                                                                       -      -            
+     0.02%  [.] PyObject_Malloc@plt                                                                                     -      -            
+     0.02%  [.] dict_traverse                                                                                           -      -            
+     0.02%  [.] _Py_dg_strtod                                                                                           -      -            
+     0.02%  [.] _PyObject_GC_New                                                                                        -      -            
+     0.02%  [.] dict_dealloc                                                                                            -      -            
+     0.01%  [.] PyDict_GetItemWithError                                                                                 -      -            
+     0.01%  [k] 0xffffac2d4a18152c                                                                                      -      -            
+     0.01%  [.] PyObject_IS_GC                                                                                          -      -            
+     0.01%  [.] _Py_hashtable_get                                                                                       -      -            
+     0.01%  [.] PyObject_Vectorcall                                                                                     -      -            
+     0.01%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                       -      -            
+     0.01%  [.] PyLong_FromString                                                                                       -      -            
+     0.01%  [.] PyDict_SetItem                                                                                          -      -            
+     0.01%  [.] insertdict                                                                                              -      -            
+     0.01%  [k] 0xffffac2d4a1817e4                                                                                      -      -            
+     0.01%  [.] _PyThreadState_UncheckedGet                                                                             -      -            
+     0.01%  [.] list_traverse                                                                                           -      -            
+     0.01%  [k] 0xffffac2d4a1df114                                                                                      -      -            
+     0.01%  [.] PyDict_SetDefault                                                                                       -      -            
+     0.01%  [.] _Py_NewReference                                                                                        -      -            
+     0.01%  [k] 0xffffac2d4a577ce4                                                                                      -      -            
+     0.01%  [.] _PyDict_MaybeUntrack                                                                                    -      -            
+     0.01%  [.] _Py_type_getattro                                                                                       -      -            
+     0.01%  [.] 0x00000000000a2ed4                                                                                      -      -            
+     0.01%  [.] _PyUnicode_FromUCS1.part.0                                                                              -      -            

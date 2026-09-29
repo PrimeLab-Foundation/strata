@@ -1,0 +1,7 @@
+.data                            4f16b78a34b1d370 540455a971f6a2c7 differs
+.pdata                           219d6e656e34c51e 362a2e103cc78344 differs
+.rdata                           b305248a5e869d1d 62c5dd52f54fd436 differs
+.reloc                           5f1ba849e19cd97d 041d93038221e998 differs
+.rsrc                            0f66fddfa6873918 5990a2f5814bbd1b differs
+.text                            0273ce9ad8759921 89cafe50d0bab2b5 DIFFERS (gate)
+CODE DIFFERS: stop before timing

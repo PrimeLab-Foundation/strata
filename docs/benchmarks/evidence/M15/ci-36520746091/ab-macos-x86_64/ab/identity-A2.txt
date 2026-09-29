@@ -1,0 +1,15 @@
+__DATA,__const                   c698be27e05b9acc c698be27e05b9acc identical
+__DATA,__data                    2807aab3d2e46ae1 2807aab3d2e46ae1 identical
+__DATA,__got                     23f54dd17dd9463c 23f54dd17dd9463c identical
+__DATA,__la_symbol_ptr           8c489e33e989ca28 8c489e33e989ca28 identical
+__DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+__DATA,__thread_vars             5346dbcf4f244833 5346dbcf4f244833 identical
+__TEXT,__const                   90a6491fb7877e0e 90a6491fb7877e0e identical
+__TEXT,__cstring                 a4b7aab2c0590234 a4b7aab2c0590234 identical
+__TEXT,__eh_frame                9ab2b12086540713 9ab2b12086540713 identical
+__TEXT,__gcc_except_tab          23526863a5a3211c 23526863a5a3211c identical
+__TEXT,__stub_helper             90473cfa432ca2cc 90473cfa432ca2cc identical
+__TEXT,__stubs                   dd5a94d496d43670 dd5a94d496d43670 identical
+__TEXT,__text                    c08f47c419edcb98 c08f47c419edcb98 identical
+__TEXT,__unwind_info             aea8254097000ee9 aea8254097000ee9 identical
+CODE IDENTICAL

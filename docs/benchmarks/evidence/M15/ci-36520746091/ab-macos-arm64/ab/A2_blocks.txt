@@ -1,0 +1,113 @@
+file: ab/A2.tsv
+launches: L00:A L01:B L02:B L03:A L04:A L05:B L06:B L07:A L08:A L09:B L10:B L11:A L12:A L13:B L14:B L15:A L16:A L17:B L18:B L19:A L20:A L21:B L22:B L23:A L24:A
+baseline: A   candidate: B   blocks: 6   leading: none   trailing: L24   min samples/launch: 10
+blocks: L00L01L02L03  L04L05L06L07  L08L09L10L11  L12L13L14L15  L16L17L18L19  L20L21L22L23
+A/A control: ab/AA.tsv (6 blocks)
+
+row                   engine        rival          blk  raw strata  raw rival  normalised    ci low   ci high   pos       A/A    floor
+md-flat-dumps         strata-bytes  orjson-bytes     6      -0.38%     -0.97%      -0.59%    -2.84%    +2.54%  2/6    +1.23%    2.26%
+                                    blocks (normalised): -0.28 -0.91 -0.96 -4.72 +4.64 +0.43
+md-flat-dumps         strata-str    orjson-bytes     6      -0.51%     -0.97%      -0.65%    -1.70%    +2.01%  3/6    +1.24%    3.89%
+                                    blocks (normalised): -1.61 +1.17 -1.44 -1.78 +2.85 +0.13
+md-mixed-dumps        strata-bytes  orjson-bytes     6      -1.03%     -2.91%      +1.36%    -0.58%    +2.51%  5/6    -0.54%    3.44%
+                                    blocks (normalised): +2.71 +1.21 -1.74 +2.31 +1.51 +0.58
+md-mixed-dumps        strata-str    orjson-bytes     6      +0.14%     -2.91%      +0.13%    -1.73%    +7.64%  3/6    +3.48%    7.68%
+                                    blocks (normalised): -2.27 -0.14 +8.74 -1.19 +0.40 +6.55
+md-users-dumps        strata-bytes  orjson-bytes     6      +2.13%     +1.64%      +1.91%    -2.96%    +3.62%  4/6    -0.59%    1.88%
+                                    blocks (normalised): +3.90 +2.10 -3.46 +3.33 +1.71 -2.45
+md-users-dumps        strata-str    orjson-bytes     6      -1.65%     +1.64%      -1.50%    -4.67%    +2.20%  2/6    -0.56%    3.63%
+                                    blocks (normalised): +4.17 -2.70 -6.64 -1.92 +0.23 -1.08
+md-wide_arrays-loads  strata-loads  orjson-loads     6      -0.70%     +0.52%      -2.12%    -3.23%    +1.20%  2/6    -0.18%    1.65%
+                                    blocks (normalised): +0.65 +1.74 -2.90 -3.55 -1.55 -2.69
+sm-flat-dump          strata-dump   orjson-dump      6      +9.59%    +10.59%      +0.65%    -5.70%    +4.56%  3/6    -1.27%    6.66%
+                                    blocks (normalised): -0.32 -7.13 -4.26 +2.39 +1.61 +6.72
+sm-flat-dumps         strata-bytes  orjson-bytes     6      +4.69%     +2.63%      +2.64%    -1.54%    +5.11%  4/6    +1.96%    4.54%
+                                    blocks (normalised): +5.59 +0.94 +4.64 -1.77 -1.31 +4.34
+sm-flat-dumps         strata-str    orjson-bytes     6      +5.19%     +2.63%      +3.37%    -2.72%    +7.50%  4/6    -2.60%    7.83%
+                                    blocks (normalised): -1.23 +6.18 -4.22 +5.44 +1.30 +8.81
+sm-flat-load          strata-load   orjson-load      6      +3.69%     +4.78%      -2.28%    -4.49%    -0.76%  0/6    -1.52%    3.16%
+                                    blocks (normalised): -2.66 -0.08 -1.89 -2.90 -1.44 -6.07
+sm-flat-loads         strata-loads  orjson-loads     6      +4.89%     +3.24%      -0.16%    -5.11%    +3.00%  3/6    -0.80%    1.95%
+                                    blocks (normalised): -8.09 +3.38 +0.70 +2.62 -1.02 -2.13
+sm-mixed-dump         strata-dump   orjson-dump      6      +7.75%     +2.52%      +7.28%    +2.18%    +8.87%  6/6    +2.14%    9.59%
+                                    blocks (normalised): +6.09 +2.67 +1.69 +8.48 +9.25 +8.46
+sm-mixed-dumps        strata-bytes  orjson-bytes     6      -3.43%     -3.01%      -0.70%    -3.46%    +1.72%  2/6    -1.03%    3.81%
+                                    blocks (normalised): +0.24 -3.96 -0.94 -2.97 +3.21 -0.46
+sm-mixed-dumps        strata-str    orjson-bytes     6      -1.98%     -3.01%      +0.84%    -3.12%    +5.25%  4/6    -2.03%    3.30%
+                                    blocks (normalised): +6.00 -3.21 +0.94 -3.02 +4.51 +0.75
+sm-mixed-load         strata-load   orjson-load      6      -2.54%     +1.99%      -4.27%    -8.73%    +1.07%  1/6    +1.25%    9.26%
+                                    blocks (normalised): -9.85 -1.22 -7.32 -0.34 -7.62 +2.47
+sm-mixed-loads        strata-loads  orjson-loads     6      +0.71%     +0.75%      +0.73%    -0.67%    +1.99%  5/6    -0.33%    3.79%
+                                    blocks (normalised): +1.49 +2.50 +0.08 -1.42 +1.33 +0.13
+sm-nested-dump        strata-dump   orjson-dump      6      +7.03%     +6.42%      +8.79%    -1.85%   +13.76%  4/6    +1.31%    7.40%
+                                    blocks (normalised): +16.62 -1.01 +6.73 -2.69 +10.85 +10.91
+sm-nested-dumps       strata-bytes  orjson-bytes     6      +4.62%     +5.71%      -0.76%    -3.47%    +1.33%  2/6    -0.81%    4.42%
+                                    blocks (normalised): -0.37 -3.58 -3.37 +1.31 +1.35 -1.15
+sm-nested-dumps       strata-str    orjson-bytes     6      +4.27%     +5.71%      +1.27%    -3.53%    +4.35%  3/6    +0.66%   15.64%
+                                    blocks (normalised): +4.50 +4.20 -4.79 -2.27 +2.82 -0.27
+sm-nested-load        strata-load   orjson-load      6      +3.67%     +2.03%      +0.73%    -4.12%    +2.89%  4/6    -0.31%    3.48%
+                                    blocks (normalised): -5.72 -2.52 +1.53 +4.25 +1.08 +0.37
+sm-nested-loads       strata-loads  orjson-loads     6      +2.22%     +4.44%      -0.23%    -3.78%    +1.58%  3/6    +1.23%    4.80%
+                                    blocks (normalised): -3.00 -1.36 +1.85 +1.30 +0.91 -4.56
+sm-users-dump         strata-dump   orjson-dump      6      +7.18%     +4.98%      +1.22%    -1.11%    +2.09%  5/6    -1.18%    3.43%
+                                    blocks (normalised): +1.95 +2.23 -2.61 +0.73 +1.71 +0.39
+sm-users-dumps        strata-bytes  orjson-bytes     6      +3.69%     +2.42%      +1.17%    -0.38%    +2.35%  5/6    -0.55%    2.65%
+                                    blocks (normalised): -1.42 +1.17 +1.18 +1.60 +3.11 +0.66
+sm-users-dumps        strata-str    orjson-bytes     6      +2.93%     +2.42%      +0.62%    -0.41%    +2.74%  4/6    -1.07%    3.76%
+                                    blocks (normalised): +3.32 +0.91 -0.53 -0.28 +0.33 +2.16
+sm-users-load         strata-load   orjson-load      6      +4.62%     +3.46%      -1.34%    -4.46%    +1.97%  2/6    -1.28%    5.96%
+                                    blocks (normalised): -7.44 -1.21 +3.91 +0.03 -1.48 -1.47
+sm-users-loads        strata-loads  orjson-loads     6      +5.33%     +7.49%      -1.21%    -3.29%    +1.26%  2/6    -0.59%    6.07%
+                                    blocks (normalised): -4.63 -1.96 +1.94 +0.58 -1.35 -1.07
+sm-users-ndload       strata-ndload orjson-ndload    6      +6.28%     +6.09%      -0.32%    -2.46%    +1.74%  2/6    -0.16%    2.24%
+                                    blocks (normalised): -3.29 +2.44 -0.04 -1.63 -0.60 +1.03
+sm-wide_arrays-dump   strata-dump   orjson-dump      6      +4.11%     +6.54%      +1.18%    -3.36%    +3.30%  4/6    -2.15%    2.98%
+                                    blocks (normalised): -6.33 +1.89 +4.64 +1.96 -0.39 +0.47
+sm-wide_arrays-dumps  strata-bytes  orjson-bytes     6      +1.01%     +1.15%      +0.17%    -1.91%    +2.30%  4/6    +0.10%    4.36%
+                                    blocks (normalised): +0.28 -0.30 +3.97 +0.62 -3.52 +0.06
+sm-wide_arrays-dumps  strata-str    orjson-bytes     6      +1.59%     +1.15%      +1.65%    -2.39%    +3.29%  4/6    +0.87%    5.74%
+                                    blocks (normalised): +1.71 -1.36 +1.70 +4.88 -3.42 +1.59
+sm-wide_arrays-load   strata-load   orjson-load      6      +2.81%     +2.38%      +0.52%    -0.67%    +1.41%  5/6    +0.03%    2.59%
+                                    blocks (normalised): +0.11 +0.96 -1.45 +1.86 +0.32 +0.72
+sm-wide_arrays-loads  strata-loads  orjson-loads     6      +0.37%     +0.93%      -1.11%    -4.33%    +2.51%  2/6    -0.26%    1.37%
+                                    blocks (normalised): -6.40 -0.32 -1.89 +1.16 +3.86 -2.26
+
+raw strata / raw rival: the same block estimator on the unnormalised medians.
+normalised: strata/rival measured in the same process, then blocked.
+ci: bootstrap over whole blocks of the median block effect (2000 resamples).
+A/A: the identical estimator on two launches of one binary; floor = max(|ci low|, |ci high|).
+
+== drift: the trailing baseline launch against the leading one
+md-flat-dumps         strata-bytes  strata -9.58%   rival -8.95%   normalised -0.70%
+md-flat-dumps         strata-str    strata -2.59%   rival -8.95%   normalised +6.99%
+md-mixed-dumps        strata-bytes  strata -6.40%   rival -4.01%   normalised -2.49%
+md-mixed-dumps        strata-str    strata -11.70%   rival -4.01%   normalised -8.01%
+md-users-dumps        strata-bytes  strata -6.94%   rival -7.76%   normalised +0.89%
+md-users-dumps        strata-str    strata -5.04%   rival -7.76%   normalised +2.95%
+md-wide_arrays-loads  strata-loads  strata -18.65%   rival -15.14%   normalised -4.13%
+sm-flat-dump          strata-dump   strata -20.14%   rival -16.72%   normalised -4.11%
+sm-flat-dumps         strata-bytes  strata -3.16%   rival -8.14%   normalised +5.41%
+sm-flat-dumps         strata-str    strata -9.26%   rival -8.14%   normalised -1.22%
+sm-flat-load          strata-load   strata -17.00%   rival -15.82%   normalised -1.41%
+sm-flat-loads         strata-loads  strata -0.85%   rival -0.01%   normalised -0.84%
+sm-mixed-dump         strata-dump   strata +35.60%   rival +24.17%   normalised +9.21%
+sm-mixed-dumps        strata-bytes  strata -21.22%   rival -23.22%   normalised +2.60%
+sm-mixed-dumps        strata-str    strata -25.39%   rival -23.22%   normalised -2.83%
+sm-mixed-load         strata-load   strata -15.03%   rival -18.15%   normalised +3.82%
+sm-mixed-loads        strata-loads  strata -6.97%   rival -8.80%   normalised +2.01%
+sm-nested-dump        strata-dump   strata +38.15%   rival +26.66%   normalised +9.07%
+sm-nested-dumps       strata-bytes  strata -0.25%   rival +4.25%   normalised -4.31%
+sm-nested-dumps       strata-str    strata +18.43%   rival +4.25%   normalised +13.61%
+sm-nested-load        strata-load   strata +8.47%   rival +9.79%   normalised -1.20%
+sm-nested-loads       strata-loads  strata -6.80%   rival -7.31%   normalised +0.55%
+sm-users-dump         strata-dump   strata -4.97%   rival -7.69%   normalised +2.95%
+sm-users-dumps        strata-bytes  strata +2.22%   rival +4.45%   normalised -2.13%
+sm-users-dumps        strata-str    strata +8.52%   rival +4.45%   normalised +3.90%
+sm-users-load         strata-load   strata +5.34%   rival +7.83%   normalised -2.31%
+sm-users-loads        strata-loads  strata -5.61%   rival -6.71%   normalised +1.18%
+sm-users-ndload       strata-ndload strata -5.23%   rival -6.10%   normalised +0.93%
+sm-wide_arrays-dump   strata-dump   strata -6.83%   rival +0.29%   normalised -7.11%
+sm-wide_arrays-dumps  strata-bytes  strata +2.38%   rival +7.78%   normalised -5.01%
+sm-wide_arrays-dumps  strata-str    strata +5.55%   rival +7.78%   normalised -2.07%
+sm-wide_arrays-load   strata-load   strata -11.40%   rival -9.67%   normalised -1.91%
+sm-wide_arrays-loads  strata-loads  strata -0.29%   rival +2.60%   normalised -2.81%

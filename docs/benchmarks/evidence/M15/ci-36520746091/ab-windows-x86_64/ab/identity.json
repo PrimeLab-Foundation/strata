@@ -1,0 +1,41 @@
+{
+ "code_identical": false,
+ "sections": [
+  {
+   "section": ".data",
+   "a": "4f16b78a34b1d3704f320267bf774e62ef974d538a06ea2d29288fbb7a067be0",
+   "b": "540455a971f6a2c7f0f218def35304fba3b5d3e84dd2cf78020b769e8772b9b4",
+   "identical": false
+  },
+  {
+   "section": ".pdata",
+   "a": "219d6e656e34c51e276fc9a35af76a2abd9eb2a37e15bb463ed2c1d95a46749b",
+   "b": "362a2e103cc783447e7dfa9a5341999b231a2172201927e814b6f92cac4fb665",
+   "identical": false
+  },
+  {
+   "section": ".rdata",
+   "a": "b305248a5e869d1dfae98c7d02d0864ff57fe4a1fe9f83d1e6a7843f67a28a6f",
+   "b": "62c5dd52f54fd436d64d38bce3b2999d54ac592382c8e59052e3c29e26e9a332",
+   "identical": false
+  },
+  {
+   "section": ".reloc",
+   "a": "5f1ba849e19cd97db7afc7c4097a6793ac5717588395fb2b749c9f40d09669ba",
+   "b": "041d93038221e9986c147ec1179d6d38445b914089f9deccecc0cf36007c1fa3",
+   "identical": false
+  },
+  {
+   "section": ".rsrc",
+   "a": "0f66fddfa6873918ee3b52f9f612d4dd48908aa17e1704b6f26c2d954545f7d2",
+   "b": "5990a2f5814bbd1b1ed8e6690c35de1bf03ccd29cf79b1f45163e74aa2b696a1",
+   "identical": false
+  },
+  {
+   "section": ".text",
+   "a": "0273ce9ad87599216cdaa4ff123381e1106003bdd15f260b2c303c78169bd6e8",
+   "b": "89cafe50d0bab2b59151d89ba82436b62d123f126a1654d0ced9c974b7e57e3b",
+   "identical": false
+  }
+ ]
+}

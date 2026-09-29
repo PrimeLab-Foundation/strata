@@ -1,0 +1,4 @@
+A 38eaa9f 20059a76bdbc9df0453f4a9b5c316002  arms/A.pyd
+A2 38eaa9f fdccb34f309d9e2c9af0c240e0c1b8fe  arms/A2.pyd
+B afd1550 90aa2a64a2b6e6beada9533c64bd272d  arms/B.pyd
+B_held afd1550 482500a4cbb12ad6798f53c8439cd6c5  arms/B_held.pyd

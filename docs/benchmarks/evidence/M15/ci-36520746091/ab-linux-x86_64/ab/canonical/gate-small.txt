@@ -1,0 +1,8 @@
+REGRESSION: fix or revert (docs/context/benchmarks.md)
+  bench_results_small.md|dumps|mixed.json p95_ms: 0.052 -> 0.057 (+8.3%)
+  bench_results_small.md|loads|users.json p95_ms: 7.918 -> 8.082 (+2.1%)
+  bench_results_small.md|load|users.json median_ms: 8.534 -> 8.765 (+2.7%)
+  bench_results_small.md|query|users.json $[*].id median_ms: 0.056 -> 0.057 (+2.0%)
+  bench_results_small.md|search|users.json $..total median_ms: 12.050 -> 12.803 (+6.3%)
+  bench_results_small.md|search|users.json $..total p95_ms: 12.299 -> 13.256 (+7.8%)
+compared 27 of 27 baseline entries for bench_results_small.md against baseline-small.json (27 strata rows in the report)

@@ -1,0 +1,40 @@
+    62.81%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.4602079393583410756]                -      -            
+    34.49%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                                     -      -            
+     1.46%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.4602079393583410756] [clone .cold]  -      -            
+     0.26%  [.] _PyEval_EvalFrameDefault.cold                                                                                         -      -            
+     0.05%  [.] _Py_dict_lookup                                                                                                       -      -            
+     0.03%  [.] PyObject_Free                                                                                                         -      -            
+     0.03%  [.] initialize_locals                                                                                                     -      -            
+     0.03%  [.] __tls_get_addr                                                                                                        -      -            
+     0.02%  [.] PyDict_GetItemWithError                                                                                               -      -            
+     0.02%  [.] PyObject_Malloc                                                                                                       -      -            
+     0.02%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                                     -      -            
+     0.02%  [.] visit_reachable                                                                                                       -      -            
+     0.02%  [.] PyBytes_FromStringAndSize                                                                                             -      -            
+     0.02%  [.] deduce_unreachable                                                                                                    -      -            
+     0.02%  [.] 0x00000000000abbce                                                                                                    -      -            
+     0.01%  [.] (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*)                                        -      -            
+     0.01%  [.] PyDict_SetItem                                                                                                        -      -            
+     0.01%  [.] _PyTime_AsSecondsDouble                                                                                               -      -            
+     0.01%  [.] _Py_GetBaseOpcode                                                                                                     -      -            
+     0.01%  [.] visit_decref                                                                                                          -      -            
+     0.01%  [.] 0x0000000000000bfb                                                                                                    -      -            
+     0.01%  [.] _PyFloat_ExactDealloc                                                                                                 -      -            
+     0.01%  [.] _PyTuple_MaybeUntrack                                                                                                 -      -            
+     0.01%  [.] _Py_HashBytes                                                                                                         -      -            
+     0.01%  [.] cfree                                                                                                                 -      -            
+     0.01%  [.] dictresize                                                                                                            -      -            
+     0.01%  [.] object_dealloc                                                                                                        -      -            
+     0.01%  [.] r_object                                                                                                              -      -            
+     0.01%  [.] update_one_slot                                                                                                       -      -            
+     0.01%  [k] 0xffffffffabd2c39c                                                                                                    -      -            
+     0.01%  [k] 0xffffffffabda6f54                                                                                                    -      -            
+     0.00%  [.] PyCMethod_New                                                                                                         -      -            
+     0.00%  [.] PyCompile_OpcodeStackEffectWithJump                                                                                   -      -            
+     0.00%  [.] PyDict_GetItemWithError@plt                                                                                           -      -            
+     0.00%  [.] PyDict_SetDefault                                                                                                     -      -            
+     0.00%  [.] PyFunction_New                                                                                                        -      -            
+     0.00%  [.] PyImport_ImportModuleLevelObject                                                                                      -      -            
+     0.00%  [.] PyLong_FromUnsignedLong                                                                                               -      -            
+     0.00%  [.] PyMapping_Check                                                                                                       -      -            
+     0.00%  [.] PyObject_Vectorcall                                                                                                   -      -            
