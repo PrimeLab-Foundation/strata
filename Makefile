@@ -14,6 +14,7 @@ VPY := $(VENV)/bin/python
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary bench-cross probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
         probe-ab-analyze probe-ab-floor probe-string-identity probe-file-costs probe-schema-recovery probe-canonical-builds bench-supportability \
+        bench-native probe-image-identity \
         clean clean-venv scripts-executable help
 
 all: test  ## Run every test suite (default target)
@@ -41,8 +42,18 @@ probe-file-costs: venv  ## Real-file diagnostic phase controls with raw samples
 bench-supplementary: venv  ## NDJSON search and folder controls; separate supplementary v1 scope
 	PYTHONPATH=. $(VPY) -m benchmarks.supplementary --data benchmarks/data/generated/$(BENCH_SUPPLEMENTARY_TIER) --repeat $(BENCH_REPEAT) --warmup $(BENCH_WARMUP) --output $(BENCH_REPORTS)/supplementary_v1_$(BENCH_SUPPLEMENTARY_TIER).md
 
+BENCH_NATIVE_TIERS ?= small,medium,large
+bench-native: venv  ## native-v1: strata's native types and the native= flag cost; separate declared scope
+	PYTHONPATH=. $(VPY) -m benchmarks.native_v1 --data $(BENCH_DIR) --tiers $(BENCH_NATIVE_TIERS) --repeat $(BENCH_REPEAT) --warmup $(BENCH_WARMUP) --output $(BENCH_REPORTS)/native_v1.md
+
 bench-supportability: venv  ## Validate a complete canonical report against the 3.0x tripwire
 	PYTHONPATH=. $(VPY) -m benchmarks.supportability_check $(BENCH_REPORT)
+
+IDENTITY_BASE ?=
+IDENTITY_ARM_DIR ?= build/identity-arm
+IDENTITY_OUT ?= build/evidence/identity
+probe-image-identity: venv  ## Same-absolute-path A/B build identity check against IDENTITY_BASE
+	PYTHONPATH=. $(VPY) scripts/identity_ab.py --base $(IDENTITY_BASE) --arm-dir $(IDENTITY_ARM_DIR) --out $(IDENTITY_OUT)
 
 # ---------------------------------------------------------------------------
 # Setup
