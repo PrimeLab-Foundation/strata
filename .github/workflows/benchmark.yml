@@ -43,10 +43,13 @@ on:
         description: >
           Ref to compare HEAD against with the same-absolute-path A/B build
           identity check (scripts/identity_ab.py). Empty (default): skipped.
-          When set, every leg builds that revision's `_strata` against its own
-          freshly trained profile in the same build path (plain builds too),
-          compares code sections with benchmarks/image_identity.py, uploads
-          identity-<platform>.txt, and fails the leg on a PGO+LTO mismatch.
+          When set, every leg builds that revision's `_strata` plain and with
+          a freshly trained PGO+LTO profile, then rebuilds HEAD in the same
+          path plain and against that profile only (held, no retraining);
+          both pairs' code sections are compared with
+          benchmarks/image_identity.py, uploads identity-<platform>.txt, and
+          fails the leg on either mismatch (a checkout with full history is
+          needed so the worktree can resolve an older `identity_base` ref).
         required: false
         default: ""
 
@@ -88,6 +91,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history only when the identity check will run a `git
+          # worktree add` against an older ref: identity_ab.py needs that
+          # ref present locally, which a shallow (depth-1) checkout may not
+          # have. The default shallow clone is kept for every other run.
+          fetch-depth: ${{ github.event.inputs.identity_base != '' && 0 || 1 }}
 
       - uses: actions/setup-python@v5
         with:
@@ -188,6 +197,12 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history only when the identity check will run a `git
+          # worktree add` against an older ref: identity_ab.py needs that
+          # ref present locally, which a shallow (depth-1) checkout may not
+          # have. The default shallow clone is kept for every other run.
+          fetch-depth: ${{ github.event.inputs.identity_base != '' && 0 || 1 }}
 
       - uses: actions/setup-python@v5
         with:
@@ -283,6 +298,12 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history only when the identity check will run a `git
+          # worktree add` against an older ref: identity_ab.py needs that
+          # ref present locally, which a shallow (depth-1) checkout may not
+          # have. The default shallow clone is kept for every other run.
+          fetch-depth: ${{ github.event.inputs.identity_base != '' && 0 || 1 }}
 
       - uses: actions/setup-python@v5
         with:

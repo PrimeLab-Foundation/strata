@@ -173,17 +173,35 @@ def _as_comparable(data: bytes | str):
     return stdlib_json.loads(text, parse_float=decimal.Decimal)
 
 
-def agreeing_calls(calls: dict, report: Report, label: str) -> dict:
-    """Keep only the rivals whose parsed-JSON output equals strata's.
+def _dump_comparable(out_dir: Path):
+    """`agreeing_calls`'s `comparable` for `dump` rows: `dump`/`_serialize_then_write`
+    calls write a file and return `None`, so agreement has to read that file
+    back rather than compare the (vacuous) return value."""
 
-    Decimals compare by value (`parse_float=decimal.Decimal`), so a rival that
-    represents a decimal as a float (stdlib `json`) still agrees when the
-    value round-trips; one that does not is dropped and recorded, never timed.
+    def read(library: str, _result) -> object:
+        return _as_comparable((out_dir / f"{library}.json").read_bytes())
+
+    return read
+
+
+def agreeing_calls(calls: dict, report: Report, label: str, *, comparable=None) -> dict:
+    """Keep only the rivals whose output equals strata's.
+
+    `comparable(library, result)` turns a call's return value into a
+    JSON-comparable object; the default reads the call's own return value
+    (`dumps`-style calls, where the serialized text/bytes *is* the return).
+    A `dump`-style call returns `None` and writes a file instead, so its
+    caller passes a `comparable` that reads the file back -- comparing
+    against `None` would make every rival "agree" vacuously. Decimals compare
+    by value (`parse_float=decimal.Decimal`), so a rival that represents a
+    decimal as a float (stdlib `json`) still agrees when the value
+    round-trips; one that does not is dropped and recorded, never timed.
     """
+    to_comparable = comparable or (lambda _library, result: _as_comparable(result))
     if "strata" not in calls:
         return calls
     try:
-        expected = _as_comparable(calls["strata"]())
+        expected = to_comparable("strata", calls["strata"]())
     except Exception:  # noqa: BLE001 -- a broken strata call is an ERROR row downstream
         return calls
     agreeing = {"strata": calls["strata"]}
@@ -191,7 +209,7 @@ def agreeing_calls(calls: dict, report: Report, label: str) -> dict:
         if library == "strata":
             continue
         try:
-            actual = _as_comparable(call())
+            actual = to_comparable(library, call())
         except Exception:  # noqa: BLE001
             agreeing[library] = call  # let _run_section record the real error
             continue
@@ -226,7 +244,12 @@ def run(
         with tempfile.TemporaryDirectory() as scratch:
             out_dir = Path(scratch)
             dump_calls = _native_dump_calls(rivals, records, out_dir)
-            dump_calls = agreeing_calls(dump_calls, report, f"native.{tier} (dump)")
+            dump_calls = agreeing_calls(
+                dump_calls,
+                report,
+                f"native.{tier} (dump)",
+                comparable=_dump_comparable(out_dir),
+            )
             _run_section(report, "dump", f"native.{tier}", dump_calls, repeat=repeat, warmup=warmup)
 
     for tier in tiers:

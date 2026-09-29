@@ -148,19 +148,35 @@ def _download(run_id: int, into: Path) -> None:
         )
 
 
+def _report_name(text: str) -> str:
+    """The name `render_report` wrote in its header line.
+
+    `harness.read_report` sets `Report.name` to the file's own name (so a
+    legacy report stays readable under any filename) -- it never reads this
+    header back -- so telling a native-v1 report apart from a canonical one
+    by declared name has to read the raw text, not `Report.name`.
+    """
+    prefix = "# Benchmark results - "
+    first_line = text.splitlines()[0] if text else ""
+    return first_line[len(prefix) :].strip() if first_line.startswith(prefix) else ""
+
+
 def _collect_reports(download_dir: Path) -> dict[str, Path]:
     """Map platform-arch -> downloaded canonical report, refusing colliding legs.
 
     A native-v1 report travels in the same artifact as its leg's canonical
     report (same platform/machine environment), so it is told apart by its
-    `Report.name` -- `_collect_native_reports` -- rather than by file name,
-    and skipped here so the two never collide on one platform key.
+    declared report name -- `_collect_native_reports` -- rather than by file
+    name, and skipped here so the two never collide on one platform key.
+    `harness.read_report` sets `Report.name` to the file's own name (so a
+    legacy report stays readable under any filename), so the declared name is
+    read from the header line directly (`_report_name`), not from `.name`.
     """
     reports: dict[str, Path] = {}
     for path in sorted(download_dir.rglob("*.md")):
-        report = read_report(path)
-        if report.name == NATIVE_REPORT_NAME:
+        if _report_name(path.read_text(encoding="utf-8")) == NATIVE_REPORT_NAME:
             continue
+        report = read_report(path)
         key = platform_key(report.environment)
         if key in reports:
             raise ValueError(f"two artifacts claim {key}: {reports[key].name} and {path.name}")
@@ -178,9 +194,9 @@ def _collect_native_reports(download_dir: Path) -> dict[str, Path]:
     """
     reports: dict[str, Path] = {}
     for path in sorted(download_dir.rglob("*.md")):
-        report = read_report(path)
-        if report.name != NATIVE_REPORT_NAME:
+        if _report_name(path.read_text(encoding="utf-8")) != NATIVE_REPORT_NAME:
             continue
+        report = read_report(path)
         key = platform_key(report.environment)
         if key in reports:
             raise ValueError(
@@ -236,6 +252,50 @@ def _verify(
         if key not in found:
             coverage.append(f"{key}: the declared platform uploaded no report")
     return identity, coverage
+
+
+def _verify_native(found_native: dict[str, Path], run: dict) -> dict[str, str]:
+    """Validate each native-v1 report the same way canonical evidence is
+    checked (companion identity, measurements, commit, row validity) --
+    but never fatally: native-v1 coverage never gates the canonical exit
+    code (docs/decisions.md, 2026-09-29, "benchmarks"), so a bad report is
+    recorded here as invalid native evidence and dropped, never raised into
+    `_verify`'s identity/coverage lists.
+
+    A report short only of *rows* (a leg that ran one tier) is not "bad" --
+    that is normal partial coverage, not invalid evidence -- so `missing`
+    problems are not what drops a report; a malformed companion, no
+    measurements, a commit mismatch, or an otherwise-invalid row is.
+    """
+    problems: dict[str, str] = {}
+    head = str(run.get("headSha") or "").strip()
+    for key in sorted(found_native):
+        path = found_native[key]
+        text = path.read_text(encoding="utf-8")
+        try:
+            validate_companion(path, text)
+        except ValueError as error:
+            problems[key] = f"provenance companion: {error}"
+            continue
+        report = read_report(path)
+        if not report.measurements:
+            problems[key] = f"{path.name} contains no measurements"
+            continue
+        commit = (report.environment.get("commit") or "").strip()
+        if commit and head and not (head.startswith(commit) or commit.startswith(head)):
+            problems[key] = (
+                f"report commit {commit} is not run {run.get('databaseId')}'s {head[:12]}"
+            )
+            continue
+        validation = validate_report(report, expected=resolve_workload("native-v1"))
+        if not validation.valid:
+            fatal = [
+                str(problem)
+                for problem in validation.problems
+                if problem.fatal and problem.kind != "missing"
+            ]
+            problems[key] = "; ".join(fatal) if fatal else validation.describe()
+    return problems
 
 
 def _orphans(dest: Path) -> tuple[list[Path], list[Path]]:
@@ -350,6 +410,7 @@ def _place(
     problems: Sequence[str] = (),
     expected_platforms: tuple[str, ...] = CI_PLATFORMS,
     found_native: dict[str, Path] | None = None,
+    native_problems: dict[str, str] | None = None,
 ) -> None:
     """Render the whole replacement, then install it: one run's evidence, never a mix."""
     files: dict[str, str] = {}
@@ -367,12 +428,22 @@ def _place(
 
     native_sources: dict[str, str] = {}
     native_sidecars: dict[str, str] = {}
+    native_problems = dict(native_problems or {})
     for key in sorted(found_native or {}):
         source = found_native[key]
         text = source.read_text(encoding="utf-8")
+        # native-v1 evidence never gates the canonical placement: a companion
+        # that fails here (it was already checked by `_verify_native`, this
+        # is defense in depth) is recorded as invalid, never raised -- the
+        # canonical reports above are what a ValueError here is allowed to stop.
+        try:
+            has_companion = validate_companion(source, text) is not None
+        except ValueError as error:
+            native_problems.setdefault(key, f"provenance companion: {error}")
+            continue
         files[f"native_v1_{key}.md"] = "\n".join(text.splitlines()) + "\n"
         native_sources[key] = source.relative_to(scratch).as_posix()
-        if validate_companion(source, text) is not None:
+        if has_companion:
             sidecar = companion(source)
             files[f"native_v1_{key}.json"] = sidecar.read_text(encoding="utf-8")
             native_sidecars[key] = sidecar.relative_to(scratch).as_posix()
@@ -396,6 +467,8 @@ def _place(
     if native_sources:
         info["native_reports"] = native_sources
         info["native_sidecars"] = native_sidecars
+    if native_problems:
+        info["native_problems"] = dict(sorted(native_problems.items()))
     files[RUN_INFO_NAME] = json.dumps(info, indent=2) + "\n"
 
     _install(dest, files)
@@ -403,6 +476,8 @@ def _place(
         print(f"fetched {key} <- {sources[key]}")
     for key in sorted(native_sources):
         print(f"fetched native-v1 {key} <- {native_sources[key]}")
+    for key in sorted(native_problems):
+        print(f"native-v1 {key} is invalid, not placed: {native_problems[key]}")
     print(f"wrote {len(sources)} report(s) + {RUN_INFO_NAME} -> {dest}")
 
 
@@ -475,24 +550,23 @@ def main(argv: list[str] | None = None) -> int:
             # native-v1 evidence is optional and best-effort: a leg that did
             # not run it, or a report this tool cannot make sense of, is a
             # note on stderr, never a reason to refuse the canonical fetch.
+            # `_verify_native` runs the same checks as the canonical `_verify`
+            # (companion identity, measurements, commit, row validity) but its
+            # findings never reach `identity`/`coverage` below, so a bad
+            # native report is recorded as invalid native evidence and
+            # dropped -- it cannot fail the canonical fetch or change its exit
+            # code (docs/decisions.md, 2026-09-29, "benchmarks").
             try:
                 found_native = _collect_native_reports(scratch_path)
             except ValueError as error:
                 sys.stderr.write(f"warning: native-v1 reports: {error}; none placed\n")
                 found_native = {}
-            head = str(run.get("headSha") or "").strip()
-            for key in sorted(found_native):
-                native_report = read_report(found_native[key])
-                commit = (native_report.environment.get("commit") or "").strip()
-                if not native_report.measurements:
-                    sys.stderr.write(f"warning: native-v1 {key} has no measurements; not placed\n")
-                    del found_native[key]
-                elif commit and head and not (head.startswith(commit) or commit.startswith(head)):
-                    sys.stderr.write(
-                        f"warning: native-v1 {key} commit {commit} is not run {run_id}'s "
-                        f"{head[:12]}; not placed\n"
-                    )
-                    del found_native[key]
+            native_problems = _verify_native(found_native, run)
+            for key in sorted(native_problems):
+                sys.stderr.write(
+                    f"warning: native-v1 {key} is invalid: {native_problems[key]}; not placed\n"
+                )
+                del found_native[key]
 
             identity, coverage = _verify(
                 found,
@@ -527,6 +601,7 @@ def main(argv: list[str] | None = None) -> int:
                     problems=coverage,
                     expected_platforms=expected_platforms,
                     found_native=found_native,
+                    native_problems=native_problems,
                 )
             except ValueError as error:
                 # An evidence defect the verification above should have

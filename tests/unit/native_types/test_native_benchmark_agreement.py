@@ -12,6 +12,7 @@ import decimal
 from benchmarks.harness import Report
 from benchmarks.native_v1 import (
     _as_comparable,
+    _dump_comparable,
     _flag_calls,
     _native_dump_calls,
     _native_dumps_calls,
@@ -95,3 +96,49 @@ def test_native_dumps_calls_excludes_ujson_and_records_the_reason():
     # even when it is installed -- the exclusion is unconditional.
     calls = _native_dumps_calls({"strata": _FakeStrata(), "ujson": object()}, [1])
     assert "ujson" not in calls
+
+
+def _write(path, text: str) -> None:
+    path.write_text(text, encoding="utf-8")
+
+
+def test_agreeing_calls_dump_rows_are_not_vacuous_on_a_none_return(tmp_path):
+    # dump()-style calls write a file and return None; comparing None against
+    # None would make every rival "agree" regardless of what it wrote.
+    report = Report("t")
+    calls = {
+        "strata": lambda: _write(tmp_path / "strata.json", '{"a": 1.50}'),
+        "agrees": lambda: _write(tmp_path / "agrees.json", '{"a": 1.5}'),
+        "disagrees": lambda: _write(tmp_path / "disagrees.json", '{"a": 2}'),
+    }
+    kept = agreeing_calls(calls, report, "label", comparable=_dump_comparable(tmp_path))
+    assert set(kept) == {"strata", "agrees"}
+    assert report.excluded == {"disagrees (label)": "output disagrees as parsed JSON"}
+
+
+def test_agreeing_calls_dump_keeps_a_rival_whose_own_dump_agrees(tmp_path):
+    # A rival's dump agreement is judged on its own written file, independent
+    # of whatever happened on the in-memory `dumps` comparison: excluded on
+    # `dumps` does not, by itself, exclude it from `dump`.
+    report = Report("t")
+    calls = {
+        "strata": lambda: _write(tmp_path / "strata.json", '{"a": 1}'),
+        "disagreed_on_dumps": lambda: _write(tmp_path / "disagreed_on_dumps.json", '{"a": 1}'),
+    }
+    kept = agreeing_calls(calls, report, "label (dump)", comparable=_dump_comparable(tmp_path))
+    assert set(kept) == {"strata", "disagreed_on_dumps"}
+    assert report.excluded == {}
+
+
+def test_native_dump_calls_agreement_reads_the_written_files(tmp_path):
+    # End-to-end through the module's own dump-call builder, not a hand-rolled
+    # calls dict: strata's native writer (via _native_dump_calls, naming its
+    # file out_dir/strata.json) beside a disagreeing rival written the same way.
+    calls = _native_dump_calls({"strata": _FakeStrata()}, [1], tmp_path)
+    calls["orjson"] = lambda: _write(tmp_path / "orjson.json", '{"a": 999}')
+    report = Report("t")
+    kept = agreeing_calls(
+        calls, report, "native.small (dump)", comparable=_dump_comparable(tmp_path)
+    )
+    assert set(kept) == {"strata"}
+    assert report.excluded == {"orjson (native.small (dump))": "output disagrees as parsed JSON"}
