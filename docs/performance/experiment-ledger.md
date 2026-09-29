@@ -4310,13 +4310,13 @@ waits on it.
   to main after the gate passed on the merged tree. Evidence:
   `build/evidence/benchmark-lead/pin-discovery-test/ab-36353898103/`.
 
-## M15 — native types: static checks, training scope and the local A/B; five-leg A/B pending
+## M15 — native types: static checks, training scope, the local A/B; five-leg draw 1 not clean
 
 - 2026-09-28..29 · `exp/native-types` over main `38eaa9f`, twelve commits `d6e543a` to `e5d9510`.
   Record: [`native_types.md`](../architecture/native_types.md) and its 2026-09-28/29 amendments;
   docs/decisions.md, 2026-09-28/29. Evidence: `docs/benchmarks/evidence/M15/` (tracked copy of
   `build/evidence/M15/`, index `INDEX.txt`), the base of the paths below. **Status: local
-  evidence complete; the five-leg A/B (run 36497513720) was in progress at writing; not merged.**
+  evidence complete; five-leg draw 1 not clean on linux-x86_64, kill not fired; not merged.**
 
 - **Pre-specified (the record).** Estimate: static checks 1–3 hold on both ISAs; the pinned
   local A/B reads no canonical row past its A/A floor by more than +1.7% and none past +2%; on
@@ -4417,10 +4417,49 @@ waits on it.
   in the packet). `1264542` adds the cold `python_numpy_twins.cpp` after the local timing, so it
   is **not locally timed**.
 
-- **Five-leg A/B (pending).** Run 36497513720 ("A/B performance", `ab_x86.yml`), dispatched
-  2026-09-28 23:20:58 UTC on `exp/m15-ab-arm` `1b806bf` (`e5d9510` plus the M12b arm tooling:
-  A, A2, B and B-held on one build path), base `38eaa9f`, 6 blocks × 60; in progress on
-  2026-09-29. A canonical run follows. Kill: a canonical row resolved past +2% on two draws.
+- **Five-leg A/B, run 1: nothing timed, two arm defects fixed.** Run 36497513720 (`ab_x86.yml`,
+  2026-09-28 23:20:58 UTC, `exp/m15-ab-arm` `1b806bf` vs `38eaa9f`, 6 blocks × 60) timed no
+  series, so it neither passes nor fires the kill (docs/decisions.md, 2026-09-29, build-and-test;
+  `ci-36497513720/`). (1) Only `_strata` was swapped per arm, so every A launch raised
+  `TypeError: loads() got an unexpected keyword argument 'parse_types'` under M15's facade
+  (linux-x86_64, macos-arm64, windows: `ab-*/ab/R1.stderr`); fixed in `296d2ea`. (2) linux-arm64's
+  B build failed its test gate (`ab-linux-arm64/ab/build-B.log:696`) on a fixed 256 KiB revival
+  thread, where a PGO+LTO parse needs 240 KiB on aarch64 (container build); `b938b17` pins
+  "revival needs no more stack than the parse", in subprocesses. macos-x86_64 was cancelled.
+
+- **Five-leg A/B, draw 1: not clean on linux-x86_64.** Run 36502555579: B = `exp/m15-ab-arm`
+  `296d2ea`, A = main `38eaa9f`, A2 = main built and trained again (`ab/arms.txt`); paired ABBA,
+  6 blocks × 60, 33 series per leg, all legs timed. In `ci-36502555579/`, per leg `ab/R1_blocks.txt`
+  (B vs A; windows `ab/comparison.txt`) and `ab/A2_blocks.txt` (A2 vs A), read by `verdict.py`;
+  the floor here is the A/A estimator on two launches of one binary (`ab/AA.tsv`), so A2 is a
+  build-to-build control. Values: normalised effect, % \[95% CI\] (floor), all resolved.
+
+  - *linux-x86_64: five losses, all serializer rows, 6/6 blocks each; A2 resolves nothing, so
+    the effect is B's.* Small `dumps flat` s +2.15 \[+1.56, +2.50\] (0.92) and b +1.58 \[+1.32,
+    +1.98\] (0.40); small `dumps mixed` b +1.66 \[+0.56, +2.27\] (1.07), orjson's raw time +2.61%
+    in the same blocks; small `dumps wide_arrays` b +1.09 \[+0.94, +1.45\] (0.41); small
+    `dump wide_arrays` +0.62 \[+0.42, +0.87\] (0.48).
+  - *linux-arm64: eight gains, one loss.* Gains: small and medium `dumps mixed` b and s −1.08 to
+    −1.77, small `nested` `load` −1.68 and `loads` −1.00, small `users` `dump` −0.52 and `dumps`
+    b −0.25. Loss: small `dumps wide_arrays` b +0.42 \[+0.26, +0.59\] (0.18), the one series A2
+    also resolves, the other way: −0.22 \[−0.28, −0.07\] (0.18).
+  - *macos-x86_64: one loss, not attributed to B.* Small `dumps nested` b +3.96 \[+2.62, +5.54\]
+    (3.62), beside a gain, medium `dumps flat` b −3.35 \[−3.96, −3.12\] (3.12). The leg's A2
+    control resolves small `dump mixed` +4.42 \[+2.38, +5.32\] (3.21) between two builds of main,
+    so the loss is treated as instrument noise and kept in the next draw's verdict table.
+  - *macos-arm64, windows-x86_64: nothing resolved*, B vs A or A2.
+
+- **Mechanism candidate, linux-x86_64 (sizes observed; cause inferred, not timed).** B's image
+  carries `Serializer::write_string_bytes` out of line (1 278 B hot, 837 B cold), A's has no such
+  symbol; `write()` 17 501 → 16 640 B, `write_mapping_body` 6 091 → 5 021 B (hot parts;
+  `ab-linux-x86_64/ab/symbols.{A,B}.txt`). This is the M1's inliner-deferral flip (`809621c`,
+  above) one level down: `809621c` gave `write_string_bytes` a new cold caller, `write_dataclass`.
+
+- **Status after draw 1.** The kill criterion (a canonical row resolved past +2% on two draws)
+  has not fired: one draw, whose one series past +2% is `dumps flat` s, which the setup counts as
+  not canonical (bytes +1.58%). The canonical step is held. A hard inlining-boundary fix is in
+  progress, to be checked on Linux clang symbol tables before one more paired draw; the lead's
+  rule for it: linux-x86_64 small `dumps flat` resolving past +2% again fires the kill criterion.
 
 - **Recorded, not resolved.**
 
