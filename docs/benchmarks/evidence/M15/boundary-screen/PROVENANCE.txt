@@ -1,0 +1,30 @@
+M15 boundary screen, 2026-09-29, dev M1 (arm64, Darwin 25.6.0), Apple clang 21.0.0, CPython 3.14.7.
+Tracked copy of build/evidence/M15/boundary-screen/.
+
+Arms
+  armA   = main 38eaa9f `make pgo` (../armA, not copied again)
+  armA2  = main rebuilt and retrained (../armA2), the A/A control
+  armFix = `make pgo` of 74d78ca (the native tail as a hard inlining boundary) in
+           ~/worktrees/strata/m15-pgo, exit 0 (make_pgo.log: ctest 16/16 twice, pytest 3186 and 3581
+           passed); armFix/ holds the image (.gz), the profile (.gz) and its inputs, sha256.txt; the
+           image's build.json (commit 74d78ca, dirty False) stays in build/evidence (*.build.json is
+           ignored)
+
+Session (session.sh): wait_load.sh (1-min load < 2.5, 45-min budget per label, kills nothing), then
+screen.sh: 8 rows -- the attribution screen's five (small flat dumps/dump, small users dumps,
+medium users dumps, small users loads) plus the three linux-x86_64 rows run 36502555579 resolved
+against strata (small mixed dumps, small wide_arrays dumps, small wide_arrays dump) -- 6 ABBA
+blocks x repeat 60 through `make probe-ab-rows` from ~/worktrees/strata/main-pgo (main's facade).
+fix_screen = armA vs armFix; aa = armA vs armA2, same session; analyze.sh -> ab_blocks.py --aa ->
+fix_screen.aa.analysis.{txt,json}, fix_screen_aa.summarize.txt (resolved = |effect| > the A/A floor
+and the block-bootstrap interval excludes zero).
+
+screen.sh carries a gate guard another session added at 06:06, before the file first ran (its
+header): it waits until no build or test process runs under the main checkout, then re-waits for
+the load. Loads (load_log.txt): fix_screen waited its 45 minutes and ran at 1-min load 2.87 -> 3.13
+(TIMEOUT, 06:41-06:47); aa ran at 2.36 (QUIET, 07:01-07:07). main-pgo's _strata was 1a9c29ccda03
+(armA2) before and after.
+
+symbols_m1.txt    __text sizes of the serializer (../symbols/symbol_table.py's measure): armA,
+                  arm809621c, armFix
+write_calls_m1.txt  write()'s bl/b targets per arm (symbol_table.calls_from)

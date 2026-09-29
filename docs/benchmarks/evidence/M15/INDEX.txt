@@ -34,3 +34,5 @@ Timings are the dev M1 under shared load; each session's uptime/top-5 is in its 
                       ubuntu:24.04 / clang 18.1.3 (x86 via Rosetta, arm64 native) against that run's profiles --
                       main and 296d2ea reproduce CI's A.so / B.so symbol for symbol; the fix restores main's calls
                       in write, write_mapping_body and write_mapping on both ISAs; static checks 1-2 of the fix
+  boundary-screen/   74d78ca `make pgo` on the dev M1: 8-row screen vs armA (the attribution five + the three rows
+                      run 36502555579 resolved on linux-x86_64) and the same-session A/A vs armA2; M1 symbol table

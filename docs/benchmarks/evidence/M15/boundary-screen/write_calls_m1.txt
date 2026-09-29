@@ -1,0 +1,39 @@
+write() bl/b targets on the M1 (count per arm)
+armA	arm809621c	armFix	target
+1	1	1	_PyErr_Format
+2	2	2	_PyErr_Occurred
+2	2	2	_PyErr_SetString
+2	2	2	_PyLong_AsLongLongAndOverflow
+2	2	2	_PyObject_Str
+1	1	1	_PyType_IsSubtype
+3	3	3	_PyUnicode_AsUTF8AndSize
+7	7	7	__Py_Dealloc
+1	1	1	__Unwind_Resume
+1	1	1	__ZN6strata26append_escaped_json_stringENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEERNS0_12basic_stringIcS3_NS0_9allocatorIcEEEE
+1	1	1	__ZN6strata4util13format_doubleEdPcm
+1	1	1	__ZN6strata4util16find_next_escapeEPKcm
+28	28	28	__ZN6strata8bindings12StagedOutput8overflowEm
+0	1	1	__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object [tail b]
+1	1	1	__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object [tail b]
+5	5	5	__ZN6strata8bindings12_GLOBAL__N_110Serializer15close_containerEP7_object
+4	4	4	__ZN6strata8bindings12_GLOBAL__N_110Serializer16write_scalar_runEPP7_objectl
+2	2	2	__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
+1	1	1	__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object [tail b]
+2	2	2	__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+1	1	1	__ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv [tail b]
+1	1	1	__ZN6strata8bindings12_GLOBAL__N_110Serializer5FrameC1ERS2_P7_object
+2	2	2	__ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv
+4	4	4	__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+2	2	2	__ZN6strata8bindings5PyRefD2Ev
+1	1	1	__ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv
+1	1	1	__ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv [tail b]
+10	10	10	__ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEPKcm
+0	0	1	__ZNSt3__16vectorIN6strata8bindings19PythonObjectBuilder5FrameENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev
+1	0	0	__ZNSt3__16vectorIP7_objectNS_9allocatorIS2_EEE20__throw_length_errorB9nqe210106Ev
+0	1	0	__ZNSt3__16vectorIPKN6strata9JsonValueENS_9allocatorIS4_EEE20__throw_length_errorB9nqe210106Ev
+1	1	1	__ZSt28__throw_bad_array_new_lengthB9nqe210106v
+3	3	3	__ZdlPv
+3	3	3	__Znwm
+12	12	12	___clang_call_terminate
+1	1	1	__tlv_atexit
+13	13	13	_memcpy
