@@ -1,0 +1,4 @@
+A 38eaa9f 0a52e217784a2c3516ddc1a360bd52cf  arms/A.so
+A2 38eaa9f ac82229b565f717df0c0c5e2c353d4a7  arms/A2.so
+B afd1550 91a94feb69c026e5a9073d01797a6ccd  arms/B.so
+B_held afd1550 e4ac9a0794ded4e3f13ae1da9192472a  arms/B_held.so

@@ -1,0 +1,11 @@
+# runs: 50 (49 test files + the training workload)
+tests/py/test_path_dispatch.py  rc=0  [32 passed in 0.14s]  class_attribute=3 write_native=10 resolve_class=8 loaded_module=26 is_numpy=2 classify=60 format_pure_leaf=3
+tests/unit/test_dumps.py  rc=0  [57 passed in 0.04s]  class_attribute=3 write_native=30 resolve_class=16 loaded_module=38 is_numpy=6 classify=148 format_pure_leaf=11
+tests/unit/test_dumps_cold_start.py  rc=0  [4 passed in 0.25s]  class_attribute=1 write_native=10 resolve_class=8 loaded_module=34 is_numpy=2 classify=28 format_pure_leaf=2
+tests/unit/test_dumps_contract.py  rc=0  [99 passed in 0.05s]  class_attribute=3 write_native=10 resolve_class=8 loaded_module=26 is_numpy=2 classify=60 format_pure_leaf=3
+tests/unit/test_dumps_private_cache.py  rc=0  [32 passed in 0.04s]  class_attribute=3 write_native=1510 resolve_class=608 loaded_module=926 is_numpy=302 classify=6660 format_pure_leaf=603
+tests/unit/test_dumps_reentrancy_review.py  rc=0  [31 passed in 0.23s]  class_attribute=3 write_native=10 resolve_class=8 loaded_module=26 is_numpy=2 classify=60 format_pure_leaf=3
+tests/unit/test_dumps_with_default_state.py  rc=0  [114 passed in 0.23s]  class_attribute=3 write_native=510 resolve_class=208 loaded_module=326 is_numpy=102 classify=2260 format_pure_leaf=203
+tests/unit/test_load_dump.py  rc=0  [43 passed in 0.06s]  class_attribute=3 write_native=5 resolve_class=6 loaded_module=23 is_numpy=1 classify=38 format_pure_leaf=1
+tests/unit/test_path_dispatch.py  rc=0  [32 passed in 0.05s]  class_attribute=3 write_native=10 resolve_class=8 loaded_module=26 is_numpy=2 classify=60 format_pure_leaf=3
+# counter sums over all runs: class_attribute=25 classify=9374 format_pure_leaf=832 is_numpy=421 loaded_module=1451 prepare_native_runtime=1288 reset_runtime=161224 resolve_class=878 write_native=2105

@@ -1,0 +1,40 @@
+M15 native types -- evidence packet, copied 2026-09-29 from build/evidence/M15/ (gitignored,
+destructible) into the tracked tree. Paths below mirror build/evidence/M15/; a citation of
+build/evidence/M15/<p> resolves here as docs/benchmarks/evidence/M15/<p>.
+
+Copied: every .txt/.json/.py/.sh/.patch/.md/.log/.tsv file; any file over 400 kB as <name>.gz
+(the ABBA sample TSVs among them); the timed arms' irreplaceable build outputs, gzipped:
+  armA/                 main 38eaa9f, make pgo: _strata .so.gz, strata.profdata.gz (sha256 7703c629...)
+  attr/arm809621c/      809621c, make pgo: _strata .so.gz, strata.profdata.gz -- the arm of the
+                        final local A/B (attr/full/fix_ab.aa_full.analysis.txt)
+Not copied: object files, .profraw, the other arms' .so/.profdata (armA2, armB, armBheld*,
+armBown2/3, armC2), clang -fdump-record-layouts output (check2.txt carries the result),
+check4_attribution's raw instrumented profiles. Their summaries and hashes are in the
+PROVENANCE.txt of each directory.
+
+Directory map (each has its own PROVENANCE.txt where the producing agent wrote one):
+  codegen/          static checks 1-3 at 2f494a9 and 10521a9; variants/ = tail shapes V1-V4
+  check4_*          training counts on the native and parse_types functions (10521a9)
+  ab/               local A/B, 6 ABBA x 60: held-profile arm (confounded) and own-profile at ad04f61
+  micro/, micro2/   admission microbenchmarks, facade keyword cost, import cost
+  final/            5b876d1: static checks, profile counts, own-profile A/B (6 rows lost)
+  attr/             attribution of that loss (inliner deferral flip) and the fix 809621c;
+  attr/full/        full 26-row A/B of 809621c vs main + same-session A/A: no resolved loss
+  symbols/          symbol sizes of the serializer across arms
+  linux-arm64-docker/  CI run 36497513720's parse-cap stack failure: python:3.12 linux/arm64
+                    container builds (gcc -O3, clang 19 -O3 / ThinLTO / PGO+LTO), stack_probe.py's
+                    smallest stack per parse (16 KiB steps), the old test and both suites
+  local-stack-fix/  the same fix on the dev M1: make test, make test-py-asan, the ASan ladder
+Timings are the dev M1 under shared load; each session's uptime/top-5 is in its load_log.txt.
+  ci-36497513720/    five-leg paired A/B run 36497513720 (exp/m15-ab-arm 1b806bf): no timing -- every leg
+                      stopped before a sample (see docs/decisions.md 2026-09-29, build-and-test)
+  ci-36502555579/    five-leg paired A/B run 36502555579 (exp/m15-ab-arm 296d2ea, base 38eaa9f, 6 x 60):
+                      every leg timed; verdict.py classifies resolved rows (CI excludes 0, |effect| > floor)
+  linux-symbols/     the native tail as a hard inlining boundary: CI run 36502555579's PGO+LTO builds replayed in
+                      ubuntu:24.04 / clang 18.1.3 (x86 via Rosetta, arm64 native) against that run's profiles --
+                      main and 296d2ea reproduce CI's A.so / B.so symbol for symbol; the fix restores main's calls
+                      in write, write_mapping_body and write_mapping on both ISAs; static checks 1-2 of the fix
+  boundary-screen/   74d78ca `make pgo` on the dev M1: 8-row screen vs armA (the attribution five + the three rows
+                      run 36502555579 resolved on linux-x86_64) and the same-session A/A vs armA2; M1 symbol table
+  ci-36520746091/    paired draw 2 (exp/m15-ab-arm afd1550 = 74d78ca + arm tooling, base 38eaa9f, 6 x 60): verdict.txt
+  ci-36529483744/    paired draw 3 (same arm afd1550, base 38eaa9f, 6 x 60): verdict.txt -- kill criterion fired

@@ -100,10 +100,10 @@ def test_a_response_is_the_compact_default_byte_for_byte(client):
     assert json.loads(got.content) == json.loads(client.get("/rich/default").content)
 
 
-def test_a_request_round_trips_through_the_test_client(client, native_document):
-    response = client.post("/echo", native_document, content_type="application/json")
+def test_a_request_round_trips_through_the_test_client(client, json_document):
+    response = client.post("/echo", json_document, content_type="application/json")
     assert response.status_code == 200
-    assert json.loads(response.content) == native_document
+    assert json.loads(response.content) == json_document
 
 
 def test_json_dumps_params_default_is_honoured_and_ensure_ascii_check_circular_ignored():

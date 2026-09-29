@@ -1,0 +1,48 @@
+== ab-linux-x86_64 R1_blocks.txt: series=33 resolved=0 max=sm-nested-loads strata-loads +0.99% [-0.37,+1.82] floor 2.00
+== ab-linux-x86_64 A2_blocks.txt: series=33 resolved=3 max=sm-wide_arrays-loads strata-loads +2.64% [+0.17,+3.13] floor 3.22
+   GAIN sm-users-dumps         strata-bytes    -1.13% [-1.90,-0.27] floor 0.97 1/6
+   GAIN sm-users-dumps         strata-str      -1.04% [-2.21,-0.13] floor 0.89 1/6
+   LOSS sm-wide_arrays-load    strata-load     +2.61% [+0.03,+3.10] floor 2.33 5/6
+   >+2% point: sm-wide_arrays-load strata-load +2.61% [+0.03,+3.10] floor 2.33 LOSS
+   >+2% point: sm-wide_arrays-loads strata-loads +2.64% [+0.17,+3.13] floor 3.22 unresolved
+== ab-linux-arm64 R1_blocks.txt: series=33 resolved=11 max=sm-nested-dump strata-dump +1.38% [+0.08,+2.35] floor 0.97
+   LOSS md-flat-dumps          strata-bytes    +0.41% [+0.15,+0.58] floor 0.28 6/6
+   GAIN md-mixed-dumps         strata-str      -0.75% [-1.15,-0.15] floor 0.53 0/6
+   LOSS md-users-dumps         strata-bytes    +0.64% [+0.44,+0.81] floor 0.52 6/6
+   LOSS sm-flat-dumps          strata-bytes    +0.77% [+0.42,+0.97] floor 0.40 6/6
+   LOSS sm-nested-dump         strata-dump     +1.38% [+0.08,+2.35] floor 0.97 5/6
+   LOSS sm-nested-dumps        strata-bytes    +0.83% [+0.40,+1.45] floor 0.62 6/6
+   GAIN sm-nested-load         strata-load     -1.41% [-1.93,-0.59] floor 0.52 1/6
+   GAIN sm-nested-loads        strata-loads    -1.26% [-1.70,-0.99] floor 0.41 0/6
+   LOSS sm-users-dumps         strata-bytes    +0.69% [+0.51,+0.86] floor 0.17 6/6
+   LOSS sm-wide_arrays-dumps   strata-bytes    +0.37% [+0.10,+0.52] floor 0.28 6/6
+   GAIN sm-wide_arrays-loads   strata-loads    -0.36% [-2.31,-0.05] floor 0.32 0/6
+== ab-linux-arm64 A2_blocks.txt: series=33 resolved=0 max=sm-mixed-load strata-load +0.69% [-2.83,+1.23] floor 0.85
+== ab-macos-arm64 R1_blocks.txt: series=33 resolved=0 max=sm-flat-dumps strata-str +4.01% [+1.55,+7.39] floor 11.81
+   >+2% point: md-mixed-dumps strata-str +2.25% [-2.25,+5.33] floor 2.67 unresolved
+   >+2% point: sm-flat-dumps strata-str +4.01% [+1.55,+7.39] floor 11.81 unresolved
+   >+2% point: sm-nested-load strata-load +2.64% [-1.30,+3.86] floor 3.35 unresolved
+== ab-macos-arm64 A2_blocks.txt: series=33 resolved=0 max=sm-mixed-load strata-load +1.99% [-3.62,+11.67] floor 6.17
+== ab-macos-x86_64 R1_blocks.txt: series=33 resolved=5 max=sm-nested-dumps strata-str +4.12% [+2.56,+8.27] floor 3.39
+   GAIN md-flat-dumps          strata-bytes    -4.15% [-7.15,-1.19] floor 2.74 0/6
+   GAIN md-flat-dumps          strata-str      -3.17% [-4.24,-2.01] floor 3.07 0/6
+   GAIN sm-flat-dumps          strata-bytes    -3.11% [-4.87,-1.51] floor 1.72 0/6
+   LOSS sm-nested-dumps        strata-bytes    +3.74% [+0.47,+4.83] floor 2.10 5/6
+   LOSS sm-nested-dumps        strata-str      +4.12% [+2.56,+8.27] floor 3.39 6/6
+   >+2% point: sm-nested-dump strata-dump +2.77% [+0.57,+5.16] floor 4.24 unresolved
+   >+2% point: sm-nested-dumps strata-bytes +3.74% [+0.47,+4.83] floor 2.10 LOSS
+   >+2% point: sm-nested-dumps strata-str +4.12% [+2.56,+8.27] floor 3.39 LOSS
+   >+2% point: sm-users-dumps strata-bytes +2.61% [-1.45,+3.23] floor 8.36 unresolved
+== ab-macos-x86_64 A2_blocks.txt: series=33 resolved=0 max=sm-mixed-dumps strata-str +2.38% [-1.09,+7.36] floor 3.89
+   >+2% point: sm-mixed-dumps strata-bytes +2.14% [-1.12,+8.97] floor 4.21 unresolved
+   >+2% point: sm-mixed-dumps strata-str +2.38% [-1.09,+7.36] floor 3.89 unresolved
+== ab-windows-x86_64 A2_blocks.txt: series=33 resolved=2 max=sm-mixed-dumps strata-bytes +1.84% [+1.32,+3.33] floor 1.81
+   LOSS sm-mixed-dumps         strata-bytes    +1.84% [+1.32,+3.33] floor 1.81 6/6
+   LOSS sm-mixed-dumps         strata-str      +1.37% [+0.56,+3.04] floor 1.21 6/6
+== ab-windows-x86_64 comparison.txt: series=33 resolved=2 max=sm-mixed-loads strata-loads +4.06% [-0.93,+7.15] floor 9.34
+   LOSS sm-flat-dump           strata-dump     +1.37% [+0.67,+1.59] floor 1.30 6/6
+   LOSS sm-wide_arrays-load    strata-load     +2.04% [+0.23,+4.69] floor 0.44 6/6
+   >+2% point: sm-mixed-loads strata-loads +4.06% [-0.93,+7.15] floor 9.34 unresolved
+   >+2% point: sm-nested-loads strata-loads +2.02% [-0.63,+2.84] floor 2.39 unresolved
+   >+2% point: sm-wide_arrays-dump strata-dump +2.82% [+1.75,+5.13] floor 3.93 unresolved
+   >+2% point: sm-wide_arrays-load strata-load +2.04% [+0.23,+4.69] floor 0.44 LOSS

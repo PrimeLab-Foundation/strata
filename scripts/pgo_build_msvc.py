@@ -6,10 +6,11 @@
   phase 2  relink against the profile (/LTCG /USEPROFILE) -> gate tests
            -> verification benchmarks
 
-Both phases run the full gate for the same reason the POSIX script does: an
+Both phases run the gate for the same reason the POSIX script does: an
 optimized build that fails its tests is worth nothing, and PGO is exactly the
-kind of change that can miscompile. The profile is regenerated from scratch
-every run.
+kind of change that can miscompile. Phase 1 runs it with ``--training``, which
+leaves the native-type suites out of the profile; phase 2 runs all of it. The
+profile is regenerated from scratch every run.
 
 Differences from the POSIX script that are MSVC facts, not choices:
 
@@ -102,9 +103,9 @@ def _stage_pgort() -> None:
     shutil.copy2(dll, target)
 
 
-def _gate_tests() -> None:
+def _gate_tests(*py_args: str) -> None:
     _run([sys.executable, "scripts/cpp_tests.py"])
-    _run([sys.executable, "scripts/py_tests.py"])
+    _run([sys.executable, "scripts/py_tests.py", *py_args])
 
 
 def _install(mode: str) -> None:
@@ -240,7 +241,7 @@ def main() -> int:
     )
 
     print("==> PGO: gate tests on the instrumented build", flush=True)
-    _gate_tests()
+    _gate_tests("--training")
 
     print("==> PGO: collecting .pgc profiles", flush=True)
     _collect_pgc()

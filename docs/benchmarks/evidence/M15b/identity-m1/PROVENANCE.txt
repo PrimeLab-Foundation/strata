@@ -1,0 +1,38 @@
+# M15b Native Types Identity Proof — Provenance
+
+## System Environment
+- OS: macOS 26.6.2 (25G83)
+- Clang: Apple clang version 21.0.0 (clang-2100.1.1.101)
+- Python: Python 3.14.7
+- Date: 2026-09-29
+
+## Repository State
+- HEAD: 8db1539
+- Branch: exp/native-types
+- Base commit (arm): 38eaa9f
+
+## Build Artifacts — SHA256 Hashes
+
+### Plain Build
+base_plain.so: 6ac6909e6f5fd7b9099a292247cab9198d19cc09856a3e9b47442c61dc76fac4
+head_plain.so: f3d5a55c20bbb1a4a0b6d9ed792fb17204f33d7d7a9bf933ea14336ccdbecfe3
+
+### PGO+LTO Build (held profile)
+base_pgo.so: e735277560e9db9cf46ed504f36d1d433af123d358584336220591c549bc4e64
+head_pgo_held.so: 48f2bad056a5f1f4f35875666da55cfe988dab9bf75e81fc60d13f4616723425
+
+## Test Execution Exit Codes
+- plain build: 0 (success)
+- held-profile pgo+lto build: 0 (success)
+
+## Verdict Summary
+- Plain code identical: YES (all 13 sections match)
+- PGO+LTO code identical: YES (all 13 sections match)
+- Token identity verification: PASS (all 18 translation units identical between architectures)
+
+## Files Generated
+- token_identity.txt: source list and per-TU token matching results
+- identity_ab.log: full build and comparison output
+- identity_plain.json: section-by-section hash comparison for plain build
+- identity_pgo.json: section-by-section hash comparison for PGO+LTO build
+- identity.txt: summary exit codes and base commit

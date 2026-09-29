@@ -95,11 +95,11 @@ def test_a_response_is_the_compact_default_byte_for_byte(strata_client):
     assert json.loads(got.data) == json.loads(_client(DefaultJSONProvider).get("/rich").data)
 
 
-def test_a_request_round_trips_through_the_test_client(strata_client, native_document):
-    response = strata_client.post("/echo", json=native_document)
+def test_a_request_round_trips_through_the_test_client(strata_client, json_document):
+    response = strata_client.post("/echo", json=json_document)
     assert response.status_code == 200
-    assert response.get_json() == native_document
-    assert json.loads(response.data) == native_document
+    assert response.get_json() == json_document
+    assert json.loads(response.data) == json_document
 
 
 def test_debug_responses_stay_compact():
@@ -115,9 +115,9 @@ def test_the_session_cookie_round_trips(strata_client):
         assert saved["kept"] == (1, b"\x00bytes", "Zoë", uuid.UUID(int=5))
 
 
-def test_tojson_ignores_sort_keys_and_stays_valid_json(strata_client, native_document):
-    rendered = strata_client.post("/tojson", json=native_document).get_data(as_text=True)
-    assert json.loads(rendered) == native_document
+def test_tojson_ignores_sort_keys_and_stays_valid_json(strata_client, json_document):
+    rendered = strata_client.post("/tojson", json=json_document).get_data(as_text=True)
+    assert json.loads(rendered) == json_document
     assert rendered.index('"zeta"') < rendered.index('"id"')
 
 

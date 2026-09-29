@@ -540,6 +540,65 @@ def _all_first(item: PlatformEvidence) -> bool:
     return all(row.rank == 1 for row in rows)
 
 
+def render_native_section(
+    native_platforms: dict[str, Report], expected_platforms: tuple[str, ...] = CI_PLATFORMS
+) -> str:
+    """The native-v1 section: its own standings, its own denominator.
+
+    Never folded into the canonical verdict or row counts (docs/decisions.md,
+    2026-09-29, "benchmarks"): a sample with no native-v1 evidence still reads
+    a complete canonical verdict, so this renders exactly one line saying so
+    rather than affecting anything above it.
+    """
+    lines = ["## native-v1", ""]
+    if not native_platforms:
+        lines.append("no native-v1 evidence")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.append(
+        "A separate declared scope (`harness.WORKLOADS['native-v1']`): strata's native "
+        "types against the rivals that support them, plus the cost of the `native=` flag "
+        "on a document with no native object. Counts toward neither the 135-row verdict "
+        "nor any platform's canonical standings."
+    )
+    lines.append("")
+    ordered = [key for key in expected_platforms if key in native_platforms]
+    ordered += sorted(set(native_platforms) - set(expected_platforms))
+    for key in ordered:
+        report = native_platforms[key]
+        lines.append(f"### {key} ({_environment_line(report)})")
+        lines.append("")
+        data_rows = [row for row in standings(report) if row.section in ("dumps", "dump")]
+        data_rows = [row for row in data_rows if row.dataset.startswith("native.")]
+        if data_rows:
+            lines.append("| section | dataset | rank | ratio vs best rival | best rival |")
+            lines.append("|" + "|".join(["---"] * 5) + "|")
+            for row in sorted(data_rows, key=lambda r: (r.section, r.dataset)):
+                lines.append(
+                    f"| {row.section} | {row.dataset} | {row.rank}/{row.libraries} "
+                    f"| {row.ratio:.2f}x | {row.best_rival} |"
+                )
+        else:
+            lines.append("no comparable native-dataset rows in this report")
+        lines.append("")
+
+        flag_medians: dict[str, dict[str, float]] = {}
+        for m in report.measurements:
+            if m.section == "dumps" and m.dataset.endswith("(native flag)") and not m.failed:
+                flag_medians.setdefault(m.dataset, {})[m.library] = m.median_ms or float("nan")
+        if flag_medians:
+            lines.append("Cost of the `native=` flag on `mixed` (no native object present):")
+            lines.append("")
+            lines.append("| dataset | library | median_ms |")
+            lines.append("|---|---|---|")
+            for dataset in sorted(flag_medians):
+                for library, median in sorted(flag_medians[dataset].items()):
+                    lines.append(f"| {dataset} | {library} | {median:.3f} |")
+            lines.append("")
+    return "\n".join(lines)
+
+
 def _render_evidence(
     lines: list[str],
     evidence: list[PlatformEvidence],
@@ -670,8 +729,29 @@ def main(argv: list[str] | None = None) -> int:
         expected_rows=resolve_workload(args.expect),
         expected_platforms=expected_platforms,
     )
+
+    # native-v1 travels in the same artifact but is a separate declared scope:
+    # collected and rendered in its own section, never mixed into `platforms`
+    # or `result` above, so a native-v1 defect can only ever change this
+    # section's own text, never the canonical exit code.
+    native_platforms: dict[str, Report] = {}
+    for path in sorted(args.reports_dir.glob("native_v1_*.md")):
+        native_report = read_report(path)
+        try:
+            native_key = platform_key(native_report.environment)
+        except ValueError as error:
+            sys.stderr.write(f"warning: native-v1 {path.name}: {error}; skipped\n")
+            continue
+        if native_key in native_platforms:
+            sys.stderr.write(
+                f"warning: two native-v1 reports claim {native_key}; keeping the first\n"
+            )
+            continue
+        native_platforms[native_key] = native_report
+
+    text = result.text + "\n" + render_native_section(native_platforms, expected_platforms)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(result.text, encoding="utf-8", newline="\n")
+    args.output.write_text(text, encoding="utf-8", newline="\n")
 
     # Counted, not collected: a platform whose evidence is invalid or
     # misattributed contributes no rows to this line either.

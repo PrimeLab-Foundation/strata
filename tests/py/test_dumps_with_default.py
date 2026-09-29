@@ -16,17 +16,16 @@ Test composition rule: corpus-wide checks read the output through
 """
 
 import base64
-import dataclasses
 import datetime
-import decimal
 import enum
+import fractions
 import gc
+import ipaddress
 import json
 import pathlib
 import random
 import sys
 import threading
-import uuid
 import warnings
 import weakref
 
@@ -76,18 +75,11 @@ def on_a_fresh_thread(body):
 
 
 # ---------------------------------------------------------------------------
-# A JSON-safe callable and the generated corpus for the stdlib oracle
+# A JSON-safe callable and the generated corpus for the stdlib oracle. Every
+# type here is unsupported by `dumps`: the native types `dumps` now writes
+# itself (docs/architecture/native_types.md) never reach a callable, and their
+# oracle corpus lives in tests/py/native_types/.
 # ---------------------------------------------------------------------------
-
-
-class Color(enum.Enum):
-    RED = "red"
-    BLUE = "blue"
-
-
-class Pair(enum.Enum):
-    ONE = (1, 2)
-    NONE = None
 
 
 class Level(enum.IntEnum):
@@ -95,19 +87,22 @@ class Level(enum.IntEnum):
     HIGH = 3
 
 
-@dataclasses.dataclass
-class Point:
-    x: float
-    y: float
+class Bag:
+    """An unsupported container: the callable returns its items, sorted."""
+
+    def __init__(self, items):
+        self.items = list(items)
 
 
-@dataclasses.dataclass
-class Event:
-    name: str
-    at: datetime.datetime
-    tags: set
-    where: Point
-    ids: list
+class Record:
+    """An unsupported record: the callable returns a dict of unsupported children."""
+
+    def __init__(self, name, span, tags, where, ids):
+        self.name = name
+        self.span = span
+        self.tags = tags
+        self.where = where
+        self.ids = ids
 
 
 class Node:
@@ -120,18 +115,22 @@ class Node:
 
 def json_safe(obj):
     """A `default` whose every return is a JSON type (so stdlib never chains)."""
-    if isinstance(obj, (datetime.datetime, datetime.date, datetime.time)):
-        return obj.isoformat()
-    if isinstance(obj, uuid.UUID):
+    if isinstance(obj, datetime.timedelta):
+        return obj.total_seconds()
+    if isinstance(obj, (fractions.Fraction, ipaddress.IPv4Address)):
         return str(obj)
-    if isinstance(obj, decimal.Decimal):
-        return str(obj)
-    if isinstance(obj, enum.Enum):
-        return obj.value
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        return dataclasses.asdict(obj)
-    if isinstance(obj, (set, frozenset)):
-        return sorted(obj)
+    if isinstance(obj, range):
+        return list(obj)
+    if isinstance(obj, Bag):
+        return sorted(obj.items)
+    if isinstance(obj, Record):
+        return {
+            "name": obj.name,
+            "span": obj.span,
+            "tags": obj.tags,
+            "where": obj.where,
+            "ids": obj.ids,
+        }
     if isinstance(obj, complex):
         return [obj.real, obj.imag]
     if isinstance(obj, bytes):
@@ -152,27 +151,26 @@ def via_nested_hooked(obj):
 
 def _unsupported(rng):
     roll = rng.randrange(13)
-    base = datetime.datetime(2026, 9, 26, 12, 30, 15, 123456)
     # Built eagerly, one of each, so the draw order stays fixed per call.
     values = [
-        base + datetime.timedelta(seconds=rng.randrange(10**6)),
-        (base + datetime.timedelta(days=rng.randrange(1000))).date(),
-        datetime.time(rng.randrange(24), rng.randrange(60)),
-        uuid.UUID(int=rng.getrandbits(128)),
-        decimal.Decimal(rng.randrange(-(10**9), 10**9)) / 1000,
-        rng.choice(list(Color)),
-        rng.choice(list(Pair)),
+        datetime.timedelta(seconds=rng.randrange(10**6)),
+        fractions.Fraction(rng.randrange(-(10**6), 10**6), rng.randrange(1, 1000)),
+        ipaddress.IPv4Address(rng.getrandbits(32)),
+        pathlib.PurePosixPath(f"p/{rng.randrange(99)}"),
+        range(rng.randrange(5)),
+        Opaque(rng.choice(["red", "blue"])),
+        Opaque(rng.choice([(1, 2), None])),
         rng.choice(list(Level)),
-        {rng.randrange(100) for _ in range(rng.randrange(5))},
-        frozenset(f"s{rng.randrange(9)}" for _ in range(rng.randrange(4))),
+        Bag({rng.randrange(100) for _ in range(rng.randrange(5))}),
+        Bag(f"s{rng.randrange(9)}" for _ in range(rng.randrange(4))),
         complex(rng.randrange(9), -rng.randrange(9)),
         rng.randbytes(rng.randrange(12)),
-        Event(
+        Record(
             name=f"e{rng.randrange(99)}",
-            at=base,
-            tags={"a", "b"},
-            where=Point(rng.random(), -1.5),
-            ids=[uuid.UUID(int=rng.getrandbits(128)), pathlib.PurePosixPath("a/b")],
+            span=datetime.timedelta(minutes=rng.randrange(600)),
+            tags=Bag({"a", "b"}),
+            where=complex(rng.random(), -1.5),
+            ids=[Opaque(rng.getrandbits(64)), pathlib.PurePosixPath("a/b")],
         ),
     ]
     if rng.random() < 0.05:
@@ -259,7 +257,7 @@ def test_the_callable_is_called_where_the_stdlib_calls_it():
         json.dumps(document, default=recorder(theirs))
     assert ours == theirs
     kinds = set(ours)
-    for kind in (datetime.datetime, uuid.UUID, decimal.Decimal, Color, set, Event, Node):
+    for kind in (datetime.timedelta, fractions.Fraction, Opaque, Bag, Record, Node):
         assert kind in kinds
     # An IntEnum is an `int`: written directly, never handed to the callable.
     assert Level not in kinds
@@ -278,10 +276,10 @@ def _records(count):
         {
             "region": rng.choice(["eu", "us", "apac"]),
             "id": index,
-            "at": datetime.datetime(2026, 1, 1) + datetime.timedelta(hours=index),
-            "amount": decimal.Decimal(index) / 4,
-            "tags": {rng.randrange(5) for _ in range(3)},
-            "color": rng.choice(list(Color)),
+            "at": datetime.timedelta(hours=index),
+            "amount": fractions.Fraction(index, 4),
+            "tags": Bag({rng.randrange(5) for _ in range(3)}),
+            "color": Opaque(rng.choice(["red", "blue"])),
         }
         for index in range(count)
     ]
@@ -472,7 +470,7 @@ def test_a_callable_that_calls_dumps_with_default_embeds_the_nested_document(mod
 
     def body():
         doc = [
-            {"id": index, "p": Payload({"at": datetime.date(2026, 9, index + 1)})}
+            {"id": index, "p": Payload({"at": datetime.timedelta(days=index + 1)})}
             for index in range(12)
         ]
         return text(strata.dumps_with_default(doc, nested, return_type=mode)), doc

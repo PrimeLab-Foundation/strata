@@ -6,8 +6,11 @@
 #   phase 2  rebuild with the merged profile and LTO -> gate tests
 #            -> verification benchmarks
 #
-# Both phases run the full gate: an optimized build that fails its tests is
-# worth nothing, and PGO is exactly the kind of change that can miscompile.
+# Both phases run the gate: an optimized build that fails its tests is worth
+# nothing, and PGO is exactly the kind of change that can miscompile. Phase 1
+# runs it with --training, which leaves the native-type suites out of the
+# profile (docs/architecture/native_types.md, "Hot-path protection" 4); phase 2
+# runs all of it.
 # The profile is regenerated from scratch every run — a stale profile silently
 # pessimizes the branches it no longer describes.
 set -euo pipefail
@@ -55,7 +58,7 @@ profdata_tool() {
 
 gate_tests() {
     "$VPY" scripts/cpp_tests.py
-    "$VPY" scripts/py_tests.py
+    "$VPY" scripts/py_tests.py "$@"
 }
 
 KIND="$(compiler_kind)"
@@ -98,7 +101,7 @@ PYTHONPATH=. "$VPY" scripts/pgo_training.py \
     --work-dir "$WORK_DIR"
 
 echo "==> PGO: gate tests on the instrumented build"
-gate_tests
+gate_tests --training
 
 if [[ "$KIND" == "clang" ]]; then
     shopt -s nullglob

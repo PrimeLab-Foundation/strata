@@ -1,0 +1,6 @@
+  warning: src/strata/bindings/python_dumps.cpp: function control flow change detected (hash mismatch) _ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object Hash = 534572324966741362 up to 6447184 count discarded [-Wbackend-plugin]
+  warning: src/strata/bindings/python_module.cpp: function control flow change detected (hash mismatch) PyInit__strata Hash = 93478048897321446 up to 85 count discarded [-Wbackend-plugin]
+  warning: src/strata/bindings/python_module.cpp: function control flow change detected (hash mismatch) _ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_ Hash = 259878934585941281 up to 489178 count discarded [-Wbackend-plugin]
+  warning: src/strata/bindings/python_module.cpp: function control flow change detected (hash mismatch) _ZN12_GLOBAL__N_111strata_loadEP7_objectS1_S1_ Hash = 721571788758894727 up to 3208 count discarded [-Wbackend-plugin]
+  warning: src/strata/bindings/python_module.cpp: function control flow change detected (hash mismatch) _ZN12_GLOBAL__N_112strata_queryEP7_objectS1_S1_ Hash = 322126093743978147 up to 2562 count discarded [-Wbackend-plugin]
+  warning: src/strata/bindings/python_module.cpp: function control flow change detected (hash mismatch) _ZN12_GLOBAL__N_113strata_searchEP7_objectS1_S1_ Hash = 488967936122866648 up to 2731 count discarded [-Wbackend-plugin]

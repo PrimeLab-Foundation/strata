@@ -4,9 +4,12 @@ Package exports (`python/strata/__init__.py` `__all__`): `loads`, `dumps`,
 `dumps_with_default`, `load`, `dump`, `search`, `query`, `compile`, `config`,
 `__version__`. Also importable: `JsonCursor`, and the framework adapters under
 `strata.integrations` (below; not exported, not imported by `import strata`).
-Native modules: `strata._strata`,
-and `strata._dumps_hook` (the serializer with the unsupported-type hook, imported
-by the first `dumps_with_default` call only).
+Native modules: `strata._strata`
+(byte-identical to main, serializer and parser both — design record:
+`docs/architecture/native_types.md`, "Flag shape (M15b)") and `strata._dumps_hook`
+(natives, `dumps_with_default`, and `parse_types`), imported by the first call
+that needs it — `dumps_with_default`, `native=True` on `dumps`/`dump`, or
+`parse_types` set to anything but `False` — never by `import strata`.
 
 Deliberate changes vs the previous implementation: `compile_path` is renamed
 `compile` (mirroring `re.compile`), and the extra entry points `parse_json`
@@ -23,7 +26,7 @@ anywhere (the previous implementation drifted across three locations).
 ## Parse & serialize
 
 ```python
-strata.loads(source: str | bytes, *, return_type="dict", iterator=False)
+strata.loads(source: str | bytes, *, return_type="dict", iterator=False, parse_types=False)
 ```
 
 Parse JSON text. Default returns the full Python tree (`dict|list|str|int|float|bool|None`);
@@ -45,16 +48,61 @@ each NDJSON line, `search`) and to both builders (the Python tree and
 
 Raises `ValueError` (invalid JSON / nesting past the cap / bad `return_type`),
 `TypeError`, `RuntimeError` (internal C++ error), `RuntimeWarning` under
-`duplicate_key_policy="warn"`.
+`duplicate_key_policy="warn"`. `parse_types` revives dates, times, UUIDs and
+registered types after the parse: see `parse_types` below.
 
 ```python
-strata.dumps(obj, *, return_type="str") -> str | bytes
+strata.dumps(obj, *, return_type="str", native=False) -> str | bytes
 ```
 
-Compact serialization (no whitespace). Supports
-dict/list/tuple/str/int/float/bool/None; dict keys must be `str` (else
-`TypeError`); NaN/±Inf serialize as `null`; big ints beyond int64 are emitted
-via their str form. Raises `TypeError` (unsupported type), `ValueError`
+`native` must be a `bool`, tested by identity (`native is False` first, then
+`native is True` — one identity test on the default path); anything else
+raises `TypeError("native must be a bool, not %s")` before any work.
+
+**`native=False` (default) is main's contract exactly**, unchanged by this
+record: `_strata`'s `dumps` is byte-identical to main's. Compact serialization
+(no whitespace). Supports dict/list/tuple/str/int/float/bool/None; dict keys
+must be `str` (else `TypeError`); NaN/±Inf serialize as `null`; big ints beyond
+int64 are emitted via their str form. A `datetime`, `date`, `time`, `UUID`,
+`Decimal`, `Enum`, a dataclass, `set`/`frozenset` and every numpy type raise
+the same `TypeError("Object of type %s is not JSON serializable")` as any
+other unsupported type — there is no native check on this path.
+
+**`native=True`** routes to `strata._dumps_hook`'s `dumps_native` (design
+record: `docs/architecture/native_types.md`), checked in this order and only
+after every branch above — so an `int`, `str`, `float`, `dict`, `list` or
+`tuple` **subclass** (an `IntEnum`, a `class E(str, Enum)`, `numpy.float64`) is
+written by its base type's rule first:
+
+| #   | Type (subclasses included unless marked exact)                               | Written as                                                                                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `datetime.datetime` (exact type)                                             | `"YYYY-MM-DDTHH:MM:SS"`, `.ffffff` when the microsecond is nonzero, then `+HH:MM`/`-HH:MM` when aware (tzinfo set and `utcoffset()` not `None`; UTC is `+00:00`). The offset is `days*86400 + seconds` of `tzinfo.utcoffset(dt)` (so `fold` reaches it; microseconds dropped), rounded to the minute half-up in magnitude. |
+| 2   | `datetime.date` (exact type)                                                 | `"YYYY-MM-DD"` (years zero-padded to four digits)                                                                                                                                                                                                                                                                          |
+| 3   | `datetime.time` (exact type)                                                 | `"HH:MM:SS"`, `.ffffff` when nonzero, and the offset of row 1 when aware (`tzinfo.utcoffset(None)`)                                                                                                                                                                                                                        |
+| 4   | `uuid.UUID`                                                                  | `"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"`, lowercase, from `.int`                                                                                                                                                                                                                                                           |
+| 5   | `decimal.Decimal`                                                            | the text of `str(d)` as a raw JSON number (`1.50`, `1E+2`, `-0`); `NaN`, `sNaN` and `±Infinity` → `null`                                                                                                                                                                                                                   |
+| 6   | `enum.Enum`                                                                  | `member.value` (read with `getattr`) in the member's place; a value that is itself an `Enum` is followed, up to the depth limit                                                                                                                                                                                            |
+| 7   | dataclass instance                                                           | a JSON object of exactly the fields `dataclasses.fields()` lists, in order, each read with `getattr` (extra instance attributes are not written)                                                                                                                                                                           |
+| 8   | `set`, `frozenset`                                                           | a JSON array in iteration order                                                                                                                                                                                                                                                                                            |
+| 9   | numpy `bool_`/`integer`/`floating` scalar; `ndarray` of dtype kind `b i u f` | `obj.item()` / `obj.tolist()` in the object's place (any shape and strides, 0-d included; `float32` widens exactly: `float32(0.1)` → `0.10000000149011612`)                                                                                                                                                                |
+
+Rows 1–3 take the exact types only, as orjson does: a `datetime`, `date` or
+`time` subclass can carry state its fields do not (pandas' `NaT`, a
+`Timestamp`'s nanoseconds), so it is unsupported under `native=True` too — the
+`TypeError` below, or `default` in `dumps_with_default` (`lambda o: o.isoformat()` is the usual one). A dataclass, a set or an Enum member opens a
+container on the object itself: it takes one level of the depth limit, and a
+dataclass that contains itself — or a member met again below its own value, as
+when `default` returns the member whose value is the object it was called
+on — follows `cycle_policy` as a dict does. The hops of an Enum chain take no
+level; the chain has its own bound. `import strata` imports none of
+`datetime`, `uuid`, `decimal`, `dataclasses` or `numpy`, and neither does
+`dumps(obj, native=True)` on its own: the types are looked up in
+`sys.modules` when a document first needs them, never imported.
+`datetime.timedelta`, `complex`, `bytes`, every other numpy kind, and every
+other type still raise `TypeError("Object of type %s is not JSON serializable")` under `native=True` exactly as under `native=False`; `dump`'s
+`split_by` values stay `str`/`int`/`bool`.
+
+Raises `TypeError` (unsupported type), `ValueError`
 ("Maximum serialization depth exceeded" at `sys.getrecursionlimit()`, or cycle
 under `cycle_policy="error"`), `UnicodeEncodeError` (a `str` key or value with
 no UTF-8 encoding — a lone surrogate; the output is UTF-8, so strata refuses it
@@ -66,16 +114,30 @@ containers, so a tree parsed at depth 1001–1024 needs a raised
 `sys.setrecursionlimit` to serialize again — unchanged from before the parse
 cap, and stated so the asymmetry is not a surprise.
 
-**Mutation during serialization.** User code can run inside `dumps` at four
-steps, all of them rare: the `RuntimeWarning` under `cycle_policy="warn"` (a
-warnings filter or `showwarning` hook); `__str__` of an `int` subclass beyond
-int64; the decimal conversion of an **exact** `int` beyond int64 that CPython
-3.12+ delegates to the `_pylong` Python module — reached above roughly 10 000
-digits, so `sys.set_int_max_str_digits` has to permit it, and it imports modules
-and runs bytecode; and, as a consequence of any of those, a `__del__` or a
-weakref callback fired when the serializer releases what that code orphaned.
-Nothing else in a successful `dumps` calls into Python or allocates an object
-the collector tracks, so no collection can run one either. If that code mutates
+**Mutation during serialization.** With `native=False`, user code can run
+inside `dumps` at four steps, all of them rare: the `RuntimeWarning` under
+`cycle_policy="warn"` (a warnings filter or `showwarning` hook); `__str__` of
+an `int` subclass beyond int64; the decimal conversion of an **exact** `int`
+beyond int64 that CPython 3.12+ delegates to the `_pylong` Python module —
+reached above roughly 10 000 digits, so `sys.set_int_max_str_digits` has to
+permit it, and it imports modules and runs bytecode; and, as a consequence of
+any of those, a `__del__` or a weakref callback fired when the serializer
+releases what that code orphaned. Nothing else in a successful
+`dumps(obj, native=False)` calls into Python or allocates an object the
+collector tracks, so no collection can run one either.
+
+With `native=True`, a fifth step can run, and only in a document that holds a
+native object: looking the native types up in `sys.modules`, a
+non-`datetime.timezone` tzinfo's `utcoffset()`, a UUID subclass's `int`,
+`Decimal`'s `str()`, an `Enum`'s `value`, the dataclass field lookup and each
+field read, a set subclass's iterator, and numpy's dtype, `item()` and `tolist()` — any
+of which can also allocate and so run a collection. An exact
+`datetime`/`date`/`time` whose tzinfo is `None` or exactly `datetime.timezone`,
+and an exact `uuid.UUID`, are formatted without running any of it. A set
+resized while it is written raises the `RuntimeError` its iterator raises; a
+dataclass's fields are read one at a time as they are written.
+
+Either way, if user code mutates
 a container being written, `dumps` never reads freed memory: lists and tuples
 are followed live, element by element, as stdlib `json` does (a shrunk list ends
 there, appended elements are written); a dict of at most 24 exact-`str` keys,
@@ -90,20 +152,33 @@ strata.dumps_with_default(obj, default, *, return_type="str") -> str | bytes
 ```
 
 `dumps` with a hook for unsupported types (design record:
-`docs/architecture/dumps_with_default.md`). For every object `dumps` supports the
-output is `dumps`'s, byte for byte; each object of any other type is passed to
-`default` once and its return value is serialized in the object's place — as a
-value, at that object's depth, so a returned container one level past the limit
-raises "Maximum serialization depth exceeded" and a returned container that is
-already open is a cycle under the active `cycle_policy`, reported where it was
-returned (the array element loop's placement caveat under Config does not apply
-to it). The rules, each test-pinned:
+`docs/architecture/dumps_with_default.md`; native precedence per
+`docs/architecture/native_types.md`). It always runs through `strata._dumps_hook`,
+so every native type from the table under `native=True` above is supported here
+too, whether or not `default` would have formatted it. For every object
+`dumps(obj, native=False)` supports, or that is native, the output matches
+`dumps`'s own call (`native=False` or `native=True` respectively), byte for
+byte; each object of any other type is passed to `default` once and its return
+value is serialized in the object's place — as a value, at that object's
+depth, so a returned container one level past the limit raises "Maximum
+serialization depth exceeded" and a returned container that is already open is
+a cycle under the active `cycle_policy`, reported where it was returned (the
+array element loop's placement caveat under Config does not apply to it). The
+rules, each test-pinned:
 
 - `default` is required, positional or keyword, and must be callable; anything
   else — **`None` included** — raises `TypeError("default must be callable, not %s")` before any byte is produced. Missing it, passing it twice, or an unknown
   keyword raise `TypeError` as for any Python function.
 - A document with no unsupported object is byte-identical to `dumps(obj)` in
   both return types, and `default` is never called.
+- **Native types come first — a behaviour change against main `38eaa9f`.**
+  `default` is **never called for a native object** (a caller whose `default`
+  formatted a `datetime` or a `Decimal` gets strata's formatting instead —
+  orjson's precedence too, and the same choice this record makes for
+  `dumps(obj, native=True)`), and a native object `default` returns is written
+  natively. A value reached *inside* a native — an Enum's `value`, a dataclass
+  field, a set element — is an ordinary position and gets its own call when it
+  is unsupported.
 - `default` raises ⇒ that exception **propagates unchanged**: same object, same
   type and args, no wrapping or chaining (`KeyboardInterrupt`, `MemoryError` and
   `SystemExit` included).
@@ -122,16 +197,100 @@ to it). The rules, each test-pinned:
   call, not by `import strata`. If it cannot be imported, that call — and every
   later one — raises the `ImportError`; the rest of the package is unaffected.
 
-**Mutation during `dumps_with_default`.** User code can run at five steps: the
-four of `dumps` above, and `default`, once per unsupported object — not rare,
-since running it is the point. `default` allocates what it likes, so inside a
-successful call a collection — and every `__del__` it fires — can run, as can a
-`__del__` or weakref callback fired when the serializer releases the reference
-`default` returned. The writers' rules above hold unchanged: lists and tuples
-are followed live; a dict of at most 24 exact-`str` keys below 64 levels of dict
-nesting is emitted as the row read on entry; wider dicts and dicts with
-`str`-subclass keys are followed live. `dumps` itself can reach no hook, so its
-clause above stays at four steps.
+**Mutation during `dumps_with_default`.** User code can run at six steps: the
+four of `dumps(obj, native=False)` above, the native step of
+`dumps(obj, native=True)` above (native types are always checked here, whether
+or not the document holds one), and `default`, once per unsupported
+object — not rare, since running it is the point. `default` allocates what it
+likes, so inside a successful call a collection — and every `__del__` it
+fires — can run, as can a `__del__` or weakref callback fired when the
+serializer releases the reference `default` returned. The writers' rules
+above hold unchanged: lists and tuples are followed live; a dict of at most 24
+exact-`str` keys below 64 levels of dict nesting is emitted as the row read on
+entry; wider dicts and dicts with `str`-subclass keys are followed live.
+
+## `parse_types` (opt-in, parse side)
+
+`loads`, `load`, `search` and `query` take `parse_types=False` (design record:
+`docs/architecture/native_types.md`, "Parse contract" and "Flag shape (M15b)").
+The default is today's behaviour, bit for bit: every default call runs
+`_strata`'s own entry, and `_strata` is byte-identical to main's. Anything but
+`False` is routed by the facade to `strata._dumps_hook`'s
+`loads_typed`/`load_typed`/`search_typed`/`query_typed`, which parse through
+`_strata`'s own public `loads`/`load`/`search`/`compile` — one parser, one
+`duplicate_key_policy` thread-local — and then revive; the hook links no
+parser of its own. A set option never reaches the parser or the builder; the document is parsed exactly
+as by default and a separate walk then revives the freshly built tree in place.
+Anything but the `False` object is validated as the option, so `0` and `None`
+are a `TypeError`.
+
+With `parse_types=True`, every JSON **string value** (never a key) that is
+exactly one of these is replaced; anything else — including a string that
+matches the grammar but names an impossible value (`2024-02-30`, a leap second
+`23:59:60`, year `0000`) — stays a `str`:
+
+| Kind      | Grammar (RFC 3339 §5.6, strict)                                            | Becomes                                                                                                          |
+| --------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| date-time | `YYYY-MM-DD` `T`\|`t` `HH:MM:SS` \[`.` 1–6 digits\] \[`Z`\|`z`\|`±HH:MM`\] | `datetime`; naive without an offset; `Z`, `z`, `+00:00` and `-00:00` → `timezone.utc`; others a fixed `timezone` |
+| date      | `YYYY-MM-DD`                                                               | `date`                                                                                                           |
+| time      | `HH:MM:SS` \[`.` 1–6 digits\] \[`Z`\|`z`\|`±HH:MM`\]                       | `time`, aware with a fixed `timezone` when an offset is present                                                  |
+| UUID      | 8-4-4-4-12 hexadecimal digits, hyphenated, either case                     | `uuid.UUID`                                                                                                      |
+
+A fraction of 7 or more digits stays a `str` (no silent truncation); so does a
+space separator, a `+HH:MM:SS` offset, `HH:MM` without seconds, surrounding
+whitespace, or any non-ASCII character. Every string `dumps` writes for a
+`datetime`, `date`, `time` or `UUID` is recognized, so
+`loads(dumps(x), parse_types=True) == x` holds for naive values, for
+`timezone`-aware values with whole-minute offsets, and for UUIDs; any other
+tzinfo (a `ZoneInfo`) comes back as the fixed offset it had.
+
+**Registry** (`parse_types={"name": T, ...}`, implies `True`): keys must be
+`str`, values `Enum` subclasses or dataclass types, checked before parsing; the
+dict is copied first, so mutating it during the call changes nothing. The walk
+is post-order — a container's contents are revived before the container — and
+applies at every depth to each JSON object member whose name is registered:
+
+- an `Enum` `E`: the value becomes `E(value)`; a `ValueError` (no member has
+  that value) leaves it as parsed; any other exception propagates;
+- a dataclass `D`: a dict value whose keys are all init fields of `D` (the
+  `dataclasses.fields()` entries with `init=True`) and include every one with
+  neither a default nor a default factory becomes `D(**value)`; any other value
+  is left as parsed; exceptions from `D`'s `__init__` or `__post_init__`
+  propagate;
+- a list value has each element revived by the same rule, one level;
+- the value under a registered name is **never** type-recognized itself; its
+  contents (a dict's members, a list element's items) follow the ordinary rules.
+
+Per entry point:
+
+- `loads`, `load` (file, NDJSON line by line, folder record by record, eager
+  and `iterator=True`): the tree is revived before it is returned or iterated;
+  the lazy NDJSON and folder iterators revive each record as they yield it.
+  `return_type="cursor"` with `parse_types` set →
+  `ValueError("parse_types needs return_type='dict'")`. `skip_errors` still
+  covers invalid JSON only; an exception from a registered type propagates.
+- `search` (file and folder): `search(f, e, parse_types=p) == query(load(f, parse_types=p), e)`
+  for every supported expression — a `.json` file takes the full-parse path
+  (parse, revive, evaluate) whatever the expression, an NDJSON file is revived
+  line by line before it is evaluated, and a folder concatenates its files'
+  results in discovery order (lazily with `iterator=True`). Streaming is for
+  the default only. A scalar root matches `$` alone, as on the default path.
+- `query`: `parse_types` is a `bool` only. `True` replaces each match that is a
+  `str` (subclasses included) by the rule above, in the returned list;
+  container and other matches are the caller's own objects, never copied or
+  mutated.
+
+The first call with `parse_types` set imports `datetime` and `uuid` if they are
+not already imported (the only imports strata makes on its own behalf);
+`import strata` still imports neither. Registered types run user code inside
+the walk; the walk holds a strong reference to every entry it converts and to
+the registry entry it applies, and writes a result back only into a slot or key
+that still holds what it read, so a container user code mutates mid-walk is
+never read after it is freed (what is returned is then the container as user
+code left it). The walk keeps its own stack rather than recursing, so a thread
+that can parse a document can revive it (test-pinned for a 1023-deep registered
+document: it revives on the smallest thread stack, of 256 KiB to 8 MiB in
+powers of two, on which it parses with `parse_types` unset).
 
 ## Framework adapters
 
@@ -194,8 +353,9 @@ and the version floors: `docs/architecture/framework_adapters.md`.
 ## File & folder I/O
 
 ```python
-strata.load(path, *, return_type="dict", iterator=False, skip_errors=False)  # str | Path; file or dir
-strata.dump(obj, path, *, split_by=None) -> None                             # str | Path
+strata.load(path, *, return_type="dict", iterator=False, skip_errors=False,
+            parse_types=False)                            # str | Path; file or dir
+strata.dump(obj, path, *, split_by=None, native=False) -> None  # str | Path
 ```
 
 **File mode** (`path` is a file): `load` dispatches on extension:
@@ -211,7 +371,14 @@ cap applies per document and per NDJSON line, and NDJSON names the line:
 other bad line under `skip_errors=True`. Raises
 `FileNotFoundError`, `OSError`, `ValueError` ("Empty file" for JSON).
 `dump` writes compact JSON + trailing newline, mode 0644, truncating;
-`split_by` with a file path is a `ValueError`.
+`split_by` with a file path is a `ValueError`. `native` is a `bool` only, same
+identity test and `TypeError("native must be a bool, not %s")` as `dumps`.
+`native=False` (default) is main's `dump` exactly. `native=True` routes to
+`strata._dumps_hook`'s `dump_native`, which serializes with the `native=True`
+table above and repeats `dump`'s own dispatch (extension, `split_by`, folder
+grouping) so that file and folder mode, and their errors, are otherwise
+unchanged; the dump contract tests run on both arms to pin that the two
+dispatches agree.
 
 **Folder mode:**
 
@@ -254,8 +421,10 @@ other bad line under `skip_errors=True`. Raises
 ## JSONPath
 
 ```python
-strata.query(data: dict | list, expression: str | CompiledPath, *, iterator=False) -> list
-strata.search(path: str | Path, expression: str | CompiledPath, *, iterator=False) -> list
+strata.query(data: dict | list, expression: str | CompiledPath, *, iterator=False,
+             parse_types: bool = False) -> list
+strata.search(path: str | Path, expression: str | CompiledPath, *, iterator=False,
+              parse_types=False) -> list
 strata.compile(expression: str) -> CompiledPath
 ```
 
@@ -265,6 +434,9 @@ else `TypeError`). `search` operates on a file or a directory. A file must end
 search (only matches materialized) for plain paths — Filter/Slice paths fall
 back to a full parse of the document, and NDJSON search materializes each
 line. Invalid expressions raise `ValueError("Invalid JSONPath expression")`.
+With `parse_types` set, both route through `strata._dumps_hook`'s
+`search_typed`/`query_typed`: `search` always takes the full-parse path and
+`query` recognizes `str` matches (see `parse_types`).
 
 **Folder mode:** `search(dirpath, expr)` uses the folder-discovery rules
 defined under File & folder I/O and concatenates the matches — equivalent to
@@ -341,6 +513,35 @@ matching "not an object" / "not an array" / "not a bool|number|string" /
 "not found" / "out of range". Unknown config key ⇒ `KeyError` on `config.set`
 (`config.get` returns `None`); bad config value ⇒ `ValueError`; wrong value
 type ⇒ `TypeError`.
+
+Serializing with `native=True` (`dumps`, `dump`), and `dumps_with_default`
+(always native-checked; native types per `docs/architecture/native_types.md`):
+
+| Condition                                                         | Exception                                                                                                                                     |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `native` not a `bool` (`dumps`, `dump`)                           | `TypeError("native must be a bool, not %s")`                                                                                                  |
+| unsupported type                                                  | `TypeError("Object of type %s is not JSON serializable")` (in `dumps_with_default`, the call to `default` instead)                            |
+| numpy scalar or array outside kinds `b i u f`                     | the same `TypeError`, with numpy's type name (a `longdouble` included: its `item()` returns itself on every platform, arm64's 64-bit one too) |
+| a `datetime`, `date` or `time` subclass                           | the unsupported-type `TypeError` (in `dumps_with_default`, the call to `default` instead)                                                     |
+| Enum chain longer than the depth limit                            | `ValueError("Maximum serialization depth exceeded")`                                                                                          |
+| Enum member met again below its own value                         | `cycle_policy`: `null` + `RuntimeWarning`, `ValueError("Circular reference detected")`, or `null`                                             |
+| `Decimal` subclass whose `str()` is not a JSON number             | `ValueError("str() of a Decimal returned text that is not a JSON number")`                                                                    |
+| unset dataclass field                                             | the `AttributeError` from `getattr`, unchanged                                                                                                |
+| set mutated while written                                         | the `RuntimeError` from its iterator, unchanged                                                                                               |
+| a tzinfo's `utcoffset()` returns neither `None` nor a `timedelta` | `TypeError("tzinfo.utcoffset() must return None or timedelta, not '%s'")`, as `isoformat()` raises                                            |
+| a tzinfo's offset is not strictly inside ±24 hours                | `ValueError("offset must be a timedelta strictly between -timedelta(hours=24) and timedelta(hours=24), not %R.")`, as `isoformat()` raises    |
+| a `UUID` whose `int` is not an `int` / not in \[0, 2¹²⁸)          | `TypeError("UUID.int must be an int, not %s")` / `ValueError("UUID.int is out of range (need a 128-bit value)")`                              |
+
+Parsing with `parse_types` (`loads`, `load`, `search`, `query`; per
+`docs/architecture/native_types.md`, "Parse contract"):
+
+| Condition                                                        | Exception                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `parse_types` not a `bool` or `dict` (`loads`, `load`, `search`) | `TypeError("parse_types must be a bool or a dict, not %s")`                          |
+| registry key not `str`                                           | `TypeError("parse_types keys must be str, not %s")`                                  |
+| registry value not an `Enum` subclass or dataclass type          | `TypeError("parse_types values must be Enum subclasses or dataclass types, not %R")` |
+| `parse_types` with `return_type="cursor"` (`loads`, `load`)      | `ValueError("parse_types needs return_type='dict'")`                                 |
+| `query(..., parse_types=<not a bool>)`                           | `TypeError("query() parse_types must be a bool, not %s")` — `not dict` for a dict    |
 
 ## C++ public surface (for binding work)
 

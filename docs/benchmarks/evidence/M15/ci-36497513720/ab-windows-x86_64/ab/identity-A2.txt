@@ -1,0 +1,7 @@
+.data                            4f16b78a34b1d370 4f16b78a34b1d370 identical
+.pdata                           219d6e656e34c51e 219d6e656e34c51e identical
+.rdata                           9e1e7f8e412c97d9 cfce729b0b3fe25c differs
+.reloc                           5f1ba849e19cd97d 5f1ba849e19cd97d identical
+.rsrc                            0f66fddfa6873918 0f66fddfa6873918 identical
+.text                            0273ce9ad8759921 0273ce9ad8759921 identical
+CODE IDENTICAL

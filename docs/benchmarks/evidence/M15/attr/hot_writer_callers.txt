@@ -1,0 +1,33 @@
+callers of each hot Serializer writer, from -O0 IR of python_dumps.cpp (call/invoke edges; count per caller)
+A = main 38eaa9f, B = 5b876d1, C2 = 5b876d1 + C2.patch
+write_double:
+   A : {'write': 2}
+write_string:
+   A : {'write': 2, 'write_mapping_body': 1, 'write_mapping_uncached': 1}
+   B : {'write': 2, 'write_mapping_body': 1, 'write_mapping_uncached': 1, 'write_dataclass': 1}
+   C2: {'write': 2, 'write_mapping_body': 1, 'write_mapping_uncached': 1}
+write_mapping:
+   A : {'write': 1, 'write_record_fused_value': 1, 'write_record_fused': 8}
+write_sequence:
+   A : {'write': 2}
+write_scalar_run:
+   A : {'write_sequence': 1, 'write_sequence_body': 1}
+write_native_text:
+   A : {}
+   B : {'write_native': 3}
+write_mapping_body:
+   A : {'write_mapping': 2}
+write_record_fused:
+   A : {'write_record_fused_value': 1, 'write_sequence': 1}
+write_string_bytes:
+   A : {'write_string': 2}
+   C2: {'write_string': 2, 'write_dataclass': 1}
+write_sequence_body:
+   A : {'write_sequence': 1}
+write_mapping_uncached:
+   A : {'write_mapping': 1, 'write_mapping_body': 1}
+write:
+   A : {'b::dumps_to_python': 2, 'write_sequence': 1, 'write_record_fused': 1, 'write_sequence_body': 1, 'write_mapping_body': 3, 'write_mapping_uncached': 1}
+   B : {'b::dumps_to_python': 2, 'write_sequence': 1, 'write_native': 2, 'write_record_fused': 1, 'write_sequence_body': 1, 'write_mapping_body': 3, 'write_mapping_uncached': 1, 'write_enum': 1, 'write_dataclass': 1, 'write_set': 1, 'write_set_table': 2}
+write_int:
+   A : {'write': 2}

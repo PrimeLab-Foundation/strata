@@ -1,0 +1,20 @@
+1	call	PyUnicode_AsUTF8AndSize@plt
+8	call	_Py_Dealloc@plt
+1	call	_Unwind_Resume@plt
+2	call	_ZN6strata26append_escaped_json_stringESt17basic_string_viewIcSt11char_traitsIcEERNSt7__cxx1112basic_stringIcS2_SaIcEEE@plt
+3	call	_ZSt20__throw_length_errorPKc@plt
+2	call	_ZdlPv@plt
+2	call	_Znwm@plt
+3	call	__clang_call_terminate
+2	call	__cxa_thread_atexit@plt
+8	call	__tls_get_addr@plt
+12	call	memcpy@plt
+3	call	memmove@plt
+6	call	std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char>>::_M_mutate(unsigned long, unsigned long, char const*, unsigned long)
+2	call	strata::bindings::(anonymous namespace)::Serializer::RowLock::~RowLock()
+1	call	strata::bindings::(anonymous namespace)::Serializer::build_schema(strata::bindings::SchemaCacheLease::DepthSchemas&, unsigned long)
+1	call	strata::bindings::(anonymous namespace)::Serializer::grow_schemas(unsigned long)
+5	call	strata::bindings::(anonymous namespace)::Serializer::write(_object*) ()
+16	call	strata::bindings::StagedOutput::overflow(unsigned long)
+4	call	strata::bindings::StagedOutput::write_spanning(char const*, unsigned long)
+2	call	strata::util::find_next_escape(char const*, unsigned long)

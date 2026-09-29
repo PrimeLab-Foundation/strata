@@ -1,0 +1,25 @@
+Segment __TEXT: 237568
+	Section __text: 187360
+	Section __stubs: 894
+	Section __stub_helper: 1766
+	Section __gcc_except_tab: 9960
+	Section __cstring: 4481
+	Section __const: 23096
+	Section __unwind_info: 3880
+	Section __eh_frame: 3504
+	total 234941
+Segment __DATA_CONST: 4096
+	Section __got: 408
+	Section __const: 600
+	total 1008
+Segment __DATA: 28672
+	Section __la_symbol_ptr: 1168
+	Section __data: 3336
+	Section __thread_vars: 360
+	Section __thread_data: 8
+	Section __thread_bss: 144 (zerofill)
+	Section __bss: 23272 (zerofill)
+	Section __common: 1 (zerofill)
+	total 28289
+Segment __LINKEDIT: 122880
+total 393216

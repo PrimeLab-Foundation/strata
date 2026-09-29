@@ -1,0 +1,26 @@
+# target   D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd
+# build A  D:\a\strata\strata\arms\A.pyd  md5=443be7ee6c4e9a2e9a7d9f2dfda9221c
+# build B  D:\a\strata\strata\arms\B.pyd  md5=42c6e4a85486c9c26d0559313b19c4b3
+# order    ABBAABBAABBAABBAABBAABBAA (25 launches)
+# rows     small:users:loads small:users:dumps small:users:load small:users:dump small:users:ndload small:flat:loads small:flat:dumps small:flat:load small:flat:dump small:nested:loads small:nested:dumps small:nested:load small:nested:dump small:wide_arrays:loads small:wide_arrays:dumps small:wide_arrays:load small:wide_arrays:dump small:mixed:loads small:mixed:dumps small:mixed:load small:mixed:dump medium:flat:dumps medium:users:dumps medium:mixed:dumps medium:wide_arrays:loads  repeat=60
+# launch 00 build=A md5=443be7ee6c4e9a2e9a7d9f2dfda9221c
+# L00 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=443be7ee6c4e9a2e9a7d9f2dfda9221c load=unavailable(Windows) cpus=4 t=23:49:30
+Traceback (most recent call last):
+  File "D:\a\strata\strata\benchmarks\rows_probe.py", line 201, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "D:\a\strata\strata\benchmarks\rows_probe.py", line 186, in main
+    samples = ab_rounds.alternating_rounds(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\strata\strata\benchmarks\ab_rounds.py", line 77, in alternating_rounds
+    calls[name]()
+  File "D:\a\strata\strata\benchmarks\rows_probe.py", line 116, in <lambda>
+    "strata-loads": lambda: strata.loads(payload),
+                            ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\a\strata\strata\python\strata\serialize.py", line 55, in loads
+    return _native.loads(
+           ^^^^^^^^^^^^^^
+TypeError: loads() got an unexpected keyword argument 'parse_types'
+# wrote ab\R1.tsv (0 of 25 launches)
+# restored D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd to md5=c30c5a154813bd33d55aba6488dc331a
+launch 00 (A) failed with 1

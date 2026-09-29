@@ -1,0 +1,45 @@
+M15b five-leg dispatch: benchmark.yml run 36582916306, ref exp/native-types 82e3fa5,
+identity_base=38eaa9f248f509d9a4beb75b267189d011c1109e, 2026-09-29 14:28-14:44 UTC.
+Conclusion: failure on all five legs. Pass condition NOT met: no leg produced an identity verdict.
+One dispatch, as approved; not re-dispatched.
+
+Per leg (steps.txt; raw logs failed_steps.log):
+  linux-x86_64   canonical + tripwire + native-v1 completed; identity step failed on tooling:
+                 "fatal: invalid reference: 38eaa9f2..." (git worktree add) -- no identity verdict
+  linux-arm64    same as linux-x86_64
+  macos-arm64    same as linux-x86_64
+  macos-x86_64   same as linux-x86_64
+  windows-x86_64 clang-cl PGO build failed in its optimized-phase Python gate (the build and
+                 link of both images succeeded; the instrumented --training phase passed
+                 3178/5 skipped): 10 failed / 3643 passed / 18 skipped, all 10 in
+                 tests/unit/native_types/test_hook_import_gating.py (7) and test_native_flag.py (3),
+                 each "ModuleNotFoundError: No module named 'strata'" in a child interpreter.
+                 Canonical, native-v1 and identity steps skipped. The identity path itself
+                 (clang-cl) was never reached.
+
+Causes (both tooling/test defects, neither a code difference):
+  1. benchmark.yml fetch-depth `${{ cond && 0 || 1 }}`: 0 is falsy in an Actions expression,
+     so the checkout stayed shallow (depth 1) and the base commit was absent. Fixed: '0'/'1'.
+  2. The two tests built the child's sys.path with strata.__file__.rsplit("/python/"), POSIX
+     separators only. Fixed: pathlib.Path(strata.__file__).resolve().parent.parent.
+
+native-v1 (small tier, 10 repeats; median ms; four legs):
+  row                      linux-arm64  linux-x86_64  macos-arm64  macos-x86_64
+  dumps native.small
+    msgspec                  0.353        0.402         0.319        0.596
+    strata native=True       0.528        0.622         0.422        0.958
+    orjson                   0.759        0.916         0.542        1.416
+    json (default=)          4.523        5.293         3.632        9.749
+    strata rank / gap        #2 1.50x     #2 1.55x      #2 1.32x     #2 1.61x
+  dump native.small
+    msgspec                  0.821        0.616         0.427        0.944
+    strata native=True       0.971        0.832         0.536        1.257
+    orjson                   1.241        1.114         0.643        1.787
+    json (default=)          5.022        5.464         3.240        9.534
+    strata rank / gap        #2 1.18x     #2 1.35x      #2 1.26x     #2 1.33x
+  dumps mixed.small (flag rows; no native object)
+    strata native=False      0.055        0.053         0.034        0.064
+    strata native=True       0.058        0.059         0.037        0.068
+    best rival               orjson 0.057 orjson 0.059  orjson 0.043 orjson 0.080
+    native=True / False      1.05x        1.11x         1.09x        1.06x
+  Excluded on every leg: ujson (native dataset): no native type support; not named.

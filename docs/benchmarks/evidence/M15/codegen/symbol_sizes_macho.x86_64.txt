@@ -1,0 +1,70 @@
+== main/x86_64/_strata.so  (via readelf)
+   code in sized symbols    164560 bytes   data         0 bytes
+   top 25 symbols by size:
+       7312 FUNC   void std::__1::__introsort<std::__1::_ClassicAlgPolicy, strata::util::discover_json_files(std::__1::basic_string_view<char, std::__1::char_t
+       6384 FUNC   strata::bindings::dump_to_folder(_object*, char const*, _object*)
+       5440 FUNC   strata::compile_jsonpath(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+       4816 FUNC   strata::util::(anonymous namespace)::walk(std::__1::__fs::filesystem::path const&, std::__1::__fs::filesystem::path const&, std::__1::basic_
+       4064 FUNC   strata::bindings::query_compiled(_object*, std::__1::vector<strata::PathStep, std::__1::allocator<strata::PathStep>> const&)
+       3312 FUNC   strata::eval_jsonpath(std::__1::vector<strata::PathStep, std::__1::allocator<strata::PathStep>> const&, strata::JsonValue const&)
+       2448 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_mapping_body(_object*, long, long)
+       2144 FUNC   strata::util::ascii_lowercase(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+       2112 FUNC   strata::bindings::dumps_to_python(_object*, bool)
+       2048 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_scalar_run(_object**, long)
+       2016 FUNC   strata::PlainCursor strata::ParserInline<strata::(anonymous namespace)::DomBuilderHandler>::parse_value<strata::PlainCursor>(strata::PlainCu
+       1792 FUNC   strata::util::parse_number_unified(char const*, unsigned long, strata::util::ParsedNumber&)
+       1488 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_sequence(_object*)
+       1440 FUNC   strata::PlainCursor strata::ParserInline<strata::StreamSearchHandler<strata::bindings::PythonMatchSink>>::parse_number<strata::PlainCursor>(
+       1408 FUNC   strata::bindings::PythonObjectBuilder::ValueCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_number<strata::binding
+       1376 FUNC   strata::bindings::PythonObjectBuilder::make_string(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+       1296 FUNC   strata::PlainCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_number<strata::PlainCursor>(strata::PlainCursor)
+       1264 FUNC   strata::util::copy_until_escape(char const*, unsigned long, char*)
+       1264 FUNC   strata::PlainCursor strata::ParserInline<strata::JsonSaxHandler>::parse_number<strata::PlainCursor>(strata::PlainCursor)
+       1264 FUNC   strata::PlainCursor strata::ParserInline<strata::(anonymous namespace)::DomBuilderHandler>::parse_number<strata::PlainCursor>(strata::PlainC
+       1232 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_mapping(_object*)
+       1216 FUNC   strata::bindings::PythonObjectBuilder::try_match_key(char const*, unsigned long)
+       1168 FUNC   std::__1::from_chars_result std::__1::__from_chars_atoi[abi:nqe210106]<long long, 0>(char const*, char const*, long long&)
+       1152 FUNC   strata::util::format_double(double, char*, unsigned long)
+       1136 FUNC   strata::ParserInline<strata::(anonymous namespace)::DomBuilderHandler>::scan_string()
+   grouped:
+   serializer walk       22356 bytes in   44 symbols
+   float writer           2144 bytes in    2 symbols
+   int writer              864 bytes in    1 symbols
+   escape and scan        3184 bytes in    5 symbols
+   parser                37136 bytes in   79 symbols
+   jsonpath               8960 bytes in    3 symbols
+== b/x86_64/_strata.so  (via readelf)
+   code in sized symbols    176752 bytes   data         0 bytes
+   top 25 symbols by size:
+       7312 FUNC   void std::__1::__introsort<std::__1::_ClassicAlgPolicy, strata::util::discover_json_files(std::__1::basic_string_view<char, std::__1::char_t
+       6384 FUNC   strata::bindings::dump_to_folder(_object*, char const*, _object*)
+       5440 FUNC   strata::compile_jsonpath(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+       4816 FUNC   strata::util::(anonymous namespace)::walk(std::__1::__fs::filesystem::path const&, std::__1::__fs::filesystem::path const&, std::__1::basic_
+       4064 FUNC   strata::bindings::query_compiled(_object*, std::__1::vector<strata::PathStep, std::__1::allocator<strata::PathStep>> const&)
+       3312 FUNC   strata::eval_jsonpath(std::__1::vector<strata::PathStep, std::__1::allocator<strata::PathStep>> const&, strata::JsonValue const&)
+       2448 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_mapping_body(_object*, long, long)
+       2272 FUNC   strata::bindings::native::classify(_object*)
+       2144 FUNC   strata::util::ascii_lowercase(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+       2112 FUNC   strata::bindings::dumps_to_python(_object*, bool)
+       2048 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_scalar_run(_object**, long)
+       2016 FUNC   strata::PlainCursor strata::ParserInline<strata::(anonymous namespace)::DomBuilderHandler>::parse_value<strata::PlainCursor>(strata::PlainCu
+       1792 FUNC   strata::util::parse_number_unified(char const*, unsigned long, strata::util::ParsedNumber&)
+       1488 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_sequence(_object*)
+       1440 FUNC   strata::PlainCursor strata::ParserInline<strata::StreamSearchHandler<strata::bindings::PythonMatchSink>>::parse_number<strata::PlainCursor>(
+       1408 FUNC   strata::bindings::PythonObjectBuilder::ValueCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_number<strata::binding
+       1376 FUNC   strata::bindings::PythonObjectBuilder::make_string(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+       1296 FUNC   strata::PlainCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_number<strata::PlainCursor>(strata::PlainCursor)
+       1264 FUNC   strata::util::copy_until_escape(char const*, unsigned long, char*)
+       1264 FUNC   strata::PlainCursor strata::ParserInline<strata::JsonSaxHandler>::parse_number<strata::PlainCursor>(strata::PlainCursor)
+       1264 FUNC   strata::PlainCursor strata::ParserInline<strata::(anonymous namespace)::DomBuilderHandler>::parse_number<strata::PlainCursor>(strata::PlainC
+       1232 FUNC   strata::bindings::(anonymous namespace)::Serializer::write_mapping(_object*)
+       1216 FUNC   strata::bindings::PythonObjectBuilder::try_match_key(char const*, unsigned long)
+       1168 FUNC   std::__1::from_chars_result std::__1::__from_chars_atoi[abi:nqe210106]<long long, 0>(char const*, char const*, long long&)
+       1152 FUNC   strata::util::format_double(double, char*, unsigned long)
+   grouped:
+   serializer walk       24518 bytes in   50 symbols
+   float writer           2144 bytes in    2 symbols
+   int writer              864 bytes in    1 symbols
+   escape and scan        3184 bytes in    5 symbols
+   parser                37136 bytes in   79 symbols
+   jsonpath               8960 bytes in    3 symbols

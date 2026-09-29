@@ -1,0 +1,4 @@
+write: insns A 6775 {'hot': 6775} -> B 6790 {'hot': 6790}; opcode delta: {'ldp': 7, 'mov': 2, 'cbz': 2, 'ldrb': 1, 'b': 1, 'ldr': 1, 'cbnz': -1, 'adrp': 1, 'add': 1}
+write_mapping_body: insns A 2125 {'hot': 2125} -> B 2125 {'hot': 2125}; opcode delta: {}
+write_mapping: insns A 419 {'hot': 419} -> B 419 {'hot': 419}; opcode delta: {}
+write_mapping_uncached: insns A 935 {'hot': 935} -> B 935 {'hot': 935}; opcode delta: {}

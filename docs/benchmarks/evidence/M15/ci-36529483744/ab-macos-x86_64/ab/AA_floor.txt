@@ -1,0 +1,40 @@
+file: ab/AA.tsv
+baseline: A   other arm: B   blocks: 6
+
+row                   engine        rival          blk    effect    ci low   ci high    floor   pos
+md-flat-dumps         strata-bytes  orjson-bytes     6    -0.70%    -2.74%    -0.09%    2.74%  1/6
+md-flat-dumps         strata-str    orjson-bytes     6    -0.20%    -3.07%     0.20%    3.07%  3/6
+md-mixed-dumps        strata-bytes  orjson-bytes     6     0.02%    -4.00%     4.69%    4.69%  3/6
+md-mixed-dumps        strata-str    orjson-bytes     6     1.65%    -3.84%     6.67%    6.67%  4/6
+md-users-dumps        strata-bytes  orjson-bytes     6     5.04%    -2.85%    13.94%   13.94%  5/6
+md-users-dumps        strata-str    orjson-bytes     6     7.53%    -2.67%    16.09%   16.09%  5/6
+md-wide_arrays-loads  strata-loads  orjson-loads     6     0.96%    -1.79%     2.04%    2.04%  4/6
+sm-flat-dump          strata-dump   orjson-dump      6    -0.77%    -1.53%     3.00%    3.00%  2/6
+sm-flat-dumps         strata-bytes  orjson-bytes     6    -1.01%    -1.72%     0.89%    1.72%  2/6
+sm-flat-dumps         strata-str    orjson-bytes     6     0.15%    -2.12%     2.07%    2.12%  3/6
+sm-flat-load          strata-load   orjson-load      6     0.69%    -0.80%     1.40%    1.40%  4/6
+sm-flat-loads         strata-loads  orjson-loads     6     0.22%    -4.40%     3.86%    4.40%  4/6
+sm-mixed-dump         strata-dump   orjson-dump      6    -0.34%    -7.22%     2.64%    7.22%  3/6
+sm-mixed-dumps        strata-bytes  orjson-bytes     6    -0.04%    -3.03%     4.21%    4.21%  3/6
+sm-mixed-dumps        strata-str    orjson-bytes     6     0.42%    -3.44%     3.89%    3.89%  3/6
+sm-mixed-load         strata-load   orjson-load      6     0.35%    -0.17%     0.83%    0.83%  4/6
+sm-mixed-loads        strata-loads  orjson-loads     6     0.07%    -3.87%     1.39%    3.87%  3/6
+sm-nested-dump        strata-dump   orjson-dump      6     1.86%    -1.36%     4.24%    4.24%  4/6
+sm-nested-dumps       strata-bytes  orjson-bytes     6     0.26%    -1.82%     2.10%    2.10%  5/6
+sm-nested-dumps       strata-str    orjson-bytes     6     1.50%    -3.07%     3.39%    3.39%  4/6
+sm-nested-load        strata-load   orjson-load      6     0.12%    -2.21%     2.46%    2.46%  3/6
+sm-nested-loads       strata-loads  orjson-loads     6    -0.71%    -2.94%     1.39%    2.94%  2/6
+sm-users-dump         strata-dump   orjson-dump      6    -1.03%    -3.22%     3.10%    3.22%  2/6
+sm-users-dumps        strata-bytes  orjson-bytes     6    -2.37%    -8.36%     5.04%    8.36%  2/6
+sm-users-dumps        strata-str    orjson-bytes     6    -1.84%    -6.27%     3.18%    6.27%  2/6
+sm-users-load         strata-load   orjson-load      6     1.18%    -2.65%     5.68%    5.68%  3/6
+sm-users-loads        strata-loads  orjson-loads     6     0.23%    -3.84%     2.59%    3.84%  4/6
+sm-users-ndload       strata-ndload orjson-ndload    6     0.33%    -0.83%     3.86%    3.86%  4/6
+sm-wide_arrays-dump   strata-dump   orjson-dump      6    -1.79%    -4.68%     2.44%    4.68%  2/6
+sm-wide_arrays-dumps  strata-bytes  orjson-bytes     6     1.32%    -0.60%     2.37%    2.37%  5/6
+sm-wide_arrays-dumps  strata-str    orjson-bytes     6     0.26%    -1.65%     1.52%    1.65%  3/6
+sm-wide_arrays-load   strata-load   orjson-load      6    -0.45%    -1.67%     0.84%    1.67%  2/6
+sm-wide_arrays-loads  strata-loads  orjson-loads     6     1.86%    -0.93%     2.89%    2.89%  5/6
+
+effect/ci: the same block estimator ab_blocks.py reports -- known to be zero here.
+floor:     max(|ci low|, |ci high|); an effect below it is not resolvable.

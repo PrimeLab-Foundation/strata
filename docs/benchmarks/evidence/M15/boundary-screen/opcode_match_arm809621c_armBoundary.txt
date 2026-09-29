@@ -1,0 +1,12 @@
+hot writers, arm809621c (attr/arm809621c) vs armBoundary (74d78ca make pgo): otool -tV per symbol,
+masking absolute addresses, adrp page immediates and the ICF-folded vector::__throw_length_error alias name
+__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object         insns 2632/2632 residual diffs 0
+__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_ insns 1365/1365 residual diffs 0
+__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_mapping_bodyEP7_ insns 1543/1543 residual diffs 0
+__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_objec insns 411/411 residual diffs 0
+__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKc insns 572/572 residual diffs 0
+__ZN6strata8bindings12_GLOBAL__N_110Serializer16write_scalar_runEPP7_o insns 927/927 residual diffs 0
+__ZN6strata8bindings15dumps_to_pythonEP7_objectb                       insns 484/484 residual diffs 0
+__ZN6strata8bindings12dump_to_fileEP7_objectPKc                        insns 163/163 residual diffs 0
+__ZN6strata4util16find_next_escapeEPKcm                                insns 202/202 residual diffs 0
+__ZN6strata4util13format_doubleEdPcm                                   insns 1020/1020 residual diffs 0

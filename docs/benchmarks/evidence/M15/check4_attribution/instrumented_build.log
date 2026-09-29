@@ -1,0 +1,21 @@
+Obtaining file:///Users/borysbardysh/worktrees/strata/m15-pgo
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp314-cp314-macosx_26_0_arm64.whl size=4390 sha256=45dd949a13f45657c784bd954dd039fc53780baf8b08855b788c6df05eadc3bc
+  Stored in directory: /private/var/folders/0c/tyrb6gj95_vbvd8s0hb_gyfm0000gn/T/pip-ephem-wheel-cache-4nsu9xpm/wheels/55/ae/4a/316d67abb673b3d8521459659c799851d5bc6ed3ad72b86c73
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10

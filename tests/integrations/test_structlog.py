@@ -42,8 +42,8 @@ COMPACT = JSONRenderer(separators=(",", ":"), ensure_ascii=False)
 DEFAULT = JSONRenderer()
 
 
-def test_a_rendered_event_is_the_compact_default_byte_for_byte(native_document):
-    fields = {**native_document, "custom": Custom(), "opaque": Opaque()}
+def test_a_rendered_event_is_the_compact_default_byte_for_byte(json_document):
+    fields = {**json_document, "custom": Custom(), "opaque": Opaque()}
     got = _render(STRATA, **fields)
     assert got == _render(COMPACT, **fields)
     assert json.loads(got) == json.loads(_render(DEFAULT, **fields))
@@ -51,13 +51,13 @@ def test_a_rendered_event_is_the_compact_default_byte_for_byte(native_document):
     assert json.loads(got)["custom"] == {"custom": ["via", "__structlog__"]}
 
 
-def test_a_rendered_event_round_trips(native_document):
-    assert json.loads(_render(STRATA, **native_document)) == {**native_document, "event": "hello"}
+def test_a_rendered_event_round_trips(json_document):
+    assert json.loads(_render(STRATA, **json_document)) == {**json_document, "event": "hello"}
 
 
-def test_return_type_bytes_renders_bytes_for_a_bytes_logger(native_document):
-    rendered = _render(JSONRenderer(serializer=dumps, return_type="bytes"), **native_document)
-    assert rendered == _render(STRATA, **native_document).encode()
+def test_return_type_bytes_renders_bytes_for_a_bytes_logger(json_document):
+    rendered = _render(JSONRenderer(serializer=dumps, return_type="bytes"), **json_document)
+    assert rendered == _render(STRATA, **json_document).encode()
 
 
 def test_a_keyword_strata_cannot_honour_is_refused_at_the_first_log_call():

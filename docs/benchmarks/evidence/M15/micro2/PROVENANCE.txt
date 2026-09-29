@@ -1,0 +1,25 @@
+M15 micro2 -- admission and facade keyword cost after 5b876d1, 2026-09-28 23:26-23:30, dev M1
+(arm64, Darwin 25.6.0), Apple clang 21.0.0, CPython 3.14.7, numpy 2.5.3, orjson 3.12.0. Shared
+machine: the user's Python 3.12 process (~37% CPU) and PyCharm ran throughout; nothing was killed.
+Load (1-min) 3.31 before the admission run, 5.95 after it (micro: 2.20 -> 3.38); load_log.txt.
+
+Arms
+  native (N): ~/worktrees/strata/m15-pgo/.venv, worktree detached at 5b876d1, `make pgo` (own
+    profile; gates 3186 passed 2 skipped phase 1, 3576 passed 2 skipped phase 2, ctest 16/16);
+    .so + build.json + make_pgo.log copied to ../armC/ (_strata sha256 5f36487aceed...).
+  hook (H) / main: ~/worktrees/strata/main-pgo/.venv (main 38eaa9f, armA2), unchanged since micro.
+
+Scripts (copied from ../micro unchanged unless noted)
+  admission.py, analyze_micro.py, run_micro.sh (only M= changed to micro2): launch order
+    N H H N N H H N, 41 repeats per launch per engine (164 per arm), each a ~3 ms batch.
+    -> admission.tsv, admission.meta.txt, launch_L*.txt, admission_table.txt.
+  facade_kw.py: micro's method (same .so, B's venv: strata.loads vs main's 2-keyword body),
+    61 alternating repeats -> facade_kw.txt.
+  facade_x.py + analyze_facade_x.py (new): each venv's own strata.loads (facade + .so), launch order
+    N M M N N M M N, 61 repeats per launch, orjson.loads per process as normaliser -> facade_x.tsv,
+    facade_x.txt.
+  facade_split.py (new): same-.so attribution of facade_kw's residual, 41 rotating repeats ->
+    facade_split.txt.
+  run_all.sh: waits for 1-min load <= 3.5, then runs the above in order (run_all.log).
+
+Before numbers: ../micro/admission_table.txt and ../micro/facade_kw.txt (armBown2 = ad04f61).

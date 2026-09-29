@@ -1,0 +1,45 @@
+# main/x86_64/obj/python_dumps.o -> variants/V4/python_dumps.x86_64.o
+# functions: before 69, after 76, common 69, identical 67, differ 2
+# outlined bodies: before 0, after 0; bodies only before 0, only after 0
+only-after     91  __ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object
+only-after    141  __ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+only-after     49  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_decimalEP7_object
+only-after    162  __ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object
+only-after     42  __ZN6strata8bindings12_GLOBAL__N_110Serializer17write_native_textEPKcl
+only-after    139  __ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object
+only-after     28  __ZN6strata8bindings5PyRefaSEOS1_
+DIFFERS  insns 309 -> 309  (-1 +1)  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+DIFFERS  insns 186 -> 194  (-4 +12)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+--- 
++++ 
+@@ -170,5 +170,8 @@
+ jmp <SELF+0x29d>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
+ testl $0x20000000, %ecx
+-jne <SELF+0x2c8>
++jne <SELF+0x2d4>
++movq (%rip), %rcx  @__ZN6strata8bindings6native15g_runtime_readyE@GOTPCREL
++cmpb $0x1, (%rcx)
++je <SELF+0x2e3>
+ movq (%rip), %rcx  @_PyExc_TypeError@GOTPCREL
+ movq (%rcx), %rdi
+@@ -177,5 +180,5 @@
+ xorl %ebx, %ebx
+ xorl %eax, %eax
+-callq <SELF+0x2c3>  @_PyErr_Format
++callq <SELF+0x2cf>  @_PyErr_Format
+ jmp <SELF+0x194>
+ movq %rbx, %rdi
+@@ -183,4 +186,9 @@
+ popq %rbx
+ popq %r14
+-jmp <SELF+0x2d7>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+-nopw (%rax,%rax)
++jmp <SELF+0x2e3>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++movq %rbx, %rdi
++addq $0x18, %rsp
++popq %rbx
++popq %r14
++jmp <SELF+0x2f2>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
++nopw %cs:(%rax,%rax)

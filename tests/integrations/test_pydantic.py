@@ -88,7 +88,8 @@ def test_values_inside_a_returned_dict_get_their_own_call(composes):
     decoded = composes([_customer(i) for i in range(20)], python_mode)
     assert decoded[3]["tier"] == "pro"
     assert decoded[3]["id"] == str(uuid.UUID(int=3))
-    assert decoded[3]["balance"] == "5.25"
+    # Native since docs/architecture/native_types.md: a Decimal is a JSON number.
+    assert decoded[3]["balance"] == 5.25
 
 
 def test_to_jsonable_python_is_a_ready_made_default(composes):

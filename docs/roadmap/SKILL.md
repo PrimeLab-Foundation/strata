@@ -327,3 +327,87 @@ source first). FastAPI (`StrataJSONResponse`, responses only) and
 Pydantic-as-post-step (`strata.integrations.pydantic`) landed ahead of the rest
 on 2026-09-28 with contracts read from source
 (docs/architecture/framework_adapters.md; docs/decisions.md, 2026-09-28).
+
+## M15 — Native types, default-on (refused, opened 2026-09-28, closed 2026-09-29)
+
+Record: `docs/architecture/native_types.md`. Serializer natives on by default in
+`dumps`/`dump`/`dumps_with_default`; opt-in `parse_types` on
+`loads`/`load`/`search`/`query`. Acceptance had been:
+
+1. Every clause of the record's serializer, parse and error contracts is a named
+   test (`tests/unit/native_types/`, `tests/py/native_types/`), the temporal
+   core has C++ tests (`tests/cpp/test_temporal.cpp`), numpy and the orjson
+   differential live in `tests/integrations/`; `make test`, `make test-py-asan`
+   and `make test-integrations` green.
+2. Static: `write()` differs from main only in its tail (arm64, x86-64);
+   `sizeof(Serializer)`, `dumps_to_python`'s frame and `stage_`'s offset
+   unchanged; parser and builder symbols byte-identical; Section `__text`
+   growth reported per ISA.
+3. Training scope: the new tests are outside the instrumented pass on all three
+   PGO scripts; the native functions carry zero profile counts.
+4. `import strata` imports no native-type module; import time unchanged.
+5. Admission: each type's native path is faster per object than
+   `dumps_with_default` with its reference conversion (≥ 30 repeats).
+6. Pinned-profile local A/B against main: no canonical row past its A/A floor
+   beyond +1.7%, none past +2%.
+7. Five-leg A/B (`ab_x86.yml`, paired then canonical): no row past +2%
+   resolved on two draws with the held-profile arm attributing it to code.
+8. `docs/context/api.md`, `docs/bindings/SKILL.md`, the ledger and
+   `docs/decisions.md` updated in the same change.
+
+**Refused by its own kill criterion (7).** Draw 2 (run 36520746091) and draw 3
+(run 36529483744) both resolved macos-x86_64 small `dumps nested` bytes past
++2% on a clean-control leg (draw 2 +3.98% \[+2.37, +4.67\], draw 3 +3.74%
+\[+0.47, +4.83\]), the row's own A2 resolving nothing in either draw — two
+draws past +2% with the held-profile arm attributing it to code, exactly the
+criterion's fire condition. No canonical dispatch followed. Ledger:
+`docs/performance/experiment-ledger.md`, "M15 — native types: static checks,
+training scope, the local A/B; kill fired on draws 2–3"; decisions:
+`docs/decisions.md`, 2026-09-29 (the draw-2 and draw-3 entries). Default-on's
+two measured costs (the V4 tail in `write()`, and the ~20 KB `_strata` text
+growth from the always-linked native writers) motivated the successor's shape.
+Superseded by M15b.
+
+## M15b — Native types behind a flag (in progress, opened 2026-09-29)
+
+User-directed successor to M15 (the M12 → M12b precedent: a refused shape
+stays whole as its own record; the successor is a new milestone). Design:
+`docs/architecture/native_types.md`, "Flag shape (M15b)"; decision:
+`docs/decisions.md`, 2026-09-29 ("User-directed flag shape (M15b) supersedes
+default-on and fallback (b)"). `_strata` builds byte-identical to main
+`38eaa9f`, serializer and parser both; every native — the serializer rows 1–9,
+`parse_types` — lives in `strata._dumps_hook`, reached by facade dispatch on
+`native=`/`parse_types=`. Both of M15's measured costs are gone by
+construction, so the default path's acceptance is an identity proof, not an
+A/B campaign.
+
+Acceptance is `docs/architecture/native_types.md`, "Flag shape (M15b)" →
+"Acceptance", in full:
+
+Default path (the M12b identity proof, each an observable):
+
+1. Token streams: every `_strata` translation unit, preprocessed with
+   `_strata`'s flags, equals main `38eaa9f`'s, on arm64 and x86-64.
+2. Build spec: `_strata`'s `Extension` (sources, order, macros, compile and
+   link arguments) and `core_sources.txt` equal main's.
+3. Plain images: `_strata`'s code section equals main's
+   (`benchmarks/image_identity.py`).
+4. Held profile: this branch's `_strata` built PGO+LTO against main's profile,
+   in the same path, equals main's image built against it — locally on the M1,
+   and on every CI leg in the prepared dispatch (prepared, not yet
+   dispatched — no third CI spend without sign-off, per the lead's rule that
+   closed M15).
+5. Training scope: the native suites stay outside the instrumented pass;
+   trained-scope test files equal main's except the recorded removals.
+
+Opt-in path: the existing `tests/{unit,py}/native_types/` corpora pass through
+the flag; `native=False` raises main's `TypeError` for every native family;
+`dumps_with_default` serves natives first; `import strata` imports neither the
+hook image nor a native-type module; the facade's per-call cost is measured in
+ns for every routed function (evidence `docs/benchmarks/evidence/M15b/`).
+
+Benchmarks: a separate declared workload, `native-v1`, reported in its own
+`ci_summary` section; the canonical 27 rows and 135 denominator unchanged.
+
+`docs/context/api.md`, `docs/bindings/SKILL.md`, the ledger and
+`docs/decisions.md` updated in the same change as the code.

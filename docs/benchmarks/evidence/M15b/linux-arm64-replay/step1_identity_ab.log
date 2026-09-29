@@ -1,0 +1,34 @@
++ git worktree add --force --detach /work/arm 38eaa9f248f509d9a4beb75b267189d011c1109e
+Preparing worktree (detached HEAD 38eaa9f)
++ make install-bench
++ make pgo
++ strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-aarch64-linux-gnu.so.build.json records no profile or profile flag,
++ /work/arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
++ /work/arm/.venv/bin/cmake --build build/cmake --config Release
++ /work/arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+100% tests passed out of 15
++ pytest tests/py tests/unit --basetemp=/tmp/pytest-of-root/tkhz05mm
+============================= test session starts ==============================
+======================= 3186 passed, 2 skipped in 7.32s ========================
++ strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-aarch64-linux-gnu.so.build.json records no profile or profile flag,
++ /work/arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
++ /work/arm/.venv/bin/cmake --build build/cmake --config Release
++ /work/arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+100% tests passed out of 15
++ pytest tests/py tests/unit --basetemp=/tmp/pytest-of-root/9xl8j242
+============================= test session starts ==============================
+======================= 3186 passed, 2 skipped in 7.22s ========================
++ git worktree remove --force /work/arm
++ git worktree prune
++ git worktree add --force --detach /work/arm HEAD
+Preparing worktree (detached HEAD 565fab2)
++ make install-bench
++ /work/arm/.venv/bin/python -m pip install --force-reinstall --no-deps -e .
++ git worktree remove --force /work/arm
+CODE IDENTICAL
+.text                            7415129ff19eeb79 3d87258113f4b2f5 DIFFERS (gate)
+CODE DIFFERS: stop before timing
+{
+}
+plain build: exit 0
+held-profile pgo+lto build: exit 1

@@ -1,0 +1,17 @@
+.venv/bin/python scripts/integration_tests.py
++ pytest tests/integrations
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata
+configfile: pyproject.toml
+plugins: cov-7.1.0, anyio-4.15.1
+collected 60 items
+
+tests/integrations/test_attrs.py ....                                    [  6%]
+tests/integrations/test_dataclass_rows.py ....                           [ 13%]
+tests/integrations/test_native_types.py ................................ [ 66%]
+.........                                                                [ 81%]
+tests/integrations/test_numpy.py ......                                  [ 91%]
+tests/integrations/test_pydantic.py .....                                [100%]
+
+============================== 60 passed in 2.36s ==============================

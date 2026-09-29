@@ -1,0 +1,4 @@
+strata from /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/asan-ext/tree/build/lib.macosx-26.0-arm64-cpython-314/strata/__init__.py
+parse    256 KiB rc=-6 ==84397==ERROR: AddressSanitizer: stack-overflow on address 0x00016b867ff0 (pc 0x000104db0a68 bp 0x00016b8680c
+parse    512 KiB rc=0 
+revive   512 KiB rc=0 out=['1022', 'str', '2024-01-01', '1024', 'date', '2024-01-01']

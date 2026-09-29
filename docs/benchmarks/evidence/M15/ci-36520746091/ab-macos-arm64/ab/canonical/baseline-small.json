@@ -1,0 +1,137 @@
+{
+  "bench_results_small.md|dumps|flat.json": {
+    "median_ms": 0.2914584997597558,
+    "p95_ms": 0.3796659993895446,
+    "rss_mb": 99.546875
+  },
+  "bench_results_small.md|dumps|mixed.json": {
+    "median_ms": 0.048749999677966116,
+    "p95_ms": 0.07566699969174806,
+    "rss_mb": 103.578125
+  },
+  "bench_results_small.md|dumps|nested.json": {
+    "median_ms": 0.15152099967963295,
+    "p95_ms": 0.17420900076103862,
+    "rss_mb": 99.546875
+  },
+  "bench_results_small.md|dumps|users.json": {
+    "median_ms": 1.694604000022082,
+    "p95_ms": 1.9517090004228521,
+    "rss_mb": 81.703125
+  },
+  "bench_results_small.md|dumps|wide_arrays.json": {
+    "median_ms": 1.3383959999373474,
+    "p95_ms": 1.62933299998258,
+    "rss_mb": 102.296875
+  },
+  "bench_results_small.md|dump|flat.json": {
+    "median_ms": 0.5942914999650384,
+    "p95_ms": 0.8402499997828272,
+    "rss_mb": 99.546875
+  },
+  "bench_results_small.md|dump|mixed.json": {
+    "median_ms": 0.252854499649402,
+    "p95_ms": 0.39779100006853696,
+    "rss_mb": 103.578125
+  },
+  "bench_results_small.md|dump|nested.json": {
+    "median_ms": 0.40395849964625086,
+    "p95_ms": 0.5102919994897093,
+    "rss_mb": 99.546875
+  },
+  "bench_results_small.md|dump|users.json": {
+    "median_ms": 2.4463959998684004,
+    "p95_ms": 5.036749999817403,
+    "rss_mb": 93.828125
+  },
+  "bench_results_small.md|dump|wide_arrays.json": {
+    "median_ms": 1.798187500298809,
+    "p95_ms": 2.0765419994859258,
+    "rss_mb": 103.5625
+  },
+  "bench_results_small.md|load (ndjson)|users.ndjson": {
+    "median_ms": 9.000250000099186,
+    "p95_ms": 13.640125000165426,
+    "rss_mb": 99.515625
+  },
+  "bench_results_small.md|loads|flat.json": {
+    "median_ms": 0.7167079997998371,
+    "p95_ms": 1.6810420002002502,
+    "rss_mb": 99.515625
+  },
+  "bench_results_small.md|loads|mixed.json": {
+    "median_ms": 0.16162499969141209,
+    "p95_ms": 0.42462500005058246,
+    "rss_mb": 103.578125
+  },
+  "bench_results_small.md|loads|nested.json": {
+    "median_ms": 0.6570415007445263,
+    "p95_ms": 0.8575840001867618,
+    "rss_mb": 99.546875
+  },
+  "bench_results_small.md|loads|users.json": {
+    "median_ms": 7.070708499668399,
+    "p95_ms": 8.188374999917869,
+    "rss_mb": 69.734375
+  },
+  "bench_results_small.md|loads|wide_arrays.json": {
+    "median_ms": 3.62074999975448,
+    "p95_ms": 4.545416999462759,
+    "rss_mb": 102.296875
+  },
+  "bench_results_small.md|load|flat.json": {
+    "median_ms": 0.7949585001369996,
+    "p95_ms": 1.0457500002303277,
+    "rss_mb": 99.546875
+  },
+  "bench_results_small.md|load|mixed.json": {
+    "median_ms": 0.23102099976313184,
+    "p95_ms": 0.2809999996316037,
+    "rss_mb": 103.578125
+  },
+  "bench_results_small.md|load|nested.json": {
+    "median_ms": 0.6876249999550055,
+    "p95_ms": 0.7923330003904994,
+    "rss_mb": 99.546875
+  },
+  "bench_results_small.md|load|users.json": {
+    "median_ms": 7.856604000153311,
+    "p95_ms": 12.130666000302881,
+    "rss_mb": 92.0625
+  },
+  "bench_results_small.md|load|wide_arrays.json": {
+    "median_ms": 3.6468335001700325,
+    "p95_ms": 3.97370900009264,
+    "rss_mb": 102.921875
+  },
+  "bench_results_small.md|query|users.json $..total": {
+    "median_ms": 1.7050005003511615,
+    "p95_ms": 3.0897080005161115,
+    "rss_mb": 94.0625
+  },
+  "bench_results_small.md|query|users.json $[*].id": {
+    "median_ms": 0.1507500001025619,
+    "p95_ms": 0.2627499998197891,
+    "rss_mb": 93.875
+  },
+  "bench_results_small.md|query|users.json $[*].orders[*].total": {
+    "median_ms": 0.7204789994830207,
+    "p95_ms": 1.0047089999716263,
+    "rss_mb": 94.0
+  },
+  "bench_results_small.md|search|users.json $..total": {
+    "median_ms": 9.623395499602339,
+    "p95_ms": 11.715708000338054,
+    "rss_mb": 94.09375
+  },
+  "bench_results_small.md|search|users.json $[*].id": {
+    "median_ms": 4.261562500232685,
+    "p95_ms": 5.02649999998539,
+    "rss_mb": 93.921875
+  },
+  "bench_results_small.md|search|users.json $[*].orders[*].total": {
+    "median_ms": 4.372729000351683,
+    "p95_ms": 4.91245900047943,
+    "rss_mb": 94.0625
+  }
+}

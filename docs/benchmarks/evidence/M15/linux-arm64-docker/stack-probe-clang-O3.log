@@ -1,0 +1,4 @@
+plain-chain: smallest stack 128 KiB
+revive-chain: smallest stack 128 KiB
+plain-lists: smallest stack 128 KiB
+revive-lists: smallest stack 128 KiB

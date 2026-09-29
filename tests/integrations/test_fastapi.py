@@ -106,8 +106,8 @@ def _app(response_class, documents, **app_options):
 
 
 @pytest.fixture
-def clients(native_document):
-    documents = {**VALUES, "native": native_document}
+def clients(json_document):
+    documents = {**VALUES, "native": json_document}
     return {
         "strata": _app(StrataJSONResponse, documents),
         "default": _app(None, documents),
@@ -119,17 +119,17 @@ def test_the_response_is_starlettes_json_response_class():
     assert StrataJSONResponse.media_type == "application/json"
 
 
-def test_a_direct_response_is_starlettes_body_byte_for_byte(native_document):
-    assert StrataJSONResponse(native_document).body == JSONResponse(native_document).body
+def test_a_direct_response_is_starlettes_body_byte_for_byte(json_document):
+    assert StrataJSONResponse(json_document).body == JSONResponse(json_document).body
 
 
-def test_a_route_without_a_model_is_the_default_byte_for_byte(clients, native_document):
+def test_a_route_without_a_model_is_the_default_byte_for_byte(clients, json_document):
     got = clients["strata"].get("/value/native")
     expected = clients["default"].get("/value/native")
     assert got.status_code == expected.status_code == 200
     assert got.content == expected.content
     assert got.headers["content-type"] == expected.headers["content-type"]
-    assert got.json() == native_document
+    assert got.json() == json_document
 
 
 def test_a_response_model_route_matches_pydantics_dump_json(clients):
@@ -150,8 +150,8 @@ def test_a_response_model_route_with_floats_decodes_equal(clients):
     assert (b"1e-7" if DUMP_JSON else b"1e-07") in expected.content
 
 
-def test_default_response_class_on_the_app_applies(native_document):
-    documents = {**VALUES, "native": native_document}
+def test_default_response_class_on_the_app_applies(json_document):
+    documents = {**VALUES, "native": json_document}
     client = _app(None, documents, default_response_class=StrataJSONResponse)
     response = client.get("/value/nan")
     assert response.status_code == 200
@@ -241,11 +241,11 @@ def test_a_cycle_under_the_error_policy_is_a_500_in_both(clients, cycle_policy_e
 
 
 def test_a_response_past_the_recursion_limit_fails_where_stdlib_nests(
-    native_document,
+    json_document,
     deep_document,
     stdlib_nests,
 ):
-    documents = {**VALUES, "native": native_document, "deep": deep_document}
+    documents = {**VALUES, "native": json_document, "deep": deep_document}
     strata_client = _app(StrataJSONResponse, documents)
     default = _app(None, documents)
     assert strata_client.get("/direct/deep").status_code == 500

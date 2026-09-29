@@ -1,0 +1,32 @@
+M1 (Apple clang, make pgo) __text sizes, bytes (0 = no out-of-line symbol); symbol_table.py's measure
+armA	arm809621c	armFix	symbol
+10468	10528	10528	Serializer::write(_object*)
+6172	6172	6172	Serializer::write_mapping_body(_object*, long, long)
+5460	5460	5460	Serializer::write_record_fused(_object*)
+3708	3708	3708	Serializer::write_scalar_run(_object**, long)
+2288	2288	2288	Serializer::write_string_bytes(char const*, unsigned long)
+1936	1936	1936	strata::bindings::dumps_to_python(_object*, bool)
+1644	1644	1644	Serializer::write_mapping(_object*)
+1104	1104	1104	Serializer::grow_schemas(unsigned long)
+968	968	968	Serializer::build_schema(strata::bindings::SchemaCacheLease::DepthSchemas&, unsigned long)
+0	704	620	Serializer::write_dataclass(_object*)
+0	656	664	Serializer::write_set(_object*)
+0	628	464	Serializer::write_set_table(_object*)
+0	588	588	Serializer::write_native(_object*)
+0	516	536	Serializer::write_enum(_object*)
+512	512	512	Serializer::write_mapping_uncached(_object*)
+0	0	288	Serializer::write_key_cold(_object*)
+0	0	236	Serializer::push_open_cold(_object*)
+224	224	224	Serializer::emit_cycle_placeholder()
+224	224	224	Serializer::Frame::handle_cycle() const
+0	204	204	Serializer::write_decimal(_object*)
+0	184	184	Serializer::write_native_text(char const*, long)
+180	180	180	Serializer::latch()
+164	164	164	Serializer::compact_general_exact(_object*)
+164	164	164	Serializer::compact_general_holes(_object*)
+156	156	156	Serializer::RowLock::~RowLock()
+136	136	136	Serializer::Frame::Frame(Serializer&, _object*)
+80	80	80	Serializer::close_container(_object*)
+# write() call targets, armA: [('_PyErr_Format', 1), ('_PyErr_Occurred', 2), ('_PyErr_SetString', 2), ('_PyLong_AsLongLongAndOverflow', 2), ('_PyObject_Str', 2), ('_PyType_IsSubtype', 1), ('_PyUnicode_AsUTF8AndSize', 3), ('__Py_Dealloc', 7), ('__Unwind_Resume', 1), ('__ZN6strata26append_escaped_json_stringENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEERNS0_12basic_stringIcS3_NS0_9allocatorIcEEEE', 1), ('__ZN6strata4util13format_doubleEdPcm', 1), ('__ZN6strata4util16find_next_escapeEPKcm', 1), ('__ZN6strata8bindings12StagedOutput8overflowEm', 28), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer15close_containerEP7_object', 5), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer16write_scalar_runEPP7_objectl', 4), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5FrameC1ERS2_P7_object', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object', 4), ('__ZN6strata8bindings5PyRefD2Ev', 2), ('__ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv', 1), ('__ZNK6s
+# write() call targets, arm809621c: [('_PyErr_Format', 1), ('_PyErr_Occurred', 2), ('_PyErr_SetString', 2), ('_PyLong_AsLongLongAndOverflow', 2), ('_PyObject_Str', 2), ('_PyType_IsSubtype', 1), ('_PyUnicode_AsUTF8AndSize', 3), ('__Py_Dealloc', 7), ('__Unwind_Resume', 1), ('__ZN6strata26append_escaped_json_stringENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEERNS0_12basic_stringIcS3_NS0_9allocatorIcEEEE', 1), ('__ZN6strata4util13format_doubleEdPcm', 1), ('__ZN6strata4util16find_next_escapeEPKcm', 1), ('__ZN6strata8bindings12StagedOutput8overflowEm', 28), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer15close_containerEP7_object', 5), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer16write_scalar_runEPP7_objectl', 4), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5FrameC1ERS2_P7_object', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object', 4), ('__ZN6strata8bindings5PyRefD2Ev
+# write() call targets, armFix: [('_PyErr_Format', 1), ('_PyErr_Occurred', 2), ('_PyErr_SetString', 2), ('_PyLong_AsLongLongAndOverflow', 2), ('_PyObject_Str', 2), ('_PyType_IsSubtype', 1), ('_PyUnicode_AsUTF8AndSize', 3), ('__Py_Dealloc', 7), ('__Unwind_Resume', 1), ('__ZN6strata26append_escaped_json_stringENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEERNS0_12basic_stringIcS3_NS0_9allocatorIcEEEE', 1), ('__ZN6strata4util13format_doubleEdPcm', 1), ('__ZN6strata4util16find_next_escapeEPKcm', 1), ('__ZN6strata8bindings12StagedOutput8overflowEm', 28), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer15close_containerEP7_object', 5), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer16write_scalar_runEPP7_objectl', 4), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv [tail b]', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5FrameC1ERS2_P7_object', 1), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv', 2), ('__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object', 4), ('__ZN6strata8bindings5PyRefD2Ev', 2

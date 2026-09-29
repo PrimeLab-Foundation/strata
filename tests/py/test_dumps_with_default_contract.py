@@ -10,10 +10,8 @@ file mirrors them and imports nothing from them. It also holds the import
 robustness check of M12b criterion 9: `import strata` without the hook image.
 """
 
-import dataclasses
 import datetime
-import decimal
-import enum
+import fractions
 import json
 import pathlib
 import re
@@ -21,7 +19,6 @@ import subprocess
 import sys
 import textwrap
 import threading
-import uuid
 import warnings
 
 import pytest
@@ -81,21 +78,36 @@ def on_both_threads(body):
 
 
 # ---------------------------------------------------------------------------
-# The documents: an order book with the unsupported types a service meets
-# (datetime, Enum, UUID, Decimal, a dataclass), flat rows, a wide dict.
+# The documents: an order book with unsupported types in the places a service
+# has them (a duration, a status code, a path reference, a line item, an exact
+# fraction), flat rows, a wide dict. None is a native type: `dumps` writes
+# those itself and never hands one to `default`
+# (docs/architecture/native_types.md; their tests are in tests/py/native_types/).
 # ---------------------------------------------------------------------------
 
 
-class Status(enum.Enum):
-    OPEN = "open"
-    SHIPPED = "shipped"
+class Status:
+    """An unsupported status code; the callable writes its value."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value):
+        self.value = value
 
 
-@dataclasses.dataclass
+Status.OPEN = Status("open")
+Status.SHIPPED = Status("shipped")
+
+
 class LineItem:
-    sku: str
-    qty: int
-    price: decimal.Decimal
+    """An unsupported line item; the callable writes a shallow dict of its fields."""
+
+    __slots__ = ("sku", "qty", "price")
+
+    def __init__(self, sku, qty, price):
+        self.sku = sku
+        self.qty = qty
+        self.price = price
 
 
 class Opaque:
@@ -126,14 +138,12 @@ class Recorder:
 def convert(obj):
     """A realistic `default`. A line item becomes a shallow dict, so its price is
     an unsupported object inside a returned container and gets its own call."""
-    if isinstance(obj, (datetime.datetime, datetime.date)):
-        return obj.isoformat()
-    if isinstance(obj, (uuid.UUID, decimal.Decimal)):
+    if isinstance(obj, (datetime.timedelta, fractions.Fraction, pathlib.PurePath)):
         return str(obj)
-    if isinstance(obj, enum.Enum):
+    if isinstance(obj, Status):
         return obj.value
     if isinstance(obj, LineItem):
-        return {field.name: getattr(obj, field.name) for field in dataclasses.fields(obj)}
+        return {name: getattr(obj, name) for name in LineItem.__slots__}
     raise TypeError(f"no conversion for {type(obj).__name__}")
 
 
@@ -145,11 +155,15 @@ CALLS_PER_ORDER = 7
 def order(index):
     return {
         "id": index,
-        "placed": datetime.datetime(2026, 9, 1, 8, 30) + datetime.timedelta(hours=index),
+        "placed": datetime.timedelta(hours=8 + index, minutes=30),
         "status": Status.SHIPPED if index % 2 else Status.OPEN,
-        "customer": {"id": 100 + index, "name": f"customer {index}", "ref": uuid.UUID(int=index)},
+        "customer": {
+            "id": 100 + index,
+            "name": f"customer {index}",
+            "ref": pathlib.PurePosixPath(f"customers/{index}"),
+        },
         "lines": [
-            LineItem(f"sku-{index}-{line}", line + 1, decimal.Decimal(index + line) / 4)
+            LineItem(f"sku-{index}-{line}", line + 1, fractions.Fraction(index + line, 4))
             for line in range(2)
         ],
         "notes": ["gift"] if index % 3 == 0 else [],
@@ -173,8 +187,8 @@ def dated_records(count=12):
     return [
         {
             "id": index,
-            "day": datetime.date(2026, 9, index + 1),
-            "price": decimal.Decimal(index) / 8,
+            "day": datetime.timedelta(days=index + 1),
+            "price": fractions.Fraction(index, 8),
             "status": Status.OPEN,
         }
         for index in range(count)
@@ -377,16 +391,16 @@ def test_an_exception_from_the_callable_propagates_unchanged(mode, index, placem
 # Row 4 (api.md): "**Chain bound 1.** `default` returns an unsupported object =>
 # TypeError("default() returned an object of type %s that is not JSON
 # serializable"), and `default` is **not** called on its own return." The
-# callable here could convert a returned Decimal or datetime; it is not asked.
+# callable here could convert a returned Fraction or timedelta; it is not asked.
 # ---------------------------------------------------------------------------
 
 UNSUPPORTED_RETURNS = [
     ("itself", lambda obj: obj, "Opaque"),
     ("another-handle", lambda obj: Opaque(obj.tag), "Opaque"),
-    ("set", lambda obj: {obj.tag}, "set"),
+    ("bytearray", lambda obj: bytearray(obj.tag.encode()), "bytearray"),
     ("bytes", lambda obj: obj.tag.encode(), "bytes"),
-    ("decimal", lambda obj: decimal.Decimal("1.5"), "decimal.Decimal"),
-    ("datetime", lambda obj: datetime.datetime(2026, 9, 27), "datetime.datetime"),
+    ("fraction", lambda obj: fractions.Fraction(3, 2), "Fraction"),
+    ("timedelta", lambda obj: datetime.timedelta(days=1), "datetime.timedelta"),
 ]
 
 
@@ -423,7 +437,7 @@ def test_an_identity_default_stops_at_the_first_unsupported_object(mode):
     book = order_book()
     hook = Recorder(lambda obj: obj)
     message = exact(
-        "default() returned an object of type datetime.datetime that is not JSON serializable"
+        "default() returned an object of type datetime.timedelta that is not JSON serializable"
     )
     with pytest.raises(TypeError, match=message):
         strata.dumps_with_default(book, hook, return_type=mode)

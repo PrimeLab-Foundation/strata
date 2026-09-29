@@ -1,0 +1,22 @@
+offset from first __text symbol (hex) / size B / address mod 64; '-' = no out-of-line symbol
+symbol                                           armA off/size/mod64     armBown3 off/size/mod64        armC2 off/size/mod64
+Serializer::write(_object*)                            12f8/10468/24                12f8/8228/40               12f8/10528/40
+Serializer::write_record_fused(_object*)                5130/5460/16                5228/5460/24                524c/5460/60
+Serializer::write_mapping_body(_object*,                793c/6172/28                7a34/4152/36                 7a58/6172/8
+Serializer::write_mapping(_object*)                      3d24/1644/4                462c/1644/28                3d60/1644/16
+Serializer::write_string(_object*)                                 -                3464/4552/20                           -
+Serializer::write_string_bytes(char cons                4390/2288/48                           -                43cc/2288/60
+Serializer::write_scalar_run(_object**,                 6ac0/3708/32                6bb8/3708/40                6bdc/3708/12
+util::format_double(double, char*, unsig               2d9ac/4080/12                2e750/4080/0                2ef58/4080/8
+b::dumps_to_python(_object*, bool)                        b68/1936/8                 b68/1936/24                 b68/1936/24
+b::dump_to_file(_object*, char const*)                    9d28/652/8                 969c/652/12                 9ea4/652/20
+Serializer::write_native(_object*)                                 -                334bc/588/44                33cc4/588/52
+Serializer::write_set_table(_object*)                              -                34e28/628/24                35680/628/48
+Serializer::write_enum(_object*)                                   -                346ec/516/28                34f2c/516/28
+Serializer::write_dataclass(_object*)                              -                348f0/680/32                35130/704/32
+Serializer::write_decimal(_object*)                                -                34620/204/16                34e60/204/16
+Serializer::write_native_text(char const                           -                34568/184/24                34da8/184/24
+Serializer::write_set(_object*)                                    -                 34b98/656/8                353f0/656/32
+util::copy_until_escape_scalar(char cons                318d4/124/52                32678/124/40                32e80/124/48
+util::find_next_escape(char const*, unsi                 4c80/808/32                  4c98/808/8                 4cbc/808/44
+util::find_next_escape_scalar(char const                 31864/112/4                32608/112/56                 32e10/112/0

@@ -4309,3 +4309,327 @@ waits on it.
   `std::filesystem` code — length is what the profile sees. The branch merged
   to main after the gate passed on the merged tree. Evidence:
   `build/evidence/benchmark-lead/pin-discovery-test/ab-36353898103/`.
+
+## M15 — native types: static checks, training scope, the local A/B; kill fired on draws 2–3
+
+- 2026-09-28..29 · `exp/native-types` over main `38eaa9f`, twelve commits `d6e543a` to `e5d9510`.
+  Record: [`native_types.md`](../architecture/native_types.md) and its 2026-09-28/29 amendments;
+  docs/decisions.md, 2026-09-28/29. Evidence: `docs/benchmarks/evidence/M15/` (tracked copy of
+  `build/evidence/M15/`, index `INDEX.txt`), the base of the paths below. **Status: kill fired
+  on five-leg draws 2–3 (lead's ruling); refused in this shape, not merged; fallback (b) pending.**
+
+- **Pre-specified (the record).** Estimate: static checks 1–3 hold on both ISAs; the pinned
+  local A/B reads no canonical row past its A/A floor by more than +1.7% and none past +2%; on
+  five legs nothing resolves past +2%. Kill: a canonical row resolved past +2% on the pinned A/B,
+  or on a five-leg draw repeated once, that the held-profile arm attributes to the code; the
+  fallback is native types in `dumps_with_default` only.
+
+- **Setup.** Dev M1 (arm64, Darwin 25.6.0), Apple clang 21.0.0, CPython 3.14.7, orjson 3.12.0,
+  numpy 2.5.3. Static checks: plain `-O3`, no PGO or LTO, arm64 and an x86-64 SysV cross build
+  (`codegen/PROVENANCE.txt`). A/B: A = main `38eaa9f` by `make pgo`, A2 = that build repeated
+  (A/A control); 26 rows as 36 series, `dumps` as bytes and str (`ab/PROVENANCE.txt`); 6 ABBA
+  blocks × 60 repeats; `benchmarks/ab_blocks.py` (strata over orjson in-process, median block
+  effect, bootstrap over blocks, 2000 resamples). Floor, in parentheses below, = the larger |CI
+  bound| of A against A2; **resolved** = CI excludes 0 and |effect| > floor; `str` series are
+  not canonical. Shared, loaded machine: 1-min load 2.3–2.9 at each session's start.
+
+- **Check 1 — the tail shape.** S1, a bare tail call from `write()` into `write_native`
+  (`2f494a9`), failed: it reshaped the shared return epilogue (arm64 281 → 259 instructions,
+  x86-64 186 → 181), moving exact-type paths by one or two instructions. V1 (`not_tail_called`),
+  V2 (plus a static member) and V3 (a type predicate) did not restore it; V4 did: main's
+  `PyErr_Format` tail stays the fall-through behind `if (native::g_runtime_ready)`, set by module
+  init (`10521a9`; `codegen/variants/`). At `5b876d1` all of main's `write()` instructions appear
+  in order (281/281 arm64, 185/185 x86-64, padding masked), plus the flag test (+5/+3) and the
+  tail block (+7/+5) (`final/codegen/check1_write_masked.*`).
+
+- **Checks 2–3 at `5b876d1`.** `sizeof(Serializer)` 120, `stage_` at offset 64 and
+  `dumps_to_python`'s instructions equal main's on both ISAs (`final/codegen/check2.txt`); 16 of
+  18 common objects are identical, `json_parse.o` and `python_loads.o` among them, while
+  `python_dumps.o` and `python_module.o` differ (`final/codegen/check3_*`).
+
+- **Check 4 — training counts** (`check4_entry_counts.txt` at `10521a9`, `final/entry_counts.txt`
+  at `5b876d1`). Per-kind writers and temporal scanners read 0. Non-zero: `write_native` (842, the
+  trained unsupported-type tests, which trained main's `PyErr_Format` tail alike) and its callees
+  before the `TypeError`; module-init setup (17 each); the set walk's import proof (34); shared `PyRef`.
+
+- **Held-profile arm: confounded, not used.** B-held (`ad04f61` against A's profile) compiled
+  `Serializer::write` and `strata_loads` without a profile — clang discarded up to 6 447 184 and
+  489 178 counts on a control-flow hash mismatch (`armBheld2/hash_mismatch.txt`) — and read 19
+  of 36 series resolved *faster* than A, −2.7% to −9.4%, all `dumps`/`dump`
+  (`ab/held_ab.aa1.analysis.txt`). The timing below uses own-profile arms (each its own
+  `make pgo`), where code and profile change together.
+
+- **Own-profile arms.** Table M15-1 lists every series resolved in any arm.
+
+  *Table M15-1. Own `make pgo` vs main's, % \[95% CI\] (floor); bold = resolved; b/s = bytes/str.*
+
+  | series                 | `ad04f61` (A/A 1)                 | `5b876d1` (A/A 3)                 | `809621c` (A/A full)          |
+  | ---------------------- | --------------------------------- | --------------------------------- | ----------------------------- |
+  | small `dump flat`      | +1.68 \[+0.41, +5.70\] (2.68)     | **+2.99 \[+1.42, +3.40\] (2.16)** | −1.44 \[−4.65, +0.53\] (4.72) |
+  | small `dumps flat` b   | +1.02 \[−0.19, +2.29\] (0.60)     | **+1.90 \[+1.34, +2.36\] (1.47)** | −0.81 \[−1.27, −0.72\] (1.20) |
+  | small `dumps flat` s   | +0.74 \[−0.72, +2.21\] (0.94)     | **+1.47 \[+0.90, +1.96\] (0.70)** | −0.24 \[−1.28, +0.54\] (1.23) |
+  | small `dumps users` b  | **+1.62 \[+0.23, +2.21\] (1.47)** | **+1.14 \[+0.90, +2.05\] (1.01)** | +0.40 \[−0.43, +0.71\] (0.46) |
+  | small `dumps users` s  | +0.39 \[−0.21, +1.73\] (1.07)     | **+1.01 \[+0.16, +2.18\] (0.60)** | +0.35 \[−0.55, +1.39\] (0.56) |
+  | medium `dumps users` s | +0.63 \[−0.60, +2.86\] (2.36)     | **+0.93 \[+0.46, +2.32\] (0.80)** | −0.04 \[−0.35, +0.33\] (0.69) |
+
+  Sources: `ab/own_ab.aa1.analysis.txt`, `final/ab/own3_ab.aa3.analysis.txt`,
+  `attr/full/fix_ab.aa_full.analysis.txt`. Against the second A/A (floor 1.45), `ad04f61`'s
+  small `dump flat` also resolves. `5b876d1`: six resolved losses on four serializer rows,
+  three on canonical engines, small `dump flat` past +2%.
+
+- **Attribution of `5b876d1`'s loss** (`attr/`). Observed: its image carries
+  `Serializer::write_string` out of line (4 552 B) and no `write_string_bytes` symbol, and
+  `write()` shrinks 10 468 → 8 228 B, `write_mapping_body` 6 172 → 4 152 B against A
+  (`attr/hot_symbols_table.txt`). Attributed (commit `809621c`; consistent with the pre-link
+  inlining remarks, `attr/prelink/`): the new cold caller `write_dataclass` → `write_string`
+  cost LLVM's inliner its deferral of `write_string_bytes` into `write_string`, which grew past
+  the PGO hot-call threshold and was called out of line per string. Fix `809621c`: dataclass
+  keys go to `write_string_bytes`; its image has main's shape (`write()` 10 528 B,
+  `write_mapping_body` 6 172 B; `attr/arm809621c/layout.txt`), and a five-row screen of the
+  change read nothing past its floor (`attr/c2_screen.aa_s1.analysis.txt`).
+
+- **`809621c`, 26 rows** (same-session A/A; 1-min load 2.45 → 4.45, `attr/full/load_log.txt`).
+  No series resolved; the largest point estimate is small `load mixed` +1.70% \[−0.79, +2.38\]
+  (2.95). Four gains have a CI excluding 0 — small `dumps flat` b −0.81%, small `loads flat`
+  −0.70%, medium `dumps users` b −0.49%, small `dumps nested` s −0.32% — each inside its floor
+  (1.15–1.20), so none resolves. This is consistent with the record's local estimate, from one
+  loaded M1 and own-profile arms rather than the pinned arm the record specifies.
+
+- **Admission** (`admission_table.txt` in `micro/` at `ad04f61`, `micro2/` at `5b876d1`):
+  median ns per object, 164 samples per arm, native `dumps` against main's `dumps_with_default`
+  with a Python reference conversion; bytes identical for all 13 kinds, `default` never called
+  natively. Native/hook at `5b876d1`: `datetime` 0.044–0.086, `date` 0.059, `time` 0.061,
+  dataclass (5 fields) 0.219, `UUID` 0.224, `np.int64` 0.561, `np.float32` 0.589, `Decimal`
+  0.659, `set` (10) 0.700, `Enum` 0.967, `ndarray` (1000 × f64) 1.000. At `ad04f61`, `set`
+  1.404, `np.int64` 1.272 and `np.float32` 1.256 were slower than the hook. `ndarray` and `Enum`
+  ship native by the user's sign-off, against the admission rule (docs/decisions.md, 2026-09-29).
+
+- **Import and keyword cost.** `import strata` at `ad04f61` (60 A B B A rounds, fresh
+  interpreters; `micro/import_abba*.txt`): +2.27% \[−0.02, +3.99\] and, repeated, +2.95%
+  \[−0.46, +6.84\] — both CIs include 0; no module newly imported; not re-measured later.
+  `loads` against main (`micro2/facade_x.txt`): tiny document −12.0 ns (−6.26%), small mixed
+  −0.09% normalised.
+
+- **Correctness.** Reviews — P0 `Enum`/`default` unbounded recursion, P1 registry
+  use-after-free in the parse walk, P1 `datetime` subclasses, P2 dataclass field cache and the
+  numpy twins' proof — fixed in `fe9ec54`, `ad04f61`, `1264542`. `make gate` at `1264542`: exit
+  0, 3580 passed, 2 skipped; coverage Python 100%, C++ lines 89.51% (the author's run, log not
+  in the packet). `1264542` adds the cold `python_numpy_twins.cpp` after the local timing, so it
+  is **not locally timed**.
+
+- **Five-leg A/B, run 1: nothing timed, two arm defects fixed.** Run 36497513720 (`ab_x86.yml`,
+  2026-09-28 23:20:58 UTC, `exp/m15-ab-arm` `1b806bf` vs `38eaa9f`, 6 blocks × 60) timed no
+  series, so it neither passes nor fires the kill (docs/decisions.md, 2026-09-29, build-and-test;
+  `ci-36497513720/`). (1) Only `_strata` was swapped per arm, so every A launch raised
+  `TypeError: loads() got an unexpected keyword argument 'parse_types'` under M15's facade
+  (linux-x86_64, macos-arm64, windows: `ab-*/ab/R1.stderr`); fixed in `296d2ea`. (2) linux-arm64's
+  B build failed its test gate (`ab-linux-arm64/ab/build-B.log:696`) on a fixed 256 KiB revival
+  thread, where a PGO+LTO parse needs 240 KiB on aarch64 (container build); `b938b17` pins
+  "revival needs no more stack than the parse", in subprocesses. macos-x86_64 was cancelled.
+
+- **Five-leg A/B, draw 1: not clean on linux-x86_64.** Run 36502555579: B = `exp/m15-ab-arm`
+  `296d2ea`, A = main `38eaa9f`, A2 = main built and trained again (`ab/arms.txt`); paired ABBA,
+  6 blocks × 60, 33 series per leg, all legs timed. In `ci-36502555579/`, per leg `ab/R1_blocks.txt`
+  (B vs A; windows `ab/comparison.txt`) and `ab/A2_blocks.txt` (A2 vs A), read by `verdict.py`;
+  the floor here is the A/A estimator on two launches of one binary (`ab/AA.tsv`), so A2 is a
+  build-to-build control. Values: normalised effect, % \[95% CI\] (floor), all resolved.
+
+  - *linux-x86_64: five losses, all serializer rows, 6/6 blocks each; A2 resolves nothing, so
+    the effect is B's.* Small `dumps flat` s +2.15 \[+1.56, +2.50\] (0.92) and b +1.58 \[+1.32,
+    +1.98\] (0.40); small `dumps mixed` b +1.66 \[+0.56, +2.27\] (1.07), orjson's raw time +2.61%
+    in the same blocks; small `dumps wide_arrays` b +1.09 \[+0.94, +1.45\] (0.41); small
+    `dump wide_arrays` +0.62 \[+0.42, +0.87\] (0.48).
+  - *linux-arm64: eight gains, one loss.* Gains: small and medium `dumps mixed` b and s −1.08 to
+    −1.77, small `nested` `load` −1.68 and `loads` −1.00, small `users` `dump` −0.52 and `dumps`
+    b −0.25. Loss: small `dumps wide_arrays` b +0.42 \[+0.26, +0.59\] (0.18), the one series A2
+    also resolves, the other way: −0.22 \[−0.28, −0.07\] (0.18).
+  - *macos-x86_64: one loss, not attributed to B.* Small `dumps nested` b +3.96 \[+2.62, +5.54\]
+    (3.62), beside a gain, medium `dumps flat` b −3.35 \[−3.96, −3.12\] (3.12). The leg's A2
+    control resolves small `dump mixed` +4.42 \[+2.38, +5.32\] (3.21) between two builds of main,
+    so the loss is treated as instrument noise and kept in the next draw's verdict table.
+  - *macos-arm64, windows-x86_64: nothing resolved*, B vs A or A2.
+
+- **Mechanism candidate, linux-x86_64 (sizes observed; cause inferred, not timed).** B's image
+  carries `Serializer::write_string_bytes` out of line (1 278 B hot, 837 B cold), A's has no such
+  symbol; `write()` 17 501 → 16 640 B, `write_mapping_body` 6 091 → 5 021 B (hot parts;
+  `ab-linux-x86_64/ab/symbols.{A,B}.txt`). This is the M1's inliner-deferral flip (`809621c`,
+  above) one level down: `809621c` gave `write_string_bytes` a new cold caller, `write_dataclass`.
+
+- **Status after draw 1.** The kill criterion (a canonical row resolved past +2% on two draws)
+  has not fired: one draw, whose one series past +2% is `dumps flat` s, which the setup counts as
+  not canonical (bytes +1.58%). The canonical step is held. A hard inlining-boundary fix is in
+  progress, to be checked on Linux clang symbol tables before one more paired draw; the lead's
+  rule for it: linux-x86_64 small `dumps flat` resolving past +2% again fires the kill criterion.
+
+- **Inlining boundary `74d78ca`.** The native cold writers call no helper a hot writer inlines:
+  dataclass keys via `write_key_cold`, framed writers via `NativeFrame`/`push_open_cold`, never
+  `Frame` (`python_dumps.cpp` header); `make gate` passed (`gate-74d78ca/`). Checked before
+  dispatch on Linux and the M1, not on windows or macos-x86_64:
+
+  - *Linux symbols* (`linux-symbols/PROVENANCE.txt`): clang 18.1.3 replays run 36502555579's
+    PGO+LTO compiles on its own profiles and matches its A and B images (`nm -S`: 0 of 473/537
+    x86-64, 0 of 296/354 arm64 symbols differ). The fix on profile-B (trained on `296d2ea`):
+    `write`, `write_mapping_body` and `write_mapping` call exactly what main's call on both
+    ISAs; no `write_string`/`write_string_bytes` symbol (`{x86,arm64}/symbols.*.tsv`).
+  - *M1 screen* (`boundary-screen/`; 8 rows, 13 series, 6 × 60; floor A vs A2): no resolved loss;
+    gains medium `dumps users` b −0.98 \[−1.14, −0.03\] (0.45) and small `dumps mixed` s −0.84
+    \[−1.98, −0.02\] (0.69). B vs A ran at 1-min load 2.87–3.13, the A/A at 2.36.
+
+- **Five-leg A/B, draw 2: losses past +2% on three legs; every A2 control clean.** Run
+  36520746091, B = `exp/m15-ab-arm` `afd1550` (source and build files as `74d78ca`), otherwise as
+  draw 1 (`ci-36520746091/verdict.txt`). Resolved:
+
+  - *macos-x86_64:* small `dumps nested` b +3.98 \[+2.37, +4.67\] (1.36), 6/6, draw 1's row;
+    small `dumps wide_arrays` b +2.51 \[+0.15, +4.61\] (2.34), 5/6; six gains, −1.75 to −4.16.
+  - *windows-x86_64:* small `dumps flat` b +3.26 \[+2.68, +4.37\] (0.71), s +3.30 (0.74), 6/6;
+    draw 1 read +0.62/+0.82 there, unresolved.
+  - *macos-arm64:* small `loads flat` +2.91 \[+0.99, +3.70\] (1.95), 6/6; B changes its entry
+    point only, the parse code is byte-identical (docs/decisions.md).
+  - *linux-arm64:* eight `dumps` losses, +0.62 to +1.31 (medium `users` b); three parse gains.
+  - *linux-x86_64:* one gain, small `load mixed` −1.06; draw 1's small `dumps flat` no longer
+    resolves (s +2.02 \[−1.62, +5.02\] (0.50)).
+
+- **Kill criterion not fired, by the lead's ruling** (docs/decisions.md, 2026-09-29): only a leg
+  whose own A2 resolves nothing counts, so draw 1's macos-x86_64 `dumps nested` +3.96 (A2 +4.42
+  there) is discounted, reversing the draw-2 record's reading that it fired. One clean-control
+  resolution past +2% each: macos-x86_64 `dumps nested`, windows `dumps flat`, macos-arm64
+  `loads flat` and, by the rule though unnamed, macos-x86_64 `dumps wide_arrays`; a second on
+  one row fires it. Canonical step held. Next (the lead): a static A/B symbol diff of windows,
+  linux-arm64 and macos-x86_64 from the run's artifacts, before a draw 3. Fallback if fired, in
+  place of the record's: native emitters in a separate image off the unsupported tail, keeping
+  natives on by default (a design refused once for its retry semantics, `dumps_with_default.md`).
+
+- **Static A/B/A2 symbol diff of draw 2's arms** (`ci-36520746091/{hotsyms,machosyms}_draw2.txt`;
+  no rebuild). On macos-x86_64, macos-arm64 and linux-arm64 every hot writer is main's size except
+  `write()`, grown by the V4 tail alone (+48/+60/+60 B). linux-x86_64 differs in hot/cold split
+  placement and, parse-side, B inlines `scan_string()` and `parse_value` grows 28 652 → 39 625 B,
+  read as profile-summary churn (plain objects byte-identical); B resolves no parse loss there in
+  any draw. Windows' `.pyd` has no symbols; its `.pdata` ranges leave draw 2's `dumps flat` open.
+
+- **Five-leg A/B, draw 3: macos-x86_64 `dumps nested` resolves again.** Run 36529483744, arms as
+  draw 2, 6 × 60 (`ci-36529483744/verdict.txt`). Resolved, B vs A: macos-x86_64 (A2 clean) small
+  `dumps nested` b +3.74 \[+0.47, +4.83\] (2.10), 5/6, s +4.12 \[+2.56, +8.27\] (3.39), 6/6, three
+  `dumps flat` gains, −3.11 to −4.15; linux-arm64 (A2 clean, a distinct build) seven serializer
+  losses, +0.37 to +1.38 — small `nested` `dump` +1.38 \[+0.08, +2.35\] (0.97), six `dumps` b rows
+  6/6 each — and four gains; windows small `load wide_arrays` +2.04, `dump flat` +1.37, discounted
+  (its A2 resolves two losses); linux-x86_64, macos-arm64 nothing (the former's A2 resolves three).
+
+- **Kill criterion fired** (lead's ruling, docs/decisions.md, 2026-09-29): canonical macos-x86_64
+  small `dumps nested` b resolved past +2% on two clean-control draws — draw 2 +3.98 \[+2.37,
+  +4.67\] (1.36), draw 3 +3.74 (past +2% in its point estimate, not its CI). The firing rests on
+  that rule, not the record's held-profile attribution (below). No further draw; canonical never
+  dispatched. Caveat (`ab/arms.txt`): there A2 has A's hash in draws 2–3, so it controls launches,
+  not builds (draw 1's distinct A2 resolved `dump mixed` +4.42); B's two hashes differ; both lose.
+
+- **Mechanism (inferred; not timed).** Two candidate costs remain on the fired leg: `write()`'s V4
+  tail (+48 B) and the layout of about 20 KB of added `_strata` text (native writers,
+  `parse_types`, `temporal`); no arm separates them — M12's class of cost, measured larger. The
+  N2's sub-2% `dumps` losses recur: one in draw 1 (`296d2ea`; its A2 resolved that series the other
+  way), eight and seven in draws 2–3, A2 clean — each under the gate, together a standings risk.
+
+- **Next: fallback (b), decision pending** (`native_types.md`, "Fallback (b) handover"; not built):
+  natives, `parse_types` and `temporal` move to `strata._dumps_hook`, `_strata` keeping the V4
+  tail — the added text goes, the tail stays; (a) drops both and gives up default-on.
+
+- **Recorded, not resolved.**
+
+  - *The static checks do not see PGO:* checks 1–3 held at `5b876d1` while its PGO image lost
+    six series; no check covers the shipped PGO+LTO images, Win64 or Linux arm64.
+  - *The attribution clause:* a held build of this branch discards `write()`'s counts
+    (inferred from `armBheld2`: the flag test changes its control flow), so a held arm cannot
+    attribute a five-leg row to the code as the record assumes.
+
+## M15b — native types behind a flag: `_strata` identical to main; identity sample taken, clause 4 met by ruling, not merged
+
+- 2026-09-29 · `exp/native-types` over main `38eaa9f`, thirteen commits `84800ba` to `6aed644`
+  (`git log --oneline 643a089..HEAD`). Record: [`native_types.md`](../architecture/native_types.md),
+  "Flag shape (M15b)" (`84800ba`); docs/decisions.md, 2026-09-29, "User-directed flag shape" to the
+  end. Evidence: `docs/benchmarks/evidence/M15b/`. **Status: acceptance criteria met
+  (`native_types.md`, "Flag shape (M15b)" → Acceptance), clause 4 on linux-arm64 by the lead's
+  ruling; identity sample 36585989834 taken; not merged; no further dispatch.**
+
+- **Shape (user-directed; supersedes default-on and fallback (b), never built).** `_strata` is
+  main's; `dumps`/`dump` gain `native=False`, `parse_types` stays opt-in, both routed by the facade
+  to `strata._dumps_hook`. M15's V4 tail and ~20 KB of added `_strata` text are gone by
+  construction, so the default path's acceptance is the M12b identity proof, not an A/B campaign.
+
+- **Identity on the M1: clauses 1–4 hold** (`identity-m1/`; macOS 26.6.2, Apple clang 21.0.0,
+  CPython 3.14.7, HEAD `8db1539`). `bash scripts/token_identity.sh`: 18/18 `_strata` TUs
+  token-identical to `38eaa9f` on arm64 and on x86_64. `scripts/identity_ab.py --base 38eaa9f`:
+  plain and held-profile PGO+LTO builds each CODE IDENTICAL, 13/13 sections (`__TEXT,__text` among
+  them); the image files differ outside them (hashes in `PROVENANCE.txt`); the hook carries no
+  profile. Clause 2 (build spec): `identity-m1/build_spec.txt` reads `_strata`'s `Extension` and
+  inputs, and `core_sources.txt`, equal to `38eaa9f`'s at `9a17e02`; neither file changes to
+  `565fab2`.
+
+- **Reviews and gates.** Two independent reviews; fixed: P0, `STRATA_DUMPS_HOOK` never reached
+  `python_files.cpp`/`python_folder.cpp`, whose reader halves compiled into the hook as unresolved
+  externals (`cf0341c`); identity/native-v1 P1–P2s (`ef98cf4`); `parse_types` re-entrancy and
+  prepare-failure P2s (`f2bdc41`). At `f2bdc41`: `make gate` exit 0 (C++ 16/16, Python 3672
+  passed / 2 skipped, Python coverage 100%), `make test-integrations` 60 passed, `make lint` clean.
+
+- **Facade per-call cost** (`facade/facade_ab.txt`): one process, one `_strata`; main's facade
+  (exec'd from `38eaa9f`) vs this branch's at default keywords; ABBA, 61 repeats, paired B − A
+  median, bootstrap 95% CI; 1-min load 3.15. Tiny inputs: `dumps` +14.4 ns \[+14.3, +14.7\] on
+  126.4 ns, `loads` +14.0 \[+13.6, +14.5\] on 203.8, `query` +17.2 \[+16.1, +18.4\] on 310.5.
+  Small `mixed`: `dumps` +36.4 \[−106.8, +110.7\], `loads` +250.0 \[−136.9, +571.4\], both span 0.
+  File rows, read as noise (inferred): `load`, `search` span 0; `dump` −5 854 ns \[−8 374.5,
+  −2 437.0\] of 72.6 µs, B faster. Inferred, not measured: the new keyword-only default is filled
+  from `__kwdefaults__` per call, plus one `is` test. The image is main's; canonical rows pay this.
+
+- **native-v1, local: strata second of four** (`native-v1-m1/native_v1.md`; plain build, small
+  tier, 10 repeats). `native.small` medians, strata `native=True` / msgspec / orjson / json:
+  `dumps` 0.391 / 0.269 / 0.495 / 3.121 ms, `dump` 0.610 / 0.489 / 0.717 / 3.414 ms; ujson
+  excluded. Flag rows (`mixed.small`, no native object): `native=False` 0.043, `native=True` 0.042
+  ms, single run, no CI. Both images are unprofiled here; in CI `_strata` is PGO'd, the hook never.
+
+- **Training scope and next.** Native suites stay outside `--training`; the trained-scope
+  deviation is decisions.md's last line. Next, approved and dispatched below: the prepared five-leg
+  run, clause 4 on every CI leg (`1593526` gives identity legs 180 minutes). Clause 2 is met
+  (`identity-m1/build_spec.txt`).
+
+- **Five-leg run 36582916306: no leg produced an identity verdict** (`ci-36582916306/`; `82e3fa5`,
+  2026-09-29 14:28–14:44 UTC; one dispatch, as approved). All five legs concluded failure: the CI
+  half of clause 4 is unmet and the M1 proof stands alone. Both causes are tooling or test defects,
+  fixed in `b8436a1` (evidence `e9a37c1`). POSIX legs: canonical suite, tripwire and native-v1
+  passed, then `git worktree add` found no base: `${{ identity_base != '' && 0 || 1 }}` is 1 (0
+  is falsy in an Actions expression), so the checkout stayed shallow; fix: depths `'0'`/`'1'`.
+  Windows: both images built and linked, the instrumented phase passed; the optimized-phase gate
+  failed 10 tests in two `tests/unit/native_types/` files, a child interpreter unable to import
+  `strata` (POSIX-only path split; fix: `pathlib`), so clang-cl identity was still unverified.
+  The one re-dispatch, freshly approved, ran on `565fab2` (after `b8436a1`) as run 36585989834.
+
+- **native-v1 in CI: strata `native=True` second, behind msgspec, on every native row** (four
+  POSIX legs; small tier, 10 repeats, one run per leg, no interval). Median ratio to msgspec:
+  `dumps` 1.32–1.61×, `dump` 1.18–1.35×; ahead of orjson and stdlib `json` on each. Flag rows
+  (`mixed.small`, hook unprofiled): `native=True` costs 1.05–1.11× `native=False`; on linux-arm64
+  it trails orjson (0.058 vs 0.057 ms), on linux-x86_64 it ties it (0.059 ms).
+
+- **Identity sample 36585989834: four legs byte-identical, linux-arm64's held `.text` differs**
+  (`ci-36585989834/verdict.txt`; `565fab2`, `identity_base=38eaa9f`, 2026-09-29 14:53–15:31 UTC;
+  the second and last approved dispatch). Plain builds equal base on all five legs, held PGO+LTO
+  builds on four (windows-x86_64 clang-cl included); linux-arm64's held `.text`, `.rela.plt` and
+  `.note.gnu.build-id` differ, and that gate alone set the workflow's conclusion to failure.
+
+- **linux-arm64: layout, not code; clause 4 met there by the lead's ruling** (docs/decisions.md,
+  2026-09-29; `linux-arm64-replay/PROVENANCE.txt`). A native arm64 replay reproduces the three
+  sections. Base rebuilt by the held recipe equals its trained image, build-id included, so the
+  recipe is deterministic; base-held vs head-held (same path and profile bytes, only source
+  differs) differ in the same three, and `normalised_disassembly.py` reads 423/423 functions, 416
+  identical, 7 differing only in GOT-slot immediates, 0 beyond. Mechanism inferred, DILocation not
+  directly probed: `-g` (CPython's sysconfig CFLAGS) records the guards' line shifts in
+  `python_dumps.cpp`, `python_files.cpp` and `python_folder.cpp`, which carry no token change; that
+  moves the ThinLTO module hash and its `.llvm.<N>` suffixes, and link order follows. The ruling
+  applies M12b's standard (held rebuild plus normalised disassembly); section hashes are not it.
+
+- **Same run, every leg: gated PGO build (both phases), canonical suite, tripwire and native-v1
+  passed; canonical 134/135** (`ci_summary.md` regenerated; behind: windows-x86_64
+  `loads flat.json`, 1.01× msgspec). native-v1, five legs, protocol as above: `native=True` #2 of
+  4 on every native row; strata/msgspec `dumps` 1.27–1.60×, `dump` 1.12–1.34×; strata/orjson `dumps`
+  0.60–0.77×, `dump` 0.65–0.89× (computed from `verdict.txt` medians); ahead of `json`. Flag rows:
+  1.00–1.10× `native=False`. Follow-up target (the lead's direction, not pursued now): the msgspec
+  gap on native `dumps`/`dump`.
+
+- **Closing state.** Clauses 1, 3, 4 and 5 hold as above; clause 2's artifact is
+  `identity-m1/build_spec.txt` (`_strata`'s `Extension` and inputs, and `core_sources.txt`, equal
+  `38eaa9f`'s at `9a17e02`; neither file changes to `565fab2`). Not merged; no further dispatch.

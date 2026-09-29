@@ -1,0 +1,19 @@
+# __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+# raw instructions: main 281, candidate 293
+# masked (nop padding dropped): main 281, candidate 293
+# main instructions matched in order: 281/281 -> ALL
+# non-equal opcodes: 2 (insert)
+insert main[259:259] cand[259:264]  (main tail position 259/281, -0 +5)
+  + adrp x9, <ltmp0>  @__ZN6strata8bindings6native15g_runtime_readyE
+  + ldr x9, [x9]  @__ZN6strata8bindings6native15g_runtime_readyE
+  + ldrb w9, [x9]
+  + cmp w9, #0x1
+  + b.eq <SELF>
+insert main[281:281] cand[286:293]  (main tail position 281/281, -0 +7)
+  + mov x0, x19
+  + ldp x29, x30, [sp, #0x40]
+  + ldp x20, x19, [sp, #0x30]
+  + ldp x22, x21, [sp, #0x20]
+  + ldp d9, d8, [sp, #0x10]
+  + add sp, sp, #0x50
+  + b <SELF>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object

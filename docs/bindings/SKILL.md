@@ -102,18 +102,23 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
 
 ## File map
 
-| File                                      | Responsibility                                                                             |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `python_module.cpp`                       | Init, method table, `load`/`dump`, config store                                            |
-| `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition  |
-| `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                      |
-| `python_dumps.cpp`                        | `dumps` + all serialization fast paths                                                     |
-| `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                  |
-| `python_rawdict.h`                        | The runtime-proved raw dict-entry walk and the general-table compaction                    |
-| `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval |
-| `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                   |
-| `python_ndjson.cpp`                       | `NdjsonStream` type                                                                        |
-| `python_iterator.cpp`                     | `DictIterator`/`ListIterator`/`NdjsonFileIterator` (instance-only types)                   |
+| File                                      | Responsibility                                                                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `python_module.cpp`                       | Init, method table, `load`/`dump`, config store                                                                                                                                            |
+| `python_builder.h`                        | `PythonObjectBuilder` + `KeyCache` + key predictions — the one events→PyObject definition                                                                                                  |
+| `python_loads.cpp`                        | `loads` entry points and the per-thread builder lease                                                                                                                                      |
+| `python_dumps.cpp`                        | `dumps` + all serialization fast paths, byte-identical to main; `write_native`, the native tail and its writers compile in only under `STRATA_DUMPS_HOOK`                                  |
+| `python_dumps_hook.cpp`                   | `strata._dumps_hook`'s serializer: `python_dumps.cpp` compiled with `STRATA_DUMPS_HOOK`, serving `dumps_native`/`dump_native` (no `default`) and `dumps_with_default` (`default` supplied) |
+| `python_native_types.h/.cpp`              | Native type table (from `sys.modules`), pure leaves, conversions; the serializer's `datetime.h` TU — hook image only                                                                       |
+| `python_numpy_twins.h/.cpp`               | The runtime proof of the numpy type numbers the `item()` twins admit — hook image only                                                                                                     |
+| `python_parse_types.h/.cpp`               | `parse_types` (hook image only): option and registry, the reviving iterator, the four typed entry points, parsing through `_strata`'s public `loads`/`load`/`search`/`compile`             |
+| `python_parse_types_walk.h/.cpp`          | `parse_types`'s revival walk (explicit stack), recognition and its lazily imported runtime — hook image only                                                                               |
+| `python_dumps_output.h`                   | Output staging and the per-thread schema/staged-row lease                                                                                                                                  |
+| `python_rawdict.h`                        | The runtime-proved raw dict-entry walk and the general-table compaction                                                                                                                    |
+| `python_jsonpath.cpp`                     | JSONPath `compile` (previously `compile_path`)/`search`/`query`, SAX search, PyObject eval                                                                                                 |
+| `python_document.cpp` / `python_mmap.cpp` | `JsonDocument`/`JsonCursor` types, cursor-mode file load                                                                                                                                   |
+| `python_ndjson.cpp`                       | `NdjsonStream` type                                                                                                                                                                        |
+| `python_iterator.cpp`                     | `DictIterator`/`ListIterator`/`NdjsonFileIterator` (instance-only types)                                                                                                                   |
 
 ## loads-side techniques (the parsing win)
 
@@ -136,6 +141,64 @@ redeclarations; wrap every exported function in `STRATA_CPP_TRY/CATCH`.
   arrays build into one flat vector then a single `PyList_New(n)` with
   ref-stealing `PyList_SET_ITEM`.
 
+### `parse_types`: served entirely by the hook image
+
+Design record: `docs/architecture/native_types.md` ("Parse contract",
+"Flag shape (M15b)"); contract: `docs/context/api.md` (`parse_types`). M15b
+moved this off `_strata` — it was M15's `_strata`-only cold dispatch (a third
+FASTCALL keyword, tested by interned identity); `docs/decisions.md`,
+2026-09-29 ("parse") records the move. `_strata`'s `loads`/`load`/`search`/
+`query`/`compile` are main's, unmodified: no third keyword, no cold function,
+no macro. `python_parse_types.{h,cpp}` and `python_parse_types_walk.{h,cpp}`
+build only into `strata._dumps_hook`.
+
+- **Facade dispatch.** The Python facade tests `parse_types is False` by
+  identity; on `False` it calls `_strata`'s entry with the caller's other
+  arguments unchanged — one pointer compare, the whole per-call cost of the
+  default path. Otherwise it imports `strata._dumps_hook` (first use only, not
+  by `import strata`) and calls that image's `loads_typed`/`load_typed`/
+  `search_typed`/`query_typed`, passing `parse_types` and the caller's other
+  arguments.
+- **The hook parses through `_strata`.** Each typed entry point calls
+  `_strata`'s own public `loads`/`load`/`search`/`compile` to get the tree (or
+  the match list), then runs the revival walk over that result — one parser,
+  one `duplicate_key_policy` thread-local, because `_strata` is what parses.
+  Linking a second parser into the hook was refused (native_types.md, option
+  PB): `config.set` would never reach a parser the hook owned, since
+  `duplicate_key_policy` is `_strata`'s thread-local. Each entry point's
+  argument- and `parse_types`-validation error order matches what `_strata`'s
+  own keyword parsing produced under M15, and stays test-pinned.
+- **Option.** Unchanged from M15: `True`, or a dict copied with `PyDict_Copy`
+  and validated into a private registry `name -> (type, init_names, required)`
+  (`None, None` for an `Enum`; frozensets from `dataclasses.fields()` for a
+  dataclass), so no user code can reach it. `Enum` membership is
+  `PyType_IsSubtype` against `sys.modules["enum"].Enum` (no
+  `__subclasscheck__`); a dataclass type is a type with `__dataclass_fields__`.
+  The first valid call imports the `datetime_CAPI` capsule and `uuid.UUID`,
+  held for the hook image's process lifetime (reset at its module init).
+- **Recognition.** Only an exact `str` value of length 8–36 that is ASCII is
+  handed to `strata::util::scan_temporal` (its bytes read in place, no UTF-8
+  conversion); dates, times and date-times are built through the C API,
+  `timezone.utc` for offset 0 and one cached fixed-offset `timezone` per
+  minute otherwise; a UUID is `UUID(int=...)` by vectorcall. A constructor's
+  `ValueError` leaves the `str`.
+- **Walk.** Post-order and in place, over the tree `_strata` already built:
+  list slots and existing keys' values. Registered types run user code, so
+  every entry converted is held by a strong reference, a list's size is
+  re-read at every step, and a result is written back only where the slot or
+  key still holds the object read (`tests/py/native_types/test_parse_types.py`
+  clears the containers mid-walk). Depth is bounded by `_strata`'s parser's
+  1024-container cap, since the hook never builds a container of its own.
+- **Iterators and search.** Lazy NDJSON and folder loads are wrapped by one
+  `RevivingIterator` type in the hook (readied on first use, not at module
+  init), which also walks a folder's files for a lazy `search`. A `.json`
+  document read with `iterator=True` is revived whole, by `_strata`'s builder,
+  and then given to `make_root_iterator`. `search_typed` always loads, revives
+  and evaluates with `_strata`'s `query_object`; a scalar root, which
+  `query_object` refuses, matches `$` alone (read off an empty-dict probe), as
+  the default path answers. Folder discovery repeats `python_folder.cpp`'s
+  error mapping rather than touching that file.
+
 ## dumps-side techniques
 
 Thread-local `OutputBuffer g_serialize_buffer` (zero steady-state allocation);
@@ -146,6 +209,63 @@ gracefully mid-list); `try_batch_list_of_dicts` (≤ `kMaxBatchKeys`=24) replays
 pre-serialized key byte strings per same-schema element; NEON masked-load escape
 check for ≤16-byte strings (pad-reads past the string — relies on CPython
 allocation slack, ASan-hostile); `PyUnstable_Long_IsCompact` int extraction.
+
+**Native types (M15b, docs/architecture/native_types.md, "Flag shape").**
+`_strata`'s `python_dumps.cpp` is main's token stream, unchanged: `write_native`,
+the per-kind writers, `NativeFrame`, `write_key_cold`, `push_open_cold` and the
+numpy twins' call sites all live under `#ifdef STRATA_DUMPS_HOOK`, so a build of
+`_strata` (without the macro) never compiles them and `write()`'s last branch is
+exactly main's — no load, test or `Serializer` member was added to `_strata`.
+`python_dumps_hook.cpp` compiles `python_dumps.cpp` a second time with
+`STRATA_DUMPS_HOOK` defined, producing `dumps_native`/`dump_native` (no
+`default`, so the unsupported-type arm falls through to the same
+`TypeError("Object of type %s is not JSON serializable")` `_strata` raises) and
+`dumps_with_default` (`default` supplied). Facade dispatch: `dumps`/`dump` test
+`native is False`/`native is True` by identity
+(`TypeError("native must be a bool, not %s")` otherwise) and, on `True`, import
+`strata._dumps_hook` (first use only) and call its `dumps_native`/`dump_native`;
+`dumps_with_default` has no `_strata` counterpart, so it always imports and
+calls the hook.
+
+Inside the hook image, `write_native` (`STRATA_COLD_FN`) tries a **pure leaf**
+first — an exact `datetime`/`date`/`time` whose tzinfo is `None`
+or exactly `datetime.timezone`, or an exact `UUID` read from its `int` slot —
+formatted by `strata/util/temporal.hpp` with no latch, because it runs nothing
+the user wrote and allocates nothing the collector tracks. Anything else is the
+header's step 5: `latch()`, a strong reference on the object, then
+`native::classify`, which resolves the type table from `sys.modules` (never
+importing; a module imported later is found at the next lookup) and checks the
+record's precedence: datetime, date, time (the exact types only — a subclass is
+unsupported), UUID, Decimal, Enum, dataclass, set/frozenset, numpy. Per kind:
+temporal and UUID text through the same formatters; `Decimal` as the raw text
+of `str()` (`util::is_json_number`), non-finite as `null`; an Enum member under
+a `Frame` on the member, its `value` followed in a loop bounded by
+`depth_limit_`; a dataclass (field names cached per type, at most 1024 types, an
+entry used only while the type's `__dataclass_fields__` is the same object at
+the same length) and a set are written directly under a `Frame` on the object
+itself, so cycles and depth behave as for a dict, latching before every field
+read or iterator step; numpy through `item()`/`tolist()` and back into
+`write()` (a result that is numpy again — a `longdouble`, on every platform —
+goes to the old sink rather than looping). The last arm is the old sink: the
+unsupported-type `TypeError` in `dumps_native`/`dump_native`, `default` in
+`dumps_with_default`.
+
+`python_files.cpp`/`python_folder.cpp` compile into the hook too, with
+`STRATA_DUMPS_HOOK` set: their writer halves (`dump_to_file`, `dump_to_folder`
+and the grouping they use, `file_is_ndjson`) link against the hook's
+`dumps_to_python`, giving `dump_native` file and folder mode without a second
+file writer; their reader halves sit under `#if !defined(STRATA_DUMPS_HOOK)`,
+so `_strata`'s token stream of those files is unchanged. `dump_native` repeats
+`strata_dump`'s dispatch (`split_by` → folder, a directory target without
+`split_by` → `ValueError`) because `python_module.cpp` — and its dispatch —
+stay `_strata`'s only; the dump contract tests run on both arms to pin that the
+two dispatches agree.
+
+Every `datetime` C-API use is in `python_native_types.cpp` (hook image only),
+which takes the types from the `datetime_CAPI` capsule so the field macros only
+ever read the C layout; `prepare_native_runtime()` interns the names at the
+hook's module init. The tests live under `tests/unit/native_types/` and
+`tests/py/native_types/`, outside the PGO training run for `_strata`.
 
 ## config → policy mapping
 

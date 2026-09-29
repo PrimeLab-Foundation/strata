@@ -1,0 +1,527 @@
+# main/arm64/obj/python_dumps.o -> b/arm64/obj/python_dumps.o
+# functions: before 70, after 77, common 70, identical 65, differ 5
+# outlined bodies: before 13, after 30; bodies only before 2, only after 19
+only-after     73  __ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object
+only-after    109  __ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+only-after     40  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_decimalEP7_object
+only-after    107  __ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object
+only-after     46  __ZN6strata8bindings12_GLOBAL__N_110Serializer17write_native_textEPKcl
+only-after     89  __ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object
+only-after     23  __ZN6strata8bindings5PyRefaSEOS1_
+DIFFERS  insns 93 -> 89  (-5 +1)  __ZN6strata8bindings12_GLOBAL__N_110Serializer12build_schemaERNS0_16SchemaCacheLease12DepthSchemasEm
+DIFFERS  insns 40 -> 39  (-7 +6)  __ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv
+DIFFERS  insns 84 -> 81  (-29 +26)  __ZN6strata8bindings12_GLOBAL__N_110Serializer22write_mapping_uncachedEP7_object
+DIFFERS  insns 281 -> 259  (-106 +84)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+DIFFERS  insns 41 -> 33  (-20 +12)  __ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer12build_schemaERNS0_16SchemaCacheLease12DepthSchemasEm
+--- 
++++ 
+@@ -87,7 +87,3 @@
+ strb w0, [x22, #0x2a0]
+ ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp x24, x23, [sp, #0x10]
+-add sp, sp, #0x50
+-ret
++b <SELF+0x160>  @OUTLINED[b6f40ecdec]
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv
+--- 
++++ 
+@@ -5,6 +5,7 @@
+ ldr w8, [x20]  @__ZN6strata8bindings12_GLOBAL__N_114g_cycle_policyE
+ cmp w8, #0x1
+-b.ne <SELF+0x28>
+-bl <SELF+0x1c>  @OUTLINED[205cfa234a]
++b.ne <SELF+0x2c>
++bl <SELF+0x1c>  @OUTLINED[f3ca753cdc]
++bl <SELF+0x20>  @OUTLINED[e2d9efb3c3]
+ mov w0, #0x0
+ b <SELF+0x7c>
+@@ -16,6 +17,5 @@
+ cmp x10, x11
+ b.ls <SELF+0x58>
+-mov w1, #0x4
+-bl <SELF+0x48>  @__ZN6strata8bindings12StagedOutput8overflowEm
++bl <SELF+0x48>  @OUTLINED[941879aa6e]
+ ldr x0, [x19]
+ ldr x9, [x0, #0x38]
+@@ -33,7 +33,6 @@
+ ldp x20, x19, [sp], #0x20
+ ret
+-mov x0, x19
+-bl <SELF+0x8c>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv
+-bl <SELF+0x90>  @OUTLINED[fe32daea24]
++bl <SELF+0x88>  @OUTLINED[4b42285779]
++bl <SELF+0x8c>  @OUTLINED[fe32daea24]
+ cmp w0, #0x0
+ cset w0, eq
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer22write_mapping_uncachedEP7_object
+--- 
++++ 
+@@ -10,9 +10,10 @@
+ ldr x8, [x0, #0x38]
+ add x9, x8, #0x1
+-bl <SELF+0x2c>  @OUTLINED[ad953bafb3]
+-b.ls <SELF+0x3c>
+-bl <SELF+0x34>  @OUTLINED[6b6edf7416]
+-bl <SELF+0x38>  @OUTLINED[7a94d513bf]
+-bl <SELF+0x3c>  @OUTLINED[45dfaf8a43]
++ldr x10, [x0, #0x18]
++cmp x9, x10
++b.ls <SELF+0x40>
++bl <SELF+0x38>  @OUTLINED[6b6edf7416]
++bl <SELF+0x3c>  @OUTLINED[7a94d513bf]
++bl <SELF+0x40>  @OUTLINED[45dfaf8a43]
+ mov w9, #0x7b
+ strb w9, [x10, x8]
+@@ -26,14 +27,13 @@
+ add x3, sp, #0x8
+ mov x0, x20
+-bl <SELF+0x6c>  @_PyDict_Next
++bl <SELF+0x70>  @_PyDict_Next
+ mov x21, x0
+-cbz w0, <SELF+0xec>
++cbz w0, <SELF+0xe4>
+ ldr x1, [sp, #0x10]
+ ldr x8, [x1, #0x8]
+ ldrb w9, [x8, #0xab]
+-tbz w9, #0x4, <SELF+0x110>
++tbz w9, #0x4, <SELF+0x104>
+ tbnz w24, #0x0, <SELF+0xac>
+-bl <SELF+0x8c>  @OUTLINED[7a94d513bf]
+-bl <SELF+0x90>  @OUTLINED[ad953bafb3]
++bl <SELF+0x90>  @OUTLINED[8eaadb2acd]
+ b.ls <SELF+0xa0>
+ bl <SELF+0x98>  @OUTLINED[6b6edf7416]
+@@ -44,27 +44,24 @@
+ mov x0, x19
+ bl <SELF+0xb0>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_stringEP7_object
+-cbz w0, <SELF+0x130>
+-bl <SELF+0xb8>  @OUTLINED[7a94d513bf]
+-bl <SELF+0xbc>  @OUTLINED[ad953bafb3]
+-b.ls <SELF+0xcc>
+-bl <SELF+0xc4>  @OUTLINED[6b6edf7416]
+-bl <SELF+0xc8>  @OUTLINED[7a94d513bf]
+-bl <SELF+0xcc>  @OUTLINED[45dfaf8a43]
++cbz w0, <SELF+0x124>
++bl <SELF+0xb8>  @OUTLINED[8eaadb2acd]
++b.ls <SELF+0xc8>
++bl <SELF+0xc0>  @OUTLINED[6b6edf7416]
++bl <SELF+0xc4>  @OUTLINED[7a94d513bf]
++bl <SELF+0xc8>  @OUTLINED[45dfaf8a43]
+ strb w22, [x10, x8]
+ ldr x1, [sp, #0x8]
+-mov x0, x19
+-bl <SELF+0xdc>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
++bl <SELF+0xd4>  @OUTLINED[76e22ebd73]
+ mov w24, #0x0
+-tbnz w0, #0x0, <SELF+0x5c>
+-b <SELF+0x130>
+-bl <SELF+0xec>  @OUTLINED[7a94d513bf]
+-bl <SELF+0xf0>  @OUTLINED[ad953bafb3]
+-b.ls <SELF+0x100>
+-bl <SELF+0xf8>  @OUTLINED[6b6edf7416]
+-bl <SELF+0xfc>  @OUTLINED[7a94d513bf]
+-bl <SELF+0x100>  @OUTLINED[45dfaf8a43]
++tbnz w0, #0x0, <SELF+0x60>
++b <SELF+0x124>
++bl <SELF+0xe4>  @OUTLINED[8eaadb2acd]
++b.ls <SELF+0xf4>
++bl <SELF+0xec>  @OUTLINED[6b6edf7416]
++bl <SELF+0xf0>  @OUTLINED[7a94d513bf]
++bl <SELF+0xf4>  @OUTLINED[45dfaf8a43]
+ mov w9, #0x7d
+ strb w9, [x10, x8]
+-b <SELF+0x130>
++b <SELF+0x124>
+ adrp x9, <page>  @_PyExc_TypeError
+ ldr x9, [x9]  @_PyExc_TypeError
+@@ -74,5 +71,5 @@
+ adrp x1, <page>  @<__cstring:"keys must be str, not %s">
+ add x1, x1, #0x0  @<__cstring:"keys must be str, not %s">
+-bl <SELF+0x12c>  @_PyErr_Format
++bl <SELF+0x120>  @_PyErr_Format
+ cmp w21, #0x0
+ cset w0, eq
+
+## __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+--- 
++++ 
+@@ -13,29 +13,29 @@
+ ldr x9, [x9]  @_PyFloat_Type
+ cmp x8, x9
+-b.eq <SELF+0xf4>
++b.eq <SELF+0xf0>
+ adrp x9, <page>  @_PyLong_Type
+ ldr x9, [x9]  @_PyLong_Type
+ cmp x8, x9
+-b.eq <SELF+0x3f0>
++b.eq <SELF+0x3d8>
+ adrp x9, <page>  @_PyDict_Type
+ ldr x9, [x9]  @_PyDict_Type
+ cmp x8, x9
+-b.eq <SELF+0x1dc>
++b.eq <SELF+0x1d8>
+ adrp x9, <page>  @_PyList_Type
+ ldr x9, [x9]  @_PyList_Type
+ cmp x8, x9
+-b.eq <SELF+0x388>
++b.eq <SELF+0x370>
+ adrp x9, <page>  @__Py_NoneStruct
+ ldr x9, [x9]  @__Py_NoneStruct
+ cmp x1, x9
+-b.eq <SELF+0x270>
++b.eq <SELF+0x26c>
+ adrp x19, <page>  @__Py_TrueStruct
+ ldr x19, [x19]  @__Py_TrueStruct
+ cmp x1, x19
+-b.eq <SELF+0x2b4>
++b.eq <SELF+0x2b0>
+ adrp x9, <page>  @__Py_FalseStruct
+ ldr x9, [x9]  @__Py_FalseStruct
+ cmp x1, x9
+-b.eq <SELF+0x2b4>
++b.eq <SELF+0x2b0>
+ ldrb w9, [x8, #0xab]
+ tbnz w9, #0x4, <SELF+0x320>
+@@ -46,18 +46,17 @@
+ mov x0, x8
+ bl <SELF+0xb8>  @_PyType_IsSubtype
+-cbz w0, <SELF+0x36c>
++cbz w0, <SELF+0x354>
+ ldr d0, [x20, #0x10]
+ mov x0, x19
+ bl <SELF+0xc8>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_doubleEd
+-b <SELF+0x350>
++b <SELF+0x1bc>
+ ldr w8, [x1, #0x20]
+ mov w9, #0x60
+ bics wzr, w9, w8
+-b.ne <SELF+0x154>
++b.ne <SELF+0x150>
+ ldr x2, [x1, #0x10]
+ add x1, x1, #0x28
+ bl <SELF+0xe8>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+-mov w0, #0x1
+-b <SELF+0x1a4>
++b <SELF+0x1bc>
+ ldr d8, [x1, #0x10]
+ ldr x19, [x0]
+@@ -66,9 +65,9 @@
+ ldr x10, [x19, #0x18]
+ cmp x9, x10
+-b.ls <SELF+0x128>
++b.ls <SELF+0x124>
+ mov x20, x0
+ mov x0, x19
+ mov w1, #0x28
+-bl <SELF+0x11c>  @__ZN6strata8bindings12StagedOutput8overflowEm
++bl <SELF+0x118>  @__ZN6strata8bindings12StagedOutput8overflowEm
+ ldr x19, [x20]
+ ldr x8, [x19, #0x38]
+@@ -78,30 +77,24 @@
+ mov x11, #0x7ff0000000000000
+ cmp x10, x11
+-b.lt <SELF+0x1bc>
++b.lt <SELF+0x1a0>
+ mov w10, #0x756e
+ movk w10, #0x6c6c, lsl #16
+ str w10, [x9, x8]
+ mov w0, #0x4
+-b <SELF+0x1cc>
++b <SELF+0x1b0>
+ mov x19, x0
+ str xzr, [sp, #0x8]
+ mov x0, x1
+ add x1, sp, #0x8
+-bl <SELF+0x164>  @_PyUnicode_AsUTF8AndSize
++bl <SELF+0x160>  @_PyUnicode_AsUTF8AndSize
+ mov x1, x0
+ cmp x0, #0x0
+ cset w0, ne
+-cbz x1, <SELF+0x1a4>
++cbz x1, <SELF+0x188>
+ ldr x2, [sp, #0x8]
+ mov x20, x0
+ mov x0, x19
+-bl <SELF+0x184>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
++bl <SELF+0x180>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_string_bytesEPKcm
+ mov x0, x20
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-ret
+ ldp x29, x30, [sp, #0x40]
+ ldp x20, x19, [sp, #0x30]
+@@ -113,17 +106,23 @@
+ mov.16b v0, v8
+ mov w1, #0x28
+-bl <SELF+0x1c8>  @__ZN6strata4util13format_doubleEdPcm
++bl <SELF+0x1ac>  @__ZN6strata4util13format_doubleEdPcm
+ ldr x8, [x19, #0x38]
+ add x8, x8, x0
+ str x8, [x19, #0x38]
+-b <SELF+0x350>
++mov w0, #0x1
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++ret
+ ldp x9, x8, [x0, #0x8]
+ cmp x9, x8
+-b.eq <SELF+0x3d4>
++b.eq <SELF+0x3bc>
+ sub x10, x8, x9
+ sub x10, x10, #0x8
+ mvn w11, w10
+ tst x11, #0x18
+-b.eq <SELF+0x220>
++b.eq <SELF+0x21c>
+ lsr w11, w10, #3
+ add w11, w11, #0x1
+@@ -131,28 +130,28 @@
+ ldr x12, [x9]
+ cmp x12, x1
+-b.eq <SELF+0x3b4>
++b.eq <SELF+0x39c>
+ add x9, x9, #0x8
+ subs x11, x11, #0x1
+-b.ne <SELF+0x208>
++b.ne <SELF+0x204>
+ cmp x10, #0x18
+-b.lo <SELF+0x3d4>
++b.lo <SELF+0x3bc>
+ add x9, x9, #0x10
+ ldur x10, [x9, #-0x10]
+ cmp x10, x1
+-b.eq <SELF+0x3a0>
++b.eq <SELF+0x388>
+ ldur x10, [x9, #-0x8]
+ cmp x10, x1
+-b.eq <SELF+0x3a8>
++b.eq <SELF+0x390>
+ ldr x10, [x9]
+ cmp x10, x1
+-b.eq <SELF+0x3b4>
++b.eq <SELF+0x39c>
+ ldr x10, [x9, #0x8]
+ cmp x10, x1
+-b.eq <SELF+0x3b0>
++b.eq <SELF+0x398>
+ add x10, x9, #0x10
+ add x9, x9, #0x20
+ cmp x10, x8
+-b.ne <SELF+0x22c>
+-b <SELF+0x3d4>
++b.ne <SELF+0x228>
++b <SELF+0x3bc>
+ ldr x8, [x0]
+ ldr x9, [x8, #0x38]
+@@ -160,9 +159,9 @@
+ ldr x11, [x8, #0x18]
+ cmp x10, x11
+-b.ls <SELF+0x2a0>
++b.ls <SELF+0x29c>
+ mov x19, x0
+ mov x0, x8
+ mov w1, #0x4
+-bl <SELF+0x294>  @__ZN6strata8bindings12StagedOutput8overflowEm
++bl <SELF+0x290>  @__ZN6strata8bindings12StagedOutput8overflowEm
+ ldr x8, [x19]
+ ldr x9, [x8, #0x38]
+@@ -177,10 +176,10 @@
+ ldr x10, [x8, #0x18]
+ cmp x9, x10
+-b.ls <SELF+0x2e8>
++b.ls <SELF+0x2e4>
+ mov x20, x0
+ mov x0, x8
+ mov x21, x1
+ mov w1, #0x5
+-bl <SELF+0x2dc>  @__ZN6strata8bindings12StagedOutput8overflowEm
++bl <SELF+0x2d8>  @__ZN6strata8bindings12StagedOutput8overflowEm
+ mov x1, x21
+ mov x0, x20
+@@ -198,5 +197,6 @@
+ ldr x9, [x8, #0x38]
+ add x9, x9, #0x5
+-b <SELF+0x34c>
++str x9, [x8, #0x38]
++b <SELF+0x1bc>
+ ldp x29, x30, [sp, #0x40]
+ ldp x20, x19, [sp, #0x30]
+@@ -211,71 +211,49 @@
+ add x9, x9, #0x4
+ str x9, [x8, #0x38]
+-mov w0, #0x1
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-ret
++b <SELF+0x1bc>
+ mov x1, x20
+ ldr x8, [x20, #0x8]
+-ldr x9, [x8, #0xa8]
+-tbnz w9, #0x18, <SELF+0x3ec>
+-tst x9, #0x6000000
+-b.eq <SELF+0x408>
+-mov x0, x19
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <SELF+0x39c>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
++ldr x8, [x8, #0xa8]
++tbnz w8, #0x18, <SELF+0x3d4>
++mov x0, x19
++tst x8, #0x6000000
++b.eq <SELF+0x3f0>
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <SELF+0x384>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer14write_sequenceEP7_object
+ sub x9, x9, #0x10
+-b <SELF+0x3b4>
++b <SELF+0x39c>
+ sub x9, x9, #0x8
+-b <SELF+0x3b4>
++b <SELF+0x39c>
+ add x9, x9, #0x8
+ cmp x9, x8
+-b.eq <SELF+0x3d4>
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <SELF+0x3d0>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <SELF+0x3e8>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
+-mov x0, x19
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <SELF+0x404>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
+-tbnz w9, #0x1d, <SELF+0x448>
+-adrp x9, <page>  @_PyExc_TypeError
+-ldr x9, [x9]  @_PyExc_TypeError
+-ldr x0, [x9]
+-ldr x8, [x8, #0x18]
+-str x8, [sp]
+-adrp x1, <page>  @<__cstring:"Object of type %s is not JSON serializable">
+-add x1, x1, #0x0  @<__cstring:"Object of type %s is not JSON serializable">
+-bl <SELF+0x428>  @_PyErr_Format
+-mov w0, #0x0
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-ret
+-mov x0, x19
+-ldp x29, x30, [sp, #0x40]
+-ldp x20, x19, [sp, #0x30]
+-ldp x22, x21, [sp, #0x20]
+-ldp d9, d8, [sp, #0x10]
+-add sp, sp, #0x50
+-b <SELF+0x460>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++b.eq <SELF+0x3bc>
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <SELF+0x3b8>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer13write_mappingEP7_object
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <SELF+0x3d0>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer18write_record_fusedEP7_object
++mov x0, x19
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <SELF+0x3ec>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer9write_intEP7_object
++tbnz w8, #0x1d, <SELF+0x3a4>
++ldp x29, x30, [sp, #0x40]
++ldp x20, x19, [sp, #0x30]
++ldp x22, x21, [sp, #0x20]
++ldp d9, d8, [sp, #0x10]
++add sp, sp, #0x50
++b <SELF+0x408>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+
+## __ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv
+--- 
++++ 
+@@ -5,29 +5,21 @@
+ ldr w8, [x20]  @__ZN6strata8bindings12_GLOBAL__N_114g_cycle_policyE
+ cmp w8, #0x1
+-b.ne <SELF+0x28>
+-bl <SELF+0x1c>  @OUTLINED[205cfa234a]
++b.ne <SELF+0x2c>
++bl <SELF+0x1c>  @OUTLINED[f3ca753cdc]
++bl <SELF+0x20>  @OUTLINED[e2d9efb3c3]
+ mov w0, #0x0
+-b <SELF+0x80>
++b <SELF+0x60>
+ mov x19, x0
+ ldr x8, [x0]
+ ldr x0, [x8]
+-ldr x8, [x0, #0x38]
+-add x9, x8, #0x4
+-bl <SELF+0x3c>  @OUTLINED[ad953bafb3]
+-b.ls <SELF+0x58>
+-mov w1, #0x4
+-bl <SELF+0x48>  @__ZN6strata8bindings12StagedOutput8overflowEm
++bl <SELF+0x38>  @OUTLINED[d27f3fba10]
++b.ls <SELF+0x50>
++bl <SELF+0x40>  @OUTLINED[941879aa6e]
+ ldr x8, [x19]
+ ldr x0, [x8]
+ ldr x8, [x0, #0x38]
+-ldr x9, [x0, #0x10]
+-mov w10, #0x756e
+-movk w10, #0x6c6c, lsl #16
+-str w10, [x9, x8]
+-ldr x8, [x0, #0x38]
+-add x8, x8, #0x4
+-str x8, [x0, #0x38]
++bl <SELF+0x50>  @OUTLINED[4992f42da0]
+ ldr w8, [x20]  @__ZN6strata8bindings12_GLOBAL__N_114g_cycle_policyE
+-cbz w8, <SELF+0x8c>
++cbz w8, <SELF+0x6c>
+ mov w0, #0x1
+ ldp x29, x30, [sp, #0x10]
+@@ -35,7 +27,7 @@
+ ret
+ ldr x0, [x19]
+-bl <SELF+0x90>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv
+-bl <SELF+0x94>  @OUTLINED[fe32daea24]
++bl <SELF+0x70>  @__ZN6strata8bindings12_GLOBAL__N_110Serializer5latchEv
++bl <SELF+0x74>  @OUTLINED[fe32daea24]
+ cmp w0, #0x0
+ cset w0, eq
+-b <SELF+0x80>
++b <SELF+0x60>

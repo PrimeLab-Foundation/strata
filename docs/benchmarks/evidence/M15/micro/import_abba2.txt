@@ -1,0 +1,2 @@
+import: A median 1188.6 us (IQR 1133.3-1240.5), B median 1218.7 us (IQR 1167.2-1279.7); effect +2.95% [-0.46, +6.84] rounds=60 B>A in 35
+wall: A median 26605.4 us (IQR 25510.0-27383.8), B median 26607.6 us (IQR 25598.6-27641.3); effect +1.06% [-0.94, +2.52] rounds=60 B>A in 34

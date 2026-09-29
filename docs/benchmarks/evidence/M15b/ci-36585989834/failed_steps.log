@@ -1,0 +1,946 @@
+supportability (linux-arm64)	Same-path identity check against identity_base	﻿2026-09-29T15:00:39.1819684Z ##[group]Run PYTHONPATH=. .venv/bin/python scripts/identity_ab.py \
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1820195Z ^[[36;1mPYTHONPATH=. .venv/bin/python scripts/identity_ab.py \^[[0m
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1820597Z ^[[36;1m  --base "38eaa9f248f509d9a4beb75b267189d011c1109e" \^[[0m
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1820964Z ^[[36;1m  --arm-dir "/home/runner/work/_temp/identity-arm" \^[[0m
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1821282Z ^[[36;1m  --out "identity-linux-arm64"^[[0m
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1821645Z ^[[36;1mcp "identity-linux-arm64/identity.txt" "identity-linux-arm64.txt"^[[0m
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1859193Z shell: /usr/bin/bash -e {0}
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1859444Z env:
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1859690Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.14/arm64
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1860111Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.14/arm64/lib/pkgconfig
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1860524Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/arm64
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1860891Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/arm64
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1861260Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/arm64
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1861679Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.14/arm64/lib
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.1861987Z ##[endgroup]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.2227621Z + git worktree add --force --detach /home/runner/work/_temp/identity-arm 38eaa9f248f509d9a4beb75b267189d011c1109e
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.2241115Z Preparing worktree (detached HEAD 38eaa9f)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.2520837Z HEAD is now at 38eaa9f Merge the length-matched pytest basetemp pin (M12b follow-up)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.2530024Z + make install-bench
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:39.2545009Z python3 -m venv .venv
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.2386062Z .venv/bin/python -m pip install -U pip setuptools wheel
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.5549014Z Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.6356876Z Collecting pip
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.6368632Z   Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7310801Z Collecting setuptools
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7320783Z   Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7599309Z Collecting wheel
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7609392Z   Using cached wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7822821Z Collecting packaging>=24.0 (from wheel)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7832325Z   Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7858036Z Using cached pip-26.2.1-py3-none-any.whl (1.8 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7872797Z Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7884116Z Using cached wheel-0.48.0-py3-none-any.whl (33 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.7893176Z Using cached packaging-26.3-py3-none-any.whl (129 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:41.8091568Z Installing collected packages: setuptools, pip, packaging, wheel
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:42.1692680Z   Attempting uninstall: pip
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:42.1711578Z     Found existing installation: pip 25.0.1
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:42.1938183Z     Uninstalling pip-25.0.1:
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:42.1980354Z       Successfully uninstalled pip-25.0.1
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:42.9554859Z Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:43.1089284Z .venv/bin/python -m pip install -e '.[dev,bench]'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:43.3700359Z Obtaining file:///home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:43.3716984Z   Installing build dependencies: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:44.6317847Z   Installing build dependencies: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:44.6323725Z   Checking if build backend supports build_editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:44.8764840Z   Checking if build backend supports build_editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:44.8772804Z   Getting requirements to build editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.1752963Z   Getting requirements to build editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.1760427Z   Preparing editable metadata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.3658880Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.4362771Z Collecting cmake>=3.20 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.4375852Z   Using cached cmake-4.4.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl.metadata (7.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.4515254Z Collecting pytest>=7 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.4525867Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.4589516Z Collecting pytest-cov>=4 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.4599694Z   Using cached pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.6864438Z Collecting ruff>=0.5 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.6877093Z   Using cached ruff-0.16.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (20 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.7030507Z Collecting pre-commit>=3.5 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.7041510Z   Using cached pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.7384057Z Collecting clang-format<22,>=21 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.7394834Z   Using cached clang_format-21.1.8-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl.metadata (4.7 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.8909340Z Collecting orjson (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.8920833Z   Using cached orjson-3.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (41 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.9442915Z Collecting msgspec (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.9454120Z   Using cached msgspec-0.22.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (6.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.9890280Z Collecting ujson (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:45.9901400Z   Using cached ujson-6.0.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (10.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0164137Z Collecting pysimdjson (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0176453Z   Using cached pysimdjson-7.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (1.1 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0216738Z Collecting jmespath (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0226813Z   Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0267694Z Collecting jsonpath-ng (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0277548Z   Using cached jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0685987Z Collecting psutil>=5 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0698593Z   Using cached psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (22 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0777992Z Collecting cfgv>=2.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0788268Z   Using cached cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0976227Z Collecting identify>=1.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.0986977Z   Using cached identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1043132Z Collecting nodeenv>=0.11.1 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1053563Z   Using cached nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1277550Z Collecting pyyaml>=5.1 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1288202Z   Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (2.4 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1508039Z Collecting virtualenv>=20.10.0 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1518445Z   Using cached virtualenv-21.13.0-py3-none-any.whl.metadata (3.9 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1570978Z Collecting iniconfig>=1.0.1 (from pytest>=7->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1581087Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1595253Z Requirement already satisfied: packaging>=22 in ./.venv/lib/python3.12/site-packages (from pytest>=7->strata==2026.8.10) (26.3)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1633023Z Collecting pluggy<2,>=1.5 (from pytest>=7->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1643124Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1724900Z Collecting pygments>=2.7.2 (from pytest>=7->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.1734728Z   Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4562701Z Collecting coverage>=7.10.6 (from coverage[toml]>=7.10.6->pytest-cov>=4->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4575244Z   Using cached coverage-7.16.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (8.2 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4648445Z Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4659008Z   Using cached distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4768492Z Collecting filelock<5,>=3.24.2 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4778607Z   Using cached filelock-4.0.6-py3-none-any.whl.metadata (2.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4867562Z Collecting platformdirs<5,>=3.9.1 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4877483Z   Using cached platformdirs-4.12.1-py3-none-any.whl.metadata (5.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4917073Z Collecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.4926980Z   Using cached python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5001248Z Using cached clang_format-21.1.8-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl (1.7 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5015863Z Using cached cmake-4.4.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl (30.3 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5116598Z Using cached pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5127063Z Using cached cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5136413Z Using cached identify-2.6.20-py2.py3-none-any.whl (99 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5146290Z Using cached nodeenv-1.11.0-py2.py3-none-any.whl (34 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5156523Z Using cached psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (156 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5166272Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5177061Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5186467Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5195877Z Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5209471Z Using cached pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5219518Z Using cached coverage-7.16.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (259 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5229962Z Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (775 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5241953Z Using cached ruff-0.16.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (10.0 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5285909Z Using cached virtualenv-21.13.0-py3-none-any.whl (5.5 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5312655Z Using cached distlib-0.4.3-py2.py3-none-any.whl (470 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5323797Z Using cached filelock-4.0.6-py3-none-any.whl (109 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5333922Z Using cached platformdirs-4.12.1-py3-none-any.whl (33 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5343569Z Using cached python_discovery-1.6.1-py3-none-any.whl (38 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5353225Z Using cached jmespath-1.1.0-py3-none-any.whl (20 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5363000Z Using cached jsonpath_ng-1.8.0-py3-none-any.whl (67 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5373128Z Using cached msgspec-0.22.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (224 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5383402Z Using cached orjson-3.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (130 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5393533Z Using cached pysimdjson-7.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (2.8 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.5411277Z Using cached ujson-6.0.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (57 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.6434607Z Building wheels for collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:00:46.6440857Z   Building editable for strata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:01:47.0005736Z   Building editable for strata (pyproject.toml): still running...
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:02:47.3567900Z   Building editable for strata (pyproject.toml): still running...
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:31.7383648Z   Building editable for strata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:31.7390700Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4372 sha256=91dc51c89fa56b59aaf5654541f0588b78ac7a0cf21aaefc67dbc85f39a750c8
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:31.7391716Z   Stored in directory: /tmp/pip-ephem-wheel-cache-wtw5q61k/wheels/4b/14/de/c01d5c98e482dba508ed0b80beaf37c3b37034de18f4d8fbd4
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:31.7408742Z Successfully built strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:31.8060217Z Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:33.9628990Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:33.9653255Z Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.1 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.13.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:34.2861690Z + make pgo
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:34.3032552Z ==> PGO: compiler is clang
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:34.3054218Z ==> PGO phase 1: instrumented build
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:34.5739806Z Obtaining file:///home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:34.5757157Z   Installing build dependencies: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:35.8659419Z   Installing build dependencies: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:35.8664921Z   Checking if build backend supports build_editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:36.1012739Z   Checking if build backend supports build_editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:36.1019452Z   Getting requirements to build editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:36.3986007Z   Getting requirements to build editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:36.3994266Z   Preparing editable metadata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:36.5862921Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:36.5904380Z Building wheels for collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:36.5911842Z   Building editable for strata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7156266Z   Building editable for strata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7163829Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4372 sha256=47ca7e9290f73d0f5b3536c942a17c67d6225c2245522838db94931835261ac6
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7164915Z   Stored in directory: /tmp/pip-ephem-wheel-cache-v80b8gwi/wheels/4b/14/de/c01d5c98e482dba508ed0b80beaf37c3b37034de18f4d8fbd4
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7186724Z Successfully built strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7282982Z Installing collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7284087Z   Attempting uninstall: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7302859Z     Found existing installation: strata 2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7316843Z     Uninstalling strata-2026.8.10:
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7516006Z       Successfully uninstalled strata-2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:19.7622596Z Successfully installed strata-2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.0271373Z ==> PGO: the hook image must carry no profile
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.0700670Z + strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-aarch64-linux-gnu.so.build.json records no profile or profile flag,
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.0701358Z   and the image links no profile runtime
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.0760850Z ==> PGO: generating training data
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.4455542Z   build/pgo/train.json (10.0 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.4455922Z   build/pgo/train.ndjson (10.0 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.4510382Z ==> PGO: running the training workload
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.6581182Z PGO training workload
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.6581687Z   corpus: 4001 records, 10.0 MB
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.6581924Z [1/7] loads
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.6582142Z   loads(str): 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.7243207Z   loads(bytes): 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.7565263Z   loads(sample): 5x in 0.01s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.7882679Z   loads(cursor): 5x in 0.01s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.8140752Z   loads(iterator): 3x in 0.01s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.8625707Z [2/7] dumps
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.8626159Z   dumps(str): 1x in 0.03s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.9158832Z   dumps(bytes): 3x in 0.03s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.9407928Z   dumps(sample, bytes): 5x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.9634691Z   dumps(sample): 5x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:20.9830316Z   dumps(parsed sample, bytes): 2x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.0415804Z [3/7] load
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.0416102Z   load(json): 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.1087849Z   load(ndjson): 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.1762965Z   load(ndjson, iterator): 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2022961Z [4/7] dump
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2208427Z   dump(json): 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2208680Z [5/7] query
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2208862Z   query $[0].name: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2388968Z   query $[*].id: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2573320Z   query $[*].items[*].sku: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2762959Z   query $..leaf: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.2946879Z   query $[0:50].score: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.3131259Z   query $[?(@.id > 100)].name: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.3308615Z   query $[?(@.id <= 500)]: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.3490912Z   query $[?(@.name == 'alpha')]: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.3676354Z   query $[?(@.name != 'alpha')].id: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.3851286Z   query $[?(@['id'] >= 0)].name: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.4023329Z   query $[*].nested.child: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.4197768Z   query $[*].tags[0]: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.4371354Z   query $.*: 3x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.4541039Z   query(compiled): 5x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.4873909Z [6/7] search
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.4874225Z   search json $[*].id: 1x in 0.02s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.5555394Z   search ndjson $[*].id: 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.6242071Z   search json $..leaf: 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.6962981Z   search ndjson $..leaf: 1x in 0.05s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.7632352Z   search json $[?(@.id > 100)].name: 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.8324879Z   search ndjson $[?(@.id > 100)].name: 1x in 0.04s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.8587435Z [7/7] folder mode
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.8587759Z   dump(split_by): 1x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.8805573Z   load(folder): 1x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.9004702Z   search(folder): 1x in 0.00s
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.9143916Z PGO training workload complete
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.9223418Z ==> PGO: gate tests on the instrumented build
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:21.9492206Z + /home/runner/work/_temp/identity-arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.0719841Z -- Configuring done (0.0s)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.1114761Z -- Generating done (0.0s)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.1119108Z -- Build files have been written to: /home/runner/work/_temp/identity-arm/build/cmake
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.1132056Z + /home/runner/work/_temp/identity-arm/.venv/bin/cmake --build build/cmake --config Release
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.2290055Z gmake[1]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.2352093Z gmake[2]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.2362003Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.2455264Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.2487033Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.2511530Z [  0%] Linking CXX executable smoke_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3110922Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3140998Z [  6%] Built target smoke_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3156824Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3251440Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3282020Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3306921Z [  7%] Linking CXX executable json_core_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3906407Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3936127Z [ 13%] Built target json_core_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.3951909Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4048064Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4080738Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4105397Z [ 13%] Linking CXX executable json_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4695642Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4724968Z [ 19%] Built target json_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4740515Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4834993Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4866276Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.4890698Z [ 19%] Linking CXX executable fast_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.5469857Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.5498991Z [ 25%] Built target fast_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.5514193Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.5609037Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.5639539Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.5663409Z [ 26%] Linking CXX executable value_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.6247301Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.6276893Z [ 32%] Built target value_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.6292650Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.6386082Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.6417378Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.6441863Z [ 33%] Linking CXX executable json_serialize_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7021553Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7052807Z [ 39%] Built target json_serialize_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7068772Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7163783Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7195274Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7220723Z [ 40%] Linking CXX executable float_precision_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7805746Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7835977Z [ 46%] Built target float_precision_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7851757Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7948581Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.7981060Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.8006589Z [ 47%] Linking CXX executable json_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.8609530Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.8640376Z [ 53%] Built target json_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.8655844Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.8750078Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.8781301Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.8806629Z [ 54%] Linking CXX executable ndjson_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.9410587Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.9441720Z [ 60%] Built target ndjson_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.9456264Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.9551784Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.9582485Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:22.9606295Z [ 60%] Linking CXX executable jsonpath_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.0200233Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.0229091Z [ 66%] Built target jsonpath_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.0245151Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.0342478Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.0373813Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.0399153Z [ 67%] Linking CXX executable jsonpath_stream_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1008080Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1037576Z [ 73%] Built target jsonpath_stream_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1052028Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1146042Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1176326Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1201396Z [ 74%] Linking CXX executable scan_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1798886Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1828797Z [ 80%] Built target scan_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1844079Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1940121Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1971698Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.1996837Z [ 81%] Linking CXX executable folder_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.2604286Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.2634961Z [ 87%] Built target folder_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.2650961Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.2749936Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.2782631Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.2808132Z [ 87%] Linking CXX executable fuzz_corpus_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.3407540Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.3437428Z [ 93%] Built target fuzz_corpus_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.3453139Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.3550479Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.3583052Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.3609385Z [ 94%] Linking CXX executable stress_deep_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.4187920Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.4218827Z [100%] Built target stress_deep_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.4222570Z gmake[2]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.4261182Z gmake[1]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.4271055Z + /home/runner/work/_temp/identity-arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5440528Z Test project /home/runner/work/_temp/identity-arm/build/cmake
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5445898Z       Start  1: smoke_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5460258Z  1/15 Test  #1: smoke_tests ......................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5461888Z       Start  2: json_core_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5475534Z  2/15 Test  #2: json_core_tests ..................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5476539Z       Start  3: json_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5490653Z  3/15 Test  #3: json_parse_tests .................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.5491638Z       Start  4: fast_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.6125038Z  4/15 Test  #4: fast_parse_tests .................   Passed    0.06 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.6126639Z       Start  5: value_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.6192215Z  5/15 Test  #5: value_cursor_tests ...............   Passed    0.01 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.6193636Z       Start  6: json_serialize_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.6209295Z  6/15 Test  #6: json_serialize_tests .............   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:23.6210166Z       Start  7: float_precision_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9245497Z  7/15 Test  #7: float_precision_tests ............   Passed    2.30 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9246569Z       Start  8: json_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9263247Z  8/15 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9264507Z       Start  9: ndjson_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9306383Z  9/15 Test  #9: ndjson_tests .....................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9307453Z       Start 10: jsonpath_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9321851Z 10/15 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9322670Z       Start 11: jsonpath_stream_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9339503Z 11/15 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9340392Z       Start 12: scan_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9507366Z 12/15 Test #12: scan_tests .......................   Passed    0.02 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9508408Z       Start 13: folder_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9536266Z 13/15 Test #13: folder_tests .....................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9537129Z       Start 14: fuzz_corpus_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9570108Z 14/15 Test #14: fuzz_corpus_tests ................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9570960Z       Start 15: stress_deep_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9598197Z 15/15 Test #15: stress_deep_tests ................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9602818Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9602935Z 100% tests passed out of 15
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9603093Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9603189Z Total Test time (real) =   2.42 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:25.9982735Z + pytest tests/py tests/unit --basetemp=/tmp/pytest-of-runner/0p0rxne7
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5087190Z ============================= test session starts ==============================
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5087744Z platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5088113Z rootdir: /home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5088399Z configfile: pyproject.toml
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5088637Z plugins: platformdirs-4.12.1, cov-7.1.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5088887Z collected 3188 items
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5089010Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5272072Z tests/py/test_dumps_brace_fold.py .........                              [  0%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.5626063Z tests/py/test_dumps_cycles_fused.py .................................... [  1%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.6163189Z ....................................................                     [  3%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:26.8110147Z tests/py/test_dumps_general_tables.py ............................       [  3%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.1898297Z tests/py/test_dumps_with_default.py .................................... [  5%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.4090265Z .............................ss                                          [  6%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.4405085Z tests/py/test_dumps_with_default_contract.py ........................... [  6%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.5382863Z ........................................................................ [  9%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.6363798Z ........................................................................ [ 11%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.6855249Z ..........................                                               [ 12%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.6893270Z tests/py/test_fused_verification.py ..                                   [ 12%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.7183484Z tests/py/test_json_parity.py ........................................... [ 13%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.7660162Z ........................................................................ [ 15%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.8137052Z ........................................................................ [ 18%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.8604338Z ........................................................................ [ 20%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.9074439Z ........................................................................ [ 22%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:27.9535480Z ........................................................................ [ 24%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.0000462Z ........................................................................ [ 27%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.0456205Z ........................................................................ [ 29%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.0909687Z ........................................................................ [ 31%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.1373268Z ........................................................................ [ 33%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.1826359Z ........................................................................ [ 36%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.2279947Z ........................................................................ [ 38%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.2731818Z ........................................................................ [ 40%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.3179292Z ........................................................................ [ 42%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.3619895Z ........................................................................ [ 45%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.4068745Z ........................................................................ [ 47%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.4516739Z ........................................................................ [ 49%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.4759704Z .................................                                        [ 50%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.5146806Z tests/py/test_path_dispatch.py ................................          [ 51%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.5163339Z tests/py/test_py_tests_basetemp.py ..                                    [ 51%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.5180214Z tests/py/test_smoke.py ...                                               [ 51%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.8483322Z tests/unit/test_ab_analysis.py ......................................    [ 53%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.8562145Z tests/unit/test_build_manifest.py ......                                 [ 53%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:28.8651964Z tests/unit/test_canonical_builds.py ....                                 [ 53%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.0213909Z tests/unit/test_ci_fetch.py ........................                     [ 54%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.0985797Z tests/unit/test_ci_summary.py .......................                    [ 54%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.1157775Z tests/unit/test_config.py ...........................                    [ 55%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.1292324Z tests/unit/test_core_purity.py ....                                      [ 55%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.1391138Z tests/unit/test_cross_sample.py ......                                   [ 56%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.1865786Z tests/unit/test_dumps.py ............................................... [ 57%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.1998832Z ..........                                                               [ 57%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.2175805Z tests/unit/test_dumps_brace_fold.py .........                            [ 58%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.4022595Z tests/unit/test_dumps_cold_start.py ....                                 [ 58%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.4303848Z tests/unit/test_dumps_contract.py ...................................... [ 59%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.4867564Z .............................................................            [ 61%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.5205025Z tests/unit/test_dumps_cycles_fused.py .................................. [ 62%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.5773285Z ......................................................                   [ 64%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:29.8055197Z tests/unit/test_dumps_general_tables.py ............................     [ 65%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:30.1281166Z tests/unit/test_dumps_latch.py ............................              [ 65%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:30.1985814Z tests/unit/test_dumps_private_cache.py ................................  [ 66%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:30.6879165Z tests/unit/test_dumps_reentrancy.py .................................... [ 68%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:31.5710578Z ......................................................................   [ 70%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.1003322Z tests/unit/test_dumps_reentrancy_review.py ............................. [ 71%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.2187291Z ..                                                                       [ 71%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.2611311Z tests/unit/test_dumps_schema_failure.py ...........................      [ 72%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.6161082Z tests/unit/test_dumps_user_step_counter.py ..........................    [ 72%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.6411899Z tests/unit/test_dumps_with_default.py .................................. [ 73%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.6936577Z ........................................................................ [ 76%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.8164736Z ...................................................................      [ 78%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.8364368Z tests/unit/test_dumps_with_default_state.py ............................ [ 79%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:32.9191846Z ........................................................................ [ 81%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.0383173Z ..............                                                           [ 81%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.1019534Z tests/unit/test_folder.py .............................................. [ 83%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.1646439Z .........................................                                [ 84%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.1685529Z tests/unit/test_fused_verification.py ..                                 [ 84%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.2104962Z tests/unit/test_hook_build_scope.py ...............................      [ 85%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.2947548Z tests/unit/test_json_cursor.py ...........................               [ 86%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.3219947Z tests/unit/test_jsonpath.py ............................................ [ 87%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.4299348Z .......................................................................  [ 90%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.5050215Z tests/unit/test_load_dump.py ........................................... [ 91%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.5054388Z                                                                          [ 91%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.5356930Z tests/unit/test_loads.py ............................................... [ 92%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:33.6136921Z ........................................................................ [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.4942207Z ................                                                         [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.4993536Z tests/unit/test_native_interleaved_profile.py ...                        [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.5633624Z tests/unit/test_nested_container_probe.py ....                           [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.6126539Z tests/unit/test_path_dispatch.py ................................        [ 96%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.6459466Z tests/unit/test_provenance.py ..................                         [ 97%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.6933267Z tests/unit/test_regression_check.py ..........................           [ 98%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.8052016Z tests/unit/test_search_stream.py .................                       [ 98%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.8059713Z tests/unit/test_string_identity_probe.py .                               [ 98%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.8715817Z tests/unit/test_supplementary.py .............                           [ 99%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.9188127Z tests/unit/test_supportability_check.py ....................             [ 99%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.9728600Z tests/unit/test_version.py ....                                          [100%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.9728973Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:34.9729134Z ======================= 3186 passed, 2 skipped in 8.76s ========================
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:35.0907604Z ==> PGO: merging 17 raw profiles
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:35.1637160Z ==> PGO phase 2: optimized build (profile + LTO)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:35.4276053Z Obtaining file:///home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:35.4293604Z   Installing build dependencies: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:36.8519123Z   Installing build dependencies: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:36.8524542Z   Checking if build backend supports build_editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:37.0932753Z   Checking if build backend supports build_editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:37.0939043Z   Getting requirements to build editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:37.3975483Z   Getting requirements to build editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:37.3982758Z   Preparing editable metadata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:37.5908263Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:37.5951375Z Building wheels for collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:04:37.5957719Z   Building editable for strata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7541986Z   Building editable for strata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7549697Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4372 sha256=1b0ae215f019598f70379169f732961830673d3ae34031beaf8dd72cba2faafd
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7550722Z   Stored in directory: /tmp/pip-ephem-wheel-cache-evc7bbke/wheels/4b/14/de/c01d5c98e482dba508ed0b80beaf37c3b37034de18f4d8fbd4
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7573224Z Successfully built strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7670125Z Installing collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7671112Z   Attempting uninstall: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7690014Z     Found existing installation: strata 2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7703755Z     Uninstalling strata-2026.8.10:
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7896233Z       Successfully uninstalled strata-2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:20.7987477Z Successfully installed strata-2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.0518505Z ==> PGO: the hook image must carry no profile
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.0902167Z + strata._dumps_hook is unprofiled: _dumps_hook.cpython-312-aarch64-linux-gnu.so.build.json records no profile or profile flag,
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.0902857Z   and the image links no profile runtime
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.0958146Z ==> PGO: gate tests on the optimized build
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.1227236Z + /home/runner/work/_temp/identity-arm/.venv/bin/cmake -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.2461808Z -- Configuring done (0.0s)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.2855481Z -- Generating done (0.0s)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.2858812Z -- Build files have been written to: /home/runner/work/_temp/identity-arm/build/cmake
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.2871190Z + /home/runner/work/_temp/identity-arm/.venv/bin/cmake --build build/cmake --config Release
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4043922Z gmake[1]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4105067Z gmake[2]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4114451Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4206978Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4237603Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4262932Z [  0%] Linking CXX executable smoke_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4860937Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4890348Z [  6%] Built target smoke_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.4905711Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5003777Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5034869Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5060802Z [  7%] Linking CXX executable json_core_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5655865Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5685825Z [ 13%] Built target json_core_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5701357Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5797293Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5828515Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.5852467Z [ 13%] Linking CXX executable json_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.6450500Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.6479635Z [ 19%] Built target json_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.6494988Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.6591155Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.6623139Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.6647902Z [ 19%] Linking CXX executable fast_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.7256601Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.7284344Z [ 25%] Built target fast_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.7299599Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.7394279Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.7425756Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.7450223Z [ 26%] Linking CXX executable value_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8056816Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8086114Z [ 32%] Built target value_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8102285Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8200651Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8233281Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8258988Z [ 33%] Linking CXX executable json_serialize_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8847395Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8876952Z [ 39%] Built target json_serialize_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8892614Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.8990456Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9022451Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9047900Z [ 40%] Linking CXX executable float_precision_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9652002Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9682383Z [ 46%] Built target float_precision_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9698184Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9795641Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9828704Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:21.9855155Z [ 47%] Linking CXX executable json_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.0445270Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.0474609Z [ 53%] Built target json_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.0489747Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.0584038Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.0615135Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.0640697Z [ 54%] Linking CXX executable ndjson_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.1243470Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.1273684Z [ 60%] Built target ndjson_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.1290031Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.1385740Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.1418278Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.1443602Z [ 60%] Linking CXX executable jsonpath_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2025117Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2053949Z [ 66%] Built target jsonpath_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2069907Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2163637Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2195521Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2220327Z [ 67%] Linking CXX executable jsonpath_stream_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2827172Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2857558Z [ 73%] Built target jsonpath_stream_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2872610Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2966272Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.2998107Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.3023298Z [ 74%] Linking CXX executable scan_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.3624371Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.3654837Z [ 80%] Built target scan_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.3669838Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.3766643Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.3798081Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.3823192Z [ 81%] Linking CXX executable folder_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.4411090Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.4441719Z [ 87%] Built target folder_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.4457701Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.4555346Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.4588491Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.4614874Z [ 87%] Linking CXX executable fuzz_corpus_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.5219459Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.5248702Z [ 93%] Built target fuzz_corpus_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.5264285Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.5359350Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.5390813Z gmake[3]: Entering directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.5416272Z [ 94%] Linking CXX executable stress_deep_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.6019428Z gmake[3]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.6049667Z [100%] Built target stress_deep_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.6053813Z gmake[2]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.6091755Z gmake[1]: Leaving directory '/home/runner/work/_temp/identity-arm/build/cmake'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.6102728Z + /home/runner/work/_temp/identity-arm/.venv/bin/ctest --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7275096Z Test project /home/runner/work/_temp/identity-arm/build/cmake
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7280855Z       Start  1: smoke_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7295708Z  1/15 Test  #1: smoke_tests ......................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7297471Z       Start  2: json_core_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7311667Z  2/15 Test  #2: json_core_tests ..................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7312662Z       Start  3: json_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7326451Z  3/15 Test  #3: json_parse_tests .................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7327516Z       Start  4: fast_parse_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7966020Z  4/15 Test  #4: fast_parse_tests .................   Passed    0.06 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.7967663Z       Start  5: value_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.8033441Z  5/15 Test  #5: value_cursor_tests ...............   Passed    0.01 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.8034236Z       Start  6: json_serialize_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.8050467Z  6/15 Test  #6: json_serialize_tests .............   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:22.8051531Z       Start  7: float_precision_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1101340Z  7/15 Test  #7: float_precision_tests ............   Passed    2.30 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1102181Z       Start  8: json_cursor_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1119613Z  8/15 Test  #8: json_cursor_tests ................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1120462Z       Start  9: ndjson_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1162231Z  9/15 Test  #9: ndjson_tests .....................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1163138Z       Start 10: jsonpath_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1177613Z 10/15 Test #10: jsonpath_tests ...................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1178415Z       Start 11: jsonpath_stream_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1195454Z 11/15 Test #11: jsonpath_stream_tests ............   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1196295Z       Start 12: scan_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1364094Z 12/15 Test #12: scan_tests .......................   Passed    0.02 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1364955Z       Start 13: folder_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1392141Z 13/15 Test #13: folder_tests .....................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1392958Z       Start 14: fuzz_corpus_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1425413Z 14/15 Test #14: fuzz_corpus_tests ................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1426253Z       Start 15: stress_deep_tests
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1453534Z 15/15 Test #15: stress_deep_tests ................   Passed    0.00 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1458122Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1458242Z 100% tests passed out of 15
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1460961Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1461351Z Total Test time (real) =   2.42 sec
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.1833484Z + pytest tests/py tests/unit --basetemp=/tmp/pytest-of-runner/f0sqy__e
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6639025Z ============================= test session starts ==============================
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6639956Z platform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6640583Z rootdir: /home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6641318Z configfile: pyproject.toml
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6641628Z plugins: platformdirs-4.12.1, cov-7.1.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6642423Z collected 3188 items
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6642553Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.6823837Z tests/py/test_dumps_brace_fold.py .........                              [  0%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.7167578Z tests/py/test_dumps_cycles_fused.py .................................... [  1%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.7691846Z ....................................................                     [  3%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:25.9609906Z tests/py/test_dumps_general_tables.py ............................       [  3%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.3360329Z tests/py/test_dumps_with_default.py .................................... [  5%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.5635177Z .............................ss                                          [  6%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.5940797Z tests/py/test_dumps_with_default_contract.py ........................... [  6%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.6922236Z ........................................................................ [  9%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.7913925Z ........................................................................ [ 11%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.8417198Z ..........................                                               [ 12%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.8455765Z tests/py/test_fused_verification.py ..                                   [ 12%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.8742114Z tests/py/test_json_parity.py ........................................... [ 13%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.9206188Z ........................................................................ [ 15%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:26.9671898Z ........................................................................ [ 18%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.0126165Z ........................................................................ [ 20%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.0586934Z ........................................................................ [ 22%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.1036553Z ........................................................................ [ 24%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.1494376Z ........................................................................ [ 27%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.1944185Z ........................................................................ [ 29%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.2391157Z ........................................................................ [ 31%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.2848213Z ........................................................................ [ 33%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.3297721Z ........................................................................ [ 36%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.3745284Z ........................................................................ [ 38%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.4190599Z ........................................................................ [ 40%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.4632372Z ........................................................................ [ 42%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.5069759Z ........................................................................ [ 45%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.5513108Z ........................................................................ [ 47%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.5952910Z ........................................................................ [ 49%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.6189672Z .................................                                        [ 50%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.6572989Z tests/py/test_path_dispatch.py ................................          [ 51%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.6587663Z tests/py/test_py_tests_basetemp.py ..                                    [ 51%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.6606409Z tests/py/test_smoke.py ...                                               [ 51%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:27.9939723Z tests/unit/test_ab_analysis.py ......................................    [ 53%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.0018939Z tests/unit/test_build_manifest.py ......                                 [ 53%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.0109966Z tests/unit/test_canonical_builds.py ....                                 [ 53%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.1689225Z tests/unit/test_ci_fetch.py ........................                     [ 54%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.2465318Z tests/unit/test_ci_summary.py .......................                    [ 54%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.2635077Z tests/unit/test_config.py ...........................                    [ 55%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.2771665Z tests/unit/test_core_purity.py ....                                      [ 55%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.2873741Z tests/unit/test_cross_sample.py ......                                   [ 56%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.3349976Z tests/unit/test_dumps.py ............................................... [ 57%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.3478123Z ..........                                                               [ 57%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.3649643Z tests/unit/test_dumps_brace_fold.py .........                            [ 58%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.5488005Z tests/unit/test_dumps_cold_start.py ....                                 [ 58%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.5768937Z tests/unit/test_dumps_contract.py ...................................... [ 59%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.6313612Z .............................................................            [ 61%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.6642168Z tests/unit/test_dumps_cycles_fused.py .................................. [ 62%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.7202664Z ......................................................                   [ 64%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:28.9519431Z tests/unit/test_dumps_general_tables.py ............................     [ 65%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:29.2831542Z tests/unit/test_dumps_latch.py ............................              [ 65%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:29.3541209Z tests/unit/test_dumps_private_cache.py ................................  [ 66%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:29.8488725Z tests/unit/test_dumps_reentrancy.py .................................... [ 68%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:30.7678837Z ......................................................................   [ 70%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.2803425Z tests/unit/test_dumps_reentrancy_review.py ............................. [ 71%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.3948090Z ..                                                                       [ 71%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.4351641Z tests/unit/test_dumps_schema_failure.py ...........................      [ 72%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.7698519Z tests/unit/test_dumps_user_step_counter.py ..........................    [ 72%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.7945419Z tests/unit/test_dumps_with_default.py .................................. [ 73%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.8459181Z ........................................................................ [ 76%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.9682817Z ...................................................................      [ 78%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:31.9883028Z tests/unit/test_dumps_with_default_state.py ............................ [ 79%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.0689392Z ........................................................................ [ 81%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.1888012Z ..............                                                           [ 81%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.2501639Z tests/unit/test_folder.py .............................................. [ 83%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.3115415Z .........................................                                [ 84%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.3152391Z tests/unit/test_fused_verification.py ..                                 [ 84%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.3570294Z tests/unit/test_hook_build_scope.py ...............................      [ 85%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.4419663Z tests/unit/test_json_cursor.py ...........................               [ 86%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.4689713Z tests/unit/test_jsonpath.py ............................................ [ 87%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.5754254Z .......................................................................  [ 90%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.6490104Z tests/unit/test_load_dump.py ........................................... [ 91%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.6493005Z                                                                          [ 91%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.6794789Z tests/unit/test_loads.py ............................................... [ 92%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:32.7552641Z ........................................................................ [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.5792352Z ................                                                         [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.5843103Z tests/unit/test_native_interleaved_profile.py ...                        [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.6487494Z tests/unit/test_nested_container_probe.py ....                           [ 95%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.6974762Z tests/unit/test_path_dispatch.py ................................        [ 96%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.7307169Z tests/unit/test_provenance.py ..................                         [ 97%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.7787159Z tests/unit/test_regression_check.py ..........................           [ 98%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.8840498Z tests/unit/test_search_stream.py .................                       [ 98%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.8848490Z tests/unit/test_string_identity_probe.py .                               [ 98%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.9511072Z tests/unit/test_supplementary.py .............                           [ 99%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:33.9993284Z tests/unit/test_supportability_check.py ....................             [ 99%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.0560367Z tests/unit/test_version.py ....                                          [100%]
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.0560748Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.0560911Z ======================= 3186 passed, 2 skipped in 8.68s ========================
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.1716460Z ==> PGO: generating benchmark data
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.1730954Z make[1]: Entering directory '/home/runner/work/_temp/identity-arm'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.1731781Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/small  --num-users 1000 --max-orders 10 --max-items 5  --records 500
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.4191805Z   benchmarks/data/generated/small/users.json  (1680 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.4192276Z   benchmarks/data/generated/small/users.ndjson  (1679 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.4192631Z   benchmarks/data/generated/small/flat.json  (209 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.4192971Z   benchmarks/data/generated/small/nested.json  (148 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.4193335Z   benchmarks/data/generated/small/wide_arrays.json  (1218 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.4193735Z   benchmarks/data/generated/small/mixed.json  (34 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:34.4258166Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/medium --num-users 2000 --max-orders 20 --max-items 10 --records 2000
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:35.6149064Z   benchmarks/data/generated/medium/users.json  (9883 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:35.6149556Z   benchmarks/data/generated/medium/users.ndjson  (9881 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:35.6150421Z   benchmarks/data/generated/medium/flat.json  (836 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:35.6150773Z   benchmarks/data/generated/medium/nested.json  (594 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:35.6151140Z   benchmarks/data/generated/medium/wide_arrays.json  (4874 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:35.6151508Z   benchmarks/data/generated/medium/mixed.json  (138 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:35.6221516Z PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data --out-dir benchmarks/data/generated/large  --num-users 4000 --max-orders 40 --max-items 20 --records 5000
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8042595Z   benchmarks/data/generated/large/users.json  (68083 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8043077Z   benchmarks/data/generated/large/users.ndjson  (68079 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8043434Z   benchmarks/data/generated/large/flat.json  (2092 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8043781Z   benchmarks/data/generated/large/nested.json  (1488 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8044151Z   benchmarks/data/generated/large/wide_arrays.json  (12185 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8044548Z   benchmarks/data/generated/large/mixed.json  (347 KB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8132198Z make[1]: Leaving directory '/home/runner/work/_temp/identity-arm'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:05:42.8134315Z ==> PGO: verification benchmarks
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:01.7335490Z wrote build/pgo/bench_results_pgo.md
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:01.7517151Z ==> PGO complete
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:01.7517572Z     profile: /home/runner/work/_temp/identity-arm/build/pgo/strata.profdata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:01.7517962Z     results: build/pgo/bench_results_pgo.md
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:01.7518263Z     The installed extension is now the PGO+LTO build.
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:01.7537045Z + git worktree remove --force /home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:02.1228549Z + git worktree prune
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:02.1241428Z + git worktree add --force --detach /home/runner/work/_temp/identity-arm HEAD
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:02.1251919Z Preparing worktree (detached HEAD 565fab2)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:02.2485150Z HEAD is now at 565fab2 Record the M15b dispatch outcome and the msgspec follow-up in the ledger
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:02.2501241Z + make install-bench
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:02.2517402Z python3 -m venv .venv
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.2217530Z .venv/bin/python -m pip install -U pip setuptools wheel
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.5442444Z Requirement already satisfied: pip in ./.venv/lib/python3.12/site-packages (25.0.1)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.6265283Z Collecting pip
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.6277191Z   Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7228392Z Collecting setuptools
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7238786Z   Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7520372Z Collecting wheel
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7530766Z   Using cached wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7750965Z Collecting packaging>=24.0 (from wheel)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7760292Z   Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7786927Z Using cached pip-26.2.1-py3-none-any.whl (1.8 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7802261Z Using cached setuptools-84.0.0-py3-none-any.whl (818 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7814041Z Using cached wheel-0.48.0-py3-none-any.whl (33 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.7823123Z Using cached packaging-26.3-py3-none-any.whl (129 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:04.8024816Z Installing collected packages: setuptools, pip, packaging, wheel
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:05.1638738Z   Attempting uninstall: pip
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:05.1657559Z     Found existing installation: pip 25.0.1
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:05.1884460Z     Uninstalling pip-25.0.1:
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:05.1926279Z       Successfully uninstalled pip-25.0.1
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:05.9579787Z Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:06.0367173Z .venv/bin/python -m pip install -e '.[dev,bench]'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:06.3017979Z Obtaining file:///home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:06.3035875Z   Installing build dependencies: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:07.5738783Z   Installing build dependencies: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:07.5743924Z   Checking if build backend supports build_editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:07.8186934Z   Checking if build backend supports build_editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:07.8194419Z   Getting requirements to build editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.1199618Z   Getting requirements to build editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.1207218Z   Preparing editable metadata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.3147192Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.3855973Z Collecting cmake>=3.20 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.3869994Z   Using cached cmake-4.4.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl.metadata (7.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.4010195Z Collecting pytest>=7 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.4021151Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.4857907Z Collecting pytest-cov>=4 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.4869040Z   Using cached pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.7278481Z Collecting ruff>=0.5 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.7291818Z   Using cached ruff-0.16.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (20 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.7577559Z Collecting pre-commit>=3.5 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.7588982Z   Using cached pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.8076643Z Collecting clang-format<22,>=21 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.8088551Z   Using cached clang_format-21.1.8-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl.metadata (4.7 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.9754192Z Collecting orjson (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:08.9766555Z   Using cached orjson-3.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (41 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.0441005Z Collecting msgspec (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.0453118Z   Using cached msgspec-0.22.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (6.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1021244Z Collecting ujson (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1033608Z   Using cached ujson-6.0.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (10.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1439693Z Collecting pysimdjson (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1450727Z   Using cached pysimdjson-7.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (1.1 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1620736Z Collecting jmespath (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1631121Z   Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1801281Z Collecting jsonpath-ng (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.1809160Z   Using cached jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.2353898Z Collecting psutil>=5 (from strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.2365089Z   Using cached psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (22 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.2572968Z Collecting cfgv>=2.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.2583625Z   Using cached cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.2910349Z Collecting identify>=1.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.2921612Z   Using cached identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3108913Z Collecting nodeenv>=0.11.1 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3120702Z   Using cached nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3483542Z Collecting pyyaml>=5.1 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3495415Z   Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (2.4 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3852633Z Collecting virtualenv>=20.10.0 (from pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3863033Z   Using cached virtualenv-21.13.0-py3-none-any.whl.metadata (3.9 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3916988Z Collecting iniconfig>=1.0.1 (from pytest>=7->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3927287Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3941948Z Requirement already satisfied: packaging>=22 in ./.venv/lib/python3.12/site-packages (from pytest>=7->strata==2026.8.10) (26.3)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3981200Z Collecting pluggy<2,>=1.5 (from pytest>=7->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.3991383Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.4075749Z Collecting pygments>=2.7.2 (from pytest>=7->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.4085870Z   Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7101706Z Collecting coverage>=7.10.6 (from coverage[toml]>=7.10.6->pytest-cov>=4->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7113216Z   Using cached coverage-7.16.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (8.2 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7315112Z Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7325692Z   Using cached distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7566521Z Collecting filelock<5,>=3.24.2 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7576114Z   Using cached filelock-4.0.6-py3-none-any.whl.metadata (2.0 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7795787Z Collecting platformdirs<5,>=3.9.1 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7806582Z   Using cached platformdirs-4.12.1-py3-none-any.whl.metadata (5.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7979041Z Collecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.7989358Z   Using cached python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8066551Z Using cached clang_format-21.1.8-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl (1.7 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8082487Z Using cached cmake-4.4.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl (30.3 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8189407Z Using cached pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8200416Z Using cached cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8210344Z Using cached identify-2.6.20-py2.py3-none-any.whl (99 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8220613Z Using cached nodeenv-1.11.0-py2.py3-none-any.whl (34 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8230770Z Using cached psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (156 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8240649Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8251588Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8261317Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8270903Z Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8284246Z Using cached pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8294228Z Using cached coverage-7.16.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (259 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8305132Z Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (775 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8317245Z Using cached ruff-0.16.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (10.0 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8363020Z Using cached virtualenv-21.13.0-py3-none-any.whl (5.5 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8390094Z Using cached distlib-0.4.3-py2.py3-none-any.whl (470 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8401489Z Using cached filelock-4.0.6-py3-none-any.whl (109 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8411611Z Using cached platformdirs-4.12.1-py3-none-any.whl (33 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8421398Z Using cached python_discovery-1.6.1-py3-none-any.whl (38 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8431137Z Using cached jmespath-1.1.0-py3-none-any.whl (20 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8441138Z Using cached jsonpath_ng-1.8.0-py3-none-any.whl (67 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8451188Z Using cached msgspec-0.22.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl (224 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8461512Z Using cached orjson-3.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (130 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8471633Z Using cached pysimdjson-7.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl (2.8 MB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.8489299Z Using cached ujson-6.0.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl (57 kB)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.9516331Z Building wheels for collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:06:09.9522024Z   Building editable for strata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:07:10.4571048Z   Building editable for strata (pyproject.toml): still running...
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:08:10.5178370Z   Building editable for strata (pyproject.toml): still running...
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:10.5422402Z   Building editable for strata (pyproject.toml): still running...
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:13.6251690Z   Building editable for strata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:13.6259120Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4379 sha256=e3cff03b38455a93d8a1e8da3b20d035a9f5373b4850d15f6978299adc82fd85
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:13.6260141Z   Stored in directory: /tmp/pip-ephem-wheel-cache-3ofz8i6j/wheels/4b/14/de/c01d5c98e482dba508ed0b80beaf37c3b37034de18f4d8fbd4
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:13.6276595Z Successfully built strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:13.6927942Z Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:15.8686853Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:15.8710392Z Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.1 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.13.0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:16.1958145Z + /home/runner/work/_temp/identity-arm/.venv/bin/python -m pip install --force-reinstall --no-deps -e .
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:16.4598301Z Obtaining file:///home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:16.4615514Z   Installing build dependencies: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:17.7616315Z   Installing build dependencies: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:17.7622365Z   Checking if build backend supports build_editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:18.0061400Z   Checking if build backend supports build_editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:18.0067947Z   Getting requirements to build editable: started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:18.3158841Z   Getting requirements to build editable: finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:18.3167088Z   Preparing editable metadata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:18.5145924Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:18.5189286Z Building wheels for collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:09:18.5196593Z   Building editable for strata (pyproject.toml): started
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5353494Z   Building editable for strata (pyproject.toml): finished with status 'done'
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5361405Z   Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4379 sha256=f59c98bdb06e6d1a31cde423818980768858abfb84401b358dda2d897e3cdf1c
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5362459Z   Stored in directory: /tmp/pip-ephem-wheel-cache-21057xxf/wheels/4b/14/de/c01d5c98e482dba508ed0b80beaf37c3b37034de18f4d8fbd4
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5385574Z Successfully built strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5482363Z Installing collected packages: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5483459Z   Attempting uninstall: strata
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5502169Z     Found existing installation: strata 2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5515976Z     Uninstalling strata-2026.8.10:
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5715177Z       Successfully uninstalled strata-2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.5878666Z Successfully installed strata-2026.8.10
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:11.8392564Z + git worktree remove --force /home/runner/work/_temp/identity-arm
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2406633Z .data                            4741f7805d4d501d 4741f7805d4d501d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2407327Z .data.rel.ro                     1e925ac6d527636d 1e925ac6d527636d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2407819Z .dynamic                         9d62dd7ac677227d 9d62dd7ac677227d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2408207Z .dynstr                          015c4778a45ee1db 015c4778a45ee1db identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2408586Z .dynsym                          043450d7ce2ffbbf 043450d7ce2ffbbf identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2408963Z .eh_frame                        99ac00466a1ca54c 99ac00466a1ca54c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2409373Z .eh_frame_hdr                    62da2a70ab8bbb74 62da2a70ab8bbb74 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2409752Z .fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2410136Z .fini_array                      5bd5defdd823db81 5bd5defdd823db81 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2410552Z .gcc_except_table                6ec9430ce8d45f7f 6ec9430ce8d45f7f identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2410943Z .gnu.hash                        1331b1064561f369 1331b1064561f369 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2411676Z .gnu.version                     16446b28a45c6bc8 16446b28a45c6bc8 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2412078Z .gnu.version_r                   7fbd8ba05eceed2d 7fbd8ba05eceed2d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2412464Z .got                             f1245aadee06ad80 f1245aadee06ad80 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2412835Z .got.plt                         07d7cb47f327ebb4 07d7cb47f327ebb4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2413206Z .init                            151bfb4b8a72c6a4 151bfb4b8a72c6a4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2413590Z .init_array                      31ced2a6b695d2d9 31ced2a6b695d2d9 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2413994Z .note.gnu.build-id               bceed550173a6f34 1f138952c3fe7ace differs
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2414381Z .plt                             595f9a88daebfe63 595f9a88daebfe63 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2414749Z .rela.dyn                        9e7e8adae178589f 9e7e8adae178589f identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2415126Z .rela.plt                        bb40816ed2363807 bb40816ed2363807 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2415508Z .rodata                          2d6ea751a4b8a829 2d6ea751a4b8a829 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2415875Z .tdata                           fef02424157f106b fef02424157f106b identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2416240Z .text                            e63e428e6a0c8bd5 e63e428e6a0c8bd5 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2416541Z CODE IDENTICAL
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2417089Z .data                            39e2910acd8274eb 39e2910acd8274eb identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2417492Z .data.rel.ro                     4b5de64142cbb93e 4b5de64142cbb93e identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2417873Z .dynamic                         b5efc5212235f3b4 b5efc5212235f3b4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2418249Z .dynstr                          a28f7c2930bcd055 a28f7c2930bcd055 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2418623Z .dynsym                          e82c94eaede6ba51 e82c94eaede6ba51 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2418997Z .eh_frame                        0b6811ab0461779b 0b6811ab0461779b identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2419383Z .eh_frame_hdr                    cc0ffdbc980a511f cc0ffdbc980a511f identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2419760Z .fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2420131Z .fini_array                      d654254d26065f0c d654254d26065f0c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2420524Z .gcc_except_table                6fd096869af54745 6fd096869af54745 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2421208Z .gnu.hash                        d095c1787016715c d095c1787016715c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2421596Z .gnu.version                     8edaacfaa70a9e46 8edaacfaa70a9e46 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2422016Z .gnu.version_r                   84ee111f5128462c 84ee111f5128462c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2422388Z .got                             27165e4bddaa46fa 27165e4bddaa46fa identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2422754Z .got.plt                         11a2b161bace73f7 11a2b161bace73f7 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2423130Z .init                            9dabdb8b0cf5650e 9dabdb8b0cf5650e identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2423511Z .init_array                      3cb28f3e95389a20 3cb28f3e95389a20 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2423907Z .note.gnu.build-id               3ad21c73e80d6580 d62defa9215b43f9 differs
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2424290Z .plt                             52058f85e7a5ebc4 52058f85e7a5ebc4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2424656Z .rela.dyn                        98203ed707500acf 98203ed707500acf identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2425028Z .rela.plt                        df5d662b136289c4 3fe85c44ea349002 differs
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2425398Z .rodata                          0bc6ec939d9d7100 0bc6ec939d9d7100 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2425767Z .tdata                           fef02424157f106b fef02424157f106b identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2426144Z .text                            f1e239c61802177c 418163ab50b3afe5 DIFFERS (gate)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2426475Z CODE DIFFERS: stop before timing
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2426887Z {
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2427129Z  "base": "38eaa9f248f509d9a4beb75b267189d011c1109e",
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2427622Z  "plain_exit": 0,
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2427812Z  "held_pgo_exit": 1
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2427996Z }
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2428155Z plain build: exit 0
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2428363Z held-profile pgo+lto build: exit 1
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2428530Z 
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2485229Z ##[error]Process completed with exit code 1.

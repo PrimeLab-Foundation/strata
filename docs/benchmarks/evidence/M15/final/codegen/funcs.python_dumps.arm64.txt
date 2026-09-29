@@ -1,0 +1,17 @@
+# /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/codegen/main/arm64/obj/python_dumps.o -> /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/final/codegen/5b876d1/arm64/obj/python_dumps.o
+# functions: before 70, after 78, common 70, identical 64, differ 6
+# outlined bodies: before 13, after 31; bodies only before 4, only after 22
+only-after     91  __ZN6strata8bindings12_GLOBAL__N_110Serializer10write_enumEP7_object
+only-after    119  __ZN6strata8bindings12_GLOBAL__N_110Serializer12write_nativeEP7_object
+only-after     40  __ZN6strata8bindings12_GLOBAL__N_110Serializer13write_decimalEP7_object
+only-after    107  __ZN6strata8bindings12_GLOBAL__N_110Serializer15write_dataclassEP7_object
+only-after    124  __ZN6strata8bindings12_GLOBAL__N_110Serializer15write_set_tableEP7_object
+only-after     46  __ZN6strata8bindings12_GLOBAL__N_110Serializer17write_native_textEPKcl
+only-after    103  __ZN6strata8bindings12_GLOBAL__N_110Serializer9write_setEP7_object
+only-after     23  __ZN6strata8bindings5PyRefaSEOS1_
+DIFFERS  insns 25 -> 28  (-5 +8)  __ZN6strata8bindings12_GLOBAL__N_110Serializer21compact_general_exactEP7_object
+DIFFERS  insns 25 -> 28  (-5 +8)  __ZN6strata8bindings12_GLOBAL__N_110Serializer21compact_general_holesEP7_object
+DIFFERS  insns 40 -> 39  (-7 +6)  __ZN6strata8bindings12_GLOBAL__N_110Serializer22emit_cycle_placeholderEv
+DIFFERS  insns 84 -> 78  (-36 +30)  __ZN6strata8bindings12_GLOBAL__N_110Serializer22write_mapping_uncachedEP7_object
+DIFFERS  insns 281 -> 293  (-3 +15)  __ZN6strata8bindings12_GLOBAL__N_110Serializer5writeEP7_object
+DIFFERS  insns 41 -> 33  (-20 +12)  __ZNK6strata8bindings12_GLOBAL__N_110Serializer5Frame12handle_cycleEv

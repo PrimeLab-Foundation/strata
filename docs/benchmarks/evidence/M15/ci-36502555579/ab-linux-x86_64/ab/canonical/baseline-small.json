@@ -1,0 +1,137 @@
+{
+  "bench_results_small.md|dumps|flat.json": {
+    "median_ms": 0.2909105005528545,
+    "p95_ms": 0.32166300024982775,
+    "rss_mb": 83.2109375
+  },
+  "bench_results_small.md|dumps|mixed.json": {
+    "median_ms": 0.06249200032470981,
+    "p95_ms": 0.07347800055867992,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|dumps|nested.json": {
+    "median_ms": 0.2513809999982186,
+    "p95_ms": 0.26705100026447326,
+    "rss_mb": 83.21484375
+  },
+  "bench_results_small.md|dumps|users.json": {
+    "median_ms": 2.59894600003463,
+    "p95_ms": 2.8786619996026275,
+    "rss_mb": 64.09375
+  },
+  "bench_results_small.md|dumps|wide_arrays.json": {
+    "median_ms": 1.7088250001506822,
+    "p95_ms": 2.4560159999964526,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|dump|flat.json": {
+    "median_ms": 0.5232209996393067,
+    "p95_ms": 0.5804590000479948,
+    "rss_mb": 83.2109375
+  },
+  "bench_results_small.md|dump|mixed.json": {
+    "median_ms": 0.2211894998254138,
+    "p95_ms": 0.28673700035142247,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|dump|nested.json": {
+    "median_ms": 0.4198925003038312,
+    "p95_ms": 0.4712029995062039,
+    "rss_mb": 83.21484375
+  },
+  "bench_results_small.md|dump|users.json": {
+    "median_ms": 3.3660214999144955,
+    "p95_ms": 3.6909869995724875,
+    "rss_mb": 81.25
+  },
+  "bench_results_small.md|dump|wide_arrays.json": {
+    "median_ms": 2.3595969996677013,
+    "p95_ms": 2.873628999623179,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|load (ndjson)|users.ndjson": {
+    "median_ms": 12.815435500215244,
+    "p95_ms": 14.569072999620403,
+    "rss_mb": 83.2109375
+  },
+  "bench_results_small.md|loads|flat.json": {
+    "median_ms": 0.8704110005055554,
+    "p95_ms": 0.9529359995212872,
+    "rss_mb": 83.2109375
+  },
+  "bench_results_small.md|loads|mixed.json": {
+    "median_ms": 0.19594750028772978,
+    "p95_ms": 0.2160340000045835,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|loads|nested.json": {
+    "median_ms": 0.8117219999803638,
+    "p95_ms": 0.8692500005054171,
+    "rss_mb": 83.2109375
+  },
+  "bench_results_small.md|loads|users.json": {
+    "median_ms": 11.40893049978331,
+    "p95_ms": 13.356413999645156,
+    "rss_mb": 64.9609375
+  },
+  "bench_results_small.md|loads|wide_arrays.json": {
+    "median_ms": 4.448541999863664,
+    "p95_ms": 5.6415080007354845,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|load|flat.json": {
+    "median_ms": 0.9332650001852016,
+    "p95_ms": 1.083211000150186,
+    "rss_mb": 83.2109375
+  },
+  "bench_results_small.md|load|mixed.json": {
+    "median_ms": 0.2308530001755571,
+    "p95_ms": 0.2632830000948161,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|load|nested.json": {
+    "median_ms": 0.8724809999876015,
+    "p95_ms": 1.0501300002943026,
+    "rss_mb": 83.21484375
+  },
+  "bench_results_small.md|load|users.json": {
+    "median_ms": 12.876656500338868,
+    "p95_ms": 13.970019000225875,
+    "rss_mb": 81.25
+  },
+  "bench_results_small.md|load|wide_arrays.json": {
+    "median_ms": 4.772444000082032,
+    "p95_ms": 5.226610000136134,
+    "rss_mb": 85.21484375
+  },
+  "bench_results_small.md|query|users.json $..total": {
+    "median_ms": 1.8254814995088964,
+    "p95_ms": 2.25955200039607,
+    "rss_mb": 84.48046875
+  },
+  "bench_results_small.md|query|users.json $[*].id": {
+    "median_ms": 0.07354750005106325,
+    "p95_ms": 0.08472900026390562,
+    "rss_mb": 81.25
+  },
+  "bench_results_small.md|query|users.json $[*].orders[*].total": {
+    "median_ms": 0.47677250040578656,
+    "p95_ms": 0.5440289996840875,
+    "rss_mb": 81.26171875
+  },
+  "bench_results_small.md|search|users.json $..total": {
+    "median_ms": 18.809484499342943,
+    "p95_ms": 22.73091899951396,
+    "rss_mb": 84.8515625
+  },
+  "bench_results_small.md|search|users.json $[*].id": {
+    "median_ms": 3.3477359997959866,
+    "p95_ms": 3.382187999704911,
+    "rss_mb": 81.26171875
+  },
+  "bench_results_small.md|search|users.json $[*].orders[*].total": {
+    "median_ms": 3.6412254999049765,
+    "p95_ms": 3.7033170001450344,
+    "rss_mb": 81.28515625
+  }
+}

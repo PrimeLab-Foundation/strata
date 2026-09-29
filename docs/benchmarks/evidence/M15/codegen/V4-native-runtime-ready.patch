@@ -1,0 +1,68 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index ddca1a6..d104006 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -267,7 +267,18 @@ class Serializer {
+         if (PyDict_Check(object))
+             return write_mapping(object);
+ 
+-        return write_native(object);
++        // The native tail runs once the module init armed it (always, after a
++        // successful import). A load, not a call: the unsupported-type block
++        // keeps the shape it has without native types.
++        if (native::g_runtime_ready)
++            return write_native(object);
++#if defined(STRATA_DUMPS_HOOK)
++        return write_unsupported(object);
++#else
++        PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
++                     Py_TYPE(object)->tp_name);
++        return false;
++#endif
+     }
+ 
+ #if defined(STRATA_DUMPS_HOOK)
+diff --git a/src/strata/bindings/python_native_types.cpp b/src/strata/bindings/python_native_types.cpp
+index 53d5e3f..cf803bb 100644
+--- a/src/strata/bindings/python_native_types.cpp
++++ b/src/strata/bindings/python_native_types.cpp
+@@ -346,12 +346,15 @@ bool intern(PyObject*& slot, const char* text) noexcept {
+ 
+ } // namespace
+ 
++bool g_runtime_ready = false;
++
+ bool prepare_native_runtime() noexcept {
+     // A runtime finalized and initialized again (embedding) runs module init
+     // again: whatever the table held belonged to the finalized runtime and is
+     // dropped, never released.
+     g_table = Table{};
+-    return intern(g_names.datetime_module, "datetime") && intern(g_names.uuid_module, "uuid") &&
++    g_runtime_ready = false;
++    g_runtime_ready = intern(g_names.datetime_module, "datetime") && intern(g_names.uuid_module, "uuid") &&
+            intern(g_names.decimal_module, "decimal") && intern(g_names.enum_module, "enum") &&
+            intern(g_names.dataclasses_module, "dataclasses") &&
+            intern(g_names.numpy_module, "numpy") &&
+@@ -365,6 +368,7 @@ bool prepare_native_runtime() noexcept {
+            intern(g_names.utcoffset, "utcoffset") && intern(g_names.item, "item") &&
+            intern(g_names.tolist, "tolist") && intern(g_names.dtype, "dtype") &&
+            intern(g_names.kind, "kind");
++    return g_runtime_ready;
+ }
+ 
+ size_t format_pure_leaf(PyObject* object, char* out) noexcept {
+diff --git a/src/strata/bindings/python_native_types.h b/src/strata/bindings/python_native_types.h
+index a87d79d..53bc8ea 100644
+--- a/src/strata/bindings/python_native_types.h
++++ b/src/strata/bindings/python_native_types.h
+@@ -63,6 +63,10 @@ enum class Kind : uint8_t {
+  */
+ [[nodiscard]] bool prepare_native_runtime() noexcept;
+ 
++/// True once prepare_native_runtime() succeeded in this image; the serializer
++/// reaches its native tail only then.
++extern bool g_runtime_ready;
++
+ /**
+  * Format @p object into @p out (kTextCapacity bytes) when it is a pure leaf:
+  * an exact `datetime`/`date`/`time` whose `tzinfo` is `None` or exactly

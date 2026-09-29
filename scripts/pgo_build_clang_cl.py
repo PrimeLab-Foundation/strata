@@ -7,10 +7,11 @@
   phase 2  rebuild against the merged profile (/clang:-fprofile-use)
            -> gate tests -> verification benchmarks
 
-Both phases run the full gate, as the POSIX and MSVC scripts do: an
-optimized build that fails its tests is worth nothing, and PGO is exactly
-the kind of change that can miscompile. The profile is regenerated from
-scratch every run.
+Both phases run the gate, as the POSIX and MSVC scripts do: an optimized
+build that fails its tests is worth nothing, and PGO is exactly the kind of
+change that can miscompile. Phase 1 runs it with ``--training``, which leaves
+the native-type suites out of the profile; phase 2 runs all of it. The
+profile is regenerated from scratch every run.
 
 Why clang-cl: measured on one commit with three toolchains, MSVC compiles
 the serializer's record and float paths 20-30% slower than clang-cl, which
@@ -213,8 +214,8 @@ def main() -> int:
     )
 
     print("==> PGO: gate tests on the instrumented build", flush=True)
-    for script in ("scripts/cpp_tests.py", "scripts/py_tests.py"):
-        _run([sys.executable, script], extra_env=profile_env)
+    _run([sys.executable, "scripts/cpp_tests.py"], extra_env=profile_env)
+    _run([sys.executable, "scripts/py_tests.py", "--training"], extra_env=profile_env)
 
     raw = _collect_profraw()
     print(f"==> PGO: merging {len(raw)} raw profiles", flush=True)

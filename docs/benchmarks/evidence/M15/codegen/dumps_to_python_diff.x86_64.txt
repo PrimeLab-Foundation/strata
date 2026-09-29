@@ -1,0 +1,2 @@
+# symbol: __ZN6strata8bindings15dumps_to_pythonEP7_objectb
+# instructions: before 468, after 468; diff -0 +0

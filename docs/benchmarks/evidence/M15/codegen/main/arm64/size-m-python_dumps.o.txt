@@ -1,0 +1,23 @@
+Segment : 389672
+	Section (__TEXT, __text): 29040
+	Section (__TEXT, __gcc_except_tab): 996
+	Section (__DATA, __bss): 4 (zerofill)
+	Section (__TEXT, __cstring): 296
+	Section (__DATA, __thread_data): 8
+	Section (__DATA, __thread_vars): 216
+	Section (__DATA, __thread_bss): 80 (zerofill)
+	Section (__DATA, __data): 16
+	Section (__TEXT, __const): 368
+	Section (__DWARF, __debug_loclists): 34883
+	Section (__DWARF, __debug_abbrev): 5196
+	Section (__DWARF, __debug_info): 98157
+	Section (__DWARF, __debug_rnglists): 6123
+	Section (__DWARF, __debug_str_offs): 12184
+	Section (__DWARF, __debug_str): 128783
+	Section (__DWARF, __debug_addr): 7648
+	Section (__DWARF, __debug_names): 36504
+	Section (__LD, __compact_unwind): 2656
+	Section (__DWARF, __debug_line): 21942
+	Section (__DWARF, __debug_line_str): 4565
+	total 389665
+total 389672

@@ -1,0 +1,49 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index ddca1a6..fd59881 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -267,7 +267,15 @@ class Serializer {
+         if (PyDict_Check(object))
+             return write_mapping(object);
+ 
+-        return write_native(object);
++        if (native::maybe_native(type))
++            return write_native(object);
++#if defined(STRATA_DUMPS_HOOK)
++        return write_unsupported(object);
++#else
++        PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
++                     Py_TYPE(object)->tp_name);
++        return false;
++#endif
+     }
+ 
+ #if defined(STRATA_DUMPS_HOOK)
+diff --git a/src/strata/bindings/python_native_types.cpp b/src/strata/bindings/python_native_types.cpp
+index 53d5e3f..90265c6 100644
+--- a/src/strata/bindings/python_native_types.cpp
++++ b/src/strata/bindings/python_native_types.cpp
+@@ -402,6 +402,8 @@ size_t format_pure_leaf(PyObject* object, char* out) noexcept {
+     return 0;
+ }
+ 
++bool maybe_native(PyTypeObject*) noexcept { return true; }
++
+ Kind classify(PyObject* object) {
+     resolve();
+     PyTypeObject* const type = Py_TYPE(object);
+diff --git a/src/strata/bindings/python_native_types.h b/src/strata/bindings/python_native_types.h
+index a87d79d..af1e6ac 100644
+--- a/src/strata/bindings/python_native_types.h
++++ b/src/strata/bindings/python_native_types.h
+@@ -82,6 +82,10 @@ enum class Kind : uint8_t {
+  */
+ [[nodiscard]] Kind classify(PyObject* object);
+ 
++/// Whether @p type may be a native type (V3 codegen screen: an out-of-line
++/// barrier that answers true; the tail's own classification decides).
++[[nodiscard]] bool maybe_native(PyTypeObject* type) noexcept;
++
+ /// True when @p object is a numpy scalar or array (resolved types only). Pure.
+ [[nodiscard]] bool is_numpy(PyObject* object) noexcept;
+ 

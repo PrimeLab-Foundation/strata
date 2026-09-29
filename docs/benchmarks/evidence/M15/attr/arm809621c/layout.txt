@@ -1,0 +1,150 @@
+==== fix: /Users/borysbardysh/PycharmProjects/PrimeLabFoundation/strata/build/evidence/M15/attr/arm809621c/_strata.cpython-314-darwin.so
+  offset   size mod64  symbol
+     ad0    152     0   b::set_cycle_policy(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+     b68   1936    24 * b::dumps_to_python(_object*, bool)
+    12f8  10528    40 * Serializer::write(_object*)
+    3c18     72     8   b::PyRef::~PyRef()
+    3c60    256    16   void std::__1::__destroy_at[abi:nqe210106]<b::SchemaCacheLease::DepthSchemas, 0>(b::SchemaCacheLease::DepthSch
+    3d60   1644    16 * Serializer::write_mapping(_object*)
+    43cc   2288    60 * Serializer::write_string_bytes(char const*, unsigned long)
+    4cbc    808    44   util::find_next_escape(char const*, unsigned long)
+     ...
+    50c4    392    52   b::StagedOutput::overflow(unsigned long)
+    524c   5460    60 * Serializer::write_record_fused(_object*)
+    67a0    156    16 * Serializer::RowLock::~RowLock()
+    683c    408    44   b::SchemaCacheLease::DepthSchemas* std::__1::construct_at[abi:nqe210106]<b::SchemaCacheLease::DepthSchemas, b:
+    69d4    304     4   std::__1::vector<_object*, std::__1::allocator<_object*>>::push_back[abi:nqe210106](_object* const&)
+    6b04     80    52 * Serializer::close_container(_object*)
+    6b54    136     4 * Serializer::Frame::Frame(Serializer&, _object*)
+    6bdc   3708    12 * Serializer::write_scalar_run(_object**, long)
+    7a58   6172     8 * Serializer::write_mapping_body(_object*, long, long)
+    9274     96    36   b::PyRef::operator=(b::PyRef&&)
+     ...
+    9aa4   1024    20   b::load_from_file(char const*, char const*, bool, bool, bool*)
+    9ea4    652    20 * b::dump_to_file(_object*, char const*)
+    a130    772    32   b::load_from_folder(char const*, bool, bool)
+     ...
+   2ee78    224    40   std::__1::vector<JsonValue const*, std::__1::allocator<JsonValue const*>>::push_back[abi:nqe210106](JsonValue 
+   2ef58   4080     8 * util::format_double(double, char*, unsigned long)
+   2ff48    664    56 * util::detail::write_digits_fixed(unsigned long long, char*, unsigned long)
+   301e0    288    16   util::path_exists(std::__1::basic_string_view<char, std::__1::char_traits<char>>)
+     ...
+   33c48    124    56   b::rawdict::compact_general_exact_unchecked(_object*, b::rawdict::Entry*)
+   33cc4    588    52 * Serializer::write_native(_object*)
+   33f10     20     0   std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::__throw_length_error[abi
+     ...
+   33f98     40     8   std::__throw_bad_array_new_length[abi:nqe210106]()
+   33fc0    180    48 * Serializer::latch()
+   34074    164    36 * Serializer::compact_general_exact(_object*)
+   34118   1104     8 * Serializer::grow_schemas(unsigned long)
+   34568      0    24   std::__1::vector<StreamSearchHandler<b::PythonMatchSink>::Level, std::__1::allocator<StreamSearchHandler<b::Py
+     ...
+   34568     20    24   std::__1::vector<unsigned int, std::__1::allocator<unsigned int>>::__throw_length_error[abi:nqe210106]()
+   3457c    224    44 * Serializer::emit_cycle_placeholder()
+   3465c    224    12 * Serializer::Frame::handle_cycle() const
+   3473c    164    44 * Serializer::compact_general_holes(_object*)
+   347e0    512    16 * Serializer::write_mapping_uncached(_object*)
+   349e0    968    16 * Serializer::build_schema(b::SchemaCacheLease::DepthSchemas&, unsigned long)
+   34da8    184    24 * Serializer::write_native_text(char const*, long)
+   34e60    204    16 * Serializer::write_decimal(_object*)
+   34f2c    516    28 * Serializer::write_enum(_object*)
+   35130    704    32 * Serializer::write_dataclass(_object*)
+   353f0    656    32 * Serializer::write_set(_object*)
+   35680    628    48 * Serializer::write_set_table(_object*)
+   358f4     32    36   thread-local wrapper routine for b::SchemaCacheLease::busy_
+
+-- calls from Serializer::write(_object*) (10528 B)
+     1  _PyErr_Format
+     2  _PyErr_Occurred
+     2  _PyErr_SetString
+     2  _PyLong_AsLongLongAndOverflow
+     2  _PyObject_Str
+     1  _PyType_IsSubtype
+     3  _PyUnicode_AsUTF8AndSize
+     7  __Py_Dealloc
+     1  __Unwind_Resume
+    12  ___clang_call_terminate
+     1  __tlv_atexit
+    13  _memcpy
+     3  operator delete(void*)
+     3  operator new(unsigned long)
+    10  std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::append(char const*, unsi
+     1  std::__1::vector<JsonValue const*, std::__1::allocator<JsonValue const*>>::__throw_length_error[abi:nqe210106]
+     1  std::__throw_bad_array_new_length[abi:nqe210106]()
+     1  append_escaped_json_string(std::__1::basic_string_view<char, std::__1::char_traits<char>>, std::__1::basic_str
+     1  Serializer::Frame::Frame(Serializer&, _object*)
+     1  Serializer::Frame::handle_cycle() const
+     1  Serializer::Frame::handle_cycle() const [tail]
+     5  Serializer::close_container(_object*)
+     1  Serializer::emit_cycle_placeholder() [tail]
+     2  Serializer::latch()
+     4  Serializer::write(_object*)
+     1  Serializer::write_mapping(_object*) [tail]
+     1  Serializer::write_native(_object*) [tail]
+     2  Serializer::write_record_fused(_object*)
+     1  Serializer::write_record_fused(_object*) [tail]
+     4  Serializer::write_scalar_run(_object**, long)
+     2  Serializer::write_string_bytes(char const*, unsigned long)
+     2  b::PyRef::~PyRef()
+    28  b::StagedOutput::overflow(unsigned long)
+     1  util::find_next_escape(char const*, unsigned long)
+     1  util::format_double(double, char*, unsigned long)
+-- calls from Serializer::write_string_bytes(char const*, unsigned long) (2288 B)
+     1  __tlv_atexit
+     4  _memcpy
+     5  std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::append(char const*, unsi
+     1  std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::append(char const*, unsi
+     1  append_escaped_json_string(std::__1::basic_string_view<char, std::__1::char_traits<char>>, std::__1::basic_str
+     5  b::StagedOutput::overflow(unsigned long)
+     1  util::find_next_escape(char const*, unsigned long)
+-- calls from Serializer::write_record_fused(_object*) (5460 B)
+     2  _PyDict_Next
+     4  _PyErr_Format
+     2  _PyErr_SetString
+     4  __Py_Dealloc
+     1  __Unwind_Resume
+     7  ___clang_call_terminate
+     4  _memcpy
+     4  operator delete(void*)
+     4  operator new(unsigned long)
+     3  std::__1::vector<JsonValue const*, std::__1::allocator<JsonValue const*>>::__throw_length_error[abi:nqe210106]
+     3  std::__throw_bad_array_new_length[abi:nqe210106]()
+     2  Serializer::Frame::handle_cycle() const
+     2  Serializer::RowLock::~RowLock()
+     3  Serializer::close_container(_object*)
+     1  Serializer::compact_general_exact(_object*)
+     2  Serializer::compact_general_holes(_object*)
+     1  Serializer::grow_schemas(unsigned long)
+     2  Serializer::write(_object*)
+     1  Serializer::write_mapping(_object*) [tail]
+     4  Serializer::write_mapping_body(_object*, long, long)
+     2  Serializer::write_mapping_uncached(_object*)
+     5  b::StagedOutput::overflow(unsigned long)
+-- calls from Serializer::write_scalar_run(_object**, long) (3708 B)
+     1  _PyErr_Clear
+     1  _PyErr_Occurred
+     1  _PyLong_AsLongLongAndOverflow
+     7  b::StagedOutput::overflow(unsigned long)
+     1  util::format_double(double, char*, unsigned long)
+-- calls from Serializer::write_mapping_body(_object*, long, long) (6172 B)
+     1  _PyUnicode_AsUTF8AndSize
+     8  __Py_Dealloc
+     1  __Unwind_Resume
+     3  ___clang_call_terminate
+     1  __tlv_atexit
+    10  _memcpy
+     2  _memmove
+     2  operator delete(void*)
+     2  operator new(unsigned long)
+     9  std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>::append(char const*, unsi
+     1  std::__1::vector<JsonValue const*, std::__1::allocator<JsonValue const*>>::__throw_length_error[abi:nqe210106]
+     1  append_escaped_json_string(std::__1::basic_string_view<char, std::__1::char_traits<char>>, std::__1::basic_str
+     2  Serializer::RowLock::~RowLock()
+     1  Serializer::build_schema(b::SchemaCacheLease::DepthSchemas&, unsigned long)
+     1  Serializer::grow_schemas(unsigned long)
+     5  Serializer::write(_object*)
+     1  Serializer::write_mapping_uncached(_object*) [tail]
+     1  Serializer::write_string_bytes(char const*, unsigned long)
+    15  b::StagedOutput::overflow(unsigned long)
+     1  util::find_next_escape(char const*, unsigned long)
+

@@ -1,0 +1,4 @@
+A 38eaa9f f1ca824fba2026cae3f2542f2575edf4  arms/A.so
+A2 38eaa9f f1ca824fba2026cae3f2542f2575edf4  arms/A2.so
+B afd1550 e45b39696abae0cb27480813106a18a5  arms/B.so
+B_held afd1550 c38dd21fa77489392f076d68debb759a  arms/B_held.so

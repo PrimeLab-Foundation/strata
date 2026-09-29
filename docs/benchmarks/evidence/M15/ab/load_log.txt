@@ -1,0 +1,64 @@
+== held-AB before 2026-09-28 21:48:25
+21:48  up 10 days,  8:56, 1 user, load averages: 2.64 4.67 4.99
+  PID  %CPU COMM
+27223  38.1 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   7.5 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  646   4.5 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+14861   3.6 claude
+89362   1.9 /Users/borysbardysh/.local/share/claude/versions/2.1.278
+== held-AB after 2026-09-28 21:59:22
+21:59  up 10 days,  9:07, 1 user, load averages: 3.85 4.25 4.50
+  PID  %CPU COMM
+27223  28.7 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793  11.9 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  646   5.7 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+78101   3.0 claude
+25306   2.5 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+== AA-1 before 2026-09-28 22:00:12
+22:00  up 10 days,  9:07, 1 user, load averages: 2.70 3.90 4.36
+  PID  %CPU COMM
+27223  32.8 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+  825  13.6 /usr/libexec/searchpartyd
+82312   9.8 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+14861   9.5 claude
+37793   6.7 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+== AA-1 after 2026-09-28 22:11:06
+22:11  up 10 days,  9:18, 1 user, load averages: 3.88 3.49 3.79
+  PID  %CPU COMM
+27223  31.3 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   5.8 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+14861   1.5 claude
+  888   1.5 /usr/libexec/nsurlsessiond
+  587   1.2 /System/Library/CoreServices/powerd.bundle/powerd
+== own-AB before 2026-09-28 22:11:51
+22:11  up 10 days,  9:19, 1 user, load averages: 2.88 3.28 3.70
+  PID  %CPU COMM
+10618 117.0 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+53480  80.4 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+14224  10.7 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService
+14225   8.3 /System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTEncoderXPCService.xpc/Contents/MacOS/VTEncoderXPCService
+37793   6.8 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+== own-AB after 2026-09-28 22:23:06
+22:23  up 10 days,  9:30, 1 user, load averages: 3.25 3.58 3.77
+  PID  %CPU COMM
+53480  35.2 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   9.3 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  646   3.6 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+ 2443   3.4 /Applications/JetBrains Toolbox.app/Contents/MacOS/jetbrains-toolbox
+82312   1.0 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+== AA-2 before 2026-09-28 22:23:27
+22:23  up 10 days,  9:31, 1 user, load averages: 2.91 3.48 3.73
+  PID  %CPU COMM
+53480  37.2 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   8.1 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+82312   8.0 /Users/borysbardysh/.local/share/claude/versions/2.1.282
+25306   6.8 /Users/borysbardysh/.local/share/claude/versions/2.1.283
+14861   6.7 claude
+== AA-2 after 2026-09-28 22:34:46
+22:34  up 10 days,  9:42, 1 user, load averages: 2.99 3.62 3.69
+  PID  %CPU COMM
+10618  57.5 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd
+53480  34.6 /Library/Frameworks/Python.framework/Versions/3.12/Resources/Python.app/Contents/MacOS/Python
+37793   4.8 /Users/borysbardysh/Applications/PyCharm.app/Contents/MacOS/pycharm
+  888   2.0 /usr/libexec/nsurlsessiond
+  830   1.8 /System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN

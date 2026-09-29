@@ -1,0 +1,40 @@
+    65.17%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.4602079393583410756]                -      -            
+    29.66%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                                     -      -            
+     3.79%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.4602079393583410756] [clone .cold]  -      -            
+     0.07%  [.] _Py_dict_lookup                                                                                                       -      -            
+     0.07%  [.] _PyEval_EvalFrameDefault.cold                                                                                         -      -            
+     0.06%  [.] PyObject_Malloc                                                                                                       -      -            
+     0.06%  [.] __tls_get_addr                                                                                                        -      -            
+     0.06%  [.] deduce_unreachable                                                                                                    -      -            
+     0.05%  [.] gc_collect_main                                                                                                       -      -            
+     0.05%  [k] 0xffffffffabd2c39c                                                                                                    -      -            
+     0.04%  [.] _Py_HashBytes                                                                                                         -      -            
+     0.03%  [k] 0xfffffffface2f9e7                                                                                                    -      -            
+     0.03%  [.] scanstring_unicode                                                                                                    -      -            
+     0.03%  [k] 0xfffffffface49529                                                                                                    -      -            
+     0.02%  [.] PyObject_Free                                                                                                         -      -            
+     0.02%  [.] _Py_dg_strtod                                                                                                         -      -            
+     0.02%  [.] visit_decref                                                                                                          -      -            
+     0.02%  [.] dict_dealloc                                                                                                          -      -            
+     0.02%  [.] list_dealloc                                                                                                          -      -            
+     0.02%  [.] list_traverse                                                                                                         -      -            
+     0.02%  [.] scan_once_unicode                                                                                                     -      -            
+     0.02%  [.] visit_reachable                                                                                                       -      -            
+     0.01%  [.] PyDict_SetItem                                                                                                        -      -            
+     0.01%  [.] _PyCode_Quicken                                                                                                       -      -            
+     0.01%  [.] dict_traverse                                                                                                         -      -            
+     0.01%  [.] initialize_locals                                                                                                     -      -            
+     0.01%  [.] unicode_dealloc                                                                                                       -      -            
+     0.01%  [.] PyBytes_FromStringAndSize                                                                                             -      -            
+     0.01%  [.] PyDict_SetDefault                                                                                                     -      -            
+     0.01%  [.] PyFloat_FromString                                                                                                    -      -            
+     0.01%  [.] PyLong_FromString                                                                                                     -      -            
+     0.01%  [.] PyObject_GC_Del                                                                                                       -      -            
+     0.01%  [.] PyUnicode_Substring                                                                                                   -      -            
+     0.01%  [.] _Py_hashtable_get                                                                                                     -      -            
+     0.01%  [.] cfree                                                                                                                 -      -            
+     0.01%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                                     -      -            
+     0.01%  [.] tupledealloc                                                                                                          -      -            
+     0.01%  [.] type_ready                                                                                                            -      -            
+     0.01%  [.] update_one_slot                                                                                                       -      -            
+     0.01%  [k] 0xffffffffac09e37a                                                                                                    -      -            

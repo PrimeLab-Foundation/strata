@@ -1,0 +1,40 @@
+    61.59%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.1215866016215776345]  -      -            
+    37.38%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                       -      -            
+     0.17%  [.] _PyEval_EvalFrameDefault                                                                                -      -            
+     0.04%  [.] _Py_dict_lookup                                                                                         -      -            
+     0.03%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                       -      -            
+     0.03%  [.] PyObject_Malloc                                                                                         -      -            
+     0.02%  [.] 0x000000000000052c                                                                                      -      -            
+     0.02%  [.] PyDict_GetItemWithError                                                                                 -      -            
+     0.02%  [.] PyObject_Free                                                                                           -      -            
+     0.01%  [.] initialize_locals                                                                                       -      -            
+     0.01%  [.] 0x00000000000941bc                                                                                      -      -            
+     0.01%  [.] _Py_NewReference                                                                                        -      -            
+     0.01%  [.] deduce_unreachable                                                                                      -      -            
+     0.01%  [.] scan_once_unicode                                                                                       -      -            
+     0.01%  [.] hashtable_unicode_compare                                                                               -      -            
+     0.01%  [.] PyDict_SetItem                                                                                          -      -            
+     0.01%  [k] 0xffffbe684bbea0ac                                                                                      -      -            
+     0.01%  [.] _PyDict_GetItem_KnownHash                                                                               -      -            
+     0.01%  [.] _Py_HashBytes                                                                                           -      -            
+     0.01%  [.] 0x0000000000095340                                                                                      -      -            
+     0.01%  [.] cfree                                                                                                   -      -            
+     0.01%  [.] PyFloat_FromDouble                                                                                      -      -            
+     0.01%  [.] (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*)                          -      -            
+     0.01%  [.] strcmp                                                                                                  -      -            
+     0.01%  [.] visit_decref                                                                                            -      -            
+     0.01%  [.] visit_reachable                                                                                         -      -            
+     0.01%  [.] scanstring_unicode                                                                                      -      -            
+     0.01%  [k] 0xffffbe684bbea638                                                                                      -      -            
+     0.01%  [.] PyUnicode_FromWideChar                                                                                  -      -            
+     0.01%  [.] update_one_slot                                                                                         -      -            
+     0.01%  [.] _PyObject_InitializeDict                                                                                -      -            
+     0.01%  [k] 0xffffbe684aafe2f8                                                                                      -      -            
+     0.01%  [.] insertdict                                                                                              -      -            
+     0.00%  [.] 0x000000000000051c                                                                                      -      -            
+     0.00%  [.] cfunction_vectorcall_NOARGS                                                                             -      -            
+     0.00%  [.] _PyTime_AsSecondsDouble                                                                                 -      -            
+     0.00%  [.] clock_gettime@plt                                                                                       -      -            
+     0.00%  [.] 0x0000000000000520                                                                                      -      -            
+     0.00%  [.] 0x0000000000092bd4                                                                                      -      -            
+     0.00%  [.] PyObject_Vectorcall                                                                                     -      -            

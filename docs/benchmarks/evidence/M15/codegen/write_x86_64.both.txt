@@ -1,0 +1,371 @@
+=== main x86_64
+0000000000000940 <S::write>:
+940:      	pushq	%r14
+942:      	pushq	%rbx
+943:      	subq	$0x18, %rsp
+947:      	movq	0x8(%rsi), %rax
+94b:      	cmpq	(%rip), %rax            ## 0x952 <S::write+0x12>  @	_PyUnicode_Type@GOTPCREL
+952:      	je	0xa0b <S::write+0xcb>
+958:      	cmpq	(%rip), %rax            ## 0x95f <S::write+0x1f>  @	_PyFloat_Type@GOTPCREL
+95f:      	je	0xa26 <S::write+0xe6>
+965:      	cmpq	(%rip), %rax            ## 0x96c <S::write+0x2c>  @	_PyLong_Type@GOTPCREL
+96c:      	je	0xbd1 <S::write+0x291>
+972:      	cmpq	(%rip), %rax            ## 0x979 <S::write+0x39>  @	_PyDict_Type@GOTPCREL
+979:      	je	0xade <S::write+0x19e>
+97f:      	cmpq	(%rip), %rax            ## 0x986 <S::write+0x46>  @	_PyList_Type@GOTPCREL
+986:      	je	0xbc2 <S::write+0x282>
+98c:      	cmpq	(%rip), %rsi            ## 0x993 <S::write+0x53>  @	__Py_NoneStruct@GOTPCREL
+993:      	je	0xb0a <S::write+0x1ca>
+999:      	cmpq	(%rip), %rsi            ## 0x9a0 <S::write+0x60>  @	__Py_TrueStruct@GOTPCREL
+9a0:      	setne	%cl
+9a3:      	cmpq	(%rip), %rsi            ## 0x9aa <S::write+0x6a>  @	__Py_FalseStruct@GOTPCREL
+9aa:      	setne	%dl
+9ad:      	testb	%dl, %cl
+9af:      	jne	0xb3f <S::write+0x1ff>
+9b5:      	movq	(%rdi), %rax
+9b8:      	movq	0x38(%rax), %rcx
+9bc:      	addq	$0x5, %rcx
+9c0:      	cmpq	0x18(%rax), %rcx
+9c4:      	jbe	0x9df <S::write+0x9f>
+9c6:      	movq	%rsi, %rbx
+9c9:      	movl	$0x5, %esi
+9ce:      	movq	%rdi, %r14
+9d1:      	movq	%rax, %rdi
+9d4:      	callq	0x9d9 <S::write+0x99>  @	__ZN6strata8bindings12StagedOutput8overflowEm
+9d9:      	movq	%rbx, %rsi
+9dc:      	movq	%r14, %rdi
+9df:      	movq	(%rdi), %rax
+9e2:      	movq	0x10(%rax), %rcx
+9e6:      	addq	0x38(%rax), %rcx
+9ea:      	cmpq	(%rip), %rsi            ## 0x9f1 <S::write+0xb1>  @	__Py_TrueStruct@GOTPCREL
+9f1:      	je	0xb91 <S::write+0x251>
+9f7:      	movb	$0x65, 0x4(%rcx)
+9fb:      	movl	$0x736c6166, (%rcx)     ## imm = 0x736C6166
+a01:      	addq	$0x5, 0x38(%rax)
+a06:      	jmp	0xad2 <S::write+0x192>
+a0b:      	movl	0x20(%rsi), %eax
+a0e:      	notl	%eax
+a10:      	testb	$0x60, %al
+a12:      	jne	0xa8b <S::write+0x14b>
+a14:      	movq	0x10(%rsi), %rdx
+a18:      	addq	$0x28, %rsi
+a1c:      	callq	0xa21 <S::write+0xe1>  @	S::18write_string_bytesEPKcm
+a21:      	jmp	0xad2 <S::write+0x192>
+a26:      	vmovq	0x10(%rsi), %xmm0
+a2b:      	movq	(%rdi), %rbx
+a2e:      	movq	0x38(%rbx), %rax
+a32:      	leaq	0x28(%rax), %rcx
+a36:      	cmpq	0x18(%rbx), %rcx
+a3a:      	jbe	0xa5f <S::write+0x11f>
+a3c:      	movl	$0x28, %esi
+a41:      	movq	%rdi, %r14
+a44:      	movq	%rbx, %rdi
+a47:      	vmovq	%xmm0, 0x10(%rsp)
+a4d:      	callq	0xa52 <S::write+0x112>  @	__ZN6strata8bindings12StagedOutput8overflowEm
+a52:      	vmovq	0x10(%rsp), %xmm0
+a58:      	movq	(%r14), %rbx
+a5b:      	movq	0x38(%rbx), %rax
+a5f:      	movb	$0x3f, %cl
+a61:      	vmovq	%xmm0, %rdx
+a66:      	bzhiq	%rcx, %rdx, %rcx
+a6b:      	addq	0x10(%rbx), %rax
+a6f:      	movabsq	$0x7ff0000000000000, %rdx ## imm = 0x7FF0000000000000
+a79:      	cmpq	%rdx, %rcx
+a7c:      	jl	0xac1 <S::write+0x181>
+a7e:      	movl	$0x6c6c756e, (%rax)     ## imm = 0x6C6C756E
+a84:      	movl	$0x4, %eax
+a89:      	jmp	0xace <S::write+0x18e>
+a8b:      	movq	%rdi, %r14
+a8e:      	movq	$0x0, 0x8(%rsp)
+a97:      	leaq	0x8(%rsp), %rax
+a9c:      	movq	%rsi, %rdi
+a9f:      	movq	%rax, %rsi
+aa2:      	callq	0xaa7 <S::write+0x167>  @	_PyUnicode_AsUTF8AndSize
+aa7:      	testq	%rax, %rax
+aaa:      	setne	%bl
+aad:      	je	0xad4 <S::write+0x194>
+aaf:      	movq	0x8(%rsp), %rdx
+ab4:      	movq	%r14, %rdi
+ab7:      	movq	%rax, %rsi
+aba:      	callq	0xabf <S::write+0x17f>  @	S::18write_string_bytesEPKcm
+abf:      	jmp	0xad4 <S::write+0x194>
+ac1:      	movl	$0x28, %esi
+ac6:      	movq	%rax, %rdi
+ac9:      	callq	0xace <S::write+0x18e>  @	__ZN6strata4util13format_doubleEdPcm
+ace:      	addq	%rax, 0x38(%rbx)
+ad2:      	movb	$0x1, %bl
+ad4:      	movl	%ebx, %eax
+ad6:      	addq	$0x18, %rsp
+ada:      	popq	%rbx
+adb:      	popq	%r14
+add:      	retq
+ade:      	movq	0x8(%rdi), %rax
+ae2:      	movq	0x10(%rdi), %rcx
+ae6:      	cmpq	%rcx, %rax
+ae9:      	je	0xafe <S::write+0x1be>
+aeb:      	nopl	(%rax,%rax)
+af0:      	cmpq	%rsi, (%rax)
+af3:      	je	0xb74 <S::write+0x234>
+af5:      	addq	$0x8, %rax
+af9:      	cmpq	%rcx, %rax
+afc:      	jne	0xaf0 <S::write+0x1b0>
+afe:      	addq	$0x18, %rsp
+b02:      	popq	%rbx
+b03:      	popq	%r14
+b05:      	jmp	0xb0a <S::write+0x1ca>  @	S::18write_record_fusedEP7_object
+b0a:      	movq	(%rdi), %rax
+b0d:      	movq	0x38(%rax), %rcx
+b11:      	leaq	0x4(%rcx), %rdx
+b15:      	cmpq	0x18(%rax), %rdx
+b19:      	jbe	0xb32 <S::write+0x1f2>
+b1b:      	movl	$0x4, %esi
+b20:      	movq	%rdi, %rbx
+b23:      	movq	%rax, %rdi
+b26:      	callq	0xb2b <S::write+0x1eb>  @	__ZN6strata8bindings12StagedOutput8overflowEm
+b2b:      	movq	(%rbx), %rax
+b2e:      	movq	0x38(%rax), %rcx
+b32:      	movq	0x10(%rax), %rdx
+b36:      	movl	$0x6c6c756e, (%rdx,%rcx) ## imm = 0x6C6C756E
+b3d:      	jmp	0xb97 <S::write+0x257>
+b3f:      	testb	$0x10, 0xab(%rax)
+b46:      	jne	0xb85 <S::write+0x245>
+b48:      	movq	%rsi, %r14
+b4b:      	movq	%rdi, %rbx
+b4e:      	movq	(%rip), %rsi            ## 0xb55 <S::write+0x215>  @	_PyFloat_Type@GOTPCREL
+b55:      	movq	%rax, %rdi
+b58:      	callq	0xb5d <S::write+0x21d>  @	_PyType_IsSubtype
+b5d:      	testl	%eax, %eax
+b5f:      	je	0xba1 <S::write+0x261>
+b61:      	vmovq	0x10(%r14), %xmm0
+b67:      	movq	%rbx, %rdi
+b6a:      	callq	0xb6f <S::write+0x22f>  @	S::12write_doubleEd
+b6f:      	jmp	0xad2 <S::write+0x192>
+b74:      	cmpq	%rcx, %rax
+b77:      	je	0xafe <S::write+0x1be>
+b79:      	addq	$0x18, %rsp
+b7d:      	popq	%rbx
+b7e:      	popq	%r14
+b80:      	jmp	0xb85 <S::write+0x245>  @	S::13write_mappingEP7_object
+b85:      	addq	$0x18, %rsp
+b89:      	popq	%rbx
+b8a:      	popq	%r14
+b8c:      	jmp	0xb91 <S::write+0x251>  @	S::12write_stringEP7_object
+b91:      	movl	$0x65757274, (%rcx)     ## imm = 0x65757274
+b97:      	addq	$0x4, 0x38(%rax)
+b9c:      	jmp	0xad2 <S::write+0x192>
+ba1:      	movq	%r14, %rsi
+ba4:      	movq	0x8(%r14), %rax
+ba8:      	movq	0xa8(%rax), %rcx
+baf:      	testl	$0x1000000, %ecx        ## imm = 0x1000000
+bb5:      	jne	0xbce <S::write+0x28e>
+bb7:      	testl	$0x6000000, %ecx        ## imm = 0x6000000
+bbd:      	je	0xbdd <S::write+0x29d>
+bbf:      	movq	%rbx, %rdi
+bc2:      	addq	$0x18, %rsp
+bc6:      	popq	%rbx
+bc7:      	popq	%r14
+bc9:      	jmp	0xbce <S::write+0x28e>  @	S::14write_sequenceEP7_object
+bce:      	movq	%rbx, %rdi
+bd1:      	addq	$0x18, %rsp
+bd5:      	popq	%rbx
+bd6:      	popq	%r14
+bd8:      	jmp	0xbdd <S::write+0x29d>  @	S::9write_intEP7_object
+bdd:      	testl	$0x20000000, %ecx       ## imm = 0x20000000
+be3:      	jne	0xc08 <S::write+0x2c8>
+be5:      	movq	(%rip), %rcx            ## 0xbec <S::write+0x2ac>  @	_PyExc_TypeError@GOTPCREL
+bec:      	movq	(%rcx), %rdi
+bef:      	movq	0x18(%rax), %rdx
+bf3:      	leaq	0x6d4a(%rip), %rsi      ## 0x7944 <S::18write_string_bytesEPKcm.cold.1+0x764>  @	__cstring
+bfa:      	xorl	%ebx, %ebx
+bfc:      	xorl	%eax, %eax
+bfe:      	callq	0xc03 <S::write+0x2c3>  @	_PyErr_Format
+c03:      	jmp	0xad4 <S::write+0x194>
+c08:      	movq	%rbx, %rdi
+c0b:      	addq	$0x18, %rsp
+c0f:      	popq	%rbx
+c10:      	popq	%r14
+c12:      	jmp	0xc17 <S::write+0x2d7>  @	S::13write_mappingEP7_object
+c17:      	nopw	(%rax,%rax)
+=== b x86_64
+0000000000000940 <S::write>:
+940:      	pushq	%r14
+942:      	pushq	%rbx
+943:      	subq	$0x18, %rsp
+947:      	movq	0x8(%rsi), %rax
+94b:      	cmpq	(%rip), %rax            ## 0x952 <S::write+0x12>  @	_PyUnicode_Type@GOTPCREL
+952:      	je	0xa0b <S::write+0xcb>
+958:      	cmpq	(%rip), %rax            ## 0x95f <S::write+0x1f>  @	_PyFloat_Type@GOTPCREL
+95f:      	je	0xa26 <S::write+0xe6>
+965:      	cmpq	(%rip), %rax            ## 0x96c <S::write+0x2c>  @	_PyLong_Type@GOTPCREL
+96c:      	je	0xbde <S::write+0x29e>
+972:      	cmpq	(%rip), %rax            ## 0x979 <S::write+0x39>  @	_PyDict_Type@GOTPCREL
+979:      	je	0xae8 <S::write+0x1a8>
+97f:      	cmpq	(%rip), %rax            ## 0x986 <S::write+0x46>  @	_PyList_Type@GOTPCREL
+986:      	je	0xbd2 <S::write+0x292>
+98c:      	cmpq	(%rip), %rsi            ## 0x993 <S::write+0x53>  @	__Py_NoneStruct@GOTPCREL
+993:      	je	0xb1a <S::write+0x1da>
+999:      	cmpq	(%rip), %rsi            ## 0x9a0 <S::write+0x60>  @	__Py_TrueStruct@GOTPCREL
+9a0:      	setne	%cl
+9a3:      	cmpq	(%rip), %rsi            ## 0x9aa <S::write+0x6a>  @	__Py_FalseStruct@GOTPCREL
+9aa:      	setne	%dl
+9ad:      	testb	%dl, %cl
+9af:      	jne	0xb4f <S::write+0x20f>
+9b5:      	movq	(%rdi), %rax
+9b8:      	movq	0x38(%rax), %rcx
+9bc:      	addq	$0x5, %rcx
+9c0:      	cmpq	0x18(%rax), %rcx
+9c4:      	jbe	0x9df <S::write+0x9f>
+9c6:      	movq	%rsi, %rbx
+9c9:      	movl	$0x5, %esi
+9ce:      	movq	%rdi, %r14
+9d1:      	movq	%rax, %rdi
+9d4:      	callq	0x9d9 <S::write+0x99>  @	__ZN6strata8bindings12StagedOutput8overflowEm
+9d9:      	movq	%rbx, %rsi
+9dc:      	movq	%r14, %rdi
+9df:      	movq	(%rdi), %rax
+9e2:      	movq	0x10(%rax), %rcx
+9e6:      	addq	0x38(%rax), %rcx
+9ea:      	cmpq	(%rip), %rsi            ## 0x9f1 <S::write+0xb1>  @	__Py_TrueStruct@GOTPCREL
+9f1:      	je	0xb9e <S::write+0x25e>
+9f7:      	movb	$0x65, 0x4(%rcx)
+9fb:      	movl	$0x736c6166, (%rcx)     ## imm = 0x736C6166
+a01:      	addq	$0x5, 0x38(%rax)
+a06:      	jmp	0xba9 <S::write+0x269>
+a0b:      	movl	0x20(%rsi), %eax
+a0e:      	notl	%eax
+a10:      	testb	$0x60, %al
+a12:      	jne	0xa92 <S::write+0x152>
+a14:      	movq	0x10(%rsi), %rdx
+a18:      	addq	$0x28, %rsi
+a1c:      	callq	0xa21 <S::write+0xe1>  @	S::18write_string_bytesEPKcm
+a21:      	jmp	0xba9 <S::write+0x269>
+a26:      	vmovq	0x10(%rsi), %xmm0
+a2b:      	movq	(%rdi), %rbx
+a2e:      	movq	0x38(%rbx), %rax
+a32:      	leaq	0x28(%rax), %rcx
+a36:      	cmpq	0x18(%rbx), %rcx
+a3a:      	jbe	0xa5f <S::write+0x11f>
+a3c:      	movl	$0x28, %esi
+a41:      	movq	%rdi, %r14
+a44:      	movq	%rbx, %rdi
+a47:      	vmovq	%xmm0, 0x10(%rsp)
+a4d:      	callq	0xa52 <S::write+0x112>  @	__ZN6strata8bindings12StagedOutput8overflowEm
+a52:      	vmovq	0x10(%rsp), %xmm0
+a58:      	movq	(%r14), %rbx
+a5b:      	movq	0x38(%rbx), %rax
+a5f:      	movb	$0x3f, %cl
+a61:      	vmovq	%xmm0, %rdx
+a66:      	bzhiq	%rcx, %rdx, %rcx
+a6b:      	addq	0x10(%rbx), %rax
+a6f:      	movabsq	$0x7ff0000000000000, %rdx ## imm = 0x7FF0000000000000
+a79:      	cmpq	%rdx, %rcx
+a7c:      	jl	0xad2 <S::write+0x192>
+a7e:      	movl	$0x6c6c756e, (%rax)     ## imm = 0x6C6C756E
+a84:      	movl	$0x4, %eax
+a89:      	addq	%rax, 0x38(%rbx)
+a8d:      	jmp	0xba9 <S::write+0x269>
+a92:      	movq	%rdi, %rbx
+a95:      	movq	$0x0, 0x8(%rsp)
+a9e:      	leaq	0x8(%rsp), %rax
+aa3:      	movq	%rsi, %rdi
+aa6:      	movq	%rax, %rsi
+aa9:      	callq	0xaae <S::write+0x16e>  @	_PyUnicode_AsUTF8AndSize
+aae:      	movq	%rax, %rsi
+ab1:      	testq	%rax, %rax
+ab4:      	setne	%al
+ab7:      	je	0xaca <S::write+0x18a>
+ab9:      	movq	0x8(%rsp), %rdx
+abe:      	movq	%rbx, %rdi
+ac1:      	movl	%eax, %ebx
+ac3:      	callq	0xac8 <S::write+0x188>  @	S::18write_string_bytesEPKcm
+ac8:      	movl	%ebx, %eax
+aca:      	addq	$0x18, %rsp
+ace:      	popq	%rbx
+acf:      	popq	%r14
+ad1:      	retq
+ad2:      	movl	$0x28, %esi
+ad7:      	movq	%rax, %rdi
+ada:      	callq	0xadf <S::write+0x19f>  @	__ZN6strata4util13format_doubleEdPcm
+adf:      	addq	%rax, 0x38(%rbx)
+ae3:      	jmp	0xba9 <S::write+0x269>
+ae8:      	movq	0x8(%rdi), %rax
+aec:      	movq	0x10(%rdi), %rcx
+af0:      	cmpq	%rcx, %rax
+af3:      	je	0xb0e <S::write+0x1ce>
+af5:      	nopw	%cs:(%rax,%rax)
+b00:      	cmpq	%rsi, (%rax)
+b03:      	je	0xb81 <S::write+0x241>
+b05:      	addq	$0x8, %rax
+b09:      	cmpq	%rcx, %rax
+b0c:      	jne	0xb00 <S::write+0x1c0>
+b0e:      	addq	$0x18, %rsp
+b12:      	popq	%rbx
+b13:      	popq	%r14
+b15:      	jmp	0xb1a <S::write+0x1da>  @	S::18write_record_fusedEP7_object
+b1a:      	movq	(%rdi), %rax
+b1d:      	movq	0x38(%rax), %rcx
+b21:      	leaq	0x4(%rcx), %rdx
+b25:      	cmpq	0x18(%rax), %rdx
+b29:      	jbe	0xb42 <S::write+0x202>
+b2b:      	movl	$0x4, %esi
+b30:      	movq	%rdi, %rbx
+b33:      	movq	%rax, %rdi
+b36:      	callq	0xb3b <S::write+0x1fb>  @	__ZN6strata8bindings12StagedOutput8overflowEm
+b3b:      	movq	(%rbx), %rax
+b3e:      	movq	0x38(%rax), %rcx
+b42:      	movq	0x10(%rax), %rdx
+b46:      	movl	$0x6c6c756e, (%rdx,%rcx) ## imm = 0x6C6C756E
+b4d:      	jmp	0xba4 <S::write+0x264>
+b4f:      	testb	$0x10, 0xab(%rax)
+b56:      	jne	0xb92 <S::write+0x252>
+b58:      	movq	%rsi, %r14
+b5b:      	movq	%rdi, %rbx
+b5e:      	movq	(%rip), %rsi            ## 0xb65 <S::write+0x225>  @	_PyFloat_Type@GOTPCREL
+b65:      	movq	%rax, %rdi
+b68:      	callq	0xb6d <S::write+0x22d>  @	_PyType_IsSubtype
+b6d:      	testl	%eax, %eax
+b6f:      	je	0xbb3 <S::write+0x273>
+b71:      	vmovq	0x10(%r14), %xmm0
+b77:      	movq	%rbx, %rdi
+b7a:      	callq	0xb7f <S::write+0x23f>  @	S::12write_doubleEd
+b7f:      	jmp	0xba9 <S::write+0x269>
+b81:      	cmpq	%rcx, %rax
+b84:      	je	0xb0e <S::write+0x1ce>
+b86:      	addq	$0x18, %rsp
+b8a:      	popq	%rbx
+b8b:      	popq	%r14
+b8d:      	jmp	0xb92 <S::write+0x252>  @	S::13write_mappingEP7_object
+b92:      	addq	$0x18, %rsp
+b96:      	popq	%rbx
+b97:      	popq	%r14
+b99:      	jmp	0xb9e <S::write+0x25e>  @	S::12write_stringEP7_object
+b9e:      	movl	$0x65757274, (%rcx)     ## imm = 0x65757274
+ba4:      	addq	$0x4, 0x38(%rax)
+ba9:      	movb	$0x1, %al
+bab:      	addq	$0x18, %rsp
+baf:      	popq	%rbx
+bb0:      	popq	%r14
+bb2:      	retq
+bb3:      	movq	%r14, %rsi
+bb6:      	movq	0x8(%r14), %rax
+bba:      	movq	0xa8(%rax), %rax
+bc1:      	movq	%rbx, %rdi
+bc4:      	testl	$0x1000000, %eax        ## imm = 0x1000000
+bc9:      	jne	0xbde <S::write+0x29e>
+bcb:      	testl	$0x6000000, %eax        ## imm = 0x6000000
+bd0:      	je	0xbea <S::write+0x2aa>
+bd2:      	addq	$0x18, %rsp
+bd6:      	popq	%rbx
+bd7:      	popq	%r14
+bd9:      	jmp	0xbde <S::write+0x29e>  @	S::14write_sequenceEP7_object
+bde:      	addq	$0x18, %rsp
+be2:      	popq	%rbx
+be3:      	popq	%r14
+be5:      	jmp	0xbea <S::write+0x2aa>  @	S::9write_intEP7_object
+bea:      	testl	$0x20000000, %eax       ## imm = 0x20000000
+bef:      	jne	0xb86 <S::write+0x246>
+bf1:      	addq	$0x18, %rsp
+bf5:      	popq	%rbx
+bf6:      	popq	%r14
+bf8:      	jmp	0xbfd <S::write+0x2bd>  @	S::12write_nativeEP7_object
+bfd:      	nopl	(%rax)

@@ -1,0 +1,34 @@
+M15 (native types) -- admission microbenchmark, import check, facade keyword cost, 2026-09-28
+22:36-22:38, same host/toolchain as ../ab/PROVENANCE.txt. Load readings: load_log.txt.
+
+Venvs: B = ~/worktrees/strata/m15-pgo/.venv (ad04f61 facade, armBown2 installed, so 8a399ba845bd);
+A = ~/worktrees/strata/main-pgo/.venv (38eaa9f facade, armA2 installed, so 1a9c29ccda03). Both had the
+same 28 packages until numpy 2.5.3 was installed into both AFTER the import timing (for admission.py).
+
+import_abba.py (hot-path item 6)
+  60 rounds x A B B A fresh interpreters, cwd a temp dir, `import strata` timed in-process
+  (perf_counter_ns) and as launch wall; round effect (B1+B2)/(A1+A2)-1, median + 10 000-resample
+  bootstrap over rounds. Runs: import_abba (A/B), import_aa_A (A/A on A's venv), import_aa_B (A/A on
+  B's venv), import_abba2 (A/B repeat); each .tsv beside its .txt. Load 2.75 -> 2.29 over the four runs.
+  sys.modules check printed by import_abba.txt; sysmodules_numpy_installed.txt repeats it for B with
+  numpy importable.
+
+admission.py / run_micro.sh / analyze_micro.py
+  Launch order N H H N N H H N (N = native arm in B's venv: strata.dumps(lst, return_type="bytes") and
+  strata.dumps_with_default(lst, counting ref); H = hook arm in A's venv: dumps_with_default(lst, ref)).
+  lst = [x]*1000; 41 repeats per launch per engine (164 samples per arm per engine), each a ~3 ms
+  batch, gc.collect() before each batch, engine order rotated per repeat; orjson 3.12.0 in every
+  process (OPT_SERIALIZE_NUMPY for numpy kinds) for the cross-process normalisation ("norm").
+  References: isoformat() (datetime/date/time), str (UUID), float (Decimal -- the only hook spelling
+  that yields a JSON number; byte-identical for 12345.6789), .value (Enum), {f.name: getattr} over
+  dataclasses.fields (dataclass), list (set), .item() (numpy scalar), .tolist() (ndarray).
+  Output bytes: native == hook for all 13 kinds (sha256 in admission.meta.txt); orjson identical except
+  np-float32 (0.1 vs 0.10000000149011612) and not run for decimal/set10. B's dumps_with_default called
+  ref 0 times for every kind. Table: admission_table.txt. Load 2.20 -> 3.38.
+
+facade_kw.py: B's venv, same .so, ad04f61's strata.loads (3 keywords) vs main's facade body (2
+  keywords), 61 alternating repeats; facade_kw.txt. Load 3.40 at start (above 3, not waited for;
+  the run took about one second).
+
+State left behind: m15-pgo worktree at ad04f61 with armBown2 installed; main-pgo target restored to
+armA2; numpy 2.5.3 installed in both venvs.

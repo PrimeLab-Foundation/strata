@@ -1,0 +1,40 @@
+M15 (native types) -- pinned local A/B, 2026-09-28 21:43-22:35, dev M1 (arm64, macOS 26 / Darwin
+25.6.0), Apple clang 21.0.0 (clang-2100.1.1.101), CPython 3.14.7 (Homebrew), orjson 3.12.0. Shared
+machine: the user's own process (PID 27223, Python 3.12 `prismlm.phase2.engine`, ~33% CPU) and
+PyCharm ran throughout; nothing was killed. Load before/after every session: load_log.txt.
+
+Arms (_strata .so + *.build.json in ../<arm>/; __text = `size -m` Section __text)
+  armA       main 38eaa9f, own `make pgo` (earlier run); profile 7703c629...; __text 222564; so 59160ce85403
+  armA2      main 38eaa9f, `make pgo` again; same profile; __text 222564 (non-__DWARF identical to armA)
+  armBheld2  ad04f61, phase 2 only against armA's profile (../build_held.sh, copy in ../armBheld2/);
+             gate 3553 passed 4 skipped, ctest 16/16; __text 268884; so 68b61083156e. Six clang
+             "function control flow change detected (hash mismatch)" warnings (../armBheld2/hash_mismatch.txt):
+             Serializer::write (up to 6447184 counts discarded), strata_loads (489178), strata_load,
+             strata_query, strata_search, PyInit__strata. So B-held compiles write() WITHOUT profile.
+  armBown2   ad04f61, `make pgo` in ~/worktrees/strata/m15-pgo (log ../armBown2/make_pgo.log); gates
+             3186 passed 2 skipped (phase 1) and 3558 passed 2 skipped (phase 2), ctest 16/16;
+             profile 915c7c1d...; __text 242848; so 8a399ba845bd.
+
+Driver: run_ab.sh -> `make probe-ab-rows` in ~/worktrees/strata/main-pgo (facade 38eaa9f). Main's
+_strata rejects `parse_types` (TypeError), which ad04f61's facade always passes, so both arms run under
+main's facade; the facade's own extra-keyword cost is measured separately (../micro/facade_kw.txt).
+Rows (26): small {users,flat,nested,wide_arrays,mixed} x {dumps,loads,load,dump} + small users ndload
++ medium {users,flat,nested,wide_arrays,mixed} dumps. query/search are not in the driver.
+6 ABBA blocks + trailing A, repeat 60 per engine per launch. Target restored after every session
+(main-pgo _strata sha256 1a9c29ccda03 = armA2, checked after each).
+
+Sessions (in order; load 1/5/15 min before -> after)
+  held_ab.tsv  A=armA B=armBheld2  21:48-21:59  2.64/4.67/4.99 -> 3.85/4.25/4.50
+  aa1.tsv      A=armA B=armA2      22:00-22:11  2.70/3.90/4.36 -> 3.88/3.49/3.79
+  own_ab.tsv   A=armA B=armBown2   22:11-22:23  2.88/3.28/3.70 -> 3.25/3.58/3.77
+  aa2.tsv      A=armA B=armA2      22:23-22:34  2.91/3.48/3.73 -> 2.99/3.62/3.69
+Every session started at 1-min load <= 3 (waits of 0-60 s); none ran past the 30-min limit.
+
+Analysis: benchmarks/ab_blocks.py <tsv> --aa <aa tsv> --json (run from main-pgo):
+  held_ab.aa1.analysis.{txt,json}, held_ab.aa2.analysis.*, own_ab.aa1.analysis.*, own_ab.aa2.analysis.*,
+  aa2.aa1.analysis.* (A/A vs A/A: max canonical +0.84%, nothing past floor).
+summarize.py <json> flags: past floor = |effect| > A/A floor; resolved = past floor and CI excludes 0.
+
+Symbol sizes: ../symbols/symbol_table.py -> ../symbols/symbol_table.txt (every __text symbol of
+armA/armA2/armBheld2/armBown2, size = distance to next symbol; `bl`/tail-`b` targets of
+Serializer::write per arm).

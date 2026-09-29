@@ -80,6 +80,9 @@ integrations = [
   # 0.100–0.110's TestClient passes (the floors leg holds 0.25.1).
   "httpx>=0.25.1",
   "structlog>=20.2",
+  # The native-types differential (docs/architecture/native_types.md, rows 1-4
+  # and 6); a comparison target here, never a dependency of strata itself.
+  "orjson>=3.10",
 ]
 
 [project.urls]

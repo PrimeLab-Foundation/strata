@@ -36,6 +36,13 @@ namespace strata::bindings {
 
 namespace {
 
+// The reader half of folder mode (load/search) is not compiled into
+// `strata._dumps_hook`, which serves `dump_native` only
+// (docs/architecture/native_types.md, "Flag shape (M15b)"): it would need
+// `search_file`/`compile_expression` from python_jsonpath.cpp, not linked
+// into that image.
+#if !defined(STRATA_DUMPS_HOOK)
+
 /// Discover, or set a Python exception and return false.
 [[nodiscard]] bool discover(const char* directory, std::vector<std::string>& files) {
     auto found = util::discover_json_files(directory);
@@ -170,6 +177,8 @@ PyObject* folder_iterator_next(PyObject* self) {
     self->skip_errors = skip_errors;
     return reinterpret_cast<PyObject*>(self);
 }
+
+#endif // !defined(STRATA_DUMPS_HOOK)
 
 // ---------------------------------------------------------------------------
 // dump(records, dir, split_by=...)
@@ -374,6 +383,8 @@ struct Group {
 
 } // namespace
 
+#if !defined(STRATA_DUMPS_HOOK)
+
 PyObject* load_from_folder(const char* directory, bool iterator, bool skip_errors) {
     std::vector<std::string> files;
     if (!discover(directory, files))
@@ -391,6 +402,8 @@ PyObject* load_from_folder(const char* directory, bool iterator, bool skip_error
     }
     return records.release();
 }
+
+#endif // !defined(STRATA_DUMPS_HOOK)
 
 PyObject* dump_to_folder(PyObject* records, const char* directory, PyObject* split_by) {
     if (!PyList_Check(records)) {
@@ -419,6 +432,8 @@ PyObject* dump_to_folder(PyObject* records, const char* directory, PyObject* spl
     }
     Py_RETURN_NONE;
 }
+
+#if !defined(STRATA_DUMPS_HOOK)
 
 PyObject* search_folder(const char* directory, PyObject* expression, bool iterator) {
     std::vector<std::string> files;
@@ -460,5 +475,7 @@ bool register_folder_iterator_type(PyObject* module) {
     (void)module; // instances only ever come from load()/search()
     return true;
 }
+
+#endif // !defined(STRATA_DUMPS_HOOK)
 
 } // namespace strata::bindings

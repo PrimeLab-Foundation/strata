@@ -1,0 +1,189 @@
+== supportability (linux-arm64) (job 109466334170)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2406633Z .data                            4741f7805d4d501d 4741f7805d4d501d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2407327Z .data.rel.ro                     1e925ac6d527636d 1e925ac6d527636d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2407819Z .dynamic                         9d62dd7ac677227d 9d62dd7ac677227d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2408207Z .dynstr                          015c4778a45ee1db 015c4778a45ee1db identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2408586Z .dynsym                          043450d7ce2ffbbf 043450d7ce2ffbbf identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2408963Z .eh_frame                        99ac00466a1ca54c 99ac00466a1ca54c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2409373Z .eh_frame_hdr                    62da2a70ab8bbb74 62da2a70ab8bbb74 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2409752Z .fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2410136Z .fini_array                      5bd5defdd823db81 5bd5defdd823db81 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2410552Z .gcc_except_table                6ec9430ce8d45f7f 6ec9430ce8d45f7f identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2410943Z .gnu.hash                        1331b1064561f369 1331b1064561f369 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2411676Z .gnu.version                     16446b28a45c6bc8 16446b28a45c6bc8 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2412078Z .gnu.version_r                   7fbd8ba05eceed2d 7fbd8ba05eceed2d identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2412464Z .got                             f1245aadee06ad80 f1245aadee06ad80 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2412835Z .got.plt                         07d7cb47f327ebb4 07d7cb47f327ebb4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2413206Z .init                            151bfb4b8a72c6a4 151bfb4b8a72c6a4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2413590Z .init_array                      31ced2a6b695d2d9 31ced2a6b695d2d9 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2413994Z .note.gnu.build-id               bceed550173a6f34 1f138952c3fe7ace differs
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2414381Z .plt                             595f9a88daebfe63 595f9a88daebfe63 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2414749Z .rela.dyn                        9e7e8adae178589f 9e7e8adae178589f identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2415126Z .rela.plt                        bb40816ed2363807 bb40816ed2363807 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2415508Z .rodata                          2d6ea751a4b8a829 2d6ea751a4b8a829 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2415875Z .tdata                           fef02424157f106b fef02424157f106b identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2416240Z .text                            e63e428e6a0c8bd5 e63e428e6a0c8bd5 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2416541Z CODE IDENTICAL
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2417089Z .data                            39e2910acd8274eb 39e2910acd8274eb identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2417492Z .data.rel.ro                     4b5de64142cbb93e 4b5de64142cbb93e identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2417873Z .dynamic                         b5efc5212235f3b4 b5efc5212235f3b4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2418249Z .dynstr                          a28f7c2930bcd055 a28f7c2930bcd055 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2418623Z .dynsym                          e82c94eaede6ba51 e82c94eaede6ba51 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2418997Z .eh_frame                        0b6811ab0461779b 0b6811ab0461779b identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2419383Z .eh_frame_hdr                    cc0ffdbc980a511f cc0ffdbc980a511f identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2419760Z .fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2420131Z .fini_array                      d654254d26065f0c d654254d26065f0c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2420524Z .gcc_except_table                6fd096869af54745 6fd096869af54745 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2421208Z .gnu.hash                        d095c1787016715c d095c1787016715c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2421596Z .gnu.version                     8edaacfaa70a9e46 8edaacfaa70a9e46 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2422016Z .gnu.version_r                   84ee111f5128462c 84ee111f5128462c identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2422388Z .got                             27165e4bddaa46fa 27165e4bddaa46fa identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2422754Z .got.plt                         11a2b161bace73f7 11a2b161bace73f7 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2423130Z .init                            9dabdb8b0cf5650e 9dabdb8b0cf5650e identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2423511Z .init_array                      3cb28f3e95389a20 3cb28f3e95389a20 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2423907Z .note.gnu.build-id               3ad21c73e80d6580 d62defa9215b43f9 differs
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2424290Z .plt                             52058f85e7a5ebc4 52058f85e7a5ebc4 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2424656Z .rela.dyn                        98203ed707500acf 98203ed707500acf identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2425028Z .rela.plt                        df5d662b136289c4 3fe85c44ea349002 differs
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2425398Z .rodata                          0bc6ec939d9d7100 0bc6ec939d9d7100 identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2425767Z .tdata                           fef02424157f106b fef02424157f106b identical
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2426144Z .text                            f1e239c61802177c 418163ab50b3afe5 DIFFERS (gate)
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2426475Z CODE DIFFERS: stop before timing
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2427622Z  "plain_exit": 0,
+supportability (linux-arm64)	Same-path identity check against identity_base	2026-09-29T15:10:12.2427812Z  "held_pgo_exit": 1
+== supportability (macos-arm64) (job 109466334520)
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0268190Z __DATA,__data                    512465c948312f2e 512465c948312f2e identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0268630Z __DATA,__la_symbol_ptr           2feeea697e3541ab 2feeea697e3541ab identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0269250Z __DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0269540Z __DATA,__thread_vars             148e0350e689c8e2 148e0350e689c8e2 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0269830Z __DATA_CONST,__const             34b6d3658f1fc1da 34b6d3658f1fc1da identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0270130Z __DATA_CONST,__got               ab8e97eb9c31782e ab8e97eb9c31782e identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0270560Z __TEXT,__const                   21c3c7f54a252dd9 21c3c7f54a252dd9 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0270840Z __TEXT,__cstring                 06712c0deed44fc7 06712c0deed44fc7 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0271130Z __TEXT,__gcc_except_tab          2d479ccd85a01b5f 2d479ccd85a01b5f identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0271430Z __TEXT,__stub_helper             4dd42c4b55dc62cd 4dd42c4b55dc62cd identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0271720Z __TEXT,__stubs                   58723f86ffd90ad1 58723f86ffd90ad1 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0271990Z __TEXT,__text                    20eb0672209e51a6 20eb0672209e51a6 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0272270Z __TEXT,__unwind_info             2bd188b1d7754bd9 2bd188b1d7754bd9 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0272490Z CODE IDENTICAL
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0272660Z __DATA,__data                    706578516fb862c5 706578516fb862c5 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0272930Z __DATA,__la_symbol_ptr           b8df546dfd6e18bb b8df546dfd6e18bb identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0273230Z __DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0273510Z __DATA,__thread_vars             5346dbcf4f244833 5346dbcf4f244833 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0273800Z __DATA_CONST,__const             0cfc5d6d68bacbe1 0cfc5d6d68bacbe1 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0274080Z __DATA_CONST,__got               e26dbe0b5474854e e26dbe0b5474854e identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0274360Z __TEXT,__const                   320daa1b1e0e78b3 320daa1b1e0e78b3 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0274630Z __TEXT,__cstring                 5e56a9829ebffeca 5e56a9829ebffeca identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0274920Z __TEXT,__gcc_except_tab          ebd5bb281dff0484 ebd5bb281dff0484 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0275220Z __TEXT,__stub_helper             a88ee8f251d8c05a a88ee8f251d8c05a identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0275510Z __TEXT,__stubs                   8ae5dbd1cc685cf1 8ae5dbd1cc685cf1 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0275780Z __TEXT,__text                    fb88dc5c93c03d53 fb88dc5c93c03d53 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0276050Z __TEXT,__unwind_info             fb9d0a3e2e0c46f2 fb9d0a3e2e0c46f2 identical
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0276280Z CODE IDENTICAL
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0276720Z  "plain_exit": 0,
+supportability (macos-arm64)	Same-path identity check against identity_base	2026-09-29T15:03:16.0276840Z  "held_pgo_exit": 0
+== supportability (macos-x86_64) (job 109466334534)
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8927620Z __DATA,__const                   b98fbc93aec97f21 b98fbc93aec97f21 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8929850Z __DATA,__data                    d808a3763ec1a0bb d808a3763ec1a0bb identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8932030Z __DATA,__got                     9923bbfbbc1cc507 9923bbfbbc1cc507 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8933150Z __DATA,__la_symbol_ptr           5d8a23ca65d14734 5d8a23ca65d14734 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8936970Z __DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8938450Z __DATA,__thread_vars             148e0350e689c8e2 148e0350e689c8e2 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8939420Z __TEXT,__const                   dc0e3a5d1749cbee dc0e3a5d1749cbee identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8940840Z __TEXT,__cstring                 c6fea8853e76ce39 c6fea8853e76ce39 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8942030Z __TEXT,__eh_frame                c67f2b9f3206cc09 c67f2b9f3206cc09 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8943030Z __TEXT,__gcc_except_tab          609ad3bd1ec83544 609ad3bd1ec83544 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8944200Z __TEXT,__stub_helper             4d9ce5c48cf60fa1 4d9ce5c48cf60fa1 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8945370Z __TEXT,__stubs                   714e8cc2bc089d08 714e8cc2bc089d08 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8946580Z __TEXT,__text                    907beb4b0c3625d0 907beb4b0c3625d0 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8947670Z __TEXT,__unwind_info             707febbc3b72d94d 707febbc3b72d94d identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8948550Z CODE IDENTICAL
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8949320Z __DATA,__const                   c698be27e05b9acc c698be27e05b9acc identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8950860Z __DATA,__data                    2807aab3d2e46ae1 2807aab3d2e46ae1 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8951880Z __DATA,__got                     23f54dd17dd9463c 23f54dd17dd9463c identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8952950Z __DATA,__la_symbol_ptr           8c489e33e989ca28 8c489e33e989ca28 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8954060Z __DATA,__thread_data             fef02424157f106b fef02424157f106b identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8955400Z __DATA,__thread_vars             5346dbcf4f244833 5346dbcf4f244833 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8956370Z __TEXT,__const                   90a6491fb7877e0e 90a6491fb7877e0e identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8957420Z __TEXT,__cstring                 a4b7aab2c0590234 a4b7aab2c0590234 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8958660Z __TEXT,__eh_frame                9ab2b12086540713 9ab2b12086540713 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8960420Z __TEXT,__gcc_except_tab          23526863a5a3211c 23526863a5a3211c identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8961540Z __TEXT,__stub_helper             90473cfa432ca2cc 90473cfa432ca2cc identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8962490Z __TEXT,__stubs                   dd5a94d496d43670 dd5a94d496d43670 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8964150Z __TEXT,__text                    c08f47c419edcb98 c08f47c419edcb98 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8965150Z __TEXT,__unwind_info             aea8254097000ee9 aea8254097000ee9 identical
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8966110Z CODE IDENTICAL
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8968020Z  "plain_exit": 0,
+supportability (macos-x86_64)	Same-path identity check against identity_base	2026-09-29T15:30:37.8968790Z  "held_pgo_exit": 0
+== supportability (windows-x86_64) (job 109466334622)
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1605602Z .data                            953df9e91ab07a49 953df9e91ab07a49 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1606454Z .pdata                           4d358add37ccba1f 4d358add37ccba1f identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1607030Z .rdata                           98afb96316d98773 5b88480a8ebc15d5 differs
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1607471Z .reloc                           3ac40cfe12e98c06 3ac40cfe12e98c06 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1607907Z .rsrc                            323d55f7042655d5 323d55f7042655d5 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1608342Z .text                            7c6ef8279471b942 7c6ef8279471b942 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1608764Z CODE IDENTICAL
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1609077Z .data                            4f16b78a34b1d370 4f16b78a34b1d370 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1609509Z .pdata                           ade283be25f1be01 ade283be25f1be01 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1609973Z .rdata                           d648037167475211 0cd0adde445fae45 differs
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1610401Z .reloc                           5f1ba849e19cd97d 5f1ba849e19cd97d identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1610846Z .rsrc                            0f66fddfa6873918 0f66fddfa6873918 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1611271Z .text                            37430b948b5d95e9 37430b948b5d95e9 identical
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1611786Z CODE IDENTICAL
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1612847Z  "plain_exit": 0,
+supportability (windows-x86_64)	Same-path identity check against identity_base	2026-09-29T15:20:08.1613168Z  "held_pgo_exit": 0
+== supportability (linux-x86_64) (job 109466334667)
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3147313Z .data                            bd50dc5e25736bd3 bd50dc5e25736bd3 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3147996Z .data.rel.ro                     1904dc04cd3b932f 1904dc04cd3b932f identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3148424Z .dynamic                         1036dfd7c565f7a3 1036dfd7c565f7a3 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3149110Z .dynstr                          a8ee2aa255d8c693 a8ee2aa255d8c693 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3149710Z .dynsym                          249bb9fb5c51b583 249bb9fb5c51b583 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3150283Z .eh_frame                        8070fd9662ea918a 8070fd9662ea918a identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3150828Z .eh_frame_hdr                    b5f8180c0bcc2089 b5f8180c0bcc2089 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3151387Z .fini                            6a4f3e5efc7c1f7e 6a4f3e5efc7c1f7e identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3151966Z .fini_array                      d139819605ef0f55 d139819605ef0f55 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3152572Z .gcc_except_table                c052e711c22f4f5f c052e711c22f4f5f identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3153460Z .gnu.hash                        74bf2d00237d924a 74bf2d00237d924a identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3154384Z .gnu.version                     333a783136bc6ecb 333a783136bc6ecb identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3155025Z .gnu.version_r                   165d0bca64f698fc 165d0bca64f698fc identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3155618Z .got                             5c55c8f4db4010ba 5c55c8f4db4010ba identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3156161Z .got.plt                         665244663a49db0d 665244663a49db0d identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3156710Z .init                            72e37d64267cba72 72e37d64267cba72 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3157245Z .init_array                      2749b4fe66549358 2749b4fe66549358 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3157912Z .note.gnu.build-id               e1d0b57b6e79a733 a9fb48f044105d9b differs
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3158550Z .plt                             31de8cd64d0df582 31de8cd64d0df582 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3159142Z .plt.got                         af48a305271440ef af48a305271440ef identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3159616Z .rela.dyn                        cc931081f5dcaf3c cc931081f5dcaf3c identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3160008Z .rela.plt                        1ce4d7d913622c75 1ce4d7d913622c75 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3160380Z .rodata                          8a43c1f2a3a8948a 8a43c1f2a3a8948a identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3160744Z .tdata                           fef02424157f106b fef02424157f106b identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3161100Z .text                            7037891ecdb50711 7037891ecdb50711 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3161406Z CODE IDENTICAL
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3161704Z .data                            9ff7f0e2976a1355 9ff7f0e2976a1355 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3162077Z .data.rel.ro                     54091b343f1342b2 54091b343f1342b2 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3162740Z .dynamic                         bed7fe515b12f5c7 bed7fe515b12f5c7 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3163349Z .dynstr                          4d9713484a90058e 4d9713484a90058e identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3163726Z .dynsym                          cd190eb979d112ee cd190eb979d112ee identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3164110Z .eh_frame                        208a40d90cd1cabf 208a40d90cd1cabf identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3164488Z .eh_frame_hdr                    99b6342879ab570b 99b6342879ab570b identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3164861Z .fini                            6a4f3e5efc7c1f7e 6a4f3e5efc7c1f7e identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3165240Z .fini_array                      bb511e301ef071ce bb511e301ef071ce identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3165669Z .gcc_except_table                dc3a4e17da08bccf dc3a4e17da08bccf identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3166095Z .gnu.hash                        d6a3d95996df5df9 d6a3d95996df5df9 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3166491Z .gnu.version                     633068e1c75b1142 633068e1c75b1142 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3166887Z .gnu.version_r                   7796889a3af8c8a2 7796889a3af8c8a2 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3167258Z .got                             71818ecc26433c32 71818ecc26433c32 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3167619Z .got.plt                         35c66cea170999b4 35c66cea170999b4 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3167987Z .init                            b47b1c823e030233 b47b1c823e030233 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3168357Z .init_array                      285fa9124513be50 285fa9124513be50 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3168769Z .note.gnu.build-id               edb0eacccddee8ae 85f4976b3e035f85 differs
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3169170Z .plt                             d8d71911f3d0989c d8d71911f3d0989c identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3169532Z .plt.got                         b6d84d9144c00036 b6d84d9144c00036 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3169911Z .rela.dyn                        a8b9fd6abe897ce6 a8b9fd6abe897ce6 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3170290Z .rela.plt                        68ebf145dff12ca1 68ebf145dff12ca1 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3170670Z .rodata                          c06c00d9a2588efc c06c00d9a2588efc identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3171041Z .tdata                           fef02424157f106b fef02424157f106b identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3171553Z .text                            434645d6ae20dd38 434645d6ae20dd38 identical
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3171870Z CODE IDENTICAL
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3172643Z  "plain_exit": 0,
+supportability (linux-x86_64)	Same-path identity check against identity_base	2026-09-29T15:11:29.3173031Z  "held_pgo_exit": 0

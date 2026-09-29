@@ -1,0 +1,140 @@
++ git worktree add --force --detach /work/arm 38eaa9f248f509d9a4beb75b267189d011c1109e
+Preparing worktree (detached HEAD 38eaa9f)
+HEAD is now at 38eaa9f Merge the length-matched pytest basetemp pin (M12b follow-up)
++ make install-bench
+python3 -m venv .venv
+.venv/bin/python -m pip install -U pip setuptools wheel
+  Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)
+  Using cached setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+  Using cached wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Installing collected packages: setuptools, pip, packaging, wheel
+  Attempting uninstall: pip
+    Found existing installation: pip 24.0
+    Uninstalling pip-24.0:
+      Successfully uninstalled pip-24.0
+Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+.venv/bin/python -m pip install -e '.[dev,bench]'
+Obtaining file:///work/arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+  Using cached cmake-4.4.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl.metadata (7.0 kB)
+  Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+  Using cached pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+  Using cached ruff-0.16.9-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (20 kB)
+  Using cached pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+  Using cached clang_format-21.1.8-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl.metadata (4.7 kB)
+  Using cached orjson-3.12.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (41 kB)
+  Using cached msgspec-0.22.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (6.0 kB)
+  Using cached ujson-6.0.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata (10.0 kB)
+  Using cached pysimdjson-7.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl.metadata (1.1 kB)
+  Using cached jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+  Using cached jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+  Using cached psutil-7.2.2-cp36-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (22 kB)
+  Using cached cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+  Using cached identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+  Using cached nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+  Using cached pyyaml-6.0.3-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (2.4 kB)
+  Using cached virtualenv-21.13.0-py3-none-any.whl.metadata (3.9 kB)
+  Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+  Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+  Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+  Using cached coverage-7.16.2-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata (8.2 kB)
+  Using cached distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+  Using cached filelock-4.0.6-py3-none-any.whl.metadata (2.0 kB)
+  Using cached platformdirs-4.12.1-py3-none-any.whl.metadata (5.5 kB)
+  Using cached python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): still running...
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4347 sha256=b7397c38f934b2e6c03e9d43bda2374d7b11f30b347b50b17817822bc83b1277
+  Stored in directory: /tmp/pip-ephem-wheel-cache-y712_f7y/wheels/01/95/4d/bd34b16ae3c0ec46f51124274be9d50fdfc0fb761d1b5eec18
+Successfully built strata
+Installing collected packages: jsonpath-ng, distlib, clang-format, ujson, strata, ruff, pyyaml, pysimdjson, pygments, psutil, pluggy, platformdirs, orjson, nodeenv, msgspec, jmespath, iniconfig, identify, filelock, coverage, cmake, cfgv, python-discovery, pytest, virtualenv, pytest-cov, pre-commit
+
+Successfully installed cfgv-3.5.0 clang-format-21.1.8 cmake-4.4.3 coverage-7.16.2 distlib-0.4.3 filelock-4.0.6 identify-2.6.20 iniconfig-2.3.0 jmespath-1.1.0 jsonpath-ng-1.8.0 msgspec-0.22.0 nodeenv-1.11.0 orjson-3.12.0 platformdirs-4.12.1 pluggy-1.6.0 pre-commit-4.6.2 psutil-7.2.2 pygments-2.21.0 pysimdjson-7.0.2 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.1 pyyaml-6.0.3 ruff-0.16.9 strata-2026.8.10 ujson-6.0.0 virtualenv-21.13.0
++ /work/arm/.venv/bin/python -m pip install --force-reinstall --no-deps -e .
+Obtaining file:///work/arm
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: strata
+  Building editable for strata (pyproject.toml): started
+  Building editable for strata (pyproject.toml): finished with status 'done'
+  Created wheel for strata: filename=strata-2026.8.10-0.editable-cp312-cp312-linux_aarch64.whl size=4347 sha256=88f752f1cabbd49d3e9b2812e75e26cb56d71e1b0f87947d640ffbf2997ee63d
+  Stored in directory: /tmp/pip-ephem-wheel-cache-1pj2s8ep/wheels/01/95/4d/bd34b16ae3c0ec46f51124274be9d50fdfc0fb761d1b5eec18
+Successfully built strata
+Installing collected packages: strata
+  Attempting uninstall: strata
+    Found existing installation: strata 2026.8.10
+    Uninstalling strata-2026.8.10:
+      Successfully uninstalled strata-2026.8.10
+Successfully installed strata-2026.8.10
++ git worktree remove --force /work/arm
+=== A (base_pgo) vs A_held (base_pgo_held) ===
+.data                            2f2e560a170a4b19 2f2e560a170a4b19 identical
+.data.rel.ro                     3f535be85371271a 3f535be85371271a identical
+.dynamic                         43c5d5483f76573d 43c5d5483f76573d identical
+.dynstr                          01a527b7653d25a7 01a527b7653d25a7 identical
+.dynsym                          fc0e7e32e4b2bb1d fc0e7e32e4b2bb1d identical
+.eh_frame                        041ddfea278763b6 041ddfea278763b6 identical
+.eh_frame_hdr                    c6f014d3406692a4 c6f014d3406692a4 identical
+.fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+.fini_array                      d3f15d318fcc82dd d3f15d318fcc82dd identical
+.gcc_except_table                9166faeb41c7df55 9166faeb41c7df55 identical
+.gnu.hash                        17987ff19b0796c5 17987ff19b0796c5 identical
+.gnu.version                     6623a7b5c3a3aec5 6623a7b5c3a3aec5 identical
+.gnu.version_r                   c7ce7c4e1fae3500 c7ce7c4e1fae3500 identical
+.got                             6231b73efc053ad1 6231b73efc053ad1 identical
+.got.plt                         67d3469fed48cc3a 67d3469fed48cc3a identical
+.init                            8c64c33600a3f328 8c64c33600a3f328 identical
+.init_array                      366d4679c8f5b092 366d4679c8f5b092 identical
+.note.gnu.build-id               31b26121ec71c669 31b26121ec71c669 identical
+.plt                             52f16e582c944353 52f16e582c944353 identical
+.rela.dyn                        3e64e329f541d96f 3e64e329f541d96f identical
+.rela.plt                        23c1e31de2e4f640 23c1e31de2e4f640 identical
+.rodata                          d8f3d512d6ae7d0b d8f3d512d6ae7d0b identical
+.tdata                           fef02424157f106b fef02424157f106b identical
+.text                            7415129ff19eeb79 7415129ff19eeb79 identical
+CODE IDENTICAL
+exit 0
+=== A_held (base_pgo_held) vs B_held (head_pgo_held) ===
+.data                            2f2e560a170a4b19 2f2e560a170a4b19 identical
+.data.rel.ro                     3f535be85371271a 3f535be85371271a identical
+.dynamic                         43c5d5483f76573d 43c5d5483f76573d identical
+.dynstr                          01a527b7653d25a7 01a527b7653d25a7 identical
+.dynsym                          fc0e7e32e4b2bb1d fc0e7e32e4b2bb1d identical
+.eh_frame                        041ddfea278763b6 041ddfea278763b6 identical
+.eh_frame_hdr                    c6f014d3406692a4 c6f014d3406692a4 identical
+.fini                            7d39706b791b17f4 7d39706b791b17f4 identical
+.fini_array                      d3f15d318fcc82dd d3f15d318fcc82dd identical
+.gcc_except_table                9166faeb41c7df55 9166faeb41c7df55 identical
+.gnu.hash                        17987ff19b0796c5 17987ff19b0796c5 identical
+.gnu.version                     6623a7b5c3a3aec5 6623a7b5c3a3aec5 identical
+.gnu.version_r                   c7ce7c4e1fae3500 c7ce7c4e1fae3500 identical
+.got                             6231b73efc053ad1 6231b73efc053ad1 identical
+.got.plt                         67d3469fed48cc3a 67d3469fed48cc3a identical
+.init                            8c64c33600a3f328 8c64c33600a3f328 identical
+.init_array                      366d4679c8f5b092 366d4679c8f5b092 identical
+.note.gnu.build-id               31b26121ec71c669 f9a1918695e8327a differs
+.plt                             52f16e582c944353 52f16e582c944353 identical
+.rela.dyn                        3e64e329f541d96f 3e64e329f541d96f identical
+.rela.plt                        23c1e31de2e4f640 e159f8f728853138 differs
+.rodata                          d8f3d512d6ae7d0b d8f3d512d6ae7d0b identical
+.tdata                           fef02424157f106b fef02424157f106b identical
+.text                            7415129ff19eeb79 3d87258113f4b2f5 DIFFERS (gate)
+CODE DIFFERS: stop before timing
+exit 1
+EXIT:0
