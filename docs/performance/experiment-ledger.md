@@ -4539,25 +4539,28 @@ waits on it.
     (inferred from `armBheld2`: the flag test changes its control flow), so a held arm cannot
     attribute a five-leg row to the code as the record assumes.
 
-## M15b — native types behind a flag: `_strata` identical to main, local evidence; five-leg run, no identity verdict
+## M15b — native types behind a flag: `_strata` identical to main; identity sample taken, clause 4 met by ruling, not merged
 
 - 2026-09-29 · `exp/native-types` over main `38eaa9f`, thirteen commits `84800ba` to `6aed644`
   (`git log --oneline 643a089..HEAD`). Record: [`native_types.md`](../architecture/native_types.md),
   "Flag shape (M15b)" (`84800ba`); docs/decisions.md, 2026-09-29, "User-directed flag shape" to the
-  end. Evidence: `docs/benchmarks/evidence/M15b/`. **Status: not merged; five-leg run 36582916306
-  (`identity_base=38eaa9f`) gave no identity verdict on any leg; one re-dispatch is owed.**
+  end. Evidence: `docs/benchmarks/evidence/M15b/`. **Status: acceptance criteria met
+  (`native_types.md`, "Flag shape (M15b)" → Acceptance), clause 4 on linux-arm64 by the lead's
+  ruling; identity sample 36585989834 taken; not merged; no further dispatch.**
 
 - **Shape (user-directed; supersedes default-on and fallback (b), never built).** `_strata` is
   main's; `dumps`/`dump` gain `native=False`, `parse_types` stays opt-in, both routed by the facade
   to `strata._dumps_hook`. M15's V4 tail and ~20 KB of added `_strata` text are gone by
   construction, so the default path's acceptance is the M12b identity proof, not an A/B campaign.
 
-- **Identity on the M1: clauses 1, 3, 4 hold** (`identity-m1/`; macOS 26.6.2, Apple clang 21.0.0,
+- **Identity on the M1: clauses 1–4 hold** (`identity-m1/`; macOS 26.6.2, Apple clang 21.0.0,
   CPython 3.14.7, HEAD `8db1539`). `bash scripts/token_identity.sh`: 18/18 `_strata` TUs
   token-identical to `38eaa9f` on arm64 and on x86_64. `scripts/identity_ab.py --base 38eaa9f`:
   plain and held-profile PGO+LTO builds each CODE IDENTICAL, 13/13 sections (`__TEXT,__text` among
   them); the image files differ outside them (hashes in `PROVENANCE.txt`); the hook carries no
-  profile. Clause 2 (build spec) has no artifact here beyond the equal 18-TU source list.
+  profile. Clause 2 (build spec): `identity-m1/build_spec.txt` reads `_strata`'s `Extension` and
+  inputs, and `core_sources.txt`, equal to `38eaa9f`'s at `9a17e02`; neither file changes to
+  `565fab2`.
 
 - **Reviews and gates.** Two independent reviews; fixed: P0, `STRATA_DUMPS_HOOK` never reached
   `python_files.cpp`/`python_folder.cpp`, whose reader halves compiled into the hook as unresolved
@@ -4582,7 +4585,8 @@ waits on it.
 
 - **Training scope and next.** Native suites stay outside `--training`; the trained-scope
   deviation is decisions.md's last line. Next, approved and dispatched below: the prepared five-leg
-  run, clause 4 on every CI leg (`1593526` gives identity legs 180 minutes). Open: clause 2.
+  run, clause 4 on every CI leg (`1593526` gives identity legs 180 minutes). Clause 2 is met
+  (`identity-m1/build_spec.txt`).
 
 - **Five-leg run 36582916306: no leg produced an identity verdict** (`ci-36582916306/`; `82e3fa5`,
   2026-09-29 14:28–14:44 UTC; one dispatch, as approved). All five legs concluded failure: the CI
@@ -4592,12 +4596,40 @@ waits on it.
   is falsy in an Actions expression), so the checkout stayed shallow; fix: depths `'0'`/`'1'`.
   Windows: both images built and linked, the instrumented phase passed; the optimized-phase gate
   failed 10 tests in two `tests/unit/native_types/` files, a child interpreter unable to import
-  `strata` (POSIX-only path split; fix: `pathlib`), so clang-cl identity is still unverified.
-  Owed: one re-dispatch on `b8436a1` or later, which needs fresh approval.
+  `strata` (POSIX-only path split; fix: `pathlib`), so clang-cl identity was still unverified.
+  The one re-dispatch, freshly approved, ran on `565fab2` (after `b8436a1`) as run 36585989834.
 
 - **native-v1 in CI: strata `native=True` second, behind msgspec, on every native row** (four
   POSIX legs; small tier, 10 repeats, one run per leg, no interval). Median ratio to msgspec:
   `dumps` 1.32–1.61×, `dump` 1.18–1.35×; ahead of orjson and stdlib `json` on each. Flag rows
   (`mixed.small`, hook unprofiled): `native=True` costs 1.05–1.11× `native=False`; on linux-arm64
-  it trails orjson (0.058 vs 0.057 ms), on linux-x86_64 it ties it (0.059 ms). Follow-up target
-  (the lead's direction, not pursued now): the msgspec gap on native `dumps`/`dump`.
+  it trails orjson (0.058 vs 0.057 ms), on linux-x86_64 it ties it (0.059 ms).
+
+- **Identity sample 36585989834: four legs byte-identical, linux-arm64's held `.text` differs**
+  (`ci-36585989834/verdict.txt`; `565fab2`, `identity_base=38eaa9f`, 2026-09-29 14:53–15:31 UTC;
+  the second and last approved dispatch). Plain builds equal base on all five legs, held PGO+LTO
+  builds on four (windows-x86_64 clang-cl included); linux-arm64's held `.text`, `.rela.plt` and
+  `.note.gnu.build-id` differ, and that gate alone set the workflow's conclusion to failure.
+
+- **linux-arm64: layout, not code; clause 4 met there by the lead's ruling** (docs/decisions.md,
+  2026-09-29; `linux-arm64-replay/PROVENANCE.txt`). A native arm64 replay reproduces the three
+  sections. Base rebuilt by the held recipe equals its trained image, build-id included, so the
+  recipe is deterministic; base-held vs head-held (same path and profile bytes, only source
+  differs) differ in the same three, and `normalised_disassembly.py` reads 423/423 functions, 416
+  identical, 7 differing only in GOT-slot immediates, 0 beyond. Mechanism inferred, DILocation not
+  directly probed: `-g` (CPython's sysconfig CFLAGS) records the guards' line shifts in
+  `python_dumps.cpp`, `python_files.cpp` and `python_folder.cpp`, which carry no token change; that
+  moves the ThinLTO module hash and its `.llvm.<N>` suffixes, and link order follows. The ruling
+  applies M12b's standard (held rebuild plus normalised disassembly); section hashes are not it.
+
+- **Same run, every leg: gated PGO build (both phases), canonical suite, tripwire and native-v1
+  passed; canonical 134/135** (`ci_summary.md` regenerated; behind: windows-x86_64
+  `loads flat.json`, 1.01× msgspec). native-v1, five legs, protocol as above: `native=True` #2 of
+  4 on every native row; strata/msgspec `dumps` 1.27–1.60×, `dump` 1.12–1.34×; strata/orjson `dumps`
+  0.60–0.77×, `dump` 0.65–0.89× (computed from `verdict.txt` medians); ahead of `json`. Flag rows:
+  1.00–1.10× `native=False`. Follow-up target (the lead's direction, not pursued now): the msgspec
+  gap on native `dumps`/`dump`.
+
+- **Closing state.** Clauses 1, 3, 4 and 5 hold as above; clause 2's artifact is
+  `identity-m1/build_spec.txt` (`_strata`'s `Extension` and inputs, and `core_sources.txt`, equal
+  `38eaa9f`'s at `9a17e02`; neither file changes to `565fab2`). Not merged; no further dispatch.
