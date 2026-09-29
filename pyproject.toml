@@ -64,12 +64,29 @@ integrations = [
   # and its own CI job. Kept out of testpaths, the gate and the PGO profile
   # (docs/architecture/dumps_default_hook.md, "Test placement", inherited by
   # docs/architecture/dumps_with_default.md).
-  "pydantic>=2",
+  # 2.12.0: the oldest pydantic-core with CPython 3.14 wheels (2.11's does not
+  # build there), and the pydantic adapter's floor.
+  "pydantic>=2.12",
   "attrs>=22.2",
   "numpy>=1.26",
+  # The framework adapters' floors (docs/architecture/framework_adapters.md):
+  # the oldest release each adapter's suite passes on across CPython 3.10–3.14.
+  "flask>=3.0.1",
+  "django>=4.1",
+  "aiohttp>=3.9",
+  "falcon>=4.0",
+  "fastapi>=0.100",
+  # FastAPI's TestClient; 0.24–0.25.0 fail on 3.14, 0.28 drops what FastAPI
+  # 0.100–0.110's TestClient passes (the floors leg holds 0.25.1).
+  "httpx>=0.25.1",
+  "structlog>=20.2",
   # The native-types differential (docs/architecture/native_types.md, rows 1-4
   # and 6); a comparison target here, never a dependency of strata itself.
   "orjson>=3.10",
+  # Two walks interleaved on one thread by greenlet switches inside `default`:
+  # the proof that `dumps_with_default`'s `native` mode is per call
+  # (docs/decisions.md, 2026-09-29).
+  "greenlet>=3.0",
 ]
 
 [project.urls]
@@ -97,3 +114,8 @@ testpaths = [
 markers = [
   "stress: long-running or memory-heavy tests (exclude with -m 'not stress')",
 ]
+
+# The framework adapters are measured by `make test-integrations`, which the
+# gate's coverage run cannot include (docs/decisions.md, 2026-09-28).
+[tool.coverage.run]
+omit = ["*/strata/integrations/*"]

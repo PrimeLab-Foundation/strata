@@ -13,6 +13,10 @@ and never reach `default`, so the oracle's hook gives each native object its
 reference spelling first and hands only the rest to `default`. A `Decimal` is
 a raw JSON number, which no stdlib `default` can return: the hook writes a
 marker string and the expected text has the marker replaced by the number.
+
+The framework adapters' suites (`test_flask.py` and its siblings) take each
+framework's default serializer as their oracle instead (api.md, Framework
+adapters).
 """
 
 import dataclasses
@@ -118,6 +122,101 @@ def _composes(obj: Any, default: Callable[[Any], Any]) -> Any:
 @pytest.fixture
 def composes() -> Callable[[Any, Callable[[Any], Any]], Any]:
     return _composes
+
+
+def _plainly_counted(default: Callable[[Any], Any], calls: list[int]) -> Callable[[Any], Any]:
+    """`default`, counted, with no native reference spelling in front (cf. `_counted`)."""
+
+    def hook(obj: Any) -> Any:
+        calls[0] += 1
+        return default(obj)
+
+    return hook
+
+
+def _composes_without_natives(obj: Any, default: Callable[[Any], Any]) -> Any:
+    """`_composes` for `dumps_with_default(..., native=False)`: stdlib `json` itself is the oracle.
+
+    docs/decisions.md 2026-09-29: under `native=False` every native object reaches
+    `default` as it does under `json.dumps`, so text and call counts both match
+    stdlib's -- the pre-M15 contract the adapters that pass a framework's own
+    `default` rely on.
+    """
+    json_calls, strata_calls = [0], [0]
+    expected = json.dumps(
+        obj,
+        default=_plainly_counted(default, json_calls),
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    text = strata.dumps_with_default(obj, _plainly_counted(default, strata_calls), native=False)
+    assert text == expected
+    assert strata_calls[0] == json_calls[0]
+    as_bytes = strata.dumps_with_default(obj, default=default, return_type="bytes", native=False)
+    assert as_bytes == expected.encode()
+    decoded = strata.loads(text)
+    assert decoded == json.loads(expected)
+    return decoded
+
+
+@pytest.fixture
+def composes_without_natives() -> Callable[[Any, Callable[[Any], Any]], Any]:
+    return _composes_without_natives
+
+
+@pytest.fixture
+def json_document() -> dict[str, Any]:
+    """A JSON-native document for the framework adapters' round trips.
+
+    Unsorted keys, non-ASCII text, an int beyond int64 and floats whose
+    shortest form stdlib `json` and strata must both write.
+    """
+    return {
+        "zeta": "last key first",
+        "id": 7,
+        "name": "Zoë ☃ 𝄞",
+        "big": 2**70,
+        "ratios": [0.1, 1e-07, 1e22, -0.0, 1.5],
+        "flags": [True, False, None],
+        "nested": {"b": [1, {"c": []}], "a": {}},
+        "empty": "",
+    }
+
+
+@pytest.fixture
+def deep_document() -> list:
+    """3000 nested lists: past `dumps`'s limit, `sys.getrecursionlimit()` (1000 by default)."""
+    document: list = []
+    for _ in range(2999):
+        document = [document]
+    return document
+
+
+@pytest.fixture
+def deep_request() -> bytes:
+    """1025 nested arrays: one past the parser's 1024-container cap (api.md, loads)."""
+    return b"[" * 1025 + b"]" * 1025
+
+
+@pytest.fixture
+def stdlib_nests() -> bool:
+    """Whether stdlib `json` handles both deep fixtures.
+
+    From 3.12 its C guard is the C stack, which both pass; on 3.10 and 3.11 it
+    is the interpreter's recursion limit, and both raise `RecursionError`.
+    """
+    return sys.version_info >= (3, 12)
+
+
+@pytest.fixture
+def cycle_policy_error():
+    """`cycle_policy="error"` for one test, restoring the prior policy."""
+    prior = strata.config.get("cycle_policy")
+    strata.config.set("cycle_policy", "error")
+    try:
+        yield
+    finally:
+        strata.config.set("cycle_policy", prior)
 
 
 @pytest.fixture

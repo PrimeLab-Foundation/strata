@@ -31,6 +31,7 @@
 
 #include "python_types.h"
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -80,13 +81,42 @@ enum class Kind : uint8_t {
 extern bool g_runtime_ready;
 
 /**
+ * The number of `dumps_with_default(..., native=False)` walks in progress in
+ * the process -- any thread, any greenlet. Defined, with the mode it gates, in
+ * python_dumps_hook.cpp (the entry scope that moves it lives there).
+ *
+ * It is the gate that keeps the opt-out off the natives' path: while it is 0,
+ * no walk anywhere has natives off, so format_pure_leaf and classify pay one
+ * relaxed load and never look the mode up. Relaxed suffices: a walk only
+ * needs its own increment, made on its own thread, to be visible to itself;
+ * an increment from another thread only sends this thread's natives through
+ * the latched path, which asks natives_off() for this walk's own mode and
+ * writes the same bytes.
+ */
+extern std::atomic<int> g_opt_outs;
+
+/**
+ * Whether natives are off for the innermost hook walk in the calling context:
+ * 1 off, 0 on, -1 with an error set. The natives' reads (format_pure_leaf,
+ * classify) make it only while g_opt_outs is not 0; every natives-on entry of
+ * the hook makes it once, before its walk (NativeModeScope).
+ *
+ * The mode is a context variable, not a thread-local: a greenlet (gevent)
+ * switch inside `default` can interleave two walks with different modes on one
+ * OS thread, and greenlet gives each greenlet its own contextvars context. The
+ * lookup allocates nothing and runs no user code, so a latched walk may call it.
+ */
+[[nodiscard]] int natives_off() noexcept;
+
+/**
  * Format @p object into @p out (kTextCapacity bytes) when it is a pure leaf:
  * an exact `datetime`/`date`/`time` whose `tzinfo` is `None` or exactly
  * `datetime.timezone`, or an exact `uuid.UUID` with an in-range `int` slot,
  * and the type table already holds its type.
  *
  * @return the number of bytes written, or 0 when @p object is not a pure leaf
- *         (the caller then takes the latched path). Never raises.
+ *         or g_opt_outs is not 0 (the caller then takes the latched path,
+ *         where classify reads the walk's mode). Never raises.
  */
 [[nodiscard]] size_t format_pure_leaf(PyObject* object, char* out) noexcept;
 
@@ -94,7 +124,8 @@ extern bool g_runtime_ready;
  * Resolve what is still unresolved of the type table, then classify @p object
  * by the record's precedence: datetime, date, time, UUID, Decimal, Enum,
  * dataclass, set/frozenset, numpy. Latched caller. A numpy object classifies
- * as native only for dtype kinds `b i u f`.
+ * as native only for dtype kinds `b i u f`. `Kind::None` for every object
+ * while natives_off() says the walk opted out: the object goes to `default`.
  */
 [[nodiscard]] Kind classify(PyObject* object);
 

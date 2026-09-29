@@ -303,7 +303,7 @@ and nothing is timed; if it is met and criterion 5 still resolves a loss, the
 cause is host or profile nondeterminism and goes to a second draw and the
 identical-binary control, not to the code.
 
-## M13 — Tier-1 framework adapters (planned)
+## M13 — Tier-1 framework adapters (landed 2026-09-29)
 
 Depends on M12b: the adapters hand frameworks `dumps_with_default` for their
 unsupported types, so M13 starts when M12b's criteria are met.
@@ -317,13 +317,23 @@ default serializer as oracle; error-mapping tests; semantic-differences table
 in the adapter docstring and docs; integrations CI job green on the supported
 version floors. `__all__` does not grow.
 
+Landed with the M15b reconciliation (docs/decisions.md, 2026-09-29): the
+adapters that hand strata a framework `default` (Flask, Django, structlog,
+pydantic) call `dumps_with_default(..., native=False)`, a hook-only per-call
+opt-out of native precedence, so every framework's own formatting of
+`datetime`, `Decimal`, `UUID` and dataclasses is kept; aiohttp, Falcon and
+FastAPI stay on plain `dumps`. `_strata` unchanged.
+
 ## M14 — Tier-2 adapters (planned)
 
 FastAPI/Starlette (bytes-mode response class), DRF, Sanic, Litestar,
 SQLAlchemy, Celery/kombu, structlog `__structlog__`-protocol follow-ups,
 Pydantic-as-post-step. Same rules as M13; each admitted only with a verified
 hook contract (four unverified facts from the 2026-09-18 survey pinned against
-source first).
+source first). FastAPI (`StrataJSONResponse`, responses only) and
+Pydantic-as-post-step (`strata.integrations.pydantic`) landed ahead of the rest
+on 2026-09-28 with contracts read from source
+(docs/architecture/framework_adapters.md; docs/decisions.md, 2026-09-28).
 
 ## M15 — Native types, default-on (refused, opened 2026-09-28, closed 2026-09-29)
 

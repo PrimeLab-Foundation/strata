@@ -48,10 +48,12 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   ├── util/                # scan.cpp, dtoa.cpp, folder.cpp, temporal.cpp
 │   └── bindings/            # CPython layer: module, loads, dumps (+ python_dumps_hook.cpp: the dumps_with_default AND native= image, with python_native_types.* and python_parse_types_walk.*), files, ndjson, cursor
 ├── python/strata/           # thin facade: __init__, serialize (loads/dumps), config
+│   └── integrations/        # opt-in framework adapters: flask, django, aiohttp, falcon, structlog, fastapi, pydantic
 ├── tests/
 │   ├── cpp/                 # assert-based suites, registered in CMakeLists.txt
 │   ├── py/                  # integration tests (native_types/: kept out of PGO training, py_tests.py --training)
 │   ├── unit/                # clause-by-clause contract suite (native_types/: likewise)
+│   ├── integrations/        # framework-adapter contract tests (scripts/integration_tests.py runs them per framework)
 │   └── fuzz/                # libFuzzer targets (opt-in -DFUZZ=ON) + committed seed corpus/
 │
 ├── benchmarks/              # harness, datasets, regression gate and the CI fetch/summary tools
@@ -146,8 +148,13 @@ docs/benchmarks/evidence/M15b/). The native-v1 benchmark section reports both fl
 states beside the unchanged 135-row canonical (that run's sample: 134/135); strata is
 second on every native row behind msgspec (`dumps` 1.27–1.60x, `dump` 1.12–1.34x — the
 ledger's named follow-up target) and ahead of orjson and stdlib, with the flag costing
-1.00–1.10x on mixed. Still owed: the M13 adapter branch's reconciliation with native
-precedence (docs/decisions.md, 2026-09-29). The rebuild is versioned calver,
+1.00–1.10x on mixed. M13 (the seven framework adapters under `strata.integrations`)
+then merged reconciled with native precedence: `dumps_with_default` gained a
+hook-only per-call `native=True` keyword, and the four adapters that hand strata a
+framework `default` (Flask, Django, structlog, pydantic) pass `native=False`, so each
+framework keeps its own formatting of datetimes, `Decimal`, `UUID` and dataclasses;
+aiohttp, Falcon and FastAPI stay on plain `dumps`; `_strata` unchanged
+(docs/decisions.md, 2026-09-29). The rebuild is versioned calver,
 `YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
 (see `docs/context/api.md`).
 

@@ -119,6 +119,11 @@ A profile for the hook image is a later lever with its own measurement.
 strata.dumps_with_default(obj, default, *, return_type="str") -> str | bytes
 ```
 
+(Amended 2026-09-29: M15b's native precedence and the per-call `native=True`
+keyword that opts out of it are docs/architecture/native_types.md,
+"`dumps_with_default`" and "Opt-out"; under `native=False` this record's
+contract holds byte for byte.)
+
 `default` is required, positional-or-keyword, and must be callable. Every rule
 of the M12 error table carries over, re-targeted to this entry point:
 

@@ -531,6 +531,9 @@ bool prepare_native_runtime() noexcept {
 }
 
 size_t format_pure_leaf(PyObject* object, char* out) noexcept {
+    // An opt-out walk live anywhere: the mode lookup is classify's, latched.
+    if (g_opt_outs.load(std::memory_order_relaxed) != 0)
+        return 0;
     PyTypeObject* const type = Py_TYPE(object);
     const PyDateTime_CAPI* const api = g_table.datetime_api;
     if (api != nullptr) {
@@ -566,6 +569,13 @@ size_t format_pure_leaf(PyObject* object, char* out) noexcept {
 }
 
 Kind classify(PyObject* object) {
+    if (g_opt_outs.load(std::memory_order_relaxed) != 0) {
+        const int off = natives_off();
+        if (off < 0)
+            return Kind::Error;
+        if (off != 0)
+            return Kind::None;
+    }
     resolve();
     PyTypeObject* const type = Py_TYPE(object);
     // Held to the end: the attribute reads below can run code that reassigns

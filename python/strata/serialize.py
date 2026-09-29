@@ -95,7 +95,13 @@ def dumps(obj, *, return_type: str = "str", native: bool = False) -> str | bytes
     raise TypeError(f"native must be a bool, not {type(native).__name__}")
 
 
-def dumps_with_default(obj, default, *, return_type: str = "str") -> str | bytes:
+def dumps_with_default(
+    obj,
+    default,
+    *,
+    return_type: str = "str",
+    native: bool = True,
+) -> str | bytes:
     """Serialize a Python object to compact JSON, with a hook for unsupported types.
 
     The same output as :func:`dumps` for every object :func:`dumps` supports;
@@ -108,13 +114,21 @@ def dumps_with_default(obj, default, *, return_type: str = "str") -> str | bytes
             called for dict keys, nor a second time on its own return value;
             objects nested inside a returned container get their own call.
         return_type: ``"str"`` or ``"bytes"``.
+        native: ``True`` (default) writes ``datetime``, ``date``, ``time``,
+            ``UUID``, ``Decimal``, ``Enum``, dataclasses, ``set``/``frozenset``
+            and numpy scalars/arrays natively, as ``dumps(obj, native=True)``
+            does, before ``default`` is consulted. ``False`` supports only what
+            ``dumps(obj)`` supports: every native object is passed to
+            ``default`` instead, and a native object ``default`` returns is
+            unsupported.
 
     Returns:
         The JSON text, with no whitespace between tokens.
 
     Raises:
         TypeError: ``default`` is not callable, it returned an unsupported
-            object, or a dict key is not a ``str``.
+            object, a dict key is not a ``str``, or ``native`` is not a
+            ``bool``.
         ValueError: Nesting reached ``sys.getrecursionlimit()``, ``return_type``
             is unknown, or a reference cycle was found while ``cycle_policy``
             is ``"error"``.
@@ -126,7 +140,12 @@ def dumps_with_default(obj, default, *, return_type: str = "str") -> str | bytes
     fails, the ``ImportError`` is raised here, and every other function of the
     package is unaffected.
     """
-    return _hook_module().dumps_with_default(obj, default, return_type=return_type)
+    return _hook_module().dumps_with_default(
+        obj,
+        default,
+        return_type=return_type,
+        native=native,
+    )
 
 
 @functools.cache
