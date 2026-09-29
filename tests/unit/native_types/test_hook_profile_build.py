@@ -145,3 +145,117 @@ def test_clang_cl_script_profiles_the_hook_after_strata():
     assert text.index("_hook_phase(profdata)", main) > gate
     assert '"STRATA_EXTENSIONS": "strata._dumps_hook"' in text
     assert "The hook phase changed _strata's image" in text
+
+
+def test_clang_cl_spells_each_images_own_profile(monkeypatch, tmp_path):
+    # setup.py as the Windows leg runs it (clang-cl), simulated: the hook's phase-3b flags
+    # name its profile behind /clang:, `_strata` keeps its own, and neither gets LTO.
+    hook_profile = tmp_path / "hook.profdata"
+    hook_profile.write_bytes(b"")
+    monkeypatch.setattr(sys, "platform", "win32")
+    extensions = _extensions(
+        monkeypatch,
+        tmp_path,
+        "use",
+        "0",
+        STRATA_WIN_COMPILER="clang-cl",
+        STRATA_HOOK_PGO_MODE="use",
+        STRATA_HOOK_PGO_PROFILE=str(hook_profile),
+    )
+    hook = _flags(extensions["strata._dumps_hook"])
+    engine = _flags(extensions["strata._strata"])
+    assert f"/clang:-fprofile-use={hook_profile}" in hook
+    assert not [f for f in hook if "strata.profile" in f]
+    assert [f for f in engine if f.startswith("/clang:-fprofile-use=") and "strata.profile" in f]
+    assert not [f for f in [*hook, *engine] if LTO_FLAG.search(f)]
+
+
+def test_clang_cl_hook_phase_runs_in_order(monkeypatch, tmp_path):
+    # scripts/pgo_build_clang_cl.py's phase 3, driven with its commands recorded instead of
+    # run: the hook alone instrumented (gate counts discarded), trained, merged, rebuilt
+    # against its own profile, both images checked, the gate run -- in that order.
+    from scripts import pgo_build_clang_cl as script
+
+    pgo = tmp_path / "pgo"
+    for name, value in {
+        "PGO_DIR": pgo,
+        "WORK_DIR": pgo / "work",
+        "PROFILE": pgo / "strata.profdata",
+        "HOOK_RAW_DIR": pgo / "hook-raw",
+        "HOOK_GATE_DIR": pgo / "hook-gate-discarded",
+        "HOOK_PROFILE": pgo / "hook.profdata",
+    }.items():
+        monkeypatch.setattr(script, name, value)
+    image = tmp_path / "_strata.pyd"
+    image.write_bytes(b"strata image")
+    monkeypatch.setattr(script, "_strata_image", lambda: image)
+    calls: list[tuple[list[str], dict]] = []
+
+    def run(cmd, extra_env=None):
+        calls.append((list(cmd), dict(extra_env or {})))
+        if "scripts/pgo_hook_training.py" in cmd:
+            (pgo / "hook-raw" / "1.profraw").write_bytes(b"counts")
+
+    monkeypatch.setattr(script, "_run", run)
+    script._hook_phase("llvm-profdata")
+
+    installs = [env for cmd, env in calls if cmd[1:4] == ["-m", "pip", "install"]]
+    assert [env["STRATA_HOOK_PGO_MODE"] for env in installs] == ["generate", "use"]
+    assert all(env["STRATA_EXTENSIONS"] == "strata._dumps_hook" for env in installs)
+    assert all(env["PGO_MODE"] == "" for env in installs)
+    assert installs[0]["LLVM_PROFILE_FILE"].startswith(str(pgo / "hook-gate-discarded"))
+    assert installs[1]["STRATA_HOOK_PGO_PROFILE"] == str(pgo / "hook.profdata")
+    order = [
+        next(
+            i for i, (cmd, env) in enumerate(calls) if env.get("STRATA_HOOK_PGO_MODE") == "generate"
+        ),
+        next(i for i, (cmd, _) in enumerate(calls) if "scripts/pgo_hook_training.py" in cmd),
+        next(i for i, (cmd, _) in enumerate(calls) if cmd[:2] == ["llvm-profdata", "merge"]),
+        next(i for i, (cmd, _) in enumerate(calls) if "hook-native-training-clang-cl-v1" in cmd),
+        next(i for i, (cmd, env) in enumerate(calls) if env.get("STRATA_HOOK_PGO_MODE") == "use"),
+        next(i for i, (cmd, _) in enumerate(calls) if "--check-profiled" in cmd),
+        next(i for i, (cmd, _) in enumerate(calls) if cmd[-1:] == ["scripts/py_tests.py"]),
+    ]
+    assert order == sorted(order)
+    training = next(env for cmd, env in calls if "scripts/pgo_hook_training.py" in cmd)
+    assert training["LLVM_PROFILE_FILE"].startswith(str(pgo / "hook-raw"))
+    checks = [
+        cmd[cmd.index("--check-profiled") + 1 :] for cmd, _ in calls if "--check-profiled" in cmd
+    ]
+    assert checks == [
+        [
+            "strata._dumps_hook",
+            "--profile",
+            str(pgo / "hook.profdata"),
+            "--foreign",
+            str(pgo / "strata.profdata"),
+        ],
+        [
+            "strata._strata",
+            "--profile",
+            str(pgo / "strata.profdata"),
+            "--foreign",
+            str(pgo / "hook.profdata"),
+        ],
+    ]
+
+
+def test_clang_cl_hook_phase_refuses_a_changed_strata_image(monkeypatch, tmp_path):
+    from scripts import pgo_build_clang_cl as script
+
+    pgo = tmp_path / "pgo"
+    for name in ("HOOK_RAW_DIR", "HOOK_GATE_DIR", "HOOK_PROFILE", "WORK_DIR", "PROFILE"):
+        monkeypatch.setattr(script, name, pgo / name.lower())
+    image = tmp_path / "_strata.pyd"
+    image.write_bytes(b"before")
+    monkeypatch.setattr(script, "_strata_image", lambda: image)
+
+    def run(cmd, extra_env=None):
+        if "scripts/pgo_hook_training.py" in cmd:
+            (pgo / "hook_raw_dir" / "1.profraw").write_bytes(b"counts")
+        if (extra_env or {}).get("STRATA_HOOK_PGO_MODE") == "use":
+            image.write_bytes(b"after")
+
+    monkeypatch.setattr(script, "_run", run)
+    with pytest.raises(SystemExit, match="changed _strata's image"):
+        script._hook_phase("llvm-profdata")

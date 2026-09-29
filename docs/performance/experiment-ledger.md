@@ -4698,3 +4698,35 @@ waits on it.
     **0.8644 \[0.8206, 0.8658\]**, file 0.9030, Enum 0.6334, dataclass 0.8386, `plain-mixed`
     0.9983. Go.
   - Plain build after L1–L12: records strata 208.08 µs vs msgspec 251.6 (**0.827×**), file 0.791×.
+
+- **L9's plain-document cost, priced and accepted** (lead, 2026-09-29): `plain-mixed` through
+  `native=True` reads +1.2% \[1.0113, 1.0125\] on the plain build (`p3`); the row stays at 0.73×
+  msgspec, and the profiled hook reads it at 0.8862 of the shipped hook (`p9`, below).
+
+- **Profiled hook, L1–L12** (`p9`; `d18a7fa` source, the phase-3 recipe by hand:
+  `-fprofile-generate` → `scripts/pgo_hook_training.py` → `-flto=thin -fprofile-use`; ABBA ×3,
+  repeat 40, 240 samples): records `dumps` strata 187.23 µs vs msgspec 252.70, **0.741×**
+  (paired to the shipped hook **0.4873 \[0.4872, 0.4882\]**); `dump` 270.69 vs 368.84 µs,
+  **0.734×** (0.5649 \[0.5599, 0.5704\]); `plain-mixed` 0.639× msgspec (0.8862 \[0.8858, 0.8877\]).
+
+- **Correctness: the dataclass field cache and a Field changed in place** (`5bc815d`; present
+  on main since M15). The entry was checked against `__dataclass_fields__`'s keys and Field
+  objects by identity, not against what `dataclasses.fields` reads from them, so a Field whose
+  `name` or `_field_type` was reassigned after first use kept its old key (a probe wrote
+  `{"a\"b":0,...}` where the oracle wrote `{"renamed":99,...}`). Each entry now snapshots every
+  field's `name` and `_field_type` and is refused when either changed; an exact `Field` is read in
+  place while its class's version tag is current, anything else by `getattr`. Tests pin the
+  cached path, the refreshed entry, a re-kinded field and a Field subclass; all three fail on the
+  pre-fix build (`v8`) and pass on the fix. Price, plain builds, ABBA ×4, 240 samples (`p8`):
+  dataclass lists +5.35% \[1.0529, 1.0551\] (+4.4 ns per two-field object), records +0.75%
+  \[1.0002, 1.0698\], file +1.8% \[0.9956, 1.1146\] (the upper bounds are one loaded block). A
+  first version with a reference taken per read cost the lists +11.2% (`p7`); the kept one
+  compares borrowed. No cheaper invalidation chosen (lead's call).
+
+- **Windows' third phase** (`4c92d3e`, `scripts/pgo_build_clang_cl.py` `_hook_phase`): verified
+  on the M1 to the depth it allows — `setup.py` under a simulated clang-cl build gives the hook
+  `/clang:-fprofile-use=<hook.profdata>` and `_strata` its own profile, no LTO on either; the
+  phase, driven with its commands recorded, runs instrument → train → merge → record → rebuild →
+  `--check-profiled` both ways → gate in that order, and refuses a changed `_strata` image
+  (`tests/unit/native_types/test_hook_profile_build.py`). Not run on Windows: the first five-leg
+  dispatch is its first execution.

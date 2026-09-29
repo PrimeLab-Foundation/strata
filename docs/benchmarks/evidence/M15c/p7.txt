@@ -1,0 +1,16 @@
+row             lib                  v8            v9   n
+rec             strata         208.50us      212.64us  180
+rec             msgspec        251.43us      251.47us  180
+                strata/msgspec [v8] 0.829
+                strata/msgspec [v9] 0.846
+                v9/v8 strata: median 1.0010 [0.9756, 1.0934] over 3 blocks
+rec-file        strata         294.79us      302.76us  180
+rec-file        msgspec        365.21us      377.05us  180
+                strata/msgspec [v8] 0.807
+                strata/msgspec [v9] 0.803
+                v9/v8 strata: median 1.0024 [0.9900, 1.0769] over 3 blocks
+t-dc            strata          82.81us       91.62us  180
+t-dc            msgspec         64.77us       64.56us  180
+                strata/msgspec [v8] 1.279
+                strata/msgspec [v9] 1.419
+                v9/v8 strata: median 1.1123 [1.1010, 1.1126] over 3 blocks
