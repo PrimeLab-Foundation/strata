@@ -1,0 +1,76 @@
+== ab-macos-x86_64
+     2816   2816   2816  (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*)
+      768    768    944  (anonymous namespace)::strata_loads(_object*, _object* const*, long, _object*)  <- B
+       64     64     64  Serializer::close_container(_object*)
+      130    130    130  Serializer::latch()
+      336    336    336  Serializer::push_open(_object*)
+        0      0    264  Serializer::push_open_cold(_object*)  <- B
+    10960  10960  11008  Serializer::write(_object*)  <- B
+        0      0    596  Serializer::write_dataclass(_object*)  <- B
+        0      0    174  Serializer::write_decimal(_object*)  <- B
+        0      0    484  Serializer::write_enum(_object*)  <- B
+        0      0    224  Serializer::write_key_cold(_object*)  <- B
+     1632   1632   1632  Serializer::write_mapping(_object*)
+     7152   7152   7152  Serializer::write_mapping_body(_object*, long, long)
+      490    490    490  Serializer::write_mapping_uncached(_object*)
+        0      0    554  Serializer::write_native(_object*)  <- B
+        0      0    146  Serializer::write_native_text(char const*, long)  <- B
+     4320   4320   4320  Serializer::write_record_fused(_object*)
+     4240   4240   4240  Serializer::write_scalar_run(_object**, long)
+        0      0    582  Serializer::write_set(_object*)  <- B
+        0      0    378  Serializer::write_set_table(_object*)  <- B
+     2400   2400   2400  Serializer::write_string_bytes(char const*, unsigned long)
+     9136   9136   9136  strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_array()
+     4752   4752   4752  strata::ParserInline<strata::bindings::PythonObjectBuilder>::scan_string()
+    19056  19056  19072  strata::PlainCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::pars  <- B
+== ab-macos-arm64
+     2496   2496   2496  (anonymous namespace)::strata_dumps(_object*, _object* const*, long, _object*)
+      764    764    936  (anonymous namespace)::strata_loads(_object*, _object* const*, long, _object*)  <- B
+      136    136    136  Serializer::Frame::Frame(Serializer&, _object*)
+       80     80     80  Serializer::close_container(_object*)
+      164    164    164  Serializer::latch()
+        0      0    236  Serializer::push_open_cold(_object*)  <- B
+    10460  10460  10520  Serializer::write(_object*)  <- B
+        0      0    620  Serializer::write_dataclass(_object*)  <- B
+        0      0    204  Serializer::write_decimal(_object*)  <- B
+        0      0    536  Serializer::write_enum(_object*)  <- B
+        0      0    288  Serializer::write_key_cold(_object*)  <- B
+     1644   1644   1644  Serializer::write_mapping(_object*)
+     6140   6140   6140  Serializer::write_mapping_body(_object*, long, long)
+      512    512    512  Serializer::write_mapping_uncached(_object*)
+        0      0    580  Serializer::write_native(_object*)  <- B
+        0      0    184  Serializer::write_native_text(char const*, long)  <- B
+     5460   5460   5460  Serializer::write_record_fused(_object*)
+     3708   3708   3708  Serializer::write_scalar_run(_object**, long)
+        0      0    664  Serializer::write_set(_object*)  <- B
+        0      0    456  Serializer::write_set_table(_object*)  <- B
+     2288   2288   2288  Serializer::write_string_bytes(char const*, unsigned long)
+     7968   7968   7968  strata::ParserInline<strata::bindings::PythonObjectBuilder>::parse_array()
+     4336   4336   4336  strata::ParserInline<strata::bindings::PythonObjectBuilder>::scan_string()
+    16544  16544  16544  strata::PlainCursor strata::ParserInline<strata::bindings::PythonObjectBuilder>::pars
+== ab-windows-x86_64 (.pdata function ranges): count A=606 A2=606 B=693
+   # 1   15136   15136   15181
+   # 2   11550   11550   11545
+   # 3    8625    8625    8625
+   # 4    8445    8445    8445
+   # 5    8266    8266    8266
+   # 6    7227    7227    7231
+   # 7    7224    7224    7224
+   # 8    6392    6392    6392
+   # 9    5783    5783    5783
+   #10    5705    5705    5703
+   #11    4744    4744    4576
+   #12    4498    4498    4498
+   #13    4297    4297    4297
+   #14    4211    4211    4211
+   #15    3621    3621    3607
+   #16    3312    3312    3312
+   #17    3232    3232    3232
+   #18    3039    3039    3039
+   #19    2896    2896    2896
+   #20    2622    2622    2622
+   #21    2616    2616    2599
+   #22    2513    2513    2513
+   #23    2476    2476    2485
+   #24    2476    2476    2476
+   #25    2426    2426    2426
