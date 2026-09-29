@@ -150,6 +150,40 @@ void test_format_uuid() {
     // The halves are not swapped: only the first half's top nibble is set.
     assert(uuid_text(0x8000000000000000ULL, 0) == "80000000-0000-0000-0000-000000000000");
     assert(uuid_text(0, 1) == "00000000-0000-0000-0000-000000000001");
+
+    // The word-at-a-time digits against the table-per-digit reference they
+    // replaced (M15c): every nibble value in every position, then a stream of
+    // pseudo-random halves.
+    const auto reference = [](uint64_t hi, uint64_t lo) {
+        static constexpr char kDigits[] = "0123456789abcdef";
+        std::string text;
+        for (int digit = 0; digit < 32; ++digit) {
+            if (digit == 8 || digit == 12 || digit == 16 || digit == 20)
+                text.push_back('-');
+            const uint64_t half = digit < 16 ? hi : lo;
+            text.push_back(kDigits[(half >> (60 - 4 * (digit % 16))) & 0xF]);
+        }
+        return text;
+    };
+    for (int position = 0; position < 16; ++position) {
+        for (uint64_t nibble = 0; nibble < 16; ++nibble) {
+            const uint64_t word = nibble << (4 * position);
+            assert(uuid_text(word, ~word) == reference(word, ~word));
+            assert(uuid_text(~word, word) == reference(~word, word));
+        }
+    }
+    uint64_t state = 0x9e3779b97f4a7c15ULL;
+    const auto next = [&state]() {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        return state;
+    };
+    for (int round = 0; round < 100000; ++round) {
+        const uint64_t hi = next();
+        const uint64_t lo = next();
+        assert(uuid_text(hi, lo) == reference(hi, lo));
+    }
 }
 
 // --- JSON number grammar ---------------------------------------------------------

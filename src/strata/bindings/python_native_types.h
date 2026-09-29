@@ -178,8 +178,14 @@ enum class DecimalText : uint8_t { Number, NonFinite, Error };
  * it held when read, by identity and in the same order, so a type whose fields
  * are replaced, grown, shrunk or swapped in place after its first use is read
  * again. Latched caller; nullptr with an error set.
+ *
+ * @p keys receives, when the names come from a cache entry, a new reference
+ * to a tuple of `bytes`: each name's JSON key exactly as the dataclass writer
+ * would emit it through the core escaper -- `,` ahead of every name but the
+ * first, the escaped name in quotes, `:` -- else nullptr (the writer then
+ * escapes each name itself, and a name with no UTF-8 encoding raises there).
  */
-[[nodiscard]] PyObject* dataclass_field_names(PyObject* object);
+[[nodiscard]] PyObject* dataclass_field_names(PyObject* object, PyObject*& keys);
 
 /// Types the dataclass field-name cache holds before it is cleared.
 inline constexpr Py_ssize_t kFieldCacheLimit = 1024;

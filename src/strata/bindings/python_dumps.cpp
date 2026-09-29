@@ -201,6 +201,16 @@ namespace strata::bindings {
 
 namespace {
 
+#if defined(STRATA_DUMPS_HOOK)
+// The hook image's native writers, and latch() which each conversion calls: out
+// of line, so the tail stays an inlining boundary, but not cold. In this image
+// they are the path `native=True` exists for, and `cold` would have them
+// optimized for size and every call to them placed as unlikely
+// (docs/architecture/native_types.md, "Hook profile and native emitter costs").
+// `_strata` has none of them, and its latch() keeps STRATA_COLD_FN.
+#define STRATA_NATIVE_FN STRATA_NOINLINE_HOT
+#endif
+
 // STRATA_COLD_FN / STRATA_NOINLINE_HOT are defined in python_types.h: the
 // raw walk's own cold bodies need them too, and there is exactly one
 // definition so no `#else` arm can silently expand to nothing here.
@@ -422,7 +432,7 @@ class Serializer {
      * write_int) -- then type resolution, which itself reads attributes of
      * modules the user may have replaced.
      */
-    [[nodiscard]] STRATA_COLD_FN bool write_native(PyObject* object) {
+    [[nodiscard]] STRATA_NATIVE_FN bool write_native(PyObject* object) {
         char text[native::kTextCapacity];
         const size_t pure = native::format_pure_leaf(object, text);
         if (pure != 0)
@@ -502,7 +512,7 @@ class Serializer {
 
     /// A `Decimal` as the raw JSON number its `str()` spells; a non-finite one
     /// as `null`. The caller has latched.
-    [[nodiscard]] STRATA_COLD_FN bool write_decimal(PyObject* object) {
+    [[nodiscard]] STRATA_NATIVE_FN bool write_decimal(PyObject* object) {
         PyRef text;
         std::string_view digits;
         switch (native::decimal_text(object, text, digits)) {
@@ -536,7 +546,7 @@ class Serializer {
      * the depth limit. The hops inside the loop take none; the loop's own
      * bound covers them.
      */
-    [[nodiscard]] STRATA_COLD_FN bool write_enum(PyObject* member) {
+    [[nodiscard]] STRATA_NATIVE_FN bool write_enum(PyObject* member) {
         const NativeFrame frame(*this, member);
         if (frame.repeated())
             return frame.handle_cycle();
@@ -574,14 +584,16 @@ class Serializer {
      * takes one level of the depth limit. Keys go through the core escaper
      * (write_key_cold); nothing is copied into a temporary dict.
      */
-    [[nodiscard]] STRATA_COLD_FN bool write_dataclass(PyObject* object) {
+    [[nodiscard]] STRATA_NATIVE_FN bool write_dataclass(PyObject* object) {
         const NativeFrame frame(*this, object);
         if (frame.repeated())
             return frame.handle_cycle();
         if (!frame.within_depth_limit())
             return false;
         latch();
-        const PyRef names(native::dataclass_field_names(object));
+        PyObject* encoded = nullptr;
+        const PyRef names(native::dataclass_field_names(object, encoded));
+        const PyRef keys(encoded);
         if (!names)
             return false;
         out_.ensure(1);
@@ -589,14 +601,22 @@ class Serializer {
         const Py_ssize_t count = PyTuple_GET_SIZE(names.get());
         for (Py_ssize_t index = 0; index < count; ++index) {
             PyObject* const name = PyTuple_GET_ITEM(names.get(), index);
-            if (index != 0) {
-                out_.ensure(1);
-                out_.put(',');
+            if (keys) {
+                // The cache entry's bytes for this key, separator included:
+                // what the branch below writes, escaped once per type.
+                PyObject* const key = PyTuple_GET_ITEM(keys.get(), index);
+                out_.write_spanning(PyBytes_AS_STRING(key),
+                                    static_cast<size_t>(PyBytes_GET_SIZE(key)));
+            } else {
+                if (index != 0) {
+                    out_.ensure(1);
+                    out_.put(',');
+                }
+                // Not write_string or write_string_bytes: the native tail is
+                // a hard inlining boundary (this file's header).
+                if (!write_key_cold(name))
+                    return false;
             }
-            // Not write_string or write_string_bytes: the native tail is a
-            // hard inlining boundary (this file's header).
-            if (!write_key_cold(name))
-                return false;
             latch();
             const PyRef value(native::field_value(object, name));
             if (!value || !write(value.get()))
@@ -636,7 +656,7 @@ class Serializer {
      * only allocation. Either way a set resized while it is written raises
      * the `RuntimeError` its iterator raises.
      */
-    [[nodiscard]] STRATA_COLD_FN bool write_set(PyObject* object) {
+    [[nodiscard]] STRATA_NATIVE_FN bool write_set(PyObject* object) {
         const NativeFrame frame(*this, object);
         if (frame.repeated())
             return frame.handle_cycle();
@@ -690,7 +710,7 @@ class Serializer {
      * walk is latched. For the same reason the scan runs to the mask, as the
      * iterator's does, rather than stopping after `used` keys.
      */
-    [[nodiscard]] STRATA_COLD_FN bool write_set_table(PyObject* object) {
+    [[nodiscard]] STRATA_NATIVE_FN bool write_set_table(PyObject* object) {
         const auto* const set = reinterpret_cast<PySetObject*>(object);
         PyObject* const dummy = native::g_set_dummy;
         const Py_ssize_t size = set->used;
@@ -2195,7 +2215,11 @@ class Serializer {
      * from the root and the row list's are a suffix from the root, which is why both loops may stop
      * at the first one already latched.
      */
+#if defined(STRATA_DUMPS_HOOK)
+    STRATA_NATIVE_FN void latch() noexcept {
+#else
     STRATA_COLD_FN void latch() noexcept {
+#endif
         // Before the ownership work, so a step that raises still leaves the
         // counter moved: every borrowed loop bound above is then stale by
         // assumption, which is the safe answer.
@@ -2226,7 +2250,7 @@ class Serializer {
     /// push_open for NativeFrame, out of line and through emplace_back -- a
     /// different instantiation from push_back's -- so the native tail shares
     /// no inlined helper with the hot writers (this file's header).
-    STRATA_COLD_FN void push_open_cold(PyObject* container) {
+    STRATA_NATIVE_FN void push_open_cold(PyObject* container) {
         open_.emplace_back(container);
 #endif
         ++open_count_;
