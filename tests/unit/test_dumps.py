@@ -165,7 +165,7 @@ def test_a_non_string_key_raises_type_error(key):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("value", [object(), bytearray(b"ab"), b"bytes", 1 + 2j, range(3)])
+@pytest.mark.parametrize("value", [object(), {1, 2}, b"bytes", 1 + 2j, range(3)])
 def test_an_unsupported_type_raises_type_error(value):
     with pytest.raises(TypeError, match="not JSON serializable"):
         strata.dumps(value)

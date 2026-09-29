@@ -205,7 +205,7 @@ def test_round_trip_of_what_the_serializer_writes():
         "aware_time": dt.time(1, 2, tzinfo=dt.timezone(dt.timedelta(minutes=90))),
         "uuid": uuid.UUID(int=(1 << 128) - 1),
     }
-    assert strata.loads(strata.dumps(value), parse_types=True) == value
+    assert strata.loads(strata.dumps(value, native=True), parse_types=True) == value
 
 
 class _Summer(dt.tzinfo):
@@ -221,7 +221,7 @@ class _Summer(dt.tzinfo):
 def test_a_zone_comes_back_as_the_fixed_offset_it_had():
     # "a `ZoneInfo` comes back as the fixed offset it had"
     original = dt.datetime(2024, 7, 1, 12, 0, tzinfo=_Summer())
-    back = strata.loads(strata.dumps(original), parse_types=True)
+    back = strata.loads(strata.dumps(original, native=True), parse_types=True)
     assert back == original
     assert back.tzinfo == dt.timezone(dt.timedelta(hours=2))
 

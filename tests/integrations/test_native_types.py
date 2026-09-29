@@ -24,8 +24,8 @@ MODES = ("str", "bytes")
 
 
 def both(obj):
-    text = strata.dumps(obj)
-    assert strata.dumps(obj, return_type="bytes") == text.encode()
+    text = strata.dumps(obj, native=True)
+    assert strata.dumps(obj, return_type="bytes", native=True) == text.encode()
     return text
 
 
@@ -53,7 +53,7 @@ SCALAR_TYPES = [
 def test_row9_a_scalar_of_kind_b_i_u_f_is_written_as_its_item(kind):
     for raw in (0, 1, 7):
         value = kind(raw)
-        assert both(value) == strata.dumps(value.item())
+        assert both(value) == strata.dumps(value.item(), native=True)
     if np.issubdtype(kind, np.integer):
         info = np.iinfo(kind)
         assert both(kind(info.max)) == str(int(info.max))
@@ -62,7 +62,7 @@ def test_row9_a_scalar_of_kind_b_i_u_f_is_written_as_its_item(kind):
 
 def test_row9_float32_and_float16_widen_exactly_to_float():
     assert both(np.float32(0.1)) == "0.10000000149011612"
-    assert both(np.float16(0.1)) == strata.dumps(float(np.float16(0.1)))
+    assert both(np.float16(0.1)) == strata.dumps(float(np.float16(0.1)), native=True)
 
 
 def test_row9_non_finite_floats_are_null():
@@ -86,7 +86,7 @@ def test_row9_non_finite_floats_are_null():
     ids=["2d", "3d", "transposed", "strided", "0d-float", "0d-bool", "empty", "bool"],
 )
 def test_row9_an_array_is_written_as_its_tolist_in_any_shape_and_strides(array):
-    assert both(array) == strata.dumps(array.tolist())
+    assert both(array) == strata.dumps(array.tolist(), native=True)
 
 
 def test_row9_an_ndarray_subclass_is_written_as_its_tolist():
@@ -119,7 +119,7 @@ def test_row9_an_ndarray_subclass_is_written_as_its_tolist():
 )
 def test_error_contract_other_numpy_kinds_raise_with_numpys_type_name(value, name):
     with pytest.raises(TypeError, match=f"^Object of type {name} is not JSON serializable$"):
-        strata.dumps(value)
+        strata.dumps(value, native=True)
 
 
 def test_row9_a_longdouble_whose_item_is_itself_is_unsupported():
@@ -130,9 +130,9 @@ def test_row9_a_longdouble_whose_item_is_itself_is_unsupported():
         assert both(value) == "1.5"
     else:
         with pytest.raises(TypeError, match="^Object of type numpy.longdouble is not"):
-            strata.dumps(value)
+            strata.dumps(value, native=True)
         with pytest.raises(TypeError, match="^Object of type numpy.longdouble is not"):
-            strata.dumps(np.array([1.5], dtype=np.longdouble))
+            strata.dumps(np.array([1.5], dtype=np.longdouble), native=True)
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -207,7 +207,7 @@ def test_rows_1_to_4_and_6_match_orjson_byte_for_byte(row):
     index = ROWS.index(row)
     for _ in range(300):
         value = _row_values(rng)[index]
-        ours = strata.dumps(value, return_type="bytes")
+        ours = strata.dumps(value, return_type="bytes", native=True)
         if row == "time" and not ORJSON_TIME_IS_EXACT:
             assert ours == f'"{value.isoformat()}"'.encode(), value
         else:
@@ -223,4 +223,4 @@ def test_a_document_of_rows_1_to_4_and_6_matches_orjson():
         document.append(
             {"row": index, "values": [values[k] for k in keep], "nested": {"at": values[1]}}
         )
-    assert strata.dumps(document, return_type="bytes") == orjson.dumps(document)
+    assert strata.dumps(document, return_type="bytes", native=True) == orjson.dumps(document)

@@ -261,15 +261,15 @@ CORPUS = _corpus(400)
 @pytest.mark.parametrize("mode", MODES)
 def test_the_corpus_is_byte_identical_to_its_reference_spelling(mode):
     for document in CORPUS:
-        expected = splice(strata.dumps(deep_reference(document)))
-        out = strata.dumps(document, return_type=mode)
+        expected = splice(strata.dumps(deep_reference(document), native=True))
+        out = strata.dumps(document, return_type=mode, native=True)
         assert (out.decode() if mode == "bytes" else out) == expected
 
 
 def test_the_corpus_reads_back_as_the_stdlib_writes_it_with_the_reference_default():
     for document in CORPUS:
         expected = json.loads(json.dumps(document, default=loads_reference))
-        assert json.loads(strata.dumps(document)) == expected
+        assert json.loads(strata.dumps(document, native=True)) == expected
 
 
 def test_each_row_has_a_reference_spelling_in_the_corpus():
@@ -310,18 +310,22 @@ def _records(count):
 def test_dump_writes_the_bytes_dumps_writes(tmp_path):
     for index, document in enumerate(CORPUS[:40]):
         target = tmp_path / f"doc{index}.json"
-        strata.dump(document, target)
-        assert target.read_bytes() == strata.dumps(document, return_type="bytes") + b"\n"
-        assert strata.load(target) == json.loads(strata.dumps(document))
+        strata.dump(document, target, native=True)
+        assert (
+            target.read_bytes() == strata.dumps(document, return_type="bytes", native=True) + b"\n"
+        )
+        assert strata.load(target) == json.loads(strata.dumps(document, native=True))
 
 
 def test_dump_splits_records_holding_natives_into_folders(tmp_path):
     records = _records(40)
-    strata.dump(records, tmp_path / "out", split_by="region")
+    strata.dump(records, tmp_path / "out", split_by="region", native=True)
     loaded = strata.load(tmp_path / "out")
     by_region = {}
     for record in records:
-        by_region.setdefault(record["region"], []).append(json.loads(strata.dumps(record)))
+        by_region.setdefault(record["region"], []).append(
+            json.loads(strata.dumps(record, native=True))
+        )
     assert loaded == [row for region in sorted(by_region) for row in by_region[region]]
     for region, rows in by_region.items():
         text = (tmp_path / "out" / f"{region}.json").read_text(encoding="utf-8")
@@ -331,7 +335,7 @@ def test_dump_splits_records_holding_natives_into_folders(tmp_path):
 def test_ndjson_lines_of_native_records_load_back(tmp_path):
     records = _records(25)
     target = tmp_path / "records.ndjson"
-    target.write_text("\n".join(strata.dumps(record) for record in records) + "\n")
+    target.write_text("\n".join(strata.dumps(record, native=True) for record in records) + "\n")
     expected = [json.loads(json.dumps(record, default=loads_reference)) for record in records]
     assert strata.load(target) == expected
 
@@ -349,6 +353,6 @@ def test_the_callable_is_never_called_over_the_corpus(mode):
         calls.append(obj)
 
     for document in CORPUS:
-        expected = strata.dumps(document, return_type=mode)
+        expected = strata.dumps(document, return_type=mode, native=True)
         assert strata.dumps_with_default(document, default, return_type=mode) == expected
     assert calls == []

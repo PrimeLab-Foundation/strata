@@ -54,9 +54,9 @@ def test_serializing_resolves_the_table_without_importing_them():
         before = {{name for name in {MODULES!r} if name in sys.modules}}
         import strata
         strata.dumps({{"a": [1, 2.5, "x", None, {{"b": True}}]}})
-        strata.dumps({{1, 2}})
+        strata.dumps({{1, 2}}, native=True)
         try:
-            strata.dumps(object())
+            strata.dumps(object(), native=True)
         except TypeError:
             pass
         try:
@@ -75,11 +75,11 @@ def test_a_module_imported_after_the_table_first_resolved_is_found():
         """
         import strata
         try:
-            strata.dumps(object())
+            strata.dumps(object(), native=True)
         except TypeError:
             pass
         import datetime, uuid
-        print(strata.dumps([datetime.date(2026, 9, 28), uuid.UUID(int=1)]))
+        print(strata.dumps([datetime.date(2026, 9, 28), uuid.UUID(int=1)], native=True))
         """
     )
     assert out == ['["2026-09-28","00000000-0000-0000-0000-000000000001"]']

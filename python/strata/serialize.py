@@ -62,7 +62,7 @@ def loads(
     )
 
 
-def dumps(obj, *, return_type: str = "str") -> str | bytes:
+def dumps(obj, *, return_type: str = "str", native: bool = False) -> str | bytes:
     """Serialize a Python object to compact JSON.
 
     Args:
@@ -71,19 +71,28 @@ def dumps(obj, *, return_type: str = "str") -> str | bytes:
             NaN and infinity are written as ``null``; integers beyond 64 bits
             keep every digit.
         return_type: ``"str"`` or ``"bytes"``.
+        native: ``False`` (default) serializes only the types listed above.
+            ``True`` additionally writes ``datetime``, ``date``, ``time``,
+            ``UUID``, ``Decimal``, ``Enum``, dataclasses, ``set``/``frozenset``
+            and numpy scalars/arrays natively.
 
     Returns:
         The JSON text, with no whitespace between tokens.
 
     Raises:
-        TypeError: An object of an unsupported type, or a non-``str`` dict key.
+        TypeError: An object of an unsupported type, a non-``str`` dict key,
+            or ``native`` is not a ``bool``.
         ValueError: Nesting reached ``sys.getrecursionlimit()``, ``return_type``
             is unknown, or a reference cycle was found while ``cycle_policy``
             is ``"error"``.
         RuntimeWarning: Emitted, not raised, for a reference cycle while
             ``cycle_policy`` is ``"warn"``.
     """
-    return _native.dumps(obj, return_type=return_type)
+    if native is False:
+        return _native.dumps(obj, return_type=return_type)
+    if native is True:
+        return _hook_module().dumps_native(obj, return_type=return_type)
+    raise TypeError(f"native must be a bool, not {type(native).__name__}")
 
 
 def dumps_with_default(obj, default, *, return_type: str = "str") -> str | bytes:
@@ -194,7 +203,7 @@ def load(
     )
 
 
-def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
+def dump(obj, path: str | os.PathLike, *, split_by=None, native: bool = False) -> None:
     """Write ``obj`` to a file as compact JSON with a trailing newline.
 
     Args:
@@ -204,14 +213,26 @@ def dump(obj, path: str | os.PathLike, *, split_by=None) -> None:
             the records into files. One key writes ``dir/<value>.json``; N keys
             nest one directory per key. Required for a directory, and an error
             for a file.
+        native: ``False`` (default) serializes only the types :func:`dumps`
+            accepts without it. ``True`` additionally writes ``datetime``,
+            ``date``, ``time``, ``UUID``, ``Decimal``, ``Enum``, dataclasses,
+            ``set``/``frozenset`` and numpy scalars/arrays natively, in file
+            and folder mode alike.
 
     Raises:
         OSError: The file or directory could not be written.
-        TypeError: An unsupported type, a non-``str`` dict key, or -- in folder
-            mode -- a non-list ``obj`` or a record that is not a dict.
+        TypeError: An unsupported type, a non-``str`` dict key, ``native`` is
+            not a ``bool``, or -- in folder mode -- a non-list ``obj`` or a
+            record that is not a dict.
         ValueError: ``split_by`` given for a file or missing for a directory, a
             record missing a split key, a split value that is not a
             ``str``/``int``/``bool``, or one that is unusable or ambiguous as a
             file name.
     """
-    _native.dump(obj, os.fspath(path), split_by=split_by)
+    if native is False:
+        _native.dump(obj, os.fspath(path), split_by=split_by)
+        return
+    if native is True:
+        _hook_module().dump_native(obj, os.fspath(path), split_by=split_by)
+        return
+    raise TypeError(f"native must be a bool, not {type(native).__name__}")

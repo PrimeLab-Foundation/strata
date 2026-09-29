@@ -148,7 +148,7 @@ def test_clearing_the_enclosing_list_ends_it_after_the_native(mode, make):
     container = [1, None, 2, 3]
     native, written = make(container.clear)
     container[1] = native
-    assert text(strata.dumps(container, return_type=mode)) == f"[1,{written}]"
+    assert text(strata.dumps(container, return_type=mode, native=True)) == f"[1,{written}]"
 
 
 @pytest.mark.parametrize("make", CONVERSIONS, ids=CONVERSION_IDS)
@@ -157,7 +157,10 @@ def test_growing_the_enclosing_list_writes_what_was_appended(mode, make):
     container = [1, None]
     native, written = make(lambda: container.extend([{"n": 2}, [3]]))
     container[1] = native
-    assert text(strata.dumps(container, return_type=mode)) == f'[1,{written},{{"n":2}},[3]]'
+    assert (
+        text(strata.dumps(container, return_type=mode, native=True))
+        == f'[1,{written},{{"n":2}},[3]]'
+    )
 
 
 @pytest.mark.parametrize("make", CONVERSIONS, ids=CONVERSION_IDS)
@@ -167,7 +170,7 @@ def test_clearing_the_enclosing_record_emits_the_row_read_on_entry(mode, make):
     native, written = make(record.clear)
     record["b"] = native
     expected = f'{{"a":1,"b":{written},"c":[2],"d":"x"}}'
-    assert text(strata.dumps(record, return_type=mode)) == expected
+    assert text(strata.dumps(record, return_type=mode, native=True)) == expected
     assert record == {}
 
 
@@ -178,7 +181,9 @@ def test_clearing_a_wide_dict_follows_the_dict(mode, make):
     native, written = make(wide.clear)
     wide["k05"] = native
     expected = ",".join(f'"k{index:02d}":{index}' for index in range(5))
-    assert text(strata.dumps(wide, return_type=mode)) == f'{{{expected},"k05":{written}}}'
+    assert (
+        text(strata.dumps(wide, return_type=mode, native=True)) == f'{{{expected},"k05":{written}}}'
+    )
 
 
 @pytest.mark.parametrize("make", CONVERSIONS, ids=CONVERSION_IDS)
@@ -195,7 +200,7 @@ def test_clearing_every_enclosing_container_at_once(mode, make):
 
     native, written = make(empty_all)
     inner[1] = native
-    assert text(strata.dumps(outer, return_type=mode)) == f'[{{"a":[1,{written}]}}]'
+    assert text(strata.dumps(outer, return_type=mode, native=True)) == f'[{{"a":[1,{written}]}}]'
 
 
 @pytest.mark.parametrize("make", CONVERSIONS, ids=CONVERSION_IDS)
@@ -210,7 +215,9 @@ def test_records_of_one_shape_survive_a_conversion_that_clears_them(mode, make):
         # Row 10 is emitted as read on entry; row 11 is read after the clear.
         expected = [f'{{"id":{i},"v":{written if i == 10 else i},"w":"x"}}' for i in range(11)]
         expected.append("{}")
-        return text(strata.dumps(rows, return_type=mode)), "[" + ",".join(expected) + "]"
+        return text(strata.dumps(rows, return_type=mode, native=True)), "[" + ",".join(
+            expected
+        ) + "]"
 
     for out, expected in (body(), on_a_fresh_thread(body)):
         assert out == expected
@@ -253,7 +260,9 @@ def test_a_gc_callback_during_a_conversion_may_clear_the_containers(mode, make, 
     # The conversion's own collection (Once) runs the callback.
     native, written = make(lambda: armed.append(True))
     inner[1] = native
-    assert text(strata.dumps(outer, return_type=mode)) == f'[{{"a":[1,{written}],"b":3}}]'
+    assert (
+        text(strata.dumps(outer, return_type=mode, native=True)) == f'[{{"a":[1,{written}],"b":3}}]'
+    )
 
 
 def test_type_resolution_under_constant_collection_is_safe():
@@ -289,8 +298,8 @@ def test_type_resolution_under_constant_collection_is_safe():
         gc.callbacks.append(callback)
         gc.set_threshold(1)
         for _ in range(3):
-            json.loads(strata.dumps(doc))
-            json.loads(strata.dumps(doc, return_type="bytes").decode())
+            json.loads(strata.dumps(doc, native=True))
+            json.loads(strata.dumps(doc, return_type="bytes", native=True).decode())
         print("ok")
         """
     )
@@ -324,9 +333,9 @@ def test_a_set_grown_by_a_field_read_raises_its_runtime_error(mode):
     Tagger.name = property(lambda self: tags.add(f"new-{len(tags)}") or "t")
     tags.add(Tagger.__new__(Tagger))
     with pytest.raises(RuntimeError, match="^Set changed size during iteration$"):
-        strata.dumps({"doc": [1, {"tags": tags}]}, return_type=mode)
+        strata.dumps({"doc": [1, {"tags": tags}]}, return_type=mode, native=True)
     # The serializer is left usable.
-    assert text(strata.dumps([{"a": 1}], return_type=mode)) == '[{"a":1}]'
+    assert text(strata.dumps([{"a": 1}], return_type=mode, native=True)) == '[{"a":1}]'
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -344,7 +353,7 @@ def test_a_set_emptied_by_its_own_element_raises_its_runtime_error(mode):
 
     tags.add(Clearer.A)
     with pytest.raises(RuntimeError, match="changed size during iteration"):
-        strata.dumps([tags], return_type=mode)
+        strata.dumps([tags], return_type=mode, native=True)
 
 
 # ---------------------------------------------------------------------------
@@ -381,7 +390,7 @@ def cycle_policy():
 def test_a_dataclass_cycle_under_warn(mode, cycle_policy):
     cycle_policy("warn")
     with pytest.warns(RuntimeWarning, match="Circular reference detected") as caught:
-        out = strata.dumps(_cyclic_tree(), return_type=mode)
+        out = strata.dumps(_cyclic_tree(), return_type=mode, native=True)
     assert text(out) == EXPECTED_CYCLE
     assert len(caught) == 1
 
@@ -390,7 +399,7 @@ def test_a_dataclass_cycle_under_warn(mode, cycle_policy):
 def test_a_dataclass_cycle_under_error(mode, cycle_policy):
     cycle_policy("error")
     with pytest.raises(ValueError, match="^Circular reference detected$"):
-        strata.dumps(_cyclic_tree(), return_type=mode)
+        strata.dumps(_cyclic_tree(), return_type=mode, native=True)
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -398,7 +407,7 @@ def test_a_dataclass_cycle_under_ignore(mode, cycle_policy):
     cycle_policy("ignore")
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert text(strata.dumps(_cyclic_tree(), return_type=mode)) == EXPECTED_CYCLE
+        assert text(strata.dumps(_cyclic_tree(), return_type=mode, native=True)) == EXPECTED_CYCLE
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -427,7 +436,7 @@ def test_an_enum_chain_past_the_limit_raises_inside_a_document(mode):
         member = Loop.SELF
         member._value_ = member
         for call in (
-            lambda: strata.dumps({"rows": [{"id": 1, "state": member}]}, return_type=mode),
+            lambda: strata.dumps({"rows": [{"id": 1, "state": member}]}, return_type=mode, native=True),
             lambda: strata.dumps_with_default([member], str, return_type=mode),
         ):
             try:
@@ -435,7 +444,7 @@ def test_an_enum_chain_past_the_limit_raises_inside_a_document(mode):
             except ValueError as error:
                 print(error)
         member._value_ = 1
-        out = strata.dumps({"state": member}, return_type=mode)
+        out = strata.dumps({"state": member}, return_type=mode, native=True)
         print(out.decode() if isinstance(out, bytes) else out)
         """,
         mode,
@@ -465,11 +474,11 @@ def test_dataclasses_nested_to_the_depth_limit_on_a_thread(mode):
         mode, limit, out = sys.argv[2], sys.getrecursionlimit(), []
 
         def run():
-            written = strata.dumps(chain(limit), return_type=mode)
+            written = strata.dumps(chain(limit), return_type=mode, native=True)
             written = written.decode() if isinstance(written, bytes) else written
             out.append(written == '{"next":' * limit + "null" + "}" * limit)
             try:
-                strata.dumps(chain(limit + 1), return_type=mode)
+                strata.dumps(chain(limit + 1), return_type=mode, native=True)
             except ValueError as error:
                 out.append(error)
 
@@ -515,5 +524,5 @@ def test_a_dataclass_type_left_without_an_owner_while_its_fields_are_read_is_hel
 
     instance = build()
     state["instance"] = instance
-    assert strata.dumps(instance) == '{"x":1}'
+    assert strata.dumps(instance, native=True) == '{"x":1}'
     assert type(instance) is Other and "instance" not in state

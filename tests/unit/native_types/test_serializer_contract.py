@@ -30,8 +30,8 @@ MODES = ("str", "bytes")
 
 def both(obj):
     """`dumps` in both return types; the two must agree byte for byte."""
-    text = strata.dumps(obj)
-    assert strata.dumps(obj, return_type="bytes") == text.encode()
+    text = strata.dumps(obj, native=True)
+    assert strata.dumps(obj, return_type="bytes", native=True) == text.encode()
     return text
 
 
@@ -131,7 +131,7 @@ def test_row1_a_tzinfo_whose_utcoffset_is_none_is_naive():
 def test_row1_another_tzinfo_is_asked_with_the_datetime_itself():
     zone = FixedOffset(dt.timedelta(hours=-3))
     moment = dt.datetime(2026, 1, 1, tzinfo=zone)
-    assert strata.dumps(moment) == '"2026-01-01T00:00:00-03:00"'
+    assert strata.dumps(moment, native=True) == '"2026-01-01T00:00:00-03:00"'
     assert zone.calls == [moment]
 
 
@@ -170,23 +170,25 @@ def test_rows1_to_3_a_subclass_is_unsupported(value):
     message = f"^Object of type {type(value).__name__} is not JSON serializable$"
     for document in (value, [value], {"a": value}):
         with pytest.raises(TypeError, match=message):
-            strata.dumps(document)
+            strata.dumps(document, native=True)
         with pytest.raises(TypeError, match=message):
-            strata.dumps(document, return_type="bytes")
+            strata.dumps(document, return_type="bytes", native=True)
 
 
 def test_row1_a_utcoffset_that_is_not_a_timedelta_raises_type_error():
     # docs/decisions.md 2026-09-28: the checks `isoformat()` makes, same messages.
     message = "tzinfo.utcoffset() must return None or timedelta, not 'int'"
     with pytest.raises(TypeError, match=f"^{re.escape(message)}$"):
-        strata.dumps(dt.datetime(2026, 1, 1, tzinfo=FixedOffset(5)))
+        strata.dumps(dt.datetime(2026, 1, 1, tzinfo=FixedOffset(5)), native=True)
 
 
 def test_row1_an_offset_of_a_day_or_more_raises_value_error():
     with pytest.raises(ValueError, match="strictly between"):
-        strata.dumps(dt.datetime(2026, 1, 1, tzinfo=FixedOffset(dt.timedelta(days=1))))
+        strata.dumps(dt.datetime(2026, 1, 1, tzinfo=FixedOffset(dt.timedelta(days=1))), native=True)
     with pytest.raises(ValueError, match="strictly between"):
-        strata.dumps(dt.datetime(2026, 1, 1, tzinfo=FixedOffset(dt.timedelta(days=-1))))
+        strata.dumps(
+            dt.datetime(2026, 1, 1, tzinfo=FixedOffset(dt.timedelta(days=-1))), native=True
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +219,7 @@ def test_row3_an_aware_time_writes_its_offset():
 
 def test_row3_a_time_asks_its_tzinfo_with_none():
     zone = FixedOffset(dt.timedelta(hours=1))
-    assert strata.dumps(dt.time(1, 2, 3, tzinfo=zone)) == '"01:02:03+01:00"'
+    assert strata.dumps(dt.time(1, 2, 3, tzinfo=zone), native=True) == '"01:02:03+01:00"'
     assert zone.calls == [None]
 
 
@@ -250,17 +252,17 @@ def test_row4_an_int_outside_128_bits_raises_value_error():
     broken = uuid.UUID(int=1)
     object.__setattr__(broken, "int", 1 << 128)
     with pytest.raises(ValueError, match=r"^UUID\.int is out of range \(need a 128-bit value\)$"):
-        strata.dumps(broken)
+        strata.dumps(broken, native=True)
     object.__setattr__(broken, "int", -1)
     with pytest.raises(ValueError, match="out of range"):
-        strata.dumps(broken)
+        strata.dumps(broken, native=True)
 
 
 def test_row4_an_int_that_is_not_an_int_raises_type_error():
     broken = uuid.UUID(int=1)
     object.__setattr__(broken, "int", "1")
     with pytest.raises(TypeError, match=r"^UUID\.int must be an int, not str$"):
-        strata.dumps(broken)
+        strata.dumps(broken, native=True)
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +298,7 @@ def test_row5_a_decimal_subclass_whose_str_is_not_a_number_raises_value_error(sp
 
     message = "^str\\(\\) of a Decimal returned text that is not a JSON number$"
     with pytest.raises(ValueError, match=message):
-        strata.dumps(Odd("1"))
+        strata.dumps(Odd("1"), native=True)
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +380,7 @@ def test_error_contract_an_enum_chain_longer_than_the_depth_limit_raises():
         member._value_ = member
         for document in (member, [{"a": member}]):
             try:
-                strata.dumps(document)
+                strata.dumps(document, native=True)
             except ValueError as error:
                 print(error)
         """
@@ -405,9 +407,9 @@ def test_row6_a_chain_of_exactly_the_depth_limit_is_written():
             value = enum.Enum(f"Hop{index}", {"M": value}).M
             members.append(value)
         # members[k] needs k + 1 reads of `.value` to reach "end".
-        assert strata.dumps(members[limit - 1]) == '"end"'
+        assert strata.dumps(members[limit - 1], native=True) == '"end"'
         with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps(members[limit])
+            strata.dumps(members[limit], native=True)
     finally:
         sys.setrecursionlimit(saved)
 
@@ -560,7 +562,7 @@ def test_row7_more_dataclass_types_than_the_cache_holds_are_each_written_by_thei
     kinds = [dataclasses.make_dataclass(f"K{index}", [(f"f{index}", int)]) for index in range(1100)]
     for _ in range(2):
         for index, kind in enumerate(kinds):
-            assert strata.dumps(kind(index)) == f'{{"f{index}":{index}}}'
+            assert strata.dumps(kind(index), native=True) == f'{{"f{index}":{index}}}'
 
 
 def test_row7_fields_are_read_with_getattr():
@@ -590,12 +592,12 @@ def test_error_contract_an_unset_field_raises_its_attribute_error():
         late: int = dataclasses.field(init=False)
 
     with pytest.raises(AttributeError, match="late"):
-        strata.dumps(Late(1))
+        strata.dumps(Late(1), native=True)
 
 
 def test_row7_a_dataclass_class_is_not_an_instance():
     with pytest.raises(TypeError, match="^Object of type type is not JSON serializable$"):
-        strata.dumps(Point)
+        strata.dumps(Point, native=True)
 
 
 # ---------------------------------------------------------------------------
@@ -632,7 +634,7 @@ def test_error_contract_a_set_resized_while_written_raises_its_runtime_error():
 
     victim.add(Grow.A)
     with pytest.raises(RuntimeError, match="changed size during iteration"):
-        strata.dumps(victim)
+        strata.dumps(victim, native=True)
 
 
 # ---------------------------------------------------------------------------
@@ -667,9 +669,9 @@ def test_unchanged_a_native_key_is_the_keys_must_be_str_error(key, name):
 def test_error_contract_every_other_type_is_the_unchanged_type_error(value, name):
     message = f"^Object of type {name} is not JSON serializable$"
     with pytest.raises(TypeError, match=message):
-        strata.dumps(value)
+        strata.dumps(value, native=True)
     with pytest.raises(TypeError, match=message):
-        strata.dumps([Point(1, 1.0), {"a": value}])
+        strata.dumps([Point(1, 1.0), {"a": value}], native=True)
 
 
 def test_unchanged_dump_split_values_stay_str_int_bool(tmp_path):
@@ -709,20 +711,20 @@ def cycle_policy():
 def test_frames_a_dataclass_that_contains_itself_warns_and_writes_null(cycle_policy):
     cycle_policy("warn")
     with pytest.warns(RuntimeWarning, match="Circular reference detected"):
-        assert strata.dumps(_self_cycle()) == '{"name":"a","child":null}'
+        assert strata.dumps(_self_cycle(), native=True) == '{"name":"a","child":null}'
 
 
 def test_frames_a_dataclass_cycle_raises_under_error(cycle_policy):
     cycle_policy("error")
     with pytest.raises(ValueError, match="^Circular reference detected$"):
-        strata.dumps(_self_cycle())
+        strata.dumps(_self_cycle(), native=True)
 
 
 def test_frames_a_dataclass_cycle_is_silent_under_ignore(cycle_policy):
     cycle_policy("ignore")
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert strata.dumps([_self_cycle()]) == '[{"name":"a","child":null}]'
+        assert strata.dumps([_self_cycle()], native=True) == '[{"name":"a","child":null}]'
 
 
 def test_frames_a_frozenset_reached_back_through_a_frozen_dataclass_is_a_cycle(cycle_policy):
@@ -730,12 +732,12 @@ def test_frames_a_frozenset_reached_back_through_a_frozen_dataclass_is_a_cycle(c
     holder = Frozen(1, None)
     ring = frozenset({holder})
     object.__setattr__(holder, "a", ring)
-    assert strata.dumps(ring) == '[{"b":1,"a":null}]'
+    assert strata.dumps(ring, native=True) == '[{"b":1,"a":null}]'
 
 
 def test_frames_a_repeated_dataclass_that_is_not_a_cycle_is_written_twice():
     shared = Point(1, 1.0)
-    assert strata.dumps([shared, {"again": shared}]) == (
+    assert strata.dumps([shared, {"again": shared}], native=True) == (
         '[{"x":1,"y":1.0,"label":"p"},{"again":{"x":1,"y":1.0,"label":"p"}}]'
     )
 
@@ -754,11 +756,11 @@ def test_frames_a_dataclass_or_set_takes_one_level_of_the_depth_limit(wrap):
     try:
         sys.setrecursionlimit(limit)
         opened = "{" if wrap == "dataclass" else "["
-        assert strata.dumps(nest(limit)).count(opened) == limit
+        assert strata.dumps(nest(limit), native=True).count(opened) == limit
         with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps(nest(limit + 1))
+            strata.dumps(nest(limit + 1), native=True)
         with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps([nest(limit)])
+            strata.dumps([nest(limit)], native=True)
     finally:
         sys.setrecursionlimit(saved)
 
@@ -777,10 +779,10 @@ def test_frames_an_enum_member_takes_one_level_of_the_depth_limit():
 
     try:
         sys.setrecursionlimit(limit)
-        assert strata.dumps(nest(limit - 1, Node("leaf"))).count("{") == limit
-        assert strata.dumps(nest(limit - 2, holder)).count("{") == limit - 1
+        assert strata.dumps(nest(limit - 1, Node("leaf")), native=True).count("{") == limit
+        assert strata.dumps(nest(limit - 2, holder), native=True).count("{") == limit - 1
         with pytest.raises(ValueError, match="^Maximum serialization depth exceeded$"):
-            strata.dumps(nest(limit - 1, holder))
+            strata.dumps(nest(limit - 1, holder), native=True)
     finally:
         sys.setrecursionlimit(saved)
 
@@ -851,7 +853,7 @@ def test_hook_default_is_never_called_for_a_native_object(mode):
 
     for value in NATIVES:
         for document in (value, [value], {"a": value}, [{"a": [value]}]):
-            expected = strata.dumps(document, return_type=mode)
+            expected = strata.dumps(document, return_type=mode, native=True)
             assert strata.dumps_with_default(document, default, return_type=mode) == expected
     assert calls == []
 
@@ -862,10 +864,24 @@ def test_hook_a_native_the_callable_returns_is_written_natively(mode):
         pass
 
     for value in NATIVES:
-        expected = strata.dumps([value], return_type=mode)
+        expected = strata.dumps([value], return_type=mode, native=True)
         assert strata.dumps_with_default([Opaque()], lambda obj: value, return_type=mode) == (
             expected
         )
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_hook_a_returned_native_subclass_is_written_natively(mode):
+    # Moved from tests/unit/test_dumps_with_default.py's REFUSED_SUBCLASSES
+    # (docs/decisions.md 2026-09-29, M15b): `set` became a native family, so a
+    # `default` returning a `set` subclass is no longer refused -- it is
+    # written the way row 8 writes any set subclass, through its own iterator.
+    class MySet(set):
+        pass
+
+    value = MySet({1})
+    expected = strata.dumps([value], return_type=mode, native=True)
+    assert strata.dumps_with_default([object()], lambda obj: value, return_type=mode) == expected
 
 
 @pytest.mark.parametrize("mode", MODES)

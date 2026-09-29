@@ -52,9 +52,10 @@ def test_exact_sets_write_their_iteration_order(mode):
     for _ in range(400):
         values = _random_set(rnd)
         for candidate in (values, frozenset(values)):
-            assert strata.dumps(candidate, return_type=mode) == strata.dumps(
+            assert strata.dumps(candidate, return_type=mode, native=True) == strata.dumps(
                 list(candidate),
                 return_type=mode,
+                native=True,
             )
 
 
@@ -82,13 +83,16 @@ def test_sets_of_every_key_kind_match_the_iterator(mode):
         frozenset({3, 4}),
     ]
     exact = set(keys)
-    assert strata.dumps(exact, return_type=mode) == strata.dumps(list(exact), return_type=mode)
-    assert strata.dumps(frozenset(keys), return_type=mode) == strata.dumps(
+    assert strata.dumps(exact, return_type=mode, native=True) == strata.dumps(
+        list(exact), return_type=mode, native=True
+    )
+    assert strata.dumps(frozenset(keys), return_type=mode, native=True) == strata.dumps(
         list(frozenset(keys)),
         return_type=mode,
+        native=True,
     )
-    assert text(strata.dumps(set(), return_type=mode)) == "[]"
-    assert text(strata.dumps(frozenset(), return_type=mode)) == "[]"
+    assert text(strata.dumps(set(), return_type=mode, native=True)) == "[]"
+    assert text(strata.dumps(frozenset(), return_type=mode, native=True)) == "[]"
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -115,9 +119,10 @@ def test_a_same_size_mutation_mid_walk_matches_the_iterator(mode):
             target.add(key)
         return target
 
-    assert strata.dumps(build(set), return_type=mode) == strata.dumps(
+    assert strata.dumps(build(set), return_type=mode, native=True) == strata.dumps(
         build(SetSubclass),
         return_type=mode,
+        native=True,
     )
 
 
@@ -127,7 +132,7 @@ def test_a_set_subclass_with_its_own_iter_keeps_it(mode):
         def __iter__(self):
             return iter(sorted(set.__iter__(self), reverse=True))
 
-    assert text(strata.dumps(Reversed({1, 2, 3}), return_type=mode)) == "[3,2,1]"
+    assert text(strata.dumps(Reversed({1, 2, 3}), return_type=mode, native=True)) == "[3,2,1]"
 
 
 # ---------------------------------------------------------------------------
@@ -167,13 +172,15 @@ def test_numpy_integers_and_bools_write_what_item_returns(mode):
     np = _numpy()
     scalars = [*_integer_scalars(np), np.bool_(True), np.bool_(False)]
     for scalar in scalars:
-        assert strata.dumps(scalar, return_type=mode) == strata.dumps(
+        assert strata.dumps(scalar, return_type=mode, native=True) == strata.dumps(
             scalar.item(),
             return_type=mode,
+            native=True,
         ), (type(scalar), scalar)
-    assert strata.dumps(scalars, return_type=mode) == strata.dumps(
+    assert strata.dumps(scalars, return_type=mode, native=True) == strata.dumps(
         [scalar.item() for scalar in scalars],
         return_type=mode,
+        native=True,
     )
 
 
@@ -181,9 +188,10 @@ def test_numpy_integers_and_bools_write_what_item_returns(mode):
 def test_every_float16_writes_what_item_returns(mode):
     np = _numpy()
     halves = np.arange(65536, dtype=np.uint16).view(np.float16)
-    assert strata.dumps(list(halves), return_type=mode) == strata.dumps(
+    assert strata.dumps(list(halves), return_type=mode, native=True) == strata.dumps(
         [half.item() for half in halves],
         return_type=mode,
+        native=True,
     )
 
 
@@ -197,9 +205,10 @@ def test_float32_writes_what_item_returns(mode):
         np.float32(value)
         for value in (0.1, -0.0, 1e-45, 3.4028235e38, float("inf"), float("-inf"), float("nan"))
     ]
-    assert strata.dumps(singles, return_type=mode) == strata.dumps(
+    assert strata.dumps(singles, return_type=mode, native=True) == strata.dumps(
         [single.item() for single in singles],
         return_type=mode,
+        native=True,
     )
 
 
@@ -214,9 +223,9 @@ def test_numpy_scalars_outside_the_twins_keep_item():
         def item(self):
             return [1]
 
-    assert strata.dumps([Own(1.5), OwnInt(3)]) == '["own",[1]]'
+    assert strata.dumps([Own(1.5), OwnInt(3)], native=True) == '["own",[1]]'
     with pytest.raises(TypeError, match="numpy.longdouble"):
-        strata.dumps(np.longdouble(1))
+        strata.dumps(np.longdouble(1), native=True)
 
 
 def test_dumps_with_default_never_calls_default_for_the_twins():
@@ -282,7 +291,7 @@ def stand_in(code):
 
 np.dtype = stand_in
 try:
-    strata.dumps(np.int8(1))
+    strata.dumps(np.int8(1), native=True)
     phase = "hook"
     strata.dumps_with_default(np.int8(1), repr)
 finally:
@@ -297,9 +306,9 @@ for name in ("int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "ui
 scalars += list(np.arange(0, 65536, 61, dtype=np.uint16).view(np.float16))
 scalars += [np.float32(value) for value in (0.1, -0.0, 1e-45, 3.4028235e38, float("inf"),
                                             float("nan"))]
-oracle = strata.dumps([scalar.item() for scalar in scalars], return_type="bytes")
-assert strata.dumps(scalars).encode() == oracle
-assert strata.dumps(scalars, return_type="bytes") == oracle
+oracle = strata.dumps([scalar.item() for scalar in scalars], return_type="bytes", native=True)
+assert strata.dumps(scalars, native=True).encode() == oracle
+assert strata.dumps(scalars, return_type="bytes", native=True) == oracle
 assert strata.dumps_with_default(scalars, repr).encode() == oracle
 assert strata.dumps_with_default(scalars, repr, return_type="bytes") == oracle
 print("".join(seen["dumps"]) or "-")
@@ -348,17 +357,23 @@ def test_the_numpy_twin_proof_holds_on_the_installed_numpy():
         item = scalar.item()
         assert type(twin) is type(item), code
         assert twin == item, code
-    # Both images' proofs read every row: none refused before the last.
+    # `native=True` and `dumps_with_default` share one image (`strata._dumps_hook`,
+    # docs/decisions.md 2026-09-29, M15b): the proof runs once, on the first call
+    # (`dumps`, read every row); the second call (`dumps_with_default`) finds the
+    # twins already resolved and probes nothing.
     rows = "".join(code for code, *_ in TWIN_ROWS)
     dumps_rows, hook_rows, _ = _proof_run(refuse=False)
-    assert dumps_rows == hook_rows == rows
+    assert dumps_rows == rows
+    assert hook_rows == "-"
 
 
 def test_a_refused_numpy_twin_proof_writes_every_scalar_through_item():
     _numpy()
     refused_dumps, refused_hook, refused_digest = _proof_run(refuse=True)
-    # Refused at its first row in each image: float64 is not number 0.
-    assert refused_dumps == refused_hook == "?"
+    # Refused at its first row on the first call; the second finds the refusal
+    # already cached and probes nothing.
+    assert refused_dumps == "?"
+    assert refused_hook == "-"
     *_, proven_digest = _proof_run(refuse=False)
     assert refused_digest == proven_digest
 
@@ -374,12 +389,13 @@ def _spelled(name):
 
 
 def test_loads_keywords_by_identity_and_by_text():
-    for name in ("return_type", "iterator", "parse_types"):
+    # `_strata.loads` (the frozen extension) takes `return_type`/`iterator` only;
+    # `parse_types` is a facade-only keyword (docs/decisions.md 2026-09-29, M15b).
+    for name in ("return_type", "iterator"):
         assert _spelled(name) is not sys.intern(name)
     assert _strata.loads(b"[1]", **{_spelled("return_type"): "dict"}) == [1]
     assert list(_strata.loads(b"[1,2]", **{_spelled("iterator"): True})) == [1, 2]
-    assert _strata.loads(b'["2026-09-29"]', **{_spelled("parse_types"): False}) == ["2026-09-29"]
-    assert _strata.loads(b"[1]", return_type="dict", iterator=False, parse_types=False) == [1]
+    assert _strata.loads(b"[1]", return_type="dict", iterator=False) == [1]
     cursor = _strata.loads(b"[7]", **{_spelled("return_type"): "cursor"})
     assert cursor.at(0).get_int() == 7
 

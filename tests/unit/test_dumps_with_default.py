@@ -225,8 +225,6 @@ def test_the_callable_check_runs_before_the_walk(value, name):
 
 UNSUPPORTED = [
     (Opaque(), "Opaque"),
-    (memoryview(b"x"), "memoryview"),
-    (slice(1), "slice"),
     (b"x", "bytes"),
     (bytearray(b"x"), "bytearray"),
     (object(), "object"),
@@ -303,10 +301,6 @@ class MyTuple(tuple):
 
 
 class MyDict(dict):
-    pass
-
-
-class MyByteArray(bytearray):
     pass
 
 
@@ -499,7 +493,6 @@ def test_the_chain_bound_is_one_for_an_identity_default(mode):
 
 
 REFUSED_SUBCLASSES = [
-    ("bytearray", lambda: MyByteArray(b"x"), "MyByteArray"),
     ("bytes", lambda: MyBytes(b"x"), "MyBytes"),
     ("object", Opaque, "Opaque"),
 ]

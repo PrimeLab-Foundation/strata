@@ -145,14 +145,14 @@ def test_round_trip_over_a_generated_corpus():
     rng = random.Random(SEED)
     for _ in range(400):
         value = _random_tree(rng)
-        _same(strata.loads(strata.dumps(value), parse_types=True), value)
-        _same(strata.loads(strata.dumps(value).encode(), parse_types=True), value)
+        _same(strata.loads(strata.dumps(value, native=True), parse_types=True), value)
+        _same(strata.loads(strata.dumps(value, native=True).encode(), parse_types=True), value)
 
 
 def test_round_trip_through_a_file(tmp_path):
     rng = random.Random(SEED + 1)
     records = [_random_tree(rng) for _ in range(50)]
-    strata.dump(records, tmp_path / "a.json")
+    strata.dump(records, tmp_path / "a.json", native=True)
     _same(strata.load(tmp_path / "a.json", parse_types=True), records)
 
 

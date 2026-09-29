@@ -118,5 +118,5 @@ def test_the_file_composition_writes_the_rows_to_a_file(tmp_path, expected_text)
     expected = expected_text(rows, row_default)
     assert path.read_text(encoding="utf-8") == expected + "\n"
     assert strata.load(path) == json.loads(expected)
-    strata.dump(rows, tmp_path / "dumped.json")
+    strata.dump(rows, tmp_path / "dumped.json", native=True)
     assert (tmp_path / "dumped.json").read_text(encoding="utf-8") == expected + "\n"
