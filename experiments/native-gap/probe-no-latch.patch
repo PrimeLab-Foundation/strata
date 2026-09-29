@@ -1,0 +1,14 @@
+diff --git a/src/strata/bindings/python_dumps.cpp b/src/strata/bindings/python_dumps.cpp
+index d8a2e79..8e77c6b 100644
+--- a/src/strata/bindings/python_dumps.cpp
++++ b/src/strata/bindings/python_dumps.cpp
+@@ -2196,6 +2196,9 @@ class Serializer {
+      * at the first one already latched.
+      */
+     STRATA_COLD_FN void latch() noexcept {
++#if defined(STRATA_PROBE_NO_LATCH)
++        return; // ATTRIBUTION PROBE ONLY -- never merged
++#endif
+         // Before the ownership work, so a step that raises still leaves the
+         // counter moved: every borrowed loop bound above is then stale by
+         // assumption, which is the safe answer.
