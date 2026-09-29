@@ -148,13 +148,10 @@ class TestGatedBuildExt(build_ext):
                 Path(self.get_ext_fullpath(extension.name)),
                 root=PROJECT_ROOT,
                 commands=self._commands_by_extension.get(extension.name, []),
-                # Only `_strata` is ever built against the profile; the hook
-                # image's identity must not claim one (see _compile_args).
-                profile=(
-                    os.environ.get("STRATA_PGO_PROFILE")
-                    if extension.name == "strata._strata"
-                    else None
-                ),
+                # Each image names the profile it was built against, if any:
+                # `_strata` its own, the hook only ever its own (see
+                # _hook_optimization_args) -- never the other's.
+                profile=_built_profile(extension.name),
                 source=source,
                 required_sources=extension.sources,
             )
@@ -326,7 +323,9 @@ def _clang_runtime_dir() -> Path:
     return runtime_dir
 
 
-def _clang_cl_optimization_args(mode: str, lto: bool) -> tuple[list[str], list[str]]:
+def _clang_cl_optimization_args(
+    mode: str, lto: bool, profile_var: str = "STRATA_PGO_PROFILE"
+) -> tuple[list[str], list[str]]:
     """clang-cl spelling: clang's own PGO flags behind /clang:, the MSVC linker.
 
     IR-level instrumentation (-fprofile-generate), as on POSIX: the profile
@@ -349,16 +348,18 @@ def _clang_cl_optimization_args(mode: str, lto: bool) -> tuple[list[str], list[s
         compile_args.append("/clang:-fprofile-generate")
         link_args.append(f"/LIBPATH:{_clang_runtime_dir()}")
     elif mode == "use":
-        profile = os.environ.get("STRATA_PGO_PROFILE", "").strip()
+        profile = os.environ.get(profile_var, "").strip()
         if not profile:
-            raise SystemExit("PGO_MODE=use requires STRATA_PGO_PROFILE.")
+            raise SystemExit(f"PGO_MODE=use requires {profile_var}.")
         if not Path(profile).exists():
-            raise SystemExit(f"STRATA_PGO_PROFILE does not exist: {profile}")
+            raise SystemExit(f"{profile_var} does not exist: {profile}")
         compile_args.append(f"/clang:-fprofile-use={profile}")
     return compile_args, link_args
 
 
-def _optimization_args() -> tuple[list[str], list[str]]:
+def _optimization_args(
+    mode: str | None = None, lto: bool | None = None, profile_var: str = "STRATA_PGO_PROFILE"
+) -> tuple[list[str], list[str]]:
     """(compile, link) flags for LTO and PGO, driven by the environment.
 
     `make pgo` (scripts/pgo_build.sh) sets these on POSIX and
@@ -372,9 +373,14 @@ def _optimization_args() -> tuple[list[str], list[str]]:
                                 by `STRATA_PGO_PROFILE`.
     - `PGO_MODE=use`          — optimize against `STRATA_PGO_PROFILE`
                                 (clang .profdata / gcc .gcda tree / MSVC .pgd).
+
+    The hook image passes its own mode, LTO and profile variable instead
+    (_hook_optimization_args); `_strata`'s call reads the variables above.
     """
-    mode = os.environ.get("PGO_MODE", "").strip().lower()
-    lto = os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1"
+    if mode is None:
+        mode = os.environ.get("PGO_MODE", "").strip().lower()
+    if lto is None:
+        lto = os.environ.get("STRATA_ENABLE_LTO", "0").strip() == "1"
     if not mode and not lto:
         return [], []
 
@@ -385,7 +391,7 @@ def _optimization_args() -> tuple[list[str], list[str]]:
     if kind == "msvc":
         return _msvc_optimization_args(mode)
     if kind == "clang-cl":
-        return _clang_cl_optimization_args(mode, lto)
+        return _clang_cl_optimization_args(mode, lto, profile_var)
 
     compile_args: list[str] = []
     link_args: list[str] = []
@@ -405,11 +411,11 @@ def _optimization_args() -> tuple[list[str], list[str]]:
         compile_args.append("-fprofile-generate")
         link_args.append("-fprofile-generate")
     elif mode == "use":
-        profile = os.environ.get("STRATA_PGO_PROFILE", "").strip()
+        profile = os.environ.get(profile_var, "").strip()
         if not profile:
-            raise SystemExit("PGO_MODE=use requires STRATA_PGO_PROFILE.")
+            raise SystemExit(f"PGO_MODE=use requires {profile_var}.")
         if not Path(profile).exists():
-            raise SystemExit(f"STRATA_PGO_PROFILE does not exist: {profile}")
+            raise SystemExit(f"{profile_var} does not exist: {profile}")
         compile_args.append(f"-fprofile-use={profile}")
         link_args.append(f"-fprofile-use={profile}")
         if kind == "gcc":
@@ -559,6 +565,31 @@ HOOK_BINDING_SOURCES = [
 ]
 
 
+def _hook_optimization_args() -> tuple[list[str], list[str]]:
+    """The hook image's own profile (docs/architecture/native_types.md, "Hook profile").
+
+    Driven by variables of its own, never `_strata`'s: `PGO_MODE`,
+    `STRATA_ENABLE_LTO` and `STRATA_PGO_PROFILE` leave the hook plain, so
+    nothing it runs can enter `_strata`'s profile and `_strata`'s profile never
+    reaches it (scripts/pgo_build.sh phases 1-2 check both).
+
+    - `STRATA_HOOK_PGO_MODE=generate` -- instrument the hook alone.
+    - `STRATA_HOOK_PGO_MODE=use`      -- optimize it against
+      `STRATA_HOOK_PGO_PROFILE`, with LTO where the toolchain spells it (not
+      clang-cl, whose LTO needs lld-link).
+    """
+    mode = os.environ.get("STRATA_HOOK_PGO_MODE", "").strip().lower()
+    if not mode:
+        return [], []
+    if mode not in ("generate", "use"):
+        raise SystemExit(f"STRATA_HOOK_PGO_MODE must be 'generate' or 'use', not {mode!r}.")
+    kind = _compiler_kind()
+    if kind == "msvc":
+        raise SystemExit("STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.")
+    lto = mode == "use" and kind != "clang-cl"
+    return _optimization_args(mode, lto, "STRATA_HOOK_PGO_PROFILE")
+
+
 def _hook_compile_args() -> list[str]:
     args = _compile_args(profiled=False)
     if sys.platform != "win32":
@@ -566,16 +597,44 @@ def _hook_compile_args() -> list[str]:
         # copies then neither root the link-time strip nor interpose on
         # `_strata`'s same-named functions under an RTLD_GLOBAL load.
         args += ["-ffunction-sections", "-fdata-sections", "-fvisibility=hidden"]
-    return args
+    return args + _hook_optimization_args()[0]
 
 
 def _hook_link_args() -> list[str]:
     # MSVC's release link already drops unreferenced functions (/OPT:REF).
     if sys.platform == "darwin":
-        return ["-Wl,-dead_strip"]
-    if sys.platform != "win32":
-        return ["-Wl,--gc-sections"]
-    return []
+        args = ["-Wl,-dead_strip"]
+    elif sys.platform != "win32":
+        args = ["-Wl,--gc-sections"]
+    else:
+        args = []
+    return args + _hook_optimization_args()[1]
+
+
+def _built_profile(name: str) -> str | None:
+    """The profile the image @p name is built against, for its build identity."""
+    if name == "strata._strata":
+        return os.environ.get("STRATA_PGO_PROFILE")
+    if os.environ.get("STRATA_HOOK_PGO_MODE", "").strip().lower() == "use":
+        return os.environ.get("STRATA_HOOK_PGO_PROFILE")
+    return None
+
+
+def _selected(extensions: list) -> list:
+    """`STRATA_EXTENSIONS` (comma-separated names) builds only those images.
+
+    scripts/pgo_build.sh's hook phase rebuilds `strata._dumps_hook` alone, so
+    the `_strata` image its earlier phases built and checked is left as it is.
+    Unset: every image, as always.
+    """
+    names = [n.strip() for n in os.environ.get("STRATA_EXTENSIONS", "").split(",") if n.strip()]
+    if not names:
+        return extensions
+    known = {extension.name for extension in extensions}
+    unknown = sorted(set(names) - known)
+    if unknown:
+        raise SystemExit(f"STRATA_EXTENSIONS names no such extension: {', '.join(unknown)}")
+    return [extension for extension in extensions if extension.name in names]
 
 
 ext_modules = [
@@ -612,6 +671,6 @@ ext_modules = [
 ]
 
 setup(
-    ext_modules=ext_modules,
+    ext_modules=_selected(ext_modules),
     cmdclass={"build_ext": TestGatedBuildExt},
 )

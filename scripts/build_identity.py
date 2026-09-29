@@ -11,6 +11,7 @@ import hashlib
 import importlib.machinery
 import importlib.util
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -170,18 +171,30 @@ def record_profile(profile: Path, raw: Path, root: Path, recipe: str) -> None:
         for p in raw.rglob("*")
         if p.is_file() and p.suffix in {".profraw", ".gcda", ".pgc", ".pgd"}
     )
-    source_files = [
-        *sorted((root / "tests").rglob("*.py")),
-        root / "scripts/pgo_training.py",
-        root / "scripts/pgo_training_data.py",
-    ]
+    if recipe.startswith("hook-"):
+        # The hook's profile (scripts/pgo_build.sh phase 3): its dedicated
+        # training alone; the build gate's counts went to a discarded directory.
+        source_files = [root / "scripts/pgo_hook_training.py"]
+        training_data: dict = {}
+        limitation = None
+    else:
+        source_files = [
+            *sorted((root / "tests").rglob("*.py")),
+            root / "scripts/pgo_training.py",
+            root / "scripts/pgo_training_data.py",
+        ]
+        training_data = {p.name: file_hash(p) for p in profile.parent.glob("train.*")}
+        limitation = (
+            "raw profiles include build/test gates and dedicated training; "
+            "counts are not separated by phase"
+        )
     data = {
         "schema_version": 1,
         "recipe": recipe,
         "raw_inputs": {str(p): file_hash(p) for p in inputs},
         "workload_sources": {str(p.relative_to(root)): file_hash(p) for p in source_files},
-        "training_data": {p.name: file_hash(p) for p in profile.parent.glob("train.*")},
-        "limitation": "raw profiles include build/test gates and dedicated training; counts are not separated by phase",
+        "training_data": training_data,
+        "limitation": limitation,
     }
     profile.with_name(profile.name + ".inputs.json").write_text(
         json.dumps(data, indent=2) + "\n", encoding="utf-8"
@@ -256,6 +269,61 @@ def check_unprofiled(name: str, instrumented: str | None) -> int:
     return 0
 
 
+def profiled_problems(image: Path, profile: Path, foreign: Path | None) -> list[str]:
+    """Why `image` cannot be shown built against `profile` alone; empty when it can.
+
+    Built against it: the identity describes this binary, records `profile`
+    (path and file hashes) and not `foreign`, its commands use `profile` and
+    instrument nothing, and the image links no profile runtime.
+    """
+    identity = image.with_name(image.name + ".build.json")
+    try:
+        packet = json.loads(identity.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return [f"no readable build identity at {identity} ({exc})"]
+    problems = []
+    if packet.get("extension_sha256") != file_hash(image):
+        problems.append(f"{identity.name} describes another binary")
+    recorded = packet.get("pgo_profile") or {}
+    expected = profile_identity(str(profile))
+    if recorded.get("path") != expected["path"] or recorded.get("files") != expected["files"]:
+        problems.append(f"{identity.name} does not record the profile {profile}")
+    if foreign is not None and foreign.exists():
+        other = set(profile_identity(str(foreign))["files"].values())
+        if other & set((recorded.get("files") or {}).values()):
+            problems.append(f"{identity.name} records the foreign profile {foreign}")
+    flags = {str(part) for c in packet.get("commands") or [] for part in c}
+    # -fprofile-use=P, and clang-cl's /clang:-fprofile-use=P, compared as paths.
+    uses = {flag.split("profile-use=", 1)[1].strip('"') for flag in flags if "profile-use=" in flag}
+
+    def same(left: str | Path, right: str | Path) -> bool:
+        return os.path.normcase(os.path.realpath(left)) == os.path.normcase(os.path.realpath(right))
+
+    if not uses or not all(same(use, profile) for use in uses):
+        problems.append(f"{identity.name} commands do not use {profile} alone: {sorted(uses)}")
+    if foreign is not None and any(same(use, foreign) for use in uses):
+        problems.append(f"{identity.name} commands use the foreign profile {foreign}")
+    if any("profile-generate" in flag for flag in flags):
+        problems.append(f"{identity.name} commands instrument the image")
+    markers = profile_runtime_markers(image)
+    if markers:
+        problems.append(f"the image links a profile runtime ({', '.join(markers)})")
+    return problems
+
+
+def check_profiled(name: str, profile: Path, foreign: Path | None) -> int:
+    """Fail unless `name`'s image is built against `profile` and never `foreign`."""
+    image = module_image(name)
+    problems = profiled_problems(image, profile.resolve(), foreign.resolve() if foreign else None)
+    if problems:
+        print(f"error: {name} ({image}) must be built against {profile} alone:")
+        for problem in problems:
+            print(f"  - {problem}")
+        return 1
+    print(f"+ {name} is built against {profile.name} alone and links no profile runtime")
+    return 0
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -273,7 +341,19 @@ if __name__ == "__main__":
         metavar="MODULE",
         help="with --check-unprofiled: MODULE's image must link a profile runtime",
     )
+    parser.add_argument(
+        "--check-profiled",
+        metavar="MODULE",
+        help="instead, fail unless MODULE is built against --profile alone (never --foreign)",
+    )
+    parser.add_argument(
+        "--foreign", type=Path, help="with --check-profiled: a profile MODULE must not carry"
+    )
     args = parser.parse_args()
+    if args.check_profiled:
+        if not args.profile:
+            parser.error("--check-profiled needs --profile")
+        raise SystemExit(check_profiled(args.check_profiled, args.profile, args.foreign))
     if args.check_unprofiled:
         raise SystemExit(check_unprofiled(args.check_unprofiled, args.instrumented))
     if not (args.profile and args.raw and args.recipe):
