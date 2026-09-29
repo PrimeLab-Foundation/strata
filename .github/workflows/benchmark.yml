@@ -57,7 +57,9 @@ jobs:
   bench:
     name: supportability (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    # The identity check adds four builds (two gated PGO passes); 90 minutes
+    # stays the budget of an ordinary sample.
+    timeout-minutes: ${{ github.event.inputs.identity_base != '' && 180 || 90 }}
     strategy:
       fail-fast: false
       matrix:
@@ -194,7 +196,9 @@ jobs:
     name: supportability (linux-arm64)
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 90
+    # The identity check adds four builds (two gated PGO passes); 90 minutes
+    # stays the budget of an ordinary sample.
+    timeout-minutes: ${{ github.event.inputs.identity_base != '' && 180 || 90 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -295,7 +299,9 @@ jobs:
   bench-windows:
     name: supportability (windows-x86_64)
     runs-on: windows-latest
-    timeout-minutes: 90
+    # The identity check adds four builds (two gated PGO passes); 90 minutes
+    # stays the budget of an ordinary sample.
+    timeout-minutes: ${{ github.event.inputs.identity_base != '' && 180 || 90 }}
     steps:
       - uses: actions/checkout@v4
         with:
