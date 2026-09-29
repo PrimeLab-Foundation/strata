@@ -16,6 +16,7 @@ each must write what the oracle ("The oracle") writes.
 
 import abc
 import contextlib
+import copy
 import ctypes
 import dataclasses
 import enum
@@ -971,3 +972,65 @@ def test_uuid_digit_reader_matches_str_across_widths():
     assert strata.dumps(items, native=True) == json.dumps(
         [str(u) for u in items], separators=(",", ":")
     )
+
+
+def test_a_field_renamed_in_place_is_read_again():
+    # Row 7: "exactly the fields dataclasses.fields(obj) lists". A Field whose `name` is
+    # reassigned after the type's first write changes that list without touching
+    # `__dataclass_fields__`; the cached path must notice, and the refreshed entry must hold.
+    @dataclasses.dataclass
+    class Record:
+        a: int = 1
+        b: int = 2
+
+    item = Record()
+    assert strata.dumps(item, native=True) == '{"a":1,"b":2}'  # fills the cache
+    assert strata.dumps(item, native=True) == '{"a":1,"b":2}'  # cached path
+    Record.__dataclass_fields__["a"].name = "renamed"
+    item.renamed = 99
+    expected = json.dumps(
+        {f.name: getattr(item, f.name) for f in dataclasses.fields(item)}, separators=(",", ":")
+    )
+    assert expected == '{"renamed":99,"b":2}'
+    assert strata.dumps(item, native=True) == expected  # the stale entry is refused
+    assert strata.dumps(item, native=True) == expected  # the refreshed entry, cached
+
+
+def test_a_field_rekinded_in_place_is_read_again():
+    # Row 7: `dataclasses.fields` lists only real fields (`_field_type is _FIELD`); a field
+    # turned into a ClassVar pseudo-field in place drops out of the object.
+    @dataclasses.dataclass
+    class Record:
+        a: int = 1
+        b: int = 2
+
+    item = Record()
+    assert strata.dumps(item, native=True) == '{"a":1,"b":2}'
+    field = Record.__dataclass_fields__["a"]
+    original = field._field_type
+    field._field_type = dataclasses._FIELD_CLASSVAR
+    try:
+        assert [f.name for f in dataclasses.fields(item)] == ["b"]
+        assert strata.dumps(item, native=True) == '{"b":2}'
+        assert strata.dumps(item, native=True) == '{"b":2}'
+    finally:
+        field._field_type = original
+    assert strata.dumps(item, native=True) == '{"a":1,"b":2}'
+
+
+def test_a_field_subclass_is_read_generically():
+    # Row 7 with a Field subclass (not the exact class the slots are read from).
+    class NamedField(dataclasses.Field):
+        __slots__ = ()
+
+    @dataclasses.dataclass
+    class Record:
+        a: int = 1
+
+    new = copy.copy(Record.__dataclass_fields__["a"])
+    new.__class__ = NamedField  # same slots layout: only the class changes
+    Record.__dataclass_fields__["a"] = new
+    assert strata.dumps(Record(), native=True) == '{"a":1}'
+    new.name = "missing_attr"
+    with pytest.raises(AttributeError):
+        strata.dumps(Record(), native=True)

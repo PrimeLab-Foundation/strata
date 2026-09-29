@@ -57,6 +57,8 @@ struct Names {
     PyObject* value_slot;
     PyObject* get;
     PyObject* fget;
+    PyObject* field_class;
+    PyObject* field_kind;
 };
 
 Names g_names{};
@@ -103,9 +105,17 @@ struct Table {
         unsigned int descriptor_type_tag = 0;
         bool tried = false;
     } enum_value;
-    /// `type -> ((key, field, key, field, ...) of __dataclass_fields__ as
-    /// read, field names)`, created at the first dataclass.
+    /// `type -> ((key, field, ...) of __dataclass_fields__ as read, field
+    /// names, their key bytes or None, (name, _field_type, ...) of each field)`,
+    /// created at the first dataclass.
     PyObject* field_cache = nullptr;
+    /// `dataclasses.Field` and the slots of its `name` and `_field_type`, read
+    /// in place by field_attribute while the class's version tag is current;
+    /// -1 (or no class) when they are not plain object slots of it.
+    PyTypeObject* field_type = nullptr;
+    Py_ssize_t field_name_offset = -1;
+    Py_ssize_t field_kind_offset = -1;
+    unsigned int field_type_tag = 0;
 };
 
 Table g_table{};
@@ -291,14 +301,15 @@ void resolve_datetime() {
     g_table.datetime_api = api;
 }
 
-/// The slot offset of `UUID.int` on @p type, or -1.
-Py_ssize_t int_slot_offset(PyTypeObject* type) {
+/// The offset of @p type's own object slot @p name (a member descriptor in
+/// its `__dict__`), or -1.
+Py_ssize_t object_slot_offset(PyTypeObject* type, PyObject* name) {
     PyRef dict(PyObject_GetAttr(reinterpret_cast<PyObject*>(type), g_names.type_dict));
     if (!dict) {
         PyErr_Clear();
         return -1;
     }
-    PyRef descriptor(PyObject_GetItem(dict.get(), g_names.int_slot));
+    PyRef descriptor(PyObject_GetItem(dict.get(), name));
     if (!descriptor) {
         PyErr_Clear();
         return -1;
@@ -320,7 +331,8 @@ void resolve_uuid() {
     PyRef type(reinterpret_cast<PyObject*>(class_attribute(module.get(), g_names.uuid_class)));
     if (!type)
         return;
-    g_table.uuid_int_offset = int_slot_offset(reinterpret_cast<PyTypeObject*>(type.get()));
+    auto* const uuid_class = reinterpret_cast<PyTypeObject*>(type.get());
+    g_table.uuid_int_offset = object_slot_offset(uuid_class, g_names.int_slot);
     g_uuid_digits = uuid_digits_proven();
     PyErr_Clear();
     g_table.uuid_type = reinterpret_cast<PyTypeObject*>(type.release());
@@ -350,6 +362,15 @@ void resolve_dataclasses() {
         return;
     }
     g_table.dataclasses_fields = fields;
+    // Optional: without it field_attribute reads each Field generically.
+    if (PyTypeObject* const field_type = class_attribute(module.get(), g_names.field_class)) {
+        g_table.field_name_offset = object_slot_offset(field_type, g_names.name);
+        g_table.field_kind_offset = object_slot_offset(field_type, g_names.field_kind);
+        g_table.field_type_tag =
+            field_type->tp_getattro == PyObject_GenericGetAttr ? assign_tag(field_type) : 0;
+        g_table.field_type = field_type;
+    }
+    PyErr_Clear();
 }
 
 void resolve_numpy() {
@@ -953,6 +974,90 @@ PyObject* encode_keys(PyObject* names) {
     return keys.release();
 }
 
+/**
+ * `getattr(field, name)` for one of a dataclass Field's attributes, a new
+ * reference or nullptr (no error set). An exact `dataclasses.Field` whose
+ * class is unmodified since it resolved (its version tag current) has the
+ * attribute in a plain object slot, read in place -- what the member
+ * descriptor's read returns; anything else is read generically.
+ */
+PyObject* field_attribute(PyObject* field, Py_ssize_t offset, PyObject* name) {
+    PyTypeObject* const field_type = g_table.field_type;
+    if (offset >= 0 && Py_TYPE(field) == field_type &&
+        tag_current(field_type, g_table.field_type_tag))
+        return Py_XNewRef(*reinterpret_cast<PyObject**>(reinterpret_cast<char*>(field) + offset));
+    PyObject* const value = PyObject_GetAttr(field, name);
+    if (value == nullptr)
+        PyErr_Clear();
+    return value;
+}
+
+/**
+ * What `dataclasses.fields` reads of each field in @p pairs (the
+ * `(key, field, ...)` of fields_match): its `name` and `_field_type`, as
+ * `(name, kind, name, kind, ...)`; nullptr (no error set) when a read fails.
+ * Runs code for a field that is not an exact, unmodified `Field`.
+ */
+PyObject* field_states(PyObject* pairs) {
+    const Py_ssize_t count = PyTuple_GET_SIZE(pairs) / 2;
+    PyRef states(PyTuple_New(2 * count));
+    if (!states) {
+        PyErr_Clear();
+        return nullptr;
+    }
+    for (Py_ssize_t index = 0; index < count; ++index) {
+        PyObject* const field = PyTuple_GET_ITEM(pairs, 2 * index + 1);
+        PyObject* const name = field_attribute(field, g_table.field_name_offset, g_names.name);
+        if (name == nullptr)
+            return nullptr;
+        PyTuple_SET_ITEM(states.get(), 2 * index, name);
+        PyObject* const kind =
+            field_attribute(field, g_table.field_kind_offset, g_names.field_kind);
+        if (kind == nullptr)
+            return nullptr;
+        PyTuple_SET_ITEM(states.get(), 2 * index + 1, kind);
+    }
+    return states.release();
+}
+
+/**
+ * Whether every field in @p pairs still has the `name` and `_field_type`
+ * @p states recorded, by identity: a Field renamed, or re-kinded, in place
+ * changes what `dataclasses.fields` lists without changing the dict
+ * fields_match compares.
+ */
+bool field_states_match(PyObject* pairs, PyObject* states) {
+    const Py_ssize_t count = PyTuple_GET_SIZE(pairs) / 2;
+    if (PyTuple_GET_SIZE(states) != 2 * count)
+        return false;
+    // field_attribute's in-place read, decided once per call and compared
+    // borrowed: nothing runs between the loads and the compares.
+    PyTypeObject* const field_type = g_table.field_type;
+    const Py_ssize_t name_offset = g_table.field_name_offset;
+    const Py_ssize_t kind_offset = g_table.field_kind_offset;
+    const bool in_place = name_offset >= 0 && kind_offset >= 0 && field_type != nullptr &&
+                          tag_current(field_type, g_table.field_type_tag);
+    for (Py_ssize_t index = 0; index < count; ++index) {
+        PyObject* const field = PyTuple_GET_ITEM(pairs, 2 * index + 1);
+        if (in_place && Py_TYPE(field) == field_type) {
+            char* const base = reinterpret_cast<char*>(field);
+            if (*reinterpret_cast<PyObject**>(base + name_offset) !=
+                    PyTuple_GET_ITEM(states, 2 * index) ||
+                *reinterpret_cast<PyObject**>(base + kind_offset) !=
+                    PyTuple_GET_ITEM(states, 2 * index + 1))
+                return false;
+            continue;
+        }
+        const PyRef name(field_attribute(field, g_table.field_name_offset, g_names.name));
+        if (name.get() != PyTuple_GET_ITEM(states, 2 * index))
+            return false;
+        const PyRef kind(field_attribute(field, g_table.field_kind_offset, g_names.field_kind));
+        if (kind.get() != PyTuple_GET_ITEM(states, 2 * index + 1))
+            return false;
+    }
+    return true;
+}
+
 bool intern(PyObject*& slot, const char* text) noexcept {
     slot = PyUnicode_InternFromString(text);
     return slot != nullptr;
@@ -991,6 +1096,7 @@ bool prepare_native_runtime() noexcept {
         intern(g_names.generic, "generic") && intern(g_names.ndarray, "ndarray") &&
         intern(g_names.type_dict, "__dict__") && intern(g_names.int_slot, "int") &&
         intern(g_names.dataclass_fields, "__dataclass_fields__") && intern(g_names.name, "name") &&
+        intern(g_names.field_class, "Field") && intern(g_names.field_kind, "_field_type") &&
         intern(g_names.value, "value") && intern(g_names.value_slot, "_value_") &&
         intern(g_names.get, "__get__") && intern(g_names.fget, "fget") &&
         intern(g_names.utcoffset, "utcoffset") && intern(g_names.item, "item") &&
@@ -1372,7 +1478,8 @@ PyObject* dataclass_field_names(PyObject* object, PyObject*& keys) {
     const bool exact = PyDict_CheckExact(declared.get());
     if (exact) {
         PyObject* const cached = PyDict_GetItemWithError(cache, type);
-        if (cached != nullptr && fields_match(declared.get(), PyTuple_GET_ITEM(cached, 0))) {
+        if (cached != nullptr && fields_match(declared.get(), PyTuple_GET_ITEM(cached, 0)) &&
+            field_states_match(PyTuple_GET_ITEM(cached, 0), PyTuple_GET_ITEM(cached, 3))) {
             PyObject* const encoded = PyTuple_GET_ITEM(cached, 2);
             keys = encoded == Py_None ? nullptr : Py_NewRef(encoded);
             return Py_NewRef(PyTuple_GET_ITEM(cached, 1));
@@ -1384,6 +1491,9 @@ PyObject* dataclass_field_names(PyObject* object, PyObject*& keys) {
     const PyRef pairs(exact ? field_pairs(declared.get()) : nullptr);
     if (exact && !pairs)
         return nullptr;
+    // Each field's name and kind, taken with the pairs: an entry is kept only
+    // if they too are unchanged once the names are listed.
+    const PyRef states(exact ? field_states(pairs.get()) : nullptr);
     const PyRef fields(PyObject_CallOneArg(g_table.dataclasses_fields, type));
     if (!fields)
         return nullptr;
@@ -1407,12 +1517,13 @@ PyObject* dataclass_field_names(PyObject* object, PyObject*& keys) {
         PyTuple_SET_ITEM(names.get(), index, name);
     }
     // Not an exact dict, or changed while listed: nothing stable to check an entry against.
-    if (!exact || !fields_match(declared.get(), pairs.get()))
+    if (!exact || !states || !fields_match(declared.get(), pairs.get()) ||
+        !field_states_match(pairs.get(), states.get()))
         return names.release();
     const PyRef encoded(encode_keys(names.get()));
     if (!encoded)
         return nullptr;
-    const PyRef entry(PyTuple_Pack(3, pairs.get(), names.get(), encoded.get()));
+    const PyRef entry(PyTuple_Pack(4, pairs.get(), names.get(), encoded.get(), states.get()));
     if (!entry)
         return nullptr;
     if (PyDict_GET_SIZE(cache) >= kFieldCacheLimit)
