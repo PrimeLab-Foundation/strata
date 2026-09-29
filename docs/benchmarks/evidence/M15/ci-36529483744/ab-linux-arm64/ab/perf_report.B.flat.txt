@@ -1,0 +1,40 @@
+    61.85%  [.] strata::bindings::(anonymous namespace)::Serializer::write(_object*) [clone .llvm.8732537028641781794]  -      -            
+    37.05%  [.] strata::bindings::(anonymous namespace)::Serializer::write_record_fused(_object*)                       -      -            
+     0.22%  [.] _PyEval_EvalFrameDefault                                                                                -      -            
+     0.04%  [.] _Py_dict_lookup                                                                                         -      -            
+     0.04%  [.] strata::bindings::dumps_to_python(_object*, bool)                                                       -      -            
+     0.03%  [.] PyDict_GetItemWithError                                                                                 -      -            
+     0.02%  [.] 0x000000000000052c                                                                                      -      -            
+     0.02%  [.] PyObject_Malloc                                                                                         -      -            
+     0.02%  [.] dict_traverse                                                                                           -      -            
+     0.02%  [.] update_one_slot                                                                                         -      -            
+     0.02%  [.] deduce_unreachable                                                                                      -      -            
+     0.01%  [.] strata::bindings::StagedOutput::overflow(unsigned long)                                                 -      -            
+     0.01%  [.] visit_decref                                                                                            -      -            
+     0.01%  [.] _PyEvalFramePushAndInit                                                                                 -      -            
+     0.01%  [.] 0x000000000000051c                                                                                      -      -            
+     0.01%  [.] PyBytes_FromStringAndSize                                                                               -      -            
+     0.01%  [.] PyObject_Vectorcall                                                                                     -      -            
+     0.01%  [.] _PyCode_Quicken                                                                                         -      -            
+     0.01%  [.] PyObject_Free                                                                                           -      -            
+     0.01%  [k] 0xffffb0b1ec3806bc                                                                                      -      -            
+     0.01%  [.] _PyDict_GetItem_KnownHash                                                                               -      -            
+     0.01%  [.] scan_once_unicode                                                                                       -      -            
+     0.01%  [.] _Py_hashtable_get                                                                                       -      -            
+     0.01%  [.] tupledealloc                                                                                            -      -            
+     0.01%  [.] PyObject_IsTrue                                                                                         -      -            
+     0.01%  [.] gc_collect_main                                                                                         -      -            
+     0.01%  [.] r_object                                                                                                -      -            
+     0.01%  [k] 0xffffb0b1ec3b45f8                                                                                      -      -            
+     0.01%  [k] 0xffffb0b1ec380a80                                                                                      -      -            
+     0.01%  [.] 0x000000000000d284                                                                                      -      -            
+     0.01%  [.] 0x000000000000d1d0                                                                                      -      -            
+     0.01%  [.] 0x000000000003977c                                                                                      -      -            
+     0.01%  [.] _Py_hashtable_set                                                                                       -      -            
+     0.01%  [.] _Py_GetBaseOpcode                                                                                       -      -            
+     0.00%  [.] PyWeakref_NewRef                                                                                        -      -            
+     0.00%  [.] 0x00000000000941b4                                                                                      -      -            
+     0.00%  [.] 0x00000000000004e8                                                                                      -      -            
+     0.00%  [.] cfunction_vectorcall_NOARGS                                                                             -      -            
+     0.00%  [.] 0x0000000000000510                                                                                      -      -            
+     0.00%  [.] operator new(unsigned long)                                                                             -      -            

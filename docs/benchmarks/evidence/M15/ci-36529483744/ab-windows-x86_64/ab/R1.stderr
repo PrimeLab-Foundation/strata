@@ -1,0 +1,59 @@
+# target   D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd
+# build A  D:\a\strata\strata\arms\A.pyd  md5=f2c6b4cac2cb63c3b9334bd1b2c806f6
+# build B  D:\a\strata\strata\arms\B.pyd  md5=26c3e4b898e4309f1a3cb45caf96f0c2
+# order    ABBAABBAABBAABBAABBAABBAA (25 launches)
+# rows     small:users:loads small:users:dumps small:users:load small:users:dump small:users:ndload small:flat:loads small:flat:dumps small:flat:load small:flat:dump small:nested:loads small:nested:dumps small:nested:load small:nested:dump small:wide_arrays:loads small:wide_arrays:dumps small:wide_arrays:load small:wide_arrays:dump small:mixed:loads small:mixed:dumps small:mixed:load small:mixed:dump medium:flat:dumps medium:users:dumps medium:mixed:dumps medium:wide_arrays:loads  repeat=60
+# facade   D:\a\strata\strata\python\strata swapped per launch
+# launch 00 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L00 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:30:06
+# launch 01 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L01 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:30:32
+# launch 02 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L02 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:31:03
+# launch 03 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L03 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:31:41
+# launch 04 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L04 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:32:17
+# launch 05 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L05 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:32:57
+# launch 06 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L06 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:33:29
+# launch 07 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L07 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:33:58
+# launch 08 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L08 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:34:38
+# launch 09 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L09 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:35:10
+# launch 10 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L10 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:35:39
+# launch 11 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L11 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:36:07
+# launch 12 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L12 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:36:33
+# launch 13 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L13 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:37:00
+# launch 14 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L14 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:37:26
+# launch 15 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L15 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:37:50
+# launch 16 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L16 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:38:15
+# launch 17 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L17 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:38:40
+# launch 18 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L18 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:39:04
+# launch 19 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L19 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:39:29
+# launch 20 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L20 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:39:53
+# launch 21 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L21 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:40:18
+# launch 22 build=B md5=26c3e4b898e4309f1a3cb45caf96f0c2 facade_md5=f844a4ea77c3ff179cec70bd7131f339
+# L22 build=B extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=26c3e4b898e4309f1a3cb45caf96f0c2 load=unavailable(Windows) cpus=4 t=06:40:42
+# launch 23 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L23 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:41:07
+# launch 24 build=A md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 facade_md5=d352d17983408bdc586af5b8bd2a03ed
+# L24 build=A extension=D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd md5=f2c6b4cac2cb63c3b9334bd1b2c806f6 load=unavailable(Windows) cpus=4 t=06:41:32
+# wrote ab\R1.tsv (25 of 25 launches)
+# restored D:\a\strata\strata\python\strata\_strata.cp312-win_amd64.pyd to md5=9491036d40440932d072baeed8d3c7c2
+# restored facade D:\a\strata\strata\python\strata to md5=f844a4ea77c3ff179cec70bd7131f339

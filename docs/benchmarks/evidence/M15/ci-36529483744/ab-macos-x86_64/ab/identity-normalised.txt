@@ -1,0 +1,24 @@
+functions: A 317, B 369, only in one 54
+identical after name and address normalisation: 39/316
+differing only in page-offset slot immediates: 0
+differing beyond that: 277
+  only in one: __ZN6strata4util11format_dateEiiiPc
+  only in one: __ZN6strata4util11format_timeEiiiiPc
+  only in one: __ZN6strata4util11format_uuidEyyPc
+  only in one: __ZN6strata4util12_GLOBAL__N_19scan_dateEPKcRNS0_14TemporalFieldsE
+  only in one: __ZN6strata4util12_GLOBAL__N_19scan_timeENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEERNS0_14TemporalFieldsE
+  only in one: __ZN6strata4util13scan_temporalENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE
+  only in one: __ZN6strata4util14is_json_numberENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE
+  only in one: __ZN6strata4util17format_utc_offsetExPc
+  only in one: __ZN6strata8bindings11parse_types12_GLOBAL__N_110search_oneEPKcP7_objectS6_Pb
+  only in one: __ZN6strata8bindings11parse_types12_GLOBAL__N_117reviving_iteratorEP7_objectS4_
+  _PyInit__strata: 240 changed lines, e.g. ['-leaq 0x23be5(%rip), %rdi #', '+leaq 0x2ffbd(%rip), %rdi #', '-movl $0x0, 0x23c83(%rip) #', '-movq 0x22914(%rip), %rax #']
+  __ZN12_GLOBAL__N_111strata_dumpEP7_objectS1_S1_: 54 changed lines, e.g. ['-movq 0x2160d(%rip), %rax #', '+movq 0x2d345(%rip), %rax #', '-leaq 0x1f7ea(%rip), %rax #', '-leaq 0x22581(%rip), %rcx #']
+  __ZN12_GLOBAL__N_111strata_loadEP7_objectS1_S1_: 155 changed lines, e.g. ['-subq $0x38, %rsp', '+subq $0x48, %rsp', '-movq $0x0, 0x30(%rsp)', '-leaq 0x1f188(%rip), %rax #']
+  __ZN12_GLOBAL__N_112finish_loadsENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEEbbb: 116 changed lines, e.g. ['-leaq 0x21d62(%rip), %rdi #', '+leaq 0x2deca(%rip), %rdi #', '-leaq 0x21d78(%rip), %rdi #', '+leaq 0x2dee0(%rip), %rdi #']
+  __ZN12_GLOBAL__N_112strata_dumpsEP7_objectPKS1_lS1_: 188 changed lines, e.g. ['-movq 0x22248(%rip), %rax #', '+movq 0x2dfb8(%rip), %rax #', '-leaq 0x20418(%rip), %r15 #', '+leaq 0x2b472(%rip), %r15 #']
+  __ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_: 327 changed lines, e.g. ['-jne <__ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_+0x22f>', '-movq %rcx, %r12', '+jne <__ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_+0x12f>', '+movq %rcx, %r13']
+  __ZN12_GLOBAL__N_112strata_queryEP7_objectS1_S1_: 140 changed lines, e.g. ['+pushq %r15', '-subq $0x28, %rsp', '+subq $0x30, %rsp', '-movq $0x0, 0x18(%rsp)']
+  __ZN12_GLOBAL__N_113strata_searchEP7_objectS1_S1_: 212 changed lines, e.g. ['+pushq %r15', '-subq $0x28, %rsp', '+subq $0x30, %rsp', '+movq $0x0, 0x20(%rsp)']
+  __ZN12_GLOBAL__N_114strata_compileEP7_objectS1_: 28 changed lines, e.g. ['-leaq 0x1f16a(%rip), %rsi #', '+leaq 0x2a11c(%rip), %rsi #', '-callq <dyld_stub_binder+0x3cc6e>', '+callq <dyld_stub_binder+0x49bca>']
+  __ZN12_GLOBAL__N_117strata_config_getEP7_objectS1_: 54 changed lines, e.g. ['-leaq 0x1e721(%rip), %rsi #', '+leaq 0x295d1(%rip), %rsi #', '-callq <dyld_stub_binder+0x3cc6e>', '+callq <dyld_stub_binder+0x49bca>']
