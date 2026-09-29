@@ -4538,3 +4538,48 @@ waits on it.
   - *The attribution clause:* a held build of this branch discards `write()`'s counts
     (inferred from `armBheld2`: the flag test changes its control flow), so a held arm cannot
     attribute a five-leg row to the code as the record assumes.
+
+## M15b — native types behind a flag: `_strata` identical to main, local evidence; five-leg run prepared
+
+- 2026-09-29 · `exp/native-types` over main `38eaa9f`, thirteen commits `84800ba` to `6aed644`
+  (`git log --oneline 643a089..HEAD`). Record: [`native_types.md`](../architecture/native_types.md),
+  "Flag shape (M15b)" (`84800ba`); docs/decisions.md, 2026-09-29, "User-directed flag shape" to the
+  end. Evidence: `docs/benchmarks/evidence/M15b/`. **Status: not merged; the five-leg
+  `benchmark.yml` run with `identity_base=38eaa9f` is prepared, not dispatched.**
+
+- **Shape (user-directed; supersedes default-on and fallback (b), never built).** `_strata` is
+  main's; `dumps`/`dump` gain `native=False`, `parse_types` stays opt-in, both routed by the facade
+  to `strata._dumps_hook`. M15's V4 tail and ~20 KB of added `_strata` text are gone by
+  construction, so the default path's acceptance is the M12b identity proof, not an A/B campaign.
+
+- **Identity on the M1: clauses 1, 3, 4 hold** (`identity-m1/`; macOS 26.6.2, Apple clang 21.0.0,
+  CPython 3.14.7, HEAD `8db1539`). `bash scripts/token_identity.sh`: 18/18 `_strata` TUs
+  token-identical to `38eaa9f` on arm64 and on x86_64. `scripts/identity_ab.py --base 38eaa9f`:
+  plain and held-profile PGO+LTO builds each CODE IDENTICAL, 13/13 sections (`__TEXT,__text` among
+  them); the image files differ outside them (hashes in `PROVENANCE.txt`); the hook carries no
+  profile. Clause 2 (build spec) has no artifact here beyond the equal 18-TU source list.
+
+- **Reviews and gates.** Two independent reviews; fixed: P0, `STRATA_DUMPS_HOOK` never reached
+  `python_files.cpp`/`python_folder.cpp`, whose reader halves compiled into the hook as unresolved
+  externals (`cf0341c`); identity/native-v1 P1–P2s (`ef98cf4`); `parse_types` re-entrancy and
+  prepare-failure P2s (`f2bdc41`). At `f2bdc41`: `make gate` exit 0 (C++ 16/16, Python 3672
+  passed / 2 skipped, Python coverage 100%), `make test-integrations` 60 passed, `make lint` clean.
+
+- **Facade per-call cost** (`facade/facade_ab.txt`): one process, one `_strata`; main's facade
+  (exec'd from `38eaa9f`) vs this branch's at default keywords; ABBA, 61 repeats, paired B − A
+  median, bootstrap 95% CI; 1-min load 3.15. Tiny inputs: `dumps` +14.4 ns \[+14.3, +14.7\] on
+  126.4 ns, `loads` +14.0 \[+13.6, +14.5\] on 203.8, `query` +17.2 \[+16.1, +18.4\] on 310.5.
+  Small `mixed`: `dumps` +36.4 \[−106.8, +110.7\], `loads` +250.0 \[−136.9, +571.4\], both span 0.
+  File rows, read as noise (inferred): `load`, `search` span 0; `dump` −5 854 ns \[−8 374.5,
+  −2 437.0\] of 72.6 µs, B faster. Inferred, not measured: the new keyword-only default is filled
+  from `__kwdefaults__` per call, plus one `is` test. The image is main's; canonical rows pay this.
+
+- **native-v1, local: strata second of four** (`native-v1-m1/native_v1.md`; plain build, small
+  tier, 10 repeats). `native.small` medians, strata `native=True` / msgspec / orjson / json:
+  `dumps` 0.391 / 0.269 / 0.495 / 3.121 ms, `dump` 0.610 / 0.489 / 0.717 / 3.414 ms; ujson
+  excluded. Flag rows (`mixed.small`, no native object): `native=False` 0.043, `native=True` 0.042
+  ms, single run, no CI. Both images are unprofiled here; in CI `_strata` is PGO'd, the hook never.
+
+- **Training scope and next.** Native suites stay outside `--training`; the trained-scope
+  deviation is decisions.md's last line. Next, awaiting the user's approval: the prepared five-leg
+  run, clause 4 on every CI leg (`1593526` gives identity legs 180 minutes). Open: clause 2.
