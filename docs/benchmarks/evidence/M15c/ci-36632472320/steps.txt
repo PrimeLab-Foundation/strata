@@ -1,0 +1,74 @@
+supportability (linux-arm64) | Set up job | success
+supportability (linux-arm64) | Run actions/checkout@v4 | success
+supportability (linux-arm64) | Run actions/setup-python@v5 | success
+supportability (linux-arm64) | Install clang and LLVM | success
+supportability (linux-arm64) | Install strata with the dev and bench extras (test-gated build) | success
+supportability (linux-arm64) | PGO+LTO build (gate tests on both phases) | success
+supportability (linux-arm64) | Generate the small-tier datasets | success
+supportability (linux-arm64) | Run the benchmark suite | success
+supportability (linux-arm64) | Supportability tripwire | success
+supportability (linux-arm64) | Run native-v1 benchmarks | success
+supportability (linux-arm64) | Same-path identity check against identity_base | failure
+supportability (linux-arm64) | Run actions/upload-artifact@v4 | success
+supportability (linux-arm64) | Post Run actions/setup-python@v5 | skipped
+supportability (linux-arm64) | Post Run actions/checkout@v4 | success
+supportability (linux-arm64) | Complete job | success
+supportability (linux-x86_64) | Set up job | success
+supportability (linux-x86_64) | Run actions/checkout@v4 | success
+supportability (linux-x86_64) | Run actions/setup-python@v5 | success
+supportability (linux-x86_64) | Install clang and LLVM | success
+supportability (linux-x86_64) | Install strata with the dev and bench extras (test-gated build) | success
+supportability (linux-x86_64) | PGO+LTO build (gate tests on both phases) | success
+supportability (linux-x86_64) | Generate the small-tier datasets | success
+supportability (linux-x86_64) | Run the benchmark suite | success
+supportability (linux-x86_64) | Supportability tripwire | success
+supportability (linux-x86_64) | Run native-v1 benchmarks | success
+supportability (linux-x86_64) | Same-path identity check against identity_base | success
+supportability (linux-x86_64) | Run actions/upload-artifact@v4 | success
+supportability (linux-x86_64) | Post Run actions/setup-python@v5 | success
+supportability (linux-x86_64) | Post Run actions/checkout@v4 | success
+supportability (linux-x86_64) | Complete job | success
+supportability (macos-arm64) | Set up job | success
+supportability (macos-arm64) | Run actions/checkout@v4 | success
+supportability (macos-arm64) | Run actions/setup-python@v5 | success
+supportability (macos-arm64) | Install clang and LLVM | skipped
+supportability (macos-arm64) | Install strata with the dev and bench extras (test-gated build) | success
+supportability (macos-arm64) | PGO+LTO build (gate tests on both phases) | success
+supportability (macos-arm64) | Generate the small-tier datasets | success
+supportability (macos-arm64) | Run the benchmark suite | success
+supportability (macos-arm64) | Supportability tripwire | success
+supportability (macos-arm64) | Run native-v1 benchmarks | success
+supportability (macos-arm64) | Same-path identity check against identity_base | success
+supportability (macos-arm64) | Run actions/upload-artifact@v4 | success
+supportability (macos-arm64) | Post Run actions/setup-python@v5 | success
+supportability (macos-arm64) | Post Run actions/checkout@v4 | success
+supportability (macos-arm64) | Complete job | success
+supportability (windows-x86_64) | Set up job | success
+supportability (windows-x86_64) | Run actions/checkout@v4 | success
+supportability (windows-x86_64) | Run actions/setup-python@v5 | success
+supportability (windows-x86_64) | Install strata and the competitor set (test-gated build) | failure
+supportability (windows-x86_64) | clang-cl PGO build (gate tests on both phases) | skipped
+supportability (windows-x86_64) | Generate the small-tier datasets | skipped
+supportability (windows-x86_64) | Run the benchmark suite | skipped
+supportability (windows-x86_64) | Supportability tripwire | skipped
+supportability (windows-x86_64) | Run native-v1 benchmarks | skipped
+supportability (windows-x86_64) | Same-path identity check against identity_base | skipped
+supportability (windows-x86_64) | Run actions/upload-artifact@v4 | success
+supportability (windows-x86_64) | Post Run actions/setup-python@v5 | skipped
+supportability (windows-x86_64) | Post Run actions/checkout@v4 | success
+supportability (windows-x86_64) | Complete job | success
+supportability (macos-x86_64) | Set up job | success
+supportability (macos-x86_64) | Run actions/checkout@v4 | success
+supportability (macos-x86_64) | Run actions/setup-python@v5 | success
+supportability (macos-x86_64) | Install clang and LLVM | skipped
+supportability (macos-x86_64) | Install strata with the dev and bench extras (test-gated build) | success
+supportability (macos-x86_64) | PGO+LTO build (gate tests on both phases) | success
+supportability (macos-x86_64) | Generate the small-tier datasets | success
+supportability (macos-x86_64) | Run the benchmark suite | success
+supportability (macos-x86_64) | Supportability tripwire | success
+supportability (macos-x86_64) | Run native-v1 benchmarks | success
+supportability (macos-x86_64) | Same-path identity check against identity_base | success
+supportability (macos-x86_64) | Run actions/upload-artifact@v4 | failure
+supportability (macos-x86_64) | Post Run actions/setup-python@v5 | skipped
+supportability (macos-x86_64) | Post Run actions/checkout@v4 | success
+supportability (macos-x86_64) | Complete job | success

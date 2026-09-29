@@ -4756,3 +4756,15 @@ waits on it.
   records **1.0069 \[0.9809, 1.0200\]** (the previous tip 1.0963), file 1.0115 \[0.9465,
   1.0192\] (1.0781), dataclass lists 1.0572 \[1.0315, 1.0724\] (1.2954) — the unprofiled price
   (+0.75% / +5.35%) restored. strata/msgspec: records 0.752×, file 0.730×. Kept.
+
+- **Five-leg sample 36632472320** (`bc6d9ba`, `identity_base=234ea15`; the one approved
+  dispatch; `ci-36632472320/verdict.txt`). Three legs complete: linux-x86_64, macos-arm64 and
+  linux-arm64 read native-v1 `dumps` **0.832×, 0.817×, 0.848×** msgspec and `dump` **0.875×,
+  0.917×, 0.901×** (M15b's sample: 1.60/1.34, 1.38/1.31, 1.47/1.26), canonical 27/27 each,
+  tripwire green, phase 3's `_strata` hash check and both `--check-profiled` guards passing.
+  Identity: plain `_strata` IDENTICAL on four legs; held IDENTICAL on linux-x86_64, macos-arm64,
+  macos-x86_64; linux-arm64's held `.text`, `.rela.plt` and `.note.gnu.build-id` differ — M15b's
+  three sections, ruled layout-only there, not re-verified here (the plan's stop condition).
+  macos-x86_64 passed every step but lost its reports to an artifact-service timeout. Windows
+  failed its plain install gate on three tests that assumed a clang/gcc host (fixed in `66adccf`);
+  its clang-cl hook phase has still never run. No second dispatch.

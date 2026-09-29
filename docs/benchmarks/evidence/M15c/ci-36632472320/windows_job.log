@@ -1,0 +1,1049 @@
+﻿2026-09-29T21:19:23.4264036Z Current runner version: '2.337.0'
+2026-09-29T21:19:23.4284342Z ##[group]Runner Image Provisioner
+2026-09-29T21:19:23.4285064Z Hosted Compute Agent
+2026-09-29T21:19:23.4285522Z Version: 20260828.587
+2026-09-29T21:19:23.4286007Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-29T21:19:23.4286562Z Build Date: 2026-08-28T16:44:25Z
+2026-09-29T21:19:23.4287095Z Worker ID: {4facd8d2-cd0c-416b-a04c-51aff52d54b0}
+2026-09-29T21:19:23.4287667Z Azure Region: westus3
+2026-09-29T21:19:23.4288086Z ##[endgroup]
+2026-09-29T21:19:23.4289104Z ##[group]Operating System
+2026-09-29T21:19:23.4289604Z Microsoft Windows Server 2025
+2026-09-29T21:19:23.4290079Z 10.0.26100
+2026-09-29T21:19:23.4290473Z Datacenter
+2026-09-29T21:19:23.4290866Z ##[endgroup]
+2026-09-29T21:19:23.4291254Z ##[group]Runner Image
+2026-09-29T21:19:23.4291715Z Image: windows-2025-vs2026
+2026-09-29T21:19:23.4292207Z Version: 20260922.246.2
+2026-09-29T21:19:23.4293326Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260922.246/images/windows/Windows2025-VS2026-Readme.md
+2026-09-29T21:19:23.4294564Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260922.246
+2026-09-29T21:19:23.4295933Z ##[endgroup]
+2026-09-29T21:19:23.4297909Z ##[group]GITHUB_TOKEN Permissions
+2026-09-29T21:19:23.4300716Z Contents: read
+2026-09-29T21:19:23.4301191Z Metadata: read
+2026-09-29T21:19:23.4301669Z Packages: read
+2026-09-29T21:19:23.4302097Z ##[endgroup]
+2026-09-29T21:19:23.4303691Z Secret source: Actions
+2026-09-29T21:19:23.4304489Z Cache mode: write
+2026-09-29T21:19:23.4305084Z Prepare workflow directory
+2026-09-29T21:19:23.4577925Z Prepare all required actions
+2026-09-29T21:19:23.4620322Z Getting action download info
+2026-09-29T21:19:23.7870106Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-29T21:19:23.8866522Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-09-29T21:19:24.0060273Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-09-29T21:19:24.2932328Z Complete job name: supportability (windows-x86_64)
+2026-09-29T21:19:24.4313473Z ##[group]Run actions/checkout@v4
+2026-09-29T21:19:24.4314423Z with:
+2026-09-29T21:19:24.4314747Z   fetch-depth: 0
+2026-09-29T21:19:24.4315119Z   repository: PrimeLab-Foundation/strata
+2026-09-29T21:19:24.4318487Z   token: ***
+2026-09-29T21:19:24.4318824Z   ssh-strict: true
+2026-09-29T21:19:24.4319171Z   ssh-user: git
+2026-09-29T21:19:24.4319518Z   persist-credentials: true
+2026-09-29T21:19:24.4319918Z   clean: true
+2026-09-29T21:19:24.4320264Z   sparse-checkout-cone-mode: true
+2026-09-29T21:19:24.4320679Z   fetch-tags: false
+2026-09-29T21:19:24.4321027Z   show-progress: true
+2026-09-29T21:19:24.4321376Z   lfs: false
+2026-09-29T21:19:24.4321708Z   submodules: false
+2026-09-29T21:19:24.4322074Z   set-safe-directory: true
+2026-09-29T21:19:24.4322488Z   allow-unsafe-pr-checkout: false
+2026-09-29T21:19:24.4323100Z ##[endgroup]
+2026-09-29T21:19:24.5538119Z Syncing repository: PrimeLab-Foundation/strata
+2026-09-29T21:19:24.5539599Z ##[group]Getting Git version info
+2026-09-29T21:19:24.5540165Z Working directory is 'D:\a\strata\strata'
+2026-09-29T21:19:24.6284209Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-09-29T21:19:25.0165533Z git version 2.55.0.windows.5
+2026-09-29T21:19:25.0204818Z ##[endgroup]
+2026-09-29T21:19:25.0219760Z Temporarily overriding HOME='D:\a\_temp\14deaa4f-eab5-49e4-97a3-5136087a8112' before making global git config changes
+2026-09-29T21:19:25.0221339Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-29T21:19:25.0228681Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\strata\strata
+2026-09-29T21:19:25.0805343Z Deleting the contents of 'D:\a\strata\strata'
+2026-09-29T21:19:25.0810199Z ##[group]Initializing the repository
+2026-09-29T21:19:25.0817280Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\strata\strata
+2026-09-29T21:19:25.1881511Z Initialized empty Git repository in D:/a/strata/strata/.git/
+2026-09-29T21:19:25.1920892Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/PrimeLab-Foundation/strata
+2026-09-29T21:19:25.2591236Z ##[endgroup]
+2026-09-29T21:19:25.2592374Z ##[group]Disabling automatic garbage collection
+2026-09-29T21:19:25.2597838Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-09-29T21:19:25.2821547Z ##[endgroup]
+2026-09-29T21:19:25.2822946Z ##[group]Setting up auth
+2026-09-29T21:19:25.2830969Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-09-29T21:19:25.3055103Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-09-29T21:19:26.7348396Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-29T21:19:26.7580077Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-09-29T21:19:27.1758808Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-29T21:19:27.1986835Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-09-29T21:19:27.6356736Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-09-29T21:19:27.6620953Z ##[endgroup]
+2026-09-29T21:19:27.6621487Z ##[group]Fetching the repository
+2026-09-29T21:19:27.6637794Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-09-29T21:19:31.1290764Z From https://github.com/PrimeLab-Foundation/strata
+2026-09-29T21:19:31.1291695Z  * [new branch]      exp/ab-historic-base        -> origin/exp/ab-historic-base
+2026-09-29T21:19:31.1292533Z  * [new branch]      exp/cold-entry              -> origin/exp/cold-entry
+2026-09-29T21:19:31.1293606Z  * [new branch]      exp/cold-slot-interleave    -> origin/exp/cold-slot-interleave
+2026-09-29T21:19:31.1294054Z  * [new branch]      exp/cross-sample            -> origin/exp/cross-sample
+2026-09-29T21:19:31.1294425Z  * [new branch]      exp/emit-n2                 -> origin/exp/emit-n2
+2026-09-29T21:19:31.1294762Z  * [new branch]      exp/m12-ab-arm              -> origin/exp/m12-ab-arm
+2026-09-29T21:19:31.1295130Z  * [new branch]      exp/m12-base-pin            -> origin/exp/m12-base-pin
+2026-09-29T21:19:31.1295461Z  * [new branch]      exp/m12-base-pin2           -> origin/exp/m12-base-pin2
+2026-09-29T21:19:31.1295863Z  * [new branch]      exp/m12-default-hook        -> origin/exp/m12-default-hook
+2026-09-29T21:19:31.1296230Z  * [new branch]      exp/m12-default-hook-2      -> origin/exp/m12-default-hook-2
+2026-09-29T21:19:31.1296571Z  * [new branch]      exp/m12-source-ab           -> origin/exp/m12-source-ab
+2026-09-29T21:19:31.1296941Z  * [new branch]      exp/m12b-ab-arm             -> origin/exp/m12b-ab-arm
+2026-09-29T21:19:31.1297318Z  * [new branch]      exp/m12b-dumps-with-default -> origin/exp/m12b-dumps-with-default
+2026-09-29T21:19:31.1297718Z  * [new branch]      exp/m13-adapters            -> origin/exp/m13-adapters
+2026-09-29T21:19:31.1298066Z  * [new branch]      exp/m15-ab-arm              -> origin/exp/m15-ab-arm
+2026-09-29T21:19:31.1298465Z  * [new branch]      exp/main-repair             -> origin/exp/main-repair
+2026-09-29T21:19:31.1298944Z  * [new branch]      exp/native-gap              -> origin/exp/native-gap
+2026-09-29T21:19:31.1300842Z  * [new branch]      exp/native-types            -> origin/exp/native-types
+2026-09-29T21:19:31.1301257Z  * [new branch]      exp/p0-integration          -> origin/exp/p0-integration
+2026-09-29T21:19:31.1301613Z  * [new branch]      exp/p0p6-integration        -> origin/exp/p0p6-integration
+2026-09-29T21:19:31.1301996Z  * [new branch]      exp/p23-b1                  -> origin/exp/p23-b1
+2026-09-29T21:19:31.1302369Z  * [new branch]      exp/p23-b1-tests            -> origin/exp/p23-b1-tests
+2026-09-29T21:19:31.1302719Z  * [new branch]      exp/p23-general-tables      -> origin/exp/p23-general-tables
+2026-09-29T21:19:31.1303065Z  * [new branch]      exp/p23-tests-only          -> origin/exp/p23-tests-only
+2026-09-29T21:19:31.1303401Z  * [new branch]      exp/p24-open-cost           -> origin/exp/p24-open-cost
+2026-09-29T21:19:31.1303723Z  * [new branch]      exp/p24-tests-only          -> origin/exp/p24-tests-only
+2026-09-29T21:19:31.1304043Z  * [new branch]      exp/p26-tests-arm           -> origin/exp/p26-tests-arm
+2026-09-29T21:19:31.1304379Z  * [new branch]      exp/p26-win-abi             -> origin/exp/p26-win-abi
+2026-09-29T21:19:31.1304714Z  * [new branch]      exp/p6-acceptance2          -> origin/exp/p6-acceptance2
+2026-09-29T21:19:31.1305046Z  * [new branch]      exp/p6-windows-ab           -> origin/exp/p6-windows-ab
+2026-09-29T21:19:31.1305361Z  * [new branch]      exp/p6-x86-ab               -> origin/exp/p6-x86-ab
+2026-09-29T21:19:31.1305666Z  * [new branch]      exp/p6-x86-regs             -> origin/exp/p6-x86-regs
+2026-09-29T21:19:31.1306012Z  * [new branch]      exp/p6p7-integration        -> origin/exp/p6p7-integration
+2026-09-29T21:19:31.1306374Z  * [new branch]      exp/p7-x86-nofp             -> origin/exp/p7-x86-nofp
+2026-09-29T21:19:31.1306704Z  * [new branch]      exp/p7b-tests-only          -> origin/exp/p7b-tests-only
+2026-09-29T21:19:31.1307018Z  * [new branch]      exp/p8-b1                   -> origin/exp/p8-b1
+2026-09-29T21:19:31.1307318Z  * [new branch]      exp/p8-b12                  -> origin/exp/p8-b12
+2026-09-29T21:19:31.1307604Z  * [new branch]      exp/p8-b2                   -> origin/exp/p8-b2
+2026-09-29T21:19:31.1308463Z  * [new branch]      exp/p9-fused-dicts          -> origin/exp/p9-fused-dicts
+2026-09-29T21:19:31.1308840Z  * [new branch]      exp/p9-probe-flag           -> origin/exp/p9-probe-flag
+2026-09-29T21:19:31.1309191Z  * [new branch]      exp/p9-probe-placement      -> origin/exp/p9-probe-placement
+2026-09-29T21:19:31.1309556Z  * [new branch]      exp/pin-discovery-ab        -> origin/exp/pin-discovery-ab
+2026-09-29T21:19:31.1309909Z  * [new branch]      exp/pin-discovery-test      -> origin/exp/pin-discovery-test
+2026-09-29T21:19:31.1310459Z  * [new branch]      exp/t1-ab                   -> origin/exp/t1-ab
+2026-09-29T21:19:31.1310894Z  * [new branch]      exp/t1-private-cache-leak   -> origin/exp/t1-private-cache-leak
+2026-09-29T21:19:31.1311596Z  * [new branch]      exp/t1-source-ab            -> origin/exp/t1-source-ab
+2026-09-29T21:19:31.1311947Z  * [new branch]      exp/t1-tests-only           -> origin/exp/t1-tests-only
+2026-09-29T21:19:31.1312303Z  * [new branch]      exp/t2-evidence-gates       -> origin/exp/t2-evidence-gates
+2026-09-29T21:19:31.1312646Z  * [new branch]      exp/t3-ab-estimator         -> origin/exp/t3-ab-estimator
+2026-09-29T21:19:31.1312980Z  * [new branch]      exp/win-mixed-probe         -> origin/exp/win-mixed-probe
+2026-09-29T21:19:31.1313318Z  * [new branch]      exp/win-rawwalk-check       -> origin/exp/win-rawwalk-check
+2026-09-29T21:19:31.1313632Z  * [new branch]      main                        -> origin/main
+2026-09-29T21:19:31.1313938Z  * [new branch]      work/benchmark-lead         -> origin/work/benchmark-lead
+2026-09-29T21:19:31.1314282Z  * [new branch]      work/september-7-plan       -> origin/work/september-7-plan
+2026-09-29T21:19:31.1314619Z  * [new tag]         archive/exp/audit-tests     -> archive/exp/audit-tests
+2026-09-29T21:19:31.1314922Z  * [new tag]         archive/exp/cursor          -> archive/exp/cursor
+2026-09-29T21:19:31.1315329Z  * [new tag]         archive/exp/cursor2         -> archive/exp/cursor2
+2026-09-29T21:19:31.1315642Z  * [new tag]         archive/exp/digitchain      -> archive/exp/digitchain
+2026-09-29T21:19:31.1315973Z  * [new tag]         archive/exp/dump-flat-macos -> archive/exp/dump-flat-macos
+2026-09-29T21:19:31.1316346Z  * [new tag]         archive/exp/dumps-n2        -> archive/exp/dumps-n2
+2026-09-29T21:19:31.1316752Z  * [new tag]         archive/exp/e26-p2-profile  -> archive/exp/e26-p2-profile
+2026-09-29T21:19:31.1317165Z  * [new tag]         archive/exp/fix1-reentrant-mutation -> archive/exp/fix1-reentrant-mutation
+2026-09-29T21:19:31.1317661Z  * [new tag]         archive/exp/fix1-reentrant-mutation-v2 -> archive/exp/fix1-reentrant-mutation-v2
+2026-09-29T21:19:31.1318154Z  * [new tag]         archive/exp/fix1-reentrant-mutation-v3 -> archive/exp/fix1-reentrant-mutation-v3
+2026-09-29T21:19:31.1318602Z  * [new tag]         archive/exp/fix1-reentrant-mutation-v4 -> archive/exp/fix1-reentrant-mutation-v4
+2026-09-29T21:19:31.1319046Z  * [new tag]         archive/exp/fix2-surrogate-key -> archive/exp/fix2-surrogate-key
+2026-09-29T21:19:31.1319410Z  * [new tag]         archive/exp/p0-controls     -> archive/exp/p0-controls
+2026-09-29T21:19:31.1319850Z  * [new tag]         archive/exp/p1-attribution  -> archive/exp/p1-attribution
+2026-09-29T21:19:31.1320463Z  * [new tag]         archive/exp/shrink-cold-instruction-footprint -> archive/exp/shrink-cold-instruction-footprint
+2026-09-29T21:19:31.1321006Z  * [new tag]         archive/exp/shrink-write-stack-frames -> archive/exp/shrink-write-stack-frames
+2026-09-29T21:19:31.1321396Z  * [new tag]         archive/exp/terminator      -> archive/exp/terminator
+2026-09-29T21:19:31.1321924Z  * [new tag]         archive/exp/width-flat-format-int64-above-1e4 -> archive/exp/width-flat-format-int64-above-1e4
+2026-09-29T21:19:31.1322708Z  * [new tag]         archive/main-from-scratch-v1 -> archive/main-from-scratch-v1
+2026-09-29T21:19:31.1323113Z  * [new tag]         archive/main-v2             -> archive/main-v2
+2026-09-29T21:19:31.1324365Z  * [new tag]         archive/main-v2-0.1         -> archive/main-v2-0.1
+2026-09-29T21:19:31.1324744Z  * [new tag]         archive/main-v2-long-run-do-nothing -> archive/main-v2-long-run-do-nothing
+2026-09-29T21:19:31.1325128Z  * [new tag]         archive/main-v2-prompt-1    -> archive/main-v2-prompt-1
+2026-09-29T21:19:31.1325450Z  * [new tag]         archive/main-v2-prompt-2    -> archive/main-v2-prompt-2
+2026-09-29T21:19:31.1325757Z  * [new tag]         archive/main-v2-prompt-3    -> archive/main-v2-prompt-3
+2026-09-29T21:19:31.1326177Z  * [new tag]         archive/main-v2-prompt-4    -> archive/main-v2-prompt-4
+2026-09-29T21:19:31.1337863Z [command]"C:\Program Files\Git\bin\git.exe" branch --list --remote origin/exp/native-gap
+2026-09-29T21:19:31.1670083Z   origin/exp/native-gap
+2026-09-29T21:19:31.1769464Z [command]"C:\Program Files\Git\bin\git.exe" rev-parse refs/remotes/origin/exp/native-gap
+2026-09-29T21:19:31.1951553Z bc6d9ba83ad33f6b9e2f3b35d87b07d0b4dcc11e
+2026-09-29T21:19:31.1978453Z ##[endgroup]
+2026-09-29T21:19:31.1979377Z ##[group]Determining the checkout info
+2026-09-29T21:19:31.1980361Z ##[endgroup]
+2026-09-29T21:19:31.1987483Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-09-29T21:19:31.2340187Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-09-29T21:19:31.2607043Z ##[group]Checking out the ref
+2026-09-29T21:19:31.2614999Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B exp/native-gap refs/remotes/origin/exp/native-gap
+2026-09-29T21:19:32.0400079Z Switched to a new branch 'exp/native-gap'
+2026-09-29T21:19:32.0578725Z branch 'exp/native-gap' set up to track 'origin/exp/native-gap'.
+2026-09-29T21:19:32.1028271Z ##[endgroup]
+2026-09-29T21:19:32.1036205Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-09-29T21:19:32.1238454Z bc6d9ba83ad33f6b9e2f3b35d87b07d0b4dcc11e
+2026-09-29T21:19:32.1596908Z ##[group]Run actions/setup-python@v5
+2026-09-29T21:19:32.1597177Z with:
+2026-09-29T21:19:32.1597351Z   python-version: 3.12
+2026-09-29T21:19:32.1597556Z   check-latest: false
+2026-09-29T21:19:32.1599522Z   token: ***
+2026-09-29T21:19:32.1599693Z   update-environment: true
+2026-09-29T21:19:32.1599890Z   allow-prereleases: false
+2026-09-29T21:19:32.1600082Z   freethreaded: false
+2026-09-29T21:19:32.1600253Z ##[endgroup]
+2026-09-29T21:19:32.2884620Z ##[group]Installed versions
+2026-09-29T21:19:32.3113415Z (node:5852) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-29T21:19:32.3113966Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-29T21:19:32.3114528Z Successfully set up CPython (3.12.10)
+2026-09-29T21:19:32.3115133Z ##[endgroup]
+2026-09-29T21:19:32.3359101Z ##[group]Run python -m pip install -U pip setuptools wheel
+2026-09-29T21:19:32.3359557Z python -m pip install -U pip setuptools wheel
+2026-09-29T21:19:32.3359849Z python -m pip install -e ".[dev,bench]"
+2026-09-29T21:19:32.3422136Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-09-29T21:19:32.3422781Z env:
+2026-09-29T21:19:32.3423023Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:19:32.3423385Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
+2026-09-29T21:19:32.3423724Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:19:32.3424023Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:19:32.3424315Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:19:32.3424554Z ##[endgroup]
+2026-09-29T21:19:37.5084869Z Requirement already satisfied: pip in C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages (26.2.1)
+2026-09-29T21:19:37.9593132Z Collecting setuptools
+2026-09-29T21:19:38.1144773Z   Downloading setuptools-84.0.0-py3-none-any.whl.metadata (6.6 kB)
+2026-09-29T21:19:38.1949118Z Collecting wheel
+2026-09-29T21:19:38.1991261Z   Downloading wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+2026-09-29T21:19:38.2340781Z Requirement already satisfied: packaging>=24.0 in C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages (from wheel) (26.3)
+2026-09-29T21:19:38.2549477Z Downloading setuptools-84.0.0-py3-none-any.whl (818 kB)
+2026-09-29T21:19:38.4217699Z    ---------------------------------------- 818.2/818.2 kB 9.0 MB/s  0:00:00
+2026-09-29T21:19:38.4254928Z Downloading wheel-0.48.0-py3-none-any.whl (33 kB)
+2026-09-29T21:19:38.6917440Z Installing collected packages: wheel, setuptools
+2026-09-29T21:19:41.2048257Z 
+2026-09-29T21:19:41.2062059Z Successfully installed setuptools-84.0.0 wheel-0.48.0
+2026-09-29T21:19:43.0136031Z Obtaining file:///D:/a/strata/strata
+2026-09-29T21:19:43.0162052Z   Installing build dependencies: started
+2026-09-29T21:19:56.5071019Z   Installing build dependencies: finished with status 'done'
+2026-09-29T21:19:56.5084341Z   Checking if build backend supports build_editable: started
+2026-09-29T21:19:57.4737709Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-09-29T21:19:57.4760071Z   Getting requirements to build editable: started
+2026-09-29T21:19:57.9629799Z   Getting requirements to build editable: finished with status 'done'
+2026-09-29T21:19:57.9653217Z   Preparing editable metadata (pyproject.toml): started
+2026-09-29T21:19:58.4301115Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-09-29T21:19:58.5025589Z Collecting cmake>=3.20 (from strata==2026.8.10)
+2026-09-29T21:19:58.5044549Z   Using cached cmake-4.4.3-py3-none-win_amd64.whl.metadata (7.0 kB)
+2026-09-29T21:19:58.5193074Z Collecting pytest>=7 (from strata==2026.8.10)
+2026-09-29T21:19:58.5212561Z   Using cached pytest-9.1.1-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T21:19:58.8120315Z Collecting pytest-cov>=4 (from strata==2026.8.10)
+2026-09-29T21:19:58.9649184Z   Downloading pytest_cov-7.1.0-py3-none-any.whl.metadata (32 kB)
+2026-09-29T21:19:59.4527435Z Collecting ruff>=0.5 (from strata==2026.8.10)
+2026-09-29T21:19:59.4573618Z   Downloading ruff-0.16.9-py3-none-win_amd64.whl.metadata (21 kB)
+2026-09-29T21:19:59.5195702Z Collecting pre-commit>=3.5 (from strata==2026.8.10)
+2026-09-29T21:19:59.5231446Z   Downloading pre_commit-4.6.2-py2.py3-none-any.whl.metadata (1.2 kB)
+2026-09-29T21:19:59.6751118Z Collecting clang-format<22,>=21 (from strata==2026.8.10)
+2026-09-29T21:19:59.6799169Z   Downloading clang_format-21.1.8-py2.py3-none-win_amd64.whl.metadata (4.7 kB)
+2026-09-29T21:19:59.8978765Z Collecting orjson (from strata==2026.8.10)
+2026-09-29T21:19:59.9049810Z   Downloading orjson-3.12.0-cp312-cp312-win_amd64.whl.metadata (43 kB)
+2026-09-29T21:20:00.0053559Z Collecting msgspec (from strata==2026.8.10)
+2026-09-29T21:20:00.0102053Z   Downloading msgspec-0.22.0-cp312-cp312-win_amd64.whl.metadata (6.1 kB)
+2026-09-29T21:20:00.1082594Z Collecting ujson (from strata==2026.8.10)
+2026-09-29T21:20:00.1127894Z   Downloading ujson-6.0.0-cp312-cp312-win_amd64.whl.metadata (10 kB)
+2026-09-29T21:20:00.2101456Z Collecting jmespath (from strata==2026.8.10)
+2026-09-29T21:20:00.2138310Z   Downloading jmespath-1.1.0-py3-none-any.whl.metadata (7.6 kB)
+2026-09-29T21:20:00.2649781Z Collecting jsonpath-ng (from strata==2026.8.10)
+2026-09-29T21:20:00.2685893Z   Downloading jsonpath_ng-1.8.0-py3-none-any.whl.metadata (18 kB)
+2026-09-29T21:20:00.3565432Z Collecting psutil>=5 (from strata==2026.8.10)
+2026-09-29T21:20:00.3607080Z   Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl.metadata (22 kB)
+2026-09-29T21:20:00.4132868Z Collecting cfgv>=2.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T21:20:00.4169267Z   Downloading cfgv-3.5.0-py2.py3-none-any.whl.metadata (8.9 kB)
+2026-09-29T21:20:00.5196226Z Collecting identify>=1.0.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T21:20:00.5234160Z   Downloading identify-2.6.20-py2.py3-none-any.whl.metadata (4.4 kB)
+2026-09-29T21:20:00.5763453Z Collecting nodeenv>=0.11.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T21:20:00.5798876Z   Downloading nodeenv-1.11.0-py2.py3-none-any.whl.metadata (40 kB)
+2026-09-29T21:20:00.6486761Z Collecting pyyaml>=5.1 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T21:20:00.6522273Z   Downloading pyyaml-6.0.3-cp312-cp312-win_amd64.whl.metadata (2.4 kB)
+2026-09-29T21:20:00.7179032Z Collecting virtualenv>=20.10.0 (from pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T21:20:00.7217420Z   Downloading virtualenv-21.14.0-py3-none-any.whl.metadata (4.1 kB)
+2026-09-29T21:20:00.7630762Z Requirement already satisfied: colorama>=0.4 in C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages (from pytest>=7->strata==2026.8.10) (0.4.6)
+2026-09-29T21:20:00.7655642Z Collecting iniconfig>=1.0.1 (from pytest>=7->strata==2026.8.10)
+2026-09-29T21:20:00.7693215Z   Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T21:20:00.7721308Z Requirement already satisfied: packaging>=22 in C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages (from pytest>=7->strata==2026.8.10) (26.3)
+2026-09-29T21:20:00.7753600Z Collecting pluggy<2,>=1.5 (from pytest>=7->strata==2026.8.10)
+2026-09-29T21:20:00.7770629Z   Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)
+2026-09-29T21:20:00.7874585Z Collecting pygments>=2.7.2 (from pytest>=7->strata==2026.8.10)
+2026-09-29T21:20:00.7936028Z   Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+2026-09-29T21:20:01.1402034Z Collecting coverage>=7.10.6 (from coverage[toml]>=7.10.6->pytest-cov>=4->strata==2026.8.10)
+2026-09-29T21:20:01.1441497Z   Downloading coverage-7.16.2-cp312-cp312-win_amd64.whl.metadata (8.4 kB)
+2026-09-29T21:20:01.1904735Z Collecting distlib<1,>=0.3.7 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T21:20:01.1939615Z   Downloading distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)
+2026-09-29T21:20:01.2140183Z Requirement already satisfied: filelock<5,>=3.24.2 in C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10) (4.0.1)
+2026-09-29T21:20:01.2145259Z Requirement already satisfied: platformdirs<5,>=3.9.1 in C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10) (4.11.12)
+2026-09-29T21:20:01.2367771Z Collecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit>=3.5->strata==2026.8.10)
+2026-09-29T21:20:01.2402639Z   Downloading python_discovery-1.6.1-py3-none-any.whl.metadata (5.1 kB)
+2026-09-29T21:20:01.2695898Z Downloading clang_format-21.1.8-py2.py3-none-win_amd64.whl (1.4 MB)
+2026-09-29T21:20:01.3167661Z    ---------------------------------------- 1.4/1.4 MB 37.6 MB/s  0:00:00
+2026-09-29T21:20:01.3207788Z Using cached cmake-4.4.3-py3-none-win_amd64.whl (42.3 MB)
+2026-09-29T21:20:01.3413876Z Downloading pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)
+2026-09-29T21:20:01.3674541Z Downloading cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)
+2026-09-29T21:20:01.3894127Z Downloading identify-2.6.20-py2.py3-none-any.whl (99 kB)
+2026-09-29T21:20:01.4120968Z Downloading nodeenv-1.11.0-py2.py3-none-any.whl (34 kB)
+2026-09-29T21:20:01.4342624Z Downloading psutil-7.2.2-cp37-abi3-win_amd64.whl (137 kB)
+2026-09-29T21:20:01.4539556Z Using cached pytest-9.1.1-py3-none-any.whl (386 kB)
+2026-09-29T21:20:01.4555623Z Using cached pluggy-1.6.0-py3-none-any.whl (20 kB)
+2026-09-29T21:20:01.4570175Z Using cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)
+2026-09-29T21:20:01.4583970Z Using cached pygments-2.21.0-py3-none-any.whl (1.3 MB)
+2026-09-29T21:20:01.4628221Z Downloading pytest_cov-7.1.0-py3-none-any.whl (22 kB)
+2026-09-29T21:20:01.4874069Z Downloading coverage-7.16.2-cp312-cp312-win_amd64.whl (226 kB)
+2026-09-29T21:20:01.5085506Z Downloading pyyaml-6.0.3-cp312-cp312-win_amd64.whl (154 kB)
+2026-09-29T21:20:01.5299735Z Downloading ruff-0.16.9-py3-none-win_amd64.whl (10.6 MB)
+2026-09-29T21:20:01.6749360Z    ---------------------------------------- 10.6/10.6 MB 73.8 MB/s  0:00:00
+2026-09-29T21:20:01.6812045Z Downloading virtualenv-21.14.0-py3-none-any.whl (5.5 MB)
+2026-09-29T21:20:01.7335739Z    ---------------------------------------- 5.5/5.5 MB 111.2 MB/s  0:00:00
+2026-09-29T21:20:01.7381561Z Downloading distlib-0.4.3-py2.py3-none-any.whl (470 kB)
+2026-09-29T21:20:01.7693738Z Downloading python_discovery-1.6.1-py3-none-any.whl (38 kB)
+2026-09-29T21:20:01.7930623Z Downloading jmespath-1.1.0-py3-none-any.whl (20 kB)
+2026-09-29T21:20:01.8168830Z Downloading jsonpath_ng-1.8.0-py3-none-any.whl (67 kB)
+2026-09-29T21:20:01.8392974Z Downloading msgspec-0.22.0-cp312-cp312-win_amd64.whl (192 kB)
+2026-09-29T21:20:01.8659323Z Downloading orjson-3.12.0-cp312-cp312-win_amd64.whl (122 kB)
+2026-09-29T21:20:01.8911487Z Downloading ujson-6.0.0-cp312-cp312-win_amd64.whl (227 kB)
+2026-09-29T21:20:02.0666177Z Building wheels for collected packages: strata
+2026-09-29T21:20:02.0687935Z   Building editable for strata (pyproject.toml): started
+2026-09-29T21:21:02.1519037Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T21:22:04.1099331Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T21:23:05.5523176Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T21:24:06.3148056Z   Building editable for strata (pyproject.toml): still running...
+2026-09-29T21:24:07.2286037Z   Building editable for strata (pyproject.toml): finished with status 'error'
+2026-09-29T21:24:07.2576969Z   error: subprocess-exited-with-error
+2026-09-29T21:24:07.2577307Z   
+2026-09-29T21:24:07.2577989Z   Building editable for strata (pyproject.toml) did not run successfully.
+2026-09-29T21:24:07.2578629Z   exit code: 1
+2026-09-29T21:24:07.2578874Z   
+2026-09-29T21:24:07.2579143Z   [682 lines of output]
+2026-09-29T21:24:07.2579479Z   running editable_wheel
+2026-09-29T21:24:07.2580860Z   creating C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info
+2026-09-29T21:24:07.2582595Z   writing C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info\PKG-INFO
+2026-09-29T21:24:07.2584477Z   writing dependency_links to C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info\dependency_links.txt
+2026-09-29T21:24:07.2586539Z   writing requirements to C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info\requires.txt
+2026-09-29T21:24:07.2588710Z   writing top-level names to C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info\top_level.txt
+2026-09-29T21:24:07.2590706Z   writing manifest file 'C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info\SOURCES.txt'
+2026-09-29T21:24:07.2592669Z   reading manifest file 'C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info\SOURCES.txt'
+2026-09-29T21:24:07.2593843Z   reading manifest template 'MANIFEST.in'
+2026-09-29T21:24:07.2594326Z   warning: no files found matching '*.c' under directory 'src'
+2026-09-29T21:24:07.2594837Z   warning: no files found matching '*.cc' under directory 'src'
+2026-09-29T21:24:07.2595586Z   warning: no files found matching '*.cxx' under directory 'src'
+2026-09-29T21:24:07.2596114Z   warning: no files found matching '*.hpp' under directory 'src'
+2026-09-29T21:24:07.2596640Z   warning: no files found matching '*.inc' under directory 'src'
+2026-09-29T21:24:07.2597188Z   warning: no files found matching '*.h' under directory 'tests'
+2026-09-29T21:24:07.2597702Z   warning: no files found matching '*.hpp' under directory 'tests'
+2026-09-29T21:24:07.2598239Z   warning: no files found matching '*.json' under directory 'tests'
+2026-09-29T21:24:07.2598699Z   adding license file 'LICENSE'
+2026-09-29T21:24:07.2599760Z   writing manifest file 'C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata.egg-info\SOURCES.txt'
+2026-09-29T21:24:07.2601557Z   creating 'C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata-2026.8.10.dist-info'
+2026-09-29T21:24:07.2603339Z   C:\Users\runneradmin\AppData\Local\Temp\pip-build-env-06a3_sfs\overlay\Lib\site-packages\setuptools\command\bdist_wheel.py:103: RuntimeWarning: Config variable 'Py_DEBUG' is unset, Python ABI tag may be incorrect
+2026-09-29T21:24:07.2604539Z     if get_flag("Py_DEBUG", hasattr(sys, "gettotalrefcount"), warn=(impl == "cp")):
+2026-09-29T21:24:07.2605785Z   creating C:\Users\runneradmin\AppData\Local\Temp\pip-ephem-wheel-cache-a41ss7f5\wheels\b6\3b\c8\2f2ce7f33d27af776fa93be556bcd24459639b05d76b33473b\tmpc_13q_4m\.tmp-rmuarmnc\strata-2026.8.10.dist-info\WHEEL
+2026-09-29T21:24:07.2606859Z   running build_py
+2026-09-29T21:24:07.2607140Z   running build_ext
+2026-09-29T21:24:07.2607414Z   
+2026-09-29T21:24:07.2607700Z   ======================================================================
+2026-09-29T21:24:07.2608121Z   GATE 1/2: C++ test suite (pre-build)
+2026-09-29T21:24:07.2608507Z   ======================================================================
+2026-09-29T21:24:07.2609284Z   + C:\hostedtoolcache\windows\Python\3.12.10\x64\python.exe D:\a\strata\strata\scripts\cpp_tests.py
+2026-09-29T21:24:07.2610279Z   + C:\Users\runneradmin\AppData\Local\Temp\pip-build-env-06a3_sfs\overlay\Scripts\cmake.EXE -S . -B build/cmake -DCMAKE_BUILD_TYPE=Release
+2026-09-29T21:24:07.2611072Z   -- Building for: Visual Studio 18 2026
+2026-09-29T21:24:07.2611496Z   -- The CXX compiler identification is MSVC 19.51.36257.0
+2026-09-29T21:24:07.2611916Z   -- Detecting CXX compiler ABI info
+2026-09-29T21:24:07.2612291Z   -- Detecting CXX compiler ABI info - done
+2026-09-29T21:24:07.2613101Z   -- Check for working CXX compiler: C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/cl.exe - skipped
+2026-09-29T21:24:07.2613886Z   -- Detecting CXX compile features
+2026-09-29T21:24:07.2614254Z   -- Detecting CXX compile features - done
+2026-09-29T21:24:07.2614611Z   -- Configuring done (15.5s)
+2026-09-29T21:24:07.2615033Z   -- Generating done (0.1s)
+2026-09-29T21:24:07.2615707Z   -- Build files have been written to: D:/a/strata/strata/build/cmake
+2026-09-29T21:24:07.2616526Z   + C:\Users\runneradmin\AppData\Local\Temp\pip-build-env-06a3_sfs\overlay\Scripts\cmake.EXE --build build/cmake --config Release
+2026-09-29T21:24:07.2617318Z   MSBuild version 18.10.1-1.26427.6+3cd27c13e for .NET Framework
+2026-09-29T21:24:07.2617724Z   
+2026-09-29T21:24:07.2617987Z     1>Checking Build System
+2026-09-29T21:24:07.2618365Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2619113Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\fast_parse_tests.vcxproj]
+2026-09-29T21:24:07.2619804Z     test_fast_parse.cpp
+2026-09-29T21:24:07.2620108Z     json_cursor.cpp
+2026-09-29T21:24:07.2620428Z     json_document.cpp
+2026-09-29T21:24:07.2620702Z     json_parse.cpp
+2026-09-29T21:24:07.2620991Z     json_serialize.cpp
+2026-09-29T21:24:07.2621287Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2621595Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2621903Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2622182Z     dtoa.cpp
+2026-09-29T21:24:07.2622445Z     folder.cpp
+2026-09-29T21:24:07.2622710Z     scan.cpp
+2026-09-29T21:24:07.2623048Z     Generating Code...
+2026-09-29T21:24:07.2623538Z     fast_parse_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\fast_parse_tests.exe
+2026-09-29T21:24:07.2624155Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2624910Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\float_precision_tests.vcxproj]
+2026-09-29T21:24:07.2625642Z     test_float_precision.cpp
+2026-09-29T21:24:07.2625963Z     json_cursor.cpp
+2026-09-29T21:24:07.2626252Z     json_document.cpp
+2026-09-29T21:24:07.2626536Z     json_parse.cpp
+2026-09-29T21:24:07.2626863Z     json_serialize.cpp
+2026-09-29T21:24:07.2627159Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2627455Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2627759Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2628022Z     dtoa.cpp
+2026-09-29T21:24:07.2628277Z     folder.cpp
+2026-09-29T21:24:07.2628535Z     scan.cpp
+2026-09-29T21:24:07.2628789Z     Generating Code...
+2026-09-29T21:24:07.2629297Z     float_precision_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\float_precision_tests.exe
+2026-09-29T21:24:07.2629945Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2630668Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\folder_tests.vcxproj]
+2026-09-29T21:24:07.2631340Z     test_folder.cpp
+2026-09-29T21:24:07.2631616Z     json_cursor.cpp
+2026-09-29T21:24:07.2631887Z     json_document.cpp
+2026-09-29T21:24:07.2632168Z     json_parse.cpp
+2026-09-29T21:24:07.2632440Z     json_serialize.cpp
+2026-09-29T21:24:07.2632721Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2633020Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2633567Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2634820Z     dtoa.cpp
+2026-09-29T21:24:07.2635083Z     folder.cpp
+2026-09-29T21:24:07.2635381Z     scan.cpp
+2026-09-29T21:24:07.2635649Z     Generating Code...
+2026-09-29T21:24:07.2636100Z     folder_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\folder_tests.exe
+2026-09-29T21:24:07.2636671Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2637404Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\fuzz_corpus_tests.vcxproj]
+2026-09-29T21:24:07.2638090Z     test_fuzz_corpus.cpp
+2026-09-29T21:24:07.2638390Z     json_cursor.cpp
+2026-09-29T21:24:07.2638758Z     json_document.cpp
+2026-09-29T21:24:07.2639074Z     json_parse.cpp
+2026-09-29T21:24:07.2639350Z     json_serialize.cpp
+2026-09-29T21:24:07.2639672Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2639966Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2640835Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2641143Z     dtoa.cpp
+2026-09-29T21:24:07.2641410Z     folder.cpp
+2026-09-29T21:24:07.2641678Z     scan.cpp
+2026-09-29T21:24:07.2641929Z     Generating Code...
+2026-09-29T21:24:07.2642410Z     fuzz_corpus_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\fuzz_corpus_tests.exe
+2026-09-29T21:24:07.2643014Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2643772Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\json_core_tests.vcxproj]
+2026-09-29T21:24:07.2644481Z     test_json_core.cpp
+2026-09-29T21:24:07.2644790Z     json_cursor.cpp
+2026-09-29T21:24:07.2645064Z     json_document.cpp
+2026-09-29T21:24:07.2645349Z     json_parse.cpp
+2026-09-29T21:24:07.2645625Z     json_serialize.cpp
+2026-09-29T21:24:07.2645910Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2646232Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2646521Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2646791Z     dtoa.cpp
+2026-09-29T21:24:07.2647056Z     folder.cpp
+2026-09-29T21:24:07.2647315Z     scan.cpp
+2026-09-29T21:24:07.2647609Z     Generating Code...
+2026-09-29T21:24:07.2648067Z     json_core_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\json_core_tests.exe
+2026-09-29T21:24:07.2648686Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2649442Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\json_cursor_tests.vcxproj]
+2026-09-29T21:24:07.2650129Z     test_json_cursor.cpp
+2026-09-29T21:24:07.2650425Z     json_cursor.cpp
+2026-09-29T21:24:07.2650707Z     json_document.cpp
+2026-09-29T21:24:07.2650990Z     json_parse.cpp
+2026-09-29T21:24:07.2651268Z     json_serialize.cpp
+2026-09-29T21:24:07.2651607Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2651896Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2652192Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2680994Z     dtoa.cpp
+2026-09-29T21:24:07.2681303Z     folder.cpp
+2026-09-29T21:24:07.2681541Z     scan.cpp
+2026-09-29T21:24:07.2681847Z     Generating Code...
+2026-09-29T21:24:07.2682910Z     json_cursor_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\json_cursor_tests.exe
+2026-09-29T21:24:07.2683701Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2684518Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\json_parse_tests.vcxproj]
+2026-09-29T21:24:07.2685204Z     test_json_parse.cpp
+2026-09-29T21:24:07.2685458Z     json_cursor.cpp
+2026-09-29T21:24:07.2685727Z     json_document.cpp
+2026-09-29T21:24:07.2685944Z     json_parse.cpp
+2026-09-29T21:24:07.2686221Z     json_serialize.cpp
+2026-09-29T21:24:07.2686560Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2686845Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2687162Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2687560Z     dtoa.cpp
+2026-09-29T21:24:07.2687829Z     folder.cpp
+2026-09-29T21:24:07.2688095Z     scan.cpp
+2026-09-29T21:24:07.2688366Z     Generating Code...
+2026-09-29T21:24:07.2688845Z     json_parse_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\json_parse_tests.exe
+2026-09-29T21:24:07.2689624Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2690384Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\json_serialize_tests.vcxproj]
+2026-09-29T21:24:07.2691107Z     test_json_serialize.cpp
+2026-09-29T21:24:07.2691402Z     json_cursor.cpp
+2026-09-29T21:24:07.2691763Z     json_document.cpp
+2026-09-29T21:24:07.2692052Z     json_parse.cpp
+2026-09-29T21:24:07.2692396Z     json_serialize.cpp
+2026-09-29T21:24:07.2692691Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2693122Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2693437Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2693898Z     dtoa.cpp
+2026-09-29T21:24:07.2694158Z     folder.cpp
+2026-09-29T21:24:07.2694418Z     scan.cpp
+2026-09-29T21:24:07.2694725Z     Generating Code...
+2026-09-29T21:24:07.2695363Z     json_serialize_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\json_serialize_tests.exe
+2026-09-29T21:24:07.2696027Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2696803Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\jsonpath_stream_tests.vcxproj]
+2026-09-29T21:24:07.2697480Z     test_jsonpath_stream.cpp
+2026-09-29T21:24:07.2697787Z     json_cursor.cpp
+2026-09-29T21:24:07.2698056Z     json_document.cpp
+2026-09-29T21:24:07.2698309Z     json_parse.cpp
+2026-09-29T21:24:07.2698580Z     json_serialize.cpp
+2026-09-29T21:24:07.2698878Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2699158Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2699448Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2699729Z     dtoa.cpp
+2026-09-29T21:24:07.2699986Z     folder.cpp
+2026-09-29T21:24:07.2700246Z     scan.cpp
+2026-09-29T21:24:07.2700502Z     Generating Code...
+2026-09-29T21:24:07.2701042Z     jsonpath_stream_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\jsonpath_stream_tests.exe
+2026-09-29T21:24:07.2701694Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2702404Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\jsonpath_tests.vcxproj]
+2026-09-29T21:24:07.2703115Z     test_jsonpath.cpp
+2026-09-29T21:24:07.2703411Z     json_cursor.cpp
+2026-09-29T21:24:07.2703680Z     json_document.cpp
+2026-09-29T21:24:07.2703971Z     json_parse.cpp
+2026-09-29T21:24:07.2704260Z     json_serialize.cpp
+2026-09-29T21:24:07.2704542Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2704785Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2705092Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2705363Z     dtoa.cpp
+2026-09-29T21:24:07.2705624Z     folder.cpp
+2026-09-29T21:24:07.2705881Z     scan.cpp
+2026-09-29T21:24:07.2706170Z     Generating Code...
+2026-09-29T21:24:07.2706616Z     jsonpath_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\jsonpath_tests.exe
+2026-09-29T21:24:07.2707189Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2707911Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\ndjson_tests.vcxproj]
+2026-09-29T21:24:07.2708573Z     test_ndjson.cpp
+2026-09-29T21:24:07.2708850Z     json_cursor.cpp
+2026-09-29T21:24:07.2709094Z     json_document.cpp
+2026-09-29T21:24:07.2709374Z     json_parse.cpp
+2026-09-29T21:24:07.2709649Z     json_serialize.cpp
+2026-09-29T21:24:07.2709935Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2710207Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2710487Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2710762Z     dtoa.cpp
+2026-09-29T21:24:07.2711022Z     folder.cpp
+2026-09-29T21:24:07.2711275Z     scan.cpp
+2026-09-29T21:24:07.2711567Z     Generating Code...
+2026-09-29T21:24:07.2712014Z     ndjson_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\ndjson_tests.exe
+2026-09-29T21:24:07.2712574Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2713439Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\scan_tests.vcxproj]
+2026-09-29T21:24:07.2714273Z     test_scan.cpp
+2026-09-29T21:24:07.2714567Z     json_cursor.cpp
+2026-09-29T21:24:07.2714851Z     json_document.cpp
+2026-09-29T21:24:07.2715169Z     json_parse.cpp
+2026-09-29T21:24:07.2715435Z     json_serialize.cpp
+2026-09-29T21:24:07.2715787Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2716119Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2716457Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2716792Z     dtoa.cpp
+2026-09-29T21:24:07.2717071Z     folder.cpp
+2026-09-29T21:24:07.2717356Z     scan.cpp
+2026-09-29T21:24:07.2717626Z     Generating Code...
+2026-09-29T21:24:07.2718085Z     scan_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\scan_tests.exe
+2026-09-29T21:24:07.2718699Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2719676Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\smoke_tests.vcxproj]
+2026-09-29T21:24:07.2720404Z     test_smoke.cpp
+2026-09-29T21:24:07.2720702Z     json_cursor.cpp
+2026-09-29T21:24:07.2721019Z     json_document.cpp
+2026-09-29T21:24:07.2721324Z     json_parse.cpp
+2026-09-29T21:24:07.2721629Z     json_serialize.cpp
+2026-09-29T21:24:07.2721939Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2722263Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2722590Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2722895Z     dtoa.cpp
+2026-09-29T21:24:07.2723184Z     folder.cpp
+2026-09-29T21:24:07.2723464Z     scan.cpp
+2026-09-29T21:24:07.2723713Z     Generating Code...
+2026-09-29T21:24:07.2724171Z     smoke_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\smoke_tests.exe
+2026-09-29T21:24:07.2724699Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2725220Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\stress_deep_tests.vcxproj]
+2026-09-29T21:24:07.2725684Z     test_stress_deep.cpp
+2026-09-29T21:24:07.2725910Z     json_cursor.cpp
+2026-09-29T21:24:07.2726120Z     json_document.cpp
+2026-09-29T21:24:07.2726328Z     json_parse.cpp
+2026-09-29T21:24:07.2726531Z     json_serialize.cpp
+2026-09-29T21:24:07.2726742Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2726975Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2727191Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2727392Z     dtoa.cpp
+2026-09-29T21:24:07.2727582Z     folder.cpp
+2026-09-29T21:24:07.2727778Z     scan.cpp
+2026-09-29T21:24:07.2727926Z     Generating Code...
+2026-09-29T21:24:07.2728286Z     stress_deep_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\stress_deep_tests.exe
+2026-09-29T21:24:07.2728680Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2729164Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\temporal_tests.vcxproj]
+2026-09-29T21:24:07.2729602Z     test_temporal.cpp
+2026-09-29T21:24:07.2729815Z     temporal.cpp
+2026-09-29T21:24:07.2730019Z     json_cursor.cpp
+2026-09-29T21:24:07.2730220Z     json_document.cpp
+2026-09-29T21:24:07.2730410Z     json_parse.cpp
+2026-09-29T21:24:07.2730611Z     json_serialize.cpp
+2026-09-29T21:24:07.2730821Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2731023Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2731226Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2731409Z     dtoa.cpp
+2026-09-29T21:24:07.2731598Z     folder.cpp
+2026-09-29T21:24:07.2731780Z     scan.cpp
+2026-09-29T21:24:07.2731977Z     Generating Code...
+2026-09-29T21:24:07.2732282Z     temporal_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\temporal_tests.exe
+2026-09-29T21:24:07.2732687Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2733180Z   cl : command line  warning D9025: overriding '/DNDEBUG' with '/UNDEBUG' [D:\a\strata\strata\build\cmake\value_cursor_tests.vcxproj]
+2026-09-29T21:24:07.2733645Z     test_value_cursor.cpp
+2026-09-29T21:24:07.2734236Z     json_cursor.cpp
+2026-09-29T21:24:07.2734432Z     json_document.cpp
+2026-09-29T21:24:07.2734739Z     json_parse.cpp
+2026-09-29T21:24:07.2734925Z     json_serialize.cpp
+2026-09-29T21:24:07.2735140Z     ndjson_stream.cpp
+2026-09-29T21:24:07.2735352Z     jsonpath_compile.cpp
+2026-09-29T21:24:07.2735544Z     jsonpath_eval.cpp
+2026-09-29T21:24:07.2735753Z     dtoa.cpp
+2026-09-29T21:24:07.2735945Z     folder.cpp
+2026-09-29T21:24:07.2736137Z     scan.cpp
+2026-09-29T21:24:07.2736345Z     Generating Code...
+2026-09-29T21:24:07.2736660Z     value_cursor_tests.vcxproj -> D:\a\strata\strata\build\cmake\Release\value_cursor_tests.exe
+2026-09-29T21:24:07.2737074Z     Building Custom Rule D:/a/strata/strata/CMakeLists.txt
+2026-09-29T21:24:07.2737774Z   + C:\Users\runneradmin\AppData\Local\Temp\pip-build-env-06a3_sfs\overlay\Scripts\ctest.EXE --test-dir build/cmake --build-config Release --output-on-failure --no-tests=error
+2026-09-29T21:24:07.2738386Z   Test project D:/a/strata/strata/build/cmake
+2026-09-29T21:24:07.2738688Z         Start  1: smoke_tests
+2026-09-29T21:24:07.2738980Z    1/16 Test  #1: smoke_tests ......................   Passed    0.19 sec
+2026-09-29T21:24:07.2739296Z         Start  2: json_core_tests
+2026-09-29T21:24:07.2739587Z    2/16 Test  #2: json_core_tests ..................   Passed    0.01 sec
+2026-09-29T21:24:07.2739925Z         Start  3: json_parse_tests
+2026-09-29T21:24:07.2740213Z    3/16 Test  #3: json_parse_tests .................   Passed    0.01 sec
+2026-09-29T21:24:07.2740508Z         Start  4: fast_parse_tests
+2026-09-29T21:24:07.2740769Z    4/16 Test  #4: fast_parse_tests .................   Passed    0.13 sec
+2026-09-29T21:24:07.2741066Z         Start  5: value_cursor_tests
+2026-09-29T21:24:07.2741345Z    5/16 Test  #5: value_cursor_tests ...............   Passed    0.02 sec
+2026-09-29T21:24:07.2741758Z         Start  6: json_serialize_tests
+2026-09-29T21:24:07.2742063Z    6/16 Test  #6: json_serialize_tests .............   Passed    0.01 sec
+2026-09-29T21:24:07.2742395Z         Start  7: float_precision_tests
+2026-09-29T21:24:07.2742690Z    7/16 Test  #7: float_precision_tests ............   Passed    3.13 sec
+2026-09-29T21:24:07.2742991Z         Start  8: json_cursor_tests
+2026-09-29T21:24:07.2743268Z    8/16 Test  #8: json_cursor_tests ................   Passed    0.01 sec
+2026-09-29T21:24:07.2743562Z         Start  9: ndjson_tests
+2026-09-29T21:24:07.2743814Z    9/16 Test  #9: ndjson_tests .....................   Passed    0.01 sec
+2026-09-29T21:24:07.2744102Z         Start 10: jsonpath_tests
+2026-09-29T21:24:07.2744378Z   10/16 Test #10: jsonpath_tests ...................   Passed    0.01 sec
+2026-09-29T21:24:07.2744686Z         Start 11: jsonpath_stream_tests
+2026-09-29T21:24:07.2745004Z   11/16 Test #11: jsonpath_stream_tests ............   Passed    0.01 sec
+2026-09-29T21:24:07.2745307Z         Start 12: scan_tests
+2026-09-29T21:24:07.2745574Z   12/16 Test #12: scan_tests .......................   Passed    0.02 sec
+2026-09-29T21:24:07.2745872Z         Start 13: temporal_tests
+2026-09-29T21:24:07.2746135Z   13/16 Test #13: temporal_tests ...................   Passed    0.02 sec
+2026-09-29T21:24:07.2746421Z         Start 14: folder_tests
+2026-09-29T21:24:07.2746683Z   14/16 Test #14: folder_tests .....................   Passed    0.05 sec
+2026-09-29T21:24:07.2746972Z         Start 15: fuzz_corpus_tests
+2026-09-29T21:24:07.2747201Z   15/16 Test #15: fuzz_corpus_tests ................   Passed    0.01 sec
+2026-09-29T21:24:07.2747457Z         Start 16: stress_deep_tests
+2026-09-29T21:24:07.2747683Z   16/16 Test #16: stress_deep_tests ................   Passed    0.01 sec
+2026-09-29T21:24:07.2747918Z   
+2026-09-29T21:24:07.2748058Z   100% tests passed out of 16
+2026-09-29T21:24:07.2748328Z   
+2026-09-29T21:24:07.2748543Z   Total Test time (real) =   3.67 sec
+2026-09-29T21:24:07.2748771Z   
+2026-09-29T21:24:07.2748927Z   ======================================================================
+2026-09-29T21:24:07.2749295Z   Building the strata._strata and strata._dumps_hook extensions
+2026-09-29T21:24:07.2749567Z   ======================================================================
+2026-09-29T21:24:07.2749796Z   building 'strata._strata' extension
+2026-09-29T21:24:07.2753427Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_document.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_document.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2756915Z   python_document.cpp
+2026-09-29T21:24:07.2759876Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_dumps.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_dumps.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2762927Z   python_dumps.cpp
+2026-09-29T21:24:07.2765785Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_files.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_files.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2769197Z   python_files.cpp
+2026-09-29T21:24:07.2769811Z   src/strata/bindings/python_files.cpp(119): warning C4996: '_open': This function or variable may be unsafe. Consider using _sopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+2026-09-29T21:24:07.2770851Z   src/strata/bindings/python_files.cpp(359): warning C4996: '_open': This function or variable may be unsafe. Consider using _sopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+2026-09-29T21:24:07.2774712Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_folder.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_folder.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2777782Z   python_folder.cpp
+2026-09-29T21:24:07.2780673Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_jsonpath.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_jsonpath.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2783710Z   python_jsonpath.cpp
+2026-09-29T21:24:07.2784083Z   D:\a\strata\strata\src\strata\bindings\python_builder.h(38): warning C4273: '_PyDict_NewPresized': inconsistent dll linkage
+2026-09-29T21:24:07.2784706Z   C:\hostedtoolcache\windows\Python\3.12.10\x64\Include\cpython/dictobject.h(63): note: see previous definition of '_PyDict_NewPresized'
+2026-09-29T21:24:07.2787839Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_loads.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_loads.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2790936Z   python_loads.cpp
+2026-09-29T21:24:07.2791350Z   D:\a\strata\strata\src\strata\bindings\python_builder.h(38): warning C4273: '_PyDict_NewPresized': inconsistent dll linkage
+2026-09-29T21:24:07.2792256Z   C:\hostedtoolcache\windows\Python\3.12.10\x64\Include\cpython/dictobject.h(63): note: see previous definition of '_PyDict_NewPresized'
+2026-09-29T21:24:07.2797051Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_module.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_module.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2801260Z   python_module.cpp
+2026-09-29T21:24:07.2806761Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_ndjson.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_ndjson.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2810443Z   python_ndjson.cpp
+2026-09-29T21:24:07.2814386Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_cursor.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_cursor.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2817794Z   json_cursor.cpp
+2026-09-29T21:24:07.2821355Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_document.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_document.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2824624Z   json_document.cpp
+2026-09-29T21:24:07.2827811Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_parse.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_parse.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2831212Z   json_parse.cpp
+2026-09-29T21:24:07.2834899Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_serialize.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_serialize.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2840246Z   json_serialize.cpp
+2026-09-29T21:24:07.2845815Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/ndjson_stream.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\ndjson_stream.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2849266Z   ndjson_stream.cpp
+2026-09-29T21:24:07.2854823Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/search/jsonpath_compile.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\search\jsonpath_compile.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2860151Z   jsonpath_compile.cpp
+2026-09-29T21:24:07.2864619Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/search/jsonpath_eval.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\search\jsonpath_eval.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2868272Z   jsonpath_eval.cpp
+2026-09-29T21:24:07.2871419Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/util/dtoa.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\util\dtoa.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2874888Z   dtoa.cpp
+2026-09-29T21:24:07.2886960Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/util/folder.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\util\folder.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2891999Z   folder.cpp
+2026-09-29T21:24:07.2896696Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/util/scan.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\util\scan.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2903125Z   scan.cpp
+2026-09-29T21:24:07.2915067Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\link.exe" /nologo /INCREMENTAL:NO /LTCG /DLL /MANIFEST:EMBED,ID=2 /MANIFESTUAC:NO /LIBPATH:C:\hostedtoolcache\windows\Python\3.12.10\x64\libs /LIBPATH:C:\hostedtoolcache\windows\Python\3.12.10\x64 /LIBPATH:C:\hostedtoolcache\windows\Python\3.12.10\x64\PCbuild\amd64 "/LIBPATH:C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\lib\um\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.26100.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.26100.0\\um\x64" /EXPORT:PyInit__strata C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_document.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_dumps.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_files.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_folder.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_jsonpath.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_loads.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_module.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\python_ndjson.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_cursor.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_document.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_parse.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\json_serialize.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\json\ndjson_stream.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\search\jsonpath_compile.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\search\jsonpath_eval.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\util\dtoa.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\util\folder.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\util\scan.obj /OUT:C:\Users\RUNNER~1\AppData\Local\Temp\tmp2ia292bz.build-lib\strata\_strata.cp312-win_amd64.pyd /IMPLIB:C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\_strata.cp312-win_amd64.lib
+2026-09-29T21:24:07.2932240Z      Creating library C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\_strata.cp312-win_amd64.lib and object C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\src\strata\bindings\_strata.cp312-win_amd64.exp
+2026-09-29T21:24:07.2935033Z   Generating code
+2026-09-29T21:24:07.2935811Z   Finished generating code
+2026-09-29T21:24:07.2936258Z   building 'strata._dumps_hook' extension
+2026-09-29T21:24:07.2941872Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_dumps_hook.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_dumps_hook.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2947005Z   python_dumps_hook.cpp
+2026-09-29T21:24:07.2950069Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_files.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_files.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2955000Z   python_files.cpp
+2026-09-29T21:24:07.2955779Z   src/strata/bindings/python_files.cpp(359): warning C4996: '_open': This function or variable may be unsafe. Consider using _sopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+2026-09-29T21:24:07.2959664Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_folder.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_folder.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2963122Z   python_folder.cpp
+2026-09-29T21:24:07.2966810Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_native_types.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_native_types.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2970210Z   python_native_types.cpp
+2026-09-29T21:24:07.2973658Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_numpy_twins.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_numpy_twins.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2976989Z   python_numpy_twins.cpp
+2026-09-29T21:24:07.2980065Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_parse_types.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_parse_types.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2983390Z   python_parse_types.cpp
+2026-09-29T21:24:07.2986538Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/bindings/python_parse_types_walk.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_parse_types_walk.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2989800Z   python_parse_types_walk.cpp
+2026-09-29T21:24:07.2992752Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_cursor.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_cursor.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.2996071Z   json_cursor.cpp
+2026-09-29T21:24:07.2999011Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_document.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_document.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3002170Z   json_document.cpp
+2026-09-29T21:24:07.3005136Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_parse.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_parse.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3008211Z   json_parse.cpp
+2026-09-29T21:24:07.3011152Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/json_serialize.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_serialize.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3014458Z   json_serialize.cpp
+2026-09-29T21:24:07.3017425Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/json/ndjson_stream.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\ndjson_stream.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3020603Z   ndjson_stream.cpp
+2026-09-29T21:24:07.3023639Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/search/jsonpath_compile.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\search\jsonpath_compile.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3026749Z   jsonpath_compile.cpp
+2026-09-29T21:24:07.3029707Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/search/jsonpath_eval.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\search\jsonpath_eval.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3032791Z   jsonpath_eval.cpp
+2026-09-29T21:24:07.3035935Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/util/dtoa.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\dtoa.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3039090Z   dtoa.cpp
+2026-09-29T21:24:07.3042042Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/util/folder.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\folder.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3045092Z   folder.cpp
+2026-09-29T21:24:07.3047968Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/util/scan.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\scan.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3050985Z   scan.cpp
+2026-09-29T21:24:07.3054112Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\cl.exe" /c /nologo /O2 /W3 /GL /DNDEBUG /MD -DSTRATA_DUMPS_HOOK=1 -Iinclude -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\include -IC:\hostedtoolcache\windows\Python\3.12.10\x64\Include "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.26100.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\include\um" /EHsc /Tpsrc/strata/util/temporal.cpp /FoC:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\temporal.obj /std:c++20 /O2 /Zc:__cplusplus /D_USE_STD_VECTOR_ALGORITHMS=0 /arch:AVX2
+2026-09-29T21:24:07.3057246Z   temporal.cpp
+2026-09-29T21:24:07.3065332Z   "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\bin\HostX86\x64\link.exe" /nologo /INCREMENTAL:NO /LTCG /DLL /MANIFEST:EMBED,ID=2 /MANIFESTUAC:NO /LIBPATH:C:\hostedtoolcache\windows\Python\3.12.10\x64\libs /LIBPATH:C:\hostedtoolcache\windows\Python\3.12.10\x64 /LIBPATH:C:\hostedtoolcache\windows\Python\3.12.10\x64\PCbuild\amd64 "/LIBPATH:C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\ATLMFC\lib\x64" "/LIBPATH:C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\14.51.36231\lib\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\NETFXSDK\4.8.1\lib\um\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\lib\10.0.26100.0\ucrt\x64" "/LIBPATH:C:\Program Files (x86)\Windows Kits\10\\lib\10.0.26100.0\\um\x64" /EXPORT:PyInit__dumps_hook C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_dumps_hook.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_files.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_folder.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_native_types.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_numpy_twins.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_parse_types.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\python_parse_types_walk.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_cursor.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_document.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_parse.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\json_serialize.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\json\ndjson_stream.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\search\jsonpath_compile.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\search\jsonpath_eval.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\dtoa.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\folder.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\scan.obj C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\util\temporal.obj /OUT:C:\Users\RUNNER~1\AppData\Local\Temp\tmp2ia292bz.build-lib\strata\_dumps_hook.cp312-win_amd64.pyd /IMPLIB:C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\_dumps_hook.cp312-win_amd64.lib
+2026-09-29T21:24:07.3074321Z      Creating library C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\_dumps_hook.cp312-win_amd64.lib and object C:\Users\RUNNER~1\AppData\Local\Temp\tmpputcihcg.build-temp\Release\strata._dumps_hook\src\strata\bindings\_dumps_hook.cp312-win_amd64.exp
+2026-09-29T21:24:07.3075181Z   Generating code
+2026-09-29T21:24:07.3075330Z   Finished generating code
+2026-09-29T21:24:07.3075697Z   copying C:\Users\RUNNER~1\AppData\Local\Temp\tmp2ia292bz.build-lib\strata\_strata.cp312-win_amd64.pyd -> python\strata
+2026-09-29T21:24:07.3076367Z   copying C:\Users\RUNNER~1\AppData\Local\Temp\tmp2ia292bz.build-lib\strata\_dumps_hook.cp312-win_amd64.pyd -> python\strata
+2026-09-29T21:24:07.3076777Z   
+2026-09-29T21:24:07.3076934Z   ======================================================================
+2026-09-29T21:24:07.3077174Z   GATE 2/2: Python test suites (post-build)
+2026-09-29T21:24:07.3077398Z   ======================================================================
+2026-09-29T21:24:07.3077836Z   + C:\hostedtoolcache\windows\Python\3.12.10\x64\python.exe D:\a\strata\strata\scripts\py_tests.py --path D:\a\strata\strata\python
+2026-09-29T21:24:07.3078409Z   + pytest tests/py tests/unit --basetemp=C:\Users\RUNNER~1\AppData\Local\Temp\pytest-of-runneradmin\drm7alof
+2026-09-29T21:24:07.3078793Z     import path prefix: D:\a\strata\strata\python
+2026-09-29T21:24:07.3079112Z   ============================= test session starts =============================
+2026-09-29T21:24:07.3079410Z   platform win32 -- Python 3.12.10, pytest-9.1.1, pluggy-1.6.0
+2026-09-29T21:24:07.3079654Z   rootdir: D:\a\strata\strata
+2026-09-29T21:24:07.3079832Z   configfile: pyproject.toml
+2026-09-29T21:24:07.3080011Z   collected 3919 items / 1 skipped
+2026-09-29T21:24:07.3080183Z   
+2026-09-29T21:24:07.3080396Z   tests\py\native_types\test_native_dump.py ..............                 [  0%]
+2026-09-29T21:24:07.3080754Z   tests\py\native_types\test_native_fast_paths.py ........ssssssssss...... [  0%]
+2026-09-29T21:24:07.3081071Z   .............................                                            [  1%]
+2026-09-29T21:24:07.3081386Z   tests\py\native_types\test_native_import.py ...                          [  1%]
+2026-09-29T21:24:07.3081732Z   tests\py\native_types\test_native_opt_out.py ........................... [  2%]
+2026-09-29T21:24:07.3082019Z                                                                            [  2%]
+2026-09-29T21:24:07.3082301Z   tests\py\native_types\test_native_oracle.py .........                    [  2%]
+2026-09-29T21:24:07.3082642Z   tests\py\native_types\test_native_reentrancy.py ........................ [  3%]
+2026-09-29T21:24:07.3082942Z   ..................................................                       [  4%]
+2026-09-29T21:24:07.3083287Z   tests\py\native_types\test_parse_types.py .............................. [  5%]
+2026-09-29T21:24:07.3083592Z   ............................................................             [  6%]
+2026-09-29T21:24:07.3083887Z   tests\py\test_dumps_brace_fold.py .........                              [  7%]
+2026-09-29T21:24:07.3084216Z   tests\py\test_dumps_cycles_fused.py .................................... [  8%]
+2026-09-29T21:24:07.3084508Z   ....................................................                     [  9%]
+2026-09-29T21:24:07.3084805Z   tests\py\test_dumps_general_tables.py ............................       [ 10%]
+2026-09-29T21:24:07.3085142Z   tests\py\test_dumps_with_default.py .................................... [ 10%]
+2026-09-29T21:24:07.3085441Z   .............................ss                                          [ 11%]
+2026-09-29T21:24:07.3085750Z   tests\py\test_dumps_with_default_contract.py ........................... [ 12%]
+2026-09-29T21:24:07.3086104Z   ........................................................................ [ 14%]
+2026-09-29T21:24:07.3086367Z   ........................................................................ [ 16%]
+2026-09-29T21:24:07.3086627Z   ..........................                                               [ 16%]
+2026-09-29T21:24:07.3086918Z   tests\py\test_fused_verification.py ..                                   [ 16%]
+2026-09-29T21:24:07.3087252Z   tests\py\test_json_parity.py ........................................... [ 17%]
+2026-09-29T21:24:07.3087539Z   ........................................................................ [ 19%]
+2026-09-29T21:24:07.3087802Z   ........................................................................ [ 21%]
+2026-09-29T21:24:07.3088140Z   ........................................................................ [ 23%]
+2026-09-29T21:24:07.3088397Z   ........................................................................ [ 25%]
+2026-09-29T21:24:07.3088652Z   ........................................................................ [ 27%]
+2026-09-29T21:24:07.3089362Z   ........................................................................ [ 28%]
+2026-09-29T21:24:07.3090611Z   ........................................................................ [ 30%]
+2026-09-29T21:24:07.3093064Z   ........................................................................ [ 32%]
+2026-09-29T21:24:07.3093502Z   ........................................................................ [ 34%]
+2026-09-29T21:24:07.3093921Z   ........................................................................ [ 36%]
+2026-09-29T21:24:07.3094477Z   ........................................................................ [ 38%]
+2026-09-29T21:24:07.3094894Z   ........................................................................ [ 40%]
+2026-09-29T21:24:07.3095315Z   ........................................................................ [ 41%]
+2026-09-29T21:24:07.3095756Z   ........................................................................ [ 43%]
+2026-09-29T21:24:07.3096198Z   ........................................................................ [ 45%]
+2026-09-29T21:24:07.3096648Z   ........................................................................ [ 47%]
+2026-09-29T21:24:07.3097122Z   .................................                                        [ 48%]
+2026-09-29T21:24:07.3097639Z   tests\py\test_path_dispatch.py ................................          [ 49%]
+2026-09-29T21:24:07.3098223Z   tests\py\test_py_tests_basetemp.py ..                                    [ 49%]
+2026-09-29T21:24:07.3098775Z   tests\py\test_smoke.py ...                                               [ 49%]
+2026-09-29T21:24:07.3099337Z   tests\unit\native_types\test_build_sources.py .......                    [ 49%]
+2026-09-29T21:24:07.3099961Z   tests\unit\native_types\test_hook_import_gating.py .......               [ 49%]
+2026-09-29T21:24:07.3100574Z   tests\unit\native_types\test_hook_profile_build.py FFF...........        [ 49%]
+2026-09-29T21:24:07.3101190Z   tests\unit\native_types\test_native_benchmark_agreement.py ...........   [ 50%]
+2026-09-29T21:24:07.3101795Z   tests\unit\native_types\test_native_benchmark_dataset.py .....           [ 50%]
+2026-09-29T21:24:07.3102400Z   tests\unit\native_types\test_native_benchmark_rows.py .......            [ 50%]
+2026-09-29T21:24:07.3103000Z   tests\unit\native_types\test_native_ci_fetch.py ....                     [ 50%]
+2026-09-29T21:24:07.3103603Z   tests\unit\native_types\test_native_ci_summary.py .....                  [ 50%]
+2026-09-29T21:24:07.3104209Z   tests\unit\native_types\test_native_flag.py ..........................s. [ 51%]
+2026-09-29T21:24:07.3104701Z   ..                                                                       [ 51%]
+2026-09-29T21:24:07.3105198Z   tests\unit\native_types\test_native_identity_ab.py .......               [ 51%]
+2026-09-29T21:24:07.3105797Z   tests\unit\native_types\test_native_opt_out.py ......................... [ 52%]
+2026-09-29T21:24:07.3106331Z   ........................................................................ [ 54%]
+2026-09-29T21:24:07.3106778Z   ..................................................                       [ 55%]
+2026-09-29T21:24:07.3107287Z   tests\unit\native_types\test_parse_contract.py ......................... [ 56%]
+2026-09-29T21:24:07.3107813Z   .................................................                        [ 57%]
+2026-09-29T21:24:07.3108330Z   tests\unit\native_types\test_serializer_contract.py .................... [ 57%]
+2026-09-29T21:24:07.3108888Z   ........................................................................ [ 59%]
+2026-09-29T21:24:07.3109355Z   ................................................                         [ 60%]
+2026-09-29T21:24:07.3110076Z   tests\unit\native_types\test_training_scope.py ............              [ 61%]
+2026-09-29T21:24:07.3111134Z   tests\unit\test_ab_analysis.py ......................................    [ 62%]
+2026-09-29T21:24:07.3111719Z   tests\unit\test_build_manifest.py ...........                            [ 62%]
+2026-09-29T21:24:07.3112308Z   tests\unit\test_canonical_builds.py ....                                 [ 62%]
+2026-09-29T21:24:07.3112884Z   tests\unit\test_ci_fetch.py ........................                     [ 63%]
+2026-09-29T21:24:07.3113794Z   tests\unit\test_ci_summary.py .......................                    [ 63%]
+2026-09-29T21:24:07.3114495Z   tests\unit\test_config.py ...........................                    [ 64%]
+2026-09-29T21:24:07.3115482Z   tests\unit\test_core_purity.py ....                                      [ 64%]
+2026-09-29T21:24:07.3116089Z   tests\unit\test_cross_sample.py ......                                   [ 64%]
+2026-09-29T21:24:07.3116663Z   tests\unit\test_dumps.py ............................................... [ 65%]
+2026-09-29T21:24:07.3117142Z   ..........                                                               [ 66%]
+2026-09-29T21:24:07.3117631Z   tests\unit\test_dumps_brace_fold.py .........                            [ 66%]
+2026-09-29T21:24:07.3118642Z   tests\unit\test_dumps_cold_start.py ....                                 [ 66%]
+2026-09-29T21:24:07.3119221Z   tests\unit\test_dumps_contract.py ...................................... [ 67%]
+2026-09-29T21:24:07.3120505Z   .............................................................            [ 68%]
+2026-09-29T21:24:07.3121219Z   tests\unit\test_dumps_cycles_fused.py .................................. [ 69%]
+2026-09-29T21:24:07.3121765Z   ......................................................                   [ 71%]
+2026-09-29T21:24:07.3122330Z   tests\unit\test_dumps_general_tables.py ............................     [ 71%]
+2026-09-29T21:24:07.3122976Z   tests\unit\test_dumps_latch.py ............................              [ 72%]
+2026-09-29T21:24:07.3123591Z   tests\unit\test_dumps_private_cache.py ................................  [ 73%]
+2026-09-29T21:24:07.3124200Z   tests\unit\test_dumps_reentrancy.py .................................... [ 74%]
+2026-09-29T21:24:07.3124736Z   ......................................................................   [ 76%]
+2026-09-29T21:24:07.3125290Z   tests\unit\test_dumps_reentrancy_review.py ............................. [ 76%]
+2026-09-29T21:24:07.3125806Z   ..                                                                       [ 76%]
+2026-09-29T21:24:07.3126309Z   tests\unit\test_dumps_schema_failure.py ...........................      [ 77%]
+2026-09-29T21:24:07.3126921Z   tests\unit\test_dumps_user_step_counter.py ..........................    [ 78%]
+2026-09-29T21:24:07.3127573Z   tests\unit\test_dumps_with_default.py .................................. [ 79%]
+2026-09-29T21:24:07.3128115Z   ........................................................................ [ 80%]
+2026-09-29T21:24:07.3128587Z   .........................................................                [ 82%]
+2026-09-29T21:24:07.3129136Z   tests\unit\test_dumps_with_default_state.py ............................ [ 83%]
+2026-09-29T21:24:07.3129921Z   ........................................................................ [ 84%]
+2026-09-29T21:24:07.3130377Z   ..............                                                           [ 85%]
+2026-09-29T21:24:07.3130879Z   tests\unit\test_folder.py .....ss....................................... [ 86%]
+2026-09-29T21:24:07.3131408Z   .........................................                                [ 87%]
+2026-09-29T21:24:07.3131939Z   tests\unit\test_fused_verification.py ..                                 [ 87%]
+2026-09-29T21:24:07.3132543Z   tests\unit\test_hook_build_scope.py ...............................      [ 88%]
+2026-09-29T21:24:07.3133286Z   tests\unit\test_json_cursor.py ...........................               [ 89%]
+2026-09-29T21:24:07.3133850Z   tests\unit\test_jsonpath.py ............................................ [ 90%]
+2026-09-29T21:24:07.3134365Z   .......................................................................  [ 92%]
+2026-09-29T21:24:07.3134874Z   tests\unit\test_load_dump.py ........................s.................. [ 93%]
+2026-09-29T21:24:07.3135350Z                                                                            [ 93%]
+2026-09-29T21:24:07.3135823Z   tests\unit\test_loads.py ............................................... [ 94%]
+2026-09-29T21:24:07.3136670Z   ........................................................................ [ 96%]
+2026-09-29T21:24:07.3137114Z   ................                                                         [ 96%]
+2026-09-29T21:24:07.3137786Z   tests\unit\test_native_interleaved_profile.py ...                        [ 96%]
+2026-09-29T21:24:07.3138392Z   tests\unit\test_path_dispatch.py ................................        [ 97%]
+2026-09-29T21:24:07.3138977Z   tests\unit\test_provenance.py ..................                         [ 97%]
+2026-09-29T21:24:07.3139567Z   tests\unit\test_regression_check.py ..........................           [ 98%]
+2026-09-29T21:24:07.3140158Z   tests\unit\test_search_stream.py .................                       [ 99%]
+2026-09-29T21:24:07.3140761Z   tests\unit\test_string_identity_probe.py .                               [ 99%]
+2026-09-29T21:24:07.3141364Z   tests\unit\test_supplementary.py ............s                           [ 99%]
+2026-09-29T21:24:07.3141963Z   tests\unit\test_supportability_check.py ....................             [ 99%]
+2026-09-29T21:24:07.3142545Z   tests\unit\test_version.py ....                                          [100%]
+2026-09-29T21:24:07.3142971Z   
+2026-09-29T21:24:07.3143244Z   ================================== FAILURES ===================================
+2026-09-29T21:24:07.3143754Z   ________________ test_hook_generate_instruments_the_hook_alone ________________
+2026-09-29T21:24:07.3144181Z   
+2026-09-29T21:24:07.3144561Z   monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F7E9447860>
+2026-09-29T21:24:07.3145467Z   tmp_path = WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/drm7alof/test_hook_generate_instruments0')
+2026-09-29T21:24:07.3146185Z   
+2026-09-29T21:24:07.3146547Z       def test_hook_generate_instruments_the_hook_alone(monkeypatch, tmp_path):
+2026-09-29T21:24:07.3147241Z   >       extensions = _extensions(monkeypatch, tmp_path, "", "0", STRATA_HOOK_PGO_MODE="generate")
+2026-09-29T21:24:07.3147847Z                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-29T21:24:07.3148206Z   
+2026-09-29T21:24:07.3148471Z   tests\unit\native_types\test_hook_profile_build.py:33:
+2026-09-29T21:24:07.3148925Z   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+2026-09-29T21:24:07.3149374Z   tests\unit\test_hook_build_scope.py:68: in _extensions
+2026-09-29T21:24:07.3150133Z       runpy.run_path(str(PROJECT_ROOT / "setup.py"), run_name="setup_under_test")
+2026-09-29T21:24:07.3150625Z   <frozen runpy>:287: in run_path
+2026-09-29T21:24:07.3150896Z       ???
+2026-09-29T21:24:07.3151221Z   <frozen runpy>:98: in _run_module_code
+2026-09-29T21:24:07.3151605Z       ???
+2026-09-29T21:24:07.3151898Z   <frozen runpy>:88: in _run_code
+2026-09-29T21:24:07.3152248Z       ???
+2026-09-29T21:24:07.3152543Z   setup.py:667: in <module>
+2026-09-29T21:24:07.3152956Z       extra_compile_args=_hook_compile_args(),
+2026-09-29T21:24:07.3153370Z                          ^^^^^^^^^^^^^^^^^^^^
+2026-09-29T21:24:07.3153765Z   setup.py:600: in _hook_compile_args
+2026-09-29T21:24:07.3154182Z       return args + _hook_optimization_args()[0]
+2026-09-29T21:24:07.3154606Z                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-29T21:24:07.3155044Z   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+2026-09-29T21:24:07.3155653Z   
+2026-09-29T21:24:07.3156045Z       def _hook_optimization_args() -> tuple[list[str], list[str]]:
+2026-09-29T21:24:07.3156723Z           """The hook image's own profile (docs/architecture/native_types.md, "Hook profile").
+2026-09-29T21:24:07.3157312Z   
+2026-09-29T21:24:07.3157694Z           Driven by variables of its own, never `_strata`'s: `PGO_MODE`,
+2026-09-29T21:24:07.3158321Z           `STRATA_ENABLE_LTO` and `STRATA_PGO_PROFILE` leave the hook plain, so
+2026-09-29T21:24:07.3158994Z           nothing it runs can enter `_strata`'s profile and `_strata`'s profile never
+2026-09-29T21:24:07.3159613Z           reaches it (scripts/pgo_build.sh phases 1-2 check both).
+2026-09-29T21:24:07.3160059Z   
+2026-09-29T21:24:07.3160440Z           - `STRATA_HOOK_PGO_MODE=generate` -- instrument the hook alone.
+2026-09-29T21:24:07.3161149Z           - `STRATA_HOOK_PGO_MODE=use`      -- optimize it against
+2026-09-29T21:24:07.3161758Z             `STRATA_HOOK_PGO_PROFILE`, with LTO where the toolchain spells it (not
+2026-09-29T21:24:07.3162346Z             clang-cl, whose LTO needs lld-link).
+2026-09-29T21:24:07.3162736Z           """
+2026-09-29T21:24:07.3163133Z           mode = os.environ.get("STRATA_HOOK_PGO_MODE", "").strip().lower()
+2026-09-29T21:24:07.3164082Z           if not mode:
+2026-09-29T21:24:07.3165087Z               return [], []
+2026-09-29T21:24:07.3165365Z           if mode not in ("generate", "use"):
+2026-09-29T21:24:07.3165723Z               raise SystemExit(f"STRATA_HOOK_PGO_MODE must be 'generate' or 'use', not {mode!r}.")
+2026-09-29T21:24:07.3166066Z           kind = _compiler_kind()
+2026-09-29T21:24:07.3166259Z           if kind == "msvc":
+2026-09-29T21:24:07.3166563Z   >           raise SystemExit("STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.")
+2026-09-29T21:24:07.3166980Z   E           SystemExit: STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.
+2026-09-29T21:24:07.3167268Z   
+2026-09-29T21:24:07.3167410Z   setup.py:588: SystemExit
+2026-09-29T21:24:07.3167672Z   __________ test_each_image_gets_its_own_profile_and_never_the_others __________
+2026-09-29T21:24:07.3167946Z   
+2026-09-29T21:24:07.3168180Z   monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F7E94A8A10>
+2026-09-29T21:24:07.3168722Z   tmp_path = WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/drm7alof/test_each_image_gets_its_own_p0')
+2026-09-29T21:24:07.3169138Z   
+2026-09-29T21:24:07.3169395Z       def test_each_image_gets_its_own_profile_and_never_the_others(monkeypatch, tmp_path):
+2026-09-29T21:24:07.3169889Z           hook_profile = tmp_path / "hook.profdata"
+2026-09-29T21:24:07.3170121Z           hook_profile.write_bytes(b"")
+2026-09-29T21:24:07.3170330Z   >       extensions = _extensions(
+2026-09-29T21:24:07.3170521Z               monkeypatch,
+2026-09-29T21:24:07.3170802Z               tmp_path,
+2026-09-29T21:24:07.3170962Z               "use",
+2026-09-29T21:24:07.3171114Z               "1",
+2026-09-29T21:24:07.3171272Z               STRATA_HOOK_PGO_MODE="use",
+2026-09-29T21:24:07.3171499Z               STRATA_HOOK_PGO_PROFILE=str(hook_profile),
+2026-09-29T21:24:07.3171720Z           )
+2026-09-29T21:24:07.3171853Z   
+2026-09-29T21:24:07.3172031Z   tests\unit\native_types\test_hook_profile_build.py:43:
+2026-09-29T21:24:07.3172304Z   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+2026-09-29T21:24:07.3172583Z   tests\unit\test_hook_build_scope.py:68: in _extensions
+2026-09-29T21:24:07.3172890Z       runpy.run_path(str(PROJECT_ROOT / "setup.py"), run_name="setup_under_test")
+2026-09-29T21:24:07.3173175Z   <frozen runpy>:287: in run_path
+2026-09-29T21:24:07.3173351Z       ???
+2026-09-29T21:24:07.3173498Z   <frozen runpy>:98: in _run_module_code
+2026-09-29T21:24:07.3173679Z       ???
+2026-09-29T21:24:07.3173819Z   <frozen runpy>:88: in _run_code
+2026-09-29T21:24:07.3173983Z       ???
+2026-09-29T21:24:07.3174270Z   setup.py:667: in <module>
+2026-09-29T21:24:07.3174460Z       extra_compile_args=_hook_compile_args(),
+2026-09-29T21:24:07.3174675Z                          ^^^^^^^^^^^^^^^^^^^^
+2026-09-29T21:24:07.3174877Z   setup.py:600: in _hook_compile_args
+2026-09-29T21:24:07.3175089Z       return args + _hook_optimization_args()[0]
+2026-09-29T21:24:07.3175300Z                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-29T21:24:07.3175526Z   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+2026-09-29T21:24:07.3175744Z   
+2026-09-29T21:24:07.3175942Z       def _hook_optimization_args() -> tuple[list[str], list[str]]:
+2026-09-29T21:24:07.3176303Z           """The hook image's own profile (docs/architecture/native_types.md, "Hook profile").
+2026-09-29T21:24:07.3176589Z   
+2026-09-29T21:24:07.3176780Z           Driven by variables of its own, never `_strata`'s: `PGO_MODE`,
+2026-09-29T21:24:07.3177189Z           `STRATA_ENABLE_LTO` and `STRATA_PGO_PROFILE` leave the hook plain, so
+2026-09-29T21:24:07.3177553Z           nothing it runs can enter `_strata`'s profile and `_strata`'s profile never
+2026-09-29T21:24:07.3177890Z           reaches it (scripts/pgo_build.sh phases 1-2 check both).
+2026-09-29T21:24:07.3178118Z   
+2026-09-29T21:24:07.3178326Z           - `STRATA_HOOK_PGO_MODE=generate` -- instrument the hook alone.
+2026-09-29T21:24:07.3178631Z           - `STRATA_HOOK_PGO_MODE=use`      -- optimize it against
+2026-09-29T21:24:07.3178943Z             `STRATA_HOOK_PGO_PROFILE`, with LTO where the toolchain spells it (not
+2026-09-29T21:24:07.3179235Z             clang-cl, whose LTO needs lld-link).
+2026-09-29T21:24:07.3179433Z           """
+2026-09-29T21:24:07.3179641Z           mode = os.environ.get("STRATA_HOOK_PGO_MODE", "").strip().lower()
+2026-09-29T21:24:07.3179894Z           if not mode:
+2026-09-29T21:24:07.3180053Z               return [], []
+2026-09-29T21:24:07.3180234Z           if mode not in ("generate", "use"):
+2026-09-29T21:24:07.3180548Z               raise SystemExit(f"STRATA_HOOK_PGO_MODE must be 'generate' or 'use', not {mode!r}.")
+2026-09-29T21:24:07.3180886Z           kind = _compiler_kind()
+2026-09-29T21:24:07.3181064Z           if kind == "msvc":
+2026-09-29T21:24:07.3181348Z   >           raise SystemExit("STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.")
+2026-09-29T21:24:07.3181780Z   E           SystemExit: STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.
+2026-09-29T21:24:07.3182057Z   
+2026-09-29T21:24:07.3182194Z   setup.py:588: SystemExit
+2026-09-29T21:24:07.3182435Z   ___________________ test_hook_use_requires_its_own_profile ____________________
+2026-09-29T21:24:07.3182690Z   
+2026-09-29T21:24:07.3182917Z   monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000001F7E94AA7E0>
+2026-09-29T21:24:07.3183456Z   tmp_path = WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/drm7alof/test_hook_use_requires_its_own0')
+2026-09-29T21:24:07.3183865Z   
+2026-09-29T21:24:07.3184068Z       def test_hook_use_requires_its_own_profile(monkeypatch, tmp_path):
+2026-09-29T21:24:07.3184396Z   >       with pytest.raises(SystemExit, match="STRATA_HOOK_PGO_PROFILE"):
+2026-09-29T21:24:07.3184682Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-29T21:24:07.3184924Z   E       AssertionError: Regex pattern did not match.
+2026-09-29T21:24:07.3185167Z   E         Expected regex: 'STRATA_HOOK_PGO_PROFILE'
+2026-09-29T21:24:07.3185479Z   E         Actual message: 'STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.'
+2026-09-29T21:24:07.3185775Z   
+2026-09-29T21:24:07.3185977Z   tests\unit\native_types\test_hook_profile_build.py:60: AssertionError
+2026-09-29T21:24:07.3186285Z   =========================== short test summary info ===========================
+2026-09-29T21:24:07.3186935Z   FAILED tests/unit/native_types/test_hook_profile_build.py::test_hook_generate_instruments_the_hook_alone - SystemExit: STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.
+2026-09-29T21:24:07.3238490Z   FAILED tests/unit/native_types/test_hook_profile_build.py::test_each_image_gets_its_own_profile_and_never_the_others - SystemExit: STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.
+2026-09-29T21:24:07.3239989Z   FAILED tests/unit/native_types/test_hook_profile_build.py::test_hook_use_requires_its_own_profile - AssertionError: Regex pattern did not match.
+2026-09-29T21:24:07.3240804Z     Expected regex: 'STRATA_HOOK_PGO_PROFILE'
+2026-09-29T21:24:07.3241328Z     Actual message: 'STRATA_HOOK_PGO_MODE is not supported with MSVC; use clang-cl.'
+2026-09-29T21:24:07.3241929Z   ================= 3 failed, 3899 passed, 18 skipped in 18.41s =================
+2026-09-29T21:24:07.3242640Z     test temp files kept for inspection: C:\Users\RUNNER~1\AppData\Local\Temp\pytest-of-runneradmin\drm7alof
+2026-09-29T21:24:07.3243759Z   Python tests failed � aborting build (test-gated build)
+2026-09-29T21:24:07.3244305Z   [end of output]
+2026-09-29T21:24:07.3244537Z   
+2026-09-29T21:24:07.3244924Z   note: This error originates from a subprocess, and is likely not a problem with pip.
+2026-09-29T21:24:07.3245480Z   ERROR: Failed building editable for strata
+2026-09-29T21:24:07.3245834Z error: failed-wheel-build-for-install
+2026-09-29T21:24:07.3246058Z 
+2026-09-29T21:24:07.3246316Z Failed to build installable wheels for some pyproject.toml based projects
+2026-09-29T21:24:07.3246686Z 
+2026-09-29T21:24:07.3246777Z strata
+2026-09-29T21:24:07.3247006Z Failed to build strata
+2026-09-29T21:24:10.4376536Z ##[error]Process completed with exit code 1.
+2026-09-29T21:24:10.4566209Z ##[group]Run actions/upload-artifact@v4
+2026-09-29T21:24:10.4566486Z with:
+2026-09-29T21:24:10.4566645Z   name: benchmark-windows-x86_64
+2026-09-29T21:24:10.4566988Z   path: bench_ci_*.md
+bench_ci_*.json
+bench_native_*.md
+bench_native_*.json
+identity-*.txt
+
+2026-09-29T21:24:10.4567323Z   if-no-files-found: ignore
+2026-09-29T21:24:10.4567505Z   compression-level: 6
+2026-09-29T21:24:10.4567672Z   overwrite: false
+2026-09-29T21:24:10.4567830Z   include-hidden-files: false
+2026-09-29T21:24:10.4567998Z env:
+2026-09-29T21:24:10.4568200Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:24:10.4568534Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
+2026-09-29T21:24:10.4568857Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:24:10.4569153Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:24:10.4569466Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-09-29T21:24:10.4569698Z ##[endgroup]
+2026-09-29T21:24:10.6140039Z (node:7096) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-29T21:24:10.6140937Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-29T21:24:10.6219934Z No files were found with the provided path: bench_ci_*.md
+2026-09-29T21:24:10.6220352Z bench_ci_*.json
+2026-09-29T21:24:10.6220572Z bench_native_*.md
+2026-09-29T21:24:10.6220794Z bench_native_*.json
+2026-09-29T21:24:10.6221066Z identity-*.txt. No artifacts will be uploaded.
+2026-09-29T21:24:10.6515776Z Post job cleanup.
+2026-09-29T21:24:10.8100770Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-09-29T21:24:10.8325877Z git version 2.55.0.windows.5
+2026-09-29T21:24:10.8378499Z Temporarily overriding HOME='D:\a\_temp\2034117a-dcb0-475a-90dc-16df1c49e523' before making global git config changes
+2026-09-29T21:24:10.8379397Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-29T21:24:10.8387704Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\strata\strata
+2026-09-29T21:24:10.8636412Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-09-29T21:24:10.8886444Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-09-29T21:24:11.3668346Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-29T21:24:11.3958205Z http.https://github.com/.extraheader
+2026-09-29T21:24:11.3992249Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-09-29T21:24:11.4239152Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-09-29T21:24:11.9107952Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-29T21:24:11.9359214Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-09-29T21:24:12.4158969Z Cleaning up orphan processes
+2026-09-29T21:24:12.4349989Z Terminate orphan process: pid (6908) (vctip)
+2026-09-29T21:24:12.4365222Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
