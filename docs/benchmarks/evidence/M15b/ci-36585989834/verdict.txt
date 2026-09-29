@@ -1,0 +1,47 @@
+M15b five-leg identity sample: benchmark.yml run 36585989834, ref exp/native-types 565fab2,
+identity_base=38eaa9f248f509d9a4beb75b267189d011c1109e, 2026-09-29 14:53-15:31 UTC.
+Workflow conclusion: failure (linux-arm64's held identity gate). Pass condition read with the
+lead's ruling (docs/decisions.md, 2026-09-29, "Lead ruling: M15b acceptance 4"): MET.
+Sources: steps.txt (per-step conclusions), identity_lines.txt (per-leg section lines),
+benchmark-<platform>/identity-<platform>.txt, failed_steps.log (linux-arm64 only).
+
+Identity of strata._strata, HEAD vs base, same absolute path per leg:
+  leg              plain (.text)             held-profile PGO+LTO (.text)       verdict
+  linux-x86_64     0  7037891ecdb50711 both  0  434645d6ae20dd38 both            identical
+  linux-arm64      0  e63e428e6a0c8bd5 both  1  f1e239c61802177c vs 418163ab50b3afe5
+                                                 (.rela.plt, .note.gnu.build-id differ too)
+                                                                                  accepted: layout,
+                                                 not code (linux-arm64-replay/: 423/423 functions,
+                                                 416 identical, 7 GOT-slot immediates only, 0 beyond)
+  macos-arm64      0  20eb0672209e51a6 both  0  fb88dc5c93c03d53 both            identical
+  macos-x86_64     0  907beb4b0c3625d0 both  0  c08f47c419edcb98 both            identical
+  windows-x86_64   0  7c6ef8279471b942 both  0  37430b948b5d95e9 both            identical (clang-cl)
+  (hash prefixes as printed by benchmarks/image_identity.py; plain and held hashes differ on
+  every leg, so each pair compares two distinct builds)
+
+Every leg, run 36585989834: PGO build with gates (both phases) success, canonical suite success,
+supportability tripwire success, native-v1 success. Canonical sample: 134/135 rows at #1
+(docs/benchmarks/ci_summary.md regenerated from this run; the one row behind is windows-x86_64
+loads flat.json, 1.01x of msgspec).
+
+native-v1 (small tier, 10 repeats, median ms):
+  row / library          linux-arm64  linux-x86_64  macos-arm64  macos-x86_64  windows-x86_64
+  dumps native.small
+    msgspec                 0.347        0.388        0.261        1.066         0.423
+    strata native=True      0.510        0.619        0.361        1.581         0.536
+    orjson                  0.752        0.896        0.473        2.646         0.692
+    json (default=)         4.516        5.188        2.923       16.539         4.680
+    strata / msgspec        1.47x        1.60x        1.38x        1.48x         1.27x
+  dump native.small
+    msgspec                 0.610        0.608        0.355        1.399         0.838
+    strata native=True      0.767        0.812        0.466        1.819         0.937
+    orjson                  1.019        1.110        0.523        2.797         1.132
+    json (default=)         4.775        5.446        3.074       15.064         5.145
+    strata / msgspec        1.26x        1.34x        1.31x        1.30x         1.12x
+  dumps mixed.small, flag rows (no native object)
+    strata native=False     0.055        0.053        0.029        0.093         0.060
+    strata native=True      0.057        0.058        0.032        0.093         0.064
+    best rival (orjson)     0.056        0.061        0.042        0.112         0.062
+    native=True / False     1.04x        1.09x        1.10x        1.00x         1.07x
+  strata native=True: #2 of 4 on every native row, behind msgspec, ahead of orjson and json.
+  Excluded on every leg: ujson (native dataset): no native type support; not named.
