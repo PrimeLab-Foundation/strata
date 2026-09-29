@@ -5,48 +5,46 @@
  * @brief `parse_types`: the opt-in revival of a freshly parsed tree.
  *
  * Design: docs/architecture/native_types.md ("Parse side", "Registry shape",
- * "Parse contract"). `_strata` only.
+ * "Parse contract", "Flag shape (M15b)"). `strata._dumps_hook` only: the
+ * facade routes `loads`/`load`/`search`/`query` to `_strata`'s own entry when
+ * `parse_types` is `False`, and to the four functions below otherwise. Each
+ * one parses through `_strata`'s own public `loads`/`load`/`query`/`compile`
+ * -- resolved once, by prepare_runtime(), from module init -- and then hands
+ * the tree to a separate walk (python_parse_types_walk.cpp) that replaces, in
+ * place, the strings that name a date, time, date-time or UUID, and the
+ * members a caller's registry names. This translation unit links no parser of
+ * its own, so `duplicate_key_policy` (a thread-local of `_strata`) is honoured
+ * because `_strata` is what parses.
  *
- * The option never reaches the parser or the builder. Each entry point below
- * parses exactly as its default path does -- through the same functions --
- * and then hands the tree to a separate walk that replaces, in place, the
- * strings that name a date, time, date-time or UUID, and the members a
- * caller's registry names. The entry points in python_module.cpp call these
- * functions only when the keyword is present and is not `False`, so a default
- * call reaches nothing in this file; each is out of line and cold.
- *
- * Each function takes the keyword's raw value (anything but `False`) and
- * validates it first, with the record's messages, before touching its input.
- * The first valid call imports `datetime` and `uuid` if they are not already
- * imported -- the only imports strata makes on its own behalf.
+ * Each entry point validates its own arguments -- with the record's messages,
+ * and the shape `_strata`'s same-named entry uses -- then the `parse_types`
+ * keyword, before touching its input.
  */
 
 #include "python_types.h"
 
 namespace strata::bindings::parse_types {
 
-/// `loads(source, parse_types=option)`: parse, revive, then hand back the tree
-/// or an iterator over its root.
-[[nodiscard]] STRATA_COLD_FN PyObject* loads(PyObject* source, bool want_cursor, bool iterator,
-                                             PyObject* option);
+/// Resolve `_strata`'s public `loads`/`load`/`query`/`compile` from
+/// @p strata_module, held for the process. False with an error set on
+/// failure. Call once, from `PyInit__dumps_hook`, before any entry point below
+/// runs.
+[[nodiscard]] bool prepare_runtime(PyObject* strata_module);
 
-/// `load(path, parse_types=option)`: a file, NDJSON line by line (eager or
-/// lazy) or a folder record by record, each revived before it is returned.
-[[nodiscard]] STRATA_COLD_FN PyObject* load(const char* path, const char* return_type,
-                                            bool iterator, bool skip_errors, PyObject* option);
+/// `loads_typed(source, *, return_type="dict", iterator=False, parse_types)`.
+[[nodiscard]] PyObject* loads_typed(PyObject* self, PyObject* const* args, Py_ssize_t nargs,
+                                    PyObject* kwnames);
 
-/// `search(path, expression, parse_types=option)`: always the full-parse
-/// path, so the result is `query(load(path, parse_types=option), expression)`.
-[[nodiscard]] STRATA_COLD_FN PyObject* search(const char* path, PyObject* expression, bool iterator,
-                                              PyObject* option);
+/// `load_typed(path, *, return_type="dict", iterator=False, skip_errors=False, parse_types)`.
+[[nodiscard]] PyObject* load_typed(PyObject* self, PyObject* args, PyObject* kwargs);
 
-/// `query(data, expression, parse_types=option)`: @p option must be a `bool`;
-/// `True` replaces each `str` match by the recognition rule, in the result
-/// list only.
-[[nodiscard]] STRATA_COLD_FN PyObject* query(PyObject* data, PyObject* expression, bool iterator,
-                                             PyObject* option);
+/// `search_typed(path, expression, *, iterator=False, parse_types)`.
+[[nodiscard]] PyObject* search_typed(PyObject* self, PyObject* args, PyObject* kwargs);
 
-/// Forget what the first call resolved. Called from module init: after a
+/// `query_typed(data, expression, *, iterator=False, parse_types)`.
+[[nodiscard]] PyObject* query_typed(PyObject* self, PyObject* args, PyObject* kwargs);
+
+/// Forget what the first call resolved. Called from hook module init: after a
 /// runtime restart the references belong to the finalized runtime.
 void reset_runtime() noexcept;
 

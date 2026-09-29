@@ -52,7 +52,9 @@ def loads(
         RuntimeWarning: Emitted, not raised, for a duplicate key while
             ``duplicate_key_policy`` is ``"warn"``.
     """
-    return _native.loads(
+    if parse_types is False:
+        return _native.loads(source, return_type=return_type, iterator=iterator)
+    return _hook_module().loads_typed(
         source,
         return_type=return_type,
         iterator=iterator,
@@ -115,21 +117,23 @@ def dumps_with_default(obj, default, *, return_type: str = "str") -> str | bytes
     fails, the ``ImportError`` is raised here, and every other function of the
     package is unaffected.
     """
-    return _hook_entry()(obj, default, return_type=return_type)
+    return _hook_module().dumps_with_default(obj, default, return_type=return_type)
 
 
 @functools.cache
-def _hook_entry():
-    """``strata._dumps_hook.dumps_with_default``, imported on first use.
+def _hook_module():
+    """``strata._dumps_hook``, imported on first use.
 
     The hook lives in a second extension image so that ``_strata`` does not
-    change (docs/architecture/dumps_with_default.md); importing it lazily keeps
-    a missing or broken hook image from taking ``import strata`` down with it.
-    A failed import is not cached, so the next call retries it.
+    change (docs/architecture/dumps_with_default.md, docs/architecture/native_types.md);
+    importing it lazily keeps a missing or broken hook image from taking
+    ``import strata`` down with it. A failed import is not cached, so the next
+    call retries it. Shared by :mod:`strata.jsonpath` for ``search``/``query``
+    with ``parse_types`` set.
     """
     from . import _dumps_hook  # noqa: PLC0415 -- deliberate: first use only
 
-    return _dumps_hook.dumps_with_default
+    return _dumps_hook
 
 
 def load(
@@ -173,8 +177,16 @@ def load(
             cursor mode.
         TypeError: ``parse_types`` is not a bool or a valid registry.
     """
-    return _native.load(
-        os.fspath(path),
+    path = os.fspath(path)
+    if parse_types is False:
+        return _native.load(
+            path,
+            return_type=return_type,
+            iterator=iterator,
+            skip_errors=skip_errors,
+        )
+    return _hook_module().load_typed(
+        path,
         return_type=return_type,
         iterator=iterator,
         skip_errors=skip_errors,

@@ -552,6 +552,8 @@ HOOK_BINDING_SOURCES = [
     "src/strata/bindings/python_dumps_hook.cpp",
     "src/strata/bindings/python_native_types.cpp",
     "src/strata/bindings/python_numpy_twins.cpp",
+    "src/strata/bindings/python_parse_types.cpp",
+    "src/strata/bindings/python_parse_types_walk.cpp",
     "src/strata/bindings/python_files.cpp",
     "src/strata/bindings/python_folder.cpp",
 ]
@@ -595,6 +597,14 @@ ext_modules = [
             "include",
             get_paths()["include"],
         ],
+        # python_dumps_hook.cpp #defines this for itself (and what it
+        # #includes directly, python_dumps.cpp), but python_files.cpp and
+        # python_folder.cpp are separate translation units in this same
+        # Extension: without the macro here too, their reader halves compile
+        # into the hook as well, each an unresolved external against a symbol
+        # only `_strata` defines (loads_to_python, make_root_iterator, ...).
+        # Never set on `_strata`'s own Extension.
+        define_macros=[("STRATA_DUMPS_HOOK", "1")],
         extra_compile_args=_hook_compile_args(),
         extra_link_args=_hook_link_args(),
         language="c++",

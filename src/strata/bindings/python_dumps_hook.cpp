@@ -24,6 +24,7 @@
 
 #define STRATA_DUMPS_HOOK 1
 
+#include "python_parse_types.h"
 #include "python_types.h"
 #include "strata/util/folder.hpp"
 
@@ -234,19 +235,42 @@ PyObject* hook_dump_native(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
     STRATA_CPP_CATCH
 }
 
+/// CPython's documented spelling for METH_KEYWORDS function pointers: the
+/// table stores PyCFunction, and the call site casts back by the method
+/// flags. A direct PyCFunction cast of an incompatible function-pointer type
+/// warns (-Wcast-function-type-mismatch); this two-step cast, through a
+/// function pointer of no fixed signature, is the documented workaround --
+/// the same shape as `_strata`'s own `STRATA_KEYWORD_FN` (python_module.cpp),
+/// duplicated here since that translation unit is not linked into this image.
+#define STRATA_HOOK_KEYWORD_FN(fn) reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(fn))
+
 PyMethodDef kHookMethods[] = {
-    {"dumps_with_default",
-     reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(hook_dumps_with_default)),
+    {"dumps_with_default", STRATA_HOOK_KEYWORD_FN(hook_dumps_with_default),
      METH_FASTCALL | METH_KEYWORDS,
      "dumps_with_default(obj, default, *, return_type='str')\n\n"
      "Serialize an object to JSON, calling default for each unsupported object."},
-    {"dumps_native", reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(hook_dumps_native)),
-     METH_FASTCALL | METH_KEYWORDS,
+    {"dumps_native", STRATA_HOOK_KEYWORD_FN(hook_dumps_native), METH_FASTCALL | METH_KEYWORDS,
      "dumps_native(obj, *, return_type='str')\n\n"
      "Serialize an object to JSON, including every native type family."},
-    {"dump_native", reinterpret_cast<PyCFunction>(hook_dump_native), METH_VARARGS | METH_KEYWORDS,
+    {"dump_native", STRATA_HOOK_KEYWORD_FN(hook_dump_native), METH_VARARGS | METH_KEYWORDS,
      "dump_native(obj, path, *, split_by=None)\n\n"
      "Write an object as JSON to a file, or a directory of files with split_by."},
+    {"loads_typed", STRATA_HOOK_KEYWORD_FN(strata::bindings::parse_types::loads_typed),
+     METH_FASTCALL | METH_KEYWORDS,
+     "loads_typed(source, *, return_type='dict', iterator=False, parse_types)\n\n"
+     "loads() with parse_types set."},
+    {"load_typed", STRATA_HOOK_KEYWORD_FN(strata::bindings::parse_types::load_typed),
+     METH_VARARGS | METH_KEYWORDS,
+     "load_typed(path, *, return_type='dict', iterator=False, skip_errors=False, parse_types)\n\n"
+     "load() with parse_types set."},
+    {"search_typed", STRATA_HOOK_KEYWORD_FN(strata::bindings::parse_types::search_typed),
+     METH_VARARGS | METH_KEYWORDS,
+     "search_typed(path, expression, *, iterator=False, parse_types)\n\n"
+     "search() with parse_types set."},
+    {"query_typed", STRATA_HOOK_KEYWORD_FN(strata::bindings::parse_types::query_typed),
+     METH_VARARGS | METH_KEYWORDS,
+     "query_typed(data, expression, *, iterator=False, parse_types)\n\n"
+     "query() with parse_types set."},
     {nullptr, nullptr, 0, nullptr},
 };
 
@@ -270,6 +294,10 @@ PyMODINIT_FUNC PyInit__dumps_hook(void) {
     // This image's own copy of the native type table and its names.
     if (!native::prepare_native_runtime())
         return nullptr;
+    // A runtime finalized and reinitialized (embedding) runs this function
+    // again; the parse walk's own statics (datetime's C API, uuid.UUID) belong
+    // to the finalized runtime and must be re-resolved, not reused.
+    parse_types::reset_runtime();
 
     const PyRef strata_module(PyImport_ImportModule("strata._strata"));
     if (!strata_module)
@@ -280,6 +308,16 @@ PyMODINIT_FUNC PyInit__dumps_hook(void) {
     PyRef key(PyUnicode_InternFromString("cycle_policy"));
     if (!key)
         return nullptr;
+    // `parse_types`'s four entry points parse through these, never through a
+    // parser of this image's own (docs/architecture/native_types.md, "Flag
+    // shape (M15b)"). A real `strata._strata` always provides them; this can
+    // only fail against a minimal stand-in (tests/unit/test_dumps_with_default_state.py
+    // loads this image against a fake `_strata` with `config_get` alone, to
+    // drive `dumps_with_default` on its own), which must still load the hook
+    // for `dumps_with_default`'s sake -- so a missing entry here is not fatal
+    // to the module, and surfaces instead from the first `parse_types` call.
+    if (!parse_types::prepare_runtime(strata_module.get()))
+        PyErr_Clear();
 
     PyObject* module = PyModule_Create(&kHookModuleDef);
     if (module == nullptr)

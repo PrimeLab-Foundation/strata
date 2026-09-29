@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 
 from . import _strata as _native
+from .serialize import _hook_module
 
 VALID_SUFFIXES = (".json", ".ndjson", ".jsonl")
 
@@ -44,7 +45,14 @@ def query(data, expression, *, iterator: bool = False, parse_types: bool = False
             is not a bool.
         ValueError: The expression is not valid JSONPath.
     """
-    return _native.query(data, expression, iterator=iterator, parse_types=parse_types)
+    if parse_types is False:
+        return _native.query(data, expression, iterator=iterator)
+    return _hook_module().query_typed(
+        data,
+        expression,
+        iterator=iterator,
+        parse_types=parse_types,
+    )
 
 
 def search(path: str | os.PathLike, expression, *, iterator: bool = False, parse_types=False):
@@ -75,4 +83,11 @@ def search(path: str | os.PathLike, expression, *, iterator: bool = False, parse
     # tested first: a path that carries one needs no stat to be let through.
     if not str(text).lower().endswith(VALID_SUFFIXES) and not os.path.isdir(text):
         raise TypeError(f"search() expects a .json, .ndjson or .jsonl path, got {text!r}")
-    return _native.search(text, expression, iterator=iterator, parse_types=parse_types)
+    if parse_types is False:
+        return _native.search(text, expression, iterator=iterator)
+    return _hook_module().search_typed(
+        text,
+        expression,
+        iterator=iterator,
+        parse_types=parse_types,
+    )

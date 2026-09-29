@@ -23,8 +23,8 @@ NUMPY_TWINS = "src/strata/bindings/python_numpy_twins.cpp"
 #: The folder/file writer halves the hook needs for `dump_native`.
 FILES = "src/strata/bindings/python_files.cpp"
 FOLDER = "src/strata/bindings/python_folder.cpp"
-#: Deferred (docs/architecture/native_types.md task M15b, item 5): ported to
-#: the hook in a later change. Neither image compiles them today.
+#: `parse_types`'s revival (docs/architecture/native_types.md task M15b, item
+#: 5): hook-only, parsing through `_strata`'s own public entries.
 PARSE_TYPES = "src/strata/bindings/python_parse_types.cpp"
 PARSE_TYPES_WALK = "src/strata/bindings/python_parse_types_walk.cpp"
 
@@ -52,6 +52,8 @@ def test_the_hook_image_compiles_the_native_type_table_and_the_file_writers():
         "src/strata/bindings/python_dumps_hook.cpp",
         NATIVE,
         NUMPY_TWINS,
+        PARSE_TYPES,
+        PARSE_TYPES_WALK,
         FILES,
         FOLDER,
     ]
@@ -65,14 +67,35 @@ def test_it_is_not_a_core_source():
         assert (PROJECT_ROOT / source.replace(".cpp", ".h")).is_file()
 
 
-def test_the_parse_side_revival_is_compiled_into_neither_image_yet():
-    # docs/architecture/native_types.md task M15b, item 5: taken out of both
-    # images for now, ported to the hook in a later task. The sources stay on
-    # disk, unwired.
+def test_the_parse_side_revival_is_hook_only():
+    # docs/architecture/native_types.md task M15b, item 5: the parse-side
+    # revival is wired into the hook alone -- `_strata` stays main's.
     lists = _source_lists()
     for source in (PARSE_TYPES, PARSE_TYPES_WALK):
         assert source not in lists["BINDING_SOURCES"]
-        assert source not in lists["HOOK_BINDING_SOURCES"]
+        assert source in lists["HOOK_BINDING_SOURCES"]
+
+
+def test_the_hook_extension_defines_the_hook_macro_and_the_engine_extension_does_not():
+    # P0: python_dumps_hook.cpp #defines STRATA_DUMPS_HOOK for itself (and for
+    # python_dumps.cpp, which it #includes directly), but python_files.cpp and
+    # python_folder.cpp are separate translation units in the same Extension --
+    # without the macro at the Extension level too, their reader halves
+    # compile into the hook as unresolved externals against `_strata`-only
+    # symbols (loads_to_python, make_root_iterator, ...), hidden by dead-strip
+    # on macOS/Linux but an MSVC link error on Windows.
+    tree = ast.parse((PROJECT_ROOT / "setup.py").read_text(encoding="utf-8"))
+    extensions = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "Extension":
+            name = ast.literal_eval(node.args[0])
+            macros = next(
+                (kw.value for kw in node.keywords if kw.arg == "define_macros"),
+                None,
+            )
+            extensions[name] = ast.literal_eval(macros) if macros is not None else []
+    assert ("STRATA_DUMPS_HOOK", "1") in extensions["strata._dumps_hook"]
+    assert extensions["strata._strata"] == []
 
 
 def test_the_parse_side_revival_is_not_a_core_source():

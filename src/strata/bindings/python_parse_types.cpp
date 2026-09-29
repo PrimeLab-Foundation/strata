@@ -2,17 +2,19 @@
  * @file python_parse_types.cpp
  * @brief The `parse_types` option and its private registry, the reviving
  * iterator and the four cold entry points that use them
- * (docs/architecture/native_types.md, "Parse side").
+ * (docs/architecture/native_types.md, "Parse side", "Flag shape (M15b)").
  *
- * Each entry point parses exactly as its default path does -- through the same
- * functions -- and then hands the tree to the revival walk in
- * python_parse_types_walk.cpp, reached through python_parse_types_walk.h. The
- * walk replaces, in place, the strings that name a date, time, date-time or
- * UUID, and the members a caller's registry names.
+ * `strata._dumps_hook` only. Each entry point parses through `_strata`'s own
+ * public `loads`/`load`/`query`/`compile` -- resolved once by
+ * prepare_runtime(), from this image's module init -- and then hands the tree
+ * to the revival walk in python_parse_types_walk.cpp, reached through
+ * python_parse_types_walk.h. The walk replaces, in place, the strings that
+ * name a date, time, date-time or UUID, and the members a caller's registry
+ * names. This translation unit links no parser of its own: `_strata` is what
+ * parses, so its `duplicate_key_policy` thread-local is honoured.
  *
  * The registry is a private snapshot built from the caller's dict, so a
- * mutation of the caller's dict during the walk changes nothing. `_strata`
- * only.
+ * mutation of the caller's dict during the walk changes nothing.
  */
 
 #include "python_parse_types.h"
@@ -31,6 +33,89 @@ namespace strata::bindings::parse_types {
 
 namespace {
 
+/// `_strata`'s public `loads`/`load`/`query`/`compile`, captured once at hook
+/// module init and held for the process (module statics are never released).
+struct StrataApi {
+    PyObject* loads = nullptr;
+    PyObject* load = nullptr;
+    PyObject* query = nullptr;
+    PyObject* compile = nullptr;
+};
+
+StrataApi g_strata{};
+
+/// False, with an error set, when `prepare_runtime` could not resolve
+/// `_strata`'s entries (only against a stand-in `_strata` missing one of
+/// them; a real `_strata` always has all four).
+[[nodiscard]] bool runtime_ready() {
+    if (g_strata.loads != nullptr)
+        return true;
+    PyErr_SetString(PyExc_RuntimeError, "strata._dumps_hook: strata._strata does not provide the "
+                                        "loads/load/query/compile entries parse_types needs");
+    return false;
+}
+
+/// `_strata.loads(source)` -- default `return_type="dict"`, `iterator=False`.
+[[nodiscard]] PyRef call_loads(PyObject* source) {
+    return PyRef(PyObject_CallOneArg(g_strata.loads, source));
+}
+
+/// `_strata.load(path, return_type=.., iterator=.., skip_errors=..)`.
+[[nodiscard]] PyRef call_load(PyObject* path, const char* return_type, bool iterator,
+                              bool skip_errors) {
+    PyRef args(PyTuple_Pack(1, path));
+    PyRef kwargs(PyDict_New());
+    PyRef return_type_obj(PyUnicode_FromString(return_type));
+    if (!args || !kwargs || !return_type_obj)
+        return PyRef();
+    if (PyDict_SetItemString(kwargs.get(), "return_type", return_type_obj.get()) != 0 ||
+        PyDict_SetItemString(kwargs.get(), "iterator", iterator ? Py_True : Py_False) != 0 ||
+        PyDict_SetItemString(kwargs.get(), "skip_errors", skip_errors ? Py_True : Py_False) != 0)
+        return PyRef();
+    return PyRef(PyObject_Call(g_strata.load, args.get(), kwargs.get()));
+}
+
+/// `_strata.query(data, expression)` -- positional, default `iterator=False`.
+[[nodiscard]] PyRef call_query(PyObject* data, PyObject* expression) {
+    return PyRef(PyObject_CallFunctionObjArgs(g_strata.query, data, expression, nullptr));
+}
+
+/// `_strata.compile(expression)`.
+[[nodiscard]] PyRef call_compile(PyObject* expression) {
+    return PyRef(PyObject_CallOneArg(g_strata.compile, expression));
+}
+
+/// Keyword-only string option from a FASTCALL kwnames tuple, by exact name --
+/// the same shape as `_strata`'s `fastcall_str_option` (python_module.cpp),
+/// duplicated here since that translation unit is not linked into this image.
+[[nodiscard]] const char* fastcall_str_option(PyObject* name, PyObject* value) {
+    if (!PyUnicode_Check(value)) {
+        PyErr_Format(PyExc_TypeError, "%U must be str, not %s", name, Py_TYPE(value)->tp_name);
+        return nullptr;
+    }
+    return PyUnicode_AsUTF8(value);
+}
+
+/// An iterator over a parsed root: dict yields (key, value), list yields
+/// elements, and a scalar is returned unchanged (docs/context/api.md). The
+/// same rule as `_strata`'s `make_root_iterator` (python_loads.cpp), which is
+/// not linked into this image.
+[[nodiscard]] PyObject* root_iterator(PyObject* value) {
+    if (PyDict_Check(value)) {
+        PyRef items(PyObject_CallMethod(value, "items", nullptr));
+        if (!items)
+            return nullptr;
+        return PyObject_GetIter(items.get());
+    }
+    if (PyList_Check(value))
+        return PyObject_GetIter(value);
+    return Py_NewRef(value);
+}
+
+// ---------------------------------------------------------------------------
+// The registry
+// ---------------------------------------------------------------------------
+
 /// `sys.modules[name]` as a new reference, or nullptr. Never raises.
 [[nodiscard]] PyObject* loaded_module(const char* name) {
     PyObject* const modules = PyImport_GetModuleDict();
@@ -39,10 +124,6 @@ namespace {
     PyObject* const module = PyDict_GetItemString(modules, name);
     return module == nullptr ? nullptr : Py_NewRef(module);
 }
-
-// ---------------------------------------------------------------------------
-// The registry
-// ---------------------------------------------------------------------------
 
 /// 1 when @p value is an `Enum` subclass, 0 when it is not. Never raises.
 [[nodiscard]] int is_enum_type(PyObject* value) {
@@ -184,18 +265,20 @@ class Option {
 // ---------------------------------------------------------------------------
 
 /**
- * `query_object(root, compiled)`, extended to a scalar root the way the
+ * `_strata.query(root, compiled)`, extended to a scalar root the way the
  * default `search` evaluates one: a scalar has no children, so only a path
  * that selects the root itself (`$`) matches it. Whether @p compiled is such a
- * path is read off an empty dict, which it matches exactly when it does.
+ * path is read off an empty dict, which it matches exactly when it does --
+ * `_strata.query()` itself refuses a scalar root, so it is never asked to
+ * evaluate one.
  */
 [[nodiscard]] PyObject* evaluate(PyObject* root, PyObject* compiled) {
     if (PyDict_Check(root) || PyList_Check(root) || PyTuple_Check(root))
-        return query_object(root, compiled);
+        return call_query(root, compiled).release();
     PyRef probe(PyDict_New());
     if (!probe)
         return nullptr;
-    PyRef found(query_object(probe.get(), compiled));
+    PyRef found(call_query(probe.get(), compiled));
     if (!found)
         return nullptr;
     const bool root_only =
@@ -206,12 +289,14 @@ class Option {
     return matches;
 }
 
-/// One file's matches: load it whole, revive it, evaluate. @p is_directory
-/// as in load_from_file.
-[[nodiscard]] PyObject* search_one(const char* path, PyObject* compiled, PyObject* registry,
-                                   bool* is_directory) {
+/// One file's matches: load it whole (through `_strata.load`), revive it,
+/// evaluate. @p path always names a file -- the caller resolves directories.
+[[nodiscard]] PyObject* search_one(const char* path, PyObject* compiled, PyObject* registry) {
+    PyRef path_obj(PyUnicode_FromString(path));
+    if (!path_obj)
+        return nullptr;
     PyRef root(revive(
-        load_from_file(path, "dict", /*iterator=*/false, /*skip_errors=*/false, is_directory),
+        call_load(path_obj.get(), "dict", /*iterator=*/false, /*skip_errors=*/false).release(),
         registry));
     if (!root)
         return nullptr;
@@ -241,9 +326,9 @@ class Option {
 
 /**
  * Two lazy shapes, one type. Revive mode wraps the NDJSON or folder iterator
- * `load` would return and revives each record as it is yielded. Search mode
- * walks a folder's discovered files one at a time, as the folder iterator
- * does, searching each with parse_types.
+ * `_strata.load` would return and revives each record as it is yielded.
+ * Search mode walks a folder's discovered files one at a time, searching each
+ * with parse_types.
  */
 struct RevivingIteratorObject {
     PyObject_HEAD PyObject* inner;   ///< revive mode: the wrapped iterator
@@ -294,8 +379,7 @@ PyObject* reviving_iterator_next(PyObject* self) {
         if (iterator->next_file >= iterator->files->size())
             return nullptr; // exhausted
         const std::string& path = (*iterator->files)[iterator->next_file++];
-        iterator->buffer =
-            search_one(path.c_str(), iterator->compiled, iterator->registry, nullptr);
+        iterator->buffer = search_one(path.c_str(), iterator->compiled, iterator->registry);
         if (iterator->buffer == nullptr)
             return nullptr;
     }
@@ -305,7 +389,7 @@ PyObject* reviving_iterator_next(PyObject* self) {
 [[nodiscard]] bool ready_iterator_type() {
     if ((kRevivingIteratorType.tp_flags & Py_TPFLAGS_READY) != 0)
         return true;
-    kRevivingIteratorType.tp_name = "strata._strata.RevivingIterator";
+    kRevivingIteratorType.tp_name = "strata._dumps_hook.RevivingIterator";
     kRevivingIteratorType.tp_basicsize = sizeof(RevivingIteratorObject);
     kRevivingIteratorType.tp_dealloc = reviving_iterator_dealloc;
     kRevivingIteratorType.tp_flags = Py_TPFLAGS_DEFAULT;
@@ -362,10 +446,73 @@ PyObject* reviving_iterator_next(PyObject* self) {
 } // namespace
 
 // ---------------------------------------------------------------------------
+// Runtime
+// ---------------------------------------------------------------------------
+
+bool prepare_runtime(PyObject* strata_module) {
+    PyRef loads_fn(PyObject_GetAttrString(strata_module, "loads"));
+    PyRef load_fn(PyObject_GetAttrString(strata_module, "load"));
+    PyRef query_fn(PyObject_GetAttrString(strata_module, "query"));
+    PyRef compile_fn(PyObject_GetAttrString(strata_module, "compile"));
+    if (!loads_fn || !load_fn || !query_fn || !compile_fn)
+        return false;
+    g_strata.loads = loads_fn.release();
+    g_strata.load = load_fn.release();
+    g_strata.query = query_fn.release();
+    g_strata.compile = compile_fn.release();
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // Entry points
 // ---------------------------------------------------------------------------
 
-PyObject* loads(PyObject* source, bool want_cursor, bool iterator, PyObject* option) {
+PyObject* loads_typed(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nargs,
+                      PyObject* kwnames) {
+    STRATA_CPP_TRY
+    if (!runtime_ready())
+        return nullptr;
+    if (nargs != 1) {
+        PyErr_Format(PyExc_TypeError,
+                     "loads_typed() takes exactly 1 positional argument (%zd given)", nargs);
+        return nullptr;
+    }
+    PyObject* const source = args[0];
+    const char* return_type = "dict";
+    int iterator = 0;
+    PyObject* option = nullptr;
+    if (kwnames != nullptr) {
+        for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
+            PyObject* const name = PyTuple_GET_ITEM(kwnames, index);
+            PyObject* const value = args[nargs + index];
+            if (PyUnicode_CompareWithASCIIString(name, "return_type") == 0) {
+                return_type = fastcall_str_option(name, value);
+                if (return_type == nullptr)
+                    return nullptr;
+            } else if (PyUnicode_CompareWithASCIIString(name, "iterator") == 0) {
+                iterator = PyObject_IsTrue(value);
+                if (iterator < 0)
+                    return nullptr;
+            } else if (PyUnicode_CompareWithASCIIString(name, "parse_types") == 0) {
+                option = value;
+            } else {
+                PyErr_Format(PyExc_TypeError,
+                             "loads_typed() got an unexpected keyword argument '%U'", name);
+                return nullptr;
+            }
+        }
+    }
+    if (option == nullptr) {
+        PyErr_SetString(PyExc_TypeError, "loads_typed() missing required argument 'parse_types'");
+        return nullptr;
+    }
+
+    const bool want_cursor = std::strcmp(return_type, "cursor") == 0;
+    if (!want_cursor && std::strcmp(return_type, "dict") != 0) {
+        PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
+        return nullptr;
+    }
+
     Option parsed;
     if (!parsed.init(option))
         return nullptr;
@@ -374,37 +521,33 @@ PyObject* loads(PyObject* source, bool want_cursor, bool iterator, PyObject* opt
         return nullptr;
     }
 
-    const char* text = nullptr;
-    Py_ssize_t size = 0;
-    if (PyUnicode_Check(source)) {
-        text = PyUnicode_AsUTF8AndSize(source, &size);
-        if (text == nullptr) {
-            // Lone surrogates: not valid JSON text either way (strata_loads).
-            PyErr_Clear();
-            PyErr_SetString(PyExc_ValueError, "Invalid JSON");
-            return nullptr;
-        }
-    } else if (PyBytes_Check(source)) {
-        char* data = nullptr;
-        if (PyBytes_AsStringAndSize(source, &data, &size) != 0)
-            return nullptr;
-        text = data;
-    } else {
-        PyErr_Format(PyExc_TypeError, "loads() expects str or bytes, not %s",
-                     Py_TYPE(source)->tp_name);
+    PyRef value(revive(call_loads(source).release(), parsed.registry()));
+    if (!value || !iterator)
+        return value.release();
+    return root_iterator(value.get());
+    STRATA_CPP_CATCH
+}
+
+PyObject* load_typed(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    if (!runtime_ready())
+        return nullptr;
+    static const char* keywords[] = {
+        "", "return_type", "iterator", "skip_errors", "parse_types", nullptr};
+    const char* path = nullptr;
+    const char* return_type = "dict";
+    int iterator = 0;
+    int skip_errors = 0;
+    PyObject* option = nullptr;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sppO", const_cast<char**>(keywords), &path,
+                                     &return_type, &iterator, &skip_errors, &option))
+        return nullptr;
+    if (option == nullptr) {
+        PyErr_SetString(PyExc_TypeError, "load_typed() missing required argument 'parse_types'");
         return nullptr;
     }
 
-    PyRef value(revive(
-        loads_to_python(std::string_view(text, static_cast<size_t>(size)), /*validate_utf8=*/false),
-        parsed.registry()));
-    if (!value || !iterator)
-        return value.release();
-    return make_root_iterator(value.get());
-}
-
-PyObject* load(const char* path, const char* return_type, bool iterator, bool skip_errors,
-               PyObject* option) {
     Option parsed;
     if (!parsed.init(option))
         return nullptr;
@@ -413,61 +556,93 @@ PyObject* load(const char* path, const char* return_type, bool iterator, bool sk
         return nullptr;
     }
 
-    // A lazy NDJSON read stays lazy and is wrapped; a .json document is read
-    // whole, revived, and only then handed to the root iterator.
-    const bool lazy = iterator && file_is_ndjson(path);
-    bool directory = false;
-    PyObject* const loaded = load_from_file(path, return_type, lazy, skip_errors, &directory);
-    if (directory) {
-        if (std::strcmp(return_type, "dict") != 0) {
-            PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
-            return nullptr;
-        }
-        PyObject* const records = load_from_folder(path, iterator, skip_errors);
-        return iterator ? reviving_iterator(records, parsed.registry())
-                        : revive(records, parsed.registry());
-    }
+    PyRef path_obj(PyUnicode_FromString(path));
+    if (!path_obj)
+        return nullptr;
+    // Not the open-first dispatch _strata.load uses (E26-P27): parse_types is
+    // a cold, opt-in path, and this stat tells us -- before delegating -- when
+    // to expect a lazy folder iterator back, which only iterator does.
+    const bool is_dir = strata::util::is_directory(path);
+    const bool lazy = iterator != 0 && (is_dir || file_is_ndjson(path));
+    PyRef loaded(call_load(path_obj.get(), return_type, lazy, skip_errors != 0));
+    if (!loaded)
+        return nullptr;
     if (lazy)
-        return reviving_iterator(loaded, parsed.registry());
-    PyRef value(revive(loaded, parsed.registry()));
+        return reviving_iterator(loaded.release(), parsed.registry());
+    PyRef value(revive(loaded.release(), parsed.registry()));
     if (!value || !iterator)
         return value.release();
-    return make_root_iterator(value.get());
+    return root_iterator(value.get());
+    STRATA_CPP_CATCH
 }
 
-PyObject* search(const char* path, PyObject* expression, bool iterator, PyObject* option) {
+PyObject* search_typed(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    if (!runtime_ready())
+        return nullptr;
+    static const char* keywords[] = {"", "", "iterator", "parse_types", nullptr};
+    const char* path = nullptr;
+    PyObject* expression = nullptr;
+    int iterator = 0;
+    PyObject* option = nullptr;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|$pO", const_cast<char**>(keywords), &path,
+                                     &expression, &iterator, &option))
+        return nullptr;
+    if (option == nullptr) {
+        PyErr_SetString(PyExc_TypeError, "search_typed() missing required argument 'parse_types'");
+        return nullptr;
+    }
+
     Option parsed;
     if (!parsed.init(option))
         return nullptr;
-    PyRef compiled(compile_expression(expression));
+    PyRef compiled(call_compile(expression));
     if (!compiled)
         return nullptr;
 
-    bool directory = false;
-    PyRef matches(search_one(path, compiled.get(), parsed.registry(), &directory));
-    if (directory) {
+    if (strata::util::is_directory(path)) {
         std::vector<std::string> files;
         if (!discover(path, files))
             return nullptr;
         if (iterator)
             return searching_iterator(std::move(files), compiled.get(), parsed.registry());
-        matches = PyRef(PyList_New(0));
+        PyRef matches(PyList_New(0));
         if (!matches)
             return nullptr;
         for (const std::string& file : files) {
             // Exactly search() on each file, in discovery order.
-            PyRef found(search_one(file.c_str(), compiled.get(), parsed.registry(), nullptr));
+            PyRef found(search_one(file.c_str(), compiled.get(), parsed.registry()));
             if (!found ||
                 PyList_SetSlice(matches.get(), PY_SSIZE_T_MAX, PY_SSIZE_T_MAX, found.get()) != 0)
                 return nullptr;
         }
+        return matches.release();
     }
+    PyRef matches(search_one(path, compiled.get(), parsed.registry()));
     if (!matches)
         return nullptr;
     return iterator ? PyObject_GetIter(matches.get()) : matches.release();
+    STRATA_CPP_CATCH
 }
 
-PyObject* query(PyObject* data, PyObject* expression, bool iterator, PyObject* option) {
+PyObject* query_typed(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    if (!runtime_ready())
+        return nullptr;
+    static const char* keywords[] = {"", "", "iterator", "parse_types", nullptr};
+    PyObject* data = nullptr;
+    PyObject* expression = nullptr;
+    int iterator = 0;
+    PyObject* option = nullptr;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$pO", const_cast<char**>(keywords), &data,
+                                     &expression, &iterator, &option))
+        return nullptr;
+    if (option == nullptr) {
+        PyErr_SetString(PyExc_TypeError, "query_typed() missing required argument 'parse_types'");
+        return nullptr;
+    }
     if (!PyBool_Check(option)) {
         PyErr_Format(PyExc_TypeError, "query() parse_types must be a bool, not %s",
                      Py_TYPE(option)->tp_name);
@@ -476,7 +651,7 @@ PyObject* query(PyObject* data, PyObject* expression, bool iterator, PyObject* o
     const bool recognizing = option == Py_True;
     if (recognizing && !ensure_runtime())
         return nullptr;
-    PyRef matches(query_object(data, expression));
+    PyRef matches(call_query(data, expression));
     if (!matches)
         return nullptr;
     // The result list is ours; the matches in it are the caller's objects and
@@ -493,6 +668,7 @@ PyObject* query(PyObject* data, PyObject* expression, bool iterator, PyObject* o
             PyList_SetItem(matches.get(), index, revived.release());
     }
     return iterator ? PyObject_GetIter(matches.get()) : matches.release();
+    STRATA_CPP_CATCH
 }
 
 } // namespace strata::bindings::parse_types
