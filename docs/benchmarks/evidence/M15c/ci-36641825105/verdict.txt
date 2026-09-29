@@ -1,0 +1,24 @@
+M15c third five-leg sample: benchmark.yml run 36641825105, ref exp/native-gap 271a2a0,
+identity_base=234ea15861d2f37b1b55c6251281a49021864441, 2026-09-29 22:49-23:38 UTC. Lead-approved;
+the judgment is Windows alone (the POSIX legs are extra samples). Workflow conclusion: failure
+(linux-arm64's held identity gate, the layout-only difference replayed in ../linux-arm64-replay/).
+
+WINDOWS-X86_64: PASS -- every step success, the first complete run of the clang-cl hook phase.
+  clang-cl PGO build: phases 1-2 (gates 3178 / 3906 passed), phase 3a instrumented hook,
+  scripts/pgo_hook_training.py, merge + record (recipe hook-native-training-clang-cl-v1),
+  phase 3b hook against its own profile, `_strata` image hash unchanged, --check-profiled both
+  ways ("strata._dumps_hook is built against hook.profdata alone", "strata._strata ... against
+  strata.profdata alone"), gate on the optimized hook 3906 passed / 19 skipped.
+  identity: plain CODE IDENTICAL, held-profile CODE IDENTICAL (clang-cl).
+  canonical 26/27 (behind: dumps mixed.json 1.051x orjson), tripwire success.
+  native-v1 (30 repeats, ms): dumps strata 0.2629 / msgspec 0.3130 = 0.840;
+                               dump  strata 0.5496 / msgspec 0.6055 = 0.908.
+  flag rows (mixed.small): native=False 0.0444, native=True 0.0455, orjson 0.0423.
+
+Extra samples (not judged): native-v1 dumps / dump vs msgspec, canonical, identity plain/held
+  linux-x86_64  0.794 / 0.883  20/27  IDENTICAL/IDENTICAL -- host AMD EPYC 9V45 (the two earlier
+                samples ran on EPYC 7763); the 7 rows behind are serializer rows vs orjson,
+                1.003-1.132x, with `_strata` code-identical to main on this leg in this run.
+  linux-arm64   0.838 / 0.879  27/27  IDENTICAL/DIFFERS (layout-only, replayed)
+  macos-arm64   0.720 / 0.885  27/27  IDENTICAL/IDENTICAL
+  macos-x86_64  0.775 / 0.822  27/27  IDENTICAL/IDENTICAL

@@ -4785,3 +4785,14 @@ waits on it.
   phase 3a's install gate: `test_training_scope.py`'s plain-build reading of `setup.py` inherited
   `STRATA_HOOK_PGO_MODE`, which MSVC (the default there) refuses — fixed in `c99d938`; the
   hook's clang-cl profile has still never been built in CI.
+
+- **Third sample 36641825105, Windows judged** (`271a2a0`; `ci-36641825105/verdict.txt`).
+  **Windows passes end to end** — the clang-cl hook phase's first complete run: instrumented hook,
+  native training, merge, rebuild against its own profile, `_strata` hash unchanged, both
+  `--check-profiled` guards, gate green; plain and held identity CODE IDENTICAL; native-v1
+  `dumps` **0.840×** and `dump` **0.908×** msgspec (M15b's 1.27 / 1.12); canonical 26/27
+  (`dumps mixed` 1.051× orjson). Extra POSIX samples: linux-arm64 0.838 / 0.879, macos-arm64
+  0.720 / 0.885, macos-x86_64 0.775 / 0.822, linux-x86_64 0.794 / 0.883 — the last on a new host
+  class (EPYC 9V45; both earlier samples EPYC 7763) where canonical read 20/27 with seven serializer
+  rows 1.003–1.132× orjson, `_strata` code-identical to main on that leg in that run.
+  Native-v1 across the three samples, every leg and row: strata 0.720–0.917× msgspec.
