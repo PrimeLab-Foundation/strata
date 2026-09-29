@@ -1026,7 +1026,7 @@ PyObject* field_states(PyObject* pairs) {
  * changes what `dataclasses.fields` lists without changing the dict
  * fields_match compares.
  */
-bool field_states_match(PyObject* pairs, PyObject* states) {
+STRATA_NOINLINE_HOT bool field_states_match(PyObject* pairs, PyObject* states) {
     const Py_ssize_t count = PyTuple_GET_SIZE(pairs) / 2;
     if (PyTuple_GET_SIZE(states) != 2 * count)
         return false;
@@ -1452,41 +1452,17 @@ PyObject* enum_value(PyObject* member) {
                             stock_enum_value(Py_TYPE(member)) ? g_names.value_slot : g_names.value);
 }
 
-PyObject* dataclass_field_names(PyObject* object, PyObject*& keys) {
-    keys = nullptr;
-    // Held across every call below: `dataclasses.fields` and the attribute
-    // read run code that can reassign `object.__class__`, and the type may
-    // then have no other owner.
-    const PyRef held(Py_NewRef(reinterpret_cast<PyObject*>(Py_TYPE(object))));
-    PyObject* const type = held.get();
-    if (g_table.field_cache == nullptr) {
-        g_table.field_cache = PyDict_New();
-        if (g_table.field_cache == nullptr)
-            return nullptr;
-    }
-    PyObject* const cache = g_table.field_cache;
-    // What `dataclasses.fields` reads: it lists this dict's values, in order.
-    // A cached entry stands while an exact dict holds the same keys and
-    // fields, by identity and in order; anything else is a miss.
-    PyObject* plain = nullptr;
-    const PyRef declared(plain_class_attribute(reinterpret_cast<PyTypeObject*>(type),
-                                               g_names.dataclass_fields, plain) == 1
-                             ? Py_NewRef(plain)
-                             : PyObject_GetAttr(type, g_names.dataclass_fields));
-    if (!declared)
-        return nullptr;
-    const bool exact = PyDict_CheckExact(declared.get());
-    if (exact) {
-        PyObject* const cached = PyDict_GetItemWithError(cache, type);
-        if (cached != nullptr && fields_match(declared.get(), PyTuple_GET_ITEM(cached, 0)) &&
-            field_states_match(PyTuple_GET_ITEM(cached, 0), PyTuple_GET_ITEM(cached, 3))) {
-            PyObject* const encoded = PyTuple_GET_ITEM(cached, 2);
-            keys = encoded == Py_None ? nullptr : Py_NewRef(encoded);
-            return Py_NewRef(PyTuple_GET_ITEM(cached, 1));
-        }
-        if (cached == nullptr && PyErr_Occurred())
-            return nullptr;
-    }
+namespace {
+
+/**
+ * dataclass_field_names' miss: list the names through `dataclasses.fields`
+ * and, when nothing changed while they were listed, cache them. Out of line
+ * and cold: a type's entry is filled once, and the per-object hit path must
+ * keep its own register allocation and layout (E26-P23's lesson).
+ */
+STRATA_COLD_FN PyObject* refresh_field_names(PyObject* type, PyObject* declared_object, bool exact,
+                                             PyObject* cache, PyObject*& keys) {
+    const PyRef declared(Py_NewRef(declared_object));
     // Taken before the calls below, which run code that can change the dict.
     const PyRef pairs(exact ? field_pairs(declared.get()) : nullptr);
     if (exact && !pairs)
@@ -1532,6 +1508,46 @@ PyObject* dataclass_field_names(PyObject* object, PyObject*& keys) {
         return nullptr;
     keys = encoded.get() == Py_None ? nullptr : Py_NewRef(encoded.get());
     return names.release();
+}
+
+} // namespace
+
+PyObject* dataclass_field_names(PyObject* object, PyObject*& keys) {
+    keys = nullptr;
+    // Held across every call below: `dataclasses.fields` and the attribute
+    // read run code that can reassign `object.__class__`, and the type may
+    // then have no other owner.
+    const PyRef held(Py_NewRef(reinterpret_cast<PyObject*>(Py_TYPE(object))));
+    PyObject* const type = held.get();
+    if (g_table.field_cache == nullptr) {
+        g_table.field_cache = PyDict_New();
+        if (g_table.field_cache == nullptr)
+            return nullptr;
+    }
+    PyObject* const cache = g_table.field_cache;
+    // What `dataclasses.fields` reads: it lists this dict's values, in order.
+    // A cached entry stands while an exact dict holds the same keys and
+    // fields, by identity and in order; anything else is a miss.
+    PyObject* plain = nullptr;
+    const PyRef declared(plain_class_attribute(reinterpret_cast<PyTypeObject*>(type),
+                                               g_names.dataclass_fields, plain) == 1
+                             ? Py_NewRef(plain)
+                             : PyObject_GetAttr(type, g_names.dataclass_fields));
+    if (!declared)
+        return nullptr;
+    const bool exact = PyDict_CheckExact(declared.get());
+    if (exact) {
+        PyObject* const cached = PyDict_GetItemWithError(cache, type);
+        if (cached != nullptr && fields_match(declared.get(), PyTuple_GET_ITEM(cached, 0)) &&
+            field_states_match(PyTuple_GET_ITEM(cached, 0), PyTuple_GET_ITEM(cached, 3))) {
+            PyObject* const encoded = PyTuple_GET_ITEM(cached, 2);
+            keys = encoded == Py_None ? nullptr : Py_NewRef(encoded);
+            return Py_NewRef(PyTuple_GET_ITEM(cached, 1));
+        }
+        if (cached == nullptr && PyErr_Occurred())
+            return nullptr;
+    }
+    return refresh_field_names(type, declared.get(), exact, cache, keys);
 }
 
 PyObject* field_value(PyObject* object, PyObject* name) { return PyObject_GetAttr(object, name); }

@@ -4746,3 +4746,13 @@ waits on it.
   000 iterations; the generic `field_attribute` 14), and `sample` puts 28.6% of a dataclass loop in
   `dataclass_field_names`' own body (`sample_tip_dc.txt`), where L1–L12's does not reach the top
   of the list. Mechanism not yet found; no cheaper invalidation chosen (lead's call).
+
+- **The profiled cost, cured by E26-P23's shape** (one bounded cycle, lead-approved): the
+  field-cache miss path (list through `dataclasses.fields`, snapshot, encode, fill) moves out of
+  `dataclass_field_names` into `refresh_field_names`, `STRATA_COLD_FN`, and `field_states_match`
+  goes out of line (`STRATA_NOINLINE_HOT`); the training payload already reached the miss path
+  only at fill (2 of 496 000 calls). One `make pgo` cycle (exit 0, both guards and the `_strata`
+  hash check passing), same session against the profiled L1–L12 build (`p14`, 240 samples):
+  records **1.0069 \[0.9809, 1.0200\]** (the previous tip 1.0963), file 1.0115 \[0.9465,
+  1.0192\] (1.0781), dataclass lists 1.0572 \[1.0315, 1.0724\] (1.2954) — the unprofiled price
+  (+0.75% / +5.35%) restored. strata/msgspec: records 0.752×, file 0.730×. Kept.
