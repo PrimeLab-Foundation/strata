@@ -1,0 +1,147 @@
+M15b linux-arm64 held-profile identity failure -- local replay, 2026-09-29.
+Explains CI run 36585989834 (benchmark.yml, exp/native-types 565fab2, identity_base=38eaa9f248f509d9a4beb75b267189d011c1109e):
+linux-arm64's held-profile PGO+LTO identity check failed (.text differs; .rela.plt and
+.note.gnu.build-id too), the only one of five legs to fail; the plain (non-PGO) comparison on that
+leg passed. Diagnostic only -- no dispatch, no push.
+
+Container: ubuntu:24.04 (Dockerfile), native --platform linux/arm64 on an aarch64 Docker host (no
+QEMU). apt clang 18.1.3-1ubuntu1, llvm-18, cmake 3.28.3, binutils/GNU ld 2.42, git, make,
+python3.12/python3.12-dev/python3.12-venv 3.12.3-1ubuntu0.17, libstdc++-14-dev (CI: CPython
+3.12.14, GNU ld 2.42 per run_info.json/ci_summary.md -- close enough to CI's toolchain that the
+held-profile mechanism reproduces; not claimed byte-for-byte with the runner image).
+Repo cloned from the host mount into /work inside the container (`git clone /hostrepo /work`);
+identity_ab.py's own `git worktree add`/`remove` then operate only on that in-container clone, at
+/work/arm -- never on the host repo.
+
+## Step 1 -- `python3 scripts/identity_ab.py --base 38eaa9f... --arm-dir /work/arm --out /work/out`
+
+Reproduces at 565fab2. Output: step1_identity_ab.log (condensed: worktree/build/gate lines only,
+pip download noise stripped), identity.txt, identity_plain.json, identity_pgo_A_vs_Bheld.json.
+
+  plain (base_plain vs head_plain):        CODE IDENTICAL, 13/13 sections incl. .text -- exit 0
+  held-profile pgo (base_pgo vs head_pgo_held, head rebuilt against base's own freshly-trained
+                     profile, same /work/arm path both times):
+    .text            DIFFERS (gate)
+    .rela.plt        differs
+    .note.gnu.build-id  differs
+    every other loaded section (.data, .rodata, .got, .plt, .dynsym, .eh_frame, ...) identical
+    CODE DIFFERS: stop before timing -- exit 1
+
+Matches CI run 36585989834's report exactly: the same three sections named, the same leg, the
+other four legs (not replayed here) reported identical in that run.
+
+## Step 2 -- build-noise control (identity_ab.held_profile_rebuild reused directly)
+
+step2_noise_control.py checks out BASE into a *fresh* worktree at the same /work/arm path, runs
+`make install-bench` to recreate the venv/deps (build_plain), then held_profile_rebuild against
+BASE's own already-trained profile (base_pgo.profdata, byte-identical file, not retrained) --
+producing base_pgo_held (A_held). Compares:
+
+  A (base_pgo) vs A_held (base_pgo_held) -- same source (BASE), same profile bytes, same path,
+    rebuilt via the *held* recipe instead of the *training* recipe:
+    CODE IDENTICAL, all 13 sections including .note.gnu.build-id -- exit 0
+    (step2_noise_control.log)
+
+  A_held (base_pgo_held) vs B_held (head_pgo_held, from step 1) -- same profile bytes, same path,
+    only the source differs (BASE vs HEAD, 13 commits):
+    .text DIFFERS (gate), .rela.plt differs, .note.gnu.build-id differs -- exit 1, same shape as
+    step 1's A vs B_held (identity_A_vs_Aheld.json, identity_Aheld_vs_Bheld.json)
+
+**Verdict: not build noise.** The held-profile recipe is deterministic when the source does not
+change (A vs A_held: perfect byte identity, build-id included). The .text/.rela.plt/build-id
+divergence appears only when the source differs (base vs head), with directory and profile bytes
+held fixed in both step-1 and step-2 pairs. This is a stronger isolation than the 2026-09-27
+precedent (M12b run 36279770980/91977906, docs/decisions.md), which had A and B-held built in
+different directories and could not separate "profile" from "directory"; here both are pinned and
+only source varies, so source is the remaining variable.
+
+## Step 3 -- `benchmarks/normalised_disassembly.py` (layout vs code)
+
+  base_pgo vs head_pgo_held (normalised_A-vs-Bheld.txt):
+    functions: A 423, B 423, only in one 0
+    identical after name+address normalisation: 416/423
+    differing only in page-offset slot immediates: 7
+    differing beyond that: 0
+
+  base_pgo_held vs head_pgo_held (normalised_Aheld-vs-Bheld.txt, the noise-controlled pair):
+    functions: A 423, B 423, only in one 0
+    identical after name+address normalisation: 416/423
+    differing only in page-offset slot immediates: 7
+    differing beyond that: 0
+
+Both pairs read identically: every function's instruction stream matches once ThinLTO's
+`.llvm.<N>` promoted-name suffixes and branch/call target addresses are normalised; of the 423
+common functions, 7 differ only in `ldr`/`add` page-offset immediates (GOT/data-slot offsets,
+which follow link order, not code) and 0 differ beyond that. No function's *instructions* differ
+between base and head anywhere in `_strata` -- the failing gate is layout (link order from a
+shifted ThinLTO module hash), not code, on this leg, matching the 2026-09-27 M12b precedent's
+"layout, not code" finding (docs/decisions.md) but with fewer affected functions (7 vs 17 there),
+consistent with M15b's smaller source diff.
+
+## Step 4 -- does `-g` explain it, and is a line-number shift the mechanism?
+
+build_flags_check.txt: every one of `_strata`'s 19 compile commands (a standalone SKIP_TESTS=1
+build at 565fab2, used only to read compiler flags) carries `-g` (from CPython 3.12's sysconfig
+CFLAGS on Ubuntu: `-fno-strict-overflow -Wsign-compare -DNDEBUG -g -O2 -Wall -fPIC ...`, with this
+project's own `-std=c++20 -O3 ... -march=native` appended after -- `-O3` wins over the base `-O2`,
+`-g` stays on). So every object carries DWARF debug info, including per-instruction source
+file/line (DILocation), derived from the *raw* source file's line numbers -- not from the
+preprocessed/token-normalised stream that `token_identity.sh` compares.
+
+source_diff_shape.txt: base..head touches exactly the three named files, and every hunk in two of
+them is a preprocessor guard around code `_strata` already had:
+  - python_dumps.cpp: +535/-26 lines, 7 new `#if defined(STRATA_DUMPS_HOOK)` blocks (dead code for
+    `_strata`, where that macro is undefined -- doesn't compile in, so no new tokens for `_strata`,
+    but the `#if`/`#endif`/comment lines still occupy line numbers in the file).
+  - python_files.cpp: +7/-0, python_folder.cpp: +17/-2, both wrapping their *existing* function
+    bodies in `#if !defined(STRATA_DUMPS_HOOK)` ... `#endif` (true for `_strata`, so the code is
+    included unchanged -- same tokens, but preceded by new guard/comment lines that shift every
+    line number below them in the file).
+
+This is consistent with the M15b design record's own claim (identity-m1 evidence, docs/decisions.md
+2026-09-29 "Flag shape (M15b)"): `_strata`'s 18 TUs are *token*-identical to base on both ISAs
+(`token_identity.sh`, which compares preprocessed token streams). Token identity does not imply
+line-number identity: the guard directives this diff adds shift the raw source's line numbers for
+every following line in the same file, so a compiler that emits `-g` records different DILocation
+line attributes for the *same* instructions. LLVM's ThinLTO per-module hash (the source of the
+`.llvm.<N>` promoted-local-name suffix, docs/decisions.md 2026-09-27) is computed over the module's
+IR, and debug metadata is part of that IR -- so a line-number-only source change, with zero token
+or instruction change, is sufficient to move the hash, reorder ThinLTO's promotion/link, and shift
+GOT-slot placement, without changing a single instruction. Nothing else changed here: same
+compiler, same flags, same build directory, same profile bytes (step 2 pins all three), and step
+3 finds zero instructions differing beyond page-offset immediates. This is not proven by direct
+DILocation inspection (no such probe was run this session); it is the mechanism consistent with
+every artifact gathered (-g on, guard-only diff in exactly the touched files, code-identical
+disassembly, build-noise ruled out) and with the class of cause the 2026-09-27 precedent already
+established for this same leg (module hash following something other than instruction content).
+
+## Answer: code or layout?
+
+**Layout, not code.** Every one of `_strata`'s compiled instructions is unchanged between base
+38eaa9f and head 565fab2 on linux-arm64 (0 functions differ beyond ThinLTO suffix/address
+normalisation and GOT-slot immediates, in both the direct and noise-controlled pairs). The failing
+held-profile identity gate is driven by a link-order change downstream of a ThinLTO module-hash
+shift, most likely triggered by `-g`-recorded line-number movement from preprocessor guards added
+around otherwise-unchanged code in python_files.cpp/python_folder.cpp and dead-for-`_strata` guards
+added in python_dumps.cpp -- not by any behavioural or codegen change. Build/profile nondeterminism
+is ruled out directly (step 2's A vs A_held is byte-identical, build-id included).
+
+## Files in this directory
+
+  Dockerfile                                the replay container
+  step2_noise_control.py                    driver script for step 2 (imports identity_ab.py's
+                                             own build_plain/held_profile_rebuild/worktree_* )
+  step1_identity_ab.log                     condensed log of scripts/identity_ab.py's run
+  step2_noise_control.log                   condensed log of step 2's run
+  identity.txt                              identity_ab.py's own summary (plain_exit/held_pgo_exit)
+  identity_plain.json                       image_identity.py: base_plain vs head_plain
+  identity_pgo_A_vs_Bheld.json              image_identity.py: base_pgo vs head_pgo_held (step 1)
+  identity_A_vs_Aheld.json                  image_identity.py: base_pgo vs base_pgo_held (step 2)
+  identity_Aheld_vs_Bheld.json              image_identity.py: base_pgo_held vs head_pgo_held (step 2)
+  normalised_A-vs-Bheld.txt                 normalised_disassembly.py: base_pgo vs head_pgo_held
+  normalised_Aheld-vs-Bheld.txt             normalised_disassembly.py: base_pgo_held vs head_pgo_held
+  build_flags_check.txt                     -g flag check on `_strata`'s 19 compile commands
+  source_diff_shape.txt                     git diff --stat and guard-line counts for the 3 files
+
+No `.so`/`.profdata` images are committed (per instructions); the four built images and the
+profile stayed in the container's /work/out and were discarded with the container.

@@ -1,0 +1,11 @@
+=== git diff --stat 38eaa9f248f509d9a4beb75b267189d011c1109e..565fab2 -- the three named files ===
+ src/strata/bindings/python_dumps.cpp  | 535 ++++++++++++++++++++++++++++++++--
+ src/strata/bindings/python_files.cpp  |   7 +
+ src/strata/bindings/python_folder.cpp |  17 ++
+ 3 files changed, 533 insertions(+), 26 deletions(-)
+
+=== guard-line counts added (python_dumps.cpp: #if defined(STRATA_DUMPS_HOOK); files/folder: #if !defined(STRATA_DUMPS_HOOK)) ===
+python_dumps.cpp new '#if defined(STRATA_DUMPS_HOOK)' blocks:
+7
+python_files.cpp / python_folder.cpp new guard directive lines (+#if / +#endif):
+8
