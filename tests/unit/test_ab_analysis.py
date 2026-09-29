@@ -615,3 +615,129 @@ def test_the_build_identity_travels_with_the_swapped_extension(tmp_path, monkeyp
     installed.restore()
     assert sidecar.read_text() == '{"extension_sha256": "original"}'
     assert not sidecar.with_name(sidecar.name + ".ab_original").exists()
+
+
+# --- each arm's Python facade travels with its extension --------------------
+
+
+def _write_facade(root, text):
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "__init__.py").write_text(text)
+    (root / "serialize.py").write_text(text + " serialize")
+    return root
+
+
+def _arms_with_facades(tmp_path):
+    arms = _arms(tmp_path)
+    for tag, arm in arms.items():
+        _write_facade(arm.with_name(arm.name + ab_builds.FACADE_SUFFIX), f"arm {tag}")
+    return arms
+
+
+def test_each_launch_runs_its_arms_facade_and_the_checkouts_comes_back(tmp_path, monkeypatch):
+    """Run 36497513720: main's `_strata` under the candidate's facade could not launch."""
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    package = _write_facade(target.parent, "checkout")
+    (package / "only_in_checkout.py").write_text("x")
+    cache = package / "__pycache__"
+    cache.mkdir()
+    (cache / "serialize.cpython-314.pyc").write_bytes(b"stale bytecode")
+    before = ab_builds.facade_digest(package)
+    arms = _arms_with_facades(tmp_path)
+    seen = []
+
+    def launch(index, tag):
+        seen.append(
+            (
+                target.read_bytes() == arms[tag].read_bytes(),
+                (package / "__init__.py").read_text(),
+                (package / "only_in_checkout.py").exists(),
+                cache.exists(),
+            )
+        )
+        return []
+
+    ab_builds.drive(list("ABBA"), arms, target, tmp_path / "run.tsv", launch)
+
+    assert seen == [(True, f"arm {tag}", False, False) for tag in "ABBA"]
+    assert ab_builds.facade_digest(package) == before
+    assert (package / "only_in_checkout.py").read_text() == "x"
+    assert not package.with_name(package.name + ".ab_original_facade").exists()
+    assert target.read_bytes() == b"the extension that was installed"
+
+
+def test_a_failing_launch_still_puts_the_checkouts_facade_back(tmp_path, monkeypatch):
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    package = _write_facade(target.parent, "checkout")
+    before = ab_builds.facade_digest(package)
+
+    def launch(index, tag):
+        if index == 1:
+            raise SystemExit("launch 01 (B) failed with 1")
+        return []
+
+    with pytest.raises(SystemExit, match="launch 01"):
+        ab_builds.drive(
+            list("ABBA"), _arms_with_facades(tmp_path), target, tmp_path / "r.tsv", launch
+        )
+
+    assert ab_builds.facade_digest(package) == before
+    assert not package.with_name(package.name + ".ab_original_facade").exists()
+    assert target.read_bytes() == b"the extension that was installed"
+
+
+def test_a_facade_on_some_arms_only_is_refused_before_anything_is_swapped(tmp_path, monkeypatch):
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    arms = _arms(tmp_path)
+    _write_facade(arms["A"].with_name(arms["A"].name + ab_builds.FACADE_SUFFIX), "arm A")
+    out = tmp_path / "run.tsv"
+
+    with pytest.raises(SystemExit, match=r"\['B'\] carry no"):
+        ab_builds.drive(list("ABBA"), arms, target, out, lambda i, t: pytest.fail("launched"))
+
+    assert not target.with_name(target.name + ".ab_original").exists()
+    assert not out.exists()
+
+
+def test_a_killed_campaigns_facade_is_restored_not_clobbered(tmp_path, monkeypatch, capsys):
+    import shutil
+
+    monkeypatch.setattr(ab_builds, "PROJECT_ROOT", tmp_path)
+    target = _fake_target(tmp_path)
+    package = _write_facade(target.parent, "checkout")
+    before = ab_builds.facade_digest(package)
+    backup = package.with_name(package.name + ".ab_original_facade")
+    shutil.copytree(package, backup)
+    _write_facade(package, "arm B")  # the killed run's facade, still installed
+
+    ab_builds.drive(
+        list("AB"), _arms_with_facades(tmp_path), target, tmp_path / "r.tsv", lambda i, t: []
+    )
+
+    assert ab_builds.facade_digest(package) == before
+    assert (package / "__init__.py").read_text() == "checkout"
+    assert not backup.exists()
+    assert "is not the installed facade" in capsys.readouterr().err
+
+
+def test_the_collected_facade_is_the_python_files_only(tmp_path):
+    import shutil
+
+    from benchmarks import ab_same_path_arms
+
+    package = tmp_path / "strata"
+    (package / "sub").mkdir(parents=True)
+    (package / "__pycache__").mkdir()
+    for name in ("__init__.py", "sub/__init__.py", "_strata.so", "_strata.so.build.json"):
+        (package / name).write_text("")
+    (package / "__pycache__" / "x.cpython-314.pyc").write_bytes(b"")
+    facade = tmp_path / "A.so.facade"
+
+    shutil.copytree(package, facade, ignore=ab_same_path_arms._outside_facade)
+
+    assert ab_builds.facade_files(facade) == [Path("__init__.py"), Path("sub/__init__.py")]
+    assert sorted(path.name for path in facade.iterdir()) == ["__init__.py", "sub"]
+    assert ab_builds.arm_facade(tmp_path / "A.so") == facade

@@ -17,7 +17,8 @@ promoted local with a module hash (`.llvm.<N>`) that moves with the build
 directory, and that leg's link order follows it (docs/decisions.md, 2026-09-27).
 Builds sharing a path leave the sources and the profile as the only differences.
 
-Outputs: `arms/{A,A2,B,B_held}.<ext>` (+ `.build.json`), `ab/profile-<label>/`,
+Outputs: `arms/{A,A2,B,B_held}.<ext>` (+ `.build.json`, and the arm's Python facade
+as `.facade/`), `ab/profile-<label>/`,
 `ab/build-<label>.log`, `ab/arms.txt`, and the identity diagnostics
 `ab/identity*.{txt,json}` and `ab/identity-status.txt`. Nothing here fails the job
 on identity: an image that differs is recorded (with the normalised disassembly)
@@ -99,6 +100,16 @@ def held_profile_rebuild(arm_dir: Path, profile: Path, log: Path) -> None:
     )
 
 
+def _outside_facade(directory: str, names: list[str]) -> list[str]:
+    """`copytree`'s filter: the facade is every `*.py`, bytecode caches excluded."""
+    return [
+        name
+        for name in names
+        if name == "__pycache__"
+        or not (name.endswith(".py") or os.path.isdir(os.path.join(directory, name)))
+    ]
+
+
 def collect(label: str, arm_dir: Path) -> None:
     vpy = venv_python(arm_dir)
     binary = Path(
@@ -114,6 +125,11 @@ def collect(label: str, arm_dir: Path) -> None:
     identity = Path(str(binary) + ".build.json")
     if identity.is_file():
         shutil.copy2(identity, f"arms/{label}{EXT}.build.json")
+    # The arm's own Python facade travels with its extension: the drivers find
+    # it as `<build>.facade/` (ab_builds.arm_facade) and swap it per launch.
+    facade = Path(f"arms/{label}{EXT}.facade")
+    shutil.rmtree(facade, ignore_errors=True)
+    shutil.copytree(binary.parent, facade, ignore=_outside_facade)
     digest = hashlib.md5(Path(f"arms/{label}{EXT}").read_bytes()).hexdigest()
     head = subprocess.run(
         ["git", "-C", str(arm_dir), "rev-parse", "--short", "HEAD"],

@@ -8,7 +8,8 @@ file operations — `load`, NDJSON `load` and `dump` — which the `dumps`-only
 probe cannot measure at all.
 
 Everything that decides a number is imported from `ab_builds` unchanged —
-`drive` (the swap, the incremental TSV, the restore in `finally`), `_digest`,
+`drive` (the extension and facade swap, the incremental TSV, the restore in
+`finally`), `_digest`,
 `_check_target` and `analyze`, which is itself a view over
 `benchmarks/ab_blocks`. This file contains no statistics of its own, and its
 `--min-samples` default is `ab_blocks.DEFAULT_MIN_SAMPLES`, so a packet this

@@ -173,6 +173,10 @@ jobs:
         # B-vs-A is read against. B_held is B's source against A's profile: the
         # identity proof, recorded (with a normalised disassembly) and never a
         # stop -- a leg whose code differs is timed and marked unverified.
+        # Each arm's Python facade is collected beside it (arms/<arm>.<ext>.facade)
+        # and travels with the extension: ab_rows/ab_builds swap both per launch
+        # and restore the checkout's, and canonical_builds stages both (run
+        # 36497513720 timed nothing: main's _strata under the candidate's facade).
         shell: bash
         run: |
           if [ -s ab/patches.txt ]; then echo "same-path arms support experiment=none only" >&2; exit 2; fi
@@ -269,11 +273,18 @@ jobs:
           sudo sysctl -w kernel.perf_event_paranoid=1 || true
           PERF=$(ls /usr/lib/linux-tools/*/perf 2>/dev/null | head -1 || echo perf)
           TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
+          # Each arm runs from a staged package -- its extension under its own
+          # facade (arms/<arm>.so.facade, run 36497513720) -- ahead of the
+          # checkout on the path, so the checkout is never written.
           for arm in A B; do
-            cp arms/$arm.so "$TARGET"
+            STAGE="$RUNNER_TEMP/perf-$arm"
+            rm -rf "$STAGE" && mkdir -p "$STAGE"
+            cp -R arms/$arm.so.facade "$STAGE/strata"
+            cp arms/$arm.so "$STAGE/strata/$(basename "$TARGET")"
             for ds in flat users; do
-              PYTHONPATH=. $PERF record -q -F 4999 -o ab/perf.$arm.$ds.data -- .venv/bin/python - <<PY
+              PYTHONPATH="$STAGE:." $PERF record -q -F 4999 -o ab/perf.$arm.$ds.data -- .venv/bin/python - <<PY
           import json, time, strata
+          assert strata._strata.__file__.startswith("$STAGE/"), strata._strata.__file__
           doc = json.load(open("benchmarks/data/generated/small/$ds.json"))
           end = time.perf_counter() + 4.0
           # return_type="bytes": the CI `dumps` row and rows_probe's
@@ -286,7 +297,6 @@ jobs:
               $PERF report -i ab/perf.$arm.$ds.data --stdio --no-children --sort symbol 2>/dev/null | grep -v '^#' | grep -v '^$' | head -40 > ab/perf_report.$arm.$ds.txt || true
             done
           done
-          cp arms/B.so "$TARGET"
           rm -f ab/perf.*.data
           for f in ab/perf_report.*.txt; do echo "== $f"; head -20 "$f"; done
 

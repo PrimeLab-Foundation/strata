@@ -4,7 +4,8 @@ A build comparison on a desktop that is also being used has one honest shape,
 and this is it:
 
 * **Same virtualenv, same interpreter, same rival binaries.** Only the strata
-  extension changes between launches, so nothing else can explain a difference.
+  extension changes between launches — with its Python facade, when the arms
+  carry theirs (`<build>.facade/`) — so nothing else can explain a difference.
 * **Fresh process per launch.** A loaded shared library cannot be replaced in
   place; a driver that pretends otherwise is measuring the first build twice.
 * **A-B-B-A blocks.** Linear drift over a block cancels inside the block: the
@@ -219,6 +220,136 @@ class InstalledExtension:
             self.sidecar_backup.unlink()
 
 
+FACADE_SUFFIX = ".facade"
+
+
+def arm_facade(build: Path) -> Path | None:
+    """The Python facade collected beside @p build (`<build>.facade/`), if any."""
+    facade = build.with_name(build.name + FACADE_SUFFIX)
+    return facade if facade.is_dir() else None
+
+
+def arm_facades(builds: dict[str, Path]) -> dict[str, Path] | None:
+    """Each arm's facade, or None when no arm carries one; a mixed set is refused.
+
+    An extension run under another revision's facade either fails to launch
+    (run 36497513720: the candidate's `loads` passes `parse_types=` to main's
+    `_strata`) or times Python code its arm does not ship. With no facade beside
+    any arm, every launch runs the checkout's own, as before; with some but not
+    all, which facade an arm runs would depend on the order, so nothing runs.
+    """
+    facades = {tag: arm_facade(path) for tag, path in builds.items()}
+    missing = sorted(tag for tag, facade in facades.items() if facade is None)
+    if len(missing) == len(facades):
+        return None
+    if missing:
+        raise SystemExit(
+            f"builds {missing} carry no <build>{FACADE_SUFFIX}/ while the others do; "
+            "every arm needs its own facade or none may have one"
+        )
+    return facades
+
+
+def facade_files(root: Path) -> list[Path]:
+    """The facade: every `*.py` under @p root, as paths relative to it."""
+    return sorted(
+        path.relative_to(root)
+        for path in root.rglob("*.py")
+        if "__pycache__" not in path.relative_to(root).parts
+    )
+
+
+def facade_digest(root: Path) -> str:
+    digest = hashlib.md5()  # noqa: S324
+    for relative in facade_files(root):
+        data = (root / relative).read_bytes()
+        digest.update(f"{relative.as_posix()}\0{len(data)}\0".encode())
+        digest.update(data)
+    return digest.hexdigest()
+
+
+def _replace_facade(destination: Path, source: Path) -> None:
+    """Make @p destination's facade exactly @p source's; other files stay.
+
+    The bytecode caches go too: `copy2` keeps the source's mtime, and a cache
+    validated by mtime and size could otherwise serve the other arm's code.
+    """
+    if destination.exists():
+        for relative in facade_files(destination):
+            (destination / relative).unlink()
+        for cache in list(destination.rglob("__pycache__")):
+            shutil.rmtree(cache)
+    for relative in facade_files(source):
+        (destination / relative).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source / relative, destination / relative)
+
+
+class InstalledFacade:
+    """The checkout's Python facade: saved, swapped per launch, restored, verified.
+
+    The same contract as `InstalledExtension`, for the `*.py` files of the
+    package directory the extension sits in. The saved copy is a sibling
+    directory, `<package>.ab_original_facade`, outside the package (a dotted
+    name is never a package). It is written under a `.partial` name and renamed
+    once complete, so a leftover backup is always a whole facade and follows the
+    extension's recovery rule: equal to the installed facade, it is reused;
+    different, it is put back before anything else.
+    """
+
+    def __init__(self, package: Path) -> None:
+        self.package = package
+        self.backup = package.with_name(package.name + ".ab_original_facade")
+        if self.backup.exists():
+            self._recover()
+        else:
+            partial = self.backup.with_name(self.backup.name + ".partial")
+            shutil.rmtree(partial, ignore_errors=True)
+            partial.mkdir()
+            _replace_facade(partial, package)
+            partial.rename(self.backup)
+        self.digest = facade_digest(self.package)
+
+    def _recover(self) -> None:
+        saved = facade_digest(self.backup)
+        if saved == facade_digest(self.package):
+            print(
+                f"# {self.backup} matches the installed facade: reused as this run's backup",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+        print(
+            f"# {self.backup} (md5={saved}) is not the installed facade "
+            f"(md5={facade_digest(self.package)}): a previous run was killed before it "
+            f"could restore. Putting {self.package} back from it before this run starts.",
+            file=sys.stderr,
+            flush=True,
+        )
+        _replace_facade(self.package, self.backup)
+        if facade_digest(self.package) != saved:
+            raise SystemExit(
+                f"facade recovery failed: {self.package} does not match the saved "
+                f"original; the saved copy is kept at {self.backup}"
+            )
+
+    def install(self, source: Path) -> str:
+        _replace_facade(self.package, source)
+        digest = facade_digest(self.package)
+        if digest != facade_digest(source):
+            raise SystemExit(f"facade {source} did not land in {self.package}: {digest}")
+        return digest
+
+    def restore(self) -> None:
+        _replace_facade(self.package, self.backup)
+        digest = facade_digest(self.package)
+        if digest != self.digest:
+            raise SystemExit(
+                f"facade restore failed: {self.package} is {digest}, the original was "
+                f"{self.digest}; the saved copy is kept at {self.backup}"
+            )
+        shutil.rmtree(self.backup)
+
+
 def drive(
     order: list[str],
     builds: dict[str, Path],
@@ -230,16 +361,30 @@ def drive(
 
     `launch(index, tag)` returns the TSV lines that launch produced; it is a
     parameter so the drivers' subprocess machinery and this file's recovery
-    guarantees can be tested apart from each other.
+    guarantees can be tested apart from each other. When the arms carry their
+    facades (`arm_facades`), each launch installs its arm's beside the
+    extension, and the checkout's is put back in the same `finally`.
     """
     _refuse_if_target_imported(target)
+    facades = arm_facades(builds)
     extension = InstalledExtension(target)
+    facade = None
     try:
+        if facades is None:
+            print("# facade   not swapped: no build carries one", file=sys.stderr, flush=True)
+        else:
+            facade = InstalledFacade(extension.target.parent)
+            print(f"# facade   {facade.package} swapped per launch", file=sys.stderr, flush=True)
         writer = SampleWriter(out)
         try:
             for index, tag in enumerate(order):
                 digest = extension.install(builds[tag])
-                print(f"# launch {index:02d} build={tag} md5={digest}", file=sys.stderr, flush=True)
+                note = "" if facade is None else f" facade_md5={facade.install(facades[tag])}"
+                print(
+                    f"# launch {index:02d} build={tag} md5={digest}{note}",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 writer.add(launch(index, tag))
         finally:
             writer.close()
@@ -249,8 +394,17 @@ def drive(
                 flush=True,
             )
     finally:
-        extension.restore()
-        print(f"# restored {target} to md5={extension.digest}", file=sys.stderr, flush=True)
+        try:
+            extension.restore()
+            print(f"# restored {target} to md5={extension.digest}", file=sys.stderr, flush=True)
+        finally:
+            if facade is not None:
+                facade.restore()
+                print(
+                    f"# restored facade {facade.package} to md5={facade.digest}",
+                    file=sys.stderr,
+                    flush=True,
+                )
     return writer
 
 

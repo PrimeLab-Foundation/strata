@@ -95,3 +95,48 @@ def test_child_keeps_its_import_check_without_python_optimize(tmp_path, monkeypa
     assert seen["env"] is not None and "PYTHONOPTIMIZE" not in seen["env"]
     bootstrap = seen["command"][2]
     assert "raise SystemExit" in bootstrap and "\nassert " not in bootstrap
+
+
+def test_an_arm_carrying_its_facade_is_staged_with_it(tmp_path, monkeypatch):
+    """Run 36497513720: an arm's extension must not run under the candidate's facade."""
+    suffix = runner.sysconfig.get_config_var("EXT_SUFFIX")
+    package = tmp_path / "python/strata"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("candidate facade")
+    (package / "only_in_candidate.py").write_text("")
+    (package / ("_dumps_hook" + suffix)).write_bytes(b"hook")
+    binary = tmp_path / "A.so"
+    binary.write_bytes(b"arm A")
+    binary.with_name("A.so.build.json").write_text("{}")
+    facade = tmp_path / "A.so.facade"
+    facade.mkdir()
+    (facade / "__init__.py").write_text("arm facade")
+    monkeypatch.setattr(runner, "PROJECT_ROOT", tmp_path)
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        staged = Path(command[3]) / "strata"
+        seen["init"] = (staged / "__init__.py").read_text()
+        seen["candidate-only"] = (staged / "only_in_candidate.py").exists()
+        seen["hook"] = (staged / ("_dumps_hook" + suffix)).read_bytes()
+        seen["extension"] = (staged / ("_strata" + suffix)).read_bytes()
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    runner.measure(binary, tmp_path / "out.md", tmp_path, "small", 10)
+    assert seen == {
+        "init": "arm facade",
+        "candidate-only": False,
+        "hook": b"hook",
+        "extension": b"arm A",
+    }
+    assert (package / "__init__.py").read_text() == "candidate facade"
+
+
+def test_a_pair_where_one_arm_carries_a_facade_is_refused(tmp_path, monkeypatch):
+    monkeypatch.setattr(runner, "_check_build_identity", lambda path: None)
+    monkeypatch.setattr(runner, "measure", lambda *args: pytest.fail("measured"))
+    (tmp_path / "A.facade").mkdir()
+    with pytest.raises(SystemExit, match="carry no"):
+        runner.run(tmp_path / "A", tmp_path / "B", tmp_path / "out", tmp_path, ["small"], 10)
+    assert not (tmp_path / "out").exists()

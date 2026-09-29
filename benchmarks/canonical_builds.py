@@ -1,6 +1,9 @@
 """Full canonical before/candidate reports from two test-gated PGO binaries.
 
-Each arm runs in a fresh process with a staged copy of the Python facade.
+Each arm runs in a fresh process with a staged copy of the Python facade:
+the arm's own when it carries one beside the binary (`<binary>.facade/`,
+collected by `ab_same_path_arms.py`), else the working tree's; a pair where
+only one arm carries a facade is refused (`ab_builds.arm_facades`).
 The installed extension and metadata are never replaced. Reports remain
 diagnostic evidence: patched builds cannot become clean CI standings.
 The facade imports `strata._dumps_hook` too, which no canonical row measures:
@@ -19,7 +22,7 @@ import sysconfig
 import tempfile
 from pathlib import Path
 
-from benchmarks.ab_builds import PROJECT_ROOT, _check_build_identity
+from benchmarks.ab_builds import PROJECT_ROOT, _check_build_identity, arm_facade, arm_facades
 
 DATASETS = (
     "users.json",
@@ -51,11 +54,17 @@ def measure(binary: Path, output: Path, data: Path, tier: str, repeat: int) -> N
     with tempfile.TemporaryDirectory(prefix="strata-canonical-") as scratch:
         stage = Path(scratch).resolve()
         package = stage / "strata"
+        facade = arm_facade(binary)
+        ignored = ["_strata*", "__pycache__"] + ([] if facade is None else ["*.py"])
         shutil.copytree(
             PROJECT_ROOT / "python" / "strata",
             package,
-            ignore=shutil.ignore_patterns("_strata*", "__pycache__"),
+            ignore=shutil.ignore_patterns(*ignored),
         )
+        if facade is not None:
+            shutil.copytree(
+                facade, package, ignore=shutil.ignore_patterns("__pycache__"), dirs_exist_ok=True
+            )
         target = package / ("_strata" + sysconfig.get_config_var("EXT_SUFFIX"))
         shutil.copy2(binary, target)
         shutil.copy2(
@@ -88,6 +97,7 @@ def run(
     hook /= "_dumps_hook" + sysconfig.get_config_var("EXT_SUFFIX")
     for binary in (before, candidate, hook):
         _check_build_identity(binary)
+    arm_facades({"A": before, "B": candidate})
     # Preflight all tiers before spending time on the first one.
     for tier in tiers:
         for dataset in DATASETS:
