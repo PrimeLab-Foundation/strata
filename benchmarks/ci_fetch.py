@@ -69,6 +69,7 @@ from pathlib import Path
 
 from benchmarks.harness import (
     CI_PLATFORMS,
+    NATIVE_REPORT_NAME,
     WORKLOADS,
     read_report,
     resolve_workload,
@@ -148,13 +149,43 @@ def _download(run_id: int, into: Path) -> None:
 
 
 def _collect_reports(download_dir: Path) -> dict[str, Path]:
-    """Map platform-arch -> downloaded report, refusing colliding legs."""
+    """Map platform-arch -> downloaded canonical report, refusing colliding legs.
+
+    A native-v1 report travels in the same artifact as its leg's canonical
+    report (same platform/machine environment), so it is told apart by its
+    `Report.name` -- `_collect_native_reports` -- rather than by file name,
+    and skipped here so the two never collide on one platform key.
+    """
     reports: dict[str, Path] = {}
     for path in sorted(download_dir.rglob("*.md")):
         report = read_report(path)
+        if report.name == NATIVE_REPORT_NAME:
+            continue
         key = platform_key(report.environment)
         if key in reports:
             raise ValueError(f"two artifacts claim {key}: {reports[key].name} and {path.name}")
+        reports[key] = path
+    return reports
+
+
+def _collect_native_reports(download_dir: Path) -> dict[str, Path]:
+    """Map platform-arch -> downloaded native-v1 report.
+
+    Best-effort evidence: a colliding or unreadable native report is dropped
+    (with a warning at the call site) rather than refusing the whole fetch --
+    native-v1 coverage never gates the canonical exit code
+    (docs/decisions.md, 2026-09-29, "benchmarks").
+    """
+    reports: dict[str, Path] = {}
+    for path in sorted(download_dir.rglob("*.md")):
+        report = read_report(path)
+        if report.name != NATIVE_REPORT_NAME:
+            continue
+        key = platform_key(report.environment)
+        if key in reports:
+            raise ValueError(
+                f"two artifacts claim native-v1 {key}: {reports[key].name} and {path.name}"
+            )
         reports[key] = path
     return reports
 
@@ -282,7 +313,10 @@ def _install(dest: Path, files: dict[str, str]) -> None:
             # A stale `bench_results_*.md` of a platform this run did not
             # produce does go, though -- the directory is one run's evidence.
             for path in sorted(dest.iterdir()):
-                owned = path.name.startswith("bench_results_") or path.name == RUN_INFO_NAME
+                owned = (
+                    path.name.startswith(("bench_results_", "native_v1_"))
+                    or path.name == RUN_INFO_NAME
+                )
                 if path.is_file() and not owned:
                     shutil.copy2(path, staging / path.name)
             moved_aside = Path(tempfile.mkdtemp(prefix=f".{dest.name}.previous-", dir=dest.parent))
@@ -315,6 +349,7 @@ def _place(
     *,
     problems: Sequence[str] = (),
     expected_platforms: tuple[str, ...] = CI_PLATFORMS,
+    found_native: dict[str, Path] | None = None,
 ) -> None:
     """Render the whole replacement, then install it: one run's evidence, never a mix."""
     files: dict[str, str] = {}
@@ -329,6 +364,18 @@ def _place(
             sidecar = companion(source)
             files[f"bench_results_{key}.json"] = sidecar.read_text(encoding="utf-8")
             sidecars[key] = sidecar.relative_to(scratch).as_posix()
+
+    native_sources: dict[str, str] = {}
+    native_sidecars: dict[str, str] = {}
+    for key in sorted(found_native or {}):
+        source = found_native[key]
+        text = source.read_text(encoding="utf-8")
+        files[f"native_v1_{key}.md"] = "\n".join(text.splitlines()) + "\n"
+        native_sources[key] = source.relative_to(scratch).as_posix()
+        if validate_companion(source, text) is not None:
+            sidecar = companion(source)
+            files[f"native_v1_{key}.json"] = sidecar.read_text(encoding="utf-8")
+            native_sidecars[key] = sidecar.relative_to(scratch).as_posix()
 
     info = {
         "workflow": run.get("workflowName"),
@@ -346,11 +393,16 @@ def _place(
     }
     if problems:
         info["problems"] = list(problems)
+    if native_sources:
+        info["native_reports"] = native_sources
+        info["native_sidecars"] = native_sidecars
     files[RUN_INFO_NAME] = json.dumps(info, indent=2) + "\n"
 
     _install(dest, files)
     for key in sorted(sources):
         print(f"fetched {key} <- {sources[key]}")
+    for key in sorted(native_sources):
+        print(f"fetched native-v1 {key} <- {native_sources[key]}")
     print(f"wrote {len(sources)} report(s) + {RUN_INFO_NAME} -> {dest}")
 
 
@@ -420,6 +472,28 @@ def main(argv: list[str] | None = None) -> int:
                 sys.stderr.write(f"error: run {run_id} uploaded no benchmark reports\n")
                 return 1
 
+            # native-v1 evidence is optional and best-effort: a leg that did
+            # not run it, or a report this tool cannot make sense of, is a
+            # note on stderr, never a reason to refuse the canonical fetch.
+            try:
+                found_native = _collect_native_reports(scratch_path)
+            except ValueError as error:
+                sys.stderr.write(f"warning: native-v1 reports: {error}; none placed\n")
+                found_native = {}
+            head = str(run.get("headSha") or "").strip()
+            for key in sorted(found_native):
+                native_report = read_report(found_native[key])
+                commit = (native_report.environment.get("commit") or "").strip()
+                if not native_report.measurements:
+                    sys.stderr.write(f"warning: native-v1 {key} has no measurements; not placed\n")
+                    del found_native[key]
+                elif commit and head and not (head.startswith(commit) or commit.startswith(head)):
+                    sys.stderr.write(
+                        f"warning: native-v1 {key} commit {commit} is not run {run_id}'s "
+                        f"{head[:12]}; not placed\n"
+                    )
+                    del found_native[key]
+
             identity, coverage = _verify(
                 found,
                 run,
@@ -452,6 +526,7 @@ def main(argv: list[str] | None = None) -> int:
                     scratch_path,
                     problems=coverage,
                     expected_platforms=expected_platforms,
+                    found_native=found_native,
                 )
             except ValueError as error:
                 # An evidence defect the verification above should have

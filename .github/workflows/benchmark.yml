@@ -38,6 +38,17 @@ on:
   schedule:
     - cron: "0 2 * * 1" # Mondays, 02:00 UTC
   workflow_dispatch:
+    inputs:
+      identity_base:
+        description: >
+          Ref to compare HEAD against with the same-absolute-path A/B build
+          identity check (scripts/identity_ab.py). Empty (default): skipped.
+          When set, every leg builds that revision's `_strata` against its own
+          freshly trained profile in the same build path (plain builds too),
+          compares code sections with benchmarks/image_identity.py, uploads
+          identity-<platform>.txt, and fails the leg on a PGO+LTO mismatch.
+        required: false
+        default: ""
 
 jobs:
   bench:
@@ -132,6 +143,28 @@ jobs:
           PYTHONPATH=. .venv/bin/python -m benchmarks.supportability_check \
             "bench_ci_${{ matrix.platform }}.md"
 
+      # native-v1: a separate declared scope (docs/decisions.md, 2026-09-29,
+      # "benchmarks"), never part of the 135-row canonical verdict above. This
+      # leg only generated the small tier, so only that tier's flag rows run.
+      - name: Run native-v1 benchmarks
+        env:
+          PGO_MODE: use
+          STRATA_ENABLE_LTO: "1"
+        run: |
+          PYTHONPATH=. .venv/bin/python -m benchmarks.native_v1 \
+            --data benchmarks/data/generated --tiers small \
+            --repeat 10 --warmup 2 \
+            --output "bench_native_${{ matrix.platform }}.md"
+
+      - name: Same-path identity check against identity_base
+        if: ${{ github.event.inputs.identity_base != '' }}
+        run: |
+          PYTHONPATH=. .venv/bin/python scripts/identity_ab.py \
+            --base "${{ github.event.inputs.identity_base }}" \
+            --arm-dir "${{ runner.temp }}/identity-arm" \
+            --out "identity-${{ matrix.platform }}"
+          cp "identity-${{ matrix.platform }}/identity.txt" "identity-${{ matrix.platform }}.txt"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -139,6 +172,9 @@ jobs:
           path: |
             bench_ci_*.md
             bench_ci_*.json
+            bench_native_*.md
+            bench_native_*.json
+            identity-*.txt
           if-no-files-found: ignore
 
   # NEON on Linux (mirrors ci.yml's test-linux-arm): GitHub's arm64 Linux
@@ -202,6 +238,25 @@ jobs:
           PYTHONPATH=. .venv/bin/python -m benchmarks.supportability_check \
             "bench_ci_linux-arm64.md"
 
+      - name: Run native-v1 benchmarks
+        env:
+          PGO_MODE: use
+          STRATA_ENABLE_LTO: "1"
+        run: |
+          PYTHONPATH=. .venv/bin/python -m benchmarks.native_v1 \
+            --data benchmarks/data/generated --tiers small \
+            --repeat 10 --warmup 2 \
+            --output "bench_native_linux-arm64.md"
+
+      - name: Same-path identity check against identity_base
+        if: ${{ github.event.inputs.identity_base != '' }}
+        run: |
+          PYTHONPATH=. .venv/bin/python scripts/identity_ab.py \
+            --base "${{ github.event.inputs.identity_base }}" \
+            --arm-dir "${{ runner.temp }}/identity-arm" \
+            --out "identity-linux-arm64"
+          cp "identity-linux-arm64/identity.txt" "identity-linux-arm64.txt"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -209,6 +264,9 @@ jobs:
           path: |
             bench_ci_*.md
             bench_ci_*.json
+            bench_native_*.md
+            bench_native_*.json
+            identity-*.txt
           if-no-files-found: ignore
 
   # The Windows build this leg measures is clang-cl with clang's own PGO
@@ -273,6 +331,28 @@ jobs:
           PYTHONPATH=. python -m benchmarks.supportability_check \
             "bench_ci_windows-x86_64.md"
 
+      - name: Run native-v1 benchmarks
+        shell: bash
+        env:
+          PGO_MODE: use
+          STRATA_WIN_COMPILER: clang-cl
+        run: |
+          PYTHONPATH=. python -m benchmarks.native_v1 \
+            --data benchmarks/data/generated --tiers small \
+            --repeat 10 --warmup 2 \
+            --output "bench_native_windows-x86_64.md"
+
+      - name: Same-path identity check against identity_base
+        if: ${{ github.event.inputs.identity_base != '' }}
+        shell: bash
+        run: |
+          export PATH="/c/Program Files/LLVM/bin:$PATH"
+          PYTHONPATH=. python scripts/identity_ab.py \
+            --base "${{ github.event.inputs.identity_base }}" \
+            --arm-dir "${{ runner.temp }}/identity-arm" \
+            --out "identity-windows-x86_64"
+          cp "identity-windows-x86_64/identity.txt" "identity-windows-x86_64.txt"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -280,4 +360,7 @@ jobs:
           path: |
             bench_ci_*.md
             bench_ci_*.json
+            bench_native_*.md
+            bench_native_*.json
+            identity-*.txt
           if-no-files-found: ignore

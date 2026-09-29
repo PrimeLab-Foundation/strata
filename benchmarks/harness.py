@@ -127,6 +127,44 @@ def resolve_workload(name: str) -> tuple[tuple[str, str], ...] | None:
     return WORKLOADS[name]
 
 
+# ---------------------------------------------------------------------------
+# native-v1 -- a separate declared scope (docs/decisions.md, 2026-09-29,
+# "benchmarks"). Reported in its own ci_summary section; these rows never join
+# WORKLOADS["ci"] and never change the canonical 135-row denominator.
+# ---------------------------------------------------------------------------
+
+NATIVE_TIERS = ("small", "medium", "large")
+
+# The fixed `Report.name` every native-v1 report carries (like
+# "supplementary-v1"): reports are told apart by what they *are*, not by the
+# file name a runner gave them -- ci_fetch/ci_summary use this to keep
+# native-v1 evidence out of the canonical per-platform report it shares a CI
+# artifact with.
+NATIVE_REPORT_NAME = "native-v1"
+
+
+def native_data_rows(tiers: tuple[str, ...] = NATIVE_TIERS) -> tuple[tuple[str, str], ...]:
+    """`dumps`/`dump` of the seeded native dataset, per tier."""
+    rows: list[tuple[str, str]] = []
+    for tier in tiers:
+        rows.append(("dumps", f"native.{tier}"))
+        rows.append(("dump", f"native.{tier}"))
+    return tuple(rows)
+
+
+def native_flag_rows(tiers: tuple[str, ...] = NATIVE_TIERS) -> tuple[tuple[str, str], ...]:
+    """`dumps` of the canonical `mixed` dataset, per tier: the cost of the
+    `native=` flag on a document that holds no native object."""
+    return tuple(("dumps", f"mixed.{tier} (native flag)") for tier in tiers)
+
+
+def native_workload_rows(tiers: tuple[str, ...] = NATIVE_TIERS) -> tuple[tuple[str, str], ...]:
+    return native_data_rows(tiers) + native_flag_rows(tiers)
+
+
+WORKLOADS["native-v1"] = native_workload_rows()
+
+
 @dataclass(frozen=True)
 class Measurement:
     """One library's timings for one dataset in one category."""
