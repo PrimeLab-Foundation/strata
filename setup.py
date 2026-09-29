@@ -508,10 +508,6 @@ BINDING_SOURCES = [
     "src/strata/bindings/python_files.cpp",
     "src/strata/bindings/python_jsonpath.cpp",
     "src/strata/bindings/python_folder.cpp",
-    "src/strata/bindings/python_native_types.cpp",
-    "src/strata/bindings/python_numpy_twins.cpp",
-    "src/strata/bindings/python_parse_types.cpp",
-    "src/strata/bindings/python_parse_types_walk.cpp",
 ]
 
 
@@ -527,19 +523,37 @@ def _core_sources() -> list[str]:
     return entries
 
 
-# `strata._dumps_hook` — `dumps_with_default` (docs/architecture/dumps_with_default.md).
-# One binding TU, which compiles python_dumps.cpp again with the hook enabled,
-# plus the native type table the serializer's tail reads (each image keeps its
-# own copy; docs/architecture/native_types.md), linked against the shared core
-# manifest like `_strata` (one list of core sources:
-# tests/unit/test_build_manifest.py) with unreferenced code stripped at link
-# time, so the image carries what the serializer calls and little else.
-# `_strata`'s own source list, order and flags above are untouched by its
-# existence (M12b criterion 4).
+NATIVE_MANIFEST = PROJECT_ROOT / "src" / "strata" / "native_sources.txt"
+
+
+def _native_sources() -> list[str]:
+    entries = []
+    for raw in NATIVE_MANIFEST.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if not (PROJECT_ROOT / line).exists():
+            raise SystemExit(f"native_sources.txt lists a file that does not exist: {line}")
+        entries.append(line)
+    return entries
+
+
+# `strata._dumps_hook` — `dumps_with_default` (docs/architecture/dumps_with_default.md),
+# `native=True` and `parse_types` (docs/architecture/native_types.md, "Flag
+# shape (M15b)"). One binding TU compiles python_dumps.cpp again with the hook
+# enabled, plus the native type table the serializer's tail reads and the
+# native-only core sources (native_sources.txt — temporal formatting, never
+# linked into `strata._strata`), linked against the shared core manifest like
+# `_strata` (one list of core sources: tests/unit/test_build_manifest.py) with
+# unreferenced code stripped at link time, so the image carries what the
+# serializer calls and little else. `_strata`'s own source list, order and
+# flags above are untouched by its existence (M12b criterion 4; M15b criterion 1).
 HOOK_BINDING_SOURCES = [
     "src/strata/bindings/python_dumps_hook.cpp",
     "src/strata/bindings/python_native_types.cpp",
     "src/strata/bindings/python_numpy_twins.cpp",
+    "src/strata/bindings/python_files.cpp",
+    "src/strata/bindings/python_folder.cpp",
 ]
 
 
@@ -576,7 +590,7 @@ ext_modules = [
     ),
     Extension(
         "strata._dumps_hook",
-        sources=[*HOOK_BINDING_SOURCES, *_core_sources()],
+        sources=[*HOOK_BINDING_SOURCES, *_core_sources(), *_native_sources()],
         include_dirs=[
             "include",
             get_paths()["include"],

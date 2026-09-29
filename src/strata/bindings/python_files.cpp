@@ -59,6 +59,11 @@ bool file_is_ndjson(const char* path) {
     return has_suffix_impl(path, ".ndjson") || has_suffix_impl(path, ".jsonl");
 }
 
+// The reader half of file mode (load) is not compiled into
+// `strata._dumps_hook`, which serves `dump_native` only
+// (docs/architecture/native_types.md, "Flag shape (M15b)").
+#if !defined(STRATA_DUMPS_HOOK)
+
 namespace {
 
 /// One read(2) into @p buffer, retried on EINTR; -1 with errno on failure.
@@ -271,6 +276,8 @@ PyObject* load_from_file(const char* path, const char* return_type, bool iterato
         return value.release();
     return make_root_iterator(value.get());
 }
+
+#endif // !defined(STRATA_DUMPS_HOOK)
 
 PyObject* dump_to_file(PyObject* object, const char* path) {
     PyRef text(dumps_to_python(object, /*as_bytes=*/true));

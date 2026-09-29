@@ -11,8 +11,6 @@
  * includes it (docs/context/convention.md, "Core purity").
  */
 
-#include "python_native_types.h"
-#include "python_parse_types.h"
 #include "python_types.h"
 #include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
@@ -198,48 +196,11 @@ PyObject* finish_loads(std::string_view text, bool validate_utf8, bool want_curs
     return PyUnicode_AsUTF8(value);
 }
 
-/// loads()'s keywords, in the order strata_loads tests them.
-enum class LoadsKeyword : uint8_t { ReturnType, Iterator, ParseTypes, Unknown };
-
-/// loads()'s keyword names, interned by PyInit__strata. A keyword a caller
-/// spells literally arrives as the interned object, so the loop recognizes it
-/// by identity; any other `str` equal to a name is recognized by its text.
-PyObject* g_loads_return_type = nullptr;
-PyObject* g_loads_iterator = nullptr;
-PyObject* g_loads_parse_types = nullptr;
-
-[[nodiscard]] bool intern_loads_keywords() noexcept {
-    g_loads_return_type = PyUnicode_InternFromString("return_type");
-    g_loads_iterator = PyUnicode_InternFromString("iterator");
-    g_loads_parse_types = PyUnicode_InternFromString("parse_types");
-    return g_loads_return_type != nullptr && g_loads_iterator != nullptr &&
-           g_loads_parse_types != nullptr;
-}
-
-/// Which of loads()'s keywords @p name is: by identity first, then by text.
-[[nodiscard]] LoadsKeyword loads_keyword(PyObject* name) noexcept {
-    if (name == g_loads_return_type)
-        return LoadsKeyword::ReturnType;
-    if (name == g_loads_iterator)
-        return LoadsKeyword::Iterator;
-    if (name == g_loads_parse_types)
-        return LoadsKeyword::ParseTypes;
-    if (PyUnicode_CompareWithASCIIString(name, "return_type") == 0)
-        return LoadsKeyword::ReturnType;
-    if (PyUnicode_CompareWithASCIIString(name, "iterator") == 0)
-        return LoadsKeyword::Iterator;
-    if (PyUnicode_CompareWithASCIIString(name, "parse_types") == 0)
-        return LoadsKeyword::ParseTypes;
-    return LoadsKeyword::Unknown;
-}
-
 // loads and dumps use METH_FASTCALL: they are called once per benchmark-row
 // operation and often with tiny documents, where VARARGS' argument tuple and
 // PyArg_ParseTupleAndKeywords' format-string machinery are a measurable slice
 // of the per-call floor. The hand parse mirrors the old signature exactly —
-// one positional argument, keyword-only options. The facade passes all three
-// keywords on every call, so each is recognized by the identity of its
-// interned name before any text comparison (loads_keyword).
+// one positional argument, keyword-only options.
 PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nargs,
                        PyObject* kwnames) {
     STRATA_CPP_TRY
@@ -251,22 +212,18 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
     PyObject* source = args[0];
     const char* return_type = "dict";
     int iterator = 0;
-    PyObject* parse_types = nullptr;
     if (kwnames != nullptr) {
         for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
             PyObject* name = PyTuple_GET_ITEM(kwnames, index);
             PyObject* value = args[nargs + index];
-            const LoadsKeyword keyword = loads_keyword(name);
-            if (keyword == LoadsKeyword::ReturnType) {
+            if (PyUnicode_CompareWithASCIIString(name, "return_type") == 0) {
                 return_type = fastcall_str_option(name, value);
                 if (return_type == nullptr)
                     return nullptr;
-            } else if (keyword == LoadsKeyword::Iterator) {
+            } else if (PyUnicode_CompareWithASCIIString(name, "iterator") == 0) {
                 iterator = PyObject_IsTrue(value);
                 if (iterator < 0)
                     return nullptr;
-            } else if (keyword == LoadsKeyword::ParseTypes) {
-                parse_types = value;
             } else {
                 PyErr_Format(PyExc_TypeError, "loads() got an unexpected keyword argument '%U'",
                              name);
@@ -280,11 +237,6 @@ PyObject* strata_loads(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
         PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
         return nullptr;
     }
-    // Set to anything but False: the opt-in revival, parsed by the same
-    // functions and then walked, out of line (python_parse_types.h).
-    if (parse_types != nullptr && parse_types != Py_False)
-        return strata::bindings::parse_types::loads(source, want_cursor, iterator != 0,
-                                                    parse_types);
 
     if (PyUnicode_Check(source)) {
         Py_ssize_t size = 0;
@@ -363,20 +315,15 @@ PyObject* strata_dumps(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nar
 
 PyObject* strata_load(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {
-        "", "return_type", "iterator", "skip_errors", "parse_types", nullptr};
+    static const char* keywords[] = {"", "return_type", "iterator", "skip_errors", nullptr};
     const char* path = nullptr;
     const char* return_type = "dict";
     int iterator = 0;
     int skip_errors = 0;
-    PyObject* parse_types = Py_False;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$sppO", const_cast<char**>(keywords), &path,
-                                     &return_type, &iterator, &skip_errors, &parse_types))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s|$spp", const_cast<char**>(keywords), &path,
+                                     &return_type, &iterator, &skip_errors))
         return nullptr;
-    if (parse_types != Py_False)
-        return strata::bindings::parse_types::load(path, return_type, iterator != 0,
-                                                   skip_errors != 0, parse_types);
 
     // File mode first: it reports a directory instead of raising for one, and
     // finds that out from the open it performs anyway (python_types.h,
@@ -448,16 +395,13 @@ PyObject* strata_compile(PyObject* /*self*/, PyObject* args) {
 
 PyObject* strata_query(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "", "iterator", "parse_types", nullptr};
+    static const char* keywords[] = {"", "", "iterator", nullptr};
     PyObject* data = nullptr;
     PyObject* expression = nullptr;
     int iterator = 0;
-    PyObject* parse_types = Py_False;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$pO", const_cast<char**>(keywords), &data,
-                                     &expression, &iterator, &parse_types))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|$p", const_cast<char**>(keywords), &data,
+                                     &expression, &iterator))
         return nullptr;
-    if (parse_types != Py_False)
-        return strata::bindings::parse_types::query(data, expression, iterator != 0, parse_types);
 
     strata::bindings::PyRef matches(strata::bindings::query_object(data, expression));
     if (!matches)
@@ -470,17 +414,13 @@ PyObject* strata_query(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
 
 PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
     STRATA_CPP_TRY
-    static const char* keywords[] = {"", "", "iterator", "parse_types", nullptr};
+    static const char* keywords[] = {"", "", "iterator", nullptr};
     const char* path = nullptr;
     PyObject* expression = nullptr;
     int iterator = 0;
-    PyObject* parse_types = Py_False;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|$pO", const_cast<char**>(keywords), &path,
-                                     &expression, &iterator, &parse_types))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|$p", const_cast<char**>(keywords), &path,
+                                     &expression, &iterator))
         return nullptr;
-    // parse_types leaves the streaming path: parse, revive, evaluate.
-    if (parse_types != Py_False)
-        return strata::bindings::parse_types::search(path, expression, iterator != 0, parse_types);
 
     // File mode first, as in strata_load: three stats of the path per file
     // search (one in the facade, two here) are none.
@@ -496,20 +436,18 @@ PyObject* strata_search(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
 
 PyMethodDef kModuleMethods[] = {
     {"loads", STRATA_KEYWORD_FN(strata_loads), METH_FASTCALL | METH_KEYWORDS,
-     "loads(source, *, return_type='dict', iterator=False, parse_types=False)\n\n"
-     "Parse JSON text."},
+     "loads(source, *, return_type='dict', iterator=False)\n\nParse JSON text."},
     {"dumps", STRATA_KEYWORD_FN(strata_dumps), METH_FASTCALL | METH_KEYWORDS,
      "dumps(obj, *, return_type='str')\n\nSerialize an object to JSON."},
     {"load", STRATA_KEYWORD_FN(strata_load), METH_VARARGS | METH_KEYWORDS,
-     "load(path, *, return_type='dict', iterator=False, skip_errors=False, "
-     "parse_types=False)"},
+     "load(path, *, return_type='dict', iterator=False, skip_errors=False)"},
     {"dump", STRATA_KEYWORD_FN(strata_dump), METH_VARARGS | METH_KEYWORDS,
      "dump(obj, path, *, split_by=None)"},
     {"compile", strata_compile, METH_VARARGS, "compile(expression) -> CompiledPath"},
     {"query", STRATA_KEYWORD_FN(strata_query), METH_VARARGS | METH_KEYWORDS,
-     "query(data, expression, *, iterator=False, parse_types=False) -> list"},
+     "query(data, expression, *, iterator=False) -> list"},
     {"search", STRATA_KEYWORD_FN(strata_search), METH_VARARGS | METH_KEYWORDS,
-     "search(path, expression, *, iterator=False, parse_types=False) -> list"},
+     "search(path, expression, *, iterator=False) -> list"},
     {"config_set", strata_config_set, METH_VARARGS, "config_set(key, value)\n\nSet a setting."},
     {"config_get", strata_config_get, METH_VARARGS, "config_get(key)\n\nRead a setting."},
     {"config_list", strata_config_list, METH_NOARGS, "config_list()\n\nAll settings."},
@@ -539,13 +477,6 @@ PyMODINIT_FUNC PyInit__strata(void) {
     // first dumps(): it allocates, and allocating inside the walk can run a
     // finalizer at a point the walk's contract says runs no user code.
     strata::bindings::prepare_dumps_runtime();
-    // The native tail's names, interned before any walk; its type table is
-    // resolved inside the walk, after a latch (python_native_types.h).
-    if (!strata::bindings::native::prepare_native_runtime())
-        return nullptr;
-    strata::bindings::parse_types::reset_runtime();
-    if (!intern_loads_keywords())
-        return nullptr;
 
     PyObject* module = PyModule_Create(&kModuleDef);
     if (module == nullptr)

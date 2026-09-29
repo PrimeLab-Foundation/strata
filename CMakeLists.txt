@@ -66,6 +66,25 @@ foreach(entry IN LISTS STRATA_CORE_MANIFEST_LINES)
     list(APPEND STRATA_CORE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${entry})
 endforeach()
 
+# Native-only core translation units (temporal formatting): never linked into
+# `strata._strata`, only into the C++ temporal test and `strata._dumps_hook`
+# (docs/architecture/native_types.md, "Flag shape (M15b)").
+set(STRATA_NATIVE_MANIFEST ${CMAKE_CURRENT_SOURCE_DIR}/src/strata/native_sources.txt)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${STRATA_NATIVE_MANIFEST})
+
+file(STRINGS ${STRATA_NATIVE_MANIFEST} STRATA_NATIVE_MANIFEST_LINES)
+set(STRATA_NATIVE_SOURCES "")
+foreach(entry IN LISTS STRATA_NATIVE_MANIFEST_LINES)
+    string(STRIP "${entry}" entry)
+    if(entry STREQUAL "" OR entry MATCHES "^#")
+        continue()
+    endif()
+    if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${entry})
+        message(FATAL_ERROR "native_sources.txt lists a file that does not exist: ${entry}")
+    endif()
+    list(APPEND STRATA_NATIVE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/${entry})
+endforeach()
+
 set(STRATA_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -106,7 +125,7 @@ strata_add_cpp_test(ndjson_tests tests/cpp/test_ndjson.cpp)
 strata_add_cpp_test(jsonpath_tests tests/cpp/test_jsonpath.cpp)
 strata_add_cpp_test(jsonpath_stream_tests tests/cpp/test_jsonpath_stream.cpp)
 strata_add_cpp_test(scan_tests tests/cpp/test_scan.cpp)
-strata_add_cpp_test(temporal_tests tests/cpp/test_temporal.cpp)
+strata_add_cpp_test(temporal_tests tests/cpp/test_temporal.cpp ${STRATA_NATIVE_SOURCES})
 strata_add_cpp_test(folder_tests tests/cpp/test_folder.cpp)
 strata_add_cpp_test(fuzz_corpus_tests tests/cpp/test_fuzz_corpus.cpp)
 strata_add_cpp_test(stress_deep_tests tests/cpp/test_stress_deep.cpp)

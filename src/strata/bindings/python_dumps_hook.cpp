@@ -25,6 +25,7 @@
 #define STRATA_DUMPS_HOOK 1
 
 #include "python_types.h"
+#include "strata/util/folder.hpp"
 
 namespace strata::bindings {
 namespace {
@@ -143,12 +144,109 @@ PyObject* hook_dumps_with_default(PyObject* /*self*/, PyObject* const* args, Py_
     STRATA_CPP_CATCH
 }
 
+/// Keyword-only string option from a FASTCALL kwnames tuple, by exact name --
+/// the same shape as `_strata`'s `fastcall_str_option` (python_module.cpp),
+/// duplicated here since that translation unit is not linked into this image.
+[[nodiscard]] const char* hook_fastcall_str_option(PyObject* name, PyObject* value) {
+    if (!PyUnicode_Check(value)) {
+        PyErr_Format(PyExc_TypeError, "%U must be str, not %s", name, Py_TYPE(value)->tp_name);
+        return nullptr;
+    }
+    return PyUnicode_AsUTF8(value);
+}
+
+/**
+ * `dumps_native(obj, *, return_type="str")` -- `dumps` with every native type
+ * family (docs/architecture/native_types.md, "Flag shape (M15b)") and no
+ * `default`: `dumps_to_python` above arms the walker with no callable, so an
+ * unsupported object raises main's exact
+ * `TypeError("Object of type %s is not JSON serializable")`
+ * (`write_unsupported` with `default_ == nullptr`). Argument parsing mirrors
+ * `_strata.dumps` exactly (python_module.cpp, `strata_dumps`), so its errors
+ * read the same but for the function's own name.
+ */
+PyObject* hook_dumps_native(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nargs,
+                            PyObject* kwnames) {
+    STRATA_CPP_TRY
+    if (nargs != 1) {
+        PyErr_Format(PyExc_TypeError,
+                     "dumps_native() takes exactly 1 positional argument (%zd given)", nargs);
+        return nullptr;
+    }
+    PyObject* object = args[0];
+    const char* return_type = "str";
+    if (kwnames != nullptr) {
+        for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
+            PyObject* name = PyTuple_GET_ITEM(kwnames, index);
+            if (PyUnicode_CompareWithASCIIString(name, "return_type") != 0) {
+                PyErr_Format(PyExc_TypeError,
+                             "dumps_native() got an unexpected keyword argument '%U'", name);
+                return nullptr;
+            }
+            return_type = hook_fastcall_str_option(name, args[nargs + index]);
+            if (return_type == nullptr)
+                return nullptr;
+        }
+    }
+
+    const bool as_bytes = std::strcmp(return_type, "bytes") == 0;
+    if (!as_bytes && std::strcmp(return_type, "str") != 0) {
+        PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
+        return nullptr;
+    }
+
+    return dumps_to_python(object, as_bytes);
+    STRATA_CPP_CATCH
+}
+
+/**
+ * `dump_native(obj, path, *, split_by=None)` -- `dump` with every native type
+ * family. Repeats `strata_dump`'s dispatch exactly (python_module.cpp,
+ * `strata_dump`: `split_by` picks folder mode, a directory target with no
+ * `split_by` is the documented `ValueError`), against this image's own
+ * `dump_to_file`/`dump_to_folder` (python_files.cpp, python_folder.cpp,
+ * whose writer halves are compiled into this image too).
+ */
+PyObject* hook_dump_native(PyObject* /*self*/, PyObject* args, PyObject* kwargs) {
+    STRATA_CPP_TRY
+    static const char* keywords[] = {"", "", "split_by", nullptr};
+    PyObject* object = nullptr;
+    const char* path = nullptr;
+    PyObject* split_by = Py_None;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os|$O", const_cast<char**>(keywords), &object,
+                                     &path, &split_by))
+        return nullptr;
+
+    if (split_by != Py_None) {
+        if (strata::util::is_directory(path) || !strata::util::path_exists(path))
+            return strata::bindings::dump_to_folder(object, path, split_by);
+        PyErr_SetString(PyExc_ValueError, "split_by requires a directory target");
+        return nullptr;
+    }
+
+    PyObject* written = strata::bindings::dump_to_file(object, path);
+    if (written == nullptr && strata::util::is_directory(path)) {
+        PyErr_Clear();
+        PyErr_SetString(PyExc_ValueError, "a directory target requires split_by");
+    }
+    return written;
+    STRATA_CPP_CATCH
+}
+
 PyMethodDef kHookMethods[] = {
     {"dumps_with_default",
      reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(hook_dumps_with_default)),
      METH_FASTCALL | METH_KEYWORDS,
      "dumps_with_default(obj, default, *, return_type='str')\n\n"
      "Serialize an object to JSON, calling default for each unsupported object."},
+    {"dumps_native", reinterpret_cast<PyCFunction>(reinterpret_cast<void (*)()>(hook_dumps_native)),
+     METH_FASTCALL | METH_KEYWORDS,
+     "dumps_native(obj, *, return_type='str')\n\n"
+     "Serialize an object to JSON, including every native type family."},
+    {"dump_native", reinterpret_cast<PyCFunction>(hook_dump_native), METH_VARARGS | METH_KEYWORDS,
+     "dump_native(obj, path, *, split_by=None)\n\n"
+     "Write an object as JSON to a file, or a directory of files with split_by."},
     {nullptr, nullptr, 0, nullptr},
 };
 

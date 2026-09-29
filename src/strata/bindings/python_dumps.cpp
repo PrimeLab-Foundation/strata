@@ -176,7 +176,9 @@
  */
 
 #include "python_dumps_output.h"
+#if defined(STRATA_DUMPS_HOOK)
 #include "python_native_types.h"
+#endif
 #include "python_types.h"
 #include "strata/json/json_serialize.hpp"
 #include "strata/util/dtoa.hpp"
@@ -307,11 +309,13 @@ class Serializer {
         if (PyDict_Check(object))
             return write_mapping(object);
 
+#if defined(STRATA_DUMPS_HOOK)
         // The native tail runs once the module init armed it (always, after a
         // successful import). A load, not a call: the unsupported-type block
         // keeps the shape it has without native types.
         if (native::g_runtime_ready)
             return write_native(object);
+#endif
 #if defined(STRATA_DUMPS_HOOK)
         return write_unsupported(object);
 #else
@@ -376,6 +380,16 @@ class Serializer {
                          Py_TYPE(object)->tp_name);
             return false;
         }
+        if (default_ == nullptr) {
+            // dumps_native: the hook's own serializer, with no callable
+            // (docs/architecture/native_types.md, "Flag shape (M15b)") --
+            // dumps_with_default without a default. Main's exact message,
+            // unlatched: nothing here ran user code or allocated a tracked
+            // object.
+            PyErr_Format(PyExc_TypeError, "Object of type %s is not JSON serializable",
+                         Py_TYPE(object)->tp_name);
+            return false;
+        }
         latch();
         Py_IncRef(object);
         PyObject* const replacement = PyObject_CallOneArg(default_, object);
@@ -390,6 +404,7 @@ class Serializer {
         return ok;
     }
 #endif
+#if defined(STRATA_DUMPS_HOOK)
 
     /**
      * write()'s tail, in both images: the native types
@@ -709,6 +724,7 @@ class Serializer {
         out_.put(']');
         return true;
     }
+#endif
 
     [[nodiscard]] bool write_int(PyObject* object) {
 #if PY_VERSION_HEX >= 0x030C0000
@@ -2020,6 +2036,7 @@ class Serializer {
         bool repeated_ = false;
     };
 
+#if defined(STRATA_DUMPS_HOOK)
     /**
      * Frame for the native tail (write_enum, write_dataclass, write_set): the
      * same probe of `open_`, the same depth test and the same placeholder, in
@@ -2067,6 +2084,7 @@ class Serializer {
         PyObject* container_;
         bool repeated_ = false;
     };
+#endif
 
     /**
      * The deferred frame of the sequence and record loops: the container goes
@@ -2201,6 +2219,7 @@ class Serializer {
     /// vector's size from its two pointers.
     void push_open(PyObject* container) {
         open_.push_back(container);
+#if defined(STRATA_DUMPS_HOOK)
         ++open_count_;
     }
 
@@ -2209,6 +2228,7 @@ class Serializer {
     /// no inlined helper with the hot writers (this file's header).
     STRATA_COLD_FN void push_open_cold(PyObject* container) {
         open_.emplace_back(container);
+#endif
         ++open_count_;
     }
 
@@ -2450,5 +2470,16 @@ PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
     staged.flush_str();
     return PyUnicode_FromStringAndSize(out.data(), static_cast<Py_ssize_t>(out.size()));
 }
+
+#if defined(STRATA_DUMPS_HOOK)
+// `dumps_native`/`dump_native`'s own `dumps_to_python`: the same serializer,
+// armed with no callable, so `write_unsupported` raises main's exact
+// `TypeError` for an unsupported object instead of calling `default`
+// (docs/architecture/native_types.md, "Flag shape (M15b)"). `python_files.cpp`
+// and `python_folder.cpp`'s writer halves call this name in both images.
+PyObject* dumps_to_python(PyObject* object, bool as_bytes) {
+    return dumps_with_default_to_python(object, as_bytes, nullptr);
+}
+#endif
 
 } // namespace strata::bindings
