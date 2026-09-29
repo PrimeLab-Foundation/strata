@@ -6,7 +6,10 @@ by_alias=False)``. For a model, ``dumps`` decodes equal to the model's own
 ``model_dump_json()`` (the bytes can differ in how a float is spelled), and for
 any document free of NaN/+-Inf, non-``str`` keys and lone surrogates it is
 byte-for-byte ``json.dumps(obj, default=default, separators=(",", ":"),
-ensure_ascii=False)``.
+ensure_ascii=False)``. That holds for strata's native types too: ``dumps``
+passes ``native=False``, so a ``datetime``, ``Decimal``, ``UUID``, dataclass or
+set outside a model reaches ``default`` and is written as pydantic writes it
+(a UTC ``datetime`` ending ``Z``, a ``Decimal`` as a string), never natively.
 
 A model's fields — nested models, ``list[Model]``, ``dict[str, Model]``,
 unions, at any depth — are serialized by pydantic inside that one
@@ -71,5 +74,5 @@ def default(obj: Any) -> Any:
 
 
 def dumps(obj: Any, *, return_type: str = "str") -> str | bytes:
-    """``strata.dumps_with_default(obj, default, return_type=return_type)``."""
-    return strata.dumps_with_default(obj, default, return_type=return_type)
+    """``strata.dumps_with_default(obj, default, return_type=return_type, native=False)``."""
+    return strata.dumps_with_default(obj, default, return_type=return_type, native=False)

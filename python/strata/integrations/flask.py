@@ -5,7 +5,10 @@ StrataJSONProvider``. Every Flask JSON path then runs on strata: ``jsonify``
 and returned dicts, ``request.get_json``, the test client's ``json=``, the
 session cookie serializer and Jinja's ``tojson``. Unsupported types go to
 Flask's own ``DefaultJSONProvider.default`` (dates, ``Decimal``, ``UUID``,
-dataclasses, ``__html__``) through ``strata.dumps_with_default``.
+dataclasses, ``__html__``) through ``strata.dumps_with_default`` with
+``native=False``, so strata's native types (docs/context/api.md) are not
+written natively here: a ``date`` stays Flask's HTTP date, a ``Decimal`` its
+string, a dataclass its ``asdict()``.
 
 Semantic differences against Flask's ``DefaultJSONProvider``:
 
@@ -86,7 +89,8 @@ class StrataJSONProvider(DefaultJSONProvider):
         sort_keys: Any = None,
     ) -> str:
         """Serialize ``obj``; ``separators``, ``indent`` and ``sort_keys`` are Flask's own and ignored."""
-        return strata.dumps_with_default(obj, self.default if default is _OWN_DEFAULT else default)
+        hook = self.default if default is _OWN_DEFAULT else default
+        return strata.dumps_with_default(obj, hook, native=False)
 
     def loads(self, s: str | bytes) -> Any:  # type: ignore[override]
         return strata.loads(s)

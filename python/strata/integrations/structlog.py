@@ -3,9 +3,11 @@
 ``JSONRenderer`` calls ``serializer(event_dict, **dumps_kw)`` with
 ``dumps_kw`` defaulting ``default`` to structlog's own fallback handler
 (``__structlog__``, else ``repr``), so ``strata.dumps_with_default`` fits the
-slot as it is: ``dumps`` is that function. ``JSONRenderer(serializer=dumps,
-return_type="bytes")`` renders ``bytes`` for a ``BytesLogger``. This module
-imports nothing from structlog.
+slot: ``dumps`` is that function with ``native=False``, so strata's native
+types (docs/context/api.md) reach the fallback handler as they do under
+``json.dumps`` — a ``datetime`` or ``Decimal`` renders as its ``repr``, never
+natively. ``JSONRenderer(serializer=dumps, return_type="bytes")`` renders
+``bytes`` for a ``BytesLogger``. This module imports nothing from structlog.
 
 Semantic differences against ``JSONRenderer``'s default ``json.dumps``:
 
@@ -42,6 +44,16 @@ strata cannot honour is refused rather than ignored (docs/decisions.md,
 2026-09-28).
 """
 
-from strata import dumps_with_default as dumps
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
+import strata
 
 __all__ = ["dumps"]
+
+
+def dumps(obj: Any, default: Callable[[Any], Any], *, return_type: str = "str") -> str | bytes:
+    """``strata.dumps_with_default(obj, default, return_type=return_type, native=False)``."""
+    return strata.dumps_with_default(obj, default, return_type=return_type, native=False)

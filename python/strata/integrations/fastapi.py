@@ -20,7 +20,9 @@ this one. A caller who wants one subclasses it::
 
     class Response(StrataJSONResponse):
         def render(self, content):
-            return strata.dumps_with_default(content, jsonable_encoder, return_type="bytes")
+            return strata.dumps_with_default(
+                content, jsonable_encoder, return_type="bytes", native=False
+            )
 
 with ``fastapi.encoders.jsonable_encoder``, which returns JSON-native values, so
 the chain bound never applies.

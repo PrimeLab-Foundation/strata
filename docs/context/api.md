@@ -148,7 +148,7 @@ with `str`-subclass keys are followed live. Output on unmutated input is
 unchanged.
 
 ```python
-strata.dumps_with_default(obj, default, *, return_type="str") -> str | bytes
+strata.dumps_with_default(obj, default, *, return_type="str", native=True) -> str | bytes
 ```
 
 `dumps` with a hook for unsupported types (design record:
@@ -179,6 +179,15 @@ rules, each test-pinned:
   natively. A value reached *inside* a native — an Enum's `value`, a dataclass
   field, a set element — is an ordinary position and gets its own call when it
   is unsupported.
+- **`native=False` opts out of that precedence, per call.** The supported set is
+  then `dumps(obj, native=False)`'s: every native family goes to `default`, once
+  per object, a native object `default` returns is unsupported (the chain bound
+  below), and the output is main `38eaa9f`'s `dumps_with_default` byte for byte
+  — what the framework adapters use (below). `native` is a `bool`, tested by
+  identity: anything else raises `TypeError("native must be a bool, not %s")`
+  before any byte is produced and without calling `default`. The mode belongs
+  to the call: a call made from inside `default` has its own, and so has every
+  other thread or greenlet.
 - `default` raises ⇒ that exception **propagates unchanged**: same object, same
   type and args, no wrapping or chaining (`KeyboardInterrupt`, `MemoryError` and
   `SystemExit` included).
@@ -199,8 +208,9 @@ rules, each test-pinned:
 
 **Mutation during `dumps_with_default`.** User code can run at six steps: the
 four of `dumps(obj, native=False)` above, the native step of
-`dumps(obj, native=True)` above (native types are always checked here, whether
-or not the document holds one), and `default`, once per unsupported
+`dumps(obj, native=True)` above (under `native=True` native types are always
+checked, whether or not the document holds one; under `native=False` this step
+never runs), and `default`, once per unsupported
 object — not rare, since running it is the point. `default` allocates what it
 likes, so inside a successful call a collection — and every `__del__` it
 fires — can run, as can a `__del__` or weakref callback fired when the
@@ -299,7 +309,18 @@ framework's own JSON hook with `dumps`/`dumps_with_default`/`loads`. The
 framework is imported when its adapter module is, never by `import strata` or
 `import strata.integrations` (test-pinned); `__all__` does not list them.
 
-| Module                          | Use                                                                                                      | Unsupported types go to                                                                                                 |
+Each adapter keeps its framework's own formatting for the native types
+(`datetime`, `date`, `time`, `UUID`, `Decimal`, `Enum`, dataclasses, sets,
+numpy): the four that hand strata a framework `default` — Flask, Django,
+structlog, pydantic — call `dumps_with_default(..., native=False)`, so those
+types reach that `default` exactly as they do under `json.dumps` (a Flask
+`date` stays an HTTP date, a Django `Decimal` a string, a structlog `datetime`
+its `repr`, a pydantic UTC `datetime` ends `Z`); aiohttp, Falcon and FastAPI
+use plain `dumps`, where a native type is the unsupported-type `TypeError`, as
+under their `json.dumps`. Strata's native formatting is a direct call away:
+`dumps_with_default(obj, default)` or `dumps(obj, native=True)`.
+
+| Module                          | Use                                                                                                      | Unsupported types, native types included, go to                                                                         |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `strata.integrations.flask`     | `app.json = StrataJSONProvider(app)` (or `json_provider_class`)                                          | Flask's `DefaultJSONProvider.default`                                                                                   |
 | `strata.integrations.django`    | `JsonResponse(data, encoder=StrataJSONEncoder)`                                                          | the encoder's `default` (`DjangoJSONEncoder`'s, or `json_dumps_params["default"]`)                                      |
@@ -307,7 +328,7 @@ framework is imported when its adapter module is, never by `import strata` or
 | `strata.integrations.falcon`    | `media_handlers[falcon.MEDIA_JSON] = json_handler()`                                                     | nowhere: `TypeError`, as Falcon's `json.dumps`                                                                          |
 | `strata.integrations.structlog` | `JSONRenderer(serializer=dumps)`                                                                         | structlog's fallback handler (`__structlog__`, else `repr`)                                                             |
 | `strata.integrations.fastapi`   | `response_class=StrataJSONResponse` (or `default_response_class=`, or `return StrataJSONResponse(data)`) | nowhere: `TypeError`, as Starlette's `JSONResponse` (FastAPI's `jsonable_encoder` runs first on a route's return value) |
-| `strata.integrations.pydantic`  | `dumps(obj)`, or `dumps_with_default(obj, default)`                                                      | `default`: a `BaseModel` → `model_dump(mode="json")`, else `pydantic_core.to_jsonable_python(obj, by_alias=False)`      |
+| `strata.integrations.pydantic`  | `dumps(obj)`, or `dumps_with_default(obj, default, native=False)`                                        | `default`: a `BaseModel` → `model_dump(mode="json")`, else `pydantic_core.to_jsonable_python(obj, by_alias=False)`      |
 
 The FastAPI adapter renders responses only: FastAPI parses request bodies
 itself with `json.loads`, has no decoder hook, and maps only

@@ -1,7 +1,8 @@
 """pydantic adapter (api.md, Framework adapters).
 
 Oracles: a model's own ``model_dump_json()`` (decoded), and stdlib ``json``
-with the adapter's ``default`` byte for byte (the ``composes`` fixture).
+with the adapter's ``default`` byte for byte under ``native=False``, as the
+adapter calls it (the ``composes_without_natives`` fixture).
 ``test_pydantic.py`` is the ``dumps_with_default`` composition suite this
 adapter packages.
 """
@@ -103,9 +104,9 @@ def _counted():
     return hook, calls
 
 
-def test_a_model_decodes_as_its_model_dump_json(composes):
+def test_a_model_decodes_as_its_model_dump_json(composes_without_natives):
     customer = _customer(3)
-    assert composes(customer, default) == json.loads(customer.model_dump_json())
+    assert composes_without_natives(customer, default) == json.loads(customer.model_dump_json())
     assert json.loads(dumps(customer)) == json.loads(customer.model_dump_json())
     # Float-free, so separators, key order and raw non-ASCII match byte for byte.
     assert dumps(customer) == customer.model_dump_json()
@@ -119,25 +120,33 @@ def test_nested_models_are_one_call_per_top_level_model():
     assert text == dumps(customer)
 
 
-def test_models_in_native_containers_get_one_call_each(composes):
+def test_models_in_native_containers_get_one_call_each(composes_without_natives):
     customers = [_customer(i) for i in range(20)]
     payload = {"page": 1, "items": customers, "by_id": {str(c.id): c for c in customers[:5]}}
     hook, calls = _counted()
     strata.dumps_with_default(payload, hook)
     assert calls == [Customer] * 25
-    decoded = composes(payload, default)
+    decoded = composes_without_natives(payload, default)
     assert decoded["items"] == [json.loads(c.model_dump_json()) for c in customers]
 
 
-def test_an_aliased_model_serializes_as_model_dump_json(composes):
+def test_an_aliased_model_serializes_as_model_dump_json(composes_without_natives):
     plain, by_alias = Aliased(userId=1), AliasedOut(userId=1)
-    assert composes(plain, default) == json.loads(plain.model_dump_json()) == {"user_id": 1}
-    assert composes(by_alias, default) == json.loads(by_alias.model_dump_json()) == {"userId": 1}
+    assert (
+        composes_without_natives(plain, default)
+        == json.loads(plain.model_dump_json())
+        == {"user_id": 1}
+    )
+    assert (
+        composes_without_natives(by_alias, default)
+        == json.loads(by_alias.model_dump_json())
+        == {"userId": 1}
+    )
 
 
-def test_a_model_inside_a_dataclass_uses_field_names(composes):
+def test_a_model_inside_a_dataclass_uses_field_names(composes_without_natives):
     envelope = Envelope(inner=Aliased(userId=2))
-    assert composes(envelope, default) == {"inner": {"user_id": 2}}
+    assert composes_without_natives(envelope, default) == {"inner": {"user_id": 2}}
     assert pydantic_core.to_jsonable_python(envelope) == {"inner": {"userId": 2}}
 
 
@@ -147,12 +156,12 @@ def test_a_model_inside_a_dataclass_ignores_serialize_by_alias():
     assert dumps(Envelope(inner=by_alias)) == '{"inner":{"user_id":1}}'
 
 
-def test_a_root_model_serializes_as_model_dump_json(composes):
+def test_a_root_model_serializes_as_model_dump_json(composes_without_natives):
     root = pydantic.RootModel[list[Address]]([Address(street="s", city="c")])
-    assert composes(root, default) == json.loads(root.model_dump_json())
+    assert composes_without_natives(root, default) == json.loads(root.model_dump_json())
 
 
-def test_values_outside_models_are_to_jsonable_python(composes):
+def test_values_outside_models_are_to_jsonable_python(composes_without_natives):
     payload = {
         "seen": dt.date(2026, 9, 26),
         "at": dt.datetime(2026, 9, 26, 8, 0, tzinfo=dt.timezone.utc),
@@ -162,7 +171,7 @@ def test_values_outside_models_are_to_jsonable_python(composes):
         "set": {3},
     }
     expected = json.loads(json.dumps(pydantic_core.to_jsonable_python(payload)))
-    assert composes(payload, default) == expected
+    assert composes_without_natives(payload, default) == expected
 
 
 def test_nan_in_a_model_is_null_as_in_model_dump_json():

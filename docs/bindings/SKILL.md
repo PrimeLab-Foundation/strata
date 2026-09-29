@@ -225,7 +225,12 @@ exactly main's — no load, test or `Serializer` member was added to `_strata`.
 (`TypeError("native must be a bool, not %s")` otherwise) and, on `True`, import
 `strata._dumps_hook` (first use only) and call its `dumps_native`/`dump_native`;
 `dumps_with_default` has no `_strata` counterpart, so it always imports and
-calls the hook.
+calls the hook, forwarding its `native` keyword (default `True`) on every call.
+Under `native=False` the hook skips the native tail per call: its mode is a
+`contextvars` variable, read by `native::classify` and `native::format_pure_leaf`
+only while a process-wide count of opt-out walks is non-zero, so `classify`
+answers `Kind::None` and the object falls through to `default`, as in main
+`38eaa9f`'s hook (docs/architecture/native_types.md, "Opt-out").
 
 Inside the hook image, `write_native` (`STRATA_COLD_FN`) tries a **pure leaf**
 first — an exact `datetime`/`date`/`time` whose tzinfo is `None`

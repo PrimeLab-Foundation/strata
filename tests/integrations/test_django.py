@@ -210,7 +210,9 @@ def test_json_dump_to_a_file_takes_the_same_path():
     written = io.StringIO()
     json.dump(RICH, written, cls=StrataJSONEncoder)
     assert written.getvalue() == json.dumps(RICH, cls=StrataJSONEncoder)
-    assert written.getvalue() == strata.dumps_with_default(RICH, StrataJSONEncoder().default)
+    assert written.getvalue() == strata.dumps_with_default(
+        RICH, StrataJSONEncoder().default, native=False
+    )
 
 
 @pytest.mark.parametrize(

@@ -124,6 +124,46 @@ def composes() -> Callable[[Any, Callable[[Any], Any]], Any]:
     return _composes
 
 
+def _plainly_counted(default: Callable[[Any], Any], calls: list[int]) -> Callable[[Any], Any]:
+    """`default`, counted, with no native reference spelling in front (cf. `_counted`)."""
+
+    def hook(obj: Any) -> Any:
+        calls[0] += 1
+        return default(obj)
+
+    return hook
+
+
+def _composes_without_natives(obj: Any, default: Callable[[Any], Any]) -> Any:
+    """`_composes` for `dumps_with_default(..., native=False)`: stdlib `json` itself is the oracle.
+
+    docs/decisions.md 2026-09-29: under `native=False` every native object reaches
+    `default` as it does under `json.dumps`, so text and call counts both match
+    stdlib's -- the pre-M15 contract the adapters that pass a framework's own
+    `default` rely on.
+    """
+    json_calls, strata_calls = [0], [0]
+    expected = json.dumps(
+        obj,
+        default=_plainly_counted(default, json_calls),
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    text = strata.dumps_with_default(obj, _plainly_counted(default, strata_calls), native=False)
+    assert text == expected
+    assert strata_calls[0] == json_calls[0]
+    as_bytes = strata.dumps_with_default(obj, default=default, return_type="bytes", native=False)
+    assert as_bytes == expected.encode()
+    decoded = strata.loads(text)
+    assert decoded == json.loads(expected)
+    return decoded
+
+
+@pytest.fixture
+def composes_without_natives() -> Callable[[Any, Callable[[Any], Any]], Any]:
+    return _composes_without_natives
+
+
 @pytest.fixture
 def json_document() -> dict[str, Any]:
     """A JSON-native document for the framework adapters' round trips.

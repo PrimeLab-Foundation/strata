@@ -83,6 +83,10 @@ integrations = [
   # The native-types differential (docs/architecture/native_types.md, rows 1-4
   # and 6); a comparison target here, never a dependency of strata itself.
   "orjson>=3.10",
+  # Two walks interleaved on one thread by greenlet switches inside `default`:
+  # the proof that `dumps_with_default`'s `native` mode is per call
+  # (docs/decisions.md, 2026-09-29).
+  "greenlet>=3.0",
 ]
 
 [project.urls]

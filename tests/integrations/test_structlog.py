@@ -5,8 +5,12 @@ Oracle: `JSONRenderer`'s default `json.dumps`. With compact separators and
 exactly; as shipped, the same decoded value.
 """
 
+import dataclasses
+import datetime as dt
 import decimal
+import enum
 import json
+import uuid
 
 import pytest
 import structlog
@@ -53,6 +57,35 @@ def test_a_rendered_event_is_the_compact_default_byte_for_byte(json_document):
 
 def test_a_rendered_event_round_trips(json_document):
     assert json.loads(_render(STRATA, **json_document)) == {**json_document, "event": "hello"}
+
+
+class Color(enum.Enum):
+    RED = 1
+
+
+@dataclasses.dataclass
+class Point:
+    x: int
+    y: int
+
+
+def test_native_types_reach_the_fallback_handler_as_under_json_dumps():
+    # docs/decisions.md 2026-09-29: the adapter passes native=False, so strata's
+    # native types are formatted by structlog's fallback handler (`repr`), not
+    # natively -- the compact default renderer's text, byte for byte.
+    fields = {
+        "at": dt.datetime(2026, 9, 29, 12, 0, 1, 250, tzinfo=dt.timezone.utc),
+        "day": dt.date(2026, 9, 29),
+        "clock": dt.time(8, 30),
+        "amount": decimal.Decimal("1.50"),
+        "uid": uuid.UUID(int=7),
+        "color": Color.RED,
+        "point": Point(1, 2),
+        "tags": frozenset({"a"}),
+    }
+    got = _render(STRATA, **fields)
+    assert got == _render(COMPACT, **fields)
+    assert json.loads(got)["amount"] == "Decimal('1.50')"
 
 
 def test_return_type_bytes_renders_bytes_for_a_bytes_logger(json_document):

@@ -39,6 +39,32 @@ namespace {
 
 #include "python_dumps.cpp"
 
+namespace strata::bindings::native {
+namespace {
+
+/// The mode of the innermost hook walk in each context: `Py_True` while that
+/// walk passed `native=False`, unset or `Py_False` otherwise. Created by module
+/// init; a runtime initialized again (embedding) overwrites it, never releases
+/// it, as the other statics.
+PyObject* g_mode_var = nullptr;
+
+} // namespace
+
+std::atomic<int> g_opt_outs{0};
+
+int natives_off() noexcept {
+    // A lookup only: CPython's context variables allocate on Set, not on Get,
+    // and the value held is only ever `Py_True` or `Py_False`.
+    PyObject* value = nullptr;
+    if (PyContextVar_Get(g_mode_var, Py_False, &value) < 0)
+        return -1;
+    const int off = value == Py_True ? 1 : 0;
+    Py_XDECREF(value);
+    return off;
+}
+
+} // namespace strata::bindings::native
+
 namespace strata::bindings {
 namespace {
 
@@ -47,6 +73,9 @@ namespace {
 /// module's statics).
 PyObject* g_config_get = nullptr;
 PyObject* g_policy_key = nullptr;
+/// `dumps_with_default`'s `native` keyword, interned at module init so the
+/// argument parse matches it by identity first.
+PyObject* g_native_key = nullptr;
 
 /**
  * `_strata`'s cycle policy, asked of `_strata` itself.
@@ -80,12 +109,108 @@ STRATA_COLD_FN CyclePolicyValue hook_cycle_policy() noexcept {
 }
 
 /**
- * `dumps_with_default(obj, default, *, return_type="str")`.
+ * The native mode of one serializer walk of this image, set before the walk
+ * starts and restored after it returns. Every serializer entry takes one:
+ * `dumps_with_default` with the mode its `native` names, `dumps_native` and
+ * `dump_native` with natives on.
+ *
+ * A natives-on entry sets the mode too, because it can run inside an opt-out
+ * walk's context -- called from that walk's `default` -- and would otherwise
+ * read the outer walk's `True`. It looks the mode up on every call, whatever
+ * native::g_opt_outs reads: a context copied during an opt-out walk (a task or
+ * thread started inside `default`) keeps that `True` after the walk returns,
+ * and an opt-out starting elsewhere in the middle of a natives-on walk in such
+ * a copy would make the walk's own reads consult it. The lookup allocates
+ * nothing; the Set, which does, runs only when the context holds `True`.
+ *
+ * `PyContextVar_Set` and `PyContextVar_Reset` allocate tracked objects and so
+ * can run a collection -- user code -- which is why they run before the walk
+ * starts and after it returns, where no row is borrowed. The count moves
+ * around them: raised before the mode is set, lowered after it is restored,
+ * so no walk ever reads a `True` the count does not cover.
+ */
+class NativeModeScope {
+  public:
+    NativeModeScope() = default;
+    NativeModeScope(const NativeModeScope&) = delete;
+    NativeModeScope& operator=(const NativeModeScope&) = delete;
+
+    /// A C++ exception unwinding out of the walk (STRATA_CPP_CATCH) skips
+    /// finish(): the mode is restored and the count lowered here instead.
+    ~NativeModeScope() {
+        if (token_ != nullptr || counted_)
+            static_cast<void>(finish(nullptr));
+    }
+
+    /// Set the walk's mode. False with an error set, and nothing to undo.
+    [[nodiscard]] bool enter(bool natives_on) noexcept {
+        if (!natives_on) {
+            native::g_opt_outs.fetch_add(1, std::memory_order_relaxed);
+            counted_ = true;
+            token_ = PyContextVar_Set(native::g_mode_var, Py_True);
+            if (token_ == nullptr)
+                lower_count();
+            return token_ != nullptr;
+        }
+        const int off = native::natives_off();
+        if (off <= 0)
+            return off == 0;
+        token_ = PyContextVar_Set(native::g_mode_var, Py_False);
+        return token_ != nullptr;
+    }
+
+    /**
+     * Restore the mode the walk found, lower the count, and hand @p result on.
+     * A failed walk keeps its own exception, and a restore failing then is
+     * reported as unraisable; a successful walk whose restore fails returns
+     * nullptr with the restore's error, since an error never passes silently.
+     */
+    [[nodiscard]] PyObject* finish(PyObject* result) noexcept {
+        if (token_ != nullptr) {
+            PyObject* const token = token_;
+            token_ = nullptr;
+            if (result == nullptr) {
+                PyObject* type = nullptr;
+                PyObject* value = nullptr;
+                PyObject* traceback = nullptr;
+                PyErr_Fetch(&type, &value, &traceback);
+                if (PyContextVar_Reset(native::g_mode_var, token) < 0)
+                    PyErr_WriteUnraisable(native::g_mode_var);
+                PyErr_Restore(type, value, traceback);
+            } else if (PyContextVar_Reset(native::g_mode_var, token) < 0) {
+                Py_DECREF(result);
+                result = nullptr;
+            }
+            Py_DECREF(token);
+        }
+        if (counted_)
+            lower_count();
+        return result;
+    }
+
+  private:
+    void lower_count() noexcept {
+        counted_ = false;
+        native::g_opt_outs.fetch_sub(1, std::memory_order_relaxed);
+    }
+
+    PyObject* token_ = nullptr; ///< set: the mode was changed and is restored
+    bool counted_ = false;      ///< an opt-out walk, counted in g_opt_outs
+};
+
+/**
+ * `dumps_with_default(obj, default, *, return_type="str", native=True)`.
  *
  * `default` is required, positional or keyword, and must be callable — `None`
  * is refused, not "absent": this entry point exists only to run a hook
  * (docs/decisions.md, 2026-09-26). The refusal is raised before any byte is
  * produced.
+ *
+ * `native` must be exactly `True` or `False`, tested by identity as the
+ * facade's `dumps(native=...)` is; its type error is raised where it is read,
+ * before `default` is checked. `False` narrows the supported set to `_strata`'s
+ * -- every native object goes to `default`, and a native `default` returns is
+ * the chain-bound `TypeError` -- through the walk's NativeModeScope.
  */
 PyObject* hook_dumps_with_default(PyObject* /*self*/, PyObject* const* args, Py_ssize_t nargs,
                                   PyObject* kwnames) {
@@ -98,6 +223,7 @@ PyObject* hook_dumps_with_default(PyObject* /*self*/, PyObject* const* args, Py_
     PyObject* const object = args[0];
     PyObject* default_fn = nargs == 2 ? args[1] : nullptr;
     const char* return_type = "str";
+    bool natives_on = true;
     if (kwnames != nullptr) {
         for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(kwnames); ++index) {
             PyObject* const name = PyTuple_GET_ITEM(kwnames, index);
@@ -111,6 +237,14 @@ PyObject* hook_dumps_with_default(PyObject* /*self*/, PyObject* const* args, Py_
                 return_type = PyUnicode_AsUTF8(value);
                 if (return_type == nullptr)
                     return nullptr;
+            } else if (name == g_native_key ||
+                       PyUnicode_CompareWithASCIIString(name, "native") == 0) {
+                if (value != Py_True && value != Py_False) {
+                    PyErr_Format(PyExc_TypeError, "native must be a bool, not %s",
+                                 Py_TYPE(value)->tp_name);
+                    return nullptr;
+                }
+                natives_on = value == Py_True;
             } else if (PyUnicode_CompareWithASCIIString(name, "default") == 0) {
                 if (default_fn != nullptr) {
                     PyErr_SetString(PyExc_TypeError,
@@ -141,7 +275,10 @@ PyObject* hook_dumps_with_default(PyObject* /*self*/, PyObject* const* args, Py_
         PyErr_Format(PyExc_ValueError, "invalid return_type: %s", return_type);
         return nullptr;
     }
-    return dumps_with_default_to_python(object, as_bytes, default_fn);
+    NativeModeScope mode;
+    if (!mode.enter(natives_on))
+        return nullptr;
+    return mode.finish(dumps_with_default_to_python(object, as_bytes, default_fn));
     STRATA_CPP_CATCH
 }
 
@@ -196,7 +333,10 @@ PyObject* hook_dumps_native(PyObject* /*self*/, PyObject* const* args, Py_ssize_
         return nullptr;
     }
 
-    return dumps_to_python(object, as_bytes);
+    NativeModeScope mode;
+    if (!mode.enter(true))
+        return nullptr;
+    return mode.finish(dumps_to_python(object, as_bytes));
     STRATA_CPP_CATCH
 }
 
@@ -220,13 +360,20 @@ PyObject* hook_dump_native(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
         return nullptr;
 
     if (split_by != Py_None) {
-        if (strata::util::is_directory(path) || !strata::util::path_exists(path))
-            return strata::bindings::dump_to_folder(object, path, split_by);
-        PyErr_SetString(PyExc_ValueError, "split_by requires a directory target");
-        return nullptr;
+        if (!strata::util::is_directory(path) && strata::util::path_exists(path)) {
+            PyErr_SetString(PyExc_ValueError, "split_by requires a directory target");
+            return nullptr;
+        }
+        NativeModeScope mode;
+        if (!mode.enter(true))
+            return nullptr;
+        return mode.finish(strata::bindings::dump_to_folder(object, path, split_by));
     }
 
-    PyObject* written = strata::bindings::dump_to_file(object, path);
+    NativeModeScope mode;
+    if (!mode.enter(true))
+        return nullptr;
+    PyObject* written = mode.finish(strata::bindings::dump_to_file(object, path));
     if (written == nullptr && strata::util::is_directory(path)) {
         PyErr_Clear();
         PyErr_SetString(PyExc_ValueError, "a directory target requires split_by");
@@ -247,7 +394,7 @@ PyObject* hook_dump_native(PyObject* /*self*/, PyObject* args, PyObject* kwargs)
 PyMethodDef kHookMethods[] = {
     {"dumps_with_default", STRATA_HOOK_KEYWORD_FN(hook_dumps_with_default),
      METH_FASTCALL | METH_KEYWORDS,
-     "dumps_with_default(obj, default, *, return_type='str')\n\n"
+     "dumps_with_default(obj, default, *, return_type='str', native=True)\n\n"
      "Serialize an object to JSON, calling default for each unsupported object."},
     {"dumps_native", STRATA_HOOK_KEYWORD_FN(hook_dumps_native), METH_FASTCALL | METH_KEYWORDS,
      "dumps_native(obj, *, return_type='str')\n\n"
@@ -308,6 +455,12 @@ PyMODINIT_FUNC PyInit__dumps_hook(void) {
     PyRef key(PyUnicode_InternFromString("cycle_policy"));
     if (!key)
         return nullptr;
+    PyRef native_key(PyUnicode_InternFromString("native"));
+    if (!native_key)
+        return nullptr;
+    PyRef mode_var(PyContextVar_New("strata._dumps_hook.native_off", nullptr));
+    if (!mode_var)
+        return nullptr;
     // `parse_types`'s four entry points parse through these, never through a
     // parser of this image's own (docs/architecture/native_types.md, "Flag
     // shape (M15b)"). A real `strata._strata` always provides them; this can
@@ -332,5 +485,7 @@ PyMODINIT_FUNC PyInit__dumps_hook(void) {
     // released.
     g_config_get = config_get.release();
     g_policy_key = key.release();
+    g_native_key = native_key.release();
+    native::g_mode_var = mode_var.release();
     return module;
 }

@@ -278,14 +278,23 @@ supported. A value reached *inside* a native (an Enum's `value`, a field, an
 element) is an ordinary position and gets its own `default` call when it is
 unsupported.
 
-**Forward note, not in this change.** `exp/m13-adapters` (unmerged) hands
-frameworks `dumps_with_default` so that their own `default` formats
-`datetime`, `Decimal` and `UUID` (Flask as an HTTP date and a string; Django as
-ECMA-262 and a string). With this record merged those conversions no longer
-reach the framework's `default`, which changes the JSON type of a `Decimal`
-from string to number in those responses. M13 must reconcile it before it
-merges; the candidate is an opt-out keyword on `dumps_with_default`
-(`native_types=False`, the hook image's state only) — recorded, not built.
+**Opt-out: `native=False` (built with the M13 merge, 2026-09-29).** The
+framework adapters hand `dumps_with_default` a framework's own `default` so
+that it formats `datetime`, `Decimal`, `UUID` and dataclasses (Flask as an HTTP
+date, a string and `asdict()`; Django as ECMA-262 and a string; structlog as
+`repr`; pydantic as `to_jsonable_python` does). Native precedence would bypass
+it, so `dumps_with_default` takes `native=True` (keyword-only, a `bool` by
+identity): under `native=False` the supported set is `dumps(obj, native=False)`'s, every native family goes to `default`, a native `default`
+returns is the chain bound's `TypeError`, and the output is main `38eaa9f`'s
+hook byte for byte. The state is hook-only — a `contextvars` variable (greenlet
+and gevent keep one context per greenlet, so a walk suspended in `default`
+cannot resume under another walk's mode, which a thread-local would allow) and
+a process-wide count of opt-out walks in progress, which gates the read in
+`classify` and `format_pure_leaf` to one relaxed load per native object while
+no opt-out is live. Each hook serializer entry sets its own mode when its
+context holds the other and resets it on exit. `python_dumps.cpp` does not
+change, so `_strata` stays main's by construction. Decisions: docs/decisions.md,
+2026-09-29 (the `native` keyword, its state, the adapter reconciliation).
 
 ## Parse contract (`parse_types`)
 
@@ -594,12 +603,12 @@ proof, not an A/B campaign. Milestone M15b (M12 → M12b precedent).
 
 ### Surface
 
-| Call                                                     | `False` (default)                                 | `True` / set                                                                        |
-| -------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `dumps(obj, *, return_type="str", native=False)`         | `_strata.dumps` — main's call, main's `TypeError` | `_dumps_hook.dumps_native`: this record's serializer contract                       |
-| `dump(obj, path, *, split_by=None, native=False)`        | `_strata.dump`                                    | `_dumps_hook.dump_native`: file and folder mode, main's dispatch and errors         |
-| `loads`/`load`/`search`/`query`(…, `parse_types=False`)  | `_strata`'s entry, main's call                    | `_dumps_hook.{loads,load,search,query}_typed`: parse through `_strata`, then revive |
-| `dumps_with_default(obj, default, *, return_type="str")` | —                                                 | native rows first, then `default` (this record's "`dumps_with_default`", unchanged) |
+| Call                                                                  | `False` (default)                                                                            | `True` / set                                                                                      |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `dumps(obj, *, return_type="str", native=False)`                      | `_strata.dumps` — main's call, main's `TypeError`                                            | `_dumps_hook.dumps_native`: this record's serializer contract                                     |
+| `dump(obj, path, *, split_by=None, native=False)`                     | `_strata.dump`                                                                               | `_dumps_hook.dump_native`: file and folder mode, main's dispatch and errors                       |
+| `loads`/`load`/`search`/`query`(…, `parse_types=False`)               | `_strata`'s entry, main's call                                                               | `_dumps_hook.{loads,load,search,query}_typed`: parse through `_strata`, then revive               |
+| `dumps_with_default(obj, default, *, return_type="str", native=True)` | `native=False`: every native family goes to `default` — main `38eaa9f`'s hook, byte for byte | `native=True` (default): native rows first, then `default` (this record's "`dumps_with_default`") |
 
 `native` must be a `bool`: the facade tests `native is False` first (one
 identity test on the default path), then `native is True`; anything else is

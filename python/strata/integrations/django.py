@@ -8,6 +8,11 @@ this encoder's ``encode`` hands the whole document to
 ``json_dumps_params``. The test client's ``Client(json_encoder=...)`` and
 ``json.dump(obj, fp, cls=StrataJSONEncoder)`` take the same path.
 
+The call passes ``native=False``, so strata's native types (``datetime``,
+``Decimal``, ``UUID``, ...; docs/context/api.md) are not written natively
+here: every value ``json.dumps`` would hand the encoder's ``default`` reaches
+it, and a ``Decimal`` stays Django's string, a ``datetime`` its ECMA-262 text.
+
 Semantic differences against ``JsonResponse``'s default ``DjangoJSONEncoder``:
 
 =========================  ==============================  =================================
@@ -68,7 +73,7 @@ class StrataJSONEncoder(DjangoJSONEncoder):
             refused.append("separators")
         if refused:
             raise TypeError(f"StrataJSONEncoder cannot honour {', '.join(refused)}")
-        return strata.dumps_with_default(o, self.default)
+        return strata.dumps_with_default(o, self.default, native=False)
 
     def iterencode(self, o: Any, _one_shot: bool = False) -> Iterator[str]:
         return iter((self.encode(o),))
