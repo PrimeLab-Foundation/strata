@@ -1,0 +1,24 @@
+functions: A 305, B 354, only in one 51
+identical after name and address normalisation: 43/304
+differing only in page-offset slot immediates: 0
+differing beyond that: 261
+  only in one: __ZN6strata4util11format_dateEiiiPc
+  only in one: __ZN6strata4util11format_timeEiiiiPc
+  only in one: __ZN6strata4util11format_uuidEyyPc
+  only in one: __ZN6strata4util12_GLOBAL__N_19scan_dateEPKcRNS0_14TemporalFieldsE
+  only in one: __ZN6strata4util12_GLOBAL__N_19scan_timeENSt3__117basic_string_viewIcNS2_11char_traitsIcEEEERNS0_14TemporalFieldsE
+  only in one: __ZN6strata4util13scan_temporalENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE
+  only in one: __ZN6strata4util14is_json_numberENSt3__117basic_string_viewIcNS1_11char_traitsIcEEEE
+  only in one: __ZN6strata4util17format_utc_offsetExPc
+  only in one: __ZN6strata8bindings11parse_types12_GLOBAL__N_110search_oneEPKcP7_objectS6_Pb
+  only in one: __ZN6strata8bindings11parse_types12_GLOBAL__N_117reviving_iteratorEP7_objectS4_
+  _PyInit__strata: 254 changed lines, e.g. ['-adrp x0, <dyld_stub_binder+0x48000>', '-add x0, x0, #0xfd0', '+adrp x0, <__ZN6strata8bindings12_GLOBAL__N_119kNdjsonIteratorTypeE+0x188>', '+add x0, x0, #0x310']
+  __ZN12_GLOBAL__N_111strata_dumpEP7_objectS1_S1_: 64 changed lines, e.g. ['-adrp x19, <dyld_stub_binder+0x44000>', '-ldr x19, [x19, #0x108]', '+adrp x19, <dyld_stub_binder+0x50000>', '+ldr x19, [x19, #0x120]']
+  __ZN12_GLOBAL__N_111strata_loadEP7_objectS1_S1_: 171 changed lines, e.g. ['-sub sp, sp, #0x60', '-stp x20, x19, [sp, #0x40]', '-stp x29, x30, [sp, #0x50]', '-add x29, sp, #0x50']
+  __ZN12_GLOBAL__N_112finish_loadsENSt3__117basic_string_viewIcNS0_11char_traitsIcEEEEbbb: 128 changed lines, e.g. ['-adrp x0, <dyld_stub_binder+0x48000>', '-add x0, x0, #0xf88', '+adrp x0, <__ZN6strata8bindings12_GLOBAL__N_119kNdjsonIteratorTypeE+0x188>', '+add x0, x0, #0x2c8']
+  __ZN12_GLOBAL__N_112strata_dumpsEP7_objectPKS1_lS1_: 230 changed lines, e.g. ['-adrp x16, <dyld_stub_binder+0x44000>', '+adrp x16, <dyld_stub_binder+0x50000>', '-adrp x8, <dyld_stub_binder+0x44000>', '+adrp x8, <dyld_stub_binder+0x50000>']
+  __ZN12_GLOBAL__N_112strata_loadsEP7_objectPKS1_lS1_: 366 changed lines, e.g. ['-sub sp, sp, #0x80', '-stp x28, x27, [sp, #0x20]', '-stp x26, x25, [sp, #0x30]', '-stp x24, x23, [sp, #0x40]']
+  __ZN12_GLOBAL__N_112strata_queryEP7_objectS1_S1_: 110 changed lines, e.g. ['-sub x9, x29, #0x24', '-str x9, [sp, #0x10]', '+adrp x19, <dyld_stub_binder+0x50000>', '+ldr x19, [x19, #0x118]']
+  __ZN12_GLOBAL__N_113strata_searchEP7_objectS1_S1_: 204 changed lines, e.g. ['-sub sp, sp, #0x60', '-stp x20, x19, [sp, #0x40]', '-stp x29, x30, [sp, #0x50]', '-add x29, sp, #0x50']
+  __ZN12_GLOBAL__N_114strata_compileEP7_objectS1_: 32 changed lines, e.g. ['-adrp x1, <GCC_except_table20+0xc>', '-add x1, x1, #0xc69', '-bl <dyld_stub_binder+0x36e4c>', '+adrp x1, <GCC_except_table22>']
+  __ZN12_GLOBAL__N_117strata_config_getEP7_objectS1_: 78 changed lines, e.g. ['-adrp x1, <GCC_except_table20+0xc>', '-add x1, x1, #0x84b', '-bl <dyld_stub_binder+0x36e4c>', '+adrp x1, <GCC_except_table22>']

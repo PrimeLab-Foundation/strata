@@ -26,3 +26,5 @@ Directory map (each has its own PROVENANCE.txt where the producing agent wrote o
                     smallest stack per parse (16 KiB steps), the old test and both suites
   local-stack-fix/  the same fix on the dev M1: make test, make test-py-asan, the ASan ladder
 Timings are the dev M1 under shared load; each session's uptime/top-5 is in its load_log.txt.
+  ci-36497513720/    five-leg paired A/B run 36497513720 (exp/m15-ab-arm 1b806bf): no timing -- every leg
+                      stopped before a sample (see docs/decisions.md 2026-09-29, build-and-test)

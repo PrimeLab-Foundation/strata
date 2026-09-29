@@ -1,0 +1,5 @@
+platform macos-x86_64
+Darwin iad01-ar513-30206913-c9d2-4f94-973a-618ec18f9d14-26DFFF00881F.local 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:50:07 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_X86_64 x86_64
+i386 x86_64
+Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz
+4

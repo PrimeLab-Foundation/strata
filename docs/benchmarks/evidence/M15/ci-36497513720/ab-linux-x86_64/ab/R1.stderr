@@ -1,0 +1,26 @@
+# target   /home/runner/work/strata/strata/python/strata/_strata.cpython-312-x86_64-linux-gnu.so
+# build A  /home/runner/work/strata/strata/arms/A.so  md5=bf9887dcb64428eb5a6b866014e376e2
+# build B  /home/runner/work/strata/strata/arms/B.so  md5=03126b4814bb8341d8d9e82179d2a07f
+# order    ABBAABBAABBAABBAABBAABBAA (25 launches)
+# rows     small:users:loads small:users:dumps small:users:load small:users:dump small:users:ndload small:flat:loads small:flat:dumps small:flat:load small:flat:dump small:nested:loads small:nested:dumps small:nested:load small:nested:dump small:wide_arrays:loads small:wide_arrays:dumps small:wide_arrays:load small:wide_arrays:dump small:mixed:loads small:mixed:dumps small:mixed:load small:mixed:dump medium:flat:dumps medium:users:dumps medium:mixed:dumps medium:wide_arrays:loads  repeat=60
+# launch 00 build=A md5=bf9887dcb64428eb5a6b866014e376e2
+# L00 build=A extension=/home/runner/work/strata/strata/python/strata/_strata.cpython-312-x86_64-linux-gnu.so md5=bf9887dcb64428eb5a6b866014e376e2 load=1.05,1.02,0.87 cpus=4 t=23:47:08
+Traceback (most recent call last):
+  File "/home/runner/work/strata/strata/benchmarks/rows_probe.py", line 201, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/runner/work/strata/strata/benchmarks/rows_probe.py", line 186, in main
+    samples = ab_rounds.alternating_rounds(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/strata/strata/benchmarks/ab_rounds.py", line 77, in alternating_rounds
+    calls[name]()
+  File "/home/runner/work/strata/strata/benchmarks/rows_probe.py", line 116, in <lambda>
+    "strata-loads": lambda: strata.loads(payload),
+                            ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/strata/strata/python/strata/serialize.py", line 55, in loads
+    return _native.loads(
+           ^^^^^^^^^^^^^^
+TypeError: loads() got an unexpected keyword argument 'parse_types'
+# wrote ab/R1.tsv (0 of 25 launches)
+# restored /home/runner/work/strata/strata/python/strata/_strata.cpython-312-x86_64-linux-gnu.so to md5=d43eea8c06f8c062c5eddf00cbb2c9f1
+launch 00 (A) failed with 1
