@@ -158,13 +158,15 @@ aiohttp, Falcon and FastAPI stay on plain `dumps`; `_strata` unchanged
 msgspec gap on the native rows: a third PGO phase gives the hook image its own
 profile trained on a native workload (`scripts/pgo_hook_training.py`; the invariant
 is now "the hook must not carry `_strata`'s profile", and `_strata`'s hash is
-checked unchanged across the phase, clang-cl included), and twelve emitter levers
+checked unchanged across the phase, clang-cl included), and eight emitter levers
+(L1–L4, L9–L12)
 (type-module lookups deferred, allocation-free UUID split and word-wise hex, enum
 `_value_` reads, per-type escaped dataclass keys, a per-type classification cache,
 native writers un-marked cold) took `dumps(native=True)` from 1.27–1.60x behind
 msgspec to **0.72–0.85x and `dump` to 0.82–0.92x ahead on all five legs** (three CI
 samples, runs 36632472320/36637770136/36641825105, canonical rows 27/27 on every
-completed leg but two host-attributed samples, `_strata` identical per leg —
+completed leg but one linux-x86_64 sample host-attributed to an EPYC model change
+and one Windows `dumps mixed` coin cell at 1.051x, `_strata` identical per leg —
 linux-arm64's held build layout-only by the replay at this revision), while a
 dataclass field-cache staleness fix (a `Field.name` changed in place after first
 use, a defect since M15) landed at its unprofiled price once its refresh moved out
