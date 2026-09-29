@@ -3,8 +3,11 @@
 Status: **refused in this shape by its own kill criterion** (2026-09-29): paired
 draws 2 and 3 (runs 36520746091, 36529483744) resolved macos-x86_64 small
 `dumps nested` past +2% on a clean-control leg twice (docs/decisions.md,
-2026-09-29). The successor under decision is fallback (b), handed over in the
-last section, "Fallback (b) handover". Accepted for implementation 2026-09-28,
+2026-09-29). Fallback (b), handed over below, was **not built**: the user
+directed a third shape the same day — natives behind a `native=` flag,
+`_strata` byte-identical to main — recorded in the last section, "Flag shape
+(M15b)", which supersedes default-on and (b). The type-by-type serializer,
+parse and error contracts above carry over unchanged to the flag's `True` arm. Accepted for implementation 2026-09-28,
 branch `exp/native-types` over main `38eaa9f`. Roadmap: M15. Scope approved by the user on 2026-09-28:
 (A) native emitters, on by default, in `dumps`, `dump` and `dumps_with_default`
 for `datetime`/`date`/`time`, `uuid.UUID`, `enum.Enum`, dataclasses,
@@ -578,3 +581,95 @@ the cost is the tail and (b) cannot fix it — only (a), or a tail that is not i
 recovering after it, which runs no user code only if the exception is caught
 before any handler sees it — unexplored). If the stub is clean, the
 layout component was the cost and (b) is the design to build.
+
+## Flag shape (M15b; 2026-09-29, user-directed)
+
+The user's target shape replaces default-on: **`_strata` builds byte-identical
+to main `38eaa9f`, serializer and parser both**, and everything native — the
+serializer rows 1–9, `parse_types`, `temporal` — lives in the second image,
+`strata._dumps_hook`, reached by facade dispatch on a keyword. Both measured
+candidate costs of the refused shape (the V4 tail and ~20 KB of `_strata` text)
+are gone by construction, so the default path's acceptance is an identity
+proof, not an A/B campaign. Milestone M15b (M12 → M12b precedent).
+
+### Surface
+
+| Call                                                     | `False` (default)                                 | `True` / set                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `dumps(obj, *, return_type="str", native=False)`         | `_strata.dumps` — main's call, main's `TypeError` | `_dumps_hook.dumps_native`: this record's serializer contract                       |
+| `dump(obj, path, *, split_by=None, native=False)`        | `_strata.dump`                                    | `_dumps_hook.dump_native`: file and folder mode, main's dispatch and errors         |
+| `loads`/`load`/`search`/`query`(…, `parse_types=False`)  | `_strata`'s entry, main's call                    | `_dumps_hook.{loads,load,search,query}_typed`: parse through `_strata`, then revive |
+| `dumps_with_default(obj, default, *, return_type="str")` | —                                                 | native rows first, then `default` (this record's "`dumps_with_default`", unchanged) |
+
+`native` must be a `bool`: the facade tests `native is False` first (one
+identity test on the default path), then `native is True`; anything else is
+`TypeError("native must be a bool, not %s")` before any work. `parse_types`
+keeps its contract: anything but `False` goes to the hook, which validates it
+(`0` and `None` are the `TypeError`) in the error order the tests pin.
+
+### Composition of the hook image
+
+- `python_dumps_hook.cpp` — `python_dumps.cpp` compiled with `STRATA_DUMPS_HOOK`;
+  every native writer (`write_native`, the per-kind writers, `NativeFrame`,
+  `write_key_cold`, `push_open_cold`, the numpy twins' call sites) is under
+  that macro, so `_strata`'s preprocessed token stream of `python_dumps.cpp` is
+  main's. `write_unsupported` with no callable raises main's `TypeError`:
+  `dumps_native` is `dumps_with_default` without a `default`.
+- `python_native_types.cpp`, `python_numpy_twins.cpp`, `python_parse_types.cpp`,
+  `python_parse_types_walk.cpp` — hook only.
+- `python_files.cpp` and `python_folder.cpp` compiled with the hook macro: their
+  **writer halves** (`dump_to_file`, `dump_to_folder` and the grouping they
+  use, `file_is_ndjson`) link against the hook's serializer, because
+  `dump_to_file` calls `dumps_to_python` and the hook defines that name as its
+  native serializer; the readers sit under `#if !defined(STRATA_DUMPS_HOOK)`,
+  which leaves `_strata`'s token streams unchanged.
+- `src/strata/util/temporal.cpp` leaves `core_sources.txt` (which `_strata`
+  links without dead-stripping) for `src/strata/native_sources.txt`, read by
+  CMake (the temporal C++ tests) and by the hook `Extension` only.
+
+| Option                                                                                              | Verdict                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **F1. Everything native in the hook, facade routes on a keyword (chosen)**                          | `_strata` main's by construction; the default path pays one Python `is` test (measured per call); `native=True` runs the unprofiled hook image      |
+| (b) V4 tail in `_strata`, natives in the hook                                                       | keeps the tail the kill criterion could not separate from layout; default-on dropped by the user, so the tail buys nothing                          |
+| S2. Retry the document in the hook after `_strata` raises                                           | refused as before (user code runs twice)                                                                                                            |
+| **PA. The hook parses through `_strata`'s public entries, then revives (chosen)**                   | one parser and one config: `duplicate_key_policy` is a thread-local of `_strata`, honoured because `_strata` parses                                 |
+| PB. The hook links its own reader copy                                                              | a second parser that `config.set` never reaches (its own thread-local) — refused                                                                    |
+| **DD. The writer halves of `python_files.cpp`/`python_folder.cpp` compiled into the hook (chosen)** | one source for the file writer and grouping; `_strata`'s token streams unchanged                                                                    |
+| DB. A hook-local copy of the file writer and grouping                                               | duplicated source that can drift — refused                                                                                                          |
+| DA. Link every reader TU into the hook                                                              | a second parser, cursor and JSONPath image and every symbol they reference (an unresolved external is a link error on MSVC) for no caller — refused |
+
+`dump_native` repeats `strata_dump`'s dispatch (split_by → folder, a directory
+target without `split_by` → `ValueError`) because `python_module.cpp` stays
+`_strata`'s; the dump contract tests run on both arms to pin that the two are
+the same.
+
+### Acceptance
+
+Default path (the M12b identity proof, each an observable):
+
+1. **Token streams**: every `_strata` translation unit (setup.py
+   `BINDING_SOURCES` + `core_sources.txt`), preprocessed with `_strata`'s
+   flags, equals main `38eaa9f`'s, on arm64 and x86-64.
+2. **Build spec**: `_strata`'s `Extension` (sources, order, macros, compile and
+   link arguments) and `core_sources.txt` equal main's.
+3. **Plain images**: `_strata`'s code section equals main's
+   (`benchmarks/image_identity.py`; normalised disassembly as the diagnostic).
+4. **Held profile**: this branch's `_strata` built PGO+LTO against main's
+   profile, in the same path, equals main's image built against it — locally on
+   the M1, and on every CI leg in the prepared dispatch.
+5. **Training scope**: the native suites stay outside the instrumented pass
+   (`--training`); trained-scope test files equal main's except the recorded
+   removals.
+
+Opt-in path: the existing `tests/{unit,py}/native_types/` corpora pass through
+the flag; `native=False` raises main's `TypeError` for every native family;
+`dumps_with_default` serves natives first; `import strata` imports neither the
+hook image nor a native-type module; the facade's per-call cost is measured in
+ns for every routed function (evidence `docs/benchmarks/evidence/M15b/`).
+
+Benchmarks: a separate declared workload, `native-v1` (seeded dataset carrying
+`datetime`/`date`/`UUID`/`Decimal`/`Enum`/dataclass/`set`), reported in its own
+`ci_summary` section; the canonical 27 rows and 135 denominator are unchanged.
+
+Rollback: revert the merge. `_strata` is main's, so the canonical standings
+cannot move through this change.
