@@ -2,7 +2,7 @@
 
 Status: **implemented, not yet run** (2026-10-06): the configuration, the
 scripts and both workflows exist, but no Release workflow run has executed yet.
-The release ISA is provisional until T8's A/B, and the final tag waits on T7's
+The release ISA is priced by R1 (below), and the final tag waits on T7's
 CPU guard (see "Release ISA" below).
 
 Area: packaging and CI only — `pyproject.toml` (`[project]`,
@@ -152,14 +152,29 @@ On every leg, `-march=native` is a failure. `STRATA_MARCH` is the setup.py
 knob: a target name is passed as `-march=<target>`, `none` emits no `-march`,
 and unset keeps `-march=native`.
 
-Two items are still open:
+**The ISA is priced (R1, run 37447108196 on `work/t8-isa-ab` at 09233f3;
+ledger entry R1, packets under `docs/benchmarks/evidence/R1/`).** Three arms
+per x86 leg — `-march=native`, `x86-64-v3`, `x86-64-v2` — each built at the
+same path with its own PGO profile, 27 canonical small-tier rows, 6 ABBA
+blocks of repeat 60 against an A/A floor. The decision rule was: v2 only if
+it lands inside the floor on every row on both legs. It does not, so both
+x86 legs ship **x86-64-v3**:
 
-- **T8, the A/B that prices this ISA, is pending.** It compares the
-  release ISA with the benchmarked `-march=native` build. x86-64-v2 remains a
-  candidate for the x86 legs until it reports.
-- **T7, the CPU guard, is in the tree** (see "CPU guard" below); its
-  Linux full-image disassembly and an SDE run are still owed before the
-  final tag.
+| Leg                      | v3 vs native, rows resolved of 27                                   | v2 vs v3, rows resolved of 27                                                             | Choice    |
+| ------------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------- |
+| linux-x86_64 (EPYC 9V45) | 2, both slower (+6.79% `search users $[*].id`, +4.67% `load users`) | 3: one loss (`dumps wide_arrays` +1.13%), two gains (streaming `search` −15.09%, −11.65%) | x86-64-v3 |
+| macos-x86_64 (i7-8700B)  | 1, slower (`load flat` +4.38%)                                      | 2: one loss (`dump nested` +4.31%), one gain (`search` −5.25%)                            | x86-64-v3 |
+
+Caveats recorded with R1: one draw per leg on one host each; the release
+toolchain itself (manylinux clang, deployment target 13.0) is not priced;
+the six JSONPath rows use orjson parsing the same document as their drift
+control. An open observation, not acted on: v2 beats v3 on the streaming
+`search` rows on both legs.
+
+Still open: **T7, the CPU guard, is in the tree** (see "CPU guard" below);
+its Linux full-image disassembly and an SDE run are still owed before the
+final tag — the per-wheel `check_guard_isa` scan covers the Linux images in
+every release run meanwhile.
 
 **The sdist keeps `-march=native` as the fallback.** It sets no
 `STRATA_MARCH`, so `pip install --no-binary strata-plf strata-plf` builds for
