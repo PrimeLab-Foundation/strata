@@ -1,0 +1,18 @@
+# macOS x86_64, Apple clang, -march=x86-64-v3 -O3 (no PGO/LTO), source = working tree
+== tree_guard/python/strata/_strata.cpython-312-darwin.so
+static initializers:
+  __mod_init_func: absent
+  __init_offsets: absent
+init entry [_PyInit__strata] instructions=72 above-baseline=0
+    CALL 16634: jmp	0x16650 <__ZN12_GLOBAL__N_120create_strata_moduleEv>
+    CALL 16639: call	0x27fd0 <_PyInit__strata.cold.1>
+== tree_guard/python/strata/_dumps_hook.cpython-312-darwin.so
+static initializers:
+  __mod_init_func: absent
+  __init_offsets: absent
+init entry [_PyInit__dumps_hook] instructions=72 above-baseline=0
+    CALL 1464: jmp	0x1480 <__ZN6strata8bindings12_GLOBAL__N_118create_hook_moduleEv>
+    CALL 1469: call	0x1d8f0 <_PyInit__dumps_hook.cold.1>
+RESULT: PASS (0 above-baseline instructions)
+[PyInit__strata.cold.1] instructions=9 above-baseline=0
+  CALL/JMP 27fef: jmp	0x28128 <dyld_stub_binder+0x28128>

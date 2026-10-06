@@ -172,6 +172,12 @@ STRATA_PGO_PROFILE = "build/release-pgo/strata.profdata"
 STRATA_HOOK_PGO_MODE = "use"
 STRATA_HOOK_PGO_PROFILE = "build/release-pgo/hook.profdata"
 
+# --no-mangle-all: a mangled msvcp140 name is written into each .pyd's import
+# table, which changes the image its .build.json identity hashed
+# (docs/architecture/release_pipeline.md, "Repair: the image the identity hashed").
+[tool.cibuildwheel.windows]
+repair-wheel-command = "delvewheel repair --no-mangle-all -w {dest_dir} -v {wheel}"
+
 # clang-cl's LTO needs lld-link, which setuptools does not drive: no LTO here.
 [tool.cibuildwheel.windows.environment]
 STRATA_WIN_COMPILER = "clang-cl"

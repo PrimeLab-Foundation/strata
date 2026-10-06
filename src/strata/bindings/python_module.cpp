@@ -11,6 +11,7 @@
  * includes it (docs/context/convention.md, "Core purity").
  */
 
+#include "python_cpu_guard.h"
 #include "python_types.h"
 #include "strata/json/json_document.hpp"
 #include "strata/json/json_parse.hpp"
@@ -466,9 +467,9 @@ PyModuleDef kModuleDef = {
     nullptr, // m_free
 };
 
-} // namespace
-
-PyMODINIT_FUNC PyInit__strata(void) {
+/// The module's initialisation, compiled with the image's own instruction set
+/// and reached only through `PyInit__strata`'s CPU guard.
+PyObject* create_strata_module() {
     // Seed both policies to their documented defaults before anything can
     // observe them, so a fresh process reports exactly what it will do.
     strata::set_duplicate_key_policy(strata::DuplicateKeyPolicy::FirstWins);
@@ -489,4 +490,16 @@ PyMODINIT_FUNC PyInit__strata(void) {
         return nullptr;
     }
     return module;
+}
+
+} // namespace
+
+// The image's first code to run, so it checks the CPU before anything else
+// (python_cpu_guard.h). Without the guard it is the call alone.
+PyMODINIT_FUNC STRATA_CPU_GUARD_ENTRY PyInit__strata(void) {
+#if STRATA_CPU_GUARD
+    if (!strata::bindings::cpu_guard_passes("strata._strata"))
+        return nullptr;
+#endif
+    return create_strata_module();
 }

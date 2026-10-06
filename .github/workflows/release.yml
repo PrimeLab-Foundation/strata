@@ -96,6 +96,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # delvewheel vendors the first msvcp140.dll on PATH, which on the runner was a
+      # JDK's copy (run 37445278333). Put the newest VC++ redistributable CRT first.
+      - name: Put the newest VC++ redistributable CRT first on PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found at $vswhere" }
+          $found = @(& $vswhere -latest -products * -find 'VC\Redist\MSVC\*\x64\Microsoft.VC14*.CRT')
+          if ($LASTEXITCODE -ne 0) { throw "vswhere exited $LASTEXITCODE" }
+          $best = $found |
+            Where-Object { Test-Path (Join-Path $_ 'msvcp140.dll') } |
+            ForEach-Object {
+              $version = $null
+              $leaf = Split-Path (Split-Path (Split-Path $_ -Parent) -Parent) -Leaf
+              if ([version]::TryParse($leaf, [ref]$version)) {
+                [pscustomobject]@{ Version = $version; Path = $_ }
+              }
+            } |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+          if (-not $best) {
+            throw "no VC++ redistributable x64 CRT directory holds msvcp140.dll; vswhere found: [$($found -join '; ')]"
+          }
+          $dll = Get-Item (Join-Path $best.Path 'msvcp140.dll')
+          Write-Output "msvcp140.dll for delvewheel: $($dll.FullName) (file version $($dll.VersionInfo.FileVersion), redist $($best.Version))"
+          Add-Content -Path $env:GITHUB_PATH -Value $best.Path -Encoding utf8
+
       - uses: pypa/cibuildwheel@adba99c781d3746d38b3a09b1cf797965bcb7fe6 # v4.3.0
         env:
           CIBW_BUILD: ${{ matrix.python.tag }}-${{ matrix.leg.platform }}

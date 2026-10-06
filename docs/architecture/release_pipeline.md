@@ -87,6 +87,57 @@ extensions. It therefore refuses to run unless `CIBUILDWHEEL` is set, which
 only cibuildwheel's build environment does. `make release-wheel-linux` builds
 from a copy of the tree in `build/release-src` for the same reason.
 
+On macOS, cibuildwheel exports `MACOSX_DEPLOYMENT_TARGET`, and CMake builds
+the C++ gate's suites for that target. `CMakeLists.txt` therefore defines
+`_LIBCPP_DISABLE_AVAILABILITY` on Apple, as setup.py does for the extensions.
+Without it, the float `to_chars` oracle in `tests/cpp/test_float_precision.cpp`
+does not compile below macOS 13.3. That failure stopped every macOS job of
+rehearsal run 37445278333 in `before-build`. The suites run on the build host,
+which is newer than libc++'s annotation floor.
+
+## Repair: the image the identity hashed
+
+`check-install --identity` fails when the installed image's SHA-256 differs
+from the `extension_sha256` in its `.build.json`
+(`build_identity.profiled_problems`, "describes another binary"). The identity
+is written at link time, before cibuildwheel's repair step. That step must
+therefore leave every image byte for byte as it was linked.
+
+| Leg     | Repair (cibuildwheel 4.3.0)                   | Effect on the images                                                                                                                                                                                                                                                                                     |
+| ------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux   | `auditwheel repair` (default)                 | None. The images need only libraries the manylinux policy allows (libstdc++, libm, libc, libgcc_s). auditwheel grafts nothing, so it runs no `patchelf` and only retags the wheel. Every Linux job of run 37445278333 passed the identity check.                                                         |
+| macOS   | `delocate-wheel --require-archs …` (default)  | None. The images link only `/usr/lib/libc++.1.dylib` and `/usr/lib/libSystem.B.dylib`. delocate copies nothing from system paths, so it runs no `install_name_tool` and no re-signing. Checked locally with delocate 0.13.0 on both arm64 images: the SHA-256 after repair matches the one before.       |
+| Windows | `delvewheel repair --no-mangle-all -w … -v …` | None. The images import one DLL that Python does not ship: `msvcp140.dll`. It is still vendored into `strata_plf.libs`, and `strata/__init__.py` gets delvewheel's `os.add_dll_directory` patch. The default mangling renames the DLL and rewrites each `.pyd`'s import table, which broke the identity. |
+
+Mangling is off because it is what rewrites the image. delvewheel 1.13.1
+renames dependencies only when it mangles (`_wheel_repair.py`). With
+`--no-mangle-all`, the one remaining write to a `.pyd` clears a non-zero
+`DependentLoadFlags`, and strata links no `/DEPENDENTLOADFLAG`.
+
+The trade-off is the DLL's name. `msvcp140.dll` keeps its stable name, so a
+process loads one copy: the first one loaded, wherever it came from. Microsoft
+supports a runtime that is newer than the toolset. It does not support one that
+is older, so strata relies on the vendored copy, or any copy loaded before it,
+being at least as new as the build toolset. Mangling gave strata a private copy
+instead. Rejected: hashing the pre-repair image in `check-install`. The
+identity would then describe a binary the wheel does not ship.
+
+**Open, for the next rehearsal to confirm on every Windows job:**
+
+- `check-install --identity` passes.
+- The `-v` log prints `skip mangling DLL names` and no `clearing DependentLoadFlags`.
+- The vendored `msvcp140.dll` comes from a VC++ redistributable at least as new
+  as the toolset. Run 37445278333 copied
+  `C:\hostedtoolcache\windows\Java_Temurin-Hotspot_jdk\17.0.20-101\x64\bin\msvcp140.dll`,
+  the first copy on `PATH`. delvewheel warned that the images were built with a
+  newer platform toolset (14.51) than that DLL. This holds with or without
+  mangling. The wheels job now puts the newest VC++ redistributable's x64 CRT
+  directory (`VC\Redist\MSVC\<version>\x64\Microsoft.VC14*.CRT`, found by
+  `vswhere`) first on `PATH` before cibuildwheel runs, so delvewheel vendors
+  that `msvcp140.dll`, and the step fails the job, printing what `vswhere`
+  found, when no such directory holds one; the step's log names the copy and
+  its file version for the rehearsal to check against the toolset.
+
 ## Release ISA
 
 | Leg           | Flag                                                           | Checked by `check-install --identity`    |
@@ -106,10 +157,9 @@ Two items are still open:
 - **T8, the A/B that prices this ISA, is pending.** It compares the
   release ISA with the benchmarked `-march=native` build. x86-64-v2 remains a
   candidate for the x86 legs until it reports.
-- **T7, a cpuid guard, is pending and must land before the final tag.** It
-  is a runtime check that refuses a CPU without the wheel's ISA instead of
-  letting it crash with an illegal instruction. A release candidate (`rcK`)
-  may ship without it.
+- **T7, the CPU guard, is in the tree** (see "CPU guard" below); its
+  Linux full-image disassembly and an SDE run are still owed before the
+  final tag.
 
 **The sdist keeps `-march=native` as the fallback.** It sets no
 `STRATA_MARCH`, so `pip install --no-binary strata-plf strata-plf` builds for
@@ -123,6 +173,44 @@ universal2 slices at deployment targets 10.9 and 10.13, which need the define
 to compile. It changes no release wheel: both images compile at deployment
 targets 11.0 and 13.0 without it, and at a fixed path with `ZERO_AR_DATE=1` the
 build is byte-identical with and without it.
+
+## CPU guard
+
+Where an image is compiled with AVX2 on x86-64 (`-march=x86-64-v3`,
+`/arch:AVX2`, or `-march=native` on an AVX2 host), both init entries,
+`PyInit__strata` and `PyInit__dumps_hook`, are compiled for the x86-64
+baseline (`STRATA_CPU_GUARD_ENTRY`, `src/strata/bindings/python_cpu_guard.h`)
+and first check the full x86-64-v3 set — CPUID leaves 1, 7 and 80000001h
+plus XCR0's XMM and YMM bits through XGETBV
+(`include/strata/util/cpu_features.hpp`). On failure they raise ImportError
+naming the requirement and the way out: `pip install --no-binary strata-plf strata-plf` on Linux, the same or an arm64 Python or `ROSETTA_ADVERTISE_AVX=1`
+on macOS, and on Windows the statement that every build there targets AVX2.
+On success the module's unchanged initialisation runs. The hook image has its
+own guard, from the same header: it can be loaded before `_strata`. On arm64
+and every non-AVX2 build the guard compiles away. GCC, clang and clang-cl
+take the baseline attribute; under MSVC proper (not a release compiler) the
+check runs but its own code is not held to the baseline.
+
+Evidence (`docs/benchmarks/evidence/T7/`): an x86-64-v3 macOS build's
+entries hold no instruction above the baseline and the images have no static
+initializers (`macos_x86_64_v3_scan.txt`); under Rosetta 2, whose CPUID omits
+AVX unless `ROSETTA_ADVERTISE_AVX=1`, each image loaded alone raises the
+ImportError, and imports with the variable set (`rosetta_import.txt`).
+
+`check-install --identity` repeats that scan on every wheel it tests on x86-64
+POSIX (Linux x86_64, macOS x86_64): `scripts/check_guard_isa.py`, promoted
+from T7's evidence copy, disassembles both installed images' static
+initializers, their `PyInit_*` entries, outlined `.cold` parts included, and
+every local function an entry calls or tail-jumps to at any depth (stopping
+at `create_strata_module`/`create_hook_module`, which run after the guard,
+and at PLT stubs), and fails the wheel on any instruction above the baseline,
+on a symbol that disassembles to nothing, or on an image with no entry. Where
+`objdump`, `nm` and `readelf` (Linux) or `otool` (macOS), under those names
+or their `llvm-` ones, are not on `PATH`, it fails under `CI` and otherwise
+prints that it skipped the scan and why. Windows
+prints a skip too, since its test environment has no disassembler: the
+clang-cl images rest on T7's static evidence that clang-cl takes the same
+baseline attribute (`STRATA_CPU_GUARD_ENTRY`) as clang.
 
 ## Versions and tags
 

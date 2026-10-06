@@ -24,8 +24,12 @@ both extensions must import from its platlib and never from the checkout,
 and ``strata.__version__`` must equal the literal in
 ``python/strata/__init__.py``. ``--identity`` also proves each image built
 against its own profile alone (``build_identity.check_profiled``), with the
-leg's ISA flag, never ``-march=native``, and ``-flto=thin`` on POSIX. The full
-Python suite (``scripts/py_tests.py``) then runs against the installed wheel.
+leg's ISA flag, never ``-march=native``, and ``-flto=thin`` on POSIX; on
+x86-64 POSIX it then scans what runs before each image's CPU guard
+(``scripts/check_guard_isa.py``), and prints why it skipped that scan anywhere
+else or when the disassembler tools are not on ``PATH`` (under ``CI`` a missing
+tool fails instead). The full Python suite
+(``scripts/py_tests.py``) then runs against the installed wheel.
 
 ``profile`` deletes ``build/`` (``build/evidence`` included) and the in-tree
 extensions, so it refuses to run outside cibuildwheel's build environment,
@@ -98,6 +102,7 @@ PGO_DIR = PROJECT_ROOT / PGO_REL
 VENV_DIR = BUILD_DIR / "release-venv"
 STRATA_PROFILE = PGO_DIR / "strata.profdata"
 HOOK_PROFILE = PGO_DIR / "hook.profdata"
+GUARD_ISA_SCRIPT = PROJECT_ROOT / "scripts" / "check_guard_isa.py"
 WINDOWS = sys.platform == "win32"
 
 # The wheel build's own settings: the PGO script sets each of them per phase,
@@ -402,20 +407,50 @@ def _check_identity() -> None:
         )
 
 
+def _check_guard_isa(images: list[Path]) -> None:
+    if WINDOWS:
+        print(
+            "+ guard ISA scan SKIPPED on Windows: no disassembler in the test environment;"
+            " clang-cl's coverage is T7's static evidence (release_pipeline.md, CPU guard)",
+            flush=True,
+        )
+        return
+    machine = platform.machine()
+    if machine != "x86_64":
+        print(f"+ guard ISA scan SKIPPED on {machine}: the CPU guard is x86-64 only", flush=True)
+        return
+    guard = runpy.run_path(str(GUARD_ISA_SCRIPT))
+    for image in images:
+        missing = guard["find_tools"](guard["image_format"](image))[1]
+        if missing:
+            message = f"no {', '.join(missing)} on PATH for {image.name}"
+            if os.environ.get("CI"):
+                _fail(f"guard ISA scan cannot run under CI: {message}")
+            print(f"+ guard ISA scan SKIPPED: {message}", flush=True)
+            return
+    cmd = [sys.executable, str(GUARD_ISA_SCRIPT), *map(str, images)]
+    print("+ " + " ".join(cmd), flush=True)
+    if subprocess.run(cmd, check=False).returncode != 0:
+        _fail("code that runs before the CPU guard is not held to the x86-64 baseline (above)")
+
+
 def check_install(identity: bool) -> int:
     platlib = Path(sysconfig.get_paths()["platlib"]).resolve()
     strata = importlib.import_module("strata")
+    images = []
     for name in ("strata._strata", "strata._dumps_hook"):
         image = Path(importlib.import_module(name).__file__).resolve()
         if not image.is_relative_to(platlib) or image.is_relative_to(PROJECT_ROOT):
             _fail(f"{name} imports from {image}, not from the installed wheel in {platlib}")
         print(f"+ {name} imports from {image}", flush=True)
+        images.append(image)
     expected = _version_literal()
     if strata.__version__ != expected:
         _fail(f"strata.__version__ is {strata.__version__!r}, the source literal {expected!r}")
     print(f"+ strata.__version__ == {expected!r}", flush=True)
     if identity:
         _check_identity()
+        _check_guard_isa(images)
     cmd = [sys.executable, str(PROJECT_ROOT / "scripts" / "py_tests.py")]
     print("+ " + " ".join(cmd), flush=True)
     return subprocess.run(cmd, check=False).returncode

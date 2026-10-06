@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import runpy
+import shutil
 import subprocess
 import sys
 import types
@@ -545,6 +546,187 @@ def test_check_install_refuses_another_version(installed, version):
     ):
         release.check_install(identity=False)
     assert installed.runs == []
+
+
+def test_check_install_identity_scans_both_installed_images(installed, monkeypatch):
+    scanned = []
+    monkeypatch.setattr(release, "_check_identity", lambda: None)
+    monkeypatch.setattr(release, "_check_guard_isa", scanned.append)
+    assert release.check_install(identity=True) == 0
+    assert [[image.name for image in images] for images in scanned] == [
+        ["_strata.so", "_dumps_hook.so"],
+    ]
+
+
+# --- check-install's guard ISA scan ----------------------------------------
+
+ELF_X86_64 = b"\x7fELF" + bytes(14) + (62).to_bytes(2, "little")
+MACHO_X86_64 = b"\xcf\xfa\xed\xfe" + (0x01000007).to_bytes(4, "little")
+GUARD_TOOLS = frozenset(
+    {"objdump", "llvm-objdump", "nm", "llvm-nm", "readelf", "llvm-readelf", "otool", "llvm-otool"},
+)
+
+
+@pytest.fixture
+def guard_scan(monkeypatch, tmp_path):
+    """_check_guard_isa on two fake x86-64 images, with platform, PATH and subprocess faked."""
+
+    class GuardScan:
+        def __init__(self) -> None:
+            self.on_path = set(GUARD_TOOLS)
+            self.runs: list[list[str]] = []
+            self.returncode = 0
+            self.images = [tmp_path / "_strata.so", tmp_path / "_dumps_hook.so"]
+            self.write(ELF_X86_64)
+
+        def write(self, head: bytes) -> None:
+            for image in self.images:
+                image.write_bytes(head + bytes(64))
+
+        def use(self, machine: str = "x86_64", windows: bool = False) -> None:
+            monkeypatch.setattr(release, "WINDOWS", windows)
+            monkeypatch.setattr(release, "platform", types.SimpleNamespace(machine=lambda: machine))
+
+        def run(self, cmd, check):
+            self.runs.append(cmd)
+            return types.SimpleNamespace(returncode=self.returncode)
+
+    scan = GuardScan()
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr(
+        shutil, "which", lambda name: f"/usr/bin/{name}" if name in scan.on_path else None
+    )
+    monkeypatch.setattr(release, "subprocess", types.SimpleNamespace(run=scan.run))
+    return scan
+
+
+def test_guard_scan_skips_windows_with_a_notice(guard_scan, capsys):
+    guard_scan.use("AMD64", windows=True)
+    release._check_guard_isa(guard_scan.images)
+    out = capsys.readouterr().out
+    assert "guard ISA scan SKIPPED on Windows" in out
+    assert "T7's static evidence" in out
+    assert guard_scan.runs == []
+
+
+@pytest.mark.parametrize("machine", ["arm64", "aarch64"])
+def test_guard_scan_skips_arm64_with_a_notice(guard_scan, capsys, machine):
+    guard_scan.use(machine)
+    release._check_guard_isa(guard_scan.images)
+    assert f"guard ISA scan SKIPPED on {machine}" in capsys.readouterr().out
+    assert guard_scan.runs == []
+
+
+@pytest.mark.parametrize(
+    ("head", "absent", "named"),
+    [
+        (ELF_X86_64, {"objdump", "llvm-objdump"}, "objdump"),
+        (ELF_X86_64, {"readelf", "llvm-readelf"}, "readelf"),
+        (ELF_X86_64, GUARD_TOOLS, "objdump, nm, readelf"),
+        (MACHO_X86_64, {"otool", "llvm-otool"}, "otool"),
+    ],
+)
+def test_guard_scan_skips_without_its_tools_locally_with_a_notice(
+    guard_scan, capsys, head, absent, named
+):
+    guard_scan.use()
+    guard_scan.write(head)
+    guard_scan.on_path -= absent
+    release._check_guard_isa(guard_scan.images)
+    assert f"guard ISA scan SKIPPED: no {named} on PATH for _strata.so" in capsys.readouterr().out
+    assert guard_scan.runs == []
+
+
+@pytest.mark.parametrize(
+    ("head", "absent", "named"),
+    [
+        (ELF_X86_64, {"objdump", "llvm-objdump"}, "objdump"),
+        (MACHO_X86_64, {"otool", "llvm-otool"}, "otool"),
+    ],
+)
+def test_guard_scan_fails_without_its_tools_under_ci(guard_scan, monkeypatch, head, absent, named):
+    guard_scan.use()
+    guard_scan.write(head)
+    guard_scan.on_path -= absent
+    monkeypatch.setenv("CI", "true")
+    with pytest.raises(
+        SystemExit,
+        match=f"guard ISA scan cannot run under CI: no {named} on PATH for _strata.so",
+    ):
+        release._check_guard_isa(guard_scan.images)
+    assert guard_scan.runs == []
+
+
+def test_guard_scan_runs_under_ci_when_its_tools_are_there(guard_scan, monkeypatch):
+    guard_scan.use()
+    monkeypatch.setenv("CI", "true")
+    release._check_guard_isa(guard_scan.images)
+    assert len(guard_scan.runs) == 1
+
+
+def test_guard_scan_takes_the_llvm_name_when_the_gnu_one_is_absent(guard_scan):
+    guard_scan.on_path -= {"objdump", "nm", "readelf", "llvm-otool"}
+    guard = runpy.run_path(str(release.GUARD_ISA_SCRIPT))
+    assert guard["find_tools"]("elf") == (
+        {
+            "objdump": "/usr/bin/llvm-objdump",
+            "nm": "/usr/bin/llvm-nm",
+            "readelf": "/usr/bin/llvm-readelf",
+        },
+        [],
+    )
+    assert guard["find_tools"]("macho")[0]["otool"] == "/usr/bin/otool"
+
+
+@pytest.mark.parametrize("head", [ELF_X86_64, MACHO_X86_64])
+def test_guard_scan_runs_the_script_on_both_images(guard_scan, head):
+    guard_scan.use()
+    guard_scan.write(head)
+    release._check_guard_isa(guard_scan.images)
+    script = str(release.GUARD_ISA_SCRIPT)
+    assert guard_scan.runs == [[sys.executable, script, *map(str, guard_scan.images)]]
+
+
+def test_guard_scan_follows_the_entries_callees_short_of_the_module_body(capsys):
+    guard = runpy.run_path(str(release.GUARD_ISA_SCRIPT))
+    table = {
+        0x10: "_PyInit__strata",
+        0x20: "_PyInit__strata.cold.1",
+        0x30: "helper",
+        0x40: "deeper",
+        0x50: "__ZN12_GLOBAL__N_120create_strata_moduleEv",
+    }
+    listings = {
+        "_PyInit__strata": ["1: call 0x30 <helper>", "2: jmp 0x50 <x>"],
+        "_PyInit__strata.cold.1": ["3: call 0x60 <PyErr_SetString@plt>"],
+        "helper": ["4: call 0x40 <deeper>", "5: call 0x10 <_PyInit__strata>"],
+        "deeper": [],
+        "__ZN12_GLOBAL__N_120create_strata_moduleEv": [],
+    }
+    scanned = []
+
+    def scanner(name):
+        scanned.append(name)
+        return 1, ["6: VEX vzeroupper"] if name == "deeper" else [], listings[name]
+
+    assert guard["_scan_entries"](table, scanner) == 1
+    assert scanned == ["_PyInit__strata", "_PyInit__strata.cold.1", "helper", "deeper"]
+    assert "callee [deeper] instructions=1 above-baseline=1" in capsys.readouterr().out
+
+
+def test_guard_scan_fails_on_a_finding(guard_scan):
+    guard_scan.use()
+    guard_scan.returncode = 1
+    with pytest.raises(SystemExit, match="not held to the x86-64 baseline"):
+        release._check_guard_isa(guard_scan.images)
+
+
+def test_guard_scan_refuses_an_image_that_is_not_x86_64(guard_scan):
+    guard_scan.use()
+    guard_scan.write(b"\x7fELF" + bytes(14) + (183).to_bytes(2, "little"))
+    with pytest.raises(SystemExit, match="not an x86-64 ELF or thin x86-64 Mach-O image"):
+        release._check_guard_isa(guard_scan.images)
+    assert guard_scan.runs == []
 
 
 # --- setup.py release knobs ------------------------------------------------

@@ -24,6 +24,7 @@
 
 #define STRATA_DUMPS_HOOK 1
 
+#include "python_cpu_guard.h"
 #include "python_parse_types.h"
 #include "python_types.h"
 #include "strata/util/folder.hpp"
@@ -429,11 +430,9 @@ PyModuleDef kHookModuleDef = {
     kHookMethods,
 };
 
-} // namespace
-} // namespace strata::bindings
-
-PyMODINIT_FUNC PyInit__dumps_hook(void) {
-    using namespace strata::bindings;
+/// The module's initialisation, compiled with the image's own instruction set
+/// and reached only through `PyInit__dumps_hook`'s CPU guard.
+PyObject* create_hook_module() {
     // Before any walk, as `_strata` does at its own init: the layout proofs
     // are this image's own copies, and resolving one mid-walk allocates where
     // the walk's contract says nothing runs.
@@ -488,4 +487,18 @@ PyMODINIT_FUNC PyInit__dumps_hook(void) {
     g_native_key = native_key.release();
     native::g_mode_var = mode_var.release();
     return module;
+}
+
+} // namespace
+} // namespace strata::bindings
+
+// The image's first code to run, so it checks the CPU before anything else
+// (python_cpu_guard.h): a direct `import strata._dumps_hook` reaches this
+// entry without `_strata`'s guard having run.
+PyMODINIT_FUNC STRATA_CPU_GUARD_ENTRY PyInit__dumps_hook(void) {
+#if STRATA_CPU_GUARD
+    if (!strata::bindings::cpu_guard_passes("strata._dumps_hook"))
+        return nullptr;
+#endif
+    return strata::bindings::create_hook_module();
 }

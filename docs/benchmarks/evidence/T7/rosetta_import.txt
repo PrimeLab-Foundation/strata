@@ -1,0 +1,14 @@
+== Rosetta 2 (macOS 26) [CPUID without AVX] strata._strata loaded alone:
+ImportError: strata._strata was built for x86-64-v3 (an AVX2 CPU: AVX, AVX2, BMI1, BMI2, F16C, FMA, LZCNT and MOVBE, with the OS saving AVX state), and this machine does not provide it. Under Rosetta 2 on Apple silicon, install strata for an arm64 Python instead, or set ROSETTA_ADVERTISE_AVX=1 if this macOS's Rosetta runs AVX2. Otherwise build strata for this CPU from source: pip install --no-binary strata-plf strata-plf
+exit=0
+== Rosetta 2 (macOS 26) [ROSETTA_ADVERTISE_AVX=1] strata._strata loaded alone:
+loaded ['strata._strata']
+exit=0
+== Rosetta 2 (macOS 26) [CPUID without AVX] strata._dumps_hook loaded alone:
+ImportError: strata._dumps_hook was built for x86-64-v3 (an AVX2 CPU: AVX, AVX2, BMI1, BMI2, F16C, FMA, LZCNT and MOVBE, with the OS saving AVX state), and this machine does not provide it. Under Rosetta 2 on Apple silicon, install strata for an arm64 Python instead, or set ROSETTA_ADVERTISE_AVX=1 if this macOS's Rosetta runs AVX2. Otherwise build strata for this CPU from source: pip install --no-binary strata-plf strata-plf
+exit=0
+== Rosetta 2 (macOS 26) [ROSETTA_ADVERTISE_AVX=1] strata._dumps_hook loaded alone:
+loaded ['strata._dumps_hook', 'strata._strata']
+exit=0
+== control: HEAD 0797078 v3 build, CPUID without AVX
+loaded ['strata._strata']

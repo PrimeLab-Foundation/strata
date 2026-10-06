@@ -17,6 +17,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus>)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Suites run on the build host, not at the deployment target (docs/decisions.md, 2026-10-06).
+if(APPLE)
+    add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY)
+endif()
 
 # An unset build type produces unoptimized binaries, which made the previous
 # implementation's ctest and shell harnesses disagree about stress-test runtime.
@@ -129,6 +133,7 @@ strata_add_cpp_test(temporal_tests tests/cpp/test_temporal.cpp ${STRATA_NATIVE_S
 strata_add_cpp_test(folder_tests tests/cpp/test_folder.cpp)
 strata_add_cpp_test(fuzz_corpus_tests tests/cpp/test_fuzz_corpus.cpp)
 strata_add_cpp_test(stress_deep_tests tests/cpp/test_stress_deep.cpp)
+strata_add_cpp_test(cpu_features_tests tests/cpp/test_cpu_features.cpp)
 
 # The registry is only "the single registry" if nothing can sit outside it: a
 # suite added to tests/cpp/ but never registered would be silently uncompiled,
