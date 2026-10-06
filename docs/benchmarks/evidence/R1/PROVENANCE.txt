@@ -1,0 +1,22 @@
+R1 (T8) -- the release wheels' x86 ISA against -march=native. Ledger: docs/performance/experiment-ledger.md, "R1".
+
+Run:       GitHub Actions 37447108196, workflow ab_x86.yml in ISA mode
+           (march_arms="native x86-64-v3 x86-64-v2", blocks=6, repeat=60)
+Revision:  work/t8-isa-ab 09233f3 (main 0797078 + the ISA job and the probe's query/search rows)
+Legs:      linux-x86_64 (AMD EPYC 9V45, Ubuntu clang 18.1.3), macos-x86_64 (Intel i7-8700B,
+           Apple clang 17.0.0); CPython 3.12. cpu.txt and isa_macros.txt per leg.
+Arms:      one checkout path, built in order native, x86-64-v3, x86-64-v2 by `make pgo`
+           (PGO_VERIFY_BENCH=0), each with its own profile; <arm>.so.build.json per arm.
+
+Per leg:
+  <a>__<b>.tsv.gz       ab_rows packet, arm <a> as A (baseline), arm <b> as B
+  AA.tsv.gz             A/A packet, native against itself (the floor)
+  <a>__<b>_blocks.txt   ab_blocks.py <a>__<b>.tsv --aa AA.tsv (text)
+  <a>__<b>_effect.json  the same analysis as JSON
+  AA_blocks.txt         ab_blocks.py AA.tsv
+  *.stderr              driver logs (launch order, md5 of each arm, launch medians)
+
+Reproduce a reading: gunzip the two packets, then
+  PYTHONPATH=. python benchmarks/ab_blocks.py <a>__<b>.tsv --aa AA.tsv
+(checked for linux x86-64-v3__x86-64-v2: every effect, interval and floor identical to the JSON).
+The arms' binaries and profiles are in the run's artifacts (isa-<leg>), not here.

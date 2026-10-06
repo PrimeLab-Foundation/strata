@@ -1,0 +1,3 @@
+native bc8f149f7ed78cfeaedf37da70afa5fb  arms/native.so
+x86-64-v3 abbc36d895b592703eadc693753ff49c  arms/x86-64-v3.so
+x86-64-v2 ccde2036ca53cf56e7a776653da06bab  arms/x86-64-v2.so

@@ -1,0 +1,3 @@
+native: __AVX__ __AVX2__ __BMI__ __BMI2__ __FMA__ __LZCNT__ __MOVBE__ __POPCNT__ __SSE4_2__ 
+x86-64-v3: __AVX__ __AVX2__ __BMI__ __BMI2__ __FMA__ __LZCNT__ __MOVBE__ __POPCNT__ __SSE4_2__ 
+x86-64-v2: __POPCNT__ __SSE4_2__ 
