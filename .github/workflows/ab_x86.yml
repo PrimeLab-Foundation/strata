@@ -1,5 +1,5 @@
 name: A/B performance
-run-name: "${{ inputs.experiment }} / ${{ inputs.validation || 'paired' }} / five platforms"
+run-name: "${{ inputs.march_arms != '' && format('isa: {0} / x86 legs', inputs.march_arms) || format('{0} / {1} / five platforms', inputs.experiment, inputs.validation || 'paired') }}"
 
 # Same-machine A-B-B-A of two revisions on all five platforms. The five-
 # platform samples can only compare strata against its rivals within one
@@ -54,10 +54,14 @@ on:
       repeat:
         description: "repeats per row per launch"
         default: "60"
+      march_arms:
+        description: "ISA mode: space-separated STRATA_MARCH arms of ONE revision on the x86 legs (native = unset); empty runs the revision A/B"
+        default: ""
 
 jobs:
   ab:
     name: A/B (${{ matrix.platform }})
+    if: inputs.march_arms == ''
     runs-on: ${{ matrix.os }}
     # Two PGO builds, then 2 x (4 x blocks + 1) launches: the A/A run now
     # matches the comparison's block count instead of running two blocks.
@@ -295,6 +299,7 @@ jobs:
 
   ab-windows:
     name: A/B (windows-x86_64)
+    if: inputs.march_arms == ''
     runs-on: windows-latest
     timeout-minutes: 180
     env:
@@ -413,6 +418,156 @@ jobs:
         if: always()
         with:
           name: ab-windows-x86_64
+          path: |
+            ab/
+            arms/
+          if-no-files-found: warn
+
+  # ISA mode (docs/architecture/release_pipeline.md, "Release ISA"; ledger R1).
+  # The arms are ONE revision, built one after another in the checkout's own
+  # path by the shipped recipe (`make pgo` with PGO_VERIFY_BENCH=0, as
+  # scripts/release.py runs it); only STRATA_MARCH differs, and every arm trains
+  # its own profile -- a profile held across arms prices a quantity no arm
+  # ships. Each pair of arms gets its own ABBA session over the 27 canonical
+  # small-tier rows, read against one A/A floor of the first arm.
+  isa:
+    name: ISA A/B (${{ matrix.platform }})
+    if: inputs.march_arms != ''
+    runs-on: ${{ matrix.os }}
+    # install-bench, one PGO build per arm, then (pairs + 1) x (4 x blocks + 1)
+    # launches of 27 rows: about two hours on the Intel Mac for three arms.
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+            cc: clang
+            cxx: clang++
+            archflags: ""
+          - os: macos-15-intel
+            platform: macos-x86_64
+            cc: cc
+            cxx: c++
+            archflags: "-arch x86_64"
+    env:
+      ARCHFLAGS: ${{ matrix.archflags }}
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+      PYTHON: python
+      MARCH_ARMS: ${{ inputs.march_arms }}
+      AB_BLOCKS: ${{ inputs.blocks }}
+      AB_REPEAT: ${{ inputs.repeat }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.cand_ref || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install clang and LLVM
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake
+
+      - name: CPU facts and each arm's predefined ISA macros
+        run: |
+          mkdir -p ab arms
+          { echo "platform ${{ matrix.platform }}"; uname -a; \
+            (grep -m1 'model name' /proc/cpuinfo || sysctl -n machdep.cpu.brand_string) 2>/dev/null; \
+            nproc 2>/dev/null || sysctl -n hw.ncpu; "$CXX" --version | head -1; } | tee ab/cpu.txt
+          for arm in $MARCH_ARMS; do
+            flag="-march=$arm"; [ "$arm" = none ] && flag=""
+            printf '%s: ' "$arm" >> ab/isa_macros.txt
+            "$CXX" $flag -dM -E -x c++ /dev/null \
+              | grep -oE '__(SSE4_2|POPCNT|AVX|AVX2|BMI|BMI2|LZCNT|FMA|MOVBE|AVX512[A-Z]+)__' \
+              | sort -u | tr '\n' ' ' >> ab/isa_macros.txt
+            echo >> ab/isa_macros.txt
+          done
+          cat ab/isa_macros.txt
+
+      - name: Timing harness environment (plain gated build)
+        run: make install-bench
+
+      - name: Build every arm by the shipped PGO recipe, one after another in one path
+        run: |
+          for arm in $MARCH_ARMS; do
+            if [ "$arm" = native ]; then unset STRATA_MARCH; expect="-march=native"
+            elif [ "$arm" = none ]; then export STRATA_MARCH=none; expect=""
+            else export STRATA_MARCH="$arm"; expect="-march=$arm"; fi
+            PGO_VERIFY_BENCH=0 make pgo
+            binary=$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')
+            cp "$binary" "arms/$arm.so"
+            cp "$binary.build.json" "arms/$arm.so.build.json"
+            cp -R build/pgo "ab/profile-$arm"
+            # An arm is what its build identity says, or the session is void:
+            # every compile command carries exactly the arm's -march, the
+            # compilation is complete, and a profile was used.
+            .venv/bin/python - "arms/$arm.so.build.json" "$expect" <<'PY'
+          import json, sys
+          path, expect = sys.argv[1], sys.argv[2]
+          identity = json.load(open(path))
+          assert identity.get("complete_compilation") is True, f"{path}: partial compilation"
+          compiles = [cmd for cmd in identity["commands"] if "-c" in cmd]
+          marches = {tuple(a for a in cmd if a.startswith("-march=")) for cmd in compiles}
+          want = (expect,) if expect else ()
+          assert compiles and marches == {want}, f"{path}: -march flags {sorted(marches)} != {want}"
+          assert identity.get("pgo_profile"), f"{path}: no PGO profile recorded"
+          print(f"{path}: {len(compiles)} compiles, all {want}, profile {identity['pgo_profile']}")
+          PY
+            echo "$arm $(md5sum "arms/$arm.so" 2>/dev/null || md5 -r "arms/$arm.so")" | tee -a ab/arms.txt
+          done
+
+      - name: Datasets (small)
+        run: |
+          PYTHONPATH=. .venv/bin/python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      - name: Pairwise A-B-B-A sessions, then the A/A floor of the first arm
+        run: |
+          TARGET="$(.venv/bin/python -c 'import strata._strata as m; print(m.__file__)')"
+          # The 27 canonical rows (harness.workload_rows() on the small tier):
+          # users' loads/dumps/load/dump/ndload and its three query and three
+          # search rows, and four operations on each synthetic shape.
+          ROWS="--row small:users:loads --row small:users:dumps --row small:users:load --row small:users:dump --row small:users:ndload"
+          for key in id total rtotal; do ROWS="$ROWS --row small:users:query-$key --row small:users:search-$key"; done
+          for ds in flat nested wide_arrays mixed; do
+            for op in loads dumps load dump; do ROWS="$ROWS --row small:$ds:$op"; done
+          done
+          read -ra arms <<< "$MARCH_ARMS"
+          session() {  # name baseline candidate
+            PYTHONPATH=. .venv/bin/python benchmarks/ab_rows.py --build A="arms/$2.so" --build B="arms/$3.so" \
+              --target "$TARGET" --out "ab/$1.tsv" $ROWS --blocks "$AB_BLOCKS" --repeat "$AB_REPEAT" 2> "ab/$1.stderr"
+          }
+          pairs=()
+          for ((i = 0; i < ${#arms[@]}; i++)); do
+            for ((j = i + 1; j < ${#arms[@]}; j++)); do
+              name="${arms[i]}__${arms[j]}"
+              session "$name" "${arms[i]}" "${arms[j]}"
+              pairs+=("$name")
+            done
+          done
+          session AA "${arms[0]}" "${arms[0]}"
+          PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py ab/AA.tsv > ab/AA_blocks.txt
+          for name in "${pairs[@]}"; do
+            PYTHONPATH=. .venv/bin/python benchmarks/ab_blocks.py "ab/$name.tsv" --aa ab/AA.tsv \
+              --json "ab/${name}_effect.json" > "ab/${name}_blocks.txt"
+            echo "== $name (A = first arm, B = second; + = B slower)"; cat "ab/${name}_blocks.txt"
+          done
+          echo "== AA"; cat ab/AA_blocks.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: isa-${{ matrix.platform }}
           path: |
             ab/
             arms/

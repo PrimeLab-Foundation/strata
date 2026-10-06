@@ -403,7 +403,15 @@ def test_every_probe_engine_has_a_rival_in_the_analysis():
     """A row the probe can measure must be a row the analysis can read."""
     from benchmarks import rows_probe
 
-    assert set(rows_probe.SUFFIX_BY_OP) == {"dumps", "loads", "load", "ndload", "dump"}
+    assert set(rows_probe.SUFFIX_BY_OP) == {
+        "dumps",
+        "loads",
+        "load",
+        "ndload",
+        "dump",
+        "query",
+        "search",
+    }
     for engine in (
         "strata-bytes",
         "strata-str",
@@ -411,6 +419,8 @@ def test_every_probe_engine_has_a_rival_in_the_analysis():
         "strata-load",
         "strata-ndload",
         "strata-dump",
+        "strata-query",
+        "strata-search",
     ):
         assert engine in ab_blocks.RIVAL_BY_ENGINE
 
