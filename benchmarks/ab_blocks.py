@@ -97,6 +97,10 @@ RIVAL_BY_ENGINE = {
     "strata-load": "orjson-load",
     "strata-ndload": "orjson-ndload",
     "strata-dump": "orjson-dump",
+    # The JSONPath rows have no orjson form; their drift control is orjson
+    # parsing the same document (rows_probe.py, `_calls`).
+    "strata-query": "orjson-query",
+    "strata-search": "orjson-search",
     # The oldest probes named the two engines without an operation suffix.
     "strata": "orjson",
 }

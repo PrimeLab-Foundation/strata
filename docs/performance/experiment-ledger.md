@@ -4845,3 +4845,89 @@ Table 1 — strata/msgspec, `dumps` / `dump`, `native.small`.
   M1; the samples show strata ahead of msgspec on every native row in every leg-sample, one to
   three per leg. native_types.md's acceptance names a five-leg A/B as the kill check; no five-leg
   A/B run is in this evidence.
+
+## R1 — the release wheels' x86 ISA priced against `-march=native` (T8)
+
+- 2026-10-06 · `work/t8-isa-ab` at `09233f3` (main `0797078` plus the A/B tooling below), run
+  37447108196\. Evidence: `docs/benchmarks/evidence/R1/<leg>/` (packets as `.tsv.gz`, the
+  estimator's `*_blocks.txt` and `*_effect.json`, each arm's `.build.json`, `cpu.txt`,
+  `isa_macros.txt`; `PROVENANCE.txt`). **Status: measured. Decision: `-march=x86-64-v3` on both
+  x86 legs; x86-64-v2 refused — outside the A/A floor on 3 of 27 rows on linux-x86_64 and 2 of 27
+  on macos-x86_64, with a resolved loss on each leg.**
+
+- **Question.** The release wheels build `-march=x86-64-v3` (release_pipeline.md, "Release
+  ISA"); every benchmark and standings sample so far built `-march=native`. What does the release
+  flag cost against the benchmarked build, and is x86-64-v2 within noise of x86-64-v3? Rule set
+  in the brief: v2 only if it lands inside the A/A floor on every row on both legs.
+
+- **Method.** One revision, three arms per leg, differing only in `STRATA_MARCH` (unset =
+  `-march=native`, `x86-64-v3`, `x86-64-v2`), built one after another in the checkout's own path
+  by the shipped recipe (`make pgo`, `PGO_VERIFY_BENCH=0` as `scripts/release.py profile` runs
+  it). **Each arm trained its own profile** (strata.profdata: linux `9e27141b…`, `682de87d…`,
+  `8a72fb40…`; macos native and v3 trained byte-identical profiles `a502ca1c…`, v2 `09d72dcb…`);
+  no profile is held across arms. A check in the workflow verified each arm's build identity
+  before timing: complete compilation, exactly the arm's `-march` on every compile command,
+  `-flto=thin`, `-fprofile-use`. Instrument: `benchmarks/ab_rows.py` → `rows_probe.py`, ABBA ×6
+  blocks + tail, repeat 60, orjson in-process as the drift control, read by `ab_blocks.py`; the 27
+  canonical small-tier rows (`harness.workload_rows()`). The six JSONPath rows were added to the
+  probe for R1 (`query-<key>`, `search-<key>`); their drift control is orjson parsing the same
+  document, not the canonical rival, because jsonpath-ng takes ~850 ms a call on `$..total`. Three
+  pairwise sessions per runner (native→v3, v3→v2, native→v2) and one A/A session (native against
+  itself, 6 blocks). **Resolved** = the block-bootstrap CI excludes 0 and |effect| > the A/A
+  floor (max(|ci low|, |ci high|) of the same row in the A/A session). `+` = the second arm is
+  slower. Rows are canonical rows: a `dumps` row is the bytes call; the `str` form is timed beside
+  it and is quoted only where it also resolved.
+
+- **Hosts.** linux-x86_64: AMD EPYC 9V45, 4 vCPU, Ubuntu clang 18.1.3; `-march=native` adds
+  AVX-512 F/BW/CD/DQ/VL/IFMA/VBMI/VNNI/BITALG/VPOPCNTDQ to v3's set. macos-x86_64: Intel
+  i7-8700B, 4 CPUs, Apple clang 17.0.0 (clang-1700.0.13.5); `-march=native` predefines the same
+  ISA macros as v3, and the two arms trained the same profile, so they differ in tuning. CPython
+  3.12 on both. A/A floors over the 27 rows: linux 0.71–10.55% (median 1.67%), macos 0.89–15.35%
+  (median 3.78%).
+
+- **Results — every resolved row** (effect \[95% CI\], A/A floor):
+
+  | leg          | comparison  | resolved / 27 | rows                                                                                                                                                                                                             |
+  | ------------ | ----------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | linux-x86_64 | native → v3 | 2             | `search users $[*].id` +6.79% \[+2.67, +15.37\], 4.20%; `load users` +4.67% \[+0.79, +10.38\], 2.38%                                                                                                             |
+  | linux-x86_64 | v3 → v2     | 3             | `search users $[*].id` −15.09% \[−15.68, −10.69\], 4.20%; `search users $[*].orders[*].total` −11.65% \[−15.25, −10.16\], 6.73%; `dumps wide_arrays` +1.13% \[+0.87, +2.72\], 0.78% (str +1.32%)                 |
+  | linux-x86_64 | native → v2 | 4             | `dumps flat` +2.30% \[+1.20, +3.32\], 0.77% (str +1.85%); `dumps wide_arrays` +1.61% \[+1.11, +1.75\], 0.78% (str +1.72%); `search $[*].id` −13.19% \[−17.99, −10.00\]; `search …total` −7.99% \[−12.30, −4.80\] |
+  | macos-x86_64 | native → v3 | 1             | `load flat` +4.38% \[+1.69, +6.08\], 3.34%                                                                                                                                                                       |
+  | macos-x86_64 | v3 → v2     | 2             | `dump nested` +4.31% \[+2.96, +6.14\], 3.78%; `search users $[*].id` −5.25% \[−10.92, −1.63\], 2.79%                                                                                                             |
+  | macos-x86_64 | native → v2 | 1             | `search users $[*].id` −5.70% \[−9.17, −3.65\], 2.79%                                                                                                                                                            |
+
+  Every other row of every comparison has a CI spanning 0 or an effect inside its floor.
+
+- **Consistency across the three sessions on one runner** (the third session's reading of a
+  resolved row; implied = the ratio of the other two). Corroborated: linux v2's `search` gains
+  (resolved in both v3→v2 and native→v2), linux v2's `dumps wide_arrays` loss (both), macos v2's
+  `search $[*].id` gain (both), macos `load flat` (implied native→v3 +3.43%), macos `dump nested`
+  (implied v3→v2 +2.36%), linux `search $[*].id` native→v3 (implied +2.23%). Not corroborated:
+  linux `load users` native→v3 +4.67% — v3→v2 +2.13% and native→v2 −1.18% (neither resolved)
+  imply −3.25%.
+
+- **Static facts** (from the arms): linux `.text` native 307,412 B (229 instructions on zmm
+  registers, 323 on ymm), v3 307,124 (0 zmm, 499 ymm), v2 304,644 (no ymm or zmm, no
+  `vzeroupper`); macos `__text` native 246,688 (420 ymm), v3 245,360 (701 ymm), v2 244,160 (no
+  ymm). v2 compiles out `scan.hpp`'s AVX2 escape scan (`STRATA_ESCAPE_SCAN_AVX2`, leaving its
+  SSE2 path) and dragonbox's two `__AVX2__` blocks.
+
+- **Conclusion.** The release flag costs little against `-march=native`: v3 is inside the A/A
+  floor on 25 of 27 rows on linux-x86_64 and 26 of 27 on macos-x86_64; the resolved costs are
+  linux `search users $[*].id` +6.79% and `load users` +4.67% (the second not corroborated), and
+  macos `load flat` +4.38%. x86-64-v2 fails the rule on both legs, each on its own: resolved
+  losses on linux `dumps wide_arrays` (+1.13%, both serializer forms, and +1.61% against native)
+  and macos `dump nested` (+4.31%), next to resolved gains on the streaming `search` rows. **Keep
+  `-march=x86-64-v3` on both x86 legs; no per-leg split.**
+
+- **Follow-up, not R1's question.** v2 is faster than v3 on `search users $[*].id` on both legs
+  (−15.09% linux, −5.25% macos; also against native) and on `search …orders[*].total` on linux
+  (−11.65%), while no `loads` or `load` row resolves in the same comparisons. Mechanism not
+  investigated: on these rows the AVX2 build of the streaming search path loses to its SSE2 build.
+
+- **Limits.** One draw per leg (one host each); 6 blocks; the macos runner drifted (its unchanged
+  orjson rival read up to +27.90% between the arms of one comparison, native → v3 `loads flat`;
+  normalisation absorbs this, but the floors run to 15.35%). The JSONPath rows' drift control is not their canonical rival. Only `STRATA_MARCH`
+  differs between arms. The release toolchain (manylinux_2_28 clang through cibuildwheel; macos
+  `MACOSX_DEPLOYMENT_TARGET=13.0`) is not priced. Windows (`/arch:AVX2`) and arm64 are out of
+  scope.

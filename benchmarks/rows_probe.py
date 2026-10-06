@@ -26,7 +26,11 @@ against `orjson.dumps(value)` (plus strata's `str` form), `loads` is
 is `strata.load(ndjson)` against orjson's per-line parse of the same bytes, and
 `dump` is `strata.dump(value, path)` against `orjson.dumps` written to a file
 opened in binary mode. The rival's composition is the one the canonical report
-uses; anything else would be comparing two different pipelines.
+uses; anything else would be comparing two different pipelines. The six
+JSONPath rows (`query-<key>` and `search-<key>` on `users`, the keys in
+`QUERY_BY_KEY`) are the one exception: their canonical rivals are pure Python
+and take up to ~850 ms a call, so their drift control is orjson parsing the same
+document (see `_calls`).
 
 Everything else is P0's: `ab_rounds.alternating_rounds`, the `gc.collect()`
 preamble *outside* the timed span, order alternating every round, one TSV line
@@ -63,6 +67,17 @@ SUFFIX_BY_OP = {
     "load": ".json",
     "ndload": ".ndjson",
     "dump": ".json",
+    "query": ".json",
+    "search": ".json",
+}
+
+# The canonical report's three JSONPath rows (`harness.QUERY_LABELS`), keyed so
+# that a row spec stays `tier:dataset:op` with nothing shell-active in it: the
+# op is `query-<key>` or `search-<key>`, e.g. `small:users:search-rtotal`.
+QUERY_BY_KEY = {
+    "id": "$[*].id",
+    "total": "$[*].orders[*].total",
+    "rtotal": "$..total",
 }
 
 
@@ -141,6 +156,31 @@ def _calls(op: str, path: Path, strata, orjson, out_dir: Path) -> dict:
             "strata-dump": lambda: strata.dump(value, strata_target),
             "orjson-dump": write_orjson,
         }
+    base, _, key = op.partition("-")
+    if base in ("query", "search"):
+        # strata's calls are bench_main's: the expression compiled outside the
+        # timed call, `query` over the stdlib-parsed tree, `search` over the
+        # file. Their canonical rivals (jmespath, jsonpath-ng) take up to
+        # ~850 ms a call on `$..total` and have no orjson form, so the in-process
+        # drift control is orjson parsing the same document -- in memory for
+        # `query`, read from the file for `search` (the parse half of the
+        # canonical orjson+jmespath composition). It is a denominator for
+        # machine drift, not a standings rival.
+        expression = QUERY_BY_KEY.get(key)
+        if expression is None:
+            raise SystemExit(f"unknown op {op!r}: the key must be one of {sorted(QUERY_BY_KEY)}")
+        compiled = strata.compile(expression)
+        payload = path.read_bytes()
+        if base == "query":
+            value = json.loads(payload)
+            return {
+                "strata-query": lambda: strata.query(value, compiled),
+                "orjson-query": lambda: orjson.loads(payload),
+            }
+        return {
+            "strata-search": lambda: strata.search(name, compiled),
+            "orjson-search": lambda: orjson.loads(Path(name).read_bytes()),
+        }
     raise SystemExit(f"unknown op {op!r}")
 
 
@@ -153,7 +193,8 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         required=True,
         help="tier:dataset:op, e.g. small:flat:dumps, medium:flat:loads, "
-        "small:users:load, small:users:ndload or small:mixed:dump",
+        "small:users:load, small:users:ndload, small:mixed:dump, "
+        "small:users:query-id or small:users:search-rtotal",
     )
     parser.add_argument("--repeat", type=int, default=60)
     parser.add_argument("--warmup", type=int, default=2)
@@ -176,7 +217,7 @@ def main(argv: list[str] | None = None) -> int:
             if len(parts) != 3:
                 raise SystemExit(f"--row wants tier:dataset:op, got {spec!r}")
             tier, dataset, op = parts
-            suffix = SUFFIX_BY_OP.get(op)
+            suffix = SUFFIX_BY_OP.get(op.partition("-")[0])
             if suffix is None:
                 raise SystemExit(f"unknown op {op!r} in {spec!r}")
             path = PROJECT_ROOT / "benchmarks" / "data" / "generated" / tier / f"{dataset}{suffix}"
