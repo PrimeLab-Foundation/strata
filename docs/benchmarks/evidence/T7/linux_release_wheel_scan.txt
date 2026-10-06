@@ -1,0 +1,31 @@
+# Release wheel strata_plf-2026.8.10-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl from run 37451214168 (source f17efb5): PGO+ThinLTO, clang, -march=x86-64-v3
+08a44954ab2ddc8abbaed50b30f20b0ec5c490fcb2e44aab8942a0189343ff32  /d/strata_plf-2026.8.10-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+2ffa46323f0db05d7a6a9c83df55349c66ee94f18f22eda697849ffc6a115325  w/strata/_dumps_hook.cpython-312-x86_64-linux-gnu.so
+5fec2335fbd2458d220115ce8d6de66869ce02e900c77f40fc87965437636d9e  w/strata/_strata.cpython-312-x86_64-linux-gnu.so
+w/strata/_dumps_hook.cpython-312-x86_64-linux-gnu.so.build.json ['-flto=thin', '-fprofile-use=/project/build/release-pgo/hook.profdata', '-march=x86-64-v3']
+w/strata/_strata.cpython-312-x86_64-linux-gnu.so.build.json ['-flto=thin', '-fprofile-use=/project/build/release-pgo/strata.profdata', '-march=x86-64-v3']
+GNU objdump version 2.41-4.el8_10.1
+== w/strata/_strata.cpython-312-x86_64-linux-gnu.so
+static initializers:
+  .init_array: 1 entries
+  DT_INIT present
+  [_init] instructions=8 above-baseline=0
+  [frame_dummy] instructions=2 above-baseline=0
+  [register_tm_clones] instructions=16 above-baseline=0
+init entry [PyInit__strata] instructions=8 above-baseline=0
+    CALL 61cb1: jmp    9ce80 <PyInit__strata.cold>
+init entry [PyInit__strata.cold] instructions=75 above-baseline=0
+    CALL 9cf1b: jmp    61cc0 <_ZN12_GLOBAL__N_120create_strata_moduleEv>
+    CALL 9cf58: call   a61b0 <PyErr_Format@plt>
+== w/strata/_dumps_hook.cpython-312-x86_64-linux-gnu.so
+static initializers:
+  .init_array: 1 entries
+  DT_INIT present
+  [_init] instructions=8 above-baseline=0
+  [frame_dummy] instructions=2 above-baseline=0
+  [register_tm_clones] instructions=16 above-baseline=0
+init entry [PyInit__dumps_hook] instructions=71 above-baseline=0
+    CALL 2cef6: jmp    2cb60 <_ZN6strata8bindings12_GLOBAL__N_118create_hook_moduleEv>
+    CALL 2cf15: call   6fce0 <PyErr_Format@plt>
+RESULT: PASS (0 findings)
+exit=0

@@ -1,0 +1,46 @@
+# Intel SDE 10.13.1 on the release wheel of run 37451214168 (source f17efb5): CI run 37466325074, branch work/t7-sde c63a0ee, ubuntu-latest
+^[[36;1mpython -m pip install --no-index dist/strata_plf-*-cp312-cp312-manylinux*_x86_64.whl^[[0m
+^[[36;1mWHEEL=$(ls dist/strata_plf-*-cp312-cp312-manylinux*_x86_64.whl)^[[0m
+^[[36;1msha256sum "$WHEEL"^[[0m
+^[[36;1mgrep -m1 'model name' /proc/cpuinfo^[[0m
+^[[36;1mcd "$RUNNER_TEMP"^[[0m
+^[[36;1mset +e^[[0m
+^[[36;1mecho "== native"^[[0m
+^[[36;1mpython -I -c "import strata; print(strata.__version__, strata.dumps({'ok': [1, 2.5]}))"^[[0m
+^[[36;1mecho "exit=$?"^[[0m
+^[[36;1mecho "== sde64 -nhm"^[[0m
+^[[36;1m"$GITHUB_WORKSPACE/sde/sde64" -nhm -- python -I -c "import strata" > nhm.txt 2>&1^[[0m
+^[[36;1mecho "exit=$?" >> nhm.txt^[[0m
+^[[36;1mcat nhm.txt^[[0m
+^[[36;1mecho "== sde64 -hsw"^[[0m
+^[[36;1m"$GITHUB_WORKSPACE/sde/sde64" -hsw -- python -I -c "import strata; print(strata.__version__, strata.dumps({'ok': [1, 2.5]}))" > hsw.txt 2>&1^[[0m
+^[[36;1mecho "exit=$?" >> hsw.txt^[[0m
+^[[36;1mcat hsw.txt^[[0m
+^[[36;1mgrep -q "was built for x86-64-v3" nhm.txt && grep -q '^2026.*{"ok":\[1,2.5\]}' hsw.txt^[[0m
+shell: /usr/bin/bash -e {0}
+env:
+  pythonLocation: /opt/hostedtoolcache/Python/3.12.14/x64
+  PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib/pkgconfig
+  Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+  Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+  Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.14/x64
+  LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.14/x64/lib
+Processing ./dist/strata_plf-2026.8.10-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+Installing collected packages: strata-plf
+Successfully installed strata-plf-2026.8.10
+08a44954ab2ddc8abbaed50b30f20b0ec5c490fcb2e44aab8942a0189343ff32  dist/strata_plf-2026.8.10-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
+model name
+== native
+2026.8.10 {"ok":[1,2.5]}
+exit=0
+== sde64 -nhm
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/site-packages/strata/__init__.py", line 15, in <module>
+    from . import _strata as _native  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ImportError: strata._strata was built for x86-64-v3 (an AVX2 CPU: AVX, AVX2, BMI1, BMI2, F16C, FMA, LZCNT and MOVBE, with the OS saving AVX state), and this machine does not provide it. Build strata for this CPU from source instead: pip install --no-binary strata-plf strata-plf
+exit=1
+== sde64 -hsw
+2026.8.10 {"ok":[1,2.5]}
+exit=0

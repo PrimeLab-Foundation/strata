@@ -1,0 +1,4 @@
+# Local attempt, 2026-10-06: Intel SDE 10.13.1 (sha256 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50) inside Docker linux/amd64 on an M1 (Rosetta, manylinux_2_28_x86_64, cp312 release wheel of run 37451214168)
+== sde64 -nhm -- python -I -c 'import strata'
+Aborting: [ IsApp64Bit() ] at .../pin/Source/pin/launcher_u/os_specific_l.c:380: Assertion '3 == ehdr.e_machine' failed.
+Pin's launcher cannot run under Rosetta: infeasible locally, so the run moved to CI (sde_nhm_ci.txt).

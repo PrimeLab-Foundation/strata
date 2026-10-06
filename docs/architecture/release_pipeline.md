@@ -2,8 +2,8 @@
 
 Status: **implemented, not yet run** (2026-10-06): the configuration, the
 scripts and both workflows exist, but no Release workflow run has executed yet.
-The release ISA is priced by R1 (below), and the final tag waits on T7's
-CPU guard (see "Release ISA" below).
+The release ISA is priced by R1 (below), and T7's CPU guard is in place and
+verified (see "CPU guard" below).
 
 Area: packaging and CI only — `pyproject.toml` (`[project]`,
 `[tool.cibuildwheel]`), `setup.py`'s build knobs, `scripts/release.py`,
@@ -171,10 +171,9 @@ the six JSONPath rows use orjson parsing the same document as their drift
 control. An open observation, not acted on: v2 beats v3 on the streaming
 `search` rows on both legs.
 
-Still open: **T7, the CPU guard, is in the tree** (see "CPU guard" below);
-its Linux full-image disassembly and an SDE run are still owed before the
-final tag — the per-wheel `check_guard_isa` scan covers the Linux images in
-every release run meanwhile.
+**T7, the CPU guard, is closed** (see "CPU guard" below): its Linux
+full-image disassembly and its SDE run are recorded against the release
+wheels of rehearsal run 37451214168.
 
 **The sdist keeps `-march=native` as the fallback.** It sets no
 `STRATA_MARCH`, so `pip install --no-binary strata-plf strata-plf` builds for
@@ -210,7 +209,17 @@ Evidence (`docs/benchmarks/evidence/T7/`): an x86-64-v3 macOS build's
 entries hold no instruction above the baseline and the images have no static
 initializers (`macos_x86_64_v3_scan.txt`); under Rosetta 2, whose CPUID omits
 AVX unless `ROSETTA_ADVERTISE_AVX=1`, each image loaded alone raises the
-ImportError, and imports with the variable set (`rosetta_import.txt`).
+ImportError, and imports with the variable set (`rosetta_import.txt`). On the
+release cp312 Linux x86_64 wheel of run 37451214168 (source f17efb5, PGO,
+ThinLTO, `-march=x86-64-v3`), `scripts/check_guard_isa.py` passes both
+images: `PyInit__strata`, its `.cold` part (where PGO placed the check),
+`PyInit__dumps_hook` and the toolchain's `_init`/`frame_dummy` initializers
+hold no instruction above the baseline, and each entry reaches only
+`PyErr_Format@plt` and its module body (`linux_release_wheel_scan.txt`). Under
+Intel SDE 10.13.1 on a hosted Linux runner (run 37466325074), the same wheel
+raises the ImportError under `-nhm` and imports and serializes under `-hsw`
+and natively (`sde_nhm_ci.txt`); SDE cannot run under Rosetta
+(`sde_local_rosetta_attempt.txt`).
 
 `check-install --identity` repeats that scan on every wheel it tests on x86-64
 POSIX (Linux x86_64, macOS x86_64): `scripts/check_guard_isa.py`, promoted
