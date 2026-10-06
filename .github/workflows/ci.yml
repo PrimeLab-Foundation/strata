@@ -175,6 +175,36 @@ jobs:
             ':!include/strata/third_party/**' \
             | xargs -0 --no-run-if-empty clang-format --dry-run --Werror
 
+  # scripts/release.py's version grammar, bump and check-tag, and setup.py's
+  # release knobs (tests/release, outside testpaths). No extension build.
+  release-tooling:
+    name: release tooling
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create the virtualenv with pytest
+        run: |
+          make venv
+          .venv/bin/python -m pip install 'pytest>=7'
+
+      - name: Run the release tooling tests
+        run: make test-release
+
+      - name: check-tag smoke
+        run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' python/strata/__init__.py)
+          .venv/bin/python scripts/release.py check-tag "v${version}"
+          if .venv/bin/python scripts/release.py check-tag "v0.0.0"; then
+            echo "check-tag accepted a tag that does not match __version__" >&2
+            exit 1
+          fi
+
   corpus:
     name: fuzz corpus (ASan + UBSan)
     runs-on: ubuntu-latest

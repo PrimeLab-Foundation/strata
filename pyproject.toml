@@ -10,7 +10,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "strata"
+name = "strata-plf"
 dynamic = ["version"]
 description = "Fast JSON for Python: parsing, serialization and JSONPath querying on a dependency-free C++20 engine"
 readme = "README.md"
@@ -20,6 +20,12 @@ license-files = ["LICENSE"]
 authors = [{ name = "Strata Authors" }]
 keywords = ["json", "jsonpath", "parser", "ndjson", "strata"]
 classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: File Formats :: JSON",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
@@ -29,6 +35,7 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Operating System :: MacOS",
   "Operating System :: POSIX :: Linux",
+  "Operating System :: Microsoft :: Windows",
 ]
 
 [project.optional-dependencies]
@@ -89,9 +96,17 @@ integrations = [
   "greenlet>=3.0",
 ]
 
+release = [
+  "build>=1.2",
+  "twine>=6.1",
+  "cibuildwheel==4.3.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/PrimeLab-Foundation/strata"
 Repository = "https://github.com/PrimeLab-Foundation/strata"
+Issues = "https://github.com/PrimeLab-Foundation/strata/issues"
+Documentation = "https://github.com/PrimeLab-Foundation/strata/blob/main/docs/context/api.md"
 
 [tool.setuptools]
 package-dir = { "" = "python" }
@@ -119,3 +134,68 @@ markers = [
 # gate's coverage run cannot include (docs/decisions.md, 2026-09-28).
 [tool.coverage.run]
 omit = ["*/strata/integrations/*"]
+
+# Release wheels: before-build trains both PGO profiles into build/release-pgo
+# (scripts/release.py profile); the wheel then builds through both test gates
+# against them, and the test step proves the installed images' identities.
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+skip = "cp3??t-* *-musllinux_* *_i686 *-win32"
+build-frontend = "build"
+before-build = "python {project}/scripts/release.py profile"
+test-requires = ["pytest>=7"]
+test-command = "python {project}/scripts/release.py check-install --identity"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+
+[tool.cibuildwheel.linux]
+# perl-Digest-SHA: scripts/pgo_build.sh's hook phase hashes _strata with shasum.
+before-all = "dnf install -y clang llvm lld perl-Digest-SHA"
+environment-pass = ["CI"]
+
+[tool.cibuildwheel.linux.environment]
+CC = "/usr/bin/clang"
+CXX = "/usr/bin/clang++"
+CFLAGS = "--gcc-toolchain=$DEVTOOLSET_ROOTPATH/usr"
+CXXFLAGS = "--gcc-toolchain=$DEVTOOLSET_ROOTPATH/usr"
+LDFLAGS = "--gcc-toolchain=$DEVTOOLSET_ROOTPATH/usr -fuse-ld=lld"
+PGO_MODE = "use"
+STRATA_ENABLE_LTO = "1"
+STRATA_PGO_PROFILE = "build/release-pgo/strata.profdata"
+STRATA_HOOK_PGO_MODE = "use"
+STRATA_HOOK_PGO_PROFILE = "build/release-pgo/hook.profdata"
+
+[tool.cibuildwheel.macos.environment]
+PGO_MODE = "use"
+STRATA_ENABLE_LTO = "1"
+STRATA_PGO_PROFILE = "build/release-pgo/strata.profdata"
+STRATA_HOOK_PGO_MODE = "use"
+STRATA_HOOK_PGO_PROFILE = "build/release-pgo/hook.profdata"
+
+# clang-cl's LTO needs lld-link, which setuptools does not drive: no LTO here.
+[tool.cibuildwheel.windows.environment]
+STRATA_WIN_COMPILER = "clang-cl"
+PGO_MODE = "use"
+STRATA_PGO_PROFILE = "build/release-pgo/strata.profdata"
+STRATA_HOOK_PGO_MODE = "use"
+STRATA_HOOK_PGO_PROFILE = "build/release-pgo/hook.profdata"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_x86_64"
+inherit.environment = "append"
+environment = { STRATA_MARCH = "x86-64-v3" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-manylinux_aarch64"
+inherit.environment = "append"
+environment = { STRATA_MARCH = "armv8-a" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_x86_64"
+inherit.environment = "append"
+environment = { STRATA_MARCH = "x86-64-v3", MACOSX_DEPLOYMENT_TARGET = "13.0" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_arm64"
+inherit.environment = "append"
+environment = { STRATA_MARCH = "none", MACOSX_DEPLOYMENT_TARGET = "11.0" }

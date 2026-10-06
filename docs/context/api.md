@@ -16,10 +16,17 @@ Deliberate changes vs the previous implementation: `compile_path` is renamed
 and `parse_ndjson` are dropped — cursors come from
 `loads`/`load` with `return_type="cursor"`, and NDJSON goes through `load`.
 
-Versioning is calver (`YYYY.M.D` of release — orders correctly under
-PEP 440). The rebuild started at `__version__ = "2026.8.9"` and released as
-`2026.8.10` on the quiet-machine standings sweep, bumped at release
-time only. Single source of truth: the literal in
+Versioning is calver: `YYYY.M.D[.N][rcK]`, where `YYYY.M.D` is the release
+date. Leading zeros are not allowed and the date must exist on the calendar.
+`.N` (from 1) is a same-day re-release and `rcK` (from 1) a release candidate,
+published to TestPyPI only. This is PEP 440 normal form, so versions sort as
+`D rcK < D < D.N rcK < D.N`. Release tags are `v` + the literal. The
+rebuild started at `__version__ = "2026.8.9"` and released as `2026.8.10` on
+the quiet-machine standings sweep. The version is bumped at release time only,
+with `make release-bump`. The **distribution** is named `strata-plf`
+(`pip install strata-plf`) because `strata` on PyPI is an unrelated project.
+The **import** name is unchanged: `import strata`. Pipeline:
+`docs/architecture/release_pipeline.md`. Single source of truth: the literal in
 `python/strata/__init__.py`; pyproject reads it dynamically — no second copy
 anywhere (the previous implementation drifted across three locations).
 

@@ -9,6 +9,9 @@
 #            tests; _strata's image is checked unchanged
 #            -> verification benchmarks
 #
+# PGO_VERIFY_BENCH=0 skips the verification benchmarks and their data
+# generation (scripts/release.py builds the release profiles that way).
+#
 # Both phases run the gate: an optimized build that fails its tests is worth
 # nothing, and PGO is exactly the kind of change that can miscompile. Phase 1
 # runs it with --training, which leaves the native-type suites out of the
@@ -30,6 +33,7 @@ PROFILE="$ROOT_DIR/$PGO_DIR/strata.profdata"
 BENCH_REPEAT="${PGO_BENCH_REPEAT:-10}"
 BENCH_WARMUP="${PGO_BENCH_WARMUP:-2}"
 BENCH_DATA="benchmarks/data/generated/small"
+VERIFY_BENCH="${PGO_VERIFY_BENCH:-1}"
 
 if [[ ! -x "$VPY" ]]; then
     echo "Error: $VPY not found. Run: make dev" >&2
@@ -221,18 +225,22 @@ else
 fi
 
 # --- verification ----------------------------------------------------------
-if [[ ! -d "$BENCH_DATA" ]]; then
-    echo "==> PGO: generating benchmark data"
-    make bench-data
-fi
+if [[ "$VERIFY_BENCH" != "0" ]]; then
+    if [[ ! -d "$BENCH_DATA" ]]; then
+        echo "==> PGO: generating benchmark data"
+        make bench-data
+    fi
 
-echo "==> PGO: verification benchmarks"
-PYTHONPATH=. "$VPY" -m benchmarks.bench_main \
-    --name pgo --repeat "$BENCH_REPEAT" --warmup "$BENCH_WARMUP" \
-    --dataset "$BENCH_DATA/users.json" \
-    --dataset "$BENCH_DATA/flat.json" \
-    --dataset "$BENCH_DATA/nested.json" \
-    --output "$PGO_DIR/bench_results_pgo.md"
+    echo "==> PGO: verification benchmarks"
+    PYTHONPATH=. "$VPY" -m benchmarks.bench_main \
+        --name pgo --repeat "$BENCH_REPEAT" --warmup "$BENCH_WARMUP" \
+        --dataset "$BENCH_DATA/users.json" \
+        --dataset "$BENCH_DATA/flat.json" \
+        --dataset "$BENCH_DATA/nested.json" \
+        --output "$PGO_DIR/bench_results_pgo.md"
+else
+    echo "==> PGO: verification benchmarks skipped (PGO_VERIFY_BENCH=0)"
+fi
 
 echo "==> PGO complete"
 echo "    profile: $PROFILE"

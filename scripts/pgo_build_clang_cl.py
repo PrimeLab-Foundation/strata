@@ -10,6 +10,9 @@
            -> its own profile -> rebuild against it -> gate tests; _strata's
            image is checked unchanged -> verification benchmarks
 
+PGO_VERIFY_BENCH=0 skips the verification benchmarks and their data
+generation (scripts/release.py builds the release profiles that way).
+
 Both phases run the gate, as the POSIX and MSVC scripts do: an optimized
 build that fails its tests is worth nothing, and PGO is exactly the kind of
 change that can miscompile. Phase 1 runs it with ``--training``, which leaves
@@ -57,6 +60,7 @@ HOOK_PROFILE = PGO_DIR / "hook.profdata"
 BENCH_DATA = PROJECT_ROOT / "benchmarks" / "data" / "generated" / "small"
 BENCH_REPEAT = os.environ.get("PGO_BENCH_REPEAT", "10")
 BENCH_WARMUP = os.environ.get("PGO_BENCH_WARMUP", "2")
+VERIFY_BENCH = os.environ.get("PGO_VERIFY_BENCH", "1") != "0"
 LLVM_BIN = Path(r"C:\Program Files\LLVM\bin")
 
 
@@ -278,6 +282,53 @@ def _assert_not_instrumented() -> None:
         )
 
 
+def _verification_benchmarks() -> None:
+    if not BENCH_DATA.is_dir():
+        print("==> PGO: generating benchmark data", flush=True)
+        _run(
+            [
+                sys.executable,
+                "-m",
+                "benchmarks.data.generate_bench_data",
+                "--out-dir",
+                str(BENCH_DATA),
+                "--num-users",
+                "1000",
+                "--max-orders",
+                "10",
+                "--max-items",
+                "5",
+                "--records",
+                "500",
+            ],
+            extra_env={"PYTHONPATH": "."},
+        )
+
+    print("==> PGO: verification benchmarks", flush=True)
+    _run(
+        [
+            sys.executable,
+            "-m",
+            "benchmarks.bench_main",
+            "--name",
+            "pgo",
+            "--repeat",
+            BENCH_REPEAT,
+            "--warmup",
+            BENCH_WARMUP,
+            "--dataset",
+            str(BENCH_DATA / "users.json"),
+            "--dataset",
+            str(BENCH_DATA / "flat.json"),
+            "--dataset",
+            str(BENCH_DATA / "nested.json"),
+            "--output",
+            str(PGO_DIR / "bench_results_pgo.md"),
+        ],
+        extra_env={"PYTHONPATH": ".", "PGO_MODE": "use", "STRATA_WIN_COMPILER": "clang-cl"},
+    )
+
+
 def main() -> int:
     if sys.platform != "win32":
         raise SystemExit("This script drives clang-cl on Windows; on POSIX use make pgo.")
@@ -344,50 +395,10 @@ def main() -> int:
 
     _hook_phase(profdata)
 
-    if not BENCH_DATA.is_dir():
-        print("==> PGO: generating benchmark data", flush=True)
-        _run(
-            [
-                sys.executable,
-                "-m",
-                "benchmarks.data.generate_bench_data",
-                "--out-dir",
-                str(BENCH_DATA),
-                "--num-users",
-                "1000",
-                "--max-orders",
-                "10",
-                "--max-items",
-                "5",
-                "--records",
-                "500",
-            ],
-            extra_env={"PYTHONPATH": "."},
-        )
-
-    print("==> PGO: verification benchmarks", flush=True)
-    _run(
-        [
-            sys.executable,
-            "-m",
-            "benchmarks.bench_main",
-            "--name",
-            "pgo",
-            "--repeat",
-            BENCH_REPEAT,
-            "--warmup",
-            BENCH_WARMUP,
-            "--dataset",
-            str(BENCH_DATA / "users.json"),
-            "--dataset",
-            str(BENCH_DATA / "flat.json"),
-            "--dataset",
-            str(BENCH_DATA / "nested.json"),
-            "--output",
-            str(PGO_DIR / "bench_results_pgo.md"),
-        ],
-        extra_env={"PYTHONPATH": ".", "PGO_MODE": "use", "STRATA_WIN_COMPILER": "clang-cl"},
-    )
+    if VERIFY_BENCH:
+        _verification_benchmarks()
+    else:
+        print("==> PGO: verification benchmarks skipped (PGO_VERIFY_BENCH=0)", flush=True)
 
     print("==> PGO complete", flush=True)
     print(f"    profile: {PROFILE}", flush=True)

@@ -8,8 +8,9 @@ PYTHON ?= python3
 VENV ?= .venv
 VPY := $(VENV)/bin/python
 
-.PHONY: all venv dev install install-dev install-bench install-skip-tests build cpp-build \
-        test test-py test-py-asan test-cpp test-integrations fmt lint pre-commit-check gate \
+.PHONY: all venv dev install install-dev install-bench install-release install-skip-tests build \
+        release-wheel-linux release-bump release-sdist cpp-build \
+        test test-py test-py-asan test-cpp test-integrations test-release fmt lint pre-commit-check gate \
         coverage coverage-cpp coverage-py fuzz fuzz-build fuzz-run pgo \
         bench-data bench-small bench-medium bench-large bench-all bench-baseline bench-check bench-supplementary \
         bench-ci bench-ci-summary bench-cross probe-dumps-records probe-dumps-call probe-ab-builds probe-ab-rows \
@@ -78,6 +79,9 @@ install-dev: venv  ## Editable install with the dev extras
 install-bench: venv  ## Editable install with the benchmark competitors
 	$(VPY) -m pip install -e '.[dev,bench]'
 
+install-release: venv  ## Editable install with the release tooling (build, twine, cibuildwheel)
+	$(VPY) -m pip install -e '.[release]'
+
 install-skip-tests: venv  ## Ungated install — strongly discouraged, banned in CI and releases
 	@echo "WARNING: SKIP_TESTS=1 — this build is not release-ready."
 	SKIP_TESTS=1 $(VPY) -m pip install -e .
@@ -89,6 +93,24 @@ install-skip-tests: venv  ## Ungated install — strongly discouraged, banned in
 build: venv  ## Build the sdist and wheel
 	$(VPY) -m pip install -U build
 	$(VPY) -m build
+
+# cibuildwheel copies its working directory into the container whole, so it
+# runs from a staging copy of what Git sees (tracked and untracked files minus
+# the ignored ones, plus .git for the build identity), never the dev tree.
+RELEASE_SRC ?= build/release-src
+RELEASE_WHEELHOUSE ?= dist/wheelhouse
+release-wheel-linux: venv  ## One PGO+LTO manylinux cp312 aarch64 release wheel via cibuildwheel and Docker
+	rm -rf $(RELEASE_SRC) && mkdir -p $(RELEASE_SRC) $(RELEASE_WHEELHOUSE)
+	git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf - | tar -xf - -C $(RELEASE_SRC)
+	tar -cf - .git | tar -xf - -C $(RELEASE_SRC)
+	cd $(RELEASE_SRC) && $(abspath $(VPY)) -m cibuildwheel --only cp312-manylinux_aarch64 \
+	    --output-dir $(abspath $(RELEASE_WHEELHOUSE))
+
+release-bump: venv  ## Rewrite the __version__ literal: make release-bump VERSION=YYYY.M.D[.N][rcK]
+	$(VPY) scripts/release.py bump "$(VERSION)"
+
+release-sdist: venv  ## Build the sdist, twine check --strict, gate-install it into a fresh venv, check-install
+	$(VPY) scripts/release.py sdist-check
 
 cpp-build: venv  ## Configure and build the C++ tests without running them
 	$(VPY) scripts/cpp_tests.py --build-only
@@ -116,6 +138,11 @@ test-py-asan:  ## Build the extension with ASan+UBSan in .venv-asan and run both
 # (docs/architecture/dumps_with_default.md, docs/architecture/framework_adapters.md).
 test-integrations: venv  ## Run tests/integrations: dumps_with_default with third-party types, and the framework adapters
 	$(VPY) scripts/integration_tests.py
+
+# Not part of `test` or `gate`, and outside pytest's testpaths: tests/release
+# exercises the release tooling (scripts/release.py, setup.py's release knobs).
+test-release: venv  ## Run tests/release: version grammar, bump, check-tag, verify-dist, check-promotion, setup.py knobs
+	$(VPY) -m pytest tests/release
 
 gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests, coverage
 	@bash scripts/gate.sh

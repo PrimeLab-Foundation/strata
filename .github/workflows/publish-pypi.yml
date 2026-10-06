@@ -1,0 +1,187 @@
+name: Publish to PyPI
+
+# Promotes the files of one successful Release run (a push of a final tag) to
+# PyPI, after release.py check-promotion proves they are the files the run
+# verified and the exact files TestPyPI already serves.
+#
+# Two jobs, so that no candidate code ever runs where the PyPI token can be
+# minted. `verify` holds no id-token and no environment: it validates the run
+# with jq, checks out the dispatching ref's own code (never the run's headSha),
+# runs that code's check-promotion and hands the verified files on. `publish`
+# holds id-token and the `pypi` environment, checks nothing out, and runs only
+# the publish action on those files.
+on:
+  workflow_dispatch:
+    inputs:
+      release_run_id:
+        description: Run id of a successful Release workflow run on a final tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: verify a Release run for promotion
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # Validated before anything else runs: the tag and sha it yields are
+      # used in API paths below, so they are pinned to their grammars here.
+      - name: Read and validate the Release run and its tag
+        id: run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.release_run_id }}
+        run: |
+          case "$RUN_ID" in
+            '' | *[!0-9]*)
+              echo "release_run_id must be a workflow run id, not '${RUN_ID}'" >&2
+              exit 1
+              ;;
+          esac
+          run_json="$RUNNER_TEMP/run.json"
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --json databaseId,workflowName,event,status,conclusion,headBranch,headSha,url \
+            > "$run_json"
+          if ! jq -e \
+              --arg id "$RUN_ID" \
+              --arg runs "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/" '
+                (.databaseId | tostring) == $id
+                and .workflowName == "Release"
+                and .event == "push"
+                and .status == "completed"
+                and .conclusion == "success"
+                and (.url | type == "string" and startswith($runs))
+                and (.headBranch | type == "string"
+                     and test("^v[1-9][0-9]{3}\\.[1-9][0-9]?\\.[1-9][0-9]?(\\.[1-9][0-9]*)?$"))
+                and (.headSha | type == "string" and test("^[0-9a-f]{40}$"))
+              ' "$run_json" > /dev/null; then
+            echo "run ${RUN_ID} is not a successful Release push of a final v* tag in ${GITHUB_REPOSITORY}:" >&2
+            cat "$run_json" >&2
+            exit 1
+          fi
+          tag=$(jq -r .headBranch "$run_json")
+          sha=$(jq -r .headSha "$run_json")
+
+          ref_json="$RUNNER_TEMP/tag-ref.json"
+          gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" > "$ref_json"
+          if ! jq -e --arg ref "refs/tags/${tag}" \
+              '.ref == $ref and (.object.sha | type == "string" and test("^[0-9a-f]{40}$"))' \
+              "$ref_json" > /dev/null; then
+            echo "headBranch ${tag} is not the tag ref refs/tags/${tag}:" >&2
+            cat "$ref_json" >&2
+            exit 1
+          fi
+          target=$(jq -r .object.sha "$ref_json")
+          case "$(jq -r .object.type "$ref_json")" in
+            commit) ;;
+            tag)
+              object_json="$RUNNER_TEMP/tag-object.json"
+              gh api "repos/${GITHUB_REPOSITORY}/git/tags/${target}" > "$object_json"
+              if ! jq -e --arg sha "$target" \
+                  '.sha == $sha and .object.type == "commit"' "$object_json" > /dev/null; then
+                echo "the annotated tag ${tag} does not name a commit:" >&2
+                cat "$object_json" >&2
+                exit 1
+              fi
+              target=$(jq -r .object.sha "$object_json")
+              ;;
+            *)
+              echo "refs/tags/${tag} names neither a commit nor an annotated tag" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$target" != "$sha" ]; then
+            echo "refs/tags/${tag} names ${target}, not run ${RUN_ID}'s headSha ${sha}" >&2
+            exit 1
+          fi
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      # The dispatching ref's own code (github.sha), never the run's headSha:
+      # the candidate commit's scripts do not run in this workflow.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # dist/ is the upload directory; SHA256SUMS stays outside it.
+      - name: Download the run's dist and dist-manifest artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.release_run_id }}
+        run: |
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name dist --dir dist
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --name dist-manifest \
+            --dir "$RUNNER_TEMP/manifest"
+
+      - name: Verify the files against SHA256SUMS
+        run: |
+          cd dist
+          sha256sum --strict -c "$RUNNER_TEMP/manifest/SHA256SUMS"
+          listed=$(awk '{ print $2 }' "$RUNNER_TEMP/manifest/SHA256SUMS" | LC_ALL=C sort)
+          present=$(find . -mindepth 1 -maxdepth 1 -printf '%P\n' | LC_ALL=C sort)
+          if [ "$listed" != "$present" ]; then
+            echo "dist/ holds files SHA256SUMS does not list, or lacks files it does" >&2
+            exit 1
+          fi
+
+      - name: Fetch the TestPyPI release
+        env:
+          VERSION: ${{ steps.run.outputs.version }}
+        run: |
+          curl -fsSL --retry 5 "https://test.pypi.org/pypi/strata-plf/${VERSION}/json" \
+            -o "$RUNNER_TEMP/testpypi.json"
+
+      - name: check-promotion
+        env:
+          RUN_ID: ${{ inputs.release_run_id }}
+        run: |
+          object_args=()
+          if [ -f "$RUNNER_TEMP/tag-object.json" ]; then
+            object_args=(--tag-object-json "$RUNNER_TEMP/tag-object.json")
+          fi
+          python scripts/release.py check-promotion "$RUN_ID" \
+            --run-json "$RUNNER_TEMP/run.json" \
+            --dist dist \
+            --sums "$RUNNER_TEMP/manifest/SHA256SUMS" \
+            --testpypi-json "$RUNNER_TEMP/testpypi.json" \
+            --tag-ref-json "$RUNNER_TEMP/tag-ref.json" \
+            "${object_args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: publish the verified files to PyPI
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/strata-plf/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-dist
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/

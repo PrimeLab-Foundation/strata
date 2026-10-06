@@ -265,6 +265,20 @@ def _compiler_kind() -> str:
     return "clang" if sys.platform == "darwin" else "gcc"
 
 
+def _profile_path(var: str) -> str:
+    """The profile path in `var`, a relative one resolved against PROJECT_ROOT; "" when unset.
+
+    The compiler and the build identity run from other directories than the
+    caller's shell (pip's build, a CI step), so a relative path is anchored
+    to the checkout once, here, for every reader.
+    """
+    value = os.environ.get(var, "").strip()
+    if not value:
+        return ""
+    path = Path(value)
+    return str(path if path.is_absolute() else PROJECT_ROOT / path)
+
+
 def _msvc_optimization_args(mode: str) -> tuple[list[str], list[str]]:
     """MSVC spelling: LTO is /GL + /LTCG; PGO rides on LTCG via /GENPROFILE → /USEPROFILE.
 
@@ -279,7 +293,7 @@ def _msvc_optimization_args(mode: str) -> tuple[list[str], list[str]]:
     compile_args = ["/GL"]
     link_args = ["/LTCG"]
     if mode:
-        profile = os.environ.get("STRATA_PGO_PROFILE", "").strip()
+        profile = _profile_path("STRATA_PGO_PROFILE")
         if not profile:
             raise SystemExit(f"PGO_MODE={mode} requires STRATA_PGO_PROFILE (a .pgd path) on MSVC.")
         if mode == "generate":
@@ -348,7 +362,7 @@ def _clang_cl_optimization_args(
         compile_args.append("/clang:-fprofile-generate")
         link_args.append(f"/LIBPATH:{_clang_runtime_dir()}")
     elif mode == "use":
-        profile = os.environ.get(profile_var, "").strip()
+        profile = _profile_path(profile_var)
         if not profile:
             raise SystemExit(f"PGO_MODE=use requires {profile_var}.")
         if not Path(profile).exists():
@@ -411,7 +425,7 @@ def _optimization_args(
         compile_args.append("-fprofile-generate")
         link_args.append("-fprofile-generate")
     elif mode == "use":
-        profile = os.environ.get(profile_var, "").strip()
+        profile = _profile_path(profile_var)
         if not profile:
             raise SystemExit(f"PGO_MODE=use requires {profile_var}.")
         if not Path(profile).exists():
@@ -485,9 +499,13 @@ def _compile_args(*, profiled: bool = True) -> list[str]:
     # architectures at once and cannot use it. STRATA_MARCH names a target
     # explicitly (e.g. x86-64-v3 for a build a cache simulator can run: the
     # hosted x86 runners' native set includes AVX-512, which valgrind does
-    # not emulate); the caller owns its validity for the host.
+    # not emulate); the caller owns its validity for the host. `none` emits
+    # no -march at all: a portable release wheel takes the compiler's default
+    # target for its architecture.
     march = os.environ.get("STRATA_MARCH", "").strip()
-    if march:
+    if march == "none":
+        pass
+    elif march:
         args.append(f"-march={march}")
     elif not _is_universal_build():
         args.append("-march=native")
@@ -614,9 +632,9 @@ def _hook_link_args() -> list[str]:
 def _built_profile(name: str) -> str | None:
     """The profile the image @p name is built against, for its build identity."""
     if name == "strata._strata":
-        return os.environ.get("STRATA_PGO_PROFILE")
+        return _profile_path("STRATA_PGO_PROFILE") or None
     if os.environ.get("STRATA_HOOK_PGO_MODE", "").strip().lower() == "use":
-        return os.environ.get("STRATA_HOOK_PGO_PROFILE")
+        return _profile_path("STRATA_HOOK_PGO_PROFILE") or None
     return None
 
 

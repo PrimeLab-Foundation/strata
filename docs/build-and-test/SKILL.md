@@ -64,8 +64,9 @@ Real on this branch:
 - `setup.py` — `TestGatedBuildExt(build_ext)` around the two gates; both shell
   out to the scripts above, so "the suite" has one definition. `SKIP_TESTS=1`
   still exists but is now *refused* when `CI` is set, rather than warned about.
-  Flags: `-std=c++20 -O3 -D_LIBCPP_DISABLE_AVAILABILITY`, plus `-march=native`
-  unless building universal2; MSVC `/std:c++20 /O2 (+/arch:AVX2)`. On top of
+  Flags: `-std=c++20 -O3`, plus `-march=native` unless building universal2
+  (`STRATA_MARCH=<target>` names one instead, `STRATA_MARCH=none` emits none);
+  MSVC `/std:c++20 /O2 (+/arch:AVX2)`. On top of
   those, `STRATA_ENABLE_LTO=1` adds `-flto=thin` (gcc: `-flto`) and
   `PGO_MODE=generate|use` adds **IR-level** `-fprofile-generate` /
   `-fprofile-use=$STRATA_PGO_PROFILE` to both compile and link. `use` with a
@@ -148,7 +149,9 @@ Real on this branch:
   report artifact per leg, named `benchmark-<os>-<arch>`; `make bench-ci`
   fetches the latest run into `docs/benchmarks/ci/` and rebuilds the
   per-platform standings summary — see `docs/benchmarking/SKILL.md`),
-  `pgo.yml` (weekly Mon 03:00 UTC, uploads a PGO+LTO wheel).
+  `pgo.yml` (weekly Mon 03:00 UTC, `make pgo` and its benchmark artifact; it
+  no longer builds a wheel, see "Release" below),
+  `release.yml` and `publish-pypi.yml` (see "Release" below).
   Visibility-guarded `test-linux-arm` (ci.yml) and `bench-linux-arm`
   (benchmark.yml) jobs cover NEON-on-Linux; they skip cleanly while the repo
   is private (GitHub's arm64 Linux hosted runners serve public repos only)
@@ -164,7 +167,9 @@ the suites over the twin on a machine whose library has the real thing; any
 other platform without FP from_chars fails the build with `#error` rather
 than guessing.
 
-Not built yet, by milestone: release/tag tooling (M10). `make gate` runs the
+Release tooling exists (`scripts/release.py`, `tests/release/`, the two
+release workflows; see "Release" below) but has not yet had a Release run.
+`make gate` runs the
 C++ tests → force reinstall → Python suites → both coverage reports. No step
 is suffixed with `|| true`.
 
@@ -179,18 +184,22 @@ is suffixed with `|| true`.
 | Bench    | `bench-data`, `bench-small/-medium/-large`, `bench-all`, `bench-baseline`, `bench-ci` (fetch CI reports + summary), `bench-ci-summary`                                                                                                                                                                                                                                                                   |
 | Fuzz/PGO | `fuzz-build`, `fuzz-run`, `fuzz` (→ `scripts/fuzz.sh`), `pgo` (→ `scripts/pgo_build.sh`)                                                                                                                                                                                                                                                                                                                 |
 | Lint     | `fmt` (ruff format + clang-format), `lint` (ruff check), `pre-commit-check`                                                                                                                                                                                                                                                                                                                              |
+| Release  | `install-release`, `release-wheel-linux`, `release-sdist`, `release-bump`, `test-release` (see "Release" below)                                                                                                                                                                                                                                                                                          |
 | Misc     | `clean`, `clean-venv`, `tag-create/-delete/-update`, `help`                                                                                                                                                                                                                                                                                                                                              |
 
-`PYTHON ?= python3`. There is no `VERSION` variable: the version has exactly
-one home, `python/strata/__init__.py`, which pyproject reads dynamically. The
-previous implementation kept it in three places and they drifted.
+`PYTHON ?= python3`. There is no stored `VERSION` variable: the version has
+exactly one home, `python/strata/__init__.py`, which pyproject reads
+dynamically. `make release-bump VERSION=…` passes the new version as an
+argument and rewrites that literal. The previous implementation kept the
+version in three places and they drifted.
 
 ## Build pipeline
 
 `setup.py` (setuptools) builds `strata._strata` from bindings + core + util
 sources. Flags: `-std=c++20 -O3 -march=native` (dropped for macOS universal2;
 MSVC `/std:c++20 /O2 /arch:AVX2`). Env knobs: `STRATA_ENABLE_LTO=1`,
-`PGO_MODE=generate|use`, `STRATA_PGO_PROFILE`, `SKIP_TESTS=1`.
+`PGO_MODE=generate|use`, `STRATA_PGO_PROFILE`, `STRATA_MARCH=<target>|none`
+(replaces `-march=native`; release wheels set it per leg), `SKIP_TESTS=1`.
 
 **Test-gated builds** (`TestGatedBuildExt`): every `pip install -e .` runs the
 C++ suite (CMake+ctest) *before* compiling the extension and
@@ -296,6 +305,89 @@ The C++ suite is built **unsanitized** here: the staged CMake cache is seeded wi
 **Teeth.** A one-byte over-store planted in `copy_if_ascii` — `dst[len + 1] = byte` on the short-string tail, one past the `PyUnicode` allocation — fails the gate in 28 s, inside setup.py's own post-build pytest gate, with `AddressSanitizer: heap-buffer-overflow ... WRITE of size 1 ... #0 ... copy_if_ascii ... python_builder.h` and the allocation trace `malloc → PyUnicode_New`. Under pymalloc the same store is invisible *unless* it happens to cross a size class: the request is `len + 41` bytes, so `len ≡ 7 (mod 16)` puts the byte in the next block — an unrestricted mutant segfaults `make test-py` on a length-7 string, while the same mutant restricted to `len < 7` passes `make test-py` 1765/1765 and is still caught here. That is the whole argument for the gate in one measurement: whether the bug is loud or silent is decided by an allocator size class, not by the bug.
 
 **The CI step is written but has not run.** `ci.yml`'s `corpus` job gained a `Build and run the Python suites under ASan + UBSan` step after the ctest one, with the job timeout raised 20 → 45 minutes. GitHub Actions is refusing every job on this org while the spending limit is exhausted, so the Linux half — `LD_PRELOAD`, the runtime-name probe, and the `LDCXXSHARED` swap that stops CPython's recorded `g++ -shared` from linking clang-instrumented objects against the wrong runtime — is written from the documentation and unexercised.
+
+## Release
+
+Design record: `docs/architecture/release_pipeline.md`. A release consists of
+25 PGO wheels (cp310 to cp314 on manylinux x86_64 and aarch64, macOS
+13.0 x86_64, macOS 11.0 arm64 and win_amd64) and one sdist, published to
+PyPI as `strata-plf` (the import stays `strata`). They go to TestPyPI first
+and are then promoted to PyPI byte for byte. No token or secret is involved
+anywhere: both indexes use trusted publishing.
+
+### Runbook
+
+1. **Bump and commit.** Run `make release-bump VERSION=YYYY.M.DrcK` (a
+   candidate; the grammar is `YYYY.M.D[.N][rcK]` and the new version must be
+   strictly higher than the current one), then commit the one-line change.
+2. **Rehearse.** Run `gh workflow run release.yml --ref <branch>`. This
+   builds the sdist and all 25 wheels, each through its PGO training and both
+   gates, then runs `verify-dist`. It publishes nothing and skips the tag
+   checks. Repeat until it is green.
+3. **Tag the candidate.** Merge the bump to `main`, run
+   `git tag v<version>`, then `git push origin v<version>`. The tag must be
+   `v` + the literal on a commit that `origin/main` contains. The push runs
+   the same build and verify, publishes to TestPyPI, and then runs 26 verify
+   jobs. Each of the 25 wheel jobs downloads its wheel from TestPyPI, checks
+   it against `SHA256SUMS`, installs it and runs `check-install`. The sdist
+   job builds it through both gates. Once uploaded, the version is burned on
+   TestPyPI, so a fix moves to `rc(K+1)`.
+4. **Final.** Run `make release-bump VERSION=YYYY.M.D` (or `.N`), commit,
+   merge, tag `v<version>` and push the tag. Once that run is green on
+   TestPyPI, run
+   `gh workflow run publish-pypi.yml --ref main -f release_run_id=<run id>`.
+   Its `verify` job, which holds no publishing rights, runs `main`'s own
+   `check-promotion`, never the candidate commit's code. It requires that the
+   run is a successful `Release` push on a final tag, that
+   `refs/tags/<tag>` names the run's `headSha` (an annotated tag is
+   dereferenced), that its `dist` matches its `SHA256SUMS`, and that TestPyPI
+   serves exactly those files and digests. Only then does the separate
+   `publish` job, which checks nothing out, upload the same files to PyPI.
+
+**Rollback:** yank the release on PyPI, then fix forward with `.N`. An
+uploaded filename can never be replaced.
+
+### Make targets
+
+| Target                | Does                                                                                                                                                                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `install-release`     | Editable install with `.[release]` (`build`, `twine`, `cibuildwheel==4.3.0`)                                                                                                                                                                                      |
+| `release-wheel-linux` | One PGO+LTO manylinux cp312 aarch64 wheel via cibuildwheel and Docker, built from a copy of the tree in `build/release-src`, into `dist/wheelhouse`                                                                                                               |
+| `release-sdist`       | `release.py sdist-check`: builds the sdist, runs `twine check --strict`, gate-installs it into a fresh virtualenv and runs `check-install`                                                                                                                        |
+| `release-bump`        | `release.py bump "$(VERSION)"`: rewrites the `__version__` literal and nothing else                                                                                                                                                                               |
+| `test-release`        | `pytest tests/release`, covering the version grammar, `bump`, `check-tag`, `verify-dist`, `check-promotion`, `profile`'s environment strip, the toolchain and ISA checks, `check-install`'s version check and setup.py's release knobs. Outside `test` and `gate` |
+
+`scripts/release.py profile` is cibuildwheel's `before-build` step. It trains
+both profiles into `build/release-pgo` and then deletes the rest of `build/`,
+**`build/evidence` included**, along with the in-tree extensions. For that
+reason it refuses to run unless `CIBUILDWHEEL` is set. Never run it in a
+working checkout.
+
+**`PGO_VERIFY_BENCH`** (default `1`) controls the verification benchmarks of
+`scripts/pgo_build.sh` and `scripts/pgo_build_clang_cl.py`. Set to `0`, it
+skips them and their data generation. `release.py profile` always sets it to
+`0`, and `make pgo` leaves it on.
+
+### One-time setup (repository owner)
+
+1. In the GitHub repository settings, create the environments **`testpypi`**
+   and **`pypi`**, with these protections (both required):
+
+   - **`pypi`**: deployment branches restricted to `main`, plus a required
+     reviewer.
+   - **`testpypi`**: deployment refs restricted to tags matching `v*`.
+
+   Trusted publishing alone does not restrict the ref: the index checks the
+   repository, workflow file and environment name, so without these rules a
+   run from any branch could mint a token.
+
+2. On test.pypi.org, add a pending trusted publisher with project
+   `strata-plf`, owner `PrimeLab-Foundation`, repository `strata`, workflow
+   `release.yml` and environment `testpypi`.
+
+3. On pypi.org, add a pending trusted publisher with project `strata-plf`,
+   owner `PrimeLab-Foundation`, repository `strata`, workflow
+   `publish-pypi.yml` and environment `pypi`.
 
 ## Known-broken / stale inventory of the previous implementation (do not reproduce)
 

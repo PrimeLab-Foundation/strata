@@ -1,0 +1,329 @@
+name: Release
+
+# A tag push `v*` builds, verifies and publishes to TestPyPI, then checks every
+# uploaded file back. workflow_dispatch is the rehearsal: the same build and
+# verify-dist, with the tag checks and both TestPyPI stages skipped. PyPI itself
+# is publish-pypi.yml, dispatched with this workflow's run id.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: tag and version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read the version literal
+        id: version
+        run: |
+          version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' python/strata/__init__.py)
+          python scripts/release.py check-tag "v${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: The tag is v + the literal, on a commit main contains
+        if: github.event_name == 'push'
+        run: |
+          python scripts/release.py check-tag "${GITHUB_REF_NAME}"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "${GITHUB_REF_NAME} tags $(git rev-parse HEAD), which origin/main does not contain" >&2
+            exit 1
+          fi
+
+  sdist:
+    name: sdist
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the sdist and twine-check it
+        run: |
+          python -m pip install 'build>=1.2' 'twine>=6.1'
+          python -m build --sdist --outdir sdist
+          python -m twine check --strict sdist/*.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: sdist/*.tar.gz
+          if-no-files-found: error
+
+  wheels:
+    name: wheel ${{ matrix.python.tag }} ${{ matrix.leg.platform }}
+    needs: check
+    runs-on: ${{ matrix.leg.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+          - { tag: cp310 }
+          - { tag: cp311 }
+          - { tag: cp312 }
+          - { tag: cp313 }
+          - { tag: cp314 }
+        leg:
+          - { runner: ubuntu-latest, platform: manylinux_x86_64, arch: x86_64 }
+          - { runner: ubuntu-24.04-arm, platform: manylinux_aarch64, arch: aarch64 }
+          - { runner: macos-15-intel, platform: macosx_x86_64, arch: x86_64 }
+          - { runner: macos-latest, platform: macosx_arm64, arch: arm64 }
+          - { runner: windows-latest, platform: win_amd64, arch: AMD64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pypa/cibuildwheel@adba99c781d3746d38b3a09b1cf797965bcb7fe6 # v4.3.0
+        env:
+          CIBW_BUILD: ${{ matrix.python.tag }}-${{ matrix.leg.platform }}
+          CIBW_ARCHS: ${{ matrix.leg.arch }}
+        with:
+          output-dir: wheelhouse
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.python.tag }}-${{ matrix.leg.platform }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  verify:
+    name: verify the distribution
+    needs: [check, sdist, wheels]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: upload
+          merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: upload
+
+      # SHA256SUMS goes to manifest/, outside the upload directory.
+      - name: verify-dist
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          python -m pip install 'twine>=6.1'
+          python scripts/release.py verify-dist upload --version "${VERSION}" --sums manifest/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: upload/
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-manifest
+          path: manifest/SHA256SUMS
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: publish to TestPyPI
+    needs: verify
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/strata-plf/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-manifest
+          path: manifest
+
+      # An upload burns the version on TestPyPI, so nothing goes up that is not
+      # exactly the verified set: every listed file matches, and no other file.
+      - name: Verify the files against SHA256SUMS
+        run: |
+          cd dist
+          sha256sum --strict -c ../manifest/SHA256SUMS
+          listed=$(awk '{ print $2 }' ../manifest/SHA256SUMS | LC_ALL=C sort)
+          present=$(find . -mindepth 1 -maxdepth 1 -printf '%P\n' | LC_ALL=C sort)
+          if [ "$listed" != "$present" ]; then
+            echo "dist/ holds files SHA256SUMS does not list, or lacks files it does" >&2
+            exit 1
+          fi
+
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+
+  verify-testpypi:
+    name: TestPyPI wheel ${{ matrix.python.tag }} ${{ matrix.leg.platform }}
+    needs: [check, publish-testpypi]
+    runs-on: ${{ matrix.leg.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+          - { tag: cp310, version: "3.10" }
+          - { tag: cp311, version: "3.11" }
+          - { tag: cp312, version: "3.12" }
+          - { tag: cp313, version: "3.13" }
+          - { tag: cp314, version: "3.14" }
+        leg:
+          - { runner: ubuntu-latest, platform: manylinux_x86_64, pattern: "manylinux[a-z0-9_.]*_x86_64" }
+          - { runner: ubuntu-24.04-arm, platform: manylinux_aarch64, pattern: "manylinux[a-z0-9_.]*_aarch64" }
+          - { runner: macos-15-intel, platform: macosx_x86_64, pattern: macosx_13_0_x86_64 }
+          - { runner: macos-latest, platform: macosx_arm64, pattern: macosx_11_0_arm64 }
+          - { runner: windows-latest, platform: win_amd64, pattern: win_amd64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python.version }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-manifest
+          path: manifest
+
+      # pip picks the wheel for this interpreter; it must be the one SHA256SUMS
+      # lists for this leg, byte for byte. Retries cover TestPyPI's index lag.
+      - name: Download the exact wheel from TestPyPI
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+          TAG: ${{ matrix.python.tag }}
+          PLATFORM_RE: ${{ matrix.leg.pattern }}
+        run: |
+          version_re=${VERSION//./\\.}
+          line=$(grep -E -- "^[0-9a-f]{64}  strata_plf-${version_re}-${TAG}-${TAG}-${PLATFORM_RE}\.whl$" manifest/SHA256SUMS || true)
+          if [ -z "$line" ] || [ "$(printf '%s\n' "$line" | wc -l)" -ne 1 ]; then
+            echo "SHA256SUMS does not list exactly one ${TAG} ${PLATFORM_RE} wheel" >&2
+            exit 1
+          fi
+          digest=${line%%  *}
+          file=${line#*  }
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            rm -rf testpypi
+            if python -m pip download --no-deps --no-cache-dir --only-binary=:all: \
+                --index-url https://test.pypi.org/simple/ --dest testpypi "strata-plf==${VERSION}"; then
+              break
+            fi
+            if [ "$attempt" -eq 10 ]; then
+              echo "TestPyPI did not serve strata-plf==${VERSION}" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          got=$(ls testpypi)
+          if [ "$got" != "$file" ]; then
+            echo "pip downloaded ${got}; SHA256SUMS lists ${file}" >&2
+            exit 1
+          fi
+          actual=$(python -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "testpypi/${file}")
+          if [ "$actual" != "$digest" ]; then
+            echo "${file}: TestPyPI sha256 ${actual}, SHA256SUMS ${digest}" >&2
+            exit 1
+          fi
+          echo "WHEEL=testpypi/${file}" >> "$GITHUB_ENV"
+
+      - name: Install the wheel and run check-install
+        run: |
+          python -m pip install 'pytest>=7'
+          python -m pip install --no-deps --no-cache-dir "${WHEEL}"
+          python scripts/release.py check-install
+
+  verify-testpypi-sdist:
+    name: TestPyPI sdist (gated build)
+    needs: [check, publish-testpypi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-manifest
+          path: manifest
+
+      # Fetched by URL from TestPyPI's JSON, not through pip: pip would resolve
+      # the sdist's build requirements from TestPyPI too.
+      - name: Download the exact sdist from TestPyPI
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          file="strata_plf-${VERSION}.tar.gz"
+          digest=$(awk -v f="$file" '$2 == f { print $1 }' manifest/SHA256SUMS)
+          if [ -z "$digest" ]; then
+            echo "SHA256SUMS does not list ${file}" >&2
+            exit 1
+          fi
+          mkdir -p testpypi
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsSL "https://test.pypi.org/pypi/strata-plf/${VERSION}/json" -o testpypi.json &&
+                url=$(python -c 'import json, sys; print(next(u["url"] for u in json.load(open(sys.argv[1]))["urls"] if u["filename"] == sys.argv[2]))' testpypi.json "$file") &&
+                curl -fsSL "$url" -o "testpypi/${file}"; then
+              break
+            fi
+            if [ "$attempt" -eq 10 ]; then
+              echo "TestPyPI did not serve ${file}" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          actual=$(sha256sum "testpypi/${file}" | cut -d' ' -f1)
+          if [ "$actual" != "$digest" ]; then
+            echo "${file}: TestPyPI sha256 ${actual}, SHA256SUMS ${digest}" >&2
+            exit 1
+          fi
+          echo "SDIST=testpypi/${file}" >> "$GITHUB_ENV"
+
+      - name: Install the sdist through both build gates and run check-install
+        run: |
+          python -m pip install 'pytest>=7'
+          python -m pip install --no-cache-dir "${SDIST}"
+          python scripts/release.py check-install

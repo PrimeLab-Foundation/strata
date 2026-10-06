@@ -45,22 +45,6 @@ jobs:
           CXX: clang++
         run: make pgo
 
-      - name: Build the PGO+LTO wheel
-        env:
-          CC: clang
-          CXX: clang++
-          STRATA_ENABLE_LTO: "1"
-          PGO_MODE: use
-          STRATA_PGO_PROFILE: build/pgo/strata.profdata
-        run: |
-          .venv/bin/python -m pip install -U build
-          .venv/bin/python -m build --wheel --no-isolation --outdir dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: strata-pgo-wheel
-          path: dist/*.whl
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
