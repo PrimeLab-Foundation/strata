@@ -49,10 +49,11 @@ print(sorted(name for name in sys.modules if name.startswith("strata.")))
 """
 
 # Instruction-set flags as setup.py spells them, by whether they enable AVX2
-# (and with it the guard). `-march=native` depends on the build host and is
-# not classified.
+# (and with it the guard). `-march=native` enables it exactly where the build
+# host has AVX2, and this suite runs on the machine that built the image.
 _AVX2_FLAGS = ("-march=x86-64-v3", "-march=x86-64-v4", "/arch:AVX2", "/arch:AVX512")
 _PRE_AVX2_FLAGS = ("-march=x86-64", "-march=x86-64-v2")
+_HOST_FLAGS = ("-march=native",)
 
 
 def _load_alone(name):
@@ -68,17 +69,48 @@ def _load_alone(name):
     return completed.stdout.strip()
 
 
-def _isa_flags(path):
-    """The instruction-set flags of every compile command in the image's
-    `.build.json`, or None when the image has no build record."""
-    record = Path(path + ".build.json")
-    if not record.is_file():
-        return None
+def _isa_flags(record):
+    """The instruction-set flags of every compile command in a `.build.json`,
+    or None when it records no compile command (a rebuild that compiled
+    nothing, or a build whose commands were not attributed to this image) --
+    absent commands say nothing about the target, unlike commands without a
+    flag (`STRATA_MARCH=none`, a universal2 build)."""
     commands = json.loads(record.read_text(encoding="utf-8")).get("commands") or []
+    if not commands:
+        return None
     flags = set()
     for command in commands:
         flags.update(arg for arg in command if arg.startswith(("-march=", "/arch:")))
     return flags
+
+
+def _host_has_avx2():
+    """Whether this x86-64 CPU has AVX2 as the OS exposes it, or None where
+    that cannot be read here."""
+    system = platform.system()
+    if system == "Linux":
+        try:
+            cpuinfo = Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None
+        for line in cpuinfo.splitlines():
+            if line.startswith("flags") and ":" in line:
+                return "avx2" in line.split(":", 1)[1].split()
+        return None
+    if system == "Darwin":
+        try:
+            completed = subprocess.run(
+                ["/usr/sbin/sysctl", "-n", "machdep.cpu.leaf7_features"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            return None
+        if completed.returncode != 0 or not completed.stdout.strip():
+            return None
+        return "AVX2" in completed.stdout.upper().split()
+    return None
 
 
 def test_strata_initialises_on_its_own():
@@ -101,12 +133,24 @@ def test_the_guard_is_compiled_in_exactly_where_the_build_targets_avx2(name):
         # compiled away entirely.
         assert not present
         return
-    flags = _isa_flags(path)
-    if flags is None:
+    record = Path(path + ".build.json")
+    if not record.is_file():
         pytest.skip("no .build.json beside the image")
-    if flags & set(_AVX2_FLAGS):
+    flags = _isa_flags(record)
+    if flags is not None and flags & set(_AVX2_FLAGS):
         assert present, sorted(flags)
-    elif not flags or flags <= set(_PRE_AVX2_FLAGS):
+    elif flags is not None and flags <= set(_PRE_AVX2_FLAGS):
+        # No flag at all is the compiler's x86-64 baseline.
         assert not present, sorted(flags)
+    elif flags is None or flags <= set(_HOST_FLAGS):
+        # `-march=native`, or no recorded command (setup.py's default is
+        # native): the build host's instruction set decides.
+        host_avx2 = _host_has_avx2()
+        if host_avx2 is None:
+            pytest.skip(
+                f"the build targets the host ({sorted(flags or ['no recorded command'])}) "
+                f"and this host's AVX2 support cannot be read on {platform.system()}",
+            )
+        assert present is host_avx2, (sorted(flags or []), host_avx2)
     else:
-        pytest.skip(f"instruction set depends on the build host: {sorted(flags)}")
+        pytest.skip(f"instruction set not classified here: {sorted(flags)}")

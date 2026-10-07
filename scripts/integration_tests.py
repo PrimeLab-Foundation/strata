@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import importlib.util
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -26,29 +25,29 @@ TEST_PATH = "tests/integrations"
 EXTRA = "integrations"
 
 
-def _requirements_from_metadata() -> list[str] | None:
-    """The extra as the installed strata distribution declares it.
-
-    Python 3.10 has no ``tomllib``; the editable install's metadata carries
-    every extra as ``<requirement>; extra == "<name>"``.
-    """
-    try:
-        declared = importlib.metadata.requires("strata") or []
-    except importlib.metadata.PackageNotFoundError:
-        return None
-    marker = re.compile(rf"""extra\s*==\s*["']{EXTRA}["']""")
-    return [req.split(";", 1)[0].strip() for req in declared if marker.search(req)]
-
-
 def extra_requirements() -> list[str]:
+    """The extra as ``pyproject.toml`` declares it, read with a TOML parser.
+
+    Python 3.10 has no ``tomllib``; there ``tomli`` reads it, which pytest
+    itself depends on below 3.11 (as ``missing`` relies on its ``packaging``),
+    so it is present wherever this script can run pytest at all. Reading the
+    file rather than an installed distribution's metadata keeps the answer
+    independent of the distribution's name.
+    """
     try:
         import tomllib
     except ModuleNotFoundError:
-        requirements = _requirements_from_metadata()
-    else:
-        with (PROJECT_ROOT / "pyproject.toml").open("rb") as fh:
-            project = tomllib.load(fh)["project"]
-        requirements = project.get("optional-dependencies", {}).get(EXTRA)
+        try:
+            import tomli as tomllib
+        except ModuleNotFoundError:
+            sys.stderr.write(
+                f"error: reading pyproject.toml needs tomllib (Python 3.11+) or tomli "
+                f"for {sys.executable}.\n",
+            )
+            raise SystemExit(1) from None
+    with (PROJECT_ROOT / "pyproject.toml").open("rb") as fh:
+        project = tomllib.load(fh)["project"]
+    requirements = project.get("optional-dependencies", {}).get(EXTRA)
     if not requirements:
         sys.stderr.write(f"error: pyproject.toml declares no '{EXTRA}' extra.\n")
         raise SystemExit(1)

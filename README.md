@@ -115,8 +115,8 @@ make pgo        # two-phase PGO+LTO build; the gate runs on both phases
 does not, so on macOS install LLVM (`brew install llvm`) or rely on
 `make test`, which replays the same corpus through the engine on every run.
 
-- Start here: [CLAUDE.md](https://github.com/PrimeLab-Foundation/strata/blob/main/CLAUDE.md)
-- Public API contract: [docs/context/api.md](https://github.com/PrimeLab-Foundation/strata/blob/main/docs/context/api.md)
+The public API contract is
+[docs/context/api.md](https://github.com/PrimeLab-Foundation/strata/blob/main/docs/context/api.md).
 
 ## License
 
