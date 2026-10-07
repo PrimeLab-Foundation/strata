@@ -1,0 +1,119 @@
+name: Post-release verification
+
+# After a PyPI publish: on each of the five release legs, install the released
+# strata-plf wheel from PyPI, prove the interpreter imports that wheel and not
+# this checkout, and run the canonical benchmark suite against it exactly as
+# benchmark.yml does (same small-tier datasets, repeat and warmup). The
+# checkout supplies the harness and the dataset generator only; the installed
+# wheel is what is measured. Its report records the wheel's own .build.json
+# provenance, which ships beside both extension images.
+#
+# The gate is the supportability tripwire alone (benchmarks/supportability_check.py):
+# no ERROR rows, strata in every declared row and category, no row past the
+# documented 3.0x bound. It is NOT the 2% regression gate and compares no
+# absolute times across platforms; ranks stay within-run, as on every CI leg
+# (docs/context/benchmarks.md). One Python per leg, benchmark.yml's: the
+# cp310-cp314 install matrix is release.yml's check-install job.
+#
+# publish-pypi.yml calls this after its publish job (workflow_call) with the
+# version its verify job proved; workflow_dispatch reruns it for any version
+# already on PyPI. The called workflow runs from the caller's commit, so the
+# harness is the dispatching ref's, never the released tag's.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: strata-plf version on PyPI to verify (final YYYY.M.D[.N])
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: strata-plf version on PyPI to verify (final YYYY.M.D[.N])
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: post-release (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
+          - os: macos-15-intel
+            platform: macos-x86_64
+          - os: macos-latest
+            platform: macos-arm64
+          - os: windows-latest
+            platform: windows-x86_64
+    defaults:
+      run:
+        shell: bash
+    env:
+      # Read from the environment, never interpolated into a script;
+      # release_post.py install validates it before pip sees it.
+      VERSION: ${{ inputs.version }}
+      REPORT: bench_post_release_${{ matrix.platform }}.md
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the released wheel from PyPI (retried while the index propagates)
+        run: python scripts/release_post.py install "$VERSION"
+
+      - name: Install the competitor set (the bench extra, without strata from the checkout)
+        run: |
+          python scripts/release_post.py bench-requirements > bench-requirements.txt
+          python -m pip install -r bench-requirements.txt
+
+      # The benchmark's own PYTHONPATH and working directory, so a checkout
+      # tree that shadowed the installed wheel would fail here, not be measured.
+      - name: Prove strata imports the installed wheel, not the checkout
+        run: PYTHONPATH=. python -m scripts.release_post check-installed "$VERSION"
+
+      - name: Generate the small-tier datasets
+        run: |
+          PYTHONPATH=. python -m benchmarks.data.generate_bench_data \
+            --out-dir benchmarks/data/generated/small \
+            --num-users 1000 --max-orders 10 --max-items 5 --records 500
+
+      - name: Run the benchmark suite
+        run: |
+          PYTHONPATH=. python -m benchmarks.bench_main \
+            --name "post-release-${{ matrix.platform }}" \
+            --repeat 10 --warmup 2 \
+            --dataset benchmarks/data/generated/small/users.json \
+            --dataset benchmarks/data/generated/small/users.ndjson \
+            --dataset benchmarks/data/generated/small/flat.json \
+            --dataset benchmarks/data/generated/small/nested.json \
+            --dataset benchmarks/data/generated/small/wide_arrays.json \
+            --dataset benchmarks/data/generated/small/mixed.json \
+            --output "$REPORT"
+
+      - name: Supportability tripwire
+        run: PYTHONPATH=. python -m benchmarks.supportability_check "$REPORT"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-release-${{ matrix.platform }}
+          path: |
+            bench_post_release_*.md
+            bench_post_release_*.json
+          if-no-files-found: ignore

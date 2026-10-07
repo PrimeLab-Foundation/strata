@@ -30,7 +30,7 @@ implementation was #1 in most categories (see `docs/benchmarking/SKILL.md`).
 │   └── benchmarks/          # machine-written results: tier reports, ci/ per platform-arch, ci_summary.md, evidence/<milestone>/ (A/B and codegen packets copied out of build/evidence)
 ├── .clang-format / .ruff.toml / .editorconfig / .markdownlint.yaml   # style configs
 ├── .pre-commit-config.yaml  # style gates: ruff, clang-format, mdformat, markdownlint
-├── .github/workflows/       # ci.yml (matrix, coverage, style, corpus) + fuzz/benchmark/pgo + release.yml (tag → wheels → TestPyPI) / publish-pypi.yml (promote to PyPI)
+├── .github/workflows/       # ci.yml (matrix, coverage, style, corpus) + fuzz/benchmark/pgo + release.yml (tag → wheels → TestPyPI) / publish-pypi.yml (promote to PyPI) → post-release.yml (PyPI wheel per leg: install, canonical suite, supportability tripwire)
 ├── pyproject.toml           # PEP 621 metadata (distribution strata-plf); version read dynamically from the facade; [tool.cibuildwheel]
 ├── setup.py                 # extension build + the two test gates (TestGatedBuildExt)
 ├── CMakeLists.txt           # the single C++ test registry (ctest)

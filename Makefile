@@ -140,8 +140,9 @@ test-integrations: venv  ## Run tests/integrations: dumps_with_default with thir
 	$(VPY) scripts/integration_tests.py
 
 # Not part of `test` or `gate`, and outside pytest's testpaths: tests/release
-# exercises the release tooling (scripts/release.py, setup.py's release knobs).
-test-release: venv  ## Run tests/release: version grammar, bump, check-tag, verify-dist, check-promotion, setup.py knobs
+# exercises the release tooling (scripts/release.py, scripts/release_post.py,
+# setup.py's release knobs).
+test-release: venv  ## Run tests/release: version grammar, bump, check-tag, verify-dist, check-promotion, post-release glue, setup.py knobs
 	$(VPY) -m pytest tests/release
 
 gate: venv  ## Full compliance gate: C++ tests, reinstall, Python tests, coverage

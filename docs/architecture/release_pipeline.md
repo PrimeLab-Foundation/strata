@@ -331,6 +331,46 @@ Third-party actions (`pypa/cibuildwheel`, `pypa/gh-action-pypi-publish`) are
 pinned by full commit SHA with the tag in a comment; `actions/*` follow the
 repository's tag convention.
 
+## Post-release verification
+
+After `publish`, a third job of `publish-pypi.yml`, `post-release` (`needs: [verify, publish]`, `contents: read`), calls `post-release.yml` through
+`workflow_call`. It passes the version `verify` derived from the Release run's
+tag, which `check-promotion` matched against the uploaded files. The same
+workflow takes `workflow_dispatch` with a `version` input. Each of the five
+release legs runs Python 3.12, as `benchmark.yml` does. The run proceeds in
+five steps:
+
+1. `scripts/release_post.py install` refuses anything but a final version in
+   `release.py`'s grammar. It then runs
+   `pip install --no-cache-dir --index-url https://pypi.org/simple/ --only-binary=strata-plf strata-plf==<version>`, up to eight times with
+   backoff from 15 s to 120 s (about ten minutes) while the index propagates.
+   Without the cache, a retry cannot read an index page from before the
+   upload.
+2. `bench-requirements` lists the `bench` extra from the checkout's
+   `pyproject.toml`. Those are the rivals `make install-bench` installs; strata
+   itself is not installed from the checkout.
+3. `check-installed` runs under the benchmark's own `PYTHONPATH=.` and working
+   directory. It prints `strata.__version__` and each module's file. It fails
+   unless the version matches and `strata`, `strata._strata` and
+   `strata._dumps_hook` all resolve into site-packages and outside the checkout.
+   The package is checked first, so a shadowing tree is named before a missing
+   submodule can fail to import.
+4. The canonical small-tier suite runs as in `benchmark.yml`.
+   `benchmarks.provenance.capture` reads the wheel's own `.build.json`, whose
+   hash survives repair (above). The report's commit and compiler flags are
+   therefore the release build's.
+5. `benchmarks.supportability_check` gates the report, and the report and its
+   companion are uploaded as `post-release-<os>-<arch>`.
+
+The checkout is the caller's commit: a local `uses:` resolves there, so the
+harness belongs to the dispatching ref, never to the released tag. Its gate is
+the tripwire's: no ERROR rows, strata in every declared row and category, and
+no row past 3.0x. It catches a wheel whose fast path is broken or
+accidentally scalar on hardware it was not built on. It is not the 2%
+regression gate, it never compares absolute times across platforms, and it
+makes no standings claim. A failure leaves the release on PyPI. The remedy is
+the one under Rollback.
+
 ## Rollback
 
 Yank the release on PyPI, then fix forward with `.N`. A filename that has

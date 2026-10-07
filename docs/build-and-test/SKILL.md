@@ -344,18 +344,36 @@ anywhere: both indexes use trusted publishing.
    serves exactly those files and digests. Only then does the separate
    `publish` job, which checks nothing out, upload the same files to PyPI.
 
+**After the publish:** `publish-pypi.yml`'s third job, `post-release`, calls
+`post-release.yml` (`workflow_call`, `contents: read` only) with the version
+`verify` proved; `gh workflow run post-release.yml -f version=<version>`
+reruns it by hand. On each of the five release legs, with Python 3.12 (the
+cp310–cp314 install matrix stays `release.yml`'s), it installs
+`strata-plf==<version>` from PyPI as a wheel only, retrying with backoff while
+the index propagates (`scripts/release_post.py install`). It installs the
+`bench` extra's rivals without installing strata from the checkout, then proves
+with `check-installed` that `strata.__version__` is the version and that
+`strata`, `_strata` and `_dumps_hook` import from site-packages and not from
+the checkout. Finally it runs the canonical small-tier suite exactly as
+`benchmark.yml` does and uploads the report and its provenance companion as
+`post-release-<os>-<arch>`. The checkout supplies only the harness and the
+dataset generator. **The gate is the supportability tripwire alone**: no ERROR
+rows, strata in every declared row and category, and no row past the 3.0x
+bound. It is not the 2% regression gate, it compares no absolute times across
+platforms, and it is not a standings claim.
+
 **Rollback:** yank the release on PyPI, then fix forward with `.N`. An
 uploaded filename can never be replaced.
 
 ### Make targets
 
-| Target                | Does                                                                                                                                                                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `install-release`     | Editable install with `.[release]` (`build`, `twine`, `cibuildwheel==4.3.0`)                                                                                                                                                                                      |
-| `release-wheel-linux` | One PGO+LTO manylinux cp312 aarch64 wheel via cibuildwheel and Docker, built from a copy of the tree in `build/release-src`, into `dist/wheelhouse`                                                                                                               |
-| `release-sdist`       | `release.py sdist-check`: builds the sdist, runs `twine check --strict`, gate-installs it into a fresh virtualenv and runs `check-install`                                                                                                                        |
-| `release-bump`        | `release.py bump "$(VERSION)"`: rewrites the `__version__` literal and nothing else                                                                                                                                                                               |
-| `test-release`        | `pytest tests/release`, covering the version grammar, `bump`, `check-tag`, `verify-dist`, `check-promotion`, `profile`'s environment strip, the toolchain and ISA checks, `check-install`'s version check and setup.py's release knobs. Outside `test` and `gate` |
+| Target                | Does                                                                                                                                                                                                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `install-release`     | Editable install with `.[release]` (`build`, `twine`, `cibuildwheel==4.3.0`)                                                                                                                                                                                                         |
+| `release-wheel-linux` | One PGO+LTO manylinux cp312 aarch64 wheel via cibuildwheel and Docker, built from a copy of the tree in `build/release-src`, into `dist/wheelhouse`                                                                                                                                  |
+| `release-sdist`       | `release.py sdist-check`: builds the sdist, runs `twine check --strict`, gate-installs it into a fresh virtualenv and runs `check-install`                                                                                                                                           |
+| `release-bump`        | `release.py bump "$(VERSION)"`: rewrites the `__version__` literal and nothing else                                                                                                                                                                                                  |
+| `test-release`        | `pytest tests/release`, covering the version grammar, `bump`, `check-tag`, `verify-dist`, `check-promotion`, `profile`'s environment strip, the toolchain and ISA checks, `check-install`'s version check, `release_post.py` and setup.py's release knobs. Outside `test` and `gate` |
 
 `scripts/release.py profile` is cibuildwheel's `before-build` step. It trains
 both profiles into `build/release-pgo` and then deletes the rest of `build/`,

@@ -9,7 +9,8 @@ name: Publish to PyPI
 # with jq, checks out the dispatching ref's own code (never the run's headSha),
 # runs that code's check-promotion and hands the verified files on. `publish`
 # holds id-token and the `pypi` environment, checks nothing out, and runs only
-# the publish action on those files.
+# the publish action on those files. `post-release` then calls post-release.yml
+# with contents: read only, to install and benchmark the published wheel.
 on:
   workflow_dispatch:
     inputs:
@@ -33,6 +34,8 @@ jobs:
     permissions:
       contents: read
       actions: read
+    outputs:
+      version: ${{ steps.run.outputs.version }}
     steps:
       # Validated before anything else runs: the tag and sha it yields are
       # used in API paths below, so they are pinned to their grammars here.
@@ -185,3 +188,16 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist/
+
+  # The released wheel, installed from PyPI on every release leg and run
+  # through the canonical suite under the supportability tripwire. The version
+  # is the one `verify` proved: the tag of the Release run, whose files
+  # check-promotion matched against TestPyPI and `publish` just uploaded.
+  post-release:
+    name: post-release verification
+    needs: [verify, publish]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/post-release.yml
+    with:
+      version: ${{ needs.verify.outputs.version }}
