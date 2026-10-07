@@ -36,11 +36,22 @@ def file_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
+#: A sanitizer runtime preloaded into the build (scripts/asan_py_tests.sh) is
+#: kept out of the identity probes: they ask the toolchain and Git about
+#: themselves, and macOS refuses the runtime in a platform binary run by its
+#: full path -- Xcode's `ld -v` -- killing it ("Sanitizer load violates platform
+#: policy"), which loses the answer and leaves a crash report per probe.
+_PRELOAD_VARIABLES = ("DYLD_INSERT_LIBRARIES", "LD_PRELOAD")
+
+
 def command_output(
     command: list[str], *, cwd: Path | None = None, allow_failure: bool = False
 ) -> str | None:
+    env = {name: value for name, value in os.environ.items() if name not in _PRELOAD_VARIABLES}
     try:
-        result = subprocess.run(command, cwd=cwd, capture_output=True, timeout=15, check=False)
+        result = subprocess.run(
+            command, cwd=cwd, env=env, capture_output=True, timeout=15, check=False
+        )
     except (OSError, subprocess.TimeoutExpired):
         return None
     if result.returncode != 0 and not allow_failure:

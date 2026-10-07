@@ -814,10 +814,18 @@ def _at_the_cap(mode, kib):
     # A rung too small for the parse overflows on purpose. Under the sanitized
     # gate ASan would write that report into the gate's log directory, which
     # prints it after a green run, so each child reports on its own stderr.
+    # And it ends with exit status 1, not abort(): ASan's frames are larger, so
+    # its parse overflows the 256 KiB rung (and 384 KiB) and first fits 512 KiB
+    # on an M1, and an abort() -- the gate's abort_on_error=1, and ASan's own
+    # default on macOS -- leaves a crash report in ~/Library/Logs per rung. The
+    # option is inert in a process without the ASan runtime.
     env = dict(os.environ)
-    if "ASAN_OPTIONS" in env:
-        options = env["ASAN_OPTIONS"].split(":")
-        env["ASAN_OPTIONS"] = ":".join(o for o in options if not o.startswith("log_path="))
+    options = [
+        o
+        for o in env.get("ASAN_OPTIONS", "").split(":")
+        if o and not o.startswith(("log_path=", "abort_on_error="))
+    ]
+    env["ASAN_OPTIONS"] = ":".join([*options, "abort_on_error=0"])
     # The package root goes in by argument: the build gate's fresh build is
     # named by no environment variable.
     package_root = str(pathlib.Path(strata.__file__).resolve().parent.parent)

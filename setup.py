@@ -15,6 +15,7 @@ definition of "the test suite".
 
 from __future__ import annotations
 
+import copy
 import functools
 import os
 import platform
@@ -94,13 +95,16 @@ class TestGatedBuildExt(build_ext):
 
     def build_extensions(self) -> None:
         override = _windows_compiler_override()
+        # MSVCCompiler resolves its toolchain lazily in initialize(), on the
+        # first compile(), and asserts against a second call (a cross build
+        # has already made it). Resolve it once, here, on the one shared
+        # compiler: every image builds on a copy of it (build_extension), and
+        # a copy taken unresolved would resolve it again for itself.
+        if getattr(self.compiler, "initialized", True) is False:
+            self.compiler.initialize()
         if override:
-            # MSVCCompiler resolves its toolchain lazily in initialize() and
-            # asserts against a second call (a cross build has already made
-            # it); resolve it, then point the compile step at the override
-            # and take LTCG out of both halves so the build is plainly /O2.
-            if not self.compiler.initialized:
-                self.compiler.initialize()
+            # Point the compile step at the override and take LTCG out of
+            # both halves so the build is plainly /O2.
             if override != "cl":
                 self.compiler.cc = override
             self.compiler.compile_options = [
@@ -115,34 +119,14 @@ class TestGatedBuildExt(build_ext):
                     if isinstance(flags, list):
                         flags[:] = [flag for flag in flags if flag != "/LTCG"]
             print(f"+ compiling with {self.compiler.cc}, plain /O2 (no LTCG)", flush=True)
-        # Commands are recorded per extension (build_extension names the one
-        # being built), so each image's identity lists only what built it.
-        self._commands_by_extension: dict[str, list[list[str]]] = {}
-        self._current_extension = ""
+        # Commands are recorded per extension, so each image's identity lists
+        # only what built it. Every log exists before any image starts
+        # building and only that image's build appends to it (build_extension).
+        self._commands_by_extension: dict[str, list[list[str]]] = {
+            extension.name: [] for extension in self.extensions
+        }
         source = _BUILD_IDENTITY["source_identity"](PROJECT_ROOT)
-        # Every compiler class in setuptools' distutils routes through
-        # `spawn` (MSVC overrides it, which an instance attribute shadows);
-        # record any `call` too rather than choose, so a future entry point
-        # cannot leave `commands` empty without a trace.
-        originals = {}
-        for method in ("spawn", "call"):
-            original = getattr(self.compiler, method, None)
-            if original is None:
-                continue
-            originals[method] = original
-
-            def record(command, _original=original, **kwargs):
-                self._commands_by_extension.setdefault(self._current_extension, []).append(
-                    [str(part) for part in command]
-                )
-                return _original(command, **kwargs)
-
-            setattr(self.compiler, method, record)
-        try:
-            super().build_extensions()
-        finally:
-            for method, original in originals.items():
-                setattr(self.compiler, method, original)
+        super().build_extensions()
         for extension in self.extensions:
             write_identity(
                 Path(self.get_ext_fullpath(extension.name)),
@@ -157,20 +141,41 @@ class TestGatedBuildExt(build_ext):
             )
 
     def build_extension(self, ext) -> None:
-        self._current_extension = ext.name
-        if ext.name == "strata._strata":
-            super().build_extension(ext)
-            return
-        # Any other image compiles into a temp directory of its own:
-        # setuptools names objects by source path alone, and the hook image
-        # compiles the core sources with other flags (never profiled, one
-        # section per function), so one object path must not serve both.
-        base = self.build_temp
-        self.build_temp = os.path.join(base, ext.name)
-        try:
-            super().build_extension(ext)
-        finally:
-            self.build_temp = base
+        # setuptools' `parallel` option (scripts/asan_py_tests.sh sets it)
+        # calls this for every image at once, on a thread pool sharing this
+        # command and its compiler (`_build_extensions_parallel`). So nothing
+        # here writes to `self` or `self.compiler`: each image builds on a
+        # shallow copy of both, which carries that image's temp directory and
+        # records into that image's own command log. (Writing them on `self`
+        # once let `_strata` compile into the hook's temp directory, where its
+        # python_files/python_folder objects -- built without STRATA_DUMPS_HOOK
+        # -- replaced the hook's, and attributed every command to one image.)
+        builder = copy.copy(self)
+        if ext.name != "strata._strata":
+            # Any other image compiles into a temp directory of its own:
+            # setuptools names objects by source path alone, and the hook image
+            # compiles the core sources with other flags (never profiled, one
+            # section per function) and python_files/python_folder with
+            # STRATA_DUMPS_HOOK, so one object path must not serve both.
+            builder.build_temp = os.path.join(self.build_temp, ext.name)
+        builder.compiler = copy.copy(self.compiler)
+        log = self._commands_by_extension[ext.name]
+        # Every compiler class in setuptools' distutils routes through
+        # `spawn` (MSVC overrides it, which an instance attribute shadows);
+        # record any `call` too rather than choose, so a future entry point
+        # cannot leave `commands` empty without a trace. The wrapped methods
+        # are the copy's own, bound to the copy.
+        for method in ("spawn", "call"):
+            original = getattr(builder.compiler, method, None)
+            if original is None:
+                continue
+
+            def record(command, _original=original, **kwargs):
+                log.append([str(part) for part in command])
+                return _original(command, **kwargs)
+
+            setattr(builder.compiler, method, record)
+        super(TestGatedBuildExt, builder).build_extension(ext)
 
     def copy_extensions_to_source(self) -> None:
         super().copy_extensions_to_source()

@@ -72,9 +72,10 @@ def _load_alone(name):
 def _isa_flags(record):
     """The instruction-set flags of every compile command in a `.build.json`,
     or None when it records no compile command (a rebuild that compiled
-    nothing, or a build whose commands were not attributed to this image) --
-    absent commands say nothing about the target, unlike commands without a
-    flag (`STRATA_MARCH=none`, a universal2 build)."""
+    nothing; setup.py attributes every command to the image it built, parallel
+    builds included, docs/decisions.md 2026-10-07) -- absent commands say
+    nothing about the target, unlike commands without a flag
+    (`STRATA_MARCH=none`, a universal2 build)."""
     commands = json.loads(record.read_text(encoding="utf-8")).get("commands") or []
     if not commands:
         return None
