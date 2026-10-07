@@ -173,8 +173,30 @@ dataclass field-cache staleness fix (a `Field.name` changed in place after first
 use, a defect since M15) landed at its unprofiled price once its refresh moved out
 of line — the profile had priced the in-line check at +8.5% (ledger, M15c;
 evidence docs/benchmarks/evidence/M15c/). The rebuild is versioned calver,
-`YYYY.M.D` of release — started at `2026.8.9`, released as `2026.8.10`
-(see `docs/context/api.md`).
+`YYYY.M.D[.N][rcK]` of release — started at `2026.8.9`, released as
+`2026.8.10` on the quiet-machine standings sweep (see `docs/context/api.md`).
+**Strata is on PyPI as `strata-plf`** (the name `strata` belongs to an
+unrelated project; the import is unchanged): the release pipeline
+(docs/architecture/release_pipeline.md; merged 0797078 with review fixes
+f17efb5) builds 25 PGO wheels — cp310–cp314 × linux x86_64/aarch64
+(manylinux_2_28, x86-64-v3/armv8-a), macOS x86_64 ≥13.0 (x86-64-v3) and
+arm64 ≥11.0, Windows x86_64 (/arch:AVX2, clang-cl, PGO without LTO) — each
+with a per-version profile built in cibuildwheel's before-build (the hook
+image keeps its own, per M15c), publishes tags to TestPyPI via OIDC trusted
+publishing, and promotes byte-identical digest-checked files to PyPI
+(`publish-pypi.yml`); the x86-64 wheels carry a cpuid+xgetbv import guard
+(ImportError, never SIGILL, on pre-AVX2 CPUs; SDE-proven, run 37466325074)
+and R1 priced the ISA (v2 refused: not inside the floor on every row —
+ledger R1). Released `2026.10.6` (2026-10-07, first PyPI release) and
+`2026.10.7` (same day: PyPI page corrected, the integrations checker's
+hard-coded `strata` metadata lookup and the cpu-guard test's native-build
+expectation fixed in 84b6768, and setup.py's parallel two-extension build
+made deterministic in ccb07d6 — the shared build_temp/command state could
+link the hook without its own objects; wheels were never affected). Every
+publish is now followed by `post-release.yml` (merged 5485828): five legs
+install the wheel from PyPI and run the canonical suite under the
+supportability tripwire — first run 37605099791, all legs green on
+2026.10.7.
 
 The complete previous implementation (v0.2.0, all tests green) is preserved on
 branch `backup/pre-reset-main` and in `../archive/` — file paths, line numbers,
