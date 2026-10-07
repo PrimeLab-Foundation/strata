@@ -392,7 +392,10 @@ neither compares a time with another run's, a baseline or another platform.
 
   - **More than 3 rows behind** (`MAX_BEHIND_ROWS`, the per-leg coin band).
     The 28 distinct five-leg CI samples archived in September 2026, read with
-    the same code, have 0–3 of 27 rows behind on 137 of 140 leg-draws.
+    the same code, have 0–3 of 27 rows behind on 137 of 140 leg-draws. They
+    are kept in the tree at `docs/benchmarks/evidence/standings-gate/` (one
+    directory per sample, `MANIFEST.tsv` of sources and hashes, the gate's
+    `replay.tsv`) plus `docs/benchmarks/ci/`, not only in `build/evidence/`.
     windows-x86_64 reads 3 on four draws of shipped source. The three
     leg-draws above the band are all linux-x86_64: 4 rows behind on 79fa3df
     (run 34064174240, E26-P6's x86 serializer regression, a real code effect),

@@ -1,0 +1,141 @@
+revision	run_id	leg	verdict	won	behind	worst_ratio	worst_row	report	set
+32c5fa4	34012087358	linux-arm64	pass	26/27	1	1.031	dumps mixed.json	docs/benchmarks/evidence/standings-gate/32c5fa4-34012087358/bench_results_linux-arm64.md	packet
+32c5fa4	34012087358	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/32c5fa4-34012087358/bench_results_linux-x86_64.md	packet
+32c5fa4	34012087358	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/32c5fa4-34012087358/bench_results_macos-arm64.md	packet
+32c5fa4	34012087358	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/32c5fa4-34012087358/bench_results_macos-x86_64.md	packet
+32c5fa4	34012087358	windows-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/32c5fa4-34012087358/bench_results_windows-x86_64.md	packet
+79fa3df	34064158421	linux-arm64	pass	26/27	1	1.042	dumps mixed.json	docs/benchmarks/evidence/standings-gate/79fa3df-34064158421/bench_results_linux-arm64.md	packet
+79fa3df	34064158421	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/79fa3df-34064158421/bench_results_linux-x86_64.md	packet
+79fa3df	34064158421	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/79fa3df-34064158421/bench_results_macos-arm64.md	packet
+79fa3df	34064158421	macos-x86_64	pass	26/27	1	1.103	dumps mixed.json	docs/benchmarks/evidence/standings-gate/79fa3df-34064158421/bench_results_macos-x86_64.md	packet
+79fa3df	34064158421	windows-x86_64	pass	26/27	1	1.079	dumps flat.json	docs/benchmarks/evidence/standings-gate/79fa3df-34064158421/bench_results_windows-x86_64.md	packet
+79fa3df	34064174240	linux-arm64	pass	26/27	1	1.015	dumps mixed.json	docs/benchmarks/evidence/standings-gate/79fa3df-34064174240/bench_results_linux-arm64.md	packet
+79fa3df	34064174240	linux-x86_64	FAIL	23/27	4	1.078	dumps mixed.json	docs/benchmarks/evidence/standings-gate/79fa3df-34064174240/bench_results_linux-x86_64.md	packet
+79fa3df	34064174240	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/79fa3df-34064174240/bench_results_macos-arm64.md	packet
+79fa3df	34064174240	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/79fa3df-34064174240/bench_results_macos-x86_64.md	packet
+79fa3df	34064174240	windows-x86_64	pass	25/27	2	1.082	dumps mixed.json	docs/benchmarks/evidence/standings-gate/79fa3df-34064174240/bench_results_windows-x86_64.md	packet
+75cfb42	34143751498	linux-arm64	pass	26/27	1	1.023	dumps mixed.json	docs/benchmarks/evidence/standings-gate/75cfb42-34143751498/bench_results_linux-arm64.md	packet
+75cfb42	34143751498	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/75cfb42-34143751498/bench_results_linux-x86_64.md	packet
+75cfb42	34143751498	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/75cfb42-34143751498/bench_results_macos-arm64.md	packet
+75cfb42	34143751498	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/75cfb42-34143751498/bench_results_macos-x86_64.md	packet
+75cfb42	34143751498	windows-x86_64	pass	26/27	1	1.015	dumps mixed.json	docs/benchmarks/evidence/standings-gate/75cfb42-34143751498/bench_results_windows-x86_64.md	packet
+c20ac86	34590005443	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c20ac86-34590005443/bench_results_linux-arm64.md	packet
+c20ac86	34590005443	linux-x86_64	pass	26/27	1	1.038	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c20ac86-34590005443/bench_results_linux-x86_64.md	packet
+c20ac86	34590005443	macos-arm64	pass	26/27	1	1.067	dump mixed.json	docs/benchmarks/evidence/standings-gate/c20ac86-34590005443/bench_results_macos-arm64.md	packet
+c20ac86	34590005443	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c20ac86-34590005443/bench_results_macos-x86_64.md	packet
+c20ac86	34590005443	windows-x86_64	pass	25/27	2	1.034	dump mixed.json	docs/benchmarks/evidence/standings-gate/c20ac86-34590005443/bench_results_windows-x86_64.md	packet
+c20ac86	34590027501	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c20ac86-34590027501/bench_results_linux-arm64.md	packet
+c20ac86	34590027501	linux-x86_64	pass	26/27	1	1.066	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c20ac86-34590027501/bench_results_linux-x86_64.md	packet
+c20ac86	34590027501	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c20ac86-34590027501/bench_results_macos-arm64.md	packet
+c20ac86	34590027501	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c20ac86-34590027501/bench_results_macos-x86_64.md	packet
+c20ac86	34590027501	windows-x86_64	pass	25/27	2	1.029	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c20ac86-34590027501/bench_results_windows-x86_64.md	packet
+ec53f93	34681733282	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec53f93-34681733282/bench_results_linux-arm64.md	packet
+ec53f93	34681733282	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec53f93-34681733282/bench_results_linux-x86_64.md	packet
+ec53f93	34681733282	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec53f93-34681733282/bench_results_macos-arm64.md	packet
+ec53f93	34681733282	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec53f93-34681733282/bench_results_macos-x86_64.md	packet
+ec53f93	34681733282	windows-x86_64	pass	25/27	2	1.063	dumps mixed.json	docs/benchmarks/evidence/standings-gate/ec53f93-34681733282/bench_results_windows-x86_64.md	packet
+ec53f93	34681741789	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec53f93-34681741789/bench_results_linux-arm64.md	packet
+ec53f93	34681741789	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec53f93-34681741789/bench_results_linux-x86_64.md	packet
+ec53f93	34681741789	macos-arm64	pass	26/27	1	1.008	dumps flat.json	docs/benchmarks/evidence/standings-gate/ec53f93-34681741789/bench_results_macos-arm64.md	packet
+ec53f93	34681741789	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec53f93-34681741789/bench_results_macos-x86_64.md	packet
+ec53f93	34681741789	windows-x86_64	pass	24/27	3	1.076	dumps mixed.json	docs/benchmarks/evidence/standings-gate/ec53f93-34681741789/bench_results_windows-x86_64.md	packet
+b32d398	34693842452	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/b32d398-34693842452/bench_results_linux-arm64.md	packet
+b32d398	34693842452	linux-x86_64	pass	26/27	1	1.047	dumps mixed.json	docs/benchmarks/evidence/standings-gate/b32d398-34693842452/bench_results_linux-x86_64.md	packet
+b32d398	34693842452	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/b32d398-34693842452/bench_results_macos-arm64.md	packet
+b32d398	34693842452	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/b32d398-34693842452/bench_results_macos-x86_64.md	packet
+b32d398	34693842452	windows-x86_64	pass	26/27	1	1.074	dumps mixed.json	docs/benchmarks/evidence/standings-gate/b32d398-34693842452/bench_results_windows-x86_64.md	packet
+b32d398	34693855300	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/b32d398-34693855300/bench_results_linux-arm64.md	packet
+b32d398	34693855300	linux-x86_64	pass	26/27	1	1.011	dumps mixed.json	docs/benchmarks/evidence/standings-gate/b32d398-34693855300/bench_results_linux-x86_64.md	packet
+b32d398	34693855300	macos-arm64	pass	26/27	1	1.041	dump mixed.json	docs/benchmarks/evidence/standings-gate/b32d398-34693855300/bench_results_macos-arm64.md	packet
+b32d398	34693855300	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/b32d398-34693855300/bench_results_macos-x86_64.md	packet
+b32d398	34693855300	windows-x86_64	pass	25/27	2	1.169	dump mixed.json	docs/benchmarks/evidence/standings-gate/b32d398-34693855300/bench_results_windows-x86_64.md	packet
+ec04112	34709994931	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec04112-34709994931/bench_results_linux-arm64.md	packet
+ec04112	34709994931	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec04112-34709994931/bench_results_linux-x86_64.md	packet
+ec04112	34709994931	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec04112-34709994931/bench_results_macos-arm64.md	packet
+ec04112	34709994931	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec04112-34709994931/bench_results_macos-x86_64.md	packet
+ec04112	34709994931	windows-x86_64	pass	24/27	3	1.070	dumps mixed.json	docs/benchmarks/evidence/standings-gate/ec04112-34709994931/bench_results_windows-x86_64.md	packet
+ec04112	34710005274	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec04112-34710005274/bench_results_linux-arm64.md	packet
+ec04112	34710005274	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec04112-34710005274/bench_results_linux-x86_64.md	packet
+ec04112	34710005274	macos-arm64	pass	26/27	1	1.086	dump flat.json	docs/benchmarks/evidence/standings-gate/ec04112-34710005274/bench_results_macos-arm64.md	packet
+ec04112	34710005274	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/ec04112-34710005274/bench_results_macos-x86_64.md	packet
+ec04112	34710005274	windows-x86_64	pass	24/27	3	1.060	dumps mixed.json	docs/benchmarks/evidence/standings-gate/ec04112-34710005274/bench_results_windows-x86_64.md	packet
+85eb358	35265975969	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/85eb358-35265975969/bench_results_linux-arm64.md	packet
+85eb358	35265975969	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/85eb358-35265975969/bench_results_linux-x86_64.md	packet
+85eb358	35265975969	macos-arm64	pass	26/27	1	1.037	dump flat.json	docs/benchmarks/evidence/standings-gate/85eb358-35265975969/bench_results_macos-arm64.md	packet
+85eb358	35265975969	macos-x86_64	pass	26/27	1	1.078	dump mixed.json	docs/benchmarks/evidence/standings-gate/85eb358-35265975969/bench_results_macos-x86_64.md	packet
+85eb358	35265975969	windows-x86_64	pass	26/27	1	1.040	dumps nested.json	docs/benchmarks/evidence/standings-gate/85eb358-35265975969/bench_results_windows-x86_64.md	packet
+85eb358	35267792012	linux-arm64	pass	26/27	1	1.000	dumps mixed.json	docs/benchmarks/evidence/standings-gate/85eb358-35267792012/bench_results_linux-arm64.md	packet
+85eb358	35267792012	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/85eb358-35267792012/bench_results_linux-x86_64.md	packet
+85eb358	35267792012	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/85eb358-35267792012/bench_results_macos-arm64.md	packet
+85eb358	35267792012	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/85eb358-35267792012/bench_results_macos-x86_64.md	packet
+85eb358	35267792012	windows-x86_64	pass	26/27	1	1.106	load flat.json	docs/benchmarks/evidence/standings-gate/85eb358-35267792012/bench_results_windows-x86_64.md	packet
+38cf284	35275497426	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/38cf284-35275497426/bench_results_linux-arm64.md	packet
+38cf284	35275497426	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/38cf284-35275497426/bench_results_linux-x86_64.md	packet
+38cf284	35275497426	macos-arm64	pass	26/27	1	1.085	dumps flat.json	docs/benchmarks/evidence/standings-gate/38cf284-35275497426/bench_results_macos-arm64.md	packet
+38cf284	35275497426	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/38cf284-35275497426/bench_results_macos-x86_64.md	packet
+38cf284	35275497426	windows-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/38cf284-35275497426/bench_results_windows-x86_64.md	packet
+c89aea8	35277206429	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c89aea8-35277206429/bench_results_linux-arm64.md	packet
+c89aea8	35277206429	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c89aea8-35277206429/bench_results_linux-x86_64.md	packet
+c89aea8	35277206429	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c89aea8-35277206429/bench_results_macos-arm64.md	packet
+c89aea8	35277206429	macos-x86_64	pass	26/27	1	1.032	dump mixed.json	docs/benchmarks/evidence/standings-gate/c89aea8-35277206429/bench_results_macos-x86_64.md	packet
+c89aea8	35277206429	windows-x86_64	pass	26/27	1	1.009	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c89aea8-35277206429/bench_results_windows-x86_64.md	packet
+6e4d93e	35287410197	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/6e4d93e-35287410197/bench_results_linux-arm64.md	packet
+6e4d93e	35287410197	linux-x86_64	pass	26/27	1	1.035	dumps mixed.json	docs/benchmarks/evidence/standings-gate/6e4d93e-35287410197/bench_results_linux-x86_64.md	packet
+6e4d93e	35287410197	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/6e4d93e-35287410197/bench_results_macos-arm64.md	packet
+6e4d93e	35287410197	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/6e4d93e-35287410197/bench_results_macos-x86_64.md	packet
+6e4d93e	35287410197	windows-x86_64	pass	26/27	1	1.005	loads flat.json	docs/benchmarks/evidence/standings-gate/6e4d93e-35287410197/bench_results_windows-x86_64.md	packet
+baba505	35299852958	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/baba505-35299852958/bench_results_linux-arm64.md	packet
+baba505	35299852958	linux-x86_64	pass	26/27	1	1.043	dumps wide_arrays.json	docs/benchmarks/evidence/standings-gate/baba505-35299852958/bench_results_linux-x86_64.md	packet
+baba505	35299852958	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/baba505-35299852958/bench_results_macos-arm64.md	packet
+baba505	35299852958	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/baba505-35299852958/bench_results_macos-x86_64.md	packet
+baba505	35299852958	windows-x86_64	pass	24/27	3	1.128	dumps mixed.json	docs/benchmarks/evidence/standings-gate/baba505-35299852958/bench_results_windows-x86_64.md	packet
+c16eaa6	35301268133	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35301268133/bench_results_linux-arm64.md	packet
+c16eaa6	35301268133	linux-x86_64	FAIL	21/27	6	1.136	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35301268133/bench_results_linux-x86_64.md	packet
+c16eaa6	35301268133	macos-arm64	pass	25/27	2	1.099	dumps flat.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35301268133/bench_results_macos-arm64.md	packet
+c16eaa6	35301268133	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35301268133/bench_results_macos-x86_64.md	packet
+c16eaa6	35301268133	windows-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35301268133/bench_results_windows-x86_64.md	packet
+c16eaa6	35302423771	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35302423771/bench_results_linux-arm64.md	packet
+c16eaa6	35302423771	linux-x86_64	pass	26/27	1	1.017	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35302423771/bench_results_linux-x86_64.md	packet
+c16eaa6	35302423771	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35302423771/bench_results_macos-arm64.md	packet
+c16eaa6	35302423771	macos-x86_64	pass	26/27	1	1.048	dump flat.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35302423771/bench_results_macos-x86_64.md	packet
+c16eaa6	35302423771	windows-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35302423771/bench_results_windows-x86_64.md	packet
+c16eaa6	35303339402	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35303339402/bench_results_linux-arm64.md	packet
+c16eaa6	35303339402	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35303339402/bench_results_linux-x86_64.md	packet
+c16eaa6	35303339402	macos-arm64	pass	26/27	1	1.008	dump mixed.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35303339402/bench_results_macos-arm64.md	packet
+c16eaa6	35303339402	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35303339402/bench_results_macos-x86_64.md	packet
+c16eaa6	35303339402	windows-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35303339402/bench_results_windows-x86_64.md	packet
+c16eaa6	35304167412	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35304167412/bench_results_linux-arm64.md	packet
+c16eaa6	35304167412	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35304167412/bench_results_linux-x86_64.md	packet
+c16eaa6	35304167412	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35304167412/bench_results_macos-arm64.md	packet
+c16eaa6	35304167412	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35304167412/bench_results_macos-x86_64.md	packet
+c16eaa6	35304167412	windows-x86_64	pass	26/27	1	1.007	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35304167412/bench_results_windows-x86_64.md	packet
+c16eaa6	35305165291	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35305165291/bench_results_linux-arm64.md	packet
+c16eaa6	35305165291	linux-x86_64	FAIL	22/27	5	1.315	dumps wide_arrays.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35305165291/bench_results_linux-x86_64.md	packet
+c16eaa6	35305165291	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35305165291/bench_results_macos-arm64.md	packet
+c16eaa6	35305165291	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35305165291/bench_results_macos-x86_64.md	packet
+c16eaa6	35305165291	windows-x86_64	pass	26/27	1	1.058	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35305165291/bench_results_windows-x86_64.md	packet
+c16eaa6	35306206641	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35306206641/bench_results_linux-arm64.md	packet
+c16eaa6	35306206641	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35306206641/bench_results_linux-x86_64.md	packet
+c16eaa6	35306206641	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35306206641/bench_results_macos-arm64.md	packet
+c16eaa6	35306206641	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35306206641/bench_results_macos-x86_64.md	packet
+c16eaa6	35306206641	windows-x86_64	pass	26/27	1	1.054	dumps mixed.json	docs/benchmarks/evidence/standings-gate/c16eaa6-35306206641/bench_results_windows-x86_64.md	packet
+c16eaa6	35309489706	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35309489706/bench_results_linux-arm64.md	packet
+c16eaa6	35309489706	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35309489706/bench_results_linux-x86_64.md	packet
+c16eaa6	35309489706	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35309489706/bench_results_macos-arm64.md	packet
+c16eaa6	35309489706	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35309489706/bench_results_macos-x86_64.md	packet
+c16eaa6	35309489706	windows-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/c16eaa6-35309489706/bench_results_windows-x86_64.md	packet
+9434607	36307283468	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/9434607-36307283468/bench_results_linux-arm64.md	packet
+9434607	36307283468	linux-x86_64	pass	26/27	1	1.055	dump mixed.json	docs/benchmarks/evidence/standings-gate/9434607-36307283468/bench_results_linux-x86_64.md	packet
+9434607	36307283468	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/9434607-36307283468/bench_results_macos-arm64.md	packet
+9434607	36307283468	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/9434607-36307283468/bench_results_macos-x86_64.md	packet
+9434607	36307283468	windows-x86_64	pass	26/27	1	1.001	dumps mixed.json	docs/benchmarks/evidence/standings-gate/9434607-36307283468/bench_results_windows-x86_64.md	packet
+cd9d20b	36308291687	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/cd9d20b-36308291687/bench_results_linux-arm64.md	packet
+cd9d20b	36308291687	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/cd9d20b-36308291687/bench_results_linux-x86_64.md	packet
+cd9d20b	36308291687	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/cd9d20b-36308291687/bench_results_macos-arm64.md	packet
+cd9d20b	36308291687	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/evidence/standings-gate/cd9d20b-36308291687/bench_results_macos-x86_64.md	packet
+cd9d20b	36308291687	windows-x86_64	pass	26/27	1	1.071	dumps mixed.json	docs/benchmarks/evidence/standings-gate/cd9d20b-36308291687/bench_results_windows-x86_64.md	packet
+565fab2	36585989834	linux-arm64	pass	27/27	0	-	-	docs/benchmarks/ci/bench_results_linux-arm64.md	in-tree
+565fab2	36585989834	linux-x86_64	pass	27/27	0	-	-	docs/benchmarks/ci/bench_results_linux-x86_64.md	in-tree
+565fab2	36585989834	macos-arm64	pass	27/27	0	-	-	docs/benchmarks/ci/bench_results_macos-arm64.md	in-tree
+565fab2	36585989834	macos-x86_64	pass	27/27	0	-	-	docs/benchmarks/ci/bench_results_macos-x86_64.md	in-tree
+565fab2	36585989834	windows-x86_64	pass	26/27	1	1.012	loads flat.json	docs/benchmarks/ci/bench_results_windows-x86_64.md	in-tree
