@@ -8,11 +8,16 @@ name: Post-release verification
 # wheel is what is measured. Its report records the wheel's own .build.json
 # provenance, which ships beside both extension images.
 #
-# The gate is the supportability tripwire alone (benchmarks/supportability_check.py):
-# no ERROR rows, strata in every declared row and category, no row past the
-# documented 3.0x bound. It is NOT the 2% regression gate and compares no
-# absolute times across platforms; ranks stay within-run, as on every CI leg
-# (docs/context/benchmarks.md). One Python per leg, benchmark.yml's: the
+# Two gates, both within-run. The supportability tripwire
+# (benchmarks/supportability_check.py): no ERROR rows, strata in every declared
+# row and category, no row past the documented 3.0x bound. Then the standings
+# gate (scripts/release_post.py standings-check): a leg fails with more than 3
+# of its 27 rows behind the best rival, or any row past 1.25x it (thresholds
+# and sources: docs/architecture/release_pipeline.md). Neither is the 2%
+# regression gate, and neither compares a time with another run's or another
+# platform's; ranks stay within-run, as on every CI leg
+# (docs/context/benchmarks.md). The standings job combines the five legs'
+# summaries into one table. One Python per leg, benchmark.yml's: the
 # cp310-cp314 install matrix is release.yml's check-install job.
 #
 # publish-pypi.yml calls this after its publish job (workflow_call) with the
@@ -64,6 +69,7 @@ jobs:
       # release_post.py install validates it before pip sees it.
       VERSION: ${{ inputs.version }}
       REPORT: bench_post_release_${{ matrix.platform }}.md
+      STANDINGS: post_release_standings_${{ matrix.platform }}.json
 
     steps:
       - uses: actions/checkout@v4
@@ -109,6 +115,12 @@ jobs:
       - name: Supportability tripwire
         run: PYTHONPATH=. python -m benchmarks.supportability_check "$REPORT"
 
+      # Runs after a failed tripwire too, so the standings job reads this leg
+      # as INVALID or FAIL rather than MISSING; a breach fails the job.
+      - name: Standings gate (within-run ranks)
+        if: ${{ !cancelled() }}
+        run: PYTHONPATH=. python -m scripts.release_post standings-check "$REPORT" --json "$STANDINGS"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -116,4 +128,41 @@ jobs:
           path: |
             bench_post_release_*.md
             bench_post_release_*.json
+            post_release_standings_*.json
+          if-no-files-found: ignore
+
+  standings:
+    name: post-release standings (all legs)
+    needs: verify
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: post-release-*
+          path: legs
+          merge-multiple: true
+
+      # A leg with no summary is MISSING, and fails the job like a breach.
+      - name: Combine the five legs' standings
+        run: |
+          shopt -s nullglob
+          PYTHONPATH=. python -m scripts.release_post standings-combine \
+            --output post_release_standings.md legs/post_release_standings_*.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-release-standings
+          path: post_release_standings.md
+          overwrite: true
           if-no-files-found: ignore

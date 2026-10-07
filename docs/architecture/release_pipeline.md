@@ -338,7 +338,7 @@ After `publish`, a third job of `publish-pypi.yml`, `post-release` (`needs: [ver
 tag, which `check-promotion` matched against the uploaded files. The same
 workflow takes `workflow_dispatch` with a `version` input. Each of the five
 release legs runs Python 3.12, as `benchmark.yml` does. The run proceeds in
-five steps:
+six steps:
 
 1. `scripts/release_post.py install` refuses anything but a final version in
    `release.py`'s grammar. It then runs
@@ -359,17 +359,59 @@ five steps:
    `benchmarks.provenance.capture` reads the wheel's own `.build.json`, whose
    hash survives repair (above). The report's commit and compiler flags are
    therefore the release build's.
-5. `benchmarks.supportability_check` gates the report, and the report and its
-   companion are uploaded as `post-release-<os>-<arch>`.
+5. `benchmarks.supportability_check` gates the report.
+6. `scripts/release_post.py standings-check` gates the same report on ranks
+   (below), running even after a failed tripwire so that its leg reads INVALID
+   or FAIL rather than missing. It writes
+   `post_release_standings_<os>-<arch>.json`, and the report, its companion and
+   that summary are uploaded as `post-release-<os>-<arch>`.
+
+The workflow's second job, `standings` (`needs: verify`, runs unless cancelled), downloads
+the five summaries and runs `standings-combine`. That prints one table (leg,
+rows won, each behind row with its ratio, verdict) and uploads it as
+`post-release-standings`. The job fails unless all five legs are present and
+passed, so a leg with no summary reads MISSING and fails it too.
 
 The checkout is the caller's commit: a local `uses:` resolves there, so the
-harness belongs to the dispatching ref, never to the released tag. Its gate is
-the tripwire's: no ERROR rows, strata in every declared row and category, and
-no row past 3.0x. It catches a wheel whose fast path is broken or
-accidentally scalar on hardware it was not built on. It is not the 2%
-regression gate, it never compares absolute times across platforms, and it
-makes no standings claim. A failure leaves the release on PyPI. The remedy is
-the one under Rollback.
+harness belongs to the dispatching ref, never to the released tag. There are
+two gates, and both are within-run. Neither is the 2% regression gate, and
+neither compares a time with another run's, a baseline or another platform.
+
+- **The tripwire**: no ERROR rows, strata in every declared row and category,
+  and no row past 3.0x. It catches a wheel whose fast path is broken or
+  accidentally scalar on hardware it was not built on. It stays the hard
+  backstop.
+
+- **The standings gate** ranks strata in each of the 27 declared rows of the
+  leg's own report against the rivals measured in the same job. It reads the
+  full-precision companion when present, through `harness.read_report` and
+  `ci_summary.standings`. A report that is not gateable evidence is INVALID
+  (exit 2): an ERROR row, a row short of the declared workload, a row with no
+  rival, or a leg that cannot be told or is reported twice. A leg FAILs (exit 1)
+  on either of two bounds, both constants in `scripts/release_post.py`:
+
+  - **More than 3 rows behind** (`MAX_BEHIND_ROWS`, the per-leg coin band).
+    The 28 distinct five-leg CI samples archived in September 2026, read with
+    the same code, have 0–3 of 27 rows behind on 137 of 140 leg-draws.
+    windows-x86_64 reads 3 on four draws of shipped source. The three
+    leg-draws above the band are all linux-x86_64: 4 rows behind on 79fa3df
+    (run 34064174240, E26-P6's x86 serializer regression, a real code effect),
+    and 5 and 6 behind on c16eaa6 (runs 35305165291 and 35301268133, the
+    source of the 135/135 sweep, on an AMD EPYC 9V45 host). The c16eaa6 pair is
+    the gate's known false-alarm envelope: 2 of 28 draws on that leg for a
+    known-good build.
+  - **Any row past 1.25x its best rival** (`MAX_BEHIND_RATIO`). The worst
+    behind ratio on any in-band leg-draw of those samples is 1.169x
+    (windows-x86_64 `dump mixed`, b32d398). R1 (experiment-ledger.md) priced
+    the release ISA's largest resolved cost against `-march=native` at +6.79%
+    (linux-x86_64 `search users $[*].id`). 1.169 × 1.0679 = 1.248, rounded to
+    1.25x.
+
+  Replayed over those archived samples, the gate fails exactly the three
+  leg-draws named above. Treat a lone FAIL as a coin draw until a rerun of the
+  workflow (`workflow_dispatch`) on the same version reproduces it.
+
+A failure leaves the release on PyPI. The remedy is the one under Rollback.
 
 ## Rollback
 
